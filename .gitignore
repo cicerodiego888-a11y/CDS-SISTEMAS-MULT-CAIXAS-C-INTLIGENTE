@@ -68,3 +68,5 @@ Thumbs.db
 Desktop.ini
 .idea/
 .vscode/
+# Backups de imagens locais
+*.bak
