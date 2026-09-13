@@ -173,6 +173,26 @@ function aplicarAlteracoesPosCriacao() {
   // RCM-ATACADO-02 — SQLite REAL preserva precisão > 2 casas (DECIMAL(18,6) lógico)
   aplicarAlteracaoSegura('vendas_itens', `ALTER TABLE vendas_itens ADD COLUMN modo_venda TEXT DEFAULT 'peso'`);
   aplicarAlteracaoSegura('vendas_itens', `ALTER TABLE vendas_itens ADD COLUMN tipo_venda TEXT DEFAULT 'PESO'`);
+  aplicarAlteracaoSegura('vendas_itens', `ALTER TABLE vendas_itens ADD COLUMN custo_unitario REAL`);
+  aplicarAlteracaoSegura(
+    'vendas_itens',
+    `CREATE TRIGGER IF NOT EXISTS trg_vendas_itens_custo_historico
+     AFTER INSERT ON vendas_itens
+     FOR EACH ROW
+     WHEN NEW.custo_unitario IS NULL
+     BEGIN
+       UPDATE vendas_itens
+          SET custo_unitario = COALESCE(
+            (SELECT preco_compra FROM produtos WHERE id = NEW.produto_id),
+            0
+          )
+        WHERE id = NEW.id;
+     END`
+  );
+  aplicarAlteracaoSegura(
+    'vendas_devolucoes',
+    `CREATE INDEX IF NOT EXISTS idx_vendas_devolucoes_item ON vendas_devolucoes(venda_item_id)`
+  );
 
   // Adicionar colunas faltantes na tabela configuracoes
   aplicarAlteracaoSegura('configuracoes', `ALTER TABLE configuracoes ADD COLUMN fiscal_emitente_logradouro TEXT DEFAULT ''`);

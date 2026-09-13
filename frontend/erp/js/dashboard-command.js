@@ -84,6 +84,9 @@
     const elClock = document.getElementById('ccHeroClock');
     if (!elClock) return;
     elClock.textContent = horaCompletaPt(date || new Date());
+    if (typeof global.atualizarLabelAtualizacaoMargemBruta === 'function') {
+      global.atualizarLabelAtualizacaoMargemBruta();
+    }
   }
 
   function iniciarRelogioHero() {

@@ -8,6 +8,7 @@ const CDS_ERP_PAGE_SCRIPTS = Object.freeze({
     dashboard: [
         '/vendor/chart.js/chart.min.js',
         '/erp/js/dashboard-command.js',
+        '/erp/js/dashboard-margem-bruta.js',
         '/erp/js/dashboard.js'
     ],
     monitoring: ['/erp/js/cds-monitoring-engine.js'],

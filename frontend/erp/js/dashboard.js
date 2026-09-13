@@ -368,6 +368,9 @@ function carregarDashboardComFiltro() {
     const fim = document.getElementById('dashboardDataFim')?.value || dataHojeDashboard();
 
     carregarDashboard(inicio, fim);
+    if (typeof carregarResumoMargemBruta === 'function') {
+        carregarResumoMargemBruta();
+    }
 }
 
 function modoDashboardFiscalAtivo() {
@@ -527,6 +530,9 @@ function initDashboard() {
 
     prepararFiltroDashboard();
     carregarDashboardComFiltro();
+    if (typeof initMargemBrutaHeader === 'function') {
+        initMargemBrutaHeader();
+    }
 }
 
 window.initDashboard = initDashboard;

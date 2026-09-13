@@ -18,6 +18,10 @@ const {
   sqlExcluirContaVendaCancelada,
   sqlExcluirFinanceiroVendaCancelada
 } = require('../services/vendas/VendaFinanceiroService');
+const {
+  calcularResumoMargemBrutaAsync,
+  resolverPeriodoOperacional
+} = require('../services/dashboard/MargemBrutaRealService');
 
 function parseNumber(valor) {
   const n = Number(valor);
@@ -65,6 +69,35 @@ function filtroProdutoFiscalDashboard(modoFiscal) {
     ? ' AND COALESCE(item_fiscal, 1) = 1'
     : '';
 }
+
+router.get('/margem-bruta/resumo', verificarPermissaoEspecifica('relatorios'), async (req, res) => {
+  try {
+    const periodo = resolverPeriodoOperacional(req.query || {});
+    const resumo = await calcularResumoMargemBrutaAsync(db, {
+      inicio: periodo.inicio,
+      fim: periodo.fim,
+      empresa_id: req.user && Object.prototype.hasOwnProperty.call(req.user, 'empresa_id')
+        ? req.user.empresa_id
+        : undefined
+    });
+    res.json(resumo);
+  } catch (err) {
+    const semColunaEmpresa = /no such column:\s*v?\.?empresa_id/i.test(String(err.message || ''));
+    if (semColunaEmpresa) {
+      try {
+        const periodo = resolverPeriodoOperacional(req.query || {});
+        const resumo = await calcularResumoMargemBrutaAsync(db, {
+          inicio: periodo.inicio,
+          fim: periodo.fim
+        });
+        return res.json(resumo);
+      } catch (retryErr) {
+        return res.status(500).json({ error: retryErr.message });
+      }
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
 
 router.get('/resumo', verificarPermissaoEspecifica('relatorios'), async (req, res) => {
   try {

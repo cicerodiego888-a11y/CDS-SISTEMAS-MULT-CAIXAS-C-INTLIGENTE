@@ -246,9 +246,44 @@
 }
 
 /* —— KPI grid —— */
+.cc-margem-card {
+  min-width: 13.5rem;
+  max-width: 16.5rem;
+  background: #ffffff;
+  color: var(--cc-ink);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--cc-radius);
+  padding: 0.7rem 0.85rem;
+  box-shadow: var(--cc-shadow);
+  flex: 0 0 auto;
+}
+
+.cc-margem-card .cc-label {
+  color: var(--cc-muted);
+}
+
+.cc-margem-card .cc-value {
+  font-size: 1.55rem;
+  color: var(--cc-green);
+}
+
+.cc-margem-card__pct {
+  margin: 0.15rem 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--cc-ink);
+}
+
+.cc-margem-card__ago {
+  margin: 0.35rem 0 0;
+  font-size: 0.7rem;
+  color: var(--cc-muted);
+}
+
 .cc-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: var(--cc-gap);
   margin-bottom: 1rem;
 }
@@ -293,6 +328,19 @@
   font-size: 0.7rem;
   font-weight: 500;
   color: var(--cc-muted);
+}
+
+.cc-kpi--margem {
+  border-top-color: var(--cc-green);
+}
+
+.cc-kpi--margem .cc-kpi__icon {
+  background: var(--cc-green-soft);
+  color: var(--cc-green);
+}
+
+.cc-kpi--margem .cc-value {
+  color: var(--cc-green);
 }
 
 /* —— Main split: operação + alertas —— */
@@ -737,6 +785,11 @@
 
   .cc-hero__periodo {
     text-align: left;
+  }
+
+  .cc-margem-card {
+    max-width: none;
+    width: 100%;
   }
 }
 
