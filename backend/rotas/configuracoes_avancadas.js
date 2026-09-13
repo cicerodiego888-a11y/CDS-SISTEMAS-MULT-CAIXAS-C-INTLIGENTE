@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
+const db = require('../database');
 const configService = require('../services/configuracaoService');
 const { exigirSuperAdmin } = require('../middleware/auth');
+const { aplicarCfopCsosnEmTodosProdutos } = require('../services/fiscal/aplicarPadraoFiscalProdutos');
 
 router.get('/confirmacao-fiscal', (req, res) => {
   try {
@@ -32,10 +34,33 @@ router.get('/padrao-fiscal', (req, res) => {
 router.put('/padrao-fiscal', exigirSuperAdmin, (req, res) => {
   try {
     const saved = configService.savePadraoFiscal(req.body || {});
-    res.json({
-      success: true,
-      message: 'Padrão Fiscal da Empresa atualizado com sucesso.',
-      padrao_fiscal: configService.getPadraoFiscal(saved)
+    const padrao = configService.getPadraoFiscal(saved);
+
+    aplicarCfopCsosnEmTodosProdutos(db, {
+      cfop: padrao.cfop_padrao,
+      csosn: padrao.csosn_padrao
+    }, (err, aplicacao) => {
+      if (err) {
+        return res.status(500).json({
+          error: err.message,
+          padrao_fiscal: padrao
+        });
+      }
+
+      const qtd = Number(aplicacao.produtos_atualizados || 0);
+      const campos = [aplicacao.cfop ? 'CFOP' : null, aplicacao.csosn ? 'CSOSN' : null]
+        .filter(Boolean)
+        .join(' e ');
+      const message = aplicacao.aplicado
+        ? `Padrão Fiscal salvo. ${campos} aplicado(s) em ${qtd} produto(s).`
+        : 'Padrão Fiscal da Empresa atualizado com sucesso.';
+
+      res.json({
+        success: true,
+        message,
+        padrao_fiscal: padrao,
+        produtos_atualizados: qtd
+      });
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

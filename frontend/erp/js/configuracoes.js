@@ -1562,7 +1562,10 @@ async function salvarPadraoFiscalEmpresa() {
             throw new Error(data.error || 'Erro ao salvar padrão fiscal.');
         }
 
-        showNotification(data.message || 'Padrão Fiscal da Empresa atualizado com sucesso.', 'success');
+        showNotification(
+            data.message || 'Padrão Fiscal da Empresa atualizado com sucesso.',
+            'success'
+        );
 
         const padrao = data.padrao_fiscal || payload;
         $('#padraoCfop').val(padrao.cfop_padrao || '');

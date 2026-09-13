@@ -210,7 +210,10 @@
         ${fiscalUi ? `<div class="cds-cfg-note">Razão social, CNPJ, IE e certificado são editados em <strong>Plataforma Fiscal</strong> (Super Usuário).</div>
         <div id="secaoPadraoFiscalEmpresa">
           ${card('<i class="fas fa-file-invoice"></i> Padrão Fiscal da Empresa', `
-            <p class="cds-cfg-hint mb-3">Valores padrão para novos produtos. Não altera produtos já cadastrados.</p>
+            <p class="cds-cfg-hint mb-3">
+              Ao salvar, o <strong>CFOP</strong> e o <strong>CSOSN</strong> são gravados em <strong>todos os produtos cadastrados</strong>.
+              Origem e CEST continuam só como padrão para novos produtos.
+            </p>
             <div class="row g-3">
               <div class="col-md-3" data-cfg-search="cfop">
                 <label for="padraoCfop" class="cds-cfg-label">CFOP</label>
