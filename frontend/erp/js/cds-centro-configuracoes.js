@@ -297,8 +297,9 @@
                data-cfg-search="fechamento fiscal do dia permitir on off">
             <div class="cds-cfg-card__title"><i class="fas fa-balance-scale"></i> Fechamento Fiscal do Dia</div>
             <p class="cds-cfg-hint mb-3">
-              Única chave ON/OFF do módulo completo (prévia, preparação e transmissão em homologação).
-              Produção permanece bloqueada nesta versão.
+              Única chave ON/OFF do módulo completo (prévia, preparação e transmissão).
+              Em PRODUÇÃO a transmissão usa o Motor Fiscal oficial quando a configuração estiver válida.
+              Homologação permanece disponível para testes.
             </p>
             <div class="form-check form-switch mb-2">
               <input class="form-check-input" type="checkbox" id="cfgFechamentoFiscalDiaOn">

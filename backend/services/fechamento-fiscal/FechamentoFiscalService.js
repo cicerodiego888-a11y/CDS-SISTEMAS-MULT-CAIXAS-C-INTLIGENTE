@@ -82,6 +82,22 @@ function normalizarData(data) {
   return d;
 }
 
+function resolverDataFechamento(params = {}, fechamento = null) {
+  const candidatas = [
+    params.data,
+    params.data_fechamento,
+    fechamento?.data,
+    fechamento?.data_fechamento,
+    fechamento?.data_referencia_comercial
+  ];
+  const valida = candidatas.find((valor) =>
+    /^\d{4}-\d{2}-\d{2}$/.test(String(valor || '').trim().slice(0, 10))
+  );
+  if (valida != null) return String(valida).trim().slice(0, 10);
+  const informada = candidatas.find((valor) => String(valor || '').trim() !== '');
+  return informada != null ? String(informada).trim() : null;
+}
+
 function normalizarCnpj(cnpj) {
   return String(cnpj || '').replace(/\D/g, '');
 }
@@ -447,7 +463,14 @@ async function persistirPrevia(db, fechamento, previa, produtos, opts) {
 async function gerarPrevia(params = {}, deps = {}) {
   const db = getDb(deps.db);
   await assertModuloAtivo(db, deps);
-  const data = normalizarData(params.data || params.data_fechamento);
+
+  let fechamento = null;
+  if (params.fechamento_id || params.id) {
+    fechamento = await obterPorId(params.fechamento_id || params.id, { db });
+  }
+
+  const dataResolvida = resolverDataFechamento(params, fechamento);
+  const data = normalizarData(dataResolvida);
   const excluirFechamentoId = params.fechamento_id || params.id || null;
   const resumo = await obterResumoDia(db, data, { excluirFechamentoId });
   const lotes = resumo.lotes || [];
@@ -457,17 +480,8 @@ async function gerarPrevia(params = {}, deps = {}) {
     ? arredondarMoeda(params.valor_informado)
     : null;
 
-  let fechamento = null;
-  if (params.fechamento_id || params.id) {
-    fechamento = await obterPorId(params.fechamento_id || params.id, { db });
-    if (fechamento.data_fechamento !== data && params.data) {
-      // data explícita prevalece; fecha sobre o dia informado
-    } else if (!params.data) {
-      // usa data do fechamento
-    }
-    if (valorInformado == null) {
-      valorInformado = arredondarMoeda(fechamento.valor_informado);
-    }
+  if (fechamento && valorInformado == null) {
+    valorInformado = arredondarMoeda(fechamento.valor_informado);
   }
 
   if (valorInformado == null) valorInformado = 0;
@@ -636,5 +650,6 @@ module.exports = {
   toCentavos,
   arredondarMoeda,
   somarMoeda,
-  assertModuloAtivo
+  assertModuloAtivo,
+  resolverDataFechamento
 };

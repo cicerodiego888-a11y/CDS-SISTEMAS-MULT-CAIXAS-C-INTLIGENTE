@@ -339,7 +339,7 @@ async function imprimirDANFEFiscal(vendaId) {
 }
 
 function vendaPossuiNfceAutorizada(venda) {
-    return String(venda?.nfce_status || '').toLowerCase() === 'autorizada';
+    return String(venda?.nfce_situacao_fiscal || '').toUpperCase() === 'AUTORIZADA';
 }
 
 function vendaPossuiCupomNaoFiscal(venda) {

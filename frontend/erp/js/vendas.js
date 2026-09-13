@@ -108,7 +108,7 @@ function renderVendas(vendas) {
                             ${vendas.map(v => `
                                 <tr>
                                     <td>${v.id || '-'}</td>
-                                    <td>${escapeHtml(v.codigo || '-')}${v.nfe_numero ? ` <span class="badge bg-info" title="NF-e vinculada">NF-e</span>` : ''}${v.nfce_numero ? ` <span class="badge bg-success" title="NFC-e">NFC-e</span>` : ''}</td>
+                                    <td>${escapeHtml(v.codigo || '-')}${v.nfe_numero ? ` <span class="badge bg-info" title="NF-e vinculada">NF-e</span>` : ''}${typeof montarBadgeNfceHistorico === 'function' ? montarBadgeNfceHistorico(v) : ''}</td>
                                     <td>${formatDate(v.data_venda || v.created_at)}</td>
                                     <td>${escapeHtml(v.cliente_nome || 'Não informado')}</td>
                                     <td>${formatCurrency(v.total)}</td>
@@ -436,7 +436,8 @@ async function verResumoVendaFiscalTEF(vendaId) {
         alert(
 `VENDA INTERNA: #${data.venda_id}
 NFC-e SEFAZ: ${data.nfce_numero ? '#' + data.nfce_numero : 'Não emitida'}
-STATUS NFC-e: ${data.nfce_status || 'Não informado'}
+SITUAÇÃO FISCAL: ${data.nfce_situacao_fiscal || 'DESCONHECIDA'}
+STATUS DA TENTATIVA: ${data.nfce_status || 'Não informado'}
 
 TEF:
 Adquirente: ${data.tef_adquirente || 'Não possui TEF'}

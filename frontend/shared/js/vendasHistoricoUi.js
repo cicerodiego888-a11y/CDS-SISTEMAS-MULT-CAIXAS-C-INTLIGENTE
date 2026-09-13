@@ -112,14 +112,34 @@ function moduloFiscalDisponivelHistorico() {
     return false;
 }
 
+function situacaoNfceHistorico(venda) {
+    const canonica = String(venda?.nfce_situacao_fiscal || '').trim().toUpperCase();
+    if (canonica) return canonica;
+
+    if (!venda?.nfce_id && !venda?.nfce_numero && !venda?.nfce_status) return 'SEM_DOCUMENTO';
+    return 'DESCONHECIDA';
+}
+
+function montarBadgeNfceHistorico(venda) {
+    const situacao = situacaoNfceHistorico(venda);
+    const badges = {
+        AUTORIZADA: ['bg-success', 'NFC-e', 'NFC-e autorizada'],
+        REJEITADA: ['bg-danger', 'NFC-e rejeitada', 'Tentativa de NFC-e rejeitada'],
+        CANCELADA: ['bg-secondary', 'NFC-e cancelada', 'NFC-e autorizada e posteriormente cancelada'],
+        DUPLICIDADE_PENDENTE: ['bg-warning text-dark', 'NFC-e — verificar', 'Duplicidade fiscal: consulta/recuperação necessária'],
+        PENDENTE: ['bg-info text-dark', 'NFC-e pendente', 'NFC-e sem resultado fiscal definitivo'],
+        ERRO: ['bg-danger', 'NFC-e com erro', 'Tentativa de NFC-e com erro'],
+        DESCONHECIDA: ['bg-secondary', 'NFC-e — desconhecida', 'Situação fiscal não reconhecida']
+    };
+    const badge = badges[situacao];
+    if (!badge) return '';
+    return ` <span class="badge ${badge[0]}" title="${escapeHtmlHistoricoVenda(badge[2])}">${escapeHtmlHistoricoVenda(badge[1])}</span>`;
+}
+
 function vendaHistoricoTemCupomFiscal(venda) {
     if (!moduloFiscalDisponivelHistorico()) return false;
     if (!venda) return false;
-    if (venda.nfce_id || venda.nfce_numero) return true;
-    if (typeof vendaPossuiNfceAutorizada === 'function' && vendaPossuiNfceAutorizada(venda)) {
-        return true;
-    }
-    return Number(venda.valor_fiscal || 0) > 0 && Boolean(venda.nfce_status);
+    return situacaoNfceHistorico(venda) === 'AUTORIZADA';
 }
 
 function vendaHistoricoTemNfe(venda) {

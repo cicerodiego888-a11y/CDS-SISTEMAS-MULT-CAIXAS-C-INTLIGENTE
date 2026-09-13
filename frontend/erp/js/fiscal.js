@@ -572,21 +572,13 @@ function renderTabelaFiscalNotas() {
                     ${notas.length ? notas.map(n => `
                         <tr>
                             <td>${n.id}</td>
-                            <td>${n.venda_codigo || n.venda_id || '-'}</td>
+                            <td>${rotuloColunaVendaNfce(n)}</td>
                             <td><span class="badge ${getBadgeFiscalClass(n.status)}">${n.status || 'pendente'}</span></td>
                             <td style="max-width:220px; word-break:break-all;">${n.chave_acesso || '-'}</td>
                             <td>${n.protocolo || '-'}</td>
                             <td>${formatarDataHoraBrasil(n.created_at)}</td>
                             <td>
-                                <button class="btn btn-sm btn-info" onclick="verDetalheFiscal(${n.id})" title="Visualizar">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-
-                                ${String(n.status || '').toLowerCase().includes('autoriz') || String(n.status || '').toLowerCase() === 'cancelamento_rejeitado' ? `
-                                    <button class="btn btn-sm btn-danger ms-1" onclick="cancelarNfce(${n.id})" title="Cancelar NFC-e">
-                                        <i class="fas fa-ban"></i>
-                                    </button>
-                                ` : ''}
+                                ${montarHtmlAcoesNfceEmitida(n)}
                             </td>
                         </tr>
                     `).join('') : `
@@ -601,6 +593,319 @@ function renderTabelaFiscalNotas() {
 
     $('#fiscal-notas-area').html(html);
 }
+
+/**
+ * Sprint 08.2/08.3 — menu de ações NFC-e Emitidas.
+ * Normal (com venda): Ver detalhes / Resumo / Devolução / Cancelar venda
+ * Fechamento (sem venda): mesmas ações compatíveis + Cancelar documento fiscal
+ */
+function ehNfceFechamentoFiscal(n) {
+    return String(n && n.origem || '') === 'fechamento_fiscal_dia'
+        || (n && n.fechamento_fiscal_id != null && !n.venda_id);
+}
+
+function rotuloColunaVendaNfce(n) {
+    if (ehNfceFechamentoFiscal(n)) {
+        const ff = Number(n.fechamento_fiscal_id || 0);
+        return `FF-${String(ff).padStart(6, '0')}`;
+    }
+    return n.venda_codigo || n.venda_id || '-';
+}
+
+function montarHtmlAcoesNfceEmitida(n) {
+    const nfceId = Number(n && n.id);
+    const vendaId = Number(n && n.venda_id) || null;
+    const dropdownId = `acoesNfceEmitida${nfceId}`;
+    const status = String((n && n.status) || '').toLowerCase();
+    const cancelada = status === 'cancelada' || Number(n && n.cancelada || 0) === 1;
+    const isFechamento = ehNfceFechamentoFiscal(n);
+
+    const onDetalhe = vendaId
+        ? `viewVenda(${vendaId})`
+        : `verDetalheFiscal(${nfceId})`;
+    const onResumo = `acaoNfceEmitidaResumo(${vendaId ? vendaId : 'null'}, ${nfceId})`;
+    const onDevolucao = `acaoNfceEmitidaDevolucao(${vendaId ? vendaId : 'null'}, ${nfceId})`;
+
+    let itemCancelar = '';
+    if (!cancelada) {
+        if (isFechamento) {
+            const foraPrazoHint = (function estimarForaPrazoLista(row) {
+                const raw = row && row.created_at;
+                if (!raw) return false;
+                try {
+                    const d = new Date(String(raw).includes('T') ? raw : String(raw).replace(' ', 'T'));
+                    if (Number.isNaN(d.getTime())) return false;
+                    return (Date.now() - d.getTime()) > (30 * 60 * 1000);
+                } catch (_) {
+                    return false;
+                }
+            })(n);
+            const rotuloCancel = foraPrazoHint ? 'Cancelamento fora do prazo' : 'Cancelar documento fiscal';
+            itemCancelar = `
+        <li>
+            <button type="button" class="dropdown-item py-2 ${foraPrazoHint ? 'text-secondary' : 'text-danger'}" onclick="cancelarDocumentoFiscalNfce(${nfceId})">
+                <i class="fas fa-ban fa-fw me-2"></i>${rotuloCancel}
+            </button>
+        </li>`;
+        } else if (vendaId) {
+            itemCancelar = `
+        <li>
+            <button type="button" class="dropdown-item py-2 text-danger" onclick="acaoNfceEmitidaCancelarVenda(${vendaId}, ${nfceId})">
+                <i class="fas fa-times fa-fw me-2"></i>Cancelar venda
+            </button>
+        </li>`;
+        }
+    }
+
+    const blocoOperacional = (!cancelada && (isFechamento || vendaId)) ? `
+        <li><hr class="dropdown-divider my-1"></li>
+        <li>
+            <button type="button" class="dropdown-item py-2" onclick="${onDevolucao}">
+                <i class="fas fa-undo fa-fw me-2 text-muted"></i>Devolução parcial
+            </button>
+        </li>
+        ${itemCancelar}
+    ` : '';
+
+    return `
+        <div class="historico-venda-acoes">
+            <button
+                type="button"
+                class="btn btn-sm btn-outline-primary"
+                onclick="${onDetalhe}"
+                title="Ver detalhes"
+            >
+                <i class="fas fa-eye"></i>
+            </button>
+            <div class="dropdown d-inline-block">
+                <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary historico-venda-acoes-menu"
+                    id="${dropdownId}"
+                    data-bs-toggle="dropdown"
+                    data-bs-boundary="viewport"
+                    aria-expanded="false"
+                    title="Mais ações"
+                >
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end historico-venda-acoes-dropdown shadow-sm" aria-labelledby="${dropdownId}">
+                    <li>
+                        <button type="button" class="dropdown-item py-2" onclick="${onDetalhe}">
+                            <i class="fas fa-eye fa-fw me-2 text-muted"></i>Ver detalhes
+                        </button>
+                    </li>
+                    <li>
+                        <button type="button" class="dropdown-item py-2" onclick="${onResumo}">
+                            <i class="fas fa-file-alt fa-fw me-2 text-muted"></i>Resumo NFC-e / TEF
+                        </button>
+                    </li>
+                    ${blocoOperacional}
+                </ul>
+            </div>
+        </div>
+    `;
+}
+
+function acaoNfceEmitidaExigirVenda(vendaId, acaoLabel) {
+    if (vendaId) return true;
+    if (typeof showNotification === 'function') {
+        showNotification(`${acaoLabel} requer venda comercial vinculada.`, 'warning');
+    }
+    return false;
+}
+
+function acaoNfceEmitidaResumo(vendaId, _nfceId) {
+    if (!acaoNfceEmitidaExigirVenda(vendaId, 'Resumo NFC-e / TEF')) return;
+    if (typeof verResumoVendaFiscalTEF === 'function') {
+        verResumoVendaFiscalTEF(vendaId);
+        return;
+    }
+    showNotification('Resumo NFC-e / TEF indisponível neste contexto.', 'warning');
+}
+
+function acaoNfceEmitidaDevolucao(vendaId, _nfceId) {
+    if (!acaoNfceEmitidaExigirVenda(vendaId, 'Devolução parcial')) return;
+    if (typeof abrirDevolucaoVenda === 'function') {
+        abrirDevolucaoVenda(vendaId);
+        return;
+    }
+    showNotification('Devolução parcial indisponível neste contexto.', 'warning');
+}
+
+function acaoNfceEmitidaCancelarVenda(vendaId, _nfceId) {
+    if (!acaoNfceEmitidaExigirVenda(vendaId, 'Cancelar venda')) return;
+    if (typeof cancelarVendaNaoFiscal === 'function') {
+        cancelarVendaNaoFiscal(vendaId);
+        return;
+    }
+    showNotification('Cancelar venda indisponível neste contexto.', 'warning');
+}
+
+/**
+ * Sprint 08.3/08.4/08.5 — cancelamento fiscal da NFC-e do Fechamento (sem venda comercial).
+ * Pré-valida prazo (30 min). Fora do prazo: sem transmissão 110111; informa extemporâneo só se comprovado.
+ */
+function cancelarDocumentoFiscalNfce(nfceId) {
+    const id = Number(nfceId);
+    if (!id) return;
+
+    Promise.all([
+        fetch(`${API_URL}/fiscal/notas/${id}`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }).then((r) => r.json().then((j) => ({ ok: r.ok, body: j }))),
+        fetch(`${API_URL}/fiscal/notas/${id}/cancelamento-diagnostico`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }).then((r) => r.json().then((j) => ({ ok: r.ok, body: j })))
+    ]).then(([notaResp, diagResp]) => {
+        if (!notaResp.ok) throw new Error(notaResp.body.error || 'Erro ao carregar NFC-e.');
+        const nota = notaResp.body;
+        const diag = diagResp.ok ? diagResp.body : {};
+        const dentroPrazo = diag.dentro_prazo_normal === true || diag.dentro_prazo === true;
+        const podeTransmitir = diag.pode_transmitir_110111 === true && dentroPrazo;
+        const extDisponivel = diag.cancelamento_extemporaneo_disponivel === true
+            && diag.cancelamento_extemporaneo_comprovado === true;
+        const tituloModal = podeTransmitir ? 'Cancelar documento fiscal' : 'Cancelamento fora do prazo';
+        const ffLabel = nota.fechamento_fiscal_id
+            ? `FF-${String(Number(nota.fechamento_fiscal_id)).padStart(6, '0')}`
+            : '—';
+        const valor = nota.fechamento_valor_total != null
+            ? Number(nota.fechamento_valor_total)
+            : (nota.venda_total != null ? Number(nota.venda_total) : null);
+        const valorTxt = valor != null
+            ? valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+            : '—';
+        const fmtDh = (v) => {
+            if (!v) return '—';
+            try {
+                const d = new Date(String(v).includes('T') ? v : String(v).replace(' ', 'T'));
+                if (Number.isNaN(d.getTime())) return String(v);
+                return d.toLocaleString('pt-BR');
+            } catch (_) {
+                return String(v);
+            }
+        };
+
+        const blocoExtemporaneo = podeTransmitir
+            ? ''
+            : (extDisponivel
+                ? `<div class="alert alert-info small mt-2 mb-0">
+                     Existe procedimento de cancelamento extemporâneo.
+                     ${diag.procedimento_extemporaneo ? `<div class="mt-1">${diag.procedimento_extemporaneo}</div>` : ''}
+                     <div class="mt-1 text-muted">Nenhuma transmissão será iniciada automaticamente. Siga a orientação oficial e aguarde autorização.</div>
+                   </div>`
+                : `<div class="alert alert-secondary small mt-2 mb-0">
+                     Não foi identificado procedimento de cancelamento extemporâneo aplicável a esta NFC-e no ambiente configurado.
+                   </div>`);
+
+        const alertaPrazo = podeTransmitir
+            ? `<div class="alert alert-success small">Esta NFC-e está dentro do prazo normal de cancelamento.
+                 <div class="mt-1">NFC-e autorizada em: <strong>${fmtDh(diag.dh_autorizacao)}</strong>
+                 · Decorrido: <strong>${diag.minutos_decorridos != null ? diag.minutos_decorridos + ' min' : '—'}</strong>
+                 · Prazo: <strong>${diag.prazo_normal_minutos || diag.prazo_minutos || 30} minutos</strong></div></div>`
+            : `<div class="alert alert-danger small">
+                 <div>NFC-e autorizada em: <strong>${fmtDh(diag.dh_autorizacao)}</strong></div>
+                 <div>Prazo normal: <strong>${diag.prazo_normal_minutos || diag.prazo_minutos || 30} minutos</strong></div>
+                 <div>Situação: <strong>fora do prazo normal de cancelamento.</strong></div>
+                 <div>Tempo transcorrido: <strong>${diag.minutos_decorridos != null ? diag.minutos_decorridos + ' minutos' : '—'}</strong></div>
+                 <div class="mt-1 text-muted">Status fiscal: <strong>${diag.status_fiscal || nota.status || 'autorizada'}</strong>
+                  · Operacional: <strong>${diag.cancelamento_status || 'FORA_DO_PRAZO'}</strong></div>
+               </div>${blocoExtemporaneo}`;
+
+        const footerBtns = podeTransmitir
+            ? `<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
+               <button type="button" class="btn btn-danger" id="btnConfirmarCancelarDocFiscal">
+                 <i class="fas fa-ban"></i> Cancelar documento fiscal
+               </button>`
+            : `<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>`;
+
+        const modalHtml = `
+            <div class="modal fade" id="modalCancelarDocFiscalNfce" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header ${podeTransmitir ? 'bg-danger' : 'bg-secondary'} text-white">
+                            <h5 class="modal-title"><i class="fas fa-ban"></i> ${tituloModal}</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            ${podeTransmitir ? '<p class="fw-semibold">Deseja cancelar esta NFC-e?</p>' : '<p class="fw-semibold">Cancelamento fora do prazo</p>'}
+                            <ul class="small mb-3">
+                                <li>NFC-e nº <strong>${nota.numero || '—'}</strong></li>
+                                <li>Série <strong>${nota.serie || '—'}</strong></li>
+                                <li>Modelo <strong>${diag.modelo || '65'}</strong></li>
+                                <li>Valor <strong>${valorTxt}</strong></li>
+                                <li>Chave: <span style="word-break:break-all">${nota.chave_acesso || '—'}</span></li>
+                                <li>Origem: <strong>Fechamento Fiscal do Dia #${nota.fechamento_fiscal_id || '—'} (${ffLabel})</strong></li>
+                            </ul>
+                            ${alertaPrazo}
+                            ${podeTransmitir ? `
+                            <label class="form-label fw-bold">Justificativa do cancelamento (mínimo 15 caracteres):</label>
+                            <textarea id="justificativaCancelarDocFiscal" class="form-control" rows="4" maxlength="255"
+                                placeholder="Ex: Emissão indevida do fechamento fiscal..."></textarea>
+                            <div class="form-text text-end"><span id="contarCharsCancelarDoc">0</span>/255</div>
+                            <div class="alert alert-warning small mt-3 mb-0">
+                                Este cancelamento é <strong>somente fiscal</strong>. Não altera venda, estoque ou financeiro.
+                            </div>` : ''}
+                        </div>
+                        <div class="modal-footer">${footerBtns}</div>
+                    </div>
+                </div>
+            </div>`;
+
+        $('#modal-container').html(modalHtml);
+        const modalEl = document.getElementById('modalCancelarDocFiscalNfce');
+        const modal = new bootstrap.Modal(modalEl);
+
+        if (podeTransmitir) {
+            const textarea = document.getElementById('justificativaCancelarDocFiscal');
+            const contador = document.getElementById('contarCharsCancelarDoc');
+            textarea.addEventListener('input', () => {
+                contador.textContent = textarea.value.length;
+            });
+            document.getElementById('btnConfirmarCancelarDocFiscal').addEventListener('click', () => {
+                const justificativa = textarea.value.trim();
+                const validacaoJustificativa = typeof validarMotivoTexto === 'function'
+                    ? validarMotivoTexto(justificativa)
+                    : { valido: justificativa.length >= 15, erro: 'Informe a justificativa (mínimo 15 caracteres).' };
+                if (!validacaoJustificativa.valido) {
+                    showNotification(validacaoJustificativa.erro, 'warning');
+                    textarea.focus();
+                    return;
+                }
+
+                $.ajax({
+                    url: `${API_URL}/fiscal/notas/${id}/cancelar`,
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ justificativa }),
+                    success: function(resp) {
+                        modal.hide();
+                        showNotification(resp.message || 'NFC-e cancelada com sucesso.');
+                        carregarFiscalNotas();
+                    },
+                    error: function(xhr) {
+                        const resp = xhr.responseJSON || {};
+                        const diagErr = resp.diagnostico || {};
+                        let msg = resp.error || resp.message || 'Erro ao cancelar documento fiscal.';
+                        if (resp.code === 'SEFAZ_PRAZO_501' || String((resp.dadosCancelamento || {}).cStatEvento) === '501') {
+                            msg = 'Cancelamento rejeitado pela SEFAZ | Código: 501 | Motivo: Prazo de cancelamento superior ao previsto na legislação | Autorização: ' +
+                                fmtDh(diagErr.dh_autorizacao) + ' | Tentativa: ' + fmtDh(diagErr.dh_atual || diagErr.dh_atual_servidor) +
+                                ' | Prazo normal: ' + (diagErr.prazo_normal_minutos || diagErr.prazo_minutos || 30) + ' minutos | Tempo: ' +
+                                (diagErr.minutos_decorridos != null ? diagErr.minutos_decorridos + ' minutos' : '—');
+                        }
+                        showNotification(msg, 'danger');
+                        carregarFiscalNotas();
+                    }
+                });
+            });
+        }
+
+        modal.show();
+    }).catch((err) => {
+        showNotification(err.message || 'Erro ao preparar cancelamento.', 'danger');
+    });
+}
+
 
 function getBadgeFiscalClass(status) {
     const s = String(status || '').toLowerCase();
@@ -628,10 +933,21 @@ function verDetalheFiscal(id) {
                             </div>
                             <div class="modal-body">
                                 <div class="row mb-3">
-                                    <div class="col-md-4"><strong>Venda:</strong> ${nota.venda_codigo || nota.venda_id || '-'}</div>
+                                    <div class="col-md-4"><strong>Venda:</strong> ${nota.venda_codigo || nota.venda_id || (nota.origem === 'fechamento_fiscal_dia' ? '—' : '-')}</div>
                                     <div class="col-md-4"><strong>Status:</strong> ${nota.status || '-'}</div>
                                     <div class="col-md-4"><strong>Protocolo:</strong> ${nota.protocolo || '-'}</div>
                                 </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-4"><strong>Número:</strong> ${nota.numero || '-'}</div>
+                                    <div class="col-md-4"><strong>Série:</strong> ${nota.serie || '-'}</div>
+                                    <div class="col-md-4"><strong>Ambiente:</strong> ${Number(nota.ambiente) === 1 ? 'Produção' : (Number(nota.ambiente) === 2 ? 'Homologação' : (nota.ambiente || '-'))}</div>
+                                </div>
+                                ${nota.origem === 'fechamento_fiscal_dia' || nota.fechamento_fiscal_id ? `
+                                <div class="alert alert-info py-2">
+                                    Origem: <strong>Fechamento Fiscal do Dia</strong>
+                                    ${nota.fechamento_fiscal_id ? ` · Fechamento #${nota.fechamento_fiscal_id}` : ''}
+                                    ${nota.fechamento_documento_id ? ` · Documento #${nota.fechamento_documento_id}` : ''}
+                                </div>` : ''}
 
                                 <div class="mb-2">
                                     <strong>Chave de acesso:</strong><br>${nota.chave_acesso || '-'}

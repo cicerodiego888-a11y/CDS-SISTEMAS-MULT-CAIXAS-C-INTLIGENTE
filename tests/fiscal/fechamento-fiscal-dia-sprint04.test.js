@@ -240,15 +240,32 @@ async function main() {
     assert.strictEqual(erro.code, 'MODULO_OFF');
   });
 
-  await test('02/24 — Transmissão bloqueada fora de homologação / produção', async () => {
+  await test('02/24 — PRODUÇÃO permitida; ambiente inválido bloqueado', async () => {
     await run(db, `UPDATE fechamentos_fiscais SET status = 'CANCELADO'`);
-    const ff = await montarProntoEmissao(db);
+    const ffProd = await montarProntoEmissao(db);
+    const rProd = await transmitirFechamento(ffProd.id, {}, depsTx(db, { config: { ambiente: 1 } }));
+    assert.ok(rProd.ok || rProd.status === STATUS.AUTORIZADO || rProd.transmissao_habilitada === true);
+    assert.strictEqual(rProd.producao_bloqueada, false);
+    assert.notStrictEqual(rProd.status, undefined);
+
+    await run(db, `UPDATE fechamentos_fiscais SET status = 'CANCELADO'`);
+    const ffBad = await montarProntoEmissao(db);
     let erro = null;
     try {
-      await transmitirFechamento(ff.id, {}, depsTx(db, { config: { ambiente: 1 } }));
+      await transmitirFechamento(ffBad.id, {}, depsTx(db, {
+        config: { ambiente: 9, certificadoPath: '', idCSC: '', tokenCSC: '', urls: {} }
+      }));
     } catch (e) { erro = e; }
     assert.ok(erro);
-    assert.ok(erro.code === 'PRODUCAO_BLOQUEADA' || erro.code === 'AMBIENTE_NAO_HOMOLOGACAO');
+    assert.ok(
+      erro.code === 'AMBIENTE_AUSENTE'
+      || erro.code === 'CERTIFICADO_AUSENTE'
+      || erro.code === 'CSC_AUSENTE'
+      || erro.code === 'URL_AUTORIZACAO_AUSENTE'
+      || erro.code === 'CONFIG_FISCAL_INCOMPLETA'
+    );
+    assert.notStrictEqual(erro.code, 'PRODUCAO_BLOQUEADA');
+    assert.notStrictEqual(erro.code, 'AMBIENTE_NAO_HOMOLOGACAO');
   });
 
   await test('03 — Transmissão permitida somente em PRONTO_EMISSAO', async () => {

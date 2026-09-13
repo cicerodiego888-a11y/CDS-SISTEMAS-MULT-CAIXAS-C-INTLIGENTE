@@ -359,6 +359,55 @@ router.post('/notas/:id/cancelar', async (req, res) => {
         return res.status(404).json({ error: 'NFC-e não encontrada.' });
       }
 
+      // Sprint 08.3 — NFC-e do Fechamento (sem venda_id): cancelamento fiscal puro
+      const origemFechamento = String(nota.origem || '') === 'fechamento_fiscal_dia'
+        || (nota.fechamento_fiscal_id != null && !nota.venda_id);
+
+      if (origemFechamento && !nota.venda_id) {
+        try {
+          const {
+            cancelarDocumentoFiscalFechamento
+          } = require('../services/fechamento-fiscal/NfceCancelamentoFechamentoService');
+
+          const out = await cancelarDocumentoFiscalFechamento(db, id, justificativa.trim(), {
+            usuario: {
+              id: req.user?.id || null,
+              nome: req.user?.username || req.user?.nome || null
+            }
+          });
+
+          gravarAuditoria({
+            usuario_id: req.user?.id || null,
+            usuario_nome: req.user?.username || req.user?.nome || null,
+            modulo: 'fiscal',
+            acao: 'cancelar_nfce_fechamento',
+            referencia_tipo: 'nfce',
+            referencia_id: id,
+            detalhes: {
+              venda_id: null,
+              fechamento_fiscal_id: nota.fechamento_fiscal_id || null,
+              justificativa: justificativa.trim(),
+              protocolo: out.protocoloCancelamento || null,
+              idempotente: Boolean(out.idempotente),
+              ip: req.ip || null
+            },
+            ip_requisicao: req.ip || null
+          }).catch((auditErr) => console.error('Erro ao gravar auditoria cancelamento FF:', auditErr));
+
+          return res.json(out);
+        } catch (cancelFfErr) {
+          const status = cancelFfErr.statusCode || 500;
+          return res.status(status).json({
+            success: false,
+            error: cancelFfErr.message || 'Erro ao cancelar NFC-e do fechamento.',
+            code: cancelFfErr.code || null,
+            status: cancelFfErr.status || null,
+            dadosCancelamento: cancelFfErr.dadosCancelamento || null,
+            diagnostico: cancelFfErr.diagnostico || cancelFfErr.prazo || null
+          });
+        }
+      }
+
       if (!nota.venda_id) {
         return res.status(400).json({
           error: 'NFC-e sem venda vinculada. Não é possível cancelar.'
@@ -500,11 +549,71 @@ router.get('/notas', (req, res) => {
   });
 });
 
+router.get('/notas/:id/danfe', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const {
+      obterDanfeHtmlPorNfceId
+    } = require('../services/fechamento-fiscal/NfceHistoricoOficialService');
+    const pacote = await obterDanfeHtmlPorNfceId(db, id);
+    if (!pacote || !pacote.html) {
+      return res.status(404).json({ error: 'DANFE não disponível para esta NFC-e.' });
+    }
+
+    const formato = String(req.query.formato || '').toLowerCase();
+    const asPacote = req.query.pacote === '1' || formato === 'pacote' || formato === 'json';
+    if (asPacote) {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({
+        html: pacote.html,
+        htmlTermico: pacote.htmlTermico || pacote.html,
+        textoTermico: pacote.textoTermico || '',
+        nota: {
+          id: pacote.nota?.id,
+          numero: pacote.nota?.numero,
+          serie: pacote.nota?.serie,
+          chave_acesso: pacote.nota?.chave_acesso,
+          protocolo: pacote.nota?.protocolo,
+          ambiente: pacote.nota?.ambiente,
+          status: pacote.nota?.status,
+          origem: pacote.nota?.origem,
+          fechamento_fiscal_id: pacote.nota?.fechamento_fiscal_id,
+          valor_total: pacote.total != null ? pacote.total : undefined
+        }
+      });
+    }
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
+    return res.send(pacote.html);
+  } catch (error) {
+    const status = error.statusCode || (/não encontrada/i.test(error.message || '') ? 404 : 500);
+    return res.status(status).json({ error: error.message || 'Erro ao obter DANFE.' });
+  }
+});
+
+router.get('/notas/:id/cancelamento-diagnostico', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const {
+      diagnosticarCancelamentoNfce
+    } = require('../services/fechamento-fiscal/NfceCancelamentoFechamentoService');
+    const diag = await diagnosticarCancelamentoNfce(db, id);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json(diag);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Erro no diagnóstico de cancelamento.' });
+  }
+});
+
 router.get('/notas/:id', (req, res) => {
   db.get(`
-    SELECT n.*, v.codigo as venda_codigo, v.total as venda_total
+    SELECT n.*, v.codigo as venda_codigo, v.total as venda_total,
+           d.valor_total as fechamento_valor_total
     FROM nfce_notas n
     LEFT JOIN vendas v ON v.id = n.venda_id
+    LEFT JOIN fechamentos_fiscais_documentos d ON d.id = n.fechamento_documento_id
     WHERE n.id = ?
   `, [req.params.id], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });

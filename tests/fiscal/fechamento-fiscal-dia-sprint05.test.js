@@ -659,15 +659,12 @@ async function main() {
     assert.ok(row.criado_em);
   });
 
-  await test('25 — Produção permanece bloqueada', async () => {
+  await test('25 — PRODUÇÃO NÃO é bloqueio artificial', async () => {
     await run(db, `UPDATE fechamentos_fiscais SET status='CANCELADO' WHERE status!='CANCELADO'`);
     const ff = await montarPronto(db, 700);
-    let erro = null;
-    try {
-      await transmitirFechamento(ff.id, {}, depsTx(db, { config: { ambiente: 1 } }));
-    } catch (e) { erro = e; }
-    assert.ok(erro);
-    assert.ok(erro.code === 'PRODUCAO_BLOQUEADA' || erro.code === 'AMBIENTE_NAO_HOMOLOGACAO');
+    const r = await transmitirFechamento(ff.id, {}, depsTx(db, { config: { ambiente: 1 } }));
+    assert.strictEqual(r.producao_bloqueada, false);
+    assert.ok(r.ok || r.status === 'AUTORIZADO' || r.transmissao_habilitada === true);
   });
 
   await test('26 — Hora retroativa arbitrária bloqueada', async () => {

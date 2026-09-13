@@ -31,7 +31,16 @@ function expandirUnidades(lotes) {
 
     if (!lote.fracionado && Number.isInteger(qtd)) {
       const n = Math.min(Math.floor(qtd), 8000);
+      const totalLoteCents = toCentavos(
+        lote.valor_disponivel != null
+          ? lote.valor_disponivel
+          : qtd * (unitCents / 100)
+      );
+      const baseCents = n > 0 ? Math.floor(totalLoteCents / n) : 0;
+      const restoCents = n > 0 ? totalLoteCents - (baseCents * n) : 0;
       for (let i = 0; i < n; i += 1) {
+        const valorFiscalCents = baseCents + (i < restoCents ? 1 : 0);
+        if (!(valorFiscalCents > 0)) continue;
         unidades.push({
           key: `${lote.venda_item_id}:${i}`,
           produto_id: lote.produto_id,
@@ -40,8 +49,8 @@ function expandirUnidades(lotes) {
           venda_id: lote.venda_id,
           venda_item_id: lote.venda_item_id,
           quantidade: 1,
-          unit_cents: unitCents,
-          valor_cents: unitCents,
+          unit_cents: valorFiscalCents,
+          valor_cents: valorFiscalCents,
           fracionado: false
         });
       }

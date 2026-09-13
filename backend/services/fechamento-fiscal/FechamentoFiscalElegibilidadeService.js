@@ -15,6 +15,10 @@
 const { FILTRO_VENDA_VALIDA } = require('../reportFiscalHelpers');
 const { arredondarMoeda, toCentavos } = require('../fiscal/modeloTotais');
 const { STATUS } = require('./constants');
+const {
+  SITUACAO_NFCE,
+  classificarSituacoesFiscaisPorVenda
+} = require('./NfceSituacaoFiscalService');
 
 const ORIGEM_LEGADA_AMBIGUA = 'ORIGEM_LEGADA_AMBIGUA';
 
@@ -28,18 +32,6 @@ function promisifyGet(db, sql, params = []) {
   return new Promise((resolve, reject) => {
     db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row || null)));
   });
-}
-
-/**
- * NFC-e ativa = documento fiscal do fluxo comercial normal.
- * Status cancelado não bloqueia elegibilidade.
- */
-function sqlExisteDocumentoFiscalAtivo(aliasVenda = 'v') {
-  return `EXISTS (
-    SELECT 1 FROM nfce_notas n
-    WHERE n.venda_id = ${aliasVenda}.id
-      AND LOWER(TRIM(COALESCE(n.status, ''))) NOT IN ('', 'cancelada', 'cancelado')
-  )`;
 }
 
 function max0(n) {
@@ -172,11 +164,7 @@ async function mapQuantidadesJaUtilizadas(db, dataNorm, excluirFechamentoId = nu
 
 async function carregarItensDia(db, dataNorm) {
   const temNfce = await tabelaNfceExiste(db);
-  const sqlDoc = temNfce
-    ? `CASE WHEN ${sqlExisteDocumentoFiscalAtivo('v')} THEN 1 ELSE 0 END`
-    : '0';
-
-  return promisifyAll(
+  const rows = await promisifyAll(
     db,
     `SELECT
        vi.id AS venda_item_id,
@@ -195,8 +183,7 @@ async function carregarItensDia(db, dataNorm) {
        COALESCE(vi.preco_unitario, 0) AS preco_unitario,
        COALESCE(v.total, 0) AS venda_total,
        COALESCE(v.valor_fiscal, 0) AS venda_valor_fiscal,
-       COALESCE(v.valor_nao_fiscal, 0) AS venda_valor_nao_fiscal,
-       ${sqlDoc} AS tem_documento_fiscal
+       COALESCE(v.valor_nao_fiscal, 0) AS venda_valor_nao_fiscal
      FROM vendas_itens vi
      INNER JOIN vendas v ON v.id = vi.venda_id
      INNER JOIN produtos p ON p.id = vi.produto_id
@@ -206,6 +193,26 @@ async function carregarItensDia(db, dataNorm) {
      ORDER BY p.id ASC, v.id ASC, vi.id ASC`,
     [dataNorm]
   );
+
+  const situacoes = temNfce
+    ? await classificarSituacoesFiscaisPorVenda(db, rows.map((r) => r.venda_id))
+    : new Map();
+
+  return rows.map((row) => {
+    const situacao = situacoes.get(Number(row.venda_id)) || {
+      situacao: SITUACAO_NFCE.SEM_DOCUMENTO,
+      documentada: false,
+      exige_recuperacao: false,
+      permite_decisao_automatica: true
+    };
+    return {
+      ...row,
+      situacao_fiscal_nfce: situacao.situacao,
+      classificacao_fiscal_nfce: situacao,
+      tem_documento_fiscal: situacao.documentada ? 1 : 0,
+      decisao_fiscal_automatica_bloqueada: situacao.exige_recuperacao ? 1 : 0
+    };
+  });
 }
 
 /**
@@ -213,7 +220,13 @@ async function carregarItensDia(db, dataNorm) {
  * (Reutiliza nfce_notas — sem nova coluna de natureza.)
  */
 function isOperacaoNaoFiscal(row) {
-  return Number(row.tem_documento_fiscal || 0) === 0;
+  if (
+    row?.situacao_fiscal_nfce === SITUACAO_NFCE.DUPLICIDADE_PENDENTE
+    || Number(row?.decisao_fiscal_automatica_bloqueada || 0) === 1
+  ) {
+    return false;
+  }
+  return Number(row?.tem_documento_fiscal || 0) === 0;
 }
 
 /**
@@ -265,10 +278,9 @@ async function listarLotesElegiveisDoDia(db, data, opts = {}) {
     }
     if (!(valor > 0)) continue;
 
-    let unit = Number(r.preco_unitario || 0);
-    if (!(unit > 0)) {
-      unit = arredondarMoeda(valor / qtd);
-    }
+    const precoComercial = Number(r.preco_unitario || 0);
+    let unit = arredondarMoeda(valor / qtd);
+    if (!(unit > 0)) unit = precoComercial;
     const unitCents = toCentavos(unit);
     if (!(unitCents > 0)) continue;
 
@@ -290,11 +302,14 @@ async function listarLotesElegiveisDoDia(db, data, opts = {}) {
       valor_fiscal: Number(r.valor_fiscal || 0),
       valor_nao_fiscal: Number(r.valor_nao_fiscal || 0),
       preco_unitario: unit,
+      preco_unitario_comercial: precoComercial,
+      valor_unitario_fiscal: unit,
       quantidade_fiscal_consumida_em_operacao_nao_fiscal: qtd,
       quantidade_disponivel: qtd,
       valor_disponivel: valor,
       unit_cents: unitCents,
       operacao: 'NAO_FISCAL',
+      situacao_fiscal_nfce: r.situacao_fiscal_nfce,
       origem_distribuicao: classificarOrigemDistribuicao(r)
     });
   }
@@ -400,6 +415,7 @@ async function listarMonitoramentoProdutosDoDia(db, data, opts = {}) {
       quantidade_elegivel: qEleg,
       valor_elegivel: vEleg,
       operacao: 'NAO_FISCAL',
+      situacao_fiscal_nfce: r.situacao_fiscal_nfce,
       origem_distribuicao: origem,
       status: qEleg > 0 ? 'Elegível' : (origem === ORIGEM_LEGADA_AMBIGUA ? ORIGEM_LEGADA_AMBIGUA : 'Não elegível')
     });
@@ -431,12 +447,30 @@ async function obterResumoDia(db, data, opts = {}) {
   let unidadesFiscaisElegiveis = 0;
   let valorFiscalElegivel = 0;
   let ambigua = 0;
+  const pendenciasFiscais = new Map();
 
   const vendaValorContado = new Set();
 
   for (const r of rows) {
     const vid = Number(r.venda_id);
     vendasIds.add(vid);
+
+    if (
+      Number(r.decisao_fiscal_automatica_bloqueada || 0) === 1
+      && !pendenciasFiscais.has(vid)
+    ) {
+      pendenciasFiscais.set(vid, {
+        venda_id: vid,
+        situacao: r.situacao_fiscal_nfce,
+        motivo: r.classificacao_fiscal_nfce?.motivo || null,
+        nfce_id: r.classificacao_fiscal_nfce?.nfce_id || null,
+        cstats: r.classificacao_fiscal_nfce?.cstats || [],
+        origem_classificacao: r.classificacao_fiscal_nfce?.origem_classificacao || null,
+        pode_recuperar_duplicidade:
+          r.situacao_fiscal_nfce === SITUACAO_NFCE.DUPLICIDADE_PENDENTE
+          || r.classificacao_fiscal_nfce?.origem_classificacao === 'RECUPERACAO_DUPLICIDADE'
+      });
+    }
 
     if (Number(r.item_fiscal || 0) === 1) {
       produtosFiscaisVendidos.add(Number(r.produto_id));
@@ -492,6 +526,7 @@ async function obterResumoDia(db, data, opts = {}) {
     capacidade_elegivel: capacidade,
     valor_elegivel: capacidade,
     registros_origem_legada_ambigua: ambigua,
+    pendencias_fiscais: [...pendenciasFiscais.values()],
     produtos,
     lotes,
     monitoramento

@@ -1,6 +1,7 @@
 /**
- * Sprint 04 — Transmissão / autorização SEFAZ (somente HOMOLOGAÇÃO).
+ * Sprint 04 + 07.2 — Transmissão / autorização SEFAZ (PRODUÇÃO e HOMOLOGAÇÃO).
  * Reutiliza motor NFC-e existente. NÃO baixa estoque / financeiro / caixa / vendas.
+ * PRODUÇÃO não é bloqueio artificial: exige configuração fiscal válida.
  */
 
 'use strict';
@@ -71,12 +72,20 @@ function hashXml(xml) {
 }
 
 function extrairCStat(raw) {
-  const m = String(raw || '').match(/<cStat>\s*(\d+)\s*<\/cStat>/i);
+  // Preferir cStat do documento (infProt), não o do lote (ex.: 104).
+  const texto = String(raw || '');
+  const prot = texto.match(/<infProt[\s\S]*?<cStat>\s*(\d+)\s*<\/cStat>/i);
+  if (prot) return prot[1];
+  const m = texto.match(/<cStat>\s*(\d+)\s*<\/cStat>/i);
   return m ? m[1] : null;
 }
 
 function extrairXMotivo(raw) {
-  const m = String(raw || '').match(/<xMotivo>\s*([^<]+)\s*<\/xMotivo>/i);
+  // Preferir xMotivo do documento (infProt), não o do lote ("Lote processado").
+  const texto = String(raw || '');
+  const prot = texto.match(/<infProt[\s\S]*?<xMotivo>\s*([^<]+)\s*<\/xMotivo>/i);
+  if (prot) return prot[1].trim();
+  const m = texto.match(/<xMotivo>\s*([^<]+)\s*<\/xMotivo>/i);
   return m ? m[1].trim() : null;
 }
 
@@ -251,6 +260,108 @@ function montarStatusFechamento(docs) {
   return STATUS.EMITINDO;
 }
 
+function onlyDigits(v) {
+  return String(v || '').replace(/\D/g, '');
+}
+
+/**
+ * Diagnóstico real de prontidão para transmissão (PRODUÇÃO ou HOMOLOGAÇÃO).
+ * Não trata ambiente PRODUÇÃO como erro.
+ */
+function diagnosticarProntidaoTransmissao(config = {}, opts = {}) {
+  const pendencias = [];
+  const ambiente = Number(config.ambiente);
+  const ambienteOk = ambiente === AMBIENTE.PRODUCAO || ambiente === AMBIENTE.HOMOLOGACAO;
+  if (!ambienteOk) {
+    pendencias.push({
+      campo: 'ambiente',
+      codigo: 'AMBIENTE_AUSENTE',
+      mensagem: 'Ambiente fiscal não configurado (produção ou homologação).'
+    });
+  }
+
+  const cnpj = onlyDigits(config.cnpj);
+  if (cnpj.length !== 14) {
+    pendencias.push({
+      campo: 'cnpj',
+      codigo: 'CNPJ_AUSENTE',
+      mensagem: 'CNPJ do emitente não configurado ou inválido.'
+    });
+  }
+
+  const uf = String(config.uf || '').trim();
+  if (!uf) {
+    pendencias.push({
+      campo: 'uf',
+      codigo: 'UF_AUSENTE',
+      mensagem: 'UF do emitente não configurada.'
+    });
+  }
+
+  const serie = Number(config.serie);
+  if (!(serie >= 0) || Number.isNaN(serie)) {
+    pendencias.push({
+      campo: 'serie',
+      codigo: 'SERIE_AUSENTE',
+      mensagem: 'Série fiscal não configurada.'
+    });
+  }
+
+  const temCert = Boolean(config.certificadoPath || config.certificado_path)
+    || opts.certificadoOpcional === true
+    || typeof opts.assinarDocumento === 'function';
+  if (!temCert) {
+    pendencias.push({
+      campo: 'certificado',
+      codigo: 'CERTIFICADO_AUSENTE',
+      mensagem: 'Certificado digital não configurado.'
+    });
+  }
+
+  const idCsc = String(config.idCSC || config.id_csc || '').trim();
+  const tokenCsc = String(config.tokenCSC || config.token_csc || '').trim();
+  if (!idCsc || !tokenCsc) {
+    pendencias.push({
+      campo: 'csc',
+      codigo: 'CSC_AUSENTE',
+      mensagem: 'CSC/token NFC-e não configurado para o ambiente.'
+    });
+  }
+
+  const urls = config.urls || {};
+  if (!String(urls.autorizacao || '').trim()) {
+    pendencias.push({
+      campo: 'endpoint',
+      codigo: 'URL_AUTORIZACAO_AUSENTE',
+      mensagem: 'Endpoint SEFAZ de autorização não configurado para o ambiente.'
+    });
+  }
+  if (!String(urls.consultaQr || '').trim() || !String(urls.consultaChave || '').trim()) {
+    pendencias.push({
+      campo: 'endpoint',
+      codigo: 'URL_CONSULTA_AUSENTE',
+      mensagem: 'URLs de QR Code / consulta chave não configuradas para o ambiente.'
+    });
+  }
+
+  const ok = pendencias.length === 0;
+  return {
+    ok,
+    ambiente: ambienteOk ? ambiente : null,
+    ambiente_label: ambiente === AMBIENTE.PRODUCAO
+      ? 'PRODUÇÃO'
+      : (ambiente === AMBIENTE.HOMOLOGACAO ? 'HOMOLOGAÇÃO' : null),
+    transmissao_habilitada: ok,
+    producao_bloqueada: false,
+    pendencias,
+    mensagem: ok
+      ? (ambiente === AMBIENTE.PRODUCAO
+        ? 'Ambiente fiscal em PRODUÇÃO — transmissão habilitada.'
+        : 'Ambiente fiscal em HOMOLOGAÇÃO — ambiente de testes.')
+      : (pendencias[0] && pendencias[0].mensagem) || 'Configuração fiscal incompleta.'
+  };
+}
+
 async function exigirPrecondicoesTransmissao({ db, fechamentoId, opts, deps }) {
   const permitido = deps.moduloOn != null
     ? Boolean(deps.moduloOn)
@@ -286,25 +397,45 @@ async function exigirPrecondicoesTransmissao({ db, fechamentoId, opts, deps }) {
   const config = await resolverConfig(deps);
   const ambiente = Number(config.ambiente);
 
-  // Sprint 04: somente homologação — produção sempre bloqueada
-  if (ambiente === AMBIENTE.PRODUCAO) {
-    const err = new Error('AMBIENTE DE PRODUÇÃO → BLOQUEADO nesta Sprint. Use homologação.');
-    err.statusCode = 403;
-    err.code = 'PRODUCAO_BLOQUEADA';
-    throw err;
-  }
-  if (ambiente !== AMBIENTE.HOMOLOGACAO) {
-    const err = new Error('Transmissão do Fechamento Fiscal permitida somente em HOMOLOGAÇÃO nesta Sprint.');
-    err.statusCode = 403;
-    err.code = 'AMBIENTE_NAO_HOMOLOGACAO';
+  const diagnostico = diagnosticarProntidaoTransmissao(config, {
+    certificadoOpcional: deps.certificadoOpcional === true,
+    assinarDocumento: deps.assinarDocumento
+  });
+  if (!diagnostico.ok) {
+    const first = diagnostico.pendencias[0] || {};
+    const err = new Error(first.mensagem || 'Configuração fiscal incompleta para transmissão.');
+    err.statusCode = 400;
+    err.code = first.codigo || 'CONFIG_FISCAL_INCOMPLETA';
+    err.pendencias = diagnostico.pendencias;
+    err.diagnostico = diagnostico;
     throw err;
   }
 
-  return { ff, config, ambiente };
+  const cnpjConfig = onlyDigits(config.cnpj);
+  const cnpjFechamento = onlyDigits(ff.cnpj);
+  if (cnpjFechamento && cnpjConfig && cnpjFechamento !== cnpjConfig) {
+    const err = new Error('CNPJ do fechamento diverge do CNPJ da configuração fiscal. Transmissão bloqueada.');
+    err.statusCode = 403;
+    err.code = 'CNPJ_DIVERGENTE';
+    throw err;
+  }
+
+  if (
+    opts.empresa_id != null
+    && ff.empresa_id != null
+    && String(opts.empresa_id) !== String(ff.empresa_id)
+  ) {
+    const err = new Error('Fechamento pertence a outra empresa. Transmissão bloqueada.');
+    err.statusCode = 403;
+    err.code = 'EMPRESA_DIVERGENTE';
+    throw err;
+  }
+
+  return { ff, config, ambiente, diagnostico };
 }
 
 /**
- * Transmite documentos do fechamento (homologação).
+ * Transmite documentos do fechamento (PRODUÇÃO ou HOMOLOGAÇÃO).
  * Idempotente por documento AUTORIZADO.
  */
 async function transmitirFechamento(fechamentoId, opts = {}, deps = {}) {
@@ -444,8 +575,9 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
         [DOC_STATUS.EMITINDO, tentativa, dataEmissao, agoraLocal(), doc.id]
       );
 
-      // Numeração real somente agora
-      if (!numero) {
+      // Numeração real somente agora — fluxo oficial CDS (incrementaNumeroFiscal).
+      // Documento REJEITADO NÃO reutiliza o nNF anterior (ex.: 50); reserva o próximo oficial.
+      if (!numero || doc.status === DOC_STATUS.REJEITADO) {
         numero = await reservarNumero(deps, config);
       }
 
@@ -516,7 +648,7 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
       const envio = await enviarLote({ config, xmlAssinado, numero }, deps);
       const raw = String(envio.raw || envio.body || envio.message || '');
       const cStat = envio.cStat || extrairCStat(raw);
-      const xMotivo = extrairXMotivo(raw) || envio.message || null;
+      const xMotivo = envio.xMotivo || extrairXMotivo(raw) || envio.message || null;
       const protocolo = extrairNProt(raw) || envio.protocolo || null;
       const recibo = extrairNRec(raw);
       const duracao = Date.now() - t0;
@@ -602,6 +734,41 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
         ambiente
       });
 
+      // Sprint 08.1 — após AUTORIZADO, integrar no histórico oficial (nfce_notas).
+      let historicoNfce = null;
+      if (statusFinal === DOC_STATUS.AUTORIZADO) {
+        try {
+          const { persistirNfceAutorizadaDoFechamento } = require('./NfceHistoricoOficialService');
+          historicoNfce = await persistirNfceAutorizadaDoFechamento(db, {
+            id: doc.id,
+            fechamento_fiscal_id: id,
+            status: statusFinal,
+            numero,
+            serie: config.serie,
+            ambiente,
+            chave_acesso: chaveFinal,
+            protocolo,
+            recibo,
+            xml_enviado: xmlAssinado,
+            xml_assinado: xmlAssinado,
+            xml_retorno: raw || null,
+            xml_autorizado: xmlAutorizado
+          }, { fechamentoId: id });
+          logTecnico('historico_nfce_persistido', {
+            fechamento_id: id,
+            documento_id: doc.id,
+            nfce_id: historicoNfce?.nfce_id,
+            idempotente: historicoNfce?.idempotente
+          });
+        } catch (histErr) {
+          logTecnico('historico_nfce_erro', {
+            fechamento_id: id,
+            documento_id: doc.id,
+            erro: histErr.message || String(histErr)
+          });
+        }
+      }
+
       resultados.push({
         documento_id: doc.id,
         sequencia: doc.sequencia,
@@ -612,7 +779,8 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
         protocolo,
         cstat: cStat,
         xmotivo: xMotivo,
-        duracao_ms: duracao
+        duracao_ms: duracao,
+        historico_nfce: historicoNfce
       });
     } catch (err) {
       const duracao = Date.now() - t0;
@@ -694,20 +862,29 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
     d.status === DOC_STATUS.ERRO || d.status === DOC_STATUS.ERRO_COM_POSSIVEL_PROCESSAMENTO
   ).length;
 
+  const docsComHistorico = docsFinais.map((d) => {
+    const r = resultados.find((x) => Number(x.documento_id) === Number(d.id));
+    if (r && r.historico_nfce) {
+      return { ...d, historico_nfce: r.historico_nfce };
+    }
+    return d;
+  });
+
   return {
     ok: statusFinal === STATUS.AUTORIZADO,
     status: statusFinal,
     ambiente,
     transmissao_habilitada: true,
-    producao_bloqueada: true,
+    producao_bloqueada: false,
+    ambiente_label: ambiente === AMBIENTE.PRODUCAO ? 'PRODUÇÃO' : 'HOMOLOGAÇÃO',
     resumo: {
-      total: docsFinais.length,
+      total: docsComHistorico.length,
       autorizados,
       rejeitados,
       erros,
       valor_total: ff.valor_informado
     },
-    documentos: docsFinais,
+    documentos: docsComHistorico,
     resultados,
     mensagem: statusFinal === STATUS.AUTORIZADO
       ? '✓ FECHAMENTO FISCAL AUTORIZADO'
@@ -766,6 +943,24 @@ async function recuperarDocumento(db, doc, config, opts, deps) {
         duracao_ms: Date.now() - t0,
         retorno_resumo: 'RECUPERACAO_AUTORIZADO'
       });
+      try {
+        const { persistirNfceAutorizadaDoFechamento } = require('./NfceHistoricoOficialService');
+        const docAtualizado = await get(db, `SELECT * FROM fechamentos_fiscais_documentos WHERE id = ?`, [doc.id]);
+        await persistirNfceAutorizadaDoFechamento(db, docAtualizado || {
+          ...doc,
+          status: DOC_STATUS.AUTORIZADO,
+          cstat: cStat,
+          xmotivo: xMotivo,
+          protocolo,
+          chave_acesso: chave,
+          xml_retorno: raw || null
+        }, { fechamentoId: doc.fechamento_fiscal_id });
+      } catch (histErr) {
+        logTecnico('historico_nfce_erro_recuperacao', {
+          documento_id: doc.id,
+          erro: histErr.message || String(histErr)
+        });
+      }
       return {
         documento_id: doc.id,
         sequencia: doc.sequencia,
@@ -838,10 +1033,16 @@ async function recuperarFechamento(fechamentoId, opts = {}, deps = {}) {
   }
 
   const config = await resolverConfig(deps);
-  if (Number(config.ambiente) !== AMBIENTE.HOMOLOGACAO) {
-    const err = new Error('Recuperação permitida somente em HOMOLOGAÇÃO nesta Sprint.');
-    err.statusCode = 403;
-    err.code = 'AMBIENTE_NAO_HOMOLOGACAO';
+  const diagnostico = diagnosticarProntidaoTransmissao(config, {
+    certificadoOpcional: deps.certificadoOpcional === true,
+    assinarDocumento: deps.assinarDocumento
+  });
+  if (!diagnostico.ok) {
+    const first = diagnostico.pendencias[0] || {};
+    const err = new Error(first.mensagem || 'Configuração fiscal incompleta para recuperação.');
+    err.statusCode = 400;
+    err.code = first.codigo || 'CONFIG_FISCAL_INCOMPLETA';
+    err.pendencias = diagnostico.pendencias;
     throw err;
   }
 
@@ -891,6 +1092,7 @@ module.exports = {
   transmitirFechamento,
   recuperarFechamento,
   montarStatusFechamento,
+  diagnosticarProntidaoTransmissao,
   extrairCStat,
   extrairXMotivo
 };

@@ -116,7 +116,10 @@ async function schemaBase(db) {
     numero INTEGER NOT NULL,
     serie INTEGER NOT NULL,
     chave_acesso TEXT,
-    status TEXT DEFAULT 'pendente'
+    ambiente INTEGER DEFAULT 2,
+    status TEXT DEFAULT 'pendente',
+    xml_retorno TEXT,
+    protocolo TEXT
   )`);
   await run(db, `CREATE TABLE IF NOT EXISTS financeiro (
     id INTEGER PRIMARY KEY, valor REAL, descricao TEXT, tipo TEXT, origem TEXT
@@ -185,8 +188,11 @@ async function main() {
   await run(db, `INSERT INTO vendas_itens
     (id,venda_id,produto_id,quantidade,quantidade_fiscal,quantidade_nao_fiscal,subtotal,valor_fiscal,valor_nao_fiscal,preco_unitario,item_fiscal)
     VALUES (1004,104,1,5,5,0,59.95,59.95,0,11.99,1)`);
-  await run(db, `INSERT INTO nfce_notas (venda_id,numero,serie,chave_acesso,status)
-    VALUES (104,10,1,'35260112345678000199550010000000101000000010','autorizada')`);
+  await run(db, `INSERT INTO nfce_notas
+    (venda_id,numero,serie,chave_acesso,ambiente,status,xml_retorno,protocolo)
+    VALUES (104,10,1,'35260112345678000199550010000000101000000010',1,'autorizada',
+      '<protNFe><infProt><cStat>100</cStat><nProt>135260000000001</nProt></infProt></protNFe>',
+      '135260000000001')`);
 
   // TESTE 05 — várias vendas NF do mesmo produto (10+4+3)
   await run(db, `INSERT INTO vendas (id,data_venda,total,valor_nao_fiscal,status,cancelada)

@@ -10,6 +10,7 @@ const router = express.Router();
 const service = require('../services/fechamento-fiscal');
 const moduloConfig = require('../services/fechamento-fiscal/fechamentoFiscalModuloConfig');
 const db = require('../database');
+const { contextoAuditoriaRequisicao } = require('../services/auditoria');
 
 function usuarioId(req) {
   return req.user?.id || req.usuario?.id || null;
@@ -17,17 +18,24 @@ function usuarioId(req) {
 
 function sendError(res, err) {
   const status = err.statusCode || err.status || 500;
+  const erros = Array.isArray(err.erros) ? err.erros : undefined;
+  const detalhes = erros
+    ? erros.map((e) => e.mensagem || e.message || String(e)).filter(Boolean).join(' ')
+    : undefined;
   const body = {
     error: err.message || 'Erro no fechamento fiscal',
-    code: err.code || undefined
+    code: err.code || undefined,
+    detalhes: detalhes || undefined
   };
   if (err.fechamento) body.fechamento = err.fechamento;
   if (err.capacidade != null) body.capacidade = err.capacidade;
-  if (err.erros) body.erros = err.erros;
+  if (erros) body.erros = erros;
   if (err.checklist) body.checklist = err.checklist;
   if (err.validacao) body.validacao = err.validacao;
   if (err.documentos) body.documentos = err.documentos;
   if (err.resultados) body.resultados = err.resultados;
+  if (err.pendencias) body.pendencias = err.pendencias;
+  if (err.diagnostico) body.diagnostico = err.diagnostico;
   return res.status(status).json(body);
 }
 
@@ -36,16 +44,38 @@ router.get('/modulo', async (req, res) => {
   try {
     const dados = await moduloConfig.lerAsync(db);
     let ambiente = null;
+    let diagnostico = {
+      ok: false,
+      transmissao_habilitada: false,
+      producao_bloqueada: false,
+      pendencias: [],
+      mensagem: 'Configuração fiscal indisponível.'
+    };
     try {
       const { getFiscalConfig } = require('../services/fiscal/configService');
       const cfg = await getFiscalConfig({ validarUrls: false });
       ambiente = Number(cfg.ambiente);
-    } catch (_) { /* ignore */ }
+      const { diagnosticarProntidaoTransmissao } = require('../services/fechamento-fiscal/FechamentoFiscalTransmissaoService');
+      diagnostico = diagnosticarProntidaoTransmissao(cfg);
+    } catch (e) {
+      diagnostico.mensagem = e.message || diagnostico.mensagem;
+      diagnostico.pendencias = [{
+        codigo: 'CONFIG_FISCAL',
+        mensagem: e.message || 'Falha ao carregar configuração fiscal.'
+      }];
+    }
     res.json({
       ...dados,
       ambiente,
-      transmissao_homologacao: dados.permitido && ambiente === 2,
-      producao_bloqueada: true
+      ambiente_label: diagnostico.ambiente_label || null,
+      transmissao_habilitada: Boolean(dados.permitido && diagnostico.transmissao_habilitada),
+      transmissao_homologacao: Boolean(dados.permitido && ambiente === 2 && diagnostico.transmissao_habilitada),
+      transmissao_producao: Boolean(dados.permitido && ambiente === 1 && diagnostico.transmissao_habilitada),
+      producao_bloqueada: false,
+      diagnostico_transmissao: diagnostico,
+      mensagem_ambiente: dados.permitido
+        ? diagnostico.mensagem
+        : 'Fechamento Fiscal do Dia desativado.'
     });
   } catch (err) {
     sendError(res, err);
@@ -91,8 +121,87 @@ router.get('/previa', async (req, res) => {
 router.get('/resumo', async (req, res) => {
   try {
     const data = req.query.data || req.query.data_fechamento;
-    const resumo = await service.obterResumoDia(require('../database'), data);
+    const fechamentoId = req.query.fechamento_id != null && String(req.query.fechamento_id).trim() !== ''
+      ? Number(req.query.fechamento_id)
+      : null;
+    let opts = {};
+    if (fechamentoId != null && Number.isFinite(fechamentoId) && fechamentoId > 0) {
+      // Guard: FF AUTORIZADO/CONCLUÍDO não deve ser excluído do residual (evita “ressuscitar” elegíveis).
+      const db = require('../database');
+      const { STATUS } = require('../services/fechamento-fiscal/constants');
+      const row = await new Promise((resolve, reject) => {
+        db.get(
+          'SELECT id, status FROM fechamentos_fiscais WHERE id = ?',
+          [fechamentoId],
+          (err, r) => (err ? reject(err) : resolve(r))
+        );
+      });
+      const st = String((row && row.status) || '').toUpperCase();
+      const finalizado = st === STATUS.AUTORIZADO
+        || st === STATUS.CONCLUIDO
+        || st === STATUS.CONFIRMADO;
+      if (!finalizado) {
+        opts = { excluirFechamentoId: fechamentoId };
+      }
+    }
+    const resumo = await service.obterResumoDia(require('../database'), data, opts);
     res.json(resumo);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+/** Sprint 07.7 — consulta explícita de duplicidades 539; nunca emite NFC-e. */
+router.post('/recuperar-duplicidades', async (req, res) => {
+  try {
+    const body = req.body || {};
+    if (body.confirmacao_consulta !== true) {
+      return res.status(400).json({
+        error: 'Confirmação explícita obrigatória antes de consultar a SEFAZ.',
+        code: 'CONFIRMACAO_CONSULTA_OBRIGATORIA'
+      });
+    }
+    const pendencias = Array.isArray(body.pendencias) ? body.pendencias.slice(0, 50) : [];
+    if (!pendencias.length) {
+      return res.status(400).json({
+        error: 'Informe ao menos uma venda/NFC-e em duplicidade para recuperação.',
+        code: 'PENDENCIAS_OBRIGATORIAS'
+      });
+    }
+
+    const ctx = contextoAuditoriaRequisicao(req);
+    const resultados = [];
+    for (const pendencia of pendencias) {
+      try {
+        resultados.push(await service.recuperarSituacaoDuplicidade({
+          venda_id: pendencia.venda_id,
+          nfce_id: pendencia.nfce_id,
+          confirmacao_consulta: true,
+          usuario_id: ctx.usuario_id,
+          usuario_nome: ctx.usuario_nome,
+          ip_requisicao: ctx.ip_requisicao
+        }));
+      } catch (err) {
+        resultados.push({
+          success: false,
+          venda_id: Number(pendencia.venda_id || 0) || null,
+          nfce_id: Number(pendencia.nfce_id || 0) || null,
+          situacao_fiscal: 'ERRO',
+          code: err.code || 'ERRO_RECUPERACAO',
+          mensagem: err.message || 'Falha ao recuperar situação fiscal.'
+        });
+      }
+    }
+
+    const data = body.data || body.data_fechamento;
+    const resumo = data ? await service.obterResumoDia(db, data) : null;
+    res.json({
+      success: resultados.every((r) => r.success),
+      consultou_sefaz: resultados.some((r) => r.consultou_sefaz),
+      emitiu_nfce: false,
+      resultados,
+      resumo
+    });
   } catch (err) {
     sendError(res, err);
   }
@@ -158,6 +267,7 @@ router.post('/:id/previa', async (req, res) => {
     const result = await service.gerarPrevia({
       id: Number(req.params.id),
       data: body.data,
+      data_fechamento: body.data_fechamento,
       valor_informado: body.valor_informado != null ? Number(body.valor_informado) : undefined,
       valor_alvo: body.valor_alvo != null ? Number(body.valor_alvo) : undefined,
       valor_min: body.valor_min != null ? Number(body.valor_min) : undefined,
@@ -207,21 +317,30 @@ router.post('/:id/preparar-emissao', async (req, res) => {
 router.get('/:id/documentos', async (req, res) => {
   try {
     const documentos = await service.listarDocumentosFiscais(req.params.id);
+    let diagnostico = { transmissao_habilitada: false, producao_bloqueada: false };
+    try {
+      const { getFiscalConfig } = require('../services/fiscal/configService');
+      const { diagnosticarProntidaoTransmissao } = require('../services/fechamento-fiscal/FechamentoFiscalTransmissaoService');
+      const cfg = await getFiscalConfig({ validarUrls: false });
+      diagnostico = diagnosticarProntidaoTransmissao(cfg);
+    } catch (_) { /* ignore */ }
     res.json({
       documentos,
-      transmissao_habilitada: true,
-      producao_bloqueada: true
+      transmissao_habilitada: Boolean(diagnostico.transmissao_habilitada),
+      producao_bloqueada: false,
+      diagnostico_transmissao: diagnostico
     });
   } catch (err) {
     sendError(res, err);
   }
 });
 
-/** Sprint 04 — transmissão SEFAZ (somente homologação) */
+/** Sprint 04/07.2 — transmissão SEFAZ (PRODUÇÃO ou HOMOLOGAÇÃO) */
 router.post('/:id/transmitir', async (req, res) => {
   try {
     const result = await service.transmitirFechamentoFiscal(req.params.id, {
       usuario_id: usuarioId(req),
+      empresa_id: req.user?.empresa_id,
       ...(req.body || {})
     });
     res.json(result);

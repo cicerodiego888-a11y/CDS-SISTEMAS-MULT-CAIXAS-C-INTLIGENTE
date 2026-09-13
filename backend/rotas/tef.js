@@ -14,6 +14,9 @@ const tefConfigService = require('../services/tef/tefConfigService');
 const tefFluxoPagamento = require('../services/tef/tefFluxoPagamento');
 const configService = require('../services/configuracaoService');
 const { gravarAuditoria } = require('../services/auditoria');
+const {
+  classificarSituacaoFiscalDaVenda
+} = require('../services/fechamento-fiscal/NfceSituacaoFiscalService');
 
 router.use(tefConfiguracaoRoutes);
 router.use(tefConciliacaoRoutes);
@@ -184,7 +187,18 @@ router.get('/venda/:vendaId/resumo', (req, res) => {
       return res.status(404).json({ error: 'Venda não encontrada.' });
     }
 
-    res.json(row);
+    classificarSituacaoFiscalDaVenda(db, vendaId)
+      .then((fiscal) => {
+        res.json({
+          ...row,
+          nfce_situacao_fiscal: fiscal.situacao,
+          nfce_documentada: fiscal.documentada,
+          nfce_exige_recuperacao: fiscal.exige_recuperacao,
+          nfce_classificacao_motivo: fiscal.motivo,
+          nfce_cstats: fiscal.cstats
+        });
+      })
+      .catch((classErr) => res.status(500).json({ error: classErr.message }));
   });
 });
 

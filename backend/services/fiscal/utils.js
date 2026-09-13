@@ -24,18 +24,10 @@ function todayYMD() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function nowDhEmi() {
-  const agora = new Date();
-
-  const ano = agora.getFullYear();
-  const mes = String(agora.getMonth() + 1).padStart(2, '0');
-  const dia = String(agora.getDate()).padStart(2, '0');
-  const hora = String(agora.getHours()).padStart(2, '0');
-  const minuto = String(agora.getMinutes()).padStart(2, '0');
-  const segundo = String(agora.getSeconds()).padStart(2, '0');
-
-  // Brasil UTC-03:00
-  return `${ano}-${mes}-${dia}T${hora}:${minuto}:${segundo}-03:00`;
+/** @deprecated Preferir obterDataHoraFiscalEstabelecimento (Sprint 08.4). Mantido para compatibilidade. */
+function nowDhEmi(date) {
+  const { obterDataHoraFiscalEstabelecimento } = require('./fiscalDateTime');
+  return obterDataHoraFiscalEstabelecimento(date);
 }
 
 // Módulo 11 da chave NF-e/NFC-e

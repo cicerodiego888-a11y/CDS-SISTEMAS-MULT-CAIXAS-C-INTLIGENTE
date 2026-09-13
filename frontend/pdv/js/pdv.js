@@ -7851,7 +7851,8 @@ async function verResumoVendaFiscalTEF(vendaId) {
         const texto = `
 VENDA INTERNA: #${data.venda_id}
 NFC-e SEFAZ: ${data.nfce_numero ? '#' + data.nfce_numero : 'Não emitida'}
-STATUS NFC-e: ${data.nfce_status || 'Não informado'}
+SITUAÇÃO FISCAL: ${data.nfce_situacao_fiscal || 'DESCONHECIDA'}
+STATUS DA TENTATIVA: ${data.nfce_status || 'Não informado'}
 CHAVE: ${data.nfce_chave || 'Não informada'}
 
 TEF:

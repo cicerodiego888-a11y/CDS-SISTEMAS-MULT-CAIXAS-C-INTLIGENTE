@@ -141,8 +141,14 @@ async function resolverConfigFiscal(deps) {
 }
 
 function peekNumeroProvisorio(config, sequencia) {
-  // NÃO consome numeração — apenas visualização/preparação
-  const base = Number(config.numeroAtual != null ? config.numeroAtual : (config.numeracaoDocumentos?.nfce?.proximoNumero || 1));
+  // NÃO consome numeração — apenas visualização/preparação.
+  // Usa a numeração oficial do CDS (fiscal_numero_atual / fluxo incrementaNumeroFiscal).
+  // Não inventa série/número próprios do Fechamento Fiscal.
+  const base = Number(
+    config.numeroAtual != null
+      ? config.numeroAtual
+      : (config.numeracaoDocumentos?.nfce?.proximoNumero || 1)
+  );
   const n = Number.isFinite(base) && base > 0 ? base : 1;
   return n + Number(sequencia || 1) - 1;
 }
@@ -173,6 +179,7 @@ function montarItemXml(snapshot) {
 
 async function gerarXmlDocumento({ config, snapshotItens, pagamentos, valorTotal, numero, buildFn }) {
   const buildNfceXml = buildFn || require('../fiscal/xmlBuilder').buildNfceXml;
+  const { mapearFormaPagamento } = require('../fiscal/xmlBuilder');
   const { validarXmlFiscal } = require('../fiscal/validarXmlFiscal');
 
   const itens = snapshotItens.map(montarItemXml);
@@ -181,13 +188,25 @@ async function gerarXmlDocumento({ config, snapshotItens, pagamentos, valorTotal
     desconto: 0,
     valor_fiscal: valorTotal,
     forma_pagamento: 'cartao',
-    pagamentos: (pagamentos || []).map((p) => ({
-      forma_pagamento: p.forma_pagamento || 'cartao',
-      valor: Number(p.valor),
-      tipo_recebimento: 'fiscal',
-      xPag: p.operadora || undefined,
-      descricao_pagamento: p.operadora || undefined
-    }))
+    pagamentos: (pagamentos || []).map((p) => {
+      const forma = p.forma_pagamento || 'cartao';
+      const tPag = mapearFormaPagamento(forma);
+      const row = {
+        forma_pagamento: forma,
+        valor: Number(p.valor),
+        tipo_recebimento: 'fiscal'
+      };
+      // Sprint 08.0 — xPag só é permitido com tPag=99.
+      // Mercado Pago / operadora NÃO pode ir para xPag em cartão (03/04) ou PIX (17) → cStat 442.
+      if (tPag === '99') {
+        const desc = p.xPag || p.descricao_pagamento || p.operadora || null;
+        if (desc) {
+          row.xPag = desc;
+          row.descricao_pagamento = desc;
+        }
+      }
+      return row;
+    })
   };
 
   const built = buildNfceXml({

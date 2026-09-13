@@ -20,6 +20,9 @@ const VendaApplicationService = require('../services/vendas/VendaApplicationServ
 const VendaPagamentoService = require('../services/vendas/VendaPagamentoService');
 const VendaDevolucaoService = require('../services/vendas/VendaDevolucaoService');
 const VendaCancelamentoService = require('../services/vendas/VendaCancelamentoService');
+const {
+  classificarSituacoesFiscaisPorVenda
+} = require('../services/fechamento-fiscal/NfceSituacaoFiscalService');
 
 const { agoraLocalBrasil } = VendaFinanceiroService;
 const { criarVenda } = VendaApplicationService;
@@ -68,6 +71,30 @@ function anexarPagamentosNasVendas(rows, done) {
     }
   );
 }
+
+function anexarClassificacaoFiscalNfce(rows, done) {
+  const lista = rows || [];
+  if (!lista.length) return done(null, lista);
+
+  classificarSituacoesFiscaisPorVenda(db, lista.map((v) => v.id))
+    .then((mapa) => {
+      const out = lista.map((v) => {
+        const fiscal = mapa.get(Number(v.id));
+        return {
+          ...v,
+          nfce_situacao_fiscal: fiscal?.situacao || 'SEM_DOCUMENTO',
+          nfce_documentada: Boolean(fiscal?.documentada),
+          nfce_exige_recuperacao: Boolean(fiscal?.exige_recuperacao),
+          nfce_permite_decisao_automatica: fiscal?.permite_decisao_automatica !== false,
+          nfce_classificacao_motivo: fiscal?.motivo || null,
+          nfce_cstats: fiscal?.cstats || []
+        };
+      });
+      done(null, out);
+    })
+    .catch((err) => done(err));
+}
+
 const {
   emitirNFeDevolucaoVenda,
   prepararNfeDevolucaoVenda,
@@ -174,12 +201,18 @@ router.get('/', (req, res) => {
     }
 
     res.setHeader('Cache-Control', 'no-store');
-    anexarPagamentosNasVendas(rows || [], (pagErr, comPagamentos) => {
-      if (pagErr) {
-        console.error('Erro ao anexar pagamentos na listagem de vendas:', pagErr);
-        return res.status(500).json({ error: pagErr.message });
+    anexarClassificacaoFiscalNfce(rows || [], (classErr, classificadas) => {
+      if (classErr) {
+        console.error('Erro ao classificar situação fiscal NFC-e:', classErr);
+        return res.status(500).json({ error: classErr.message });
       }
-      res.json(comPagamentos);
+      anexarPagamentosNasVendas(classificadas, (pagErr, comPagamentos) => {
+        if (pagErr) {
+          console.error('Erro ao anexar pagamentos na listagem de vendas:', pagErr);
+          return res.status(500).json({ error: pagErr.message });
+        }
+        res.json(comPagamentos);
+      });
     });
   });
 });
@@ -253,10 +286,16 @@ router.get('/:id', (req, res) => {
           return;
         }
         const concluir = (pagamentos) => {
-          res.json({
-            ...venda,
-            itens,
-            pagamentos: (pagamentos || []).map(mapearPagamentoRespostaApi)
+          anexarClassificacaoFiscalNfce([venda], (classErr, classificadas) => {
+            if (classErr) {
+              res.status(500).json({ error: classErr.message });
+              return;
+            }
+            res.json({
+              ...classificadas[0],
+              itens,
+              pagamentos: (pagamentos || []).map(mapearPagamentoRespostaApi)
+            });
           });
         };
         if (Array.isArray(recebimentos) && recebimentos.length > 0) {
