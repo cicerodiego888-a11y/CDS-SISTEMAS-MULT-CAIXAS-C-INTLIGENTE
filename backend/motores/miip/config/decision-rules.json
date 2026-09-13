@@ -1,0 +1,99 @@
+{
+  "versao": "1.0.0",
+  "descricao": "Regras de decisão — Decision Engine MIIP",
+  "thresholds": {
+    "sugerirConfirmacao": 95,
+    "mostrarSugestoes": 80,
+    "gapMinimoConfirmacao": 15
+  },
+  "motoresAutoAssociar": [
+    "motor_gtin",
+    "motor_associacao_fornecedor"
+  ],
+  "regras": [
+    {
+      "nome": "gtin_100",
+      "descricao": "GTIN encontrado com 100%",
+      "acao": "AUTO_ASSOCIAR",
+      "peso": 100,
+      "ativo": true,
+      "prioridade": 1,
+      "condicoes": {
+        "tipoEvidencia": "gtin_exato",
+        "motor": "motor_gtin",
+        "scoreMinimo": 100
+      }
+    },
+    {
+      "nome": "fornecedor_aprendido_100",
+      "descricao": "Fornecedor aprendido com 100%",
+      "acao": "AUTO_ASSOCIAR",
+      "peso": 100,
+      "ativo": true,
+      "prioridade": 2,
+      "condicoes": {
+        "tipoEvidencia": "associacao_fornecedor",
+        "motor": "motor_associacao_fornecedor",
+        "scoreMinimo": 100
+      }
+    },
+    {
+      "nome": "score_alto_gap_suficiente",
+      "descricao": "Score >= 95% com diferença mínima de 15 pontos para o segundo",
+      "acao": "SUGERIR_CONFIRMACAO",
+      "peso": 90,
+      "ativo": true,
+      "prioridade": 3,
+      "condicoes": {
+        "scoreMinimo": 95,
+        "gapMinimo": 15
+      }
+    },
+    {
+      "nome": "score_medio_sugestoes",
+      "descricao": "Score entre 80% e 94%",
+      "acao": "MOSTRAR_SUGESTOES",
+      "peso": 70,
+      "ativo": true,
+      "prioridade": 4,
+      "condicoes": {
+        "scoreMinimo": 80,
+        "scoreMaximo": 94
+      }
+    },
+    {
+      "nome": "score_alto_gap_insuficiente",
+      "descricao": "Score >= 95% mas diferença insuficiente para o segundo colocado",
+      "acao": "MOSTRAR_SUGESTOES",
+      "peso": 65,
+      "ativo": true,
+      "prioridade": 5,
+      "condicoes": {
+        "scoreMinimo": 95,
+        "gapMaximo": 14
+      }
+    },
+    {
+      "nome": "score_baixo_cadastro",
+      "descricao": "Score abaixo de 80%",
+      "acao": "CADASTRAR_NOVO",
+      "peso": 50,
+      "ativo": true,
+      "prioridade": 6,
+      "condicoes": {
+        "scoreMaximo": 79
+      }
+    },
+    {
+      "nome": "sem_candidatos",
+      "descricao": "Nenhum candidato confiável",
+      "acao": "CADASTRAR_NOVO",
+      "peso": 10,
+      "ativo": true,
+      "prioridade": 99,
+      "condicoes": {
+        "requerCandidato": false
+      }
+    }
+  ]
+}

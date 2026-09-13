@@ -1,0 +1,21 @@
+{
+  "versao": "1.0.0",
+  "categoria": "hardware",
+  "sinonimos": {
+    "PARAFUSO": ["FIXADOR"],
+    "FIXADOR": ["PARAFUSO"],
+    "PORCA": ["NUT"],
+    "ARRUELA": ["ANEL"],
+    "REBITE": ["FIXADOR"],
+    "PREGO": ["PINO"],
+    "BUCHA": ["ANCORA"],
+    "ACO": ["FERRO"],
+    "FERRO": ["ACO"],
+    "INOX": ["ACO INOXIDAVEL"],
+    "GALVANIZADO": ["ZINCADO"],
+    "ZINCADO": ["GALVANIZADO"],
+    "ALUMINIO": ["METAL LEVE"],
+    "SEXTAVADO": ["HEXAGONAL"],
+    "HEXAGONAL": ["SEXTAVADO"]
+  }
+}

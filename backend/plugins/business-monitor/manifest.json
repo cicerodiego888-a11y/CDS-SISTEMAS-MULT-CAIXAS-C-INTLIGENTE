@@ -1,0 +1,11 @@
+{
+  "id": "business-monitor",
+  "name": "Business Monitor",
+  "version": "1.0.0",
+  "description": "Monitor contínuo do negócio — observa, analisa, prevê e notifica",
+  "enabled": true,
+  "motors": ["CIA", "CIP", "MIB", "MIIP"],
+  "timeoutMs": 15000,
+  "oficial": true,
+  "geracao": "NOVA"
+}

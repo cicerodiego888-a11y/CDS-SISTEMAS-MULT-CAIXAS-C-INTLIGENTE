@@ -1,0 +1,5 @@
+{
+  "recurso": "produtos",
+  "somenteLeitura": true,
+  "acoes": ["ask", "suggest", "health"]
+}

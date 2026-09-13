@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CDS Smart Dashboard</title>
+  <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+  <link rel="stylesheet" href="/plugins/smart-dashboard/smart-dashboard.css">
+</head>
+<body>
+  <div class="sd-shell">
+    <header class="sd-header">
+      <div>
+        <p class="sd-eyebrow">CDS Intelligence · Plugin Oficial</p>
+        <h1>Smart Dashboard</h1>
+        <p class="sd-sub">CIA · CIP · MIB · MIIP — sem SQL direto</p>
+      </div>
+      <div class="sd-header-actions">
+        <button type="button" class="btn btn-sm btn-light" id="sdRefresh">Atualizar</button>
+        <button type="button" class="btn btn-sm btn-outline-light" id="sdExec">Modo Executivo</button>
+        <button type="button" class="btn btn-sm btn-outline-light" id="sdEdit">Personalizar</button>
+        <a class="btn btn-sm btn-outline-light" href="/erp">ERP</a>
+      </div>
+    </header>
+
+    <div id="sdBanner" class="sd-banner d-none"></div>
+    <div id="sdExecPanel" class="sd-exec d-none"></div>
+    <div id="sdGrid" class="sd-grid"></div>
+
+    <div id="sdLayoutPanel" class="sd-layout-panel d-none">
+      <h2>Personalização</h2>
+      <p class="small text-muted">Mover, ocultar e fixar cartões. Layout padrão do sistema não é alterado.</p>
+      <div id="sdLayoutList"></div>
+      <div class="d-flex gap-2 mt-3">
+        <button type="button" class="btn btn-success btn-sm" id="sdSaveLayout">Salvar layout</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="sdResetLayout">Restaurar padrão</button>
+      </div>
+    </div>
+  </div>
+  <script src="/plugins/smart-dashboard/smart-dashboard.js"></script>
+</body>
+</html>

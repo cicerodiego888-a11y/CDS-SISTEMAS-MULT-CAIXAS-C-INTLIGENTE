@@ -1,0 +1,6 @@
+{
+  "recurso": "fiscal",
+  "somenteLeitura": true,
+  "acoes": ["ask", "health"],
+  "proibido": ["emitir", "cancelar", "inutilizar"]
+}

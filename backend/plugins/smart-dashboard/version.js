@@ -1,0 +1,7 @@
+'use strict';
+
+module.exports = {
+  SMART_DASHBOARD_VERSION: '1.0.0',
+  SMART_DASHBOARD_CODIGO: 'SMART-DASHBOARD-RC1.0',
+  SMART_DASHBOARD_STATUS: 'RC1.0'
+};

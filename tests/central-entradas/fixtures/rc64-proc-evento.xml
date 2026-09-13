@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<procEventoNFe versao="1.00" xmlns="http://www.portalfiscal.inf.br/nfe">
+  <evento versao="1.00">
+    <infEvento Id="ID2102103526011234567800019955001000000066100000006601">
+      <cOrgao>91</cOrgao>
+      <tpAmb>2</tpAmb>
+      <CNPJ>12345678000199</CNPJ>
+      <chNFe>35260112345678000199550010000000661000000066</chNFe>
+      <dhEvento>2026-06-01T12:00:00-03:00</dhEvento>
+      <tpEvento>210210</tpEvento>
+      <nSeqEvento>1</nSeqEvento>
+      <verEvento>1.00</verEvento>
+      <detEvento versao="1.00">
+        <descEvento>Ciencia da Operacao</descEvento>
+      </detEvento>
+    </infEvento>
+  </evento>
+</procEventoNFe>

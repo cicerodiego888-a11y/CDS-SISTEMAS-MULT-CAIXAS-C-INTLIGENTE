@@ -1,0 +1,299 @@
+/* Sprint UX 04 — Cadastro de Produtos (layout por cards) */
+
+.cds-prod-cadastro .modal-dialog {
+  max-width: 980px;
+}
+
+.cds-prod-cadastro__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.cds-prod-cadastro__card {
+  border: 1px solid #dee2e6;
+  border-radius: 0.4rem;
+  background: #fff;
+  overflow: hidden;
+}
+
+.cds-prod-cadastro__card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.75rem 1rem;
+  background: #e9ecef;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.cds-prod-cadastro__card-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.cds-prod-cadastro__card-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #212529;
+  letter-spacing: 0.01em;
+}
+
+.cds-prod-cadastro__card-body {
+  padding: 1rem;
+  background: #f8f9fa;
+}
+
+.cds-prod-cadastro__card-body .form-label {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.cds-prod-cadastro__plu {
+  max-width: 7.5rem;
+}
+
+.cds-prod-cadastro__nome {
+  width: 100%;
+}
+
+.cds-prod-cadastro__atacado-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  background: #e9ecef;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.cds-prod-cadastro__atacado-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.cds-prod-cadastro__rodape {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+}
+
+.cds-prod-cadastro__imagem-drop {
+  border: 2px dashed #ced4da;
+  border-radius: 0.4rem;
+  background: #fff;
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1rem;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.cds-prod-cadastro__imagem-drop:hover,
+.cds-prod-cadastro__imagem-drop.is-dragover {
+  background: #eef3f8;
+  border-color: #6c757d;
+}
+
+.cds-prod-cadastro__imagem-preview {
+  width: 160px;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 0.35rem;
+  border: 1px solid #dee2e6;
+  background: #fff;
+}
+
+.cds-prod-cadastro__imagem-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+  margin-top: 0.75rem;
+}
+
+.cds-prod-cadastro__hint {
+  font-size: 0.78rem;
+  color: #6c757d;
+}
+
+/* FORMACAO-PRECO-MARGEM-06 — card informativo (margem/lucro reais) */
+.cds-prod-cadastro__badge-oficial {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+  color: #495057;
+  background: #dee2e6;
+  border-radius: 0.25rem;
+}
+
+.cds-prod-cadastro__info-icon {
+  display: inline-block;
+  margin-left: 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #6c757d;
+  cursor: help;
+  line-height: 1;
+}
+
+.cds-prod-cadastro__card--tempo-real {
+  border-color: #c5d4e8;
+}
+
+.cds-prod-cadastro__card-header--tempo-real {
+  background: #eaf2fb;
+  border-bottom-color: #c5d4e8;
+}
+
+.cds-prod-cadastro__card-title--tempo-real {
+  color: #1d4f91;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.cds-prod-cadastro__card-title--tempo-real .cds-prod-cadastro__info-icon {
+  color: #1d4f91;
+}
+
+.cds-prod-cadastro__tempo-real-body {
+  background: #fff;
+}
+
+.cds-prod-cadastro__tempo-real-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.cds-prod-cadastro__tempo-real-grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cds-prod-cadastro__tempo-real-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0.15rem 0.55rem;
+  border-right: 1px solid #e9ecef;
+}
+
+.cds-prod-cadastro__tempo-real-item:last-child {
+  border-right: none;
+}
+
+.cds-prod-cadastro__tempo-real-item--destaque {
+  background: #f1f3f5;
+  border: 1px solid #dee2e6;
+  border-radius: 0.45rem;
+  padding: 0.7rem 0.75rem;
+  border-right: 1px solid #dee2e6;
+}
+
+.cds-prod-cadastro__tempo-real-label {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #343a40;
+  line-height: 1.25;
+}
+
+.cds-prod-cadastro__tempo-real-valor {
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.cds-prod-cadastro__tempo-real-valor--margem {
+  font-size: 1.55rem;
+  color: #1d4f91;
+  margin: 0.15rem 0;
+}
+
+.cds-prod-cadastro__tempo-real-valor--margem.is-negativo,
+.cds-prod-cadastro__tempo-real-pill.is-negativo {
+  color: #b02a37;
+}
+
+.cds-prod-cadastro__tempo-real-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 2rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.45rem;
+  border: 1px solid transparent;
+  font-size: 0.95rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cds-prod-cadastro__tempo-real-pill--preco {
+  color: #198754;
+  background: #e8f6ee;
+  border-color: #b7dfc7;
+}
+
+.cds-prod-cadastro__tempo-real-pill--lucro {
+  color: #146c43;
+  background: #eef6f1;
+  border-color: #c5ddd0;
+}
+
+.cds-prod-cadastro__tempo-real-pill--lucro.is-negativo {
+  background: #f8e8ea;
+  border-color: #e2b4b8;
+}
+
+.cds-prod-cadastro__tempo-real-hint {
+  font-size: 0.72rem;
+  color: #6c757d;
+  line-height: 1.3;
+}
+
+@media (max-width: 767.98px) {
+  .cds-prod-cadastro__tempo-real-grid,
+  .cds-prod-cadastro__tempo-real-grid--3 {
+    grid-template-columns: 1fr;
+  }
+
+  .cds-prod-cadastro__tempo-real-item {
+    border-right: none;
+    border-bottom: 1px solid #e9ecef;
+    padding: 0.65rem 0;
+  }
+
+  .cds-prod-cadastro__tempo-real-item--destaque {
+    padding: 0.7rem 0.75rem;
+  }
+
+  .cds-prod-cadastro__tempo-real-valor--margem {
+    font-size: 1.35rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .cds-prod-cadastro__rodape {
+    grid-template-columns: 1fr;
+  }
+
+  .cds-prod-cadastro__plu {
+    max-width: none;
+  }
+}

@@ -1,0 +1,358 @@
+{
+  "schema": "cds-central-homologacao/v1",
+  "sprint": "RC4.31.8",
+  "geradoEm": "2026-08-01T15:41:12.496Z",
+  "ambiente": {
+    "versao": "1.0.3",
+    "commit": "local",
+    "build": "2026-08-01T15:41:12.497Z",
+    "sprint": "RC4.31.8"
+  },
+  "fluxos": {
+    "parser": {
+      "ok": true,
+      "titulo": "Parser NF-e (validação integrada)",
+      "detalhe": "fixture rc64 → 2 itens"
+    },
+    "importacao_xml": {
+      "ok": true,
+      "titulo": "Importação XML (1/5/20/100+ itens)",
+      "detalhe": "1→1it (181ms) | 5→5it (178ms) | 20→20it (409ms) | 120→120it (2391ms)"
+    },
+    "miip": {
+      "ok": true,
+      "titulo": "Identificação MIIP (conhecido/desconhecido/misto)",
+      "detalhe": "conhecido=2/2 (auto=0) | desconhecido=0/2 pend=2 | misto=2/3 (67%)"
+    },
+    "associacao_manual": {
+      "ok": true,
+      "titulo": "Associação manual MIIP",
+      "detalhe": "3 associações | miip_associacoes id=105 → prod 799"
+    },
+    "edicao": {
+      "ok": true,
+      "titulo": "Edição de itens (adicionar/editar/excluir)",
+      "detalhe": "padrões frontend OK | ciclo editar/adicionar/excluir simulado"
+    },
+    "datas": {
+      "ok": true,
+      "titulo": "Datas (emissão/entrada/vencimento + foco)",
+      "detalhe": "emissão=2026-06-01 | parcelas=2 | foco blur OK"
+    },
+    "parcelas": {
+      "ok": true,
+      "titulo": "Parcelas / duplicatas (cobr/fat/dup)",
+      "detalhe": "3 dup | docs=001,002,003 | venc=2026-01-15"
+    },
+    "compra": {
+      "ok": true,
+      "titulo": "Gravação da compra (itens/embalagens/financeiro/XML)",
+      "detalhe": "compra #4 | itens=1 | chave …00000659"
+    },
+    "estoque": {
+      "ok": true,
+      "titulo": "Estoque após compra",
+      "detalhe": "estoque=5 | fiscal=5 | custo=20"
+    },
+    "financeiro": {
+      "ok": true,
+      "titulo": "Contas a Pagar (parcelas/vencimentos/documentos)",
+      "detalhe": "2 parcelas OK | docs=001,002"
+    },
+    "persistencia": {
+      "ok": true,
+      "titulo": "Persistência após reinício simulado",
+      "detalhe": "compra=4 itens=1 fin=2 miip_assoc=0"
+    },
+    "regressao": {
+      "ok": true,
+      "titulo": "Regressão (20 importações consecutivas)",
+      "detalhe": "20 XMLs OK | tempo médio=151ms | max=196ms"
+    }
+  },
+  "estatisticas": {
+    "tempoTotalMs": 7894,
+    "tempoTotalSeg": 7.9,
+    "memoriaMaxMb": 63.1,
+    "memoriaAtualMb": 63.3,
+    "cpuUserMs": 5765,
+    "cpuSystemMs": 1547,
+    "quantidadeEtapas": 12,
+    "quantidadeExcecoes": 0,
+    "quantidadeConsultasSql": 78,
+    "plataforma": "win32 10.0.26100",
+    "node": "v20.20.2",
+    "xmlsProcessados": 26,
+    "produtosIdentificadosAutomaticamente": 4,
+    "produtosAssociadosManualmente": 3,
+    "comprasGravadas": 1,
+    "tempoMedioProcessamentoMs": 246,
+    "tempoMedioProcessamentoSeg": 0.25
+  },
+  "metricas": {
+    "etapas": [
+      {
+        "nome": "parser",
+        "resultado": "OK",
+        "tempoMs": 1108,
+        "memoriaMb": 25.1,
+        "detalhe": "fixture rc64 → 2 itens"
+      },
+      {
+        "nome": "importacao_xml",
+        "resultado": "OK",
+        "tempoMs": 3159,
+        "memoriaMb": 52.7,
+        "detalhe": "1→1it (181ms) | 5→5it (178ms) | 20→20it (409ms) | 120→120it (2391ms)"
+      },
+      {
+        "nome": "miip",
+        "resultado": "OK",
+        "tempoMs": 146,
+        "memoriaMb": 57.4,
+        "detalhe": "conhecido=2/2 (auto=0) | desconhecido=0/2 pend=2 | misto=2/3 (67%)"
+      },
+      {
+        "nome": "associacao_manual",
+        "resultado": "OK",
+        "tempoMs": 43,
+        "memoriaMb": 58.7,
+        "detalhe": "3 associações | miip_associacoes id=105 → prod 799"
+      },
+      {
+        "nome": "edicao",
+        "resultado": "OK",
+        "tempoMs": 3,
+        "memoriaMb": 59.1,
+        "detalhe": "padrões frontend OK | ciclo editar/adicionar/excluir simulado"
+      },
+      {
+        "nome": "datas",
+        "resultado": "OK",
+        "tempoMs": 9,
+        "memoriaMb": 60.1,
+        "detalhe": "emissão=2026-06-01 | parcelas=2 | foco blur OK"
+      },
+      {
+        "nome": "parcelas",
+        "resultado": "OK",
+        "tempoMs": 131,
+        "memoriaMb": 50,
+        "detalhe": "3 dup | docs=001,002,003 | venc=2026-01-15"
+      },
+      {
+        "nome": "compra",
+        "resultado": "OK",
+        "tempoMs": 238,
+        "memoriaMb": 48.5,
+        "detalhe": "compra #4 | itens=1 | chave …00000659"
+      },
+      {
+        "nome": "estoque",
+        "resultado": "OK",
+        "tempoMs": 1,
+        "memoriaMb": 48.6,
+        "detalhe": "estoque=5 | fiscal=5 | custo=20"
+      },
+      {
+        "nome": "financeiro",
+        "resultado": "OK",
+        "tempoMs": 1,
+        "memoriaMb": 48.6,
+        "detalhe": "2 parcelas OK | docs=001,002"
+      },
+      {
+        "nome": "persistencia",
+        "resultado": "OK",
+        "tempoMs": 6,
+        "memoriaMb": 48.9,
+        "detalhe": "compra=4 itens=1 fin=2 miip_assoc=0"
+      },
+      {
+        "nome": "regressao",
+        "resultado": "OK",
+        "tempoMs": 3012,
+        "memoriaMb": 63.1,
+        "detalhe": "20 XMLs OK | tempo médio=151ms | max=196ms"
+      }
+    ],
+    "excecoes": [],
+    "resumo": {
+      "tempoTotalMs": 7895,
+      "tempoTotalSeg": 7.9,
+      "memoriaMaxMb": 63.1,
+      "memoriaAtualMb": 63.3,
+      "cpuUserMs": 5765,
+      "cpuSystemMs": 1547,
+      "quantidadeEtapas": 12,
+      "quantidadeExcecoes": 0,
+      "quantidadeConsultasSql": 78,
+      "plataforma": "win32 10.0.26100",
+      "node": "v20.20.2"
+    }
+  },
+  "excecoes": [],
+  "inconsistencias": [],
+  "xmlsUtilizados": [
+    {
+      "chave": "35260112345678000199550010000646130000000643",
+      "qtdItens": 1,
+      "comCobranca": false,
+      "seed": 64613
+    },
+    {
+      "chave": "35260112345678000199550010000646530000000647",
+      "qtdItens": 5,
+      "comCobranca": false,
+      "seed": 64653
+    },
+    {
+      "chave": "35260112345678000199550010000648030000000644",
+      "qtdItens": 20,
+      "comCobranca": false,
+      "seed": 64803
+    },
+    {
+      "chave": "35260112345678000199550010000658030000000655",
+      "qtdItens": 120,
+      "comCobranca": false,
+      "seed": 65803
+    },
+    {
+      "chave": "35260112345678000199550010000652030000000658",
+      "qtdItens": 2,
+      "comCobranca": true,
+      "seed": 65203
+    },
+    {
+      "chave": "35260112345678000199550010000653030000000659",
+      "qtdItens": 1,
+      "comCobranca": true,
+      "seed": 65303
+    },
+    {
+      "chave": "35260112345678000199550010000654030000000651",
+      "qtdItens": 1,
+      "comCobranca": true,
+      "seed": 65403
+    },
+    {
+      "chave": "35260112345678000199550010000654040000000652",
+      "qtdItens": 2,
+      "comCobranca": false,
+      "seed": 65404
+    },
+    {
+      "chave": "35260112345678000199550010000654050000000653",
+      "qtdItens": 3,
+      "comCobranca": false,
+      "seed": 65405
+    },
+    {
+      "chave": "35260112345678000199550010000654060000000654",
+      "qtdItens": 4,
+      "comCobranca": true,
+      "seed": 65406
+    },
+    {
+      "chave": "35260112345678000199550010000654070000000655",
+      "qtdItens": 5,
+      "comCobranca": false,
+      "seed": 65407
+    },
+    {
+      "chave": "35260112345678000199550010000654080000000656",
+      "qtdItens": 1,
+      "comCobranca": false,
+      "seed": 65408
+    },
+    {
+      "chave": "35260112345678000199550010000654090000000657",
+      "qtdItens": 2,
+      "comCobranca": true,
+      "seed": 65409
+    },
+    {
+      "chave": "35260112345678000199550010000654100000000658",
+      "qtdItens": 3,
+      "comCobranca": false,
+      "seed": 65410
+    },
+    {
+      "chave": "35260112345678000199550010000654110000000659",
+      "qtdItens": 4,
+      "comCobranca": false,
+      "seed": 65411
+    },
+    {
+      "chave": "35260112345678000199550010000654120000000651",
+      "qtdItens": 5,
+      "comCobranca": true,
+      "seed": 65412
+    },
+    {
+      "chave": "35260112345678000199550010000654130000000652",
+      "qtdItens": 1,
+      "comCobranca": false,
+      "seed": 65413
+    },
+    {
+      "chave": "35260112345678000199550010000654140000000653",
+      "qtdItens": 2,
+      "comCobranca": false,
+      "seed": 65414
+    },
+    {
+      "chave": "35260112345678000199550010000654150000000654",
+      "qtdItens": 3,
+      "comCobranca": true,
+      "seed": 65415
+    },
+    {
+      "chave": "35260112345678000199550010000654160000000655",
+      "qtdItens": 4,
+      "comCobranca": false,
+      "seed": 65416
+    },
+    {
+      "chave": "35260112345678000199550010000654170000000656",
+      "qtdItens": 5,
+      "comCobranca": false,
+      "seed": 65417
+    },
+    {
+      "chave": "35260112345678000199550010000654180000000657",
+      "qtdItens": 1,
+      "comCobranca": true,
+      "seed": 65418
+    },
+    {
+      "chave": "35260112345678000199550010000654190000000658",
+      "qtdItens": 2,
+      "comCobranca": false,
+      "seed": 65419
+    },
+    {
+      "chave": "35260112345678000199550010000654200000000659",
+      "qtdItens": 3,
+      "comCobranca": false,
+      "seed": 65420
+    },
+    {
+      "chave": "35260112345678000199550010000654210000000651",
+      "qtdItens": 4,
+      "comCobranca": true,
+      "seed": 65421
+    },
+    {
+      "chave": "35260112345678000199550010000654220000000652",
+      "qtdItens": 5,
+      "comCobranca": false,
+      "seed": 65422
+    }
+  ],
+  "coberturaFluxos": 100,
+  "parecer": "APROVADA",
+  "status": "APROVADA",
+  "recomendacao": "APROVADA"
+}

@@ -1,0 +1,14 @@
+{
+  "versao": "1.0.0",
+  "descricao": "Unidades de medida — Attribute Engine MIIP",
+  "unidades": [
+    "UN", "UNIDADE", "PC", "PÇ", "PAR", "KIT", "CX", "PCT", "CJ",
+    "KG", "G", "MG", "L", "LT", "ML", "M", "CM", "MM", "POL", "M2",
+    "M3", "W", "KW", "V", "A", "HZ"
+  ],
+  "aliases": {
+    "LT": "L",
+    "UN": "UNIDADE",
+    "PC": "UNIDADE"
+  }
+}

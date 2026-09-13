@@ -1,0 +1,141 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+
+4 0 obj
+<< /Length 1927 >>
+stream
+BT
+/F1 10 Tf
+50 780 Td
+(# Release Certification Report ? RC4.32.0) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(## Ambiente) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(- Vers?o: 1.0.3) Tj
+0 -14 Td
+(- Commit: 817c81c) Tj
+0 -14 Td
+(- Build: 2026-09-11T17:50:17.439Z) Tj
+0 -14 Td
+(- Hash app.asar: `3858d842dd428c834ffce0b68b6d6a96977bbf6a2f28058e6405aa528cf088e7`) Tj
+0 -14 Td
+(- Origem: instalador-desatualizado) Tj
+0 -14 Td
+(- Data: 2026-09-11T20:14:21.299Z) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(## Resultados) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(? Inicializa??o do ERP) Tj
+0 -14 Td
+(  - DB ok | pacote: instalador-desatualizado | asar: 3858d842dd42?) Tj
+0 -14 Td
+(? Login) Tj
+0 -14 Td
+(  - user=rc4320_1789157658460 perfil=SUPER_ADMIN) Tj
+0 -14 Td
+(? Cadastro de Produtos) Tj
+0 -14 Td
+(  - CRUD ok | embalagem CX?12 | codigo=RC4320-1789157656652-P) Tj
+0 -14 Td
+(? Compras) Tj
+0 -14 Td
+(  - NF-e ?00000064 | status=EM_REVISAO) Tj
+0 -14 Td
+(? Financeiro) Tj
+0 -14 Td
+(  - parser financeiro OK | parcela R$500 | registros financeiro=121) Tj
+0 -14 Td
+(? Estoque) Tj
+0 -14 Td
+(  - fiscal=6+3 | total=15 UN) Tj
+0 -14 Td
+(? MIIP) Tj
+0 -14 Td
+(  - MUC 10?12 ? 120 UN \(MULTIPLICADOR\)) Tj
+0 -14 Td
+(? Central Inteligente) Tj
+0 -14 Td
+(  - documento 000064 processado) Tj
+0 -14 Td
+(? NFC-e) Tj
+0 -14 Td
+(  - homologa??o dest.xNome + m?dulo emissor presente) Tj
+0 -14 Td
+(? NF-e) Tj
+0 -14 Td
+(  - autoriza??o cStat=100 | protocolo=123) Tj
+0 -14 Td
+(? Relat?rios) Tj
+0 -14 Td
+(  - compras=4 fin=121 prod=1637) Tj
+0 -14 Td
+(? Performance) Tj
+0 -14 Td
+(  - 4.6s | mem 30.7MB | sql=16) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(## Estat?sticas) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(- Tempo total: 4.6s) Tj
+0 -14 Td
+(- Mem?ria m?xima: 30.7 MB) Tj
+0 -14 Td
+(- CPU user: 3594 ms) Tj
+0 -14 Td
+(- Testes/etapas: 12) Tj
+0 -14 Td
+(- Exce??es: 0) Tj
+0 -14 Td
+(- Consultas SQL: 16) Tj
+0 -14 Td
+(- Cobertura funcional: 100%) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(## Status da Release) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(**APROVADA**) Tj
+ET
+endstream
+endobj
+
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000002220 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+2290
+%%EOF

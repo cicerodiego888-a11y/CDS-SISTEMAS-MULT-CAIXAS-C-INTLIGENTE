@@ -1,0 +1,20 @@
+{
+  "versao": "1.1.0",
+  "descricao": "Padrões de medidas compostas — Motor Canonical MIIP",
+  "sufixos": [
+    "KW",
+    "KG",
+    "MG",
+    "ML",
+    "LT",
+    "L",
+    "W",
+    "G",
+    "V",
+    "MM",
+    "POL",
+    "UN"
+  ],
+  "fracoes": true,
+  "dimensoes": true
+}

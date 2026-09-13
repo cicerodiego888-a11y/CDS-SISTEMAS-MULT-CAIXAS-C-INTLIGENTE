@@ -1,0 +1,1446 @@
+/**
+ * Central Inteligente de Entradas — Estilos (Sprint 6 · UX Enterprise).
+ */
+
+.central-entradas-page {
+    padding-bottom: 2rem;
+}
+
+/* ============================================================
+ * Animações discretas
+ * ============================================================ */
+
+@keyframes centralFadeInUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes centralPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.03); }
+}
+
+.central-entradas-anim-in {
+    animation: centralFadeInUp 0.25s ease both;
+}
+
+.central-entradas-anim-pulse {
+    animation: centralPulse 2s ease-in-out infinite;
+}
+
+/* ============================================================
+ * Hero / Toolbar
+ * ============================================================ */
+
+.central-entradas-hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.central-entradas-hero-icone {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #0d6efd, #6610f2);
+    color: #fff;
+    font-size: 1.1rem;
+    margin-right: 0.5rem;
+    vertical-align: middle;
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.35);
+}
+
+.central-entradas-toolbar {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.central-entradas-toolbar .btn {
+    border-radius: 8px;
+}
+
+/* ============================================================
+ * Indicadores (barra de monitoramento)
+ * ============================================================ */
+
+.central-entradas-indicadores {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    padding: 0.85rem 1.25rem;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+    transition: border-color 0.3s ease;
+}
+
+.central-entradas-indicadores--ativo {
+    border-color: #0d6efd;
+    box-shadow: 0 2px 14px rgba(13, 110, 253, 0.15);
+}
+
+.central-entradas-indicador {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 180px;
+}
+
+.central-entradas-indicador > i {
+    font-size: 1.25rem;
+    width: 34px;
+    text-align: center;
+}
+
+.central-entradas-indicador-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6c757d;
+}
+
+.central-entradas-indicador-valor {
+    font-weight: 700;
+    font-size: 0.95rem;
+    line-height: 1.25;
+}
+
+.central-entradas-indicador-extra {
+    font-size: 0.72rem;
+    color: #94a3b8;
+}
+
+.central-entradas-indicador--novas {
+    background: rgba(255, 193, 7, 0.08);
+    border-radius: 10px;
+    padding: 0.35rem 0.75rem;
+}
+
+/* ============================================================
+ * KPIs do dashboard
+ * ============================================================ */
+
+.central-entradas-kpi {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    background: #fff;
+    border: 1px solid #eef1f5;
+    border-radius: 14px;
+    padding: 1rem 1.1rem;
+    height: 100%;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    border-bottom: 3px solid var(--kpi-cor, #0d6efd);
+}
+
+.central-entradas-kpi:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+    border-color: var(--kpi-cor, #0d6efd);
+}
+
+.central-entradas-kpi-icone {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--kpi-bg, rgba(13, 110, 253, 0.1));
+    color: var(--kpi-cor, #0d6efd);
+    font-size: 1.15rem;
+    flex-shrink: 0;
+}
+
+.central-entradas-kpi-valor {
+    font-size: 1.55rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: #1e293b;
+}
+
+.central-entradas-kpi-titulo {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #334155;
+    line-height: 1.2;
+}
+
+.central-entradas-kpi-subtitulo {
+    font-size: 0.66rem;
+    color: #94a3b8;
+}
+
+/* ============================================================
+ * Filtros
+ * ============================================================ */
+
+.central-entradas-filtros-card {
+    border: 1px solid #eef1f5;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+/* ============================================================
+ * Layout principal
+ * ============================================================ */
+
+.central-entradas-layout {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 1rem;
+    min-height: 460px;
+}
+
+.central-entradas-grid-area {
+    min-width: 0;
+}
+
+.central-entradas-painel-lateral {
+    min-width: 0;
+}
+
+@media (max-width: 1200px) {
+    .central-entradas-layout {
+        grid-template-columns: 1fr 340px;
+    }
+}
+
+@media (max-width: 992px) {
+    .central-entradas-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .central-entradas-painel-lateral {
+        min-height: 260px;
+    }
+}
+
+/* ============================================================
+ * Grid de documentos
+ * ============================================================ */
+
+.central-entradas-grid-card {
+    border: 1px solid #eef1f5;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    overflow: hidden;
+}
+
+.central-entradas-tabela tbody tr.central-entradas-row {
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.central-entradas-tabela tbody tr.central-entradas-row:hover {
+    background: rgba(13, 110, 253, 0.04);
+    border-left-color: var(--row-cor, #0d6efd);
+}
+
+.central-entradas-row-selected {
+    background: rgba(13, 110, 253, 0.08) !important;
+    border-left-color: var(--row-cor, #0d6efd) !important;
+}
+
+.central-entradas-cell-status {
+    text-align: center;
+    vertical-align: middle;
+}
+
+.central-entradas-status-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+}
+
+.central-entradas-fornecedor {
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.central-entradas-badge-status {
+    font-size: 0.68rem;
+    padding: 0.35em 0.6em;
+}
+
+.central-entradas-badge-miip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 4px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #6610f2;
+    background: rgba(102, 16, 242, 0.1);
+    border-radius: 6px;
+    padding: 2px 6px;
+    vertical-align: middle;
+}
+
+.central-entradas-sort:hover {
+    color: #0d6efd;
+}
+
+/* ============================================================
+ * Painel lateral / abas
+ * ============================================================ */
+
+.central-entradas-painel-card {
+    border: 1px solid #eef1f5;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    overflow: hidden;
+}
+
+.central-entradas-abas {
+    display: flex;
+    border-bottom: 1px solid #e9ecef;
+    background: #f8fafc;
+}
+
+.central-entradas-aba {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 0.55rem 0.25rem;
+    font-size: 0.68rem;
+    color: #64748b;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.central-entradas-aba i {
+    font-size: 0.85rem;
+}
+
+.central-entradas-aba:hover {
+    color: #0d6efd;
+    background: rgba(13, 110, 253, 0.04);
+}
+
+.central-entradas-aba.ativa {
+    color: #0d6efd;
+    border-bottom-color: #0d6efd;
+    background: #fff;
+    font-weight: 600;
+}
+
+.central-entradas-painel-body {
+    overflow-y: auto;
+    max-height: calc(100vh - 300px);
+}
+
+.central-entradas-label {
+    display: block;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6c757d;
+    margin-bottom: 0.15rem;
+}
+
+.central-entradas-divider {
+    border-top: 1px solid #eef1f5;
+    margin: 1rem 0;
+}
+
+.central-entradas-resumo-executivo {
+    border-left: 4px solid #0d6efd;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+}
+
+.central-entradas-chave {
+    font-family: Consolas, Monaco, 'Courier New', monospace;
+    font-size: 0.72rem;
+    word-break: break-all;
+    background: #f8fafc;
+    border: 1px solid #eef1f5;
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+    color: #475569;
+}
+
+/* ============================================================
+ * Aba Itens
+ * ============================================================ */
+
+.central-entradas-item-card {
+    border: 1px solid #eef1f5;
+    border-radius: 10px;
+    padding: 0.6rem 0.75rem;
+    margin-bottom: 0.5rem;
+    background: #fff;
+    transition: border-color 0.15s ease;
+}
+
+.central-entradas-item-card:hover {
+    border-color: #cbd5e1;
+}
+
+.central-entradas-item-nome {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.central-entradas-item-indice {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    background: #eef2ff;
+    color: #4f46e5;
+    font-size: 0.62rem;
+    font-weight: 700;
+    margin-right: 4px;
+}
+
+.central-entradas-item-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-size: 0.7rem;
+    color: #64748b;
+    margin-top: 0.25rem;
+}
+
+.central-entradas-badge-vinculado,
+.central-entradas-badge-pendente {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    font-size: 0.65rem;
+}
+
+.central-entradas-badge-vinculado {
+    background: rgba(25, 135, 84, 0.12);
+    color: #198754;
+}
+
+.central-entradas-badge-pendente {
+    background: rgba(253, 126, 20, 0.12);
+    color: #fd7e14;
+}
+
+/* ============================================================
+ * Aba MIIP
+ * ============================================================ */
+
+.central-entradas-miip-kpis {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+
+.central-entradas-miip-kpi {
+    border: 1px solid #eef1f5;
+    border-radius: 10px;
+    padding: 0.6rem;
+    text-align: center;
+    border-top: 3px solid var(--miip-cor, #0d6efd);
+}
+
+.central-entradas-miip-kpi i {
+    color: var(--miip-cor, #0d6efd);
+    font-size: 0.9rem;
+}
+
+.central-entradas-miip-kpi-valor {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.central-entradas-miip-kpi-label {
+    font-size: 0.62rem;
+    color: #64748b;
+    line-height: 1.2;
+}
+
+/* ============================================================
+ * Aba Compra
+ * ============================================================ */
+
+.central-entradas-compra-ok {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    background: rgba(25, 135, 84, 0.08);
+    border: 1px solid rgba(25, 135, 84, 0.25);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+}
+
+.central-entradas-compra-ok > i {
+    color: #198754;
+    font-size: 1.35rem;
+    margin-top: 2px;
+}
+
+/* ============================================================
+ * Timeline v2
+ * ============================================================ */
+
+.central-entradas-timeline-v2 {
+    position: relative;
+    padding-left: 0.25rem;
+}
+
+.central-entradas-timeline-v2-item {
+    display: flex;
+    gap: 0.75rem;
+    position: relative;
+    padding-bottom: 1rem;
+}
+
+.central-entradas-timeline-v2-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 32px;
+    bottom: 0;
+    width: 2px;
+    background: #e9ecef;
+}
+
+.central-entradas-timeline-v2-icone {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    z-index: 1;
+}
+
+.central-entradas-timeline-v2-evento {
+    font-size: 0.78rem;
+    line-height: 1.3;
+}
+
+.central-entradas-timeline-v2-detalhe {
+    font-size: 0.72rem;
+    color: #64748b;
+    margin-top: 1px;
+}
+
+.central-entradas-timeline-v2-meta {
+    font-size: 0.66rem;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+
+/* ============================================================
+ * Pipeline (progresso do processamento)
+ * ============================================================ */
+
+.central-entradas-pipeline-progress {
+    border-left: 2px solid #dee2e6;
+    padding-left: 0.5rem;
+}
+
+.central-entradas-pipeline-step {
+    font-size: 0.75rem;
+    color: #6c757d;
+    padding: 0.15rem 0;
+}
+
+.central-entradas-pipeline-step.ativa {
+    color: #0d6efd;
+    font-weight: 600;
+}
+
+.central-entradas-pipeline-step.concluida {
+    color: #198754;
+}
+
+/* ============================================================
+ * XML viewer
+ * ============================================================ */
+
+.central-entradas-xml-viewer {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    font-family: Consolas, Monaco, 'Courier New', monospace;
+    font-size: 0.7rem;
+    line-height: 1.35;
+    max-height: 340px;
+    overflow: auto;
+    padding: 0.75rem;
+    border-radius: 8px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin-bottom: 0;
+}
+
+/* ============================================================
+ * Badges auxiliares
+ * ============================================================ */
+
+.central-badge-orange {
+    background-color: #fd7e14;
+    color: #fff;
+}
+
+.central-badge-light {
+    background-color: #f8f9fa;
+    color: #212529;
+    border: 1px solid #dee2e6;
+}
+
+.central-entradas-card-click {
+    cursor: pointer;
+}
+
+/* ============================================================
+ * Sprint 7 — Inteligência operacional
+ * ============================================================ */
+
+.central-entradas-atencao {
+    border: 1px solid #fde68a;
+    background: linear-gradient(135deg, #fffbeb 0%, #fff 100%);
+    border-radius: 12px;
+    padding: 0.85rem 1rem;
+}
+
+.central-entradas-atencao--ok {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: #166534;
+}
+
+.central-entradas-atencao-titulo {
+    font-weight: 700;
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+    color: #92400e;
+}
+
+.central-entradas-atencao-itens {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.central-entradas-atencao-item {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.45rem 0.5rem;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.7);
+    border-left: 3px solid var(--item-cor, #f59e0b);
+    font-size: 0.82rem;
+}
+
+.central-entradas-kpi--operacional {
+    min-height: 88px;
+}
+
+.central-entradas-filtros-rapidos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.central-entradas-filtro-rapido {
+    border: 1px solid #dee2e6;
+    background: #fff;
+    border-radius: 999px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    color: #495057;
+    transition: all 0.15s ease;
+}
+
+.central-entradas-filtro-rapido:hover,
+.central-entradas-filtro-rapido.ativa {
+    border-color: #0d6efd;
+    background: rgba(13, 110, 253, 0.08);
+    color: #0d6efd;
+}
+
+.central-entradas-score {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;
+    padding: 0.15rem 0.35rem;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--score-cor, #64748b);
+    background: color-mix(in srgb, var(--score-cor, #64748b) 12%, white);
+}
+
+.central-entradas-score--na {
+    color: #94a3b8;
+    background: #f1f5f9;
+}
+
+.central-entradas-alerta {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: 10px;
+    border: 1px solid #eef1f5;
+    margin-bottom: 0.45rem;
+    border-left: 3px solid var(--alerta-cor, #6c757d);
+}
+
+.central-entradas-alerta-icone {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--alerta-cor, #6c757d) 15%, white);
+    color: var(--alerta-cor, #6c757d);
+    flex-shrink: 0;
+}
+
+.central-entradas-alerta-titulo {
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.central-entradas-pendencia-resumo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.65rem;
+    border-radius: 10px;
+    border: 1px solid #eef1f5;
+    background: #fff;
+}
+
+.central-entradas-pendencia-resumo i {
+    color: var(--pend-cor, #64748b);
+}
+
+.central-entradas-pendencia-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    cursor: pointer;
+}
+
+.central-entradas-pendencia-item:hover {
+    background: #f8fafc;
+}
+
+.central-entradas-fornecedor-stats {
+    border: 1px solid #eef1f5;
+    border-radius: 10px;
+    padding: 0.65rem 0.75rem;
+    background: #f8fafc;
+}
+
+.central-entradas-pendencias-card .card-header,
+.central-entradas-alertas-card .card-header {
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: #f8fafc;
+}
+
+/* Sprint 8 — Serviço de automação */
+
+.central-entradas-servico {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid #dbeafe;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #f0f9ff 0%, #fff 100%);
+}
+
+.central-entradas-servico--ativo {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.12);
+}
+
+.central-entradas-servico-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.central-entradas-servico-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.central-entradas-servico-dot.online {
+    background: #198754;
+    box-shadow: 0 0 6px rgba(25, 135, 84, 0.6);
+}
+
+.central-entradas-servico-dot.offline {
+    background: #94a3b8;
+}
+
+.central-entradas-servico-metricas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    font-size: 0.78rem;
+}
+
+.central-entradas-servico-metricas .label {
+    display: block;
+    color: #64748b;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+}
+
+.central-nav-view.active {
+    background: rgba(13, 110, 253, 0.1);
+    border-color: #0d6efd;
+    color: #0d6efd;
+}
+
+/* ============================================================
+ * Sprint 9 — Polimento Enterprise (UX)
+ * ============================================================ */
+
+@keyframes centralUxShimmer {
+    0% { background-position: -468px 0; }
+    100% { background-position: 468px 0; }
+}
+
+.central-ux-skeleton {
+    background: linear-gradient(90deg, #eef2f7 0%, #f8fafc 40%, #eef2f7 80%);
+    background-size: 468px 100%;
+    animation: centralUxShimmer 1.2s ease-in-out infinite;
+    border-radius: 6px;
+}
+
+.central-ux-skeleton-line {
+    height: 10px;
+    margin-bottom: 0.45rem;
+}
+
+.central-ux-skeleton-line--xs { width: 35%; height: 8px; }
+.central-ux-skeleton-line--sm { width: 55%; height: 8px; }
+.central-ux-skeleton-line--md { width: 70%; }
+.central-ux-skeleton-line--lg { width: 45%; height: 18px; }
+
+.central-ux-skeleton-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    margin-bottom: 0.5rem;
+}
+
+.central-ux-skeleton-circle--xs { width: 28px; height: 28px; }
+.central-ux-skeleton-circle--sm { width: 30px; height: 30px; flex-shrink: 0; }
+
+.central-ux-skeleton-gauge {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+}
+
+.central-ux-skeleton-kpi {
+    min-height: 96px;
+    padding: 0.85rem;
+    border-radius: 12px;
+    border: 1px solid #eef1f5;
+    background: #fff;
+}
+
+.central-ux-skeleton-indicadores {
+    pointer-events: none;
+}
+
+.central-ux-skeleton-row td {
+    padding: 0.85rem 0.75rem;
+    vertical-align: middle;
+}
+
+.central-ux-skeleton-timeline-item {
+    display: flex;
+    gap: 0.75rem;
+    padding-bottom: 1rem;
+}
+
+/* Empty states */
+
+.central-ux-empty {
+    text-align: center;
+    padding: 2rem 1.25rem;
+    color: #475569;
+}
+
+.central-ux-empty-icone {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 0.75rem;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+    color: #64748b;
+}
+
+.central-ux-empty-titulo {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #1e293b;
+    margin-bottom: 0.35rem;
+}
+
+.central-ux-empty-descricao {
+    font-size: 0.8rem;
+    color: #64748b;
+    max-width: 320px;
+    margin: 0 auto;
+    line-height: 1.45;
+}
+
+/* Gauge circular de score */
+
+.central-ux-gauge {
+    position: relative;
+    width: var(--gauge-size, 96px);
+    height: var(--gauge-size, 96px);
+    margin: 0 auto;
+}
+
+.central-ux-gauge-svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.central-ux-gauge-track {
+    fill: none;
+    stroke: #e9ecef;
+    stroke-width: 6;
+}
+
+.central-ux-gauge-fill {
+    fill: none;
+    stroke: var(--gauge-cor, #0d6efd);
+    stroke-width: 6;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.6s ease, stroke 0.3s ease;
+}
+
+.central-ux-gauge-valor {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.1rem;
+    color: #1e293b;
+}
+
+.central-ux-gauge-label {
+    position: absolute;
+    bottom: 18%;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #94a3b8;
+}
+
+.central-ux-gauge-descricao {
+    max-width: 220px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Tendências KPI */
+
+.central-ux-trend {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.62rem;
+    margin-top: 0.25rem;
+    line-height: 1.2;
+}
+
+.central-ux-trend-simbolo {
+    font-weight: 800;
+}
+
+.central-ux-trend--alta { color: #198754; }
+.central-ux-trend--baixa { color: #dc3545; }
+.central-ux-trend--estavel,
+.central-ux-trend--neutro { color: #64748b; }
+
+.central-ux-trend-texto {
+    opacity: 0.9;
+}
+
+/* Estados do serviço */
+
+.central-ux-servico {
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+}
+
+.central-ux-servico-icone {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.central-ux-servico-descricao {
+    line-height: 1.2;
+}
+
+.central-ux-servico--monitorando {
+    border-color: #bbf7d0;
+    background: linear-gradient(135deg, #f0fdf4 0%, #fff 100%);
+}
+.central-ux-servico--monitorando .central-ux-servico-icone {
+    background: rgba(25, 135, 84, 0.12);
+    color: #198754;
+}
+
+.central-ux-servico--sincronizando {
+    border-color: #93c5fd;
+    background: linear-gradient(135deg, #eff6ff 0%, #fff 100%);
+}
+.central-ux-servico--sincronizando .central-ux-servico-icone {
+    background: rgba(13, 110, 253, 0.12);
+    color: #0d6efd;
+}
+
+.central-ux-servico--aguardando {
+    border-color: #e2e8f0;
+    background: linear-gradient(135deg, #f8fafc 0%, #fff 100%);
+}
+.central-ux-servico--aguardando .central-ux-servico-icone {
+    background: rgba(100, 116, 139, 0.12);
+    color: #64748b;
+}
+
+.central-ux-servico--erro {
+    border-color: #fecaca;
+    background: linear-gradient(135deg, #fef2f2 0%, #fff 100%);
+}
+.central-ux-servico--erro .central-ux-servico-icone {
+    background: rgba(220, 53, 69, 0.12);
+    color: #dc3545;
+}
+
+.central-ux-servico--cooldown {
+    border-color: #fcd34d;
+    background: linear-gradient(135deg, #fffbeb 0%, #fff 100%);
+}
+.central-ux-servico--cooldown .central-ux-servico-icone {
+    background: rgba(245, 158, 11, 0.14);
+    color: #b45309;
+}
+
+.central-ux-servico--offline {
+    border-color: #cbd5e1;
+    background: linear-gradient(135deg, #f1f5f9 0%, #fff 100%);
+}
+.central-ux-servico--offline .central-ux-servico-icone {
+    background: rgba(71, 85, 105, 0.12);
+    color: #475569;
+}
+
+@keyframes centralBadgePulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.65; }
+}
+
+.central-ux-badge-pulse {
+    animation: centralBadgePulse 1.5s ease-in-out infinite;
+}
+
+/* Timeline enterprise */
+
+.central-entradas-timeline-enterprise {
+    position: relative;
+    padding: 0.25rem 0 0 0.5rem;
+}
+
+.central-entradas-timeline-enterprise-item {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    gap: 0.65rem;
+    position: relative;
+    padding-bottom: 1rem;
+}
+
+.central-entradas-timeline-enterprise-item:not(:last-child) .central-entradas-timeline-enterprise-marker::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 36px;
+    bottom: -4px;
+    width: 2px;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, var(--tl-cor, #94a3b8) 0%, #e9ecef 100%);
+    opacity: 0.5;
+}
+
+.central-entradas-timeline-enterprise-marker {
+    position: relative;
+    display: flex;
+    justify-content: center;
+}
+
+.central-entradas-timeline-enterprise-icone {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+    z-index: 1;
+}
+
+.central-entradas-timeline-enterprise-card {
+    background: #fff;
+    border: 1px solid #eef1f5;
+    border-radius: 10px;
+    padding: 0.55rem 0.65rem;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.central-entradas-timeline-enterprise-item:hover .central-entradas-timeline-enterprise-card {
+    border-color: var(--tl-cor, #0d6efd);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.central-entradas-timeline-enterprise-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.central-entradas-timeline-enterprise-status {
+    font-size: 0.78rem;
+    color: #1e293b;
+}
+
+.central-entradas-timeline-enterprise-datahora {
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.central-entradas-timeline-enterprise-data {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+.central-entradas-timeline-enterprise-hora {
+    display: block;
+    font-size: 0.66rem;
+    color: #94a3b8;
+}
+
+.central-entradas-timeline-enterprise-descricao {
+    font-size: 0.74rem;
+    color: #475569;
+    line-height: 1.35;
+    margin-bottom: 0.35rem;
+}
+
+.central-entradas-timeline-enterprise-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    font-size: 0.66rem;
+    color: #64748b;
+}
+
+/* Painel executivo */
+
+.central-entradas-exec-grid {
+    margin-top: 0.35rem;
+}
+
+.central-entradas-exec-item {
+    display: flex;
+    gap: 0.55rem;
+    align-items: flex-start;
+    padding: 0.5rem 0.55rem;
+    border: 1px solid #eef1f5;
+    border-radius: 10px;
+    background: #fafbfc;
+    height: 100%;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.central-entradas-exec-item:hover {
+    background: #fff;
+    border-color: #dbeafe;
+    transform: translateY(-1px);
+}
+
+.central-entradas-exec-item > i {
+    color: #64748b;
+    margin-top: 2px;
+    width: 16px;
+    text-align: center;
+}
+
+.central-entradas-exec-label {
+    display: block;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #94a3b8;
+    margin-bottom: 1px;
+}
+
+.central-entradas-exec-valor {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #1e293b;
+    line-height: 1.25;
+}
+
+/* Microinterações e acessibilidade */
+
+.central-entradas-score--anim {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.central-entradas-score--anim:hover {
+    transform: scale(1.06);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+}
+
+.central-entradas-kpi:focus-visible,
+.central-entradas-row:focus-visible,
+.central-entradas-filtro-rapido:focus-visible,
+.central-entradas-aba:focus-visible,
+.central-nav-view:focus-visible {
+    outline: 2px solid #0d6efd;
+    outline-offset: 2px;
+}
+
+.central-entradas-badge-status {
+    transition: transform 0.15s ease;
+}
+
+.central-entradas-tabela tbody tr.central-entradas-row:focus-visible {
+    outline: 2px solid #0d6efd;
+    outline-offset: -2px;
+}
+
+/* Responsividade — 1366, 1920, ultrawide */
+
+@media (max-width: 1366px) {
+    .central-entradas-layout {
+        grid-template-columns: 1fr 360px;
+    }
+
+    .central-entradas-kpi-valor {
+        font-size: 1.15rem;
+    }
+
+    .central-entradas-servico-metricas {
+        gap: 0.85rem;
+    }
+}
+
+@media (min-width: 1920px) {
+    .central-entradas-layout {
+        grid-template-columns: 1fr 440px;
+        gap: 1.25rem;
+    }
+
+    .central-entradas-page {
+        max-width: 1680px;
+        margin: 0 auto;
+    }
+}
+
+@media (min-width: 2560px) {
+    .central-entradas-page {
+        max-width: 1920px;
+    }
+
+    .central-entradas-layout {
+        grid-template-columns: 1fr 480px;
+    }
+}
+
+@media (max-width: 768px) {
+    .central-entradas-indicadores {
+        gap: 1rem;
+    }
+
+    .central-entradas-indicador {
+        min-width: 100%;
+    }
+
+    .central-entradas-servico {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .central-ux-empty {
+        padding: 1.25rem 0.75rem;
+    }
+}
+
+/* Sprint 10 — Upload XML Enterprise */
+
+.central-upload-modal .modal-body {
+    padding: 1.25rem 1.5rem 1rem;
+}
+
+.central-upload-dropzone {
+    border: 2px dashed rgba(13, 110, 253, 0.35);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(13, 110, 253, 0.04) 0%, rgba(248, 250, 252, 1) 100%);
+    padding: 2rem 1.5rem;
+    text-align: center;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+}
+
+.central-upload-dropzone--ativo {
+    border-color: #0d6efd;
+    background: rgba(13, 110, 253, 0.08);
+    transform: scale(1.01);
+}
+
+.central-upload-dropzone-icone {
+    margin-bottom: 0.75rem;
+}
+
+.central-upload-lista {
+    margin-top: 1rem;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    background: #fff;
+}
+
+.central-upload-lista-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.central-upload-lista-itens {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.central-upload-lista-itens li {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+    font-size: 0.875rem;
+}
+
+.central-upload-lista-itens li:last-child {
+    border-bottom: none;
+}
+
+.central-upload-item-nome {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.central-upload-progresso,
+.central-upload-resultado {
+    margin-top: 1rem;
+}
+
+.central-upload-resultado-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+    font-size: 0.875rem;
+}
+
+.central-upload-atalhos {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+@media (max-width: 768px) {
+    .central-upload-dropzone {
+        padding: 1.5rem 1rem;
+    }
+}
+

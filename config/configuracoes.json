@@ -1,0 +1,6 @@
+{
+  "tipoImplantacao": "ERP_MULTICAIXA",
+  "modoOperacao": "LOCAL",
+  "ipServidor": "",
+  "porta": 3001
+}

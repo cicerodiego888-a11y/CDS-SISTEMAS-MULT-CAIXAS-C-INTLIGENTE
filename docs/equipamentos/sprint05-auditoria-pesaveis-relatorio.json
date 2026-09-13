@@ -1,0 +1,28 @@
+{
+  "totalAuditados": 93,
+  "totalCorrigidos": 1,
+  "totalSemAlteracao": 92,
+  "categoriasCriadas": [],
+  "subcategoriasCriadas": [],
+  "duplicidades": [],
+  "pendencias": [],
+  "produtosCorrigidos": [
+    {
+      "id": 661,
+      "plu": "67",
+      "nome": "Feijão Carioca",
+      "correcoes": [
+        "controla_estoque",
+        "nome",
+        "unidade",
+        "subcategoria"
+      ]
+    }
+  ],
+  "certificacao": {
+    "ok": true,
+    "falhas": []
+  },
+  "tempoMs": 861,
+  "tempoSegundos": 1
+}

@@ -1,0 +1,42 @@
+{
+  "layout": "MGV6-REAL-CLIENT-V1",
+  "origem": "TXITENS(1).TXT — arquivo real do cliente",
+  "produto": {
+    "plu": "99",
+    "codigo": "99",
+    "nome": "TESTE CDS SISTEMAS",
+    "preco": 2.99,
+    "preco_venda": 2.99
+  },
+  "registroLogico": "01000000099000299000TESTE CDS SISTEMAS",
+  "posicoes": {
+    "tipo": {
+      "inicio": 0,
+      "fim": 2,
+      "valor": "01"
+    },
+    "codigo": {
+      "inicio": 2,
+      "fim": 11,
+      "valor": "000000099"
+    },
+    "campoNumerico": {
+      "inicio": 11,
+      "fim": 20,
+      "valor": "000299000"
+    },
+    "descricao": {
+      "inicio": 20,
+      "fim": 38,
+      "valor": "TESTE CDS SISTEMAS"
+    },
+    "padding": {
+      "inicio": 38,
+      "fim": 320
+    }
+  },
+  "registroLength": 320,
+  "encoding": "WINDOWS-1252",
+  "lineEnding": "CRLF",
+  "arquivoBytes": 322
+}

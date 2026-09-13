@@ -1,0 +1,9 @@
+{
+  "id": "fiscal-copilot",
+  "name": "Copiloto Fiscal",
+  "version": "1.0.0",
+  "description": "Diagnóstico fiscal via CIP — sem emitir documentos",
+  "enabled": true,
+  "motors": ["CIP"],
+  "timeoutMs": 8000
+}

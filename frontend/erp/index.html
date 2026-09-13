@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CDS Sistemas - Plataforma Inteligente de Gestão</title>
+    <link rel="icon" type="image/x-icon" href="/branding/favicon.ico">
+    <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/financeiro.css">
+    <link rel="stylesheet" href="/css/miip-compras.css">
+    <link rel="stylesheet" href="/css/miip-central-revisao.css">
+    <link rel="stylesheet" href="/css/central-entradas.css">
+    <link rel="stylesheet" href="/css/central-entradas-ux1.css">
+    <link rel="stylesheet" href="/css/central-diagnostico.css">
+    <link rel="stylesheet" href="/css/diagnostics-panel-v1.css">
+    <link rel="stylesheet" href="/css/central-configuracao.css">
+    <link rel="stylesheet" href="/css/central-homologacao.css">
+    <link rel="stylesheet" href="/css/dashboard-command.css">
+    <link rel="stylesheet" href="/css/cds-centro-configuracoes.css">
+    <link rel="stylesheet" href="/css/produtos-listagem.css">
+    <link rel="stylesheet" href="/css/produtos-cadastro.css">
+    <link rel="stylesheet" href="/css/cds-smart-select.css">
+    <link rel="stylesheet" href="/css/cds-stable-dropdown.css">
+    <link rel="stylesheet" href="/shared/design-system/cds-ui-foundation.css">
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <nav id="sidebar" class="col-md-2 col-lg-2 d-md-block bg-dark sidebar" aria-label="Menu principal">
+                <div class="position-sticky pt-3 sidebar-inner">
+                    <div class="d-flex justify-content-end px-2 mb-1 d-none d-md-flex">
+                        <button type="button" id="sidebar-toggle" class="btn btn-sm btn-outline-light sidebar-toggle-btn" title="Recolher / expandir menu" aria-label="Recolher menu">
+                            <i class="fas fa-angles-left" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="text-center mb-2" id="sidebar-brand">
+                        <div id="sidebar-brand-content">
+                            <img src="/branding/logo-oficial.png" alt="CDS Sistemas" class="img-fluid brand-sidebar-logo">
+                            <small class="text-muted brand-sidebar-slogan">Inteligência para gerir, Tecnologia para crescer</small>
+                        </div>
+                        <div id="sidebar-modo-fiscal-bar" class="sidebar-modo-fiscal-bar sidebar-modo-fiscal-bar--on" title="Modo fiscal ativo"></div>
+                    </div>
+
+                    <ul class="nav flex-column sidebar-nav">
+                        <!-- PAINEL -->
+                        <li class="nav-group" data-nav-group="painel">
+                            <div class="nav-group-label"><i class="fas fa-house" aria-hidden="true"></i><span>Painel</span></div>
+                            <ul class="nav flex-column nav-group-items">
+                                <li class="nav-item">
+                                    <a class="nav-link text-white active" href="#" data-page="dashboard" title="Dashboard">
+                                        <i class="fas fa-chart-line" aria-hidden="true"></i><span>Dashboard</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" data-recurso="fiscal">
+                                    <a class="nav-link text-white" href="#" data-page="monitoring" title="Central de Monitoramento">
+                                        <i class="fas fa-chart-pie" aria-hidden="true"></i><span>Central de Monitoramento</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+
+                        <!-- COMERCIAL -->
+                        <li class="nav-group" data-nav-group="comercial">
+                            <div class="nav-group-label"><i class="fas fa-store" aria-hidden="true"></i><span>Comercial</span></div>
+                            <ul class="nav flex-column nav-group-items">
+                                <li class="nav-item" id="nav-abrir-pdv" data-recurso="pdv">
+                                    <a class="nav-link text-success" href="/pdv" data-modulo-externo="cds-pdv" title="Abrir PDV">
+                                        <i class="fas fa-store" aria-hidden="true"></i><span>Abrir PDV</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" data-recurso="historicoVendas">
+                                    <a class="nav-link text-white" href="#" data-page="vendas" title="Histórico de Vendas">
+                                        <i class="fas fa-history" aria-hidden="true"></i><span>Histórico de Vendas</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" data-recurso="vendasEntrega">
+                                    <a class="nav-link text-white" href="#" data-page="entregas" title="Entregas">
+                                        <i class="fas fa-motorcycle" aria-hidden="true"></i><span>Entregas</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" data-recurso="pedidos">
+                                    <a class="nav-link text-white" href="#" data-page="pedidos" title="Pedidos">
+                                        <i class="fas fa-clipboard-list" aria-hidden="true"></i><span>Pedidos</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" data-recurso="expedicao">
+                                    <a class="nav-link text-white" href="#" data-page="faturamento" title="Expedição">
+                                        <i class="fas fa-dolly" aria-hidden="true"></i><span>Expedição</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" data-recurso="nfe">
+                                    <a class="nav-link text-white" href="#" data-page="central-faturamento" title="Painel Operacional Fiscal — emissão e monitoramento NF-e">
+                                        <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i><span>Central de Faturamento</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-white" href="#" data-page="caixa" title="Fechamento de Caixa">
+                                        <i class="fas fa-cash-register" aria-hidden="true"></i><span>Fechamento de Caixa</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+
+                        <!-- SUPRIMENTOS -->
+                        <li class="nav-group" data-nav-group="suprimentos">
+                            <div class="nav-group-label"><i class="fas fa-boxes-stacked" aria-hidden="true"></i><span>Suprimentos</span></div>
+                            <ul class="nav flex-column nav-group-items">
+                                <li class="nav-item">
+                                    <a class="nav-link text-white" href="#" data-page="produtos" title="Produtos">
+                                        <i class="fas fa-box" aria-hidden="true"></i><span>Produtos</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-white" href="#" data-page="categorias" title="Categorias">
+                                        <i class="fas fa-tags" aria-hidden="true"></i><span>Categorias</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-white" href="#" data-page="compras" title="Compras">
+                                        <i class="fas fa-cart-plus" aria-hidden="true"></i><span>Compras</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" data-recurso="fiscal">
+                                    <a class="nav-link text-white" href="#" data-page="central-entradas" title="Central de Entradas">
+                                        <i class="fas fa-inbox" aria-hidden="true"></i><span>Central de Entradas</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+
+                        <!-- FINANCEIRO -->
+                        <li class="nav-group" data-nav-group="financeiro">
+                            <div class="nav-group-label"><i class="fas fa-wallet" aria-hidden="true"></i><span>Financeiro</span></div>
+                            <ul class="nav flex-column nav-group-items">
+                                <li class="nav-item">
+                                    <a class="nav-link text-white" href="#" data-page="financeiro" title="Financeiro">
+                                        <i class="fas fa-wallet" aria-hidden="true"></i><span>Financeiro</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" data-recurso="multiCaixa">
+                                    <a class="nav-link text-white" href="#" data-page="caixas" title="Gerenciar Caixas">
+                                        <i class="fas fa-desktop" aria-hidden="true"></i><span>Gerenciar Caixas</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+
+                        <!-- CADASTROS -->
+                        <li class="nav-group" data-nav-group="cadastros">
+                            <div class="nav-group-label"><i class="fas fa-address-book" aria-hidden="true"></i><span>Cadastros</span></div>
+                            <ul class="nav flex-column nav-group-items">
+                                <li class="nav-item">
+                                    <a class="nav-link text-white" href="#" data-page="clientes" title="Clientes">
+                                        <i class="fas fa-user-friends" aria-hidden="true"></i><span>Clientes</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-white" href="#" data-page="fornecedores" title="Fornecedores">
+                                        <i class="fas fa-truck" aria-hidden="true"></i><span>Fornecedores</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+
+                        <!-- FISCAL -->
+                        <li class="nav-group" data-nav-group="fiscal" data-recurso="fiscal">
+                            <div class="nav-group-label"><i class="fas fa-file-invoice" aria-hidden="true"></i><span>Fiscal</span></div>
+                            <ul class="nav flex-column nav-group-items">
+                                <li class="nav-item" data-recurso="nfce">
+                                    <a class="nav-link text-white" href="#" data-page="fiscal" title="NFC-e Emitidas">
+                                        <i class="fas fa-file-invoice" aria-hidden="true"></i><span>NFC-e Emitidas</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" data-recurso="nfe">
+                                    <a class="nav-link text-white" href="#" data-page="nfe-avulsa" title="Nova NF-e">
+                                        <i class="fas fa-file-medical" aria-hidden="true"></i><span>Nova NF-e</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" data-recurso="nfe">
+                                    <a class="nav-link text-white" href="#" data-page="nfe-central" title="NF-e Emitidas — consulta e eventos pós-emissão">
+                                        <i class="fas fa-list-alt" aria-hidden="true"></i><span>NF-e Emitidas</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" data-recurso="nfe">
+                                    <a class="nav-link text-white" href="#" data-page="nfe-monitor" title="Monitor NF-e">
+                                        <i class="fas fa-heartbeat" aria-hidden="true"></i><span>Monitor NF-e</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" data-recurso="nfe">
+                                    <a class="nav-link text-white" href="#" data-page="nfe-fila" title="Fila NF-e">
+                                        <i class="fas fa-stream" aria-hidden="true"></i><span>Fila NF-e</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" data-recurso="nfe">
+                                    <a class="nav-link text-white" href="#" data-page="nfe-diagnostico" title="Diagnóstico NF-e">
+                                        <i class="fas fa-stethoscope" aria-hidden="true"></i><span>Diagnóstico NF-e</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" data-recurso="fiscal">
+                                    <a class="nav-link text-white" href="#" data-page="central-contabil" title="Central Contábil">
+                                        <i class="fas fa-file-export" aria-hidden="true"></i><span>Central Contábil</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" data-recurso="fiscal">
+                                    <a class="nav-link text-white" href="#" data-page="fechamento-fiscal-dia" title="Fechamento Fiscal do Dia">
+                                        <i class="fas fa-balance-scale" aria-hidden="true"></i><span>Fechamento Fiscal do Dia</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+
+                        <!-- RELATÓRIOS — oculto até existir módulo (RC1) -->
+                        <li class="nav-group" data-nav-group="relatorios" data-placeholder="true" hidden aria-hidden="true">
+                            <div class="nav-group-label"><i class="fas fa-chart-pie" aria-hidden="true"></i><span>Relatórios</span></div>
+                            <ul class="nav flex-column nav-group-items">
+                                <li class="nav-item nav-item--placeholder">
+                                    <span class="nav-link nav-link--placeholder text-muted" title="Em breve">
+                                        <i class="fas fa-ellipsis-h" aria-hidden="true"></i><span>Em breve</span>
+                                    </span>
+                                </li>
+                            </ul>
+                        </li>
+
+                        <!-- ADMINISTRAÇÃO -->
+                        <li class="nav-group" data-nav-group="administracao" id="nav-group-administracao">
+                            <div class="nav-group-label"><i class="fas fa-cogs" aria-hidden="true"></i><span>Administração</span></div>
+                            <ul class="nav flex-column nav-group-items">
+                                <li class="nav-item">
+                                    <a class="nav-link text-white" href="#" data-page="configuracoes" title="Configurações da Empresa">
+                                        <i class="fas fa-cog" aria-hidden="true"></i><span>Configurações</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" id="nav-f12-admin">
+                                    <a class="nav-link text-white" href="#" data-page="f12-admin" title="Controlar F12 — Fiscal/Não Fiscal">
+                                        <i class="fas fa-toggle-on" aria-hidden="true"></i><span>Controle F12</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" id="nav-usuarios">
+                                    <a class="nav-link text-white" href="#" data-page="usuarios" title="Usuários">
+                                        <i class="fas fa-users" aria-hidden="true"></i><span>Usuários</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-white" href="#" data-page="licenca" title="Assinatura CDS">
+                                        <i class="fas fa-id-card" aria-hidden="true"></i><span>Assinatura</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-white" href="#" data-page="auditoria" title="Auditoria">
+                                        <i class="fas fa-shield-alt" aria-hidden="true"></i><span>Auditoria</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" id="nav-observabilidade">
+                                    <a class="nav-link text-white" href="#" data-page="observabilidade" title="Observabilidade">
+                                        <i class="fas fa-chart-line" aria-hidden="true"></i><span>Observabilidade</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" id="nav-mib-analytics">
+                                    <a class="nav-link text-white" href="#" data-page="mib-analytics" title="MIB Analytics">
+                                        <i class="fas fa-brain" aria-hidden="true"></i><span>MIB Analytics</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" id="nav-enterprise-search">
+                                    <a class="nav-link text-white" href="#" data-page="enterprise-search" title="Enterprise Search">
+                                        <i class="fas fa-globe" aria-hidden="true"></i><span>Enterprise Search</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" id="nav-knowledge-center">
+                                    <a class="nav-link text-white" href="#" data-page="knowledge-center" title="Knowledge Center">
+                                        <i class="fas fa-project-diagram" aria-hidden="true"></i><span>Knowledge Center</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" id="nav-cip-insights">
+                                    <a class="nav-link text-white" href="#" data-page="cip-insights" title="CIP Insights">
+                                        <i class="fas fa-lightbulb" aria-hidden="true"></i><span>CIP Insights</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" id="nav-cds-copiloto">
+                                    <a class="nav-link text-white" href="#" data-page="cds-copiloto" title="CDS Copiloto">
+                                        <i class="fas fa-robot" aria-hidden="true"></i><span>CDS Copiloto</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-white" href="#" data-page="central-equipamentos" title="Central de Equipamentos">
+                                        <i class="fas fa-network-wired" aria-hidden="true"></i><span>Central Equipamentos</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-white" href="#" data-page="laboratorio-equipamentos" title="Laboratório de Equipamentos">
+                                        <i class="fas fa-flask" aria-hidden="true"></i><span>Lab. Equipamentos</span>
+                                    </a>
+                                </li>
+                                <!-- RC15.1 — Equipamentos › Toledo Prix IV › Enviar Produtos -->
+                                <li class="nav-item">
+                                    <div class="nav-link text-white-50 small py-1 pe-none" aria-hidden="true">
+                                        <i class="fas fa-weight-scale" aria-hidden="true"></i><span>Toledo Prix IV</span>
+                                    </div>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-white ps-4" href="#" data-page="enviar-produtos-balanca" title="Enviar Produtos para Balança Toledo Prix IV">
+                                        <i class="fas fa-paper-plane" aria-hidden="true"></i><span>Enviar Produtos</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" data-recurso="fiscal" id="nav-central-diagnostico">
+                                    <a class="nav-link text-white" href="#" data-page="central-diagnostico" title="Saúde da Central">
+                                        <i class="fas fa-heartbeat" aria-hidden="true"></i><span>Saúde da Central</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" data-recurso="fiscal" id="nav-dfe-auditoria">
+                                    <a class="nav-link text-white" href="#" data-page="dfe-auditoria" title="Auditoria Motor DF-e">
+                                        <i class="fas fa-search-location" aria-hidden="true"></i><span>Auditoria DF-e</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" id="nav-config-avancadas">
+                                    <a class="nav-link text-white" href="#" data-page="configuracoes-avancadas" title="Centro de Configurações">
+                                        <i class="fas fa-sliders-h" aria-hidden="true"></i><span>Centro de Configurações</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <div class="sidebar-footer">
+                        <div class="text-white mb-2 small sidebar-user-block">
+                            <i class="fas fa-user"></i> <span id="user-nome">Carregando...</span>
+                            <br>
+                            <small id="user-perfil" class="text-muted">-</small>
+                        </div>
+                        <button class="btn btn-danger btn-sm w-100" onclick="logout()">
+                            <i class="fas fa-sign-out-alt"></i> <span class="sidebar-footer-label">Sair</span>
+                        </button>
+                    </div>
+                </div>
+            </nav>
+
+            <main class="col-md-10 ms-sm-auto col-lg-10 px-md-4 position-relative" id="erp-main">
+                <div id="page-content">
+                    <div class="text-center p-5">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="mt-2">Carregando ERP...</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div id="modal-container"></div>
+
+    <script src="/vendor/jquery/jquery.min.js"></script>
+    <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script type="application/cds-lazy" src="/vendor/chart.js/chart.min.js"></script>
+    <script>
+        window.CDS_MODULE = 'erp';
+        window.CDS_DEFAULT_PAGE = 'dashboard';
+    </script>
+    <script src="/shared/js/brand-service.js"></script>
+    <script src="/shared/js/validarMotivo.js"></script>
+    <script src="/shared/js/modalDevolucaoVenda.js"></script>
+    <script src="/shared/js/access-control.js"></script>
+    <script src="/shared/js/caixaPermissoes.js"></script>
+    <script src="/shared/js/cds-page-shell.js"></script>
+    <script src="/shared/js/cds-smart-select.js"></script>
+    <script src="/shared/js/cds-stable-dropdown.js"></script>
+    <script src="/shared/js/obterCaixaAtual.js"></script>
+    <script src="/shared/js/f12FonteEstadoPdv.js"></script>
+    <script src="/shared/js/F12PolicyResolver.js"></script>
+    <script src="/shared/js/core.js"></script>
+    <script src="/shared/js/catalogoProdutoSync.js"></script>
+    <script src="/shared/js/cds-nomenclatura.js"></script>
+    <script src="/shared/js/modoFiscalHelpers.js"></script>
+    <script src="/shared/js/cds-formas-pagamento.js"></script>
+    <script src="/shared/services/AdaptiveLabelRegistry.js"></script>
+    <script src="/shared/services/AdaptiveLabelContext.js"></script>
+    <script src="/shared/services/AdaptiveLabelService.js"></script>
+    <script src="/shared/services/AdaptiveLabelProvider.js"></script>
+    <script src="/shared/design-system/cds-ui-foundation.bundle.js"></script>
+    <script type="application/cds-lazy" src="/shared/js/fiscalImpressao.js"></script>
+    <script type="application/cds-lazy" src="/shared/js/vendasHistoricoUi.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/f12-admin.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/dashboard-command.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/dashboard.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/motor-unidades-medida.js"></script>
+    <script type="application/cds-lazy" src="/shared/js/buscaProdutoTexto.js"></script>
+    <script type="application/cds-lazy" src="/shared/js/resolverBuscaCadastroProdutos.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/produtos.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/subcategorias.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/clientes.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/fornecedores.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/miip-central-revisao-inteligente.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/miip-central-revisao.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/compras.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/central-entradas-ux.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/central-recuperacao-xml.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/central-entradas.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/central-homologacao.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/central-diagnostico.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/dfe-auditoria.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/vendas.js"></script>
+    <script type="application/cds-lazy" src="/pdv/js/entregas.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/faturamento.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/central-faturamento.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/pedidos.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/financeiro-dashboard.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/financeiro-receber.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/financeiro-pagar.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/financeiro-condicoes.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/financeiro-historico.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/financeiro-relatorios.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/financeiro.js"></script>
+    <script type="application/cds-lazy" src="/shared/js/configuracaoRede.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/configuracoes.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/cds-centro-configuracoes.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/cds-monitoring-engine.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/usuarios.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/equipamentos.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/central-equipamentos.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/laboratorio-equipamentos.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/enviar-produtos-balanca.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/configuracao_tef.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/categorias.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/fiscal.js"></script>
+    <script type="application/cds-lazy" src="/shared/js/nfeDanfeViewer.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/nfe-central.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/central-contabil.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/fechamento-fiscal-dia.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/nfe-avulsa.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/nfe-operacional.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/caixa.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/licenca.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/auditoria.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/observabilidade.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/mib-analytics.js"></script>
+    <script type="application/cds-lazy" src="/shared/js/SearchSDK.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/enterprise-search.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/knowledge-center.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/cip-insights.js"></script>
+    <script type="application/cds-lazy" src="/shared/js/AgentSDK.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/cds-copiloto.js"></script>
+    <script type="application/cds-lazy" src="/erp/js/caixas.js"></script>
+    <script src="/shared/js/cds-obs-rum.js"></script>
+    <script src="/erp/js/app.js"></script>
+
+    <div id="notification-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999; pointer-events: none;"></div>
+
+    <footer id="cds-plataforma-status" class="cds-plataforma-status-host" aria-live="polite"></footer>
+    <script src="/shared/js/cds-plataforma-status.js"></script>
+</body>
+</html>

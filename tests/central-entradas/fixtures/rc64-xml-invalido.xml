@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- nfeProc sem NFe/infNFe: chave via protNFe; Parser deve rejeitar com NFE_INVALIDA -->
+<nfeProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">
+  <protNFe versao="4.00">
+    <infProt>
+      <tpAmb>2</tpAmb>
+      <verAplic>RC64</verAplic>
+      <chNFe>35260112345678000199550010000000651000000065</chNFe>
+      <dhRecbto>2026-06-01T10:05:00-03:00</dhRecbto>
+      <nProt>135260000000065</nProt>
+      <digVal>abc123</digVal>
+      <cStat>100</cStat>
+      <xMotivo>Autorizado o uso da NF-e</xMotivo>
+    </infProt>
+  </protNFe>
+</nfeProc>

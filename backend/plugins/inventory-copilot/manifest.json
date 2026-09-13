@@ -1,0 +1,9 @@
+{
+  "id": "inventory-copilot",
+  "name": "Copiloto Estoque",
+  "version": "1.0.0",
+  "description": "Consultas de estoque via CIP (somente leitura)",
+  "enabled": true,
+  "motors": ["CIP"],
+  "timeoutMs": 8000
+}

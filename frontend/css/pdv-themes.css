@@ -1,0 +1,765 @@
+/**
+ * Temas e tokens visuais do PDV — Sprint P0.1 Aparência Enterprise.
+ * Overlay sobre pdv.css. Não altera layout estrutural nem regras de negócio.
+ */
+
+/* —— Transições suaves (≤ 200ms) —— */
+html[data-pdv-theme] .pdv-profissional,
+html[data-pdv-theme] .pdv-profissional .pdv-card,
+html[data-pdv-theme] .pdv-profissional .pdv-topo,
+html[data-pdv-theme] .pdv-profissional .total-pdv,
+html[data-pdv-theme] .pdv-profissional button,
+html[data-pdv-theme] .pdv-profissional input,
+html[data-pdv-theme] .pdv-profissional table,
+html[data-pdv-theme] .pdv-profissional .pdv-atalho-chip {
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease;
+}
+
+/* —— Tokens base (Claro = tema atual) —— */
+html[data-pdv-theme] {
+  --pdv-bg: #f3f5f7;
+  --pdv-surface: #ffffff;
+  --pdv-surface-2: #f8fafc;
+  --pdv-text: #1f2937;
+  --pdv-text-muted: #475569;
+  --pdv-border: #e5e7eb;
+  --pdv-border-strong: #cbd5e1;
+  --pdv-topo-bg: #111827;
+  --pdv-topo-text: #ffffff;
+  --pdv-primary: #2563eb;
+  --pdv-primary-hover: #1d4ed8;
+  --pdv-success: #16a34a;
+  --pdv-success-hover: #15803d;
+  --pdv-danger: #dc2626;
+  --pdv-warn: #f59e0b;
+  --pdv-total-bg: #0f172a;
+  --pdv-total-text: #ffffff;
+  --pdv-chip-bg: #f1f5f9;
+  --pdv-chip-border: #e2e8f0;
+  --pdv-chip-text: #475569;
+  --pdv-hover: #eff6ff;
+  --pdv-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+  --pdv-shadow-topo: 0 8px 24px rgba(0, 0, 0, 0.15);
+  --pdv-border-w: 1px;
+  --pdv-radius: 12px;
+  --pdv-font-mult: 1;
+}
+
+/* —— Temas —— */
+html[data-pdv-theme="escuro"] {
+  --pdv-bg: #0b1220;
+  --pdv-surface: #152033;
+  --pdv-surface-2: #1a2740;
+  --pdv-text: #e5e7eb;
+  --pdv-text-muted: #94a3b8;
+  --pdv-border: #243247;
+  --pdv-border-strong: #334155;
+  --pdv-topo-bg: #060a12;
+  --pdv-topo-text: #f8fafc;
+  --pdv-primary: #3b82f6;
+  --pdv-primary-hover: #60a5fa;
+  --pdv-success: #22c55e;
+  --pdv-success-hover: #16a34a;
+  --pdv-danger: #f87171;
+  --pdv-warn: #fbbf24;
+  --pdv-total-bg: #020617;
+  --pdv-total-text: #f8fafc;
+  --pdv-chip-bg: #1e293b;
+  --pdv-chip-border: #334155;
+  --pdv-chip-text: #cbd5e1;
+  --pdv-hover: #1e3a5f;
+  --pdv-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
+  --pdv-shadow-topo: 0 10px 28px rgba(0, 0, 0, 0.55);
+}
+
+html[data-pdv-theme="alto-contraste"] {
+  --pdv-bg: #000000;
+  --pdv-surface: #000000;
+  --pdv-surface-2: #0a0a0a;
+  --pdv-text: #ffffff;
+  --pdv-text-muted: #ffffff;
+  --pdv-border: #ffffff;
+  --pdv-border-strong: #ffff00;
+  --pdv-topo-bg: #000000;
+  --pdv-topo-text: #ffffff;
+  --pdv-primary: #ffff00;
+  --pdv-primary-hover: #ffe600;
+  --pdv-success: #ffff00;
+  --pdv-success-hover: #ffe600;
+  --pdv-danger: #ff3b3b;
+  --pdv-warn: #ffff00;
+  --pdv-total-bg: #000000;
+  --pdv-total-text: #ffff00;
+  --pdv-chip-bg: #000000;
+  --pdv-chip-border: #ffff00;
+  --pdv-chip-text: #ffffff;
+  --pdv-hover: #1a1a00;
+  --pdv-shadow: none;
+  --pdv-shadow-topo: none;
+  --pdv-border-w: 2px;
+  --pdv-radius: 6px;
+}
+
+html[data-pdv-theme="azul"] {
+  --pdv-bg: #e8f1fb;
+  --pdv-surface: #f7fbff;
+  --pdv-surface-2: #eef6ff;
+  --pdv-text: #0f2744;
+  --pdv-text-muted: #3b5b7c;
+  --pdv-border: #c5daf0;
+  --pdv-border-strong: #9ec0e3;
+  --pdv-topo-bg: #1e4d8c;
+  --pdv-topo-text: #ffffff;
+  --pdv-primary: #2563eb;
+  --pdv-primary-hover: #1d4ed8;
+  --pdv-success: #0f9f6e;
+  --pdv-success-hover: #0b7f57;
+  --pdv-danger: #d64545;
+  --pdv-warn: #e0a106;
+  --pdv-total-bg: #163a6b;
+  --pdv-total-text: #ffffff;
+  --pdv-chip-bg: #dcebff;
+  --pdv-chip-border: #b7d3f5;
+  --pdv-chip-text: #1e4d8c;
+  --pdv-hover: #d6e8ff;
+  --pdv-shadow: 0 4px 18px rgba(30, 77, 140, 0.12);
+  --pdv-shadow-topo: 0 8px 24px rgba(30, 77, 140, 0.28);
+}
+
+html[data-pdv-theme="verde"] {
+  --pdv-bg: #e8f2ea;
+  --pdv-surface: #f4faf5;
+  --pdv-surface-2: #eaf5ec;
+  --pdv-text: #14261a;
+  --pdv-text-muted: #3d5a45;
+  --pdv-border: #c5dbc9;
+  --pdv-border-strong: #9fbfa6;
+  --pdv-topo-bg: #1f4d33;
+  --pdv-topo-text: #e8ffe8;
+  --pdv-primary: #2f7d4a;
+  --pdv-primary-hover: #24653b;
+  --pdv-success: #1f8f4a;
+  --pdv-success-hover: #18753c;
+  --pdv-danger: #c23b3b;
+  --pdv-warn: #c99412;
+  --pdv-total-bg: #163826;
+  --pdv-total-text: #d9ffe0;
+  --pdv-chip-bg: #d7ebd9;
+  --pdv-chip-border: #b4d4b9;
+  --pdv-chip-text: #1f4d33;
+  --pdv-hover: #d4ead8;
+  --pdv-shadow: 0 4px 18px rgba(31, 77, 51, 0.12);
+  --pdv-shadow-topo: 0 8px 24px rgba(31, 77, 51, 0.28);
+}
+
+html[data-pdv-theme="ambar"] {
+  --pdv-bg: #1a1408;
+  --pdv-surface: #261c0c;
+  --pdv-surface-2: #2f230f;
+  --pdv-text: #ffe7b0;
+  --pdv-text-muted: #d2b57a;
+  --pdv-border: #5a4318;
+  --pdv-border-strong: #8a6820;
+  --pdv-topo-bg: #120e06;
+  --pdv-topo-text: #ffd27a;
+  --pdv-primary: #e0a106;
+  --pdv-primary-hover: #f0b422;
+  --pdv-success: #c99412;
+  --pdv-success-hover: #e0a106;
+  --pdv-danger: #ff6b4a;
+  --pdv-warn: #ffb020;
+  --pdv-total-bg: #0c0904;
+  --pdv-total-text: #ffd27a;
+  --pdv-chip-bg: #33260f;
+  --pdv-chip-border: #6b4f16;
+  --pdv-chip-text: #ffd27a;
+  --pdv-hover: #3a2c12;
+  --pdv-shadow: 0 6px 22px rgba(0, 0, 0, 0.5);
+  --pdv-shadow-topo: 0 10px 28px rgba(0, 0, 0, 0.6);
+}
+
+/* —— Fonte —— */
+html[data-pdv-font="sm"] { --pdv-font-mult: 0.9; }
+html[data-pdv-font="md"] { --pdv-font-mult: 1; }
+html[data-pdv-font="lg"] { --pdv-font-mult: 1.12; }
+html[data-pdv-font="xl"] { --pdv-font-mult: 1.28; }
+
+/* —— Intensidade —— */
+html[data-pdv-intensity="baixa"] {
+  --pdv-border-w: 1px;
+  --pdv-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --pdv-shadow-topo: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+html[data-pdv-intensity="alta"] {
+  --pdv-border-w: 2px;
+  --pdv-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+  --pdv-shadow-topo: 0 12px 32px rgba(0, 0, 0, 0.28);
+}
+
+html[data-pdv-theme="escuro"][data-pdv-intensity="alta"],
+html[data-pdv-theme="ambar"][data-pdv-intensity="alta"] {
+  --pdv-shadow: 0 10px 32px rgba(0, 0, 0, 0.65);
+  --pdv-shadow-topo: 0 14px 36px rgba(0, 0, 0, 0.75);
+}
+
+html[data-pdv-theme="alto-contraste"][data-pdv-intensity="alta"] {
+  --pdv-border-w: 3px;
+}
+
+html[data-pdv-intensity="baixa"] .pdv-profissional {
+  filter: contrast(0.94);
+}
+
+html[data-pdv-intensity="alta"] .pdv-profissional {
+  filter: contrast(1.08);
+}
+
+html[data-pdv-theme="alto-contraste"][data-pdv-intensity="alta"] .pdv-profissional {
+  filter: contrast(1.2);
+}
+
+/* —— Aplicação nos componentes do PDV —— */
+html[data-pdv-theme] .pdv-profissional {
+  background: var(--pdv-bg);
+  color: var(--pdv-text);
+  font-size: calc(14px * var(--pdv-font-mult));
+}
+
+html[data-pdv-theme] .pdv-topo {
+  background: var(--pdv-topo-bg);
+  color: var(--pdv-topo-text);
+  box-shadow: var(--pdv-shadow-topo);
+  border: var(--pdv-border-w) solid transparent;
+}
+
+html[data-pdv-theme="alto-contraste"] .pdv-topo {
+  border-color: #fff;
+}
+
+html[data-pdv-theme] .pdv-card {
+  background: var(--pdv-surface);
+  color: var(--pdv-text);
+  border: var(--pdv-border-w) solid var(--pdv-border);
+  box-shadow: var(--pdv-shadow);
+  border-radius: var(--pdv-radius);
+}
+
+html[data-pdv-theme] .pdv-card h2,
+html[data-pdv-theme] .pdv-resumo-titulo {
+  color: var(--pdv-text);
+  font-size: calc(16px * var(--pdv-font-mult));
+}
+
+html[data-pdv-theme] .pdv-busca-label {
+  color: var(--pdv-text-muted);
+  font-size: calc(13px * var(--pdv-font-mult));
+}
+
+html[data-pdv-theme] .pdv-busca-linha input,
+html[data-pdv-theme] .linha-resumo-input input,
+html[data-pdv-theme] .pdv-profissional input[type="number"],
+html[data-pdv-theme] .pdv-profissional input[type="text"],
+html[data-pdv-theme] .pdv-profissional select {
+  background: var(--pdv-surface-2);
+  color: var(--pdv-text);
+  border: var(--pdv-border-w) solid var(--pdv-border-strong);
+  font-size: calc(15px * var(--pdv-font-mult));
+}
+
+html[data-pdv-theme] .pdv-busca-linha input:focus,
+html[data-pdv-theme] .pdv-profissional input:focus {
+  outline: 2px solid var(--pdv-primary);
+  outline-offset: 1px;
+}
+
+html[data-pdv-theme] .pdv-busca-linha button {
+  background: var(--pdv-primary);
+  color: #fff;
+  font-size: calc(14px * var(--pdv-font-mult));
+}
+
+html[data-pdv-theme="alto-contraste"] .pdv-busca-linha button,
+html[data-pdv-theme="ambar"] .pdv-busca-linha button {
+  color: #000;
+}
+
+html[data-pdv-theme] .pdv-busca-linha button:hover {
+  background: var(--pdv-primary-hover);
+}
+
+html[data-pdv-theme] .lista-produtos-dropdown.aberta {
+  background: var(--pdv-surface);
+  border-color: var(--pdv-border-strong);
+}
+
+html[data-pdv-theme] .pdv-autocomplete-item {
+  background: var(--pdv-surface);
+  color: var(--pdv-text);
+}
+
+html[data-pdv-theme] .pdv-autocomplete-item:hover,
+html[data-pdv-theme] .pdv-autocomplete-item.ativo {
+  background: var(--pdv-hover);
+  border-color: var(--pdv-primary);
+}
+
+html[data-pdv-theme] .pdv-itens table,
+html[data-pdv-theme] .pdv-itens th,
+html[data-pdv-theme] .pdv-itens td {
+  color: var(--pdv-text);
+  border-color: var(--pdv-border);
+  font-size: calc(15px * var(--pdv-font-mult));
+}
+
+html[data-pdv-theme] .pdv-itens .pdv-produto-nome {
+  font-size: calc(19px * var(--pdv-font-mult));
+  font-weight: 700;
+  color: var(--pdv-text);
+}
+
+html[data-pdv-theme] .pdv-itens .pdv-unitario-valor {
+  font-size: calc(18px * var(--pdv-font-mult));
+  font-weight: 800;
+  color: var(--pdv-text);
+}
+
+html[data-pdv-theme] .pdv-itens .quantidade-item,
+html[data-pdv-theme] .pdv-itens .percentual-item,
+html[data-pdv-theme] .pdv-itens .desconto-valor-item {
+  font-size: calc(15px * var(--pdv-font-mult));
+  font-weight: 700;
+}
+
+html[data-pdv-theme] .pdv-itens th {
+  font-size: calc(14px * var(--pdv-font-mult));
+  font-weight: 800;
+}
+
+html[data-pdv-theme] .pdv-itens thead th {
+  background: var(--pdv-surface-2);
+  color: var(--pdv-text-muted);
+}
+
+html[data-pdv-theme] .pdv-itens tbody tr:hover {
+  background: var(--pdv-hover);
+}
+
+html[data-pdv-theme] .linha-resumo span,
+html[data-pdv-theme] .linha-resumo strong {
+  color: var(--pdv-text);
+  font-size: calc(14px * var(--pdv-font-mult));
+}
+
+html[data-pdv-theme] .total-pdv {
+  background: var(--pdv-total-bg);
+  color: var(--pdv-total-text);
+  border: var(--pdv-border-w) solid var(--pdv-border-strong);
+  box-shadow: var(--pdv-shadow);
+}
+
+html[data-pdv-theme] .total-pdv strong {
+  font-size: calc(1.85rem * var(--pdv-font-mult));
+}
+
+html[data-pdv-theme] .btn-finalizar {
+  background: var(--pdv-success);
+  color: #fff;
+  font-size: calc(13px * var(--pdv-font-mult));
+  box-shadow: var(--pdv-shadow);
+  border: var(--pdv-border-w) solid transparent;
+}
+
+html[data-pdv-theme="alto-contraste"] .btn-finalizar,
+html[data-pdv-theme="ambar"] .btn-finalizar {
+  color: #000;
+  border-color: var(--pdv-border-strong);
+}
+
+html[data-pdv-theme] .btn-finalizar:hover {
+  background: var(--pdv-success-hover);
+}
+
+html[data-pdv-theme] .btn-secundario,
+html[data-pdv-theme] .btn-calc-topo,
+html[data-pdv-theme] .btn-fechamento-caixa,
+html[data-pdv-theme] .btn-menu-pdv {
+  font-size: calc(13px * var(--pdv-font-mult));
+}
+
+html[data-pdv-theme] .btn-fechamento-caixa {
+  background: var(--pdv-warn);
+  color: #111;
+}
+
+html[data-pdv-theme="alto-contraste"] .btn-fechamento-caixa {
+  background: #ffff00;
+  color: #000;
+  border: 2px solid #fff;
+}
+
+html[data-pdv-theme] .caixa-aberto {
+  background: var(--pdv-success);
+}
+
+html[data-pdv-theme] .caixa-fechado {
+  background: var(--pdv-danger);
+}
+
+html[data-pdv-theme] .pdv-atalhos {
+  color: var(--pdv-text-muted);
+}
+
+html[data-pdv-theme] .pdv-atalho-chip {
+  background: var(--pdv-chip-bg);
+  border: var(--pdv-border-w) solid var(--pdv-chip-border);
+  color: var(--pdv-chip-text);
+  font-size: calc(12px * var(--pdv-font-mult));
+}
+
+html[data-pdv-theme] .pdv-calc-flutuante {
+  background: var(--pdv-surface);
+  border: var(--pdv-border-w) solid var(--pdv-border);
+  box-shadow: var(--pdv-shadow-topo);
+  color: var(--pdv-text);
+}
+
+html[data-pdv-theme] .calc-btn {
+  background: var(--pdv-surface-2);
+  color: var(--pdv-text);
+  border: var(--pdv-border-w) solid var(--pdv-border);
+  font-size: calc(16px * var(--pdv-font-mult));
+}
+
+html[data-pdv-theme] .calc-btn.calc-op {
+  background: var(--pdv-primary);
+  color: #fff;
+}
+
+html[data-pdv-theme="alto-contraste"] .calc-btn.calc-op,
+html[data-pdv-theme="ambar"] .calc-btn.calc-op {
+  color: #000;
+}
+
+html[data-pdv-theme] .calc-btn.calc-igual {
+  background: var(--pdv-success);
+  color: #fff;
+}
+
+html[data-pdv-theme="alto-contraste"] .calc-btn.calc-igual,
+html[data-pdv-theme="ambar"] .calc-btn.calc-igual {
+  color: #000;
+}
+
+html[data-pdv-theme] .vazio {
+  color: var(--pdv-text-muted);
+}
+
+/* —— Botão topo Aparência —— */
+.btn-aparencia-pdv {
+  background: transparent;
+  color: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.92;
+  transition: background 150ms ease, opacity 150ms ease, border-color 150ms ease;
+}
+
+.btn-aparencia-pdv:hover {
+  background: rgba(255, 255, 255, 0.12);
+  opacity: 1;
+}
+
+.btn-aparencia-pdv:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+html[data-pdv-theme="alto-contraste"] .btn-aparencia-pdv {
+  border-color: #ffff00;
+  color: #ffff00;
+}
+
+/* —— Painel lateral —— */
+.pdv-appearance-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 12040;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.pdv-appearance-backdrop.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.pdv-appearance-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(400px, 100vw);
+  height: 100vh;
+  background: #ffffff;
+  color: #111827;
+  z-index: 12050;
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.25);
+  transform: translateX(104%);
+  transition: transform 180ms ease;
+  display: flex;
+  flex-direction: column;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.pdv-appearance-panel.is-open {
+  transform: translateX(0);
+}
+
+.pdv-appearance-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #0f172a;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.pdv-appearance-panel__header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.pdv-appearance-panel__close {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+}
+
+.pdv-appearance-panel__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 18px 24px;
+}
+
+.pdv-appearance-section {
+  margin-bottom: 1.25rem;
+}
+
+.pdv-appearance-section h3 {
+  margin: 0 0 0.65rem;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  font-weight: 800;
+}
+
+.pdv-appearance-options {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.pdv-appearance-option {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  background: #f8fafc;
+  user-select: none;
+}
+
+.pdv-appearance-option:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.pdv-appearance-option.is-active {
+  border-color: #2563eb;
+  background: #dbeafe;
+  box-shadow: inset 0 0 0 1px #2563eb;
+}
+
+.pdv-appearance-option.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: #f1f5f9;
+}
+
+.pdv-appearance-option input {
+  margin: 0;
+}
+
+.pdv-appearance-option__hint {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.pdv-appearance-scale-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+}
+
+.pdv-appearance-scale-grid button {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 0.55rem 0.25rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.pdv-appearance-scale-grid button.is-active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.pdv-appearance-intensity {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.pdv-appearance-intensity input[type="range"] {
+  width: 100%;
+  accent-color: #2563eb;
+}
+
+.pdv-appearance-intensity__labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.pdv-appearance-preview {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.pdv-appearance-preview__frame {
+  padding: 10px;
+  min-height: 118px;
+  background: var(--pdv-bg, #f3f5f7);
+  color: var(--pdv-text, #1f2937);
+}
+
+.pdv-appearance-preview__topo {
+  background: var(--pdv-topo-bg, #111827);
+  color: var(--pdv-topo-text, #fff);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.pdv-appearance-preview__grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 6px;
+}
+
+.pdv-appearance-preview__card {
+  background: var(--pdv-surface, #fff);
+  border: 1px solid var(--pdv-border, #e5e7eb);
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 0.7rem;
+  box-shadow: var(--pdv-shadow);
+}
+
+.pdv-appearance-preview__total {
+  margin-top: 6px;
+  background: var(--pdv-total-bg, #0f172a);
+  color: var(--pdv-total-text, #fff);
+  border-radius: 8px;
+  padding: 8px;
+  text-align: center;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+.pdv-appearance-preview__btn {
+  margin-top: 6px;
+  background: var(--pdv-success, #16a34a);
+  color: #fff;
+  border-radius: 8px;
+  padding: 7px;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+html[data-pdv-theme="alto-contraste"] .pdv-appearance-preview__btn,
+html[data-pdv-theme="ambar"] .pdv-appearance-preview__btn {
+  color: #000;
+}
+
+.pdv-appearance-panel__footer {
+  display: flex;
+  gap: 0.5rem;
+  padding: 12px 18px 16px;
+  border-top: 1px solid #e5e7eb;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+
+.pdv-appearance-panel__footer button {
+  flex: 1;
+  border-radius: 10px;
+  padding: 0.7rem 0.5rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid #cbd5e1;
+}
+
+.pdv-appearance-btn-apply {
+  background: #2563eb;
+  border-color: #2563eb !important;
+  color: #fff;
+}
+
+.pdv-appearance-btn-cancel {
+  background: #fff;
+  color: #334155;
+}
+
+@media (max-width: 480px) {
+  .pdv-appearance-panel {
+    width: 100vw;
+  }
+
+  .pdv-appearance-scale-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

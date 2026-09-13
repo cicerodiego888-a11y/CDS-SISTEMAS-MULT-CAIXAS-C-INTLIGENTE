@@ -1,0 +1,20 @@
+{
+  "versao": "1.0.0",
+  "descricao": "Materiais e acabamentos — Attribute Engine MIIP",
+  "materiais": [
+    "ACO", "FERRO", "ALUMINIO", "COBRE", "BRONZE", "LATAO", "ZINCO",
+    "PVC", "PEAD", "PP", "ABS", "POLIETILENO", "POLIPROPILENO", "NYLON",
+    "MADEIRA", "MDF", "MDP", "AGLOMERADO", "VIDRO", "CERAMICA", "PORCELANA",
+    "BORRACHA", "SILICONE", "LATEX", "PLASTICO", "METAL", "INOX",
+    "GALVANIZADO", "ZINCADO", "COURO", "TECIDO", "ALGODAO", "POLIESTER",
+    "PAPEL", "PAPELAO", "CARTAO", "GRANITO", "MARMORE", "CONCRETO",
+    "GESSO", "BARRO", "RESINA", "EPXI", "FIBRA",
+    "CERAMICA", "CERAMICO", "BRONZE"
+  ],
+  "acabamentos": [
+    "FOSCO", "FOSCA", "BRILHANTE", "ACETINADO", "SEMIBRILHO", "TEXTURIZADO",
+    "LISO", "RUSTICO", "POLIDO", "ESCURECIDO", "ANODIZADO", "PINTADO",
+    "CRU", "NATURAL", "VERNIZADO", "LACADO", "CROMADO", "NIQUELADO",
+    "GALVANIZADO", "ZINCADO", "OLEADO", "CERADO", "EMBORRACHADO"
+  ]
+}

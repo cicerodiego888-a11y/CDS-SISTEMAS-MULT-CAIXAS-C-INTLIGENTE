@@ -1,0 +1,339 @@
+/**
+ * Central Inteligente — Configuração Enterprise (RC4)
+ * Prefixo: central-cfg-*
+ */
+
+.central-cfg-panel {
+  --cfg-radius: 12px;
+  --cfg-border: rgba(15, 23, 42, 0.08);
+  --cfg-muted: #6b7280;
+  --cfg-surface: #f8fafc;
+  border: none;
+  border-radius: var(--cfg-radius);
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+.central-cfg-panel > .card-header {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 55%, #0d6efd 120%);
+  color: #fff;
+  border-bottom: none;
+  padding: 1rem 1.25rem;
+}
+
+.central-cfg-panel > .card-header .btn-outline-light {
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #fff;
+}
+
+.central-cfg-panel > .card-header .btn-outline-light:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.central-cfg-header-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.central-cfg-header-sub {
+  font-size: 0.8rem;
+  opacity: 0.85;
+  margin-top: 0.15rem;
+}
+
+.central-cfg-tabs {
+  background: var(--cfg-surface);
+  border-bottom: 1px solid var(--cfg-border);
+  padding: 0.5rem 0.75rem 0;
+  gap: 0.15rem;
+  flex-wrap: wrap;
+}
+
+.central-cfg-tabs .nav-link {
+  border: none;
+  border-radius: 8px 8px 0 0;
+  color: #475569;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.65rem 0.9rem;
+  white-space: nowrap;
+}
+
+.central-cfg-tabs .nav-link i {
+  opacity: 0.75;
+}
+
+.central-cfg-tabs .nav-link:hover {
+  color: #0d6efd;
+  background: rgba(13, 110, 253, 0.06);
+}
+
+.central-cfg-tabs .nav-link.active {
+  color: #0d6efd;
+  background: #fff;
+  box-shadow: 0 -1px 0 #fff;
+}
+
+.central-cfg-body {
+  padding: 1.25rem;
+}
+
+.central-cfg-card {
+  background: var(--cfg-surface);
+  border: 1px solid var(--cfg-border);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  height: 100%;
+}
+
+.central-cfg-card__title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cfg-muted);
+  margin-bottom: 0.75rem;
+}
+
+.central-cfg-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.3rem;
+}
+
+.central-cfg-hint {
+  font-size: 0.72rem;
+  color: var(--cfg-muted);
+  margin-top: 0.25rem;
+}
+
+.central-cfg-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.central-cfg-badge--ok {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.central-cfg-badge--warn {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.central-cfg-badge--error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.central-cfg-badge--neutral {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.central-cfg-badge--prep {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.central-cfg-badge--info {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.central-cfg-tip {
+  color: #64748b;
+  cursor: help;
+  font-size: 0.85em;
+}
+
+.central-cfg-endpoint-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+
+.central-cfg-endpoint-origem {
+  font-size: 0.72rem;
+  color: var(--cfg-muted, #6b7280);
+}
+
+.central-cfg-endpoint--unresolved {
+  color: #92400e !important;
+  background: #fffbeb !important;
+  border-color: #f59e0b !important;
+  font-style: italic;
+}
+
+.central-cfg-platform-dl {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+}
+
+.central-cfg-platform-dl > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+  font-size: 0.82rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px dashed #e5e7eb;
+}
+
+.central-cfg-platform-dl > div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.central-cfg-platform-dl dt {
+  margin: 0;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.central-cfg-platform-dl dd {
+  margin: 0;
+  font-weight: 600;
+  color: #111827;
+  text-align: right;
+}
+
+.central-cfg-card--nested {
+  background: #f8fafc;
+  box-shadow: none;
+}
+
+.central-cfg-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.central-cfg-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.central-cfg-radio {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--cfg-border);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  min-width: 140px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.central-cfg-radio:has(input:checked) {
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+}
+
+.central-cfg-radio input {
+  margin: 0;
+}
+
+.central-cfg-stat {
+  background: #fff;
+  border: 1px solid var(--cfg-border);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+}
+
+.central-cfg-stat__label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--cfg-muted);
+  margin-bottom: 0.2rem;
+}
+
+.central-cfg-stat__value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #111827;
+  word-break: break-word;
+}
+
+.central-cfg-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1.25rem;
+  border-top: 1px solid var(--cfg-border);
+  background: var(--cfg-surface);
+}
+
+.central-cfg-actions__left,
+.central-cfg-actions__right {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.central-cfg-filial {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--cfg-border);
+  border-radius: 8px;
+  background: #fff;
+  margin-bottom: 0.5rem;
+}
+
+.central-cfg-filial:last-child {
+  margin-bottom: 0;
+}
+
+.central-cfg-result {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.central-cfg-disabled-note {
+  font-size: 0.75rem;
+  color: var(--cfg-muted);
+  font-style: italic;
+}
+
+.central-cfg-diag-actions .btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .central-cfg-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .central-cfg-actions__left,
+  .central-cfg-actions__right {
+    width: 100%;
+  }
+
+  .central-cfg-actions .btn {
+    flex: 1;
+  }
+}

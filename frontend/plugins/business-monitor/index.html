@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CDS Business Monitor</title>
+  <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+  <link rel="stylesheet" href="/plugins/business-monitor/business-monitor.css">
+</head>
+<body>
+  <div class="bm-shell">
+    <header class="bm-header">
+      <div>
+        <p class="bm-eyebrow">Nova Geração · Plugin Oficial</p>
+        <h1>Business Monitor</h1>
+        <p class="bm-sub">Observa · Analisa · Prevê · Notifica — via CIP/CIA/MIB/MIIP</p>
+      </div>
+      <div class="bm-actions">
+        <button type="button" class="btn btn-sm btn-light" id="bmAnalyze">Analisar agora</button>
+        <button type="button" class="btn btn-sm btn-outline-light" id="bmRefresh">Atualizar</button>
+        <a class="btn btn-sm btn-outline-light" href="/plugins/smart-dashboard/">Dashboard</a>
+        <a class="btn btn-sm btn-outline-light" href="/erp">ERP</a>
+      </div>
+    </header>
+
+    <div id="bmBanner" class="bm-banner d-none"></div>
+
+    <section class="bm-kpis" id="bmKpis"></section>
+
+    <div class="bm-grid">
+      <section class="bm-panel">
+        <h2>Timeline</h2>
+        <div id="bmTimeline" class="bm-feed"></div>
+      </section>
+      <section class="bm-panel">
+        <h2>Mapa de Riscos</h2>
+        <div id="bmRiscos"></div>
+      </section>
+      <section class="bm-panel">
+        <h2>Mapa de Oportunidades</h2>
+        <div id="bmOps"></div>
+      </section>
+      <section class="bm-panel bm-wide">
+        <h2>Alertas & Eventos</h2>
+        <div id="bmEvents" class="bm-feed"></div>
+      </section>
+      <section class="bm-panel bm-wide">
+        <h2>Histórico</h2>
+        <div id="bmHist" class="bm-feed bm-hist"></div>
+      </section>
+    </div>
+  </div>
+  <script src="/plugins/business-monitor/business-monitor.js"></script>
+</body>
+</html>

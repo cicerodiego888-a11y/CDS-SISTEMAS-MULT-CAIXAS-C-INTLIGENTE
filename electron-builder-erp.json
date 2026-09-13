@@ -1,0 +1,50 @@
+{
+  "appId": "com.cdssistemas.erp",
+  "productName": "CDS ERP",
+  "copyright": "Copyright © 2026 CDS Sistemas - Cicero Diego",
+  "directories": {
+    "output": "dist/erp"
+  },
+  "files": [
+    "**/*",
+    "!dist/**",
+    "!dist-*/**",
+    "!release/**",
+    "!out/**",
+    "!tests/**",
+    "!scripts/**",
+    "!build/**",
+    "!dados/**",
+    "!**/.git/**",
+    "!**/.cursor/**",
+    "!**/*.md",
+    "!**/{.DS_Store,Thumbs.db,Desktop.ini}",
+    "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+    "!**/node_modules/.bin/**"
+  ],
+  "asarUnpack": [
+    "**/node_modules/sqlite3/**",
+    "**/node_modules/usb/**"
+  ],
+  "afterPack": "./build/electron/afterPack.js",
+  "extraMetadata": {
+    "main": "electron-erp.js"
+  },
+  "win": {
+    "target": "nsis",
+    "icon": "assets/branding/icon.ico",
+    "signAndEditExecutable": false,
+    "signtoolOptions": {
+      "publisherName": "CDS Sistemas"
+    }
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "CDS ERP",
+    "artifactName": "CDS-ERP-Setup-${version}.${ext}",
+    "uninstallDisplayName": "CDS ERP"
+  }
+}

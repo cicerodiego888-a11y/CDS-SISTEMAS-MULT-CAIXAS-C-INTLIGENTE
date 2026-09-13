@@ -1,0 +1,6 @@
+{
+  "recurso": "financeiro",
+  "somenteLeitura": true,
+  "acoes": ["ask", "health"],
+  "proibido": ["lancar", "excluir", "estornar"]
+}

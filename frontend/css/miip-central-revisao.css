@@ -1,0 +1,1282 @@
+/**
+ * Central de Revisão MIIP — Sprint 6B
+ */
+
+.miip-central-modal .modal-content {
+  border: none;
+  border-radius: 0;
+}
+
+/* Cadastro de produto empilhado sobre a Central MIIP (fullscreen). */
+.miip-central-modal.show {
+  z-index: 1055;
+}
+
+#produtoModal.produto-modal-sobre-miip,
+#produtoModal.produto-modal-sobre-miip.show {
+  z-index: 22000 !important;
+}
+
+.modal-backdrop.produto-modal-sobre-miip-backdrop {
+  z-index: 21990 !important;
+}
+
+/* RC8.5.3.2 — sugestão MIE / pergunta embalagem acima da Central MIIP */
+#miipMieSugestaoModal.miip-temp-modal-sobre,
+#miipMieSugestaoModal.miip-temp-modal-sobre.show,
+#miipPerguntaEmbalagemModal.miip-temp-modal-sobre,
+#miipPerguntaEmbalagemModal.miip-temp-modal-sobre.show {
+  z-index: 23050 !important;
+}
+
+.modal-backdrop.miip-temp-modal-sobre-backdrop {
+  z-index: 23040 !important;
+}
+
+.miip-central-header {
+  background: linear-gradient(135deg, #312e81 0%, #4338ca 100%);
+  color: #fff;
+}
+
+.miip-central-progresso-persistente {
+  margin-top: 0.25rem;
+  opacity: 0.95;
+}
+
+.miip-central-progresso-persistente .miip-central-progresso-label {
+  display: block;
+  opacity: 0.8;
+  font-size: 0.75rem;
+}
+
+.miip-central-persistencia-badge {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.miip-central-persistencia-badge--neutro {
+  background: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+}
+
+.miip-central-persistencia-badge--salvando {
+  background: rgba(251, 191, 36, 0.25);
+  color: #fde68a;
+}
+
+.miip-central-persistencia-badge--ok {
+  background: rgba(34, 197, 94, 0.28);
+  color: #bbf7d0;
+}
+
+.miip-central-persistencia-badge--erro {
+  background: rgba(239, 68, 68, 0.28);
+  color: #fecaca;
+}
+
+.miip-central-header .modal-title i {
+  margin-right: 0.45rem;
+}
+
+.miip-central-resumo {
+  padding: 1rem 1.25rem;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.miip-central-resumo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+
+.miip-central-metrica {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.65rem 0.8rem;
+}
+
+.miip-central-metrica span {
+  display: block;
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-bottom: 0.2rem;
+}
+
+.miip-central-metrica strong {
+  font-size: 1.25rem;
+  color: #0f172a;
+}
+
+.miip-central-metrica--ok strong { color: #15803d; }
+.miip-central-metrica--warn strong { color: #b45309; }
+.miip-central-metrica--alert strong { color: #b91c1c; }
+.miip-central-metrica--info strong { color: #1d4ed8; }
+
+/* RC3.7.6 — inteligência comercial (read-only) */
+.miip-central-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.miip-central-filtros-hint {
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-left: 0.35rem;
+}
+
+.miip-central-comparador {
+  margin-top: 0.75rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.65rem 0.75rem;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.miip-central-comparador-titulo {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 0.4rem;
+}
+
+.miip-central-comparador-table {
+  font-size: 0.78rem;
+}
+
+.miip-central-comparador-table th {
+  white-space: nowrap;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.miip-sit-icone--verde { color: #16a34a; }
+.miip-sit-icone--amarelo { color: #ca8a04; }
+.miip-sit-icone--vermelho { color: #dc2626; }
+.miip-sit-icone--azul { color: #2563eb; }
+
+.miip-central-tag--info {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}
+
+.miip-central-sugestao {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.miip-central-sugestao h6 {
+  font-size: 0.85rem;
+  margin-bottom: 0.45rem;
+}
+
+.miip-central-dl--grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.75rem;
+}
+
+.miip-central-resumo-final-wrap {
+  border-top: 1px solid #e2e8f0;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 0.65rem 1.25rem;
+}
+
+.miip-central-resumo-final-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  font-size: 0.8rem;
+}
+
+.miip-central-resumo-final-msg {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: #93c5fd;
+}
+
+.miip-central-acoes-doc .btn {
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* RC3.7.6.1 — Histórico Comercial (read-only) */
+.miip-central-historico {
+  margin-top: 0.85rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.miip-central-historico h6 {
+  font-size: 0.88rem;
+  margin-bottom: 0.5rem;
+  color: #0f172a;
+}
+
+.miip-central-historico-fluxo {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-bottom: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.miip-central-historico-fluxo i {
+  font-size: 0.65rem;
+}
+
+.miip-central-historico--novo {
+  background: #f8fafc;
+  border-style: dashed;
+}
+
+.miip-central-historico-novo {
+  font-size: 0.85rem;
+  color: #475569;
+  line-height: 1.4;
+}
+
+/* RC3.7.6.4 — Últimas Compras (read-only) */
+.miip-ultimas-compras {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.85rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.miip-uc-count {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 0.7rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.miip-uc-body {
+  /* corpo animado via .miip-painel-corpo */
+}
+
+.miip-uc-vazio,
+.miip-uc-loading {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.miip-uc-table {
+  font-size: 0.78rem;
+}
+
+.miip-uc-table th {
+  color: #64748b;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.miip-uc-row--ultima {
+  background: #eff6ff;
+}
+
+.miip-uc-row--menor td:nth-child(3) {
+  color: #15803d;
+  font-weight: 700;
+}
+
+.miip-uc-row--maior td:nth-child(3) {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.miip-uc-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  margin-top: 0.2rem;
+}
+
+.miip-uc-badge {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  line-height: 1.2;
+}
+
+.miip-uc-badge--ultima {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.miip-uc-badge--menor {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.miip-uc-badge--maior {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.miip-uc-resumo {
+  margin-top: 0.35rem;
+  padding-top: 0.45rem;
+  border-top: 1px dashed #e2e8f0;
+}
+
+/* RC3.7.6.5 — painéis recolhíveis + modo foco */
+.miip-painel-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 0.5rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.miip-painel-toggle h6 {
+  font-size: 0.88rem;
+  color: #0f172a;
+  margin: 0;
+}
+
+.miip-painel-chevron {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  color: #64748b;
+  line-height: 1;
+  min-width: 0.85rem;
+  text-align: center;
+}
+
+.miip-painel-corpo {
+  overflow: hidden;
+  max-height: 2400px;
+  opacity: 1;
+  margin-top: 0.55rem;
+  transition: max-height 0.28s ease, opacity 0.2s ease, margin-top 0.2s ease;
+}
+
+.miip-painel--recolhido .miip-painel-corpo {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  pointer-events: none;
+}
+
+.miip-central--modo-foco [data-miip-painel-auxiliar],
+.miip-central--modo-foco [data-miip-foco-ocultar] {
+  display: none !important;
+}
+
+#miipCentralBtnModoFoco.miip-btn-foco--ativo {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.65);
+}
+
+.miip-diff-custo {
+  display: inline-block;
+  font-weight: 700;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  cursor: help;
+}
+
+.miip-diff-custo--cinza {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.miip-diff-custo--amarelo {
+  background: #fef9c3;
+  color: #a16207;
+}
+
+.miip-diff-custo--laranja {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.miip-diff-custo--vermelho {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* RC3.7.6.2 — ordenação / prioridade */
+.miip-central-lista {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.miip-central-ordenacao {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+
+.miip-central-ordenacao-label {
+  display: block;
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+}
+
+.miip-central-ordenacao .form-select {
+  font-size: 0.8rem;
+}
+
+.miip-central-fixar {
+  margin-top: 0.45rem;
+  font-size: 0.75rem;
+}
+
+.miip-central-prio-contadores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.45rem;
+  font-size: 0.72rem;
+  color: #475569;
+}
+
+.miip-central-ordenacao-ativa {
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  color: #334155;
+}
+
+.miip-central-lista-itens {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.miip-prio {
+  margin-right: 0.25rem;
+  font-size: 0.75rem;
+}
+
+/* RC3.7.6.3 — Dashboard de impacto comercial */
+.miip-dash-impacto {
+  margin-bottom: 0.85rem;
+}
+
+.miip-dash-impacto--vazio {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  color: #475569;
+  font-size: 0.88rem;
+}
+
+.miip-dash-impacto--vazio h6 {
+  font-size: 0.9rem;
+  margin-bottom: 0.35rem;
+  color: #0f172a;
+}
+
+.miip-dash-impacto-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.75rem;
+}
+
+.miip-dash-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+}
+
+.miip-dash-card h6 {
+  font-size: 0.88rem;
+  margin-bottom: 0.55rem;
+  color: #0f172a;
+}
+
+.miip-dash-metricas {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.miip-dash-metricas--compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 0.65rem;
+}
+
+.miip-dash-metrica {
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 0.5rem 0.55rem;
+}
+
+.miip-dash-metrica span {
+  display: block;
+  font-size: 0.68rem;
+  color: #64748b;
+  margin-bottom: 0.15rem;
+}
+
+.miip-dash-metrica strong {
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.miip-dash-metrica--aumento strong { color: #14532d; }
+.miip-dash-metrica--reducao strong { color: #1d4ed8; }
+.miip-dash-metrica--saldo-positivo strong { color: #c2410c; }
+.miip-dash-metrica--saldo-negativo strong { color: #b91c1c; }
+
+.miip-dash-maiores {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.miip-dash-maior {
+  border-radius: 10px;
+  padding: 0.5rem 0.6rem;
+  cursor: help;
+  border: 1px solid #e2e8f0;
+}
+
+.miip-dash-maior--aumento {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.miip-dash-maior--reducao {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.miip-dash-maior-titulo {
+  display: block;
+  font-size: 0.68rem;
+  color: #64748b;
+  margin-bottom: 0.15rem;
+}
+
+.miip-dash-maior-nome {
+  display: block;
+  font-size: 0.82rem;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.miip-dash-maior-valor {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-top: 0.15rem;
+}
+
+.miip-dash-maior--aumento .miip-dash-maior-valor { color: #14532d; }
+.miip-dash-maior--reducao .miip-dash-maior-valor { color: #1d4ed8; }
+
+@media (max-width: 640px) {
+  .miip-dash-metricas,
+  .miip-dash-maiores {
+    grid-template-columns: 1fr;
+  }
+}
+
+.miip-central-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  min-height: calc(100vh - 220px);
+}
+
+.miip-central-lista {
+  border-right: 1px solid #e2e8f0;
+  background: #fff;
+  overflow-y: auto;
+  padding: 0.75rem;
+}
+
+.miip-central-lista-item {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  padding: 0.65rem 0.75rem;
+  margin-bottom: 0.5rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.miip-central-lista-item:hover,
+.miip-central-lista-item--ativo {
+  border-color: #6366f1;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.12);
+}
+
+.miip-central-lista-titulo {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 0.35rem;
+}
+
+.miip-central-lista-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.72rem;
+  color: #6b7280;
+}
+
+.miip-central-tag {
+  display: inline-flex;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.miip-central-tag--confirmacao {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.miip-central-tag--cadastro {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.miip-central-tag--embalagem {
+  background: #dbeafe;
+  color: #1e40af;
+  text-transform: none;
+  font-weight: 600;
+}
+
+/* RC8.5.2 — campos preenchidos automaticamente (MIIP/MIE) */
+.mie-campo-autofill {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.25);
+  background-color: #eff6ff !important;
+}
+
+.mie-origem-hint {
+  font-size: 0.72rem;
+  color: #1d4ed8 !important;
+}
+
+.miip-central-painel {
+  padding: 1.25rem;
+  overflow-y: auto;
+  background: #f9fafb;
+}
+
+.miip-central-detalhe-bloco,
+.miip-central-candidato {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.miip-central-detalhe-nome,
+.miip-central-candidato-nome {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 0.65rem;
+}
+
+.miip-central-dl {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 0.35rem 0.75rem;
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.miip-central-dl dt {
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.miip-central-dl dd {
+  margin: 0;
+  color: #111827;
+}
+
+.miip-central-candidato-score {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  background: #eef2ff;
+  margin-bottom: 0.75rem;
+}
+
+.miip-central-candidato-score strong {
+  font-size: 1.35rem;
+  color: #4338ca;
+}
+
+.miip-central-evidencias ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.35rem 0 0;
+}
+
+.miip-central-evidencias li {
+  font-size: 0.85rem;
+  color: #374151;
+  margin-bottom: 0.25rem;
+}
+
+.miip-central-evidencias li i {
+  color: #16a34a;
+  margin-right: 0.35rem;
+}
+
+.miip-central-candidato--vazio p {
+  margin: 0;
+  color: #6b7280;
+}
+
+.miip-central-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.miip-central-acoes .btn small {
+  opacity: 0.75;
+}
+
+.miip-central-atalhos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  font-size: 0.72rem;
+  color: #6b7280;
+}
+
+.miip-central-atalhos kbd {
+  background: #e5e7eb;
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.68rem;
+}
+
+.miip-central-final {
+  padding: 1.5rem;
+}
+
+.miip-central-final-msg {
+  text-align: center;
+  margin-top: 2rem;
+  padding: 2rem;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+}
+
+.miip-central-final-msg i {
+  font-size: 2.5rem;
+  color: #16a34a;
+  margin-bottom: 0.75rem;
+}
+
+.miip-central-final-sub {
+  color: #6b7280;
+  margin-top: 1rem;
+}
+
+.miip-central-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 20000;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: #ecfdf5;
+  border: 1px solid #86efac;
+  color: #166534;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
+}
+
+.miip-central-toast--visivel {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.miip-central-toast i {
+  margin-top: 0.15rem;
+}
+
+.miip-central-busca-lista {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.miip-central-busca-item {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: left;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  margin-bottom: 0.35rem;
+  background: #fff;
+}
+
+.miip-central-busca-item:hover {
+  border-color: #6366f1;
+}
+
+/* RC9.3 — Identificadores / divergências / motivos vazios */
+.miip-central-identificadores .miip-id-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.miip-id-titulo {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.8rem;
+  color: #475569;
+}
+
+.miip-central-motivos-vazio {
+  margin: 0 0 0.5rem;
+  padding-left: 1.1rem;
+  font-size: 0.875rem;
+}
+
+.miip-central-divergencias ul,
+.miip-central-top-candidatos ol {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.8rem;
+}
+
+.miip-diff-xml { color: #b45309; }
+.miip-diff-cds { color: #1d4ed8; }
+
+@media (max-width: 992px) {
+  .miip-central-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .miip-central-lista {
+    max-height: 220px;
+    border-right: none;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .miip-central-identificadores .miip-id-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* RC9.4 — comparação visual XML | Centro | CDS */
+.miip-v2-area {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.miip-v2-triplice {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.miip-v2-col {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.85rem 0.95rem;
+  min-width: 0;
+}
+
+.miip-v2-col-header {
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #334155;
+  margin-bottom: 0.65rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.miip-v2-col-nome {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 0.55rem;
+}
+
+.miip-v2-col--xml {
+  border-top: 3px solid #b45309;
+}
+
+.miip-v2-col--centro {
+  border-top: 3px solid #4338ca;
+  background: #fafaff;
+}
+
+.miip-v2-col--cds {
+  border-top: 3px solid #1d4ed8;
+}
+
+.miip-v2-dl {
+  display: grid;
+  grid-template-columns: minmax(88px, 38%) 1fr;
+  gap: 0.28rem 0.55rem;
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.miip-v2-dl dt {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.miip-v2-dl dd {
+  margin: 0;
+  color: #0f172a;
+  word-break: break-word;
+}
+
+.miip-v2-linhas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0.55rem 0;
+}
+
+.miip-v2-linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  font-size: 0.8rem;
+}
+
+.miip-v2-linha-campo {
+  font-weight: 600;
+  color: #334155;
+}
+
+.miip-v2-linha-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+
+.miip-v2-status-icone {
+  font-size: 0.85rem;
+}
+
+.miip-v2-status--igual,
+.miip-v2-status--igual .miip-v2-status-icone {
+  color: #15803d;
+}
+
+.miip-v2-linha.miip-v2-status--igual {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.miip-v2-status--ausente,
+.miip-v2-status--ausente .miip-v2-status-icone {
+  color: #a16207;
+}
+
+.miip-v2-linha.miip-v2-status--ausente {
+  background: #fefce8;
+  border-color: #fde68a;
+}
+
+.miip-v2-status--semelhante,
+.miip-v2-status--semelhante .miip-v2-status-icone {
+  color: #c2410c;
+}
+
+.miip-v2-linha.miip-v2-status--semelhante {
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.miip-v2-status--diferente,
+.miip-v2-status--diferente .miip-v2-status-icone {
+  color: #b91c1c;
+}
+
+.miip-v2-linha.miip-v2-status--diferente {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.miip-v2-confianca {
+  margin-bottom: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+}
+
+.miip-v2-confianca-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: #4338ca;
+  margin-bottom: 0.25rem;
+}
+
+.miip-v2-confianca-topo strong {
+  font-size: 1.15rem;
+}
+
+.miip-v2-confianca-barra {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  color: #312e81;
+  line-height: 1.2;
+}
+
+.miip-v2-confianca--alta { background: #ecfdf5; border-color: #86efac; }
+.miip-v2-confianca--alta .miip-v2-confianca-topo,
+.miip-v2-confianca--alta .miip-v2-confianca-barra { color: #166534; }
+
+.miip-v2-confianca--media { background: #eff6ff; border-color: #93c5fd; }
+.miip-v2-confianca--media .miip-v2-confianca-topo,
+.miip-v2-confianca--media .miip-v2-confianca-barra { color: #1d4ed8; }
+
+.miip-v2-confianca--moderada { background: #fff7ed; border-color: #fdba74; }
+.miip-v2-confianca--moderada .miip-v2-confianca-topo,
+.miip-v2-confianca--moderada .miip-v2-confianca-barra { color: #c2410c; }
+
+.miip-v2-confianca--baixa { background: #fef2f2; border-color: #fecaca; }
+.miip-v2-confianca--baixa .miip-v2-confianca-topo,
+.miip-v2-confianca--baixa .miip-v2-confianca-barra { color: #b91c1c; }
+
+.miip-v2-justificativa,
+.miip-v2-divergencias,
+.miip-v2-sem-candidato,
+.miip-v2-top-candidatos,
+.miip-v2-imagens {
+  margin-top: 0.65rem;
+  padding-top: 0.55rem;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.miip-v2-justificativa h6,
+.miip-v2-divergencias h6,
+.miip-v2-sem-candidato h6,
+.miip-v2-top-candidatos h6,
+.miip-v2-imagens h6 {
+  font-size: 0.82rem;
+  margin-bottom: 0.4rem;
+  color: #0f172a;
+}
+
+.miip-v2-justificativa ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.miip-v2-justificativa li {
+  font-size: 0.8rem;
+  color: #334155;
+  margin-bottom: 0.2rem;
+}
+
+.miip-v2-justificativa li i {
+  color: #16a34a;
+  margin-right: 0.3rem;
+}
+
+.miip-v2-divergencias ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.miip-v2-divergencias li {
+  font-size: 0.78rem;
+  margin-bottom: 0.35rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+}
+
+.miip-v2-divergencias li em {
+  display: block;
+  font-style: normal;
+  font-size: 0.7rem;
+  color: #64748b;
+  margin-top: 0.15rem;
+}
+
+.miip-v2-divergencias--ok {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  border-top: 1px solid #bbf7d0;
+}
+
+.miip-v2-top-table {
+  font-size: 0.75rem;
+  margin-bottom: 0;
+}
+
+.miip-v2-top-table th {
+  color: #64748b;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.miip-v2-imagens-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.miip-v2-imagem-col {
+  text-align: center;
+}
+
+.miip-v2-imagem-col span {
+  display: block;
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-bottom: 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.miip-v2-imagem-col img {
+  max-width: 100%;
+  max-height: 140px;
+  object-fit: contain;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.miip-v2-imagem-vazio {
+  padding: 1.25rem 0.5rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  background: #f8fafc;
+}
+
+.miip-v2-imagem-seta {
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.miip-v2-rodape-motores {
+  margin-top: 0.25rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 0.75rem;
+}
+
+.miip-v2-rodape-motores-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 1.1rem;
+}
+
+.miip-v2-rodape-motores strong {
+  color: #93c5fd;
+  font-weight: 600;
+}
+
+.miip-v2-auxiliares {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.miip-v2-identificadores {
+  margin-top: 0;
+}
+
+@media (max-width: 1100px) {
+  .miip-v2-triplice {
+    grid-template-columns: 1fr;
+  }
+
+  .miip-v2-imagens-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .miip-v2-imagem-seta {
+    transform: rotate(0deg);
+    text-align: center;
+  }
+}

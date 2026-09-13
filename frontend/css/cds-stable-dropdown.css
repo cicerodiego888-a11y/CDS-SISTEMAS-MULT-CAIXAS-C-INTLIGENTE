@@ -1,0 +1,75 @@
+/* CDS Stable Dropdown — classificação (categoria / subcategoria) */
+
+.cds-stable-dd {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cds-stable-dd__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cds-stable-dd__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cds-stable-dd__caret {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+.cds-stable-dd__list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 1085;
+  margin: 0;
+  padding: 0.2rem 0;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #ced4da;
+  border-top: 0;
+  max-height: 16rem;
+  overflow-y: auto;
+  box-shadow: none;
+}
+
+.cds-stable-dd__option {
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.cds-stable-dd__option:hover,
+.cds-stable-dd__option.is-active {
+  background: #e9ecef;
+}
+
+.cds-stable-dd__option.is-selected {
+  font-weight: 600;
+}
+
+.cds-stable-dd__native {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+}
+
+.input-group:has(.cds-stable-dd) {
+  overflow: visible;
+}

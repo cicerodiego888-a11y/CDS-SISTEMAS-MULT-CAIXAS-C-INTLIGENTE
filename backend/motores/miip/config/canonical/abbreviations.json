@@ -1,0 +1,17 @@
+{
+  "versao": "1.1.0",
+  "descricao": "Abreviações textuais — Motor Canonical MIIP",
+  "abreviacoes": {
+    "LAMP": "LAMPADA",
+    "FLOR": "FLUORESCENTE",
+    "CX": "CAIXA",
+    "UN": "UNIDADE",
+    "PCT": "PACOTE",
+    "CJ": "CONJUNTO",
+    "LT": "LITRO",
+    "REF": "REFRIGERADO",
+    "DESC": "DESCARTAVEL",
+    "EMB": "EMBALAGEM"
+  },
+  "embalagens": ["CX", "PCT", "CJ", "CAIXA", "PACOTE", "CONJUNTO", "EMBALAGEM"]
+}

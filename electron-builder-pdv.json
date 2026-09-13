@@ -1,0 +1,49 @@
+{
+  "appId": "com.cdssistemas.pdv",
+  "productName": "CDS PDV",
+  "copyright": "Copyright © 2026 CDS Sistemas - Cicero Diego",
+  "directories": {
+    "output": "dist/pdv"
+  },
+  "files": [
+    "**/*",
+    "!dist/**",
+    "!dist-*/**",
+    "!release/**",
+    "!out/**",
+    "!tests/**",
+    "!scripts/**",
+    "!dados/**",
+    "!**/.git/**",
+    "!**/.cursor/**",
+    "!**/*.md",
+    "!**/{.DS_Store,Thumbs.db,Desktop.ini}",
+    "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+    "!**/node_modules/.bin/**"
+  ],
+  "asarUnpack": [
+    "**/node_modules/sqlite3/**",
+    "**/node_modules/usb/**"
+  ],
+  "afterPack": "./build/electron/afterPack.js",
+  "extraMetadata": {
+    "main": "electron-pdv.js"
+  },
+  "win": {
+    "target": "nsis",
+    "icon": "assets/branding/icon.ico",
+    "signAndEditExecutable": false,
+    "signtoolOptions": {
+      "publisherName": "CDS Sistemas"
+    }
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "CDS PDV",
+    "artifactName": "CDS-PDV-Setup-${version}.${ext}",
+    "uninstallDisplayName": "CDS PDV"
+  }
+}

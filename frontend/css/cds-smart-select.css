@@ -1,0 +1,113 @@
+/* CDS SmartSelect — UX/INFRA 05 */
+
+.cds-smart-select {
+  position: relative;
+  width: 100%;
+}
+
+.cds-smart-select__control {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.cds-smart-select__input {
+  padding-right: 2rem;
+}
+
+.cds-smart-select__clear {
+  position: absolute;
+  right: 0.35rem;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: #6c757d;
+  width: 1.6rem;
+  height: 1.6rem;
+  line-height: 1;
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.cds-smart-select__clear:hover {
+  background: #e9ecef;
+  color: #212529;
+}
+
+.cds-smart-select__dropdown {
+  position: absolute;
+  z-index: 1080;
+  left: 0;
+  right: 0;
+  top: calc(100% + 0.2rem);
+  max-height: 240px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #ced4da;
+  border-radius: 0.35rem;
+  box-shadow: 0 0.35rem 1rem rgba(0, 0, 0, 0.12);
+}
+
+.cds-smart-select__option {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.92rem;
+  color: #212529;
+  cursor: pointer;
+}
+
+.cds-smart-select__row {
+  display: flex;
+  align-items: stretch;
+}
+
+.cds-smart-select__row .cds-smart-select__option {
+  flex: 1;
+  min-width: 0;
+}
+
+.cds-smart-select__row:hover,
+.cds-smart-select__row:hover .cds-smart-select__option,
+.cds-smart-select__option:hover,
+.cds-smart-select__option.is-active {
+  background: #eef3f8;
+}
+
+.cds-smart-select__option-delete {
+  flex-shrink: 0;
+  width: 2.1rem;
+  border: 0;
+  background: transparent;
+  color: #dc3545;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cds-smart-select__option-delete:hover {
+  background: #f8d7da;
+  color: #b02a37;
+}
+
+.cds-smart-select__option--create {
+  border-top: 1px solid #e9ecef;
+  color: #0d6efd;
+  font-weight: 600;
+}
+
+.cds-smart-select__create-icon {
+  flex-shrink: 0;
+}
+
+.cds-smart-select__hint {
+  padding: 0.65rem 0.75rem;
+  color: #6c757d;
+  font-size: 0.85rem;
+}

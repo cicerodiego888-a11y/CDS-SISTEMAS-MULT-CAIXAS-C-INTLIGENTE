@@ -1,0 +1,9 @@
+{
+  "id": "commercial-copilot",
+  "name": "Copiloto Comercial",
+  "version": "1.0.0",
+  "description": "Insights comerciais via CIP (somente leitura)",
+  "enabled": true,
+  "motors": ["CIP"],
+  "timeoutMs": 8000
+}

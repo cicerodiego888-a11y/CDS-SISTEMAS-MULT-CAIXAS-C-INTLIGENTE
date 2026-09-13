@@ -1,0 +1,1514 @@
+{
+  "servidor": "ONLINE",
+  "baseUrl": "http://127.0.0.1:3001",
+  "mode": "visual_harness",
+  "startedAt": "2026-08-11T15:16:49.888Z",
+  "viewports": {
+    "1920x1080": {
+      "requested": {
+        "id": "1920x1080",
+        "w": 1920,
+        "h": 1080,
+        "scaleNote": "100%"
+      },
+      "metrics": {
+        "innerWidth": 1906,
+        "innerHeight": 1043,
+        "dpr": 1.25,
+        "pageScrollWidth": 1906,
+        "pageScrollHeight": 1043,
+        "bodyOverflow": "hidden",
+        "pdvMode": true,
+        "scaleAttr": "100",
+        "shellZoom": "1",
+        "gridColumns": "1580.4px 320px",
+        "twoColumns": true,
+        "buscaEmpilhada": false,
+        "atalhosLines": 1,
+        "emptyCartExcessive": false,
+        "emptyCartPresent": true,
+        "fiscalFaixa": {
+          "exists": true,
+          "visible": true,
+          "text": "SISTEMA FISCAL ATIVO"
+        },
+        "els": {
+          "header": {
+            "exists": true,
+            "left": 0,
+            "top": 28.5,
+            "right": 1906.4000244140625,
+            "bottom": 91.5,
+            "width": 1906.4000244140625,
+            "height": 63,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "busca": {
+            "exists": true,
+            "left": 0,
+            "top": 109.9000015258789,
+            "right": 1580.4000244140625,
+            "bottom": 242.80001068115234,
+            "width": 1580.4000244140625,
+            "height": 132.90000915527344,
+            "display": "block",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "itens": {
+            "exists": true,
+            "left": 0,
+            "top": 248.8000030517578,
+            "right": 1580.4000244140625,
+            "bottom": 418.3000030517578,
+            "width": 1580.4000244140625,
+            "height": 169.5,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "hidden"
+          },
+          "resumo": {
+            "exists": true,
+            "left": 1586.4000244140625,
+            "top": 109.9000015258789,
+            "right": 1906.4000244140625,
+            "bottom": 970.1999893188477,
+            "width": 320,
+            "height": 860.2999877929688,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "auto"
+          },
+          "total": {
+            "exists": true,
+            "left": 1597.4000244140625,
+            "top": 346.1000061035156,
+            "right": 1895.4000244140625,
+            "bottom": 415.40000915527344,
+            "width": 298,
+            "height": 69.30000305175781,
+            "display": "block",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "finalizar": {
+            "exists": true,
+            "left": 1597.4000244140625,
+            "top": 864.75,
+            "right": 1895.4000244140625,
+            "bottom": 907.1375007629395,
+            "width": 298,
+            "height": 42.38750076293945,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "cancelar": {
+            "exists": true,
+            "left": 1597.4000244140625,
+            "top": 917.1375122070312,
+            "right": 1895.4000244140625,
+            "bottom": 957.2000122070312,
+            "width": 298,
+            "height": 40.0625,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "atalhos": {
+            "exists": true,
+            "left": 0,
+            "top": 974.2000122070312,
+            "right": 1906.4000244140625,
+            "bottom": 1015.2000122070312,
+            "width": 1906.4000244140625,
+            "height": 41,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "hidden"
+          },
+          "corpo": {
+            "exists": true,
+            "left": 0,
+            "top": 95.5,
+            "right": 1906.4000244140625,
+            "bottom": 970.2000122070312,
+            "width": 1906.4000244140625,
+            "height": 874.7000122070312,
+            "display": "grid",
+            "visibility": "visible",
+            "overflow": "hidden"
+          }
+        }
+      },
+      "screenshot": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\pdv-responsive-02\\vp-1920x1080.png",
+      "pass": true,
+      "issues": []
+    },
+    "1600x900": {
+      "requested": {
+        "id": "1600x900",
+        "w": 1600,
+        "h": 900,
+        "scaleNote": "100%"
+      },
+      "metrics": {
+        "innerWidth": 1586,
+        "innerHeight": 863,
+        "dpr": 1.25,
+        "pageScrollWidth": 1586,
+        "pageScrollHeight": 863,
+        "bodyOverflow": "hidden",
+        "pdvMode": true,
+        "scaleAttr": "100",
+        "shellZoom": "1",
+        "gridColumns": "1260.4px 320px",
+        "twoColumns": true,
+        "buscaEmpilhada": false,
+        "atalhosLines": 1,
+        "emptyCartExcessive": false,
+        "emptyCartPresent": true,
+        "fiscalFaixa": {
+          "exists": true,
+          "visible": true,
+          "text": "SISTEMA FISCAL ATIVO"
+        },
+        "els": {
+          "header": {
+            "exists": true,
+            "left": 0,
+            "top": 28.5,
+            "right": 1586.4000244140625,
+            "bottom": 91.5,
+            "width": 1586.4000244140625,
+            "height": 63,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "busca": {
+            "exists": true,
+            "left": 0,
+            "top": 109.9000015258789,
+            "right": 1260.4000244140625,
+            "bottom": 242.80001068115234,
+            "width": 1260.4000244140625,
+            "height": 132.90000915527344,
+            "display": "block",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "itens": {
+            "exists": true,
+            "left": 0,
+            "top": 248.8000030517578,
+            "right": 1260.4000244140625,
+            "bottom": 418.3000030517578,
+            "width": 1260.4000244140625,
+            "height": 169.5,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "hidden"
+          },
+          "resumo": {
+            "exists": true,
+            "left": 1266.4000244140625,
+            "top": 109.9000015258789,
+            "right": 1586.4000244140625,
+            "bottom": 790.1999893188477,
+            "width": 320,
+            "height": 680.2999877929688,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "auto"
+          },
+          "total": {
+            "exists": true,
+            "left": 1277.4000244140625,
+            "top": 346.1000061035156,
+            "right": 1575.4000244140625,
+            "bottom": 415.40000915527344,
+            "width": 298,
+            "height": 69.30000305175781,
+            "display": "block",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "finalizar": {
+            "exists": true,
+            "left": 1277.4000244140625,
+            "top": 684.75,
+            "right": 1575.4000244140625,
+            "bottom": 727.1375007629395,
+            "width": 298,
+            "height": 42.38750076293945,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "cancelar": {
+            "exists": true,
+            "left": 1277.4000244140625,
+            "top": 737.1375122070312,
+            "right": 1575.4000244140625,
+            "bottom": 777.2000122070312,
+            "width": 298,
+            "height": 40.0625,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "atalhos": {
+            "exists": true,
+            "left": 0,
+            "top": 794.2000122070312,
+            "right": 1586.4000244140625,
+            "bottom": 835.2000122070312,
+            "width": 1586.4000244140625,
+            "height": 41,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "hidden"
+          },
+          "corpo": {
+            "exists": true,
+            "left": 0,
+            "top": 95.5,
+            "right": 1586.4000244140625,
+            "bottom": 790.2000122070312,
+            "width": 1586.4000244140625,
+            "height": 694.7000122070312,
+            "display": "grid",
+            "visibility": "visible",
+            "overflow": "hidden"
+          }
+        }
+      },
+      "screenshot": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\pdv-responsive-02\\vp-1600x900.png",
+      "pass": true,
+      "issues": []
+    },
+    "1366x768": {
+      "requested": {
+        "id": "1366x768",
+        "w": 1366,
+        "h": 768,
+        "scaleNote": "100%"
+      },
+      "metrics": {
+        "innerWidth": 1352,
+        "innerHeight": 731,
+        "dpr": 1.25,
+        "pageScrollWidth": 1352,
+        "pageScrollHeight": 731,
+        "bodyOverflow": "hidden",
+        "pdvMode": true,
+        "scaleAttr": "100",
+        "shellZoom": "1",
+        "gridColumns": "1048px 300px",
+        "twoColumns": true,
+        "buscaEmpilhada": false,
+        "atalhosLines": 1,
+        "emptyCartExcessive": false,
+        "emptyCartPresent": true,
+        "fiscalFaixa": {
+          "exists": true,
+          "visible": true,
+          "text": "SISTEMA FISCAL ATIVO"
+        },
+        "els": {
+          "header": {
+            "exists": true,
+            "left": 0,
+            "top": 28.5,
+            "right": 1352,
+            "bottom": 81.9000015258789,
+            "width": 1352,
+            "height": 53.400001525878906,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "busca": {
+            "exists": true,
+            "left": 0,
+            "top": 100.30000305175781,
+            "right": 1048,
+            "bottom": 218.20000457763672,
+            "width": 1048,
+            "height": 117.9000015258789,
+            "display": "block",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "itens": {
+            "exists": true,
+            "left": 0,
+            "top": 222.1999969482422,
+            "right": 1048,
+            "bottom": 355.6999969482422,
+            "width": 1048,
+            "height": 133.5,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "hidden"
+          },
+          "resumo": {
+            "exists": true,
+            "left": 1052,
+            "top": 100.30000305175781,
+            "right": 1352,
+            "bottom": 670.2000274658203,
+            "width": 300,
+            "height": 569.9000244140625,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "auto"
+          },
+          "total": {
+            "exists": true,
+            "left": 1063,
+            "top": 317.5,
+            "right": 1341,
+            "bottom": 378.79999923706055,
+            "width": 278,
+            "height": 61.29999923706055,
+            "display": "block",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "finalizar": {
+            "exists": true,
+            "left": 1063,
+            "top": 582.75,
+            "right": 1341,
+            "bottom": 619.1375007629395,
+            "width": 278,
+            "height": 36.38750076293945,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "cancelar": {
+            "exists": true,
+            "left": 1063,
+            "top": 625.1375122070312,
+            "right": 1341,
+            "bottom": 659.2000122070312,
+            "width": 278,
+            "height": 34.0625,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "atalhos": {
+            "exists": true,
+            "left": 0,
+            "top": 672.2000122070312,
+            "right": 1352,
+            "bottom": 703.2000122070312,
+            "width": 1352,
+            "height": 31,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "hidden"
+          },
+          "corpo": {
+            "exists": true,
+            "left": 0,
+            "top": 85.9000015258789,
+            "right": 1352,
+            "bottom": 670.1999893188477,
+            "width": 1352,
+            "height": 584.2999877929688,
+            "display": "grid",
+            "visibility": "visible",
+            "overflow": "hidden"
+          }
+        }
+      },
+      "screenshot": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\pdv-responsive-02\\vp-1366x768.png",
+      "pass": true,
+      "issues": []
+    },
+    "1280x800": {
+      "requested": {
+        "id": "1280x800",
+        "w": 1280,
+        "h": 800,
+        "scaleNote": "Electron default"
+      },
+      "metrics": {
+        "innerWidth": 1266,
+        "innerHeight": 763,
+        "dpr": 1.25,
+        "pageScrollWidth": 1266,
+        "pageScrollHeight": 763,
+        "bodyOverflow": "hidden",
+        "pdvMode": true,
+        "scaleAttr": "100",
+        "shellZoom": "1",
+        "gridColumns": "962.4px 300px",
+        "twoColumns": true,
+        "buscaEmpilhada": false,
+        "atalhosLines": 1,
+        "emptyCartExcessive": false,
+        "emptyCartPresent": true,
+        "fiscalFaixa": {
+          "exists": true,
+          "visible": true,
+          "text": "SISTEMA FISCAL ATIVO"
+        },
+        "els": {
+          "header": {
+            "exists": true,
+            "left": 0,
+            "top": 28.5,
+            "right": 1266.4000244140625,
+            "bottom": 81.9000015258789,
+            "width": 1266.4000244140625,
+            "height": 53.400001525878906,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "busca": {
+            "exists": true,
+            "left": 0,
+            "top": 100.30000305175781,
+            "right": 962.4000244140625,
+            "bottom": 218.20000457763672,
+            "width": 962.4000244140625,
+            "height": 117.9000015258789,
+            "display": "block",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "itens": {
+            "exists": true,
+            "left": 0,
+            "top": 222.1999969482422,
+            "right": 962.4000244140625,
+            "bottom": 355.6999969482422,
+            "width": 962.4000244140625,
+            "height": 133.5,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "hidden"
+          },
+          "resumo": {
+            "exists": true,
+            "left": 966.4000244140625,
+            "top": 100.30000305175781,
+            "right": 1266.4000244140625,
+            "bottom": 702.2000274658203,
+            "width": 300,
+            "height": 601.9000244140625,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "auto"
+          },
+          "total": {
+            "exists": true,
+            "left": 977.4000244140625,
+            "top": 317.5,
+            "right": 1255.4000244140625,
+            "bottom": 378.79999923706055,
+            "width": 278,
+            "height": 61.29999923706055,
+            "display": "block",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "finalizar": {
+            "exists": true,
+            "left": 977.4000244140625,
+            "top": 614.75,
+            "right": 1255.4000244140625,
+            "bottom": 651.1375007629395,
+            "width": 278,
+            "height": 36.38750076293945,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "cancelar": {
+            "exists": true,
+            "left": 977.4000244140625,
+            "top": 657.1375122070312,
+            "right": 1255.4000244140625,
+            "bottom": 691.2000122070312,
+            "width": 278,
+            "height": 34.0625,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "atalhos": {
+            "exists": true,
+            "left": 0,
+            "top": 704.2000122070312,
+            "right": 1266.4000244140625,
+            "bottom": 735.2000122070312,
+            "width": 1266.4000244140625,
+            "height": 31,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "hidden"
+          },
+          "corpo": {
+            "exists": true,
+            "left": 0,
+            "top": 85.9000015258789,
+            "right": 1266.4000244140625,
+            "bottom": 702.1999893188477,
+            "width": 1266.4000244140625,
+            "height": 616.2999877929688,
+            "display": "grid",
+            "visibility": "visible",
+            "overflow": "hidden"
+          }
+        }
+      },
+      "screenshot": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\pdv-responsive-02\\vp-1280x800.png",
+      "pass": true,
+      "issues": []
+    },
+    "1280x720": {
+      "requested": {
+        "id": "1280x720",
+        "w": 1280,
+        "h": 720,
+        "scaleNote": "100%"
+      },
+      "metrics": {
+        "innerWidth": 1266,
+        "innerHeight": 683,
+        "dpr": 1.25,
+        "pageScrollWidth": 1266,
+        "pageScrollHeight": 683,
+        "bodyOverflow": "hidden",
+        "pdvMode": true,
+        "scaleAttr": "100",
+        "shellZoom": "1",
+        "gridColumns": "962.4px 300px",
+        "twoColumns": true,
+        "buscaEmpilhada": false,
+        "atalhosLines": 1,
+        "emptyCartExcessive": false,
+        "emptyCartPresent": true,
+        "fiscalFaixa": {
+          "exists": true,
+          "visible": true,
+          "text": "SISTEMA FISCAL ATIVO"
+        },
+        "els": {
+          "header": {
+            "exists": true,
+            "left": 0,
+            "top": 28.5,
+            "right": 1266.4000244140625,
+            "bottom": 79.9000015258789,
+            "width": 1266.4000244140625,
+            "height": 51.400001525878906,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "busca": {
+            "exists": true,
+            "left": 0,
+            "top": 98.30000305175781,
+            "right": 962.4000244140625,
+            "bottom": 214.20000457763672,
+            "width": 962.4000244140625,
+            "height": 115.9000015258789,
+            "display": "block",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "itens": {
+            "exists": true,
+            "left": 0,
+            "top": 218.1999969482422,
+            "right": 962.4000244140625,
+            "bottom": 351.6999969482422,
+            "width": 962.4000244140625,
+            "height": 133.5,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "hidden"
+          },
+          "resumo": {
+            "exists": true,
+            "left": 966.4000244140625,
+            "top": 98.30000305175781,
+            "right": 1266.4000244140625,
+            "bottom": 626.2000274658203,
+            "width": 300,
+            "height": 527.9000244140625,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "auto"
+          },
+          "total": {
+            "exists": true,
+            "left": 977.4000244140625,
+            "top": 311.5,
+            "right": 1255.4000244140625,
+            "bottom": 372.79999923706055,
+            "width": 278,
+            "height": 61.29999923706055,
+            "display": "block",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "finalizar": {
+            "exists": true,
+            "left": 977.4000244140625,
+            "top": 538.75,
+            "right": 1255.4000244140625,
+            "bottom": 575.1375007629395,
+            "width": 278,
+            "height": 36.38750076293945,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "cancelar": {
+            "exists": true,
+            "left": 977.4000244140625,
+            "top": 581.1375122070312,
+            "right": 1255.4000244140625,
+            "bottom": 615.2000122070312,
+            "width": 278,
+            "height": 34.0625,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "atalhos": {
+            "exists": true,
+            "left": 0,
+            "top": 628.2000122070312,
+            "right": 1266.4000244140625,
+            "bottom": 655.2000122070312,
+            "width": 1266.4000244140625,
+            "height": 27,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "hidden"
+          },
+          "corpo": {
+            "exists": true,
+            "left": 0,
+            "top": 83.9000015258789,
+            "right": 1266.4000244140625,
+            "bottom": 626.1999893188477,
+            "width": 1266.4000244140625,
+            "height": 542.2999877929688,
+            "display": "grid",
+            "visibility": "visible",
+            "overflow": "hidden"
+          }
+        }
+      },
+      "screenshot": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\pdv-responsive-02\\vp-1280x720.png",
+      "pass": true,
+      "issues": []
+    },
+    "1024x768": {
+      "requested": {
+        "id": "1024x768",
+        "w": 1024,
+        "h": 768,
+        "scaleNote": "100% CRITICAL"
+      },
+      "metrics": {
+        "innerWidth": 1010,
+        "innerHeight": 731,
+        "dpr": 1.25,
+        "pageScrollWidth": 1010,
+        "pageScrollHeight": 731,
+        "bodyOverflow": "hidden",
+        "pdvMode": true,
+        "scaleAttr": "100",
+        "shellZoom": "1",
+        "gridColumns": "736.4px 270px",
+        "twoColumns": true,
+        "buscaEmpilhada": false,
+        "atalhosLines": 1,
+        "emptyCartExcessive": false,
+        "emptyCartPresent": true,
+        "fiscalFaixa": {
+          "exists": true,
+          "visible": true,
+          "text": "SISTEMA FISCAL ATIVO"
+        },
+        "els": {
+          "header": {
+            "exists": true,
+            "left": 0,
+            "top": 28.5,
+            "right": 1010.4000244140625,
+            "bottom": 80.5,
+            "width": 1010.4000244140625,
+            "height": 52,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "busca": {
+            "exists": true,
+            "left": 0,
+            "top": 98.9000015258789,
+            "right": 736.4000244140625,
+            "bottom": 216.8000030517578,
+            "width": 736.4000244140625,
+            "height": 117.9000015258789,
+            "display": "block",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "itens": {
+            "exists": true,
+            "left": 0,
+            "top": 220.8000030517578,
+            "right": 736.4000244140625,
+            "bottom": 354.3000030517578,
+            "width": 736.4000244140625,
+            "height": 133.5,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "hidden"
+          },
+          "resumo": {
+            "exists": true,
+            "left": 740.4000244140625,
+            "top": 98.9000015258789,
+            "right": 1010.4000244140625,
+            "bottom": 672.1999893188477,
+            "width": 270,
+            "height": 573.2999877929688,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "auto"
+          },
+          "total": {
+            "exists": true,
+            "left": 751.4000244140625,
+            "top": 308.1000061035156,
+            "right": 999.4000244140625,
+            "bottom": 369.4000053405762,
+            "width": 248,
+            "height": 61.29999923706055,
+            "display": "block",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "finalizar": {
+            "exists": true,
+            "left": 751.4000244140625,
+            "top": 586.0875244140625,
+            "right": 999.4000244140625,
+            "bottom": 621.200023651123,
+            "width": 248,
+            "height": 35.11249923706055,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "cancelar": {
+            "exists": true,
+            "left": 751.4000244140625,
+            "top": 627.2000122070312,
+            "right": 999.4000244140625,
+            "bottom": 661.2000122070312,
+            "width": 248,
+            "height": 34,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "atalhos": {
+            "exists": true,
+            "left": 0,
+            "top": 674.2000122070312,
+            "right": 1010.4000244140625,
+            "bottom": 703.2000122070312,
+            "width": 1010.4000244140625,
+            "height": 29,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "hidden"
+          },
+          "corpo": {
+            "exists": true,
+            "left": 0,
+            "top": 84.5,
+            "right": 1010.4000244140625,
+            "bottom": 672.2000122070312,
+            "width": 1010.4000244140625,
+            "height": 587.7000122070312,
+            "display": "grid",
+            "visibility": "visible",
+            "overflow": "hidden"
+          }
+        }
+      },
+      "screenshot": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\pdv-responsive-02\\vp-1024x768.png",
+      "pass": true,
+      "issues": []
+    },
+    "1366x768_win125": {
+      "requested": {
+        "id": "1366x768_win125",
+        "w": 1093,
+        "h": 614,
+        "scaleNote": "Windows 125% lógico"
+      },
+      "metrics": {
+        "innerWidth": 1080,
+        "innerHeight": 578,
+        "dpr": 1.25,
+        "pageScrollWidth": 1080,
+        "pageScrollHeight": 578,
+        "bodyOverflow": "hidden",
+        "pdvMode": true,
+        "scaleAttr": "100",
+        "shellZoom": "1",
+        "gridColumns": "806px 270px",
+        "twoColumns": true,
+        "buscaEmpilhada": false,
+        "atalhosLines": 1,
+        "emptyCartExcessive": false,
+        "emptyCartPresent": true,
+        "fiscalFaixa": {
+          "exists": true,
+          "visible": true,
+          "text": "SISTEMA FISCAL ATIVO"
+        },
+        "els": {
+          "header": {
+            "exists": true,
+            "left": 0,
+            "top": 28.5,
+            "right": 1080,
+            "bottom": 74.5,
+            "width": 1080,
+            "height": 46,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "busca": {
+            "exists": true,
+            "left": 0,
+            "top": 92.9000015258789,
+            "right": 806,
+            "bottom": 208.8000030517578,
+            "width": 806,
+            "height": 115.9000015258789,
+            "display": "block",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "itens": {
+            "exists": true,
+            "left": 0,
+            "top": 212.8000030517578,
+            "right": 806,
+            "bottom": 346.3000030517578,
+            "width": 806,
+            "height": 133.5,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "hidden"
+          },
+          "resumo": {
+            "exists": true,
+            "left": 810,
+            "top": 92.9000015258789,
+            "right": 1080,
+            "bottom": 520.6000137329102,
+            "width": 270,
+            "height": 427.70001220703125,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "auto"
+          },
+          "total": {
+            "exists": true,
+            "left": 821,
+            "top": 298.1000061035156,
+            "right": 1069,
+            "bottom": 359.4000053405762,
+            "width": 248,
+            "height": 61.29999923706055,
+            "display": "block",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "finalizar": {
+            "exists": true,
+            "left": 821,
+            "top": 434.4875183105469,
+            "right": 1069,
+            "bottom": 469.6000175476074,
+            "width": 248,
+            "height": 35.11249923706055,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "cancelar": {
+            "exists": true,
+            "left": 821,
+            "top": 475.6000061035156,
+            "right": 1069,
+            "bottom": 509.6000061035156,
+            "width": 248,
+            "height": 34,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "atalhos": {
+            "exists": true,
+            "left": 0,
+            "top": 522.6000366210938,
+            "right": 1080,
+            "bottom": 549.6000366210938,
+            "width": 1080,
+            "height": 27,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "hidden"
+          },
+          "corpo": {
+            "exists": true,
+            "left": 0,
+            "top": 78.5,
+            "right": 1080,
+            "bottom": 520.6000061035156,
+            "width": 1080,
+            "height": 442.1000061035156,
+            "display": "grid",
+            "visibility": "visible",
+            "overflow": "hidden"
+          }
+        }
+      },
+      "screenshot": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\pdv-responsive-02\\vp-1366x768_win125.png",
+      "pass": true,
+      "issues": []
+    },
+    "1280x720_win125": {
+      "requested": {
+        "id": "1280x720_win125",
+        "w": 1024,
+        "h": 576,
+        "scaleNote": "Windows 125% lógico"
+      },
+      "metrics": {
+        "innerWidth": 1010,
+        "innerHeight": 539,
+        "dpr": 1.25,
+        "pageScrollWidth": 1010,
+        "pageScrollHeight": 539,
+        "bodyOverflow": "hidden",
+        "pdvMode": true,
+        "scaleAttr": "100",
+        "shellZoom": "1",
+        "gridColumns": "736.4px 270px",
+        "twoColumns": true,
+        "buscaEmpilhada": false,
+        "atalhosLines": 1,
+        "emptyCartExcessive": false,
+        "emptyCartPresent": true,
+        "fiscalFaixa": {
+          "exists": true,
+          "visible": true,
+          "text": "SISTEMA FISCAL ATIVO"
+        },
+        "els": {
+          "header": {
+            "exists": true,
+            "left": 0,
+            "top": 28.5,
+            "right": 1010.4000244140625,
+            "bottom": 74.5,
+            "width": 1010.4000244140625,
+            "height": 46,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "busca": {
+            "exists": true,
+            "left": 0,
+            "top": 92.9000015258789,
+            "right": 736.4000244140625,
+            "bottom": 208.8000030517578,
+            "width": 736.4000244140625,
+            "height": 115.9000015258789,
+            "display": "block",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "itens": {
+            "exists": true,
+            "left": 0,
+            "top": 212.8000030517578,
+            "right": 736.4000244140625,
+            "bottom": 346.3000030517578,
+            "width": 736.4000244140625,
+            "height": 133.5,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "hidden"
+          },
+          "resumo": {
+            "exists": true,
+            "left": 740.4000244140625,
+            "top": 92.9000015258789,
+            "right": 1010.4000244140625,
+            "bottom": 482.2000198364258,
+            "width": 270,
+            "height": 389.3000183105469,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "auto"
+          },
+          "total": {
+            "exists": true,
+            "left": 751.4000244140625,
+            "top": 298.1000061035156,
+            "right": 999.4000244140625,
+            "bottom": 359.4000053405762,
+            "width": 248,
+            "height": 61.29999923706055,
+            "display": "block",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "finalizar": {
+            "exists": true,
+            "left": 751.4000244140625,
+            "top": 396.0874938964844,
+            "right": 999.4000244140625,
+            "bottom": 431.1999931335449,
+            "width": 248,
+            "height": 35.11249923706055,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "cancelar": {
+            "exists": true,
+            "left": 751.4000244140625,
+            "top": 437.20001220703125,
+            "right": 999.4000244140625,
+            "bottom": 471.20001220703125,
+            "width": 248,
+            "height": 34,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "atalhos": {
+            "exists": true,
+            "left": 0,
+            "top": 484.20001220703125,
+            "right": 1010.4000244140625,
+            "bottom": 511.20001220703125,
+            "width": 1010.4000244140625,
+            "height": 27,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "hidden"
+          },
+          "corpo": {
+            "exists": true,
+            "left": 0,
+            "top": 78.5,
+            "right": 1010.4000244140625,
+            "bottom": 482.20001220703125,
+            "width": 1010.4000244140625,
+            "height": 403.70001220703125,
+            "display": "grid",
+            "visibility": "visible",
+            "overflow": "hidden"
+          }
+        }
+      },
+      "screenshot": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\pdv-responsive-02\\vp-1280x720_win125.png",
+      "pass": true,
+      "issues": []
+    },
+    "1366x768_win150": {
+      "requested": {
+        "id": "1366x768_win150",
+        "w": 911,
+        "h": 512,
+        "scaleNote": "Windows 150% lógico"
+      },
+      "metrics": {
+        "innerWidth": 898,
+        "innerHeight": 475,
+        "dpr": 1.25,
+        "pageScrollWidth": 898,
+        "pageScrollHeight": 475,
+        "bodyOverflow": "hidden",
+        "pdvMode": true,
+        "scaleAttr": "100",
+        "shellZoom": "1",
+        "gridColumns": "653.6px 240px",
+        "twoColumns": true,
+        "buscaEmpilhada": false,
+        "atalhosLines": 1,
+        "emptyCartExcessive": false,
+        "emptyCartPresent": true,
+        "fiscalFaixa": {
+          "exists": true,
+          "visible": true,
+          "text": "SISTEMA FISCAL ATIVO"
+        },
+        "els": {
+          "header": {
+            "exists": true,
+            "left": 0,
+            "top": 21,
+            "right": 897.6000366210938,
+            "bottom": 59,
+            "width": 897.6000366210938,
+            "height": 38,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "busca": {
+            "exists": true,
+            "left": 0,
+            "top": 77.4000015258789,
+            "right": 653.6000366210938,
+            "bottom": 115.4000015258789,
+            "width": 653.6000366210938,
+            "height": 38,
+            "display": "block",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "itens": {
+            "exists": true,
+            "left": 0,
+            "top": 118.4000015258789,
+            "right": 653.6000366210938,
+            "bottom": 233.9000015258789,
+            "width": 653.6000366210938,
+            "height": 115.5,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "hidden"
+          },
+          "resumo": {
+            "exists": true,
+            "left": 657.6000366210938,
+            "top": 77.4000015258789,
+            "right": 897.6000366210938,
+            "bottom": 420.2000198364258,
+            "width": 240,
+            "height": 342.8000183105469,
+            "display": "grid",
+            "visibility": "visible",
+            "overflow": "hidden auto"
+          },
+          "total": {
+            "exists": true,
+            "left": 668.6000366210938,
+            "top": 254.60000610351562,
+            "right": 886.6000366210938,
+            "bottom": 308.9000053405762,
+            "width": 218,
+            "height": 54.29999923706055,
+            "display": "block",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "finalizar": {
+            "exists": true,
+            "left": 668.6000366210938,
+            "top": 316.8999938964844,
+            "right": 775.6000366210938,
+            "bottom": 356.2249946594238,
+            "width": 107,
+            "height": 39.32500076293945,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "cancelar": {
+            "exists": true,
+            "left": 779.6000366210938,
+            "top": 316.8999938964844,
+            "right": 886.6000366210938,
+            "bottom": 356.2249946594238,
+            "width": 107,
+            "height": 39.32500076293945,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "atalhos": {
+            "exists": true,
+            "left": 0,
+            "top": 422.20001220703125,
+            "right": 897.6000366210938,
+            "bottom": 447.20001220703125,
+            "width": 897.6000366210938,
+            "height": 25,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "hidden"
+          },
+          "corpo": {
+            "exists": true,
+            "left": 0,
+            "top": 63,
+            "right": 897.6000366210938,
+            "bottom": 420.20001220703125,
+            "width": 897.6000366210938,
+            "height": 357.20001220703125,
+            "display": "grid",
+            "visibility": "visible",
+            "overflow": "hidden"
+          }
+        }
+      },
+      "screenshot": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\pdv-responsive-02\\vp-1366x768_win150.png",
+      "pass": true,
+      "issues": []
+    },
+    "898x475": {
+      "requested": {
+        "id": "898x475",
+        "w": 898,
+        "h": 475,
+        "scaleNote": "EXTREMO alvo PDV-RESPONSIVE-03"
+      },
+      "metrics": {
+        "innerWidth": 884,
+        "innerHeight": 438,
+        "dpr": 1.25,
+        "pageScrollWidth": 884,
+        "pageScrollHeight": 438,
+        "bodyOverflow": "hidden",
+        "pdvMode": true,
+        "scaleAttr": "100",
+        "shellZoom": "1",
+        "gridColumns": "640px 240px",
+        "twoColumns": true,
+        "buscaEmpilhada": false,
+        "atalhosLines": 1,
+        "emptyCartExcessive": false,
+        "emptyCartPresent": true,
+        "fiscalFaixa": {
+          "exists": true,
+          "visible": true,
+          "text": "SISTEMA FISCAL ATIVO"
+        },
+        "els": {
+          "header": {
+            "exists": true,
+            "left": 0,
+            "top": 21,
+            "right": 884,
+            "bottom": 59,
+            "width": 884,
+            "height": 38,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "busca": {
+            "exists": true,
+            "left": 0,
+            "top": 77.4000015258789,
+            "right": 640,
+            "bottom": 115.4000015258789,
+            "width": 640,
+            "height": 38,
+            "display": "block",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "itens": {
+            "exists": true,
+            "left": 0,
+            "top": 118.4000015258789,
+            "right": 640,
+            "bottom": 233.9000015258789,
+            "width": 640,
+            "height": 115.5,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "hidden"
+          },
+          "resumo": {
+            "exists": true,
+            "left": 644,
+            "top": 77.4000015258789,
+            "right": 884,
+            "bottom": 383.4000015258789,
+            "width": 240,
+            "height": 306,
+            "display": "grid",
+            "visibility": "visible",
+            "overflow": "hidden auto"
+          },
+          "total": {
+            "exists": true,
+            "left": 655,
+            "top": 254.60000610351562,
+            "right": 873,
+            "bottom": 308.9000053405762,
+            "width": 218,
+            "height": 54.29999923706055,
+            "display": "block",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "finalizar": {
+            "exists": true,
+            "left": 655,
+            "top": 316.8999938964844,
+            "right": 762,
+            "bottom": 356.2249946594238,
+            "width": 107,
+            "height": 39.32500076293945,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "cancelar": {
+            "exists": true,
+            "left": 766,
+            "top": 316.8999938964844,
+            "right": 873,
+            "bottom": 356.2249946594238,
+            "width": 107,
+            "height": 39.32500076293945,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "visible"
+          },
+          "atalhos": {
+            "exists": true,
+            "left": 0,
+            "top": 385.3999938964844,
+            "right": 884,
+            "bottom": 410.3999938964844,
+            "width": 884,
+            "height": 25,
+            "display": "flex",
+            "visibility": "visible",
+            "overflow": "hidden"
+          },
+          "corpo": {
+            "exists": true,
+            "left": 0,
+            "top": 63,
+            "right": 884,
+            "bottom": 383.3999938964844,
+            "width": 884,
+            "height": 320.3999938964844,
+            "display": "grid",
+            "visibility": "visible",
+            "overflow": "hidden"
+          }
+        }
+      },
+      "screenshot": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\pdv-responsive-02\\vp-898x475.png",
+      "pass": true,
+      "issues": []
+    }
+  },
+  "appearance": {
+    "100": {
+      "pass": true,
+      "issues": [],
+      "criticalMissing": [],
+      "screenshot": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\pdv-responsive-02\\aparencia-100.png",
+      "metrics": {
+        "scrollWidth": 1266,
+        "innerWidth": 1266,
+        "shellZoom": "1",
+        "scaleAttr": "100"
+      }
+    },
+    "110": {
+      "pass": true,
+      "issues": [],
+      "criticalMissing": [],
+      "screenshot": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\pdv-responsive-02\\aparencia-110.png",
+      "metrics": {
+        "scrollWidth": 1266,
+        "innerWidth": 1266,
+        "shellZoom": "1.1",
+        "scaleAttr": "110"
+      }
+    },
+    "125": {
+      "pass": true,
+      "issues": [],
+      "criticalMissing": [],
+      "screenshot": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\pdv-responsive-02\\aparencia-125.png",
+      "metrics": {
+        "scrollWidth": 1266,
+        "innerWidth": 1266,
+        "shellZoom": "1.25",
+        "scaleAttr": "125"
+      }
+    },
+    "140": {
+      "pass": true,
+      "issues": [],
+      "criticalMissing": [],
+      "screenshot": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\pdv-responsive-02\\aparencia-140.png",
+      "metrics": {
+        "scrollWidth": 1266,
+        "innerWidth": 1266,
+        "shellZoom": "1.4",
+        "scaleAttr": "140"
+      }
+    }
+  },
+  "functional": {
+    "busca": true,
+    "cancelar": true,
+    "atalhos": {
+      "F1": true,
+      "F4": true,
+      "F7": true,
+      "F8": true,
+      "F9": true,
+      "F10": true,
+      "F11": true,
+      "Escape": true
+    },
+    "errors": [],
+    "resumoLabels": {
+      "subtotal": true,
+      "descontoAtacado": true,
+      "itens": true,
+      "desconto": true,
+      "acrescimo": true,
+      "total": true,
+      "finalizar": true
+    }
+  },
+  "problems": [],
+  "alterations": "NENHUMA"
+}

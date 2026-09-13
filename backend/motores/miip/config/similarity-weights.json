@@ -1,0 +1,21 @@
+{
+  "versao": "1.0.0",
+  "descricao": "Pesos de votação — Motor de Similaridade MIIP",
+  "pesos": {
+    "marca": 25,
+    "tipo": 20,
+    "tecnologia": 20,
+    "potencia": 20,
+    "modelo": 15,
+    "unidadeMedida": 5,
+    "embalagem": 5,
+    "quantidadeEmbalagem": 5,
+    "material": 5,
+    "cor": 5
+  },
+  "confianca": {
+    "alta": 85,
+    "media": 60,
+    "baixa": 30
+  }
+}

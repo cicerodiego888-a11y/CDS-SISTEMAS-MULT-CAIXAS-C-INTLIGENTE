@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CIA Apps — Painel de Plugins</title>
+  <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+  <style>
+    :root { --ink:#0f172a; --teal:#0f766e; --bg:#f1f5f9; }
+    body { background: linear-gradient(160deg,#ecfeff 0%,#f8fafc 40%,#e2e8f0 100%); color:var(--ink); min-height:100vh; font-family: "Segoe UI", system-ui, sans-serif; }
+    .hero { padding:1.5rem 0 .5rem; }
+    .hero h1 { font-weight:700; letter-spacing:-.02em; }
+    .card-soft { background:#fff; border:1px solid #e2e8f0; border-radius:14px; box-shadow:0 10px 30px rgba(15,23,42,.06); }
+    .pill { display:inline-block; padding:.15rem .55rem; border-radius:999px; font-size:.75rem; background:#ccfbf1; color:#115e59; }
+    .pill.off { background:#fee2e2; color:#991b1b; }
+    .mono { font-family: ui-monospace, Consolas, monospace; font-size:.8rem; }
+  </style>
+</head>
+<body>
+  <div class="container py-3" style="max-width:980px">
+    <div class="hero d-flex flex-wrap justify-content-between align-items-end gap-2">
+      <div>
+        <div class="text-muted small">CDS Intelligence · Plugin Safe</div>
+        <h1 class="h3 mb-1">CIA Apps Panel</h1>
+        <p class="text-muted mb-0">Plugins opcionais — falha isolada, desligável sem reinício.</p>
+      </div>
+      <button class="btn btn-sm btn-success" id="btnRefresh"><i class="fas fa-sync me-1"></i>Atualizar</button>
+    </div>
+
+    <div class="row g-3 mt-1" id="kpi"></div>
+    <div class="card-soft p-3 mt-3">
+      <h2 class="h6">Plugins</h2>
+      <div id="plugins" class="table-responsive"></div>
+    </div>
+    <div class="card-soft p-3 mt-3">
+      <h2 class="h6">Health / Logs recentes</h2>
+      <pre class="mono mb-0" id="logs" style="max-height:280px;overflow:auto;white-space:pre-wrap"></pre>
+    </div>
+  </div>
+  <script src="/plugins/cia-apps-panel/panel.js"></script>
+</body>
+</html>

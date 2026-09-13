@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — CDS Sistemas</title>
+    <link rel="icon" type="image/x-icon" href="/branding/favicon.ico">
+    <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="/css/login-experience.css">
+    <link rel="stylesheet" href="/shared/intro/intro.css">
+</head>
+<body class="lx-body">
+    <!-- Fundo premium (CSS) — sem logo repetida -->
+    <div class="lx-stage" aria-hidden="true">
+        <div class="lx-stage__grid"></div>
+        <div class="lx-stage__lines"></div>
+        <div class="lx-stage__glow"></div>
+        <div class="lx-particles">
+            <span class="lx-particle"></span>
+            <span class="lx-particle"></span>
+            <span class="lx-particle"></span>
+            <span class="lx-particle"></span>
+            <span class="lx-particle"></span>
+            <span class="lx-particle"></span>
+            <span class="lx-particle"></span>
+            <span class="lx-particle"></span>
+        </div>
+    </div>
+
+    <main class="lx-shell">
+        <header class="lx-hero">
+            <div class="lx-logo-wrap">
+                <img id="loginLogo" class="lx-logo" src="/branding/logo-oficial.png" alt="" width="132" height="132">
+            </div>
+            <h1 class="lx-title" id="loginTitle"></h1>
+            <p class="lx-subtitle" id="loginSubtitle"></p>
+            <p class="lx-slogan" id="loginSlogan"></p>
+            <div class="lx-welcome">
+                <p class="lx-welcome__title" id="loginWelcomeTitle">Bem-vindo.</p>
+                <p class="lx-welcome__text" id="loginWelcomeText">Acesse sua plataforma.</p>
+            </div>
+        </header>
+
+        <section class="lx-card" aria-label="Acesso">
+            <form id="loginForm" autocomplete="off" novalidate>
+                <div class="lx-field">
+                    <label for="username">Usuário</label>
+                    <div class="lx-input-wrap">
+                        <i class="fas fa-user" aria-hidden="true"></i>
+                        <input
+                            type="text"
+                            class="lx-input"
+                            id="username"
+                            name="username"
+                            required
+                            autofocus
+                            tabindex="1"
+                            placeholder="Usuário"
+                            autocomplete="off"
+                            data-lpignore="true"
+                            data-1p-ignore="true"
+                        >
+                    </div>
+                </div>
+
+                <div class="lx-field">
+                    <label for="password">Senha</label>
+                    <div class="lx-input-wrap">
+                        <i class="fas fa-lock" aria-hidden="true"></i>
+                        <input
+                            type="password"
+                            class="lx-input"
+                            id="password"
+                            name="password"
+                            required
+                            tabindex="2"
+                            placeholder="Senha"
+                            autocomplete="off"
+                            data-lpignore="true"
+                            data-1p-ignore="true"
+                        >
+                    </div>
+                </div>
+
+                <div id="login-error" class="lx-error" role="alert" aria-live="polite"></div>
+
+                <button type="submit" class="lx-btn" id="btn-entrar" tabindex="3">
+                    <span class="lx-btn__label">
+                        <i class="fas fa-sign-in-alt" aria-hidden="true"></i>
+                        Entrar
+                    </span>
+                    <span class="lx-btn__spinner" aria-hidden="true">
+                        <span class="lx-spinner"></span>
+                        Entrando…
+                    </span>
+                </button>
+            </form>
+        </section>
+
+        <!-- Hotfix RC2.2 — troca obrigatória no primeiro acesso -->
+        <section id="primeiroAcessoPanel" class="lx-card lx-primeiro-acesso" hidden aria-label="Primeiro acesso">
+            <h2 class="lx-pa-title">Primeiro acesso</h2>
+            <p class="lx-pa-text">Por segurança, é necessário alterar a senha do administrador.</p>
+            <form id="primeiroAcessoForm" autocomplete="off" novalidate>
+                <div class="lx-field">
+                    <label for="novaSenha">Nova senha</label>
+                    <div class="lx-input-wrap">
+                        <i class="fas fa-key" aria-hidden="true"></i>
+                        <input type="password" class="lx-input" id="novaSenha" name="novaSenha" required minlength="4" autocomplete="new-password">
+                    </div>
+                </div>
+                <div class="lx-field">
+                    <label for="confirmarSenha">Confirmar senha</label>
+                    <div class="lx-input-wrap">
+                        <i class="fas fa-lock" aria-hidden="true"></i>
+                        <input type="password" class="lx-input" id="confirmarSenha" name="confirmarSenha" required minlength="4" autocomplete="new-password">
+                    </div>
+                </div>
+                <div id="primeiro-acesso-error" class="lx-error" role="alert" aria-live="polite"></div>
+                <button type="submit" class="lx-btn" id="btn-salvar-senha">
+                    <span class="lx-btn__label"><i class="fas fa-save" aria-hidden="true"></i> Salvar</span>
+                </button>
+            </form>
+        </section>
+
+        <footer class="lx-footer">
+            <p class="lx-footer__name" id="loginFooterName"></p>
+            <p class="lx-footer__meta">
+                <span id="loginFooterVersion"></span><br>
+                <span id="loginFooterSubtitle"></span>
+            </p>
+        </footer>
+    </main>
+
+    <!-- Splash visual pós-autenticação (não altera init real) -->
+    <div id="loginBootSplash" class="lx-boot" aria-live="polite" aria-atomic="true" hidden>
+        <div class="lx-boot__inner">
+            <img id="loginBootLogo" class="lx-boot__logo" src="/branding/splash.png" alt="">
+            <p class="lx-boot__msg" id="loginBootMsg">Inicializando Plataforma...</p>
+        </div>
+    </div>
+
+    <script src="/vendor/jquery/jquery.min.js"></script>
+    <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="/shared/js/brand-service.js"></script>
+    <script src="/shared/intro/intro-animator.js"></script>
+    <script src="/shared/intro/intro.js"></script>
+    <script src="/shared/js/estacaoHostname.js"></script>
+    <script src="/shared/js/access-control.js"></script>
+    <script src="/shared/js/login-experience.js"></script>
+    <script src="/shared/js/licenca-aviso-login.js"></script>
+    <script src="/shared/js/cds-obs-rum.js"></script>
+    <script src="/shared/js/login.js"></script>
+</body>
+</html>

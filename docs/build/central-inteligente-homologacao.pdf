@@ -1,0 +1,201 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+
+4 0 obj
+<< /Length 3846 >>
+stream
+BT
+/F1 9 Tf
+40 780 Td
+(# Homologa??o Operacional ? Central Inteligente RC4.31.8) Tj
+0 -12 Td
+() Tj
+0 -12 Td
+(## Ambiente) Tj
+0 -12 Td
+() Tj
+0 -12 Td
+(- Vers?o: 1.0.3) Tj
+0 -12 Td
+(- Commit: local) Tj
+0 -12 Td
+(- Build: 2026-08-01T15:41:12.497Z) Tj
+0 -12 Td
+(- Data: 2026-08-01T15:41:12.496Z) Tj
+0 -12 Td
+() Tj
+0 -12 Td
+(## Fluxos testados) Tj
+0 -12 Td
+() Tj
+0 -12 Td
+(? Importa??o XML \(1/5/20/100+ itens\)) Tj
+0 -12 Td
+(  - 1?1it \(181ms\) | 5?5it \(178ms\) | 20?20it \(409ms\) | 120?120it \(2391ms\)) Tj
+0 -12 Td
+(? Parser NF-e \(valida??o integrada\)) Tj
+0 -12 Td
+(  - fixture rc64 ? 2 itens) Tj
+0 -12 Td
+(? Identifica??o MIIP \(conhecido/desconhecido/misto\)) Tj
+0 -12 Td
+(  - conhecido=2/2 \(auto=0\) | desconhecido=0/2 pend=2 | misto=2/3 \(67%\)) Tj
+0 -12 Td
+(? Associa??o manual MIIP) Tj
+0 -12 Td
+(  - 3 associa??es | miip_associacoes id=105 ? prod 799) Tj
+0 -12 Td
+(? Edi??o de itens \(adicionar/editar/excluir\)) Tj
+0 -12 Td
+(  - padr?es frontend OK | ciclo editar/adicionar/excluir simulado) Tj
+0 -12 Td
+(? Datas \(emiss?o/entrada/vencimento + foco\)) Tj
+0 -12 Td
+(  - emiss?o=2026-06-01 | parcelas=2 | foco blur OK) Tj
+0 -12 Td
+(? Parcelas / duplicatas \(cobr/fat/dup\)) Tj
+0 -12 Td
+(  - 3 dup | docs=001,002,003 | venc=2026-01-15) Tj
+0 -12 Td
+(? Grava??o da compra \(itens/embalagens/financeiro/XML\)) Tj
+0 -12 Td
+(  - compra #4 | itens=1 | chave ?00000659) Tj
+0 -12 Td
+(? Estoque ap?s compra) Tj
+0 -12 Td
+(  - estoque=5 | fiscal=5 | custo=20) Tj
+0 -12 Td
+(? Contas a Pagar \(parcelas/vencimentos/documentos\)) Tj
+0 -12 Td
+(  - 2 parcelas OK | docs=001,002) Tj
+0 -12 Td
+(? Persist?ncia ap?s rein?cio simulado) Tj
+0 -12 Td
+(  - compra=4 itens=1 fin=2 miip_assoc=0) Tj
+0 -12 Td
+(? Regress?o \(20 importa??es consecutivas\)) Tj
+0 -12 Td
+(  - 20 XMLs OK | tempo m?dio=151ms | max=196ms) Tj
+0 -12 Td
+() Tj
+0 -12 Td
+(## Estat?sticas) Tj
+0 -12 Td
+() Tj
+0 -12 Td
+(- XMLs processados: 26) Tj
+0 -12 Td
+(- Produtos identificados automaticamente: 4) Tj
+0 -12 Td
+(- Produtos associados manualmente: 3) Tj
+0 -12 Td
+(- Compras gravadas: 1) Tj
+0 -12 Td
+(- Exce??es encontradas: 0) Tj
+0 -12 Td
+(- Tempo m?dio de processamento: 246 ms) Tj
+0 -12 Td
+(- Tempo total da homologa??o: 7.9 s) Tj
+0 -12 Td
+(- Cobertura dos fluxos cr?ticos: 100%) Tj
+0 -12 Td
+() Tj
+0 -12 Td
+(## XMLs utilizados) Tj
+0 -12 Td
+() Tj
+0 -12 Td
+(- chave ?00000643 | itens=1 | cobr=n?o) Tj
+0 -12 Td
+(- chave ?00000647 | itens=5 | cobr=n?o) Tj
+0 -12 Td
+(- chave ?00000644 | itens=20 | cobr=n?o) Tj
+0 -12 Td
+(- chave ?00000655 | itens=120 | cobr=n?o) Tj
+0 -12 Td
+(- chave ?00000658 | itens=2 | cobr=sim) Tj
+0 -12 Td
+(- chave ?00000659 | itens=1 | cobr=sim) Tj
+0 -12 Td
+(- chave ?00000651 | itens=1 | cobr=sim) Tj
+0 -12 Td
+(- chave ?00000652 | itens=2 | cobr=n?o) Tj
+0 -12 Td
+(- chave ?00000653 | itens=3 | cobr=n?o) Tj
+0 -12 Td
+(- chave ?00000654 | itens=4 | cobr=sim) Tj
+0 -12 Td
+(- chave ?00000655 | itens=5 | cobr=n?o) Tj
+0 -12 Td
+(- chave ?00000656 | itens=1 | cobr=n?o) Tj
+0 -12 Td
+(- chave ?00000657 | itens=2 | cobr=sim) Tj
+0 -12 Td
+(- chave ?00000658 | itens=3 | cobr=n?o) Tj
+0 -12 Td
+(- chave ?00000659 | itens=4 | cobr=n?o) Tj
+0 -12 Td
+(- chave ?00000651 | itens=5 | cobr=sim) Tj
+0 -12 Td
+(- chave ?00000652 | itens=1 | cobr=n?o) Tj
+0 -12 Td
+(- chave ?00000653 | itens=2 | cobr=n?o) Tj
+0 -12 Td
+(- chave ?00000654 | itens=3 | cobr=sim) Tj
+0 -12 Td
+(- chave ?00000655 | itens=4 | cobr=n?o) Tj
+0 -12 Td
+(- chave ?00000656 | itens=5 | cobr=n?o) Tj
+0 -12 Td
+(- chave ?00000657 | itens=1 | cobr=sim) Tj
+0 -12 Td
+(- chave ?00000658 | itens=2 | cobr=n?o) Tj
+0 -12 Td
+(- chave ?00000659 | itens=3 | cobr=n?o) Tj
+0 -12 Td
+(- chave ?00000651 | itens=4 | cobr=sim) Tj
+0 -12 Td
+(- chave ?00000652 | itens=5 | cobr=n?o) Tj
+0 -12 Td
+() Tj
+0 -12 Td
+(## Parecer final) Tj
+0 -12 Td
+() Tj
+0 -12 Td
+(**APROVADA**) Tj
+0 -12 Td
+() Tj
+0 -12 Td
+(Recomenda??o t?cnica de libera??o: **APROVADA**) Tj
+ET
+endstream
+endobj
+
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000004139 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+4209
+%%EOF

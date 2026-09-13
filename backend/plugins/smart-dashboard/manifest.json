@@ -1,0 +1,10 @@
+{
+  "id": "smart-dashboard",
+  "name": "CDS Smart Dashboard",
+  "version": "1.0.0",
+  "description": "Tela inicial inteligente — cards via CIA/CIP/MIB/MIIP",
+  "enabled": true,
+  "motors": ["CIA", "CIP", "MIB", "MIIP"],
+  "timeoutMs": 15000,
+  "oficial": true
+}

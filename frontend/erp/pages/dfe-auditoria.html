@@ -1,0 +1,107 @@
+<div class="dfe-auditoria-page mt-3">
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+      <h3 class="mb-1"><i class="fas fa-search-location me-2"></i>Motor DF-e — Auditoria</h3>
+      <p class="text-muted mb-0 small">Rastreabilidade DistDFe (somente suporte). Nenhuma regra de negócio é alterada nesta tela.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="dfeAudExportCsv">
+        <i class="fas fa-file-csv me-1"></i>CSV
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="dfeAudExportJson">
+        <i class="fas fa-file-code me-1"></i>JSON
+      </button>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label form-label-sm mb-1">Período início</label>
+          <input type="date" class="form-control form-control-sm" id="dfeAudDataInicio">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label form-label-sm mb-1">Período fim</label>
+          <input type="date" class="form-control form-control-sm" id="dfeAudDataFim">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label form-label-sm mb-1">NSU</label>
+          <input type="text" class="form-control form-control-sm" id="dfeAudNsu" placeholder="ex.: 263">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label form-label-sm mb-1">Chave</label>
+          <input type="text" class="form-control form-control-sm" id="dfeAudChave" placeholder="44 dígitos">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label form-label-sm mb-1">Resultado</label>
+          <select class="form-select form-select-sm" id="dfeAudResultado">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label form-label-sm mb-1">Schema</label>
+          <input type="text" class="form-control form-control-sm" id="dfeAudSchema" placeholder="resNFe / procNFe">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label form-label-sm mb-1">Empresa (CNPJ)</label>
+          <input type="text" class="form-control form-control-sm" id="dfeAudCnpj" placeholder="somente dígitos">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label form-label-sm mb-1">Correlation ID</label>
+          <input type="text" class="form-control form-control-sm" id="dfeAudCorrelation" placeholder="SYNC-...">
+        </div>
+        <div class="col-md-7 d-flex gap-2">
+          <button type="button" class="btn btn-sm btn-primary" id="dfeAudPesquisar">
+            <i class="fas fa-search me-1"></i>Pesquisar
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="dfeAudLimpar">Limpar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <div id="dfeAudResumo" class="small text-muted">—</div>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="dfeAudPrev" disabled>Anterior</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="dfeAudNext" disabled>Próxima</button>
+    </div>
+  </div>
+
+  <div class="table-responsive card shadow-sm">
+    <table class="table table-sm table-hover mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Data</th>
+          <th>Correlation</th>
+          <th>NSU</th>
+          <th>Tipo</th>
+          <th>Schema</th>
+          <th>Chave</th>
+          <th>Resultado</th>
+          <th>Motivo</th>
+          <th>ms</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="dfeAudTabela">
+        <tr><td colspan="10" class="text-center text-muted py-4">Use Pesquisar para carregar a trilha DistDFe.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="modal fade" id="dfeAudModalDetalhe" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Detalhe da auditoria DF-e</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <pre id="dfeAudDetalheJson" class="small bg-light p-3 rounded mb-0" style="white-space:pre-wrap;word-break:break-word;"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

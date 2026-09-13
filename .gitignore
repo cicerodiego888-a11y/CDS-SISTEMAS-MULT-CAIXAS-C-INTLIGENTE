@@ -1,0 +1,70 @@
+# Dependencias
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Arquivos de ambiente
+.env
+.env.*
+!.env.example
+
+# Banco local / dados temporarios
+dados/
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+*.db-journal
+
+# Arquivos sensíveis e certificados
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+certificado*
+!docs/oficial/CERTIFICADO_V1.md
+certificado_teste.pfx
+backend/certificados/*.pfx
+backend/certificados/*.p12
+backend/storage/certificados/
+backend/storage/temp-certificados/
+backend/banco/fiscal/certificados/
+scripts/
+
+# XML e arquivos de debug fiscal
+backend/storage/xml/
+backend/storage/xml/nfe/
+backend/storage/xml/nfce/
+backend/storage/xml/debug-assinatura/
+backend/services/fiscal/debug/
+
+# Build / distribuicao
+dist/
+dist30-06/
+dist-*/
+release/
+out/
+*.zip
+electron-manifest.json
+
+# Cache e temporarios
+.cache/
+.tmp/
+tmp/
+temp/
+*.tmp
+
+# Sistema operacional / editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/

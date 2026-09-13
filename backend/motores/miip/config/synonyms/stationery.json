@@ -1,0 +1,20 @@
+{
+  "versao": "1.0.0",
+  "categoria": "stationery",
+  "sinonimos": {
+    "PAPEL": ["FOLHA"],
+    "FOLHA": ["PAPEL"],
+    "CANETA": ["ESFEROGRAFICA"],
+    "ESFEROGRAFICA": ["CANETA"],
+    "LAPIS": ["GRAFITE"],
+    "GRAFITE": ["LAPIS"],
+    "CADERNO": ["BLOCO"],
+    "BLOCO": ["CADERNO"],
+    "BORRACHA": ["APAGADOR"],
+    "APAGADOR": ["BORRACHA"],
+    "SULFITE": ["PAPEL A4"],
+    "A4": ["SULFITE"],
+    "PASTA": ["ARQUIVO"],
+    "ENVELOPE": ["SACO"]
+  }
+}

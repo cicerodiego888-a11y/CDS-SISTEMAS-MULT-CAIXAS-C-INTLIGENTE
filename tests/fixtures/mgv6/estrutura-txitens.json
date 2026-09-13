@@ -1,0 +1,31 @@
+{
+  "arquivo": "TXITENS.TXT",
+  "encoding": "WINDOWS-1252",
+  "lineEnding": "CRLF",
+  "registroLength": 320,
+  "camposComprovados": {
+    "tipoRegistro": {
+      "inicio": 0,
+      "fim": 2
+    },
+    "codigo": {
+      "inicio": 2,
+      "fim": 11
+    },
+    "preco": {
+      "inicio": 11,
+      "fim": 20
+    },
+    "descricao": {
+      "inicio": 20
+    }
+  },
+  "notas": [
+    "Arquivo real TXITENS.TXT do cliente nao encontrado no disco no momento da RC14.15.4",
+    "Layout de campos baseado nas amostras comprovadas do Bridge (tipo+codigo9+preco9+descricao)",
+    "Padding de 320 caracteres e nome TXITENS.TXT definidos pela RC14.15.4"
+  ],
+  "amostraLogica": "01000000001001050000Frango Do Dia Kg",
+  "amostraRegistrosGolden": 3,
+  "amostraRegistros101": 101
+}

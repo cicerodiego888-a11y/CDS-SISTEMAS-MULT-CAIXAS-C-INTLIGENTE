@@ -1,0 +1,9 @@
+{
+  "id": "catalog-copilot",
+  "name": "Copiloto Cadastro",
+  "version": "1.0.0",
+  "description": "Sugestões de cadastro via MIIP + MIB",
+  "enabled": true,
+  "motors": ["MIIP", "MIB"],
+  "timeoutMs": 10000
+}

@@ -1,0 +1,9 @@
+{
+  "id": "financial-copilot",
+  "name": "Copiloto Financeiro",
+  "version": "1.0.0",
+  "description": "Consultas financeiras via CIP — sem alterar lançamentos",
+  "enabled": true,
+  "motors": ["CIP"],
+  "timeoutMs": 8000
+}

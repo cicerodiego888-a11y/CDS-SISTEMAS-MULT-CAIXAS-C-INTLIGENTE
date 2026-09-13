@@ -1,0 +1,21 @@
+{
+  "versao": "1.0.0",
+  "categoria": "hydraulic",
+  "sinonimos": {
+    "CANO": ["TUBO"],
+    "TUBO": ["CANO"],
+    "JOELHO": ["CURVA"],
+    "CURVA": ["JOELHO"],
+    "TEE": ["TE"],
+    "TE": ["TEE"],
+    "REGISTRO": ["VALVULA"],
+    "VALVULA": ["REGISTRO"],
+    "CONEXAO": ["ADAPTADOR"],
+    "ADAPTADOR": ["CONEXAO"],
+    "PVC": ["POLICLORETO DE VINILA"],
+    "PEAD": ["POLIETILENO"],
+    "ESGOTO": ["SANITARIO"],
+    "AGUA": ["HIDRAULICO"],
+    "PRESSAO": ["ALTA PRESSAO"]
+  }
+}

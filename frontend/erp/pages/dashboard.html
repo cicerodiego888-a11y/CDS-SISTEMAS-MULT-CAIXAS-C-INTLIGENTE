@@ -1,0 +1,226 @@
+<div class="cc-dashboard">
+  <!-- HERO -->
+  <header class="cc-hero" data-component="DashboardHero">
+    <div class="cc-hero__left">
+      <p class="cc-hero__brand" data-brand="nome">CDS Sistemas</p>
+      <h1 class="cc-hero__greeting" id="ccHeroGreeting">Olá</h1>
+      <p class="cc-hero__date">
+        <span id="ccHeroDate">—</span>
+        <span class="cc-hero__clock" id="ccHeroClock" aria-live="polite">—</span>
+      </p>
+      <div class="cc-hero__status" id="ccHeroStatus" data-tone="ok">
+        <i class="fas fa-circle" style="font-size:0.45rem"></i> Carregando status…
+      </div>
+      <p class="cc-hero__slogan">
+        <strong data-brand="nome">CDS Sistemas</strong>
+        <span data-brand="slogan">Inteligência para gerir,<br>tecnologia para crescer.</span>
+      </p>
+    </div>
+
+    <div class="cc-hero__filters cds-page-header__toolbar">
+      <select id="dashboardFiltroRapido" class="form-select form-select-sm" style="width: 148px;" title="Período">
+        <option value="7">Últimos 7 dias</option>
+        <option value="hoje">Hoje</option>
+        <option value="30">Últimos 30 dias</option>
+        <option value="personalizado">Personalizado</option>
+      </select>
+      <input type="date" id="dashboardDataInicio" class="form-control form-control-sm" style="width: 138px;" title="Início">
+      <input type="date" id="dashboardDataFim" class="form-control form-control-sm" style="width: 138px;" title="Fim">
+      <button type="button" class="btn btn-sm" onclick="carregarDashboardComFiltro()">Filtrar</button>
+      <div class="cc-hero__periodo" id="dashboardPeriodoLabel">Carregando período...</div>
+    </div>
+  </header>
+
+  <!-- BLOCO 1 — KPIs estratégicos -->
+  <section class="cc-section" data-component="DashboardSection" aria-label="KPIs estratégicos">
+    <div class="cc-section-title"><i class="fas fa-chart-line"></i> KPIs estratégicos</div>
+    <div class="cc-kpi-grid">
+      <article class="cc-kpi" data-component="DashboardKPI">
+        <div class="cc-kpi__head">
+          <span class="cc-kpi__icon"><i class="fas fa-coins"></i></span>
+          <p class="cc-label">Receita</p>
+        </div>
+        <div class="cc-value" id="dashboardFaturamento">R$ 0,00</div>
+        <p class="cc-legend">Período selecionado</p>
+      </article>
+
+      <article class="cc-kpi" data-component="DashboardKPI">
+        <div class="cc-kpi__head">
+          <span class="cc-kpi__icon"><i class="fas fa-shopping-bag"></i></span>
+          <p class="cc-label">Vendas</p>
+        </div>
+        <div class="cc-value" id="dashboardVendas">0</div>
+        <p class="cc-legend">Quantidade no período</p>
+      </article>
+
+      <article class="cc-kpi" data-component="DashboardKPI">
+        <div class="cc-kpi__head">
+          <span class="cc-kpi__icon"><i class="fas fa-chart-pie"></i></span>
+          <p class="cc-label">Lucro</p>
+        </div>
+        <div class="cc-value" id="dashboardLucro">R$ 0,00</div>
+        <p class="cc-legend">Estimado no período</p>
+      </article>
+
+      <article class="cc-kpi" data-component="DashboardKPI">
+        <div class="cc-kpi__head">
+          <span class="cc-kpi__icon"><i class="fas fa-receipt"></i></span>
+          <p class="cc-label">Ticket médio</p>
+        </div>
+        <div class="cc-value" id="dashboardTicket">R$ 0,00</div>
+        <p class="cc-legend">Por venda no período</p>
+      </article>
+
+      <article class="cc-kpi" data-component="DashboardKPI">
+        <div class="cc-kpi__head">
+          <span class="cc-kpi__icon"><i class="fas fa-arrow-trend-up"></i></span>
+          <p class="cc-label">Crescimento</p>
+        </div>
+        <div class="cc-value" id="dashboardCrescimento">—</div>
+        <p class="cc-legend">Hoje vs média do período</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- BLOCO 2 + 3 — Operação e Alertas -->
+  <div class="cc-main-split">
+    <section class="cc-panel" data-component="DashboardSection" aria-label="Operação">
+      <div class="cc-section-title"><i class="fas fa-th-large"></i> Operação</div>
+      <div class="cc-ops-grid">
+        <article class="cc-op" data-component="DashboardOperationCard" data-recurso="pdv">
+          <div class="cc-op__top">
+            <h3 class="cc-op__name"><i class="fas fa-cash-register"></i> PDV</h3>
+            <span class="cc-op__dot" id="ccOpPdvDot" data-tone="ok"></span>
+          </div>
+          <p class="cc-op__summary" id="ccOpPdvSummary">Carregando…</p>
+          <button type="button" class="btn btn-sm btn-outline-primary cc-op__btn" onclick="abrirModuloDashboard('pdv')">Abrir</button>
+        </article>
+
+        <article class="cc-op" data-component="DashboardOperationCard">
+          <div class="cc-op__top">
+            <h3 class="cc-op__name"><i class="fas fa-wallet"></i> Financeiro</h3>
+            <span class="cc-op__dot" id="ccOpFinDot" data-tone="ok"></span>
+          </div>
+          <p class="cc-op__summary" id="ccOpFinSummary">Carregando…</p>
+          <button type="button" class="btn btn-sm btn-outline-primary cc-op__btn" onclick="abrirModuloDashboard('financeiro')">Abrir</button>
+        </article>
+
+        <article class="cc-op" data-component="DashboardOperationCard">
+          <div class="cc-op__top">
+            <h3 class="cc-op__name"><i class="fas fa-truck"></i> Compras</h3>
+            <span class="cc-op__dot" id="ccOpComprasDot" data-tone="ok"></span>
+          </div>
+          <p class="cc-op__summary" id="ccOpComprasSummary">Carregando…</p>
+          <button type="button" class="btn btn-sm btn-outline-primary cc-op__btn" onclick="abrirModuloDashboard('compras')">Abrir</button>
+        </article>
+
+        <article class="cc-op" data-component="DashboardOperationCard" data-recurso="fiscal">
+          <div class="cc-op__top">
+            <h3 class="cc-op__name"><i class="fas fa-file-invoice-dollar"></i> Fiscal</h3>
+            <span class="cc-op__dot" id="ccOpFiscalDot" data-tone="ok"></span>
+          </div>
+          <p class="cc-op__summary" id="ccOpFiscalSummary">Carregando…</p>
+          <button type="button" class="btn btn-sm btn-outline-primary cc-op__btn" onclick="abrirModuloDashboard('fiscal')">Abrir</button>
+        </article>
+
+        <article class="cc-op" data-component="DashboardOperationCard" data-recurso="fiscal">
+          <div class="cc-op__top">
+            <h3 class="cc-op__name"><i class="fas fa-inbox"></i> Central Inteligente</h3>
+            <span class="cc-op__dot" id="ccOpCentralDot" data-tone="ok"></span>
+          </div>
+          <p class="cc-op__summary" id="ccOpCentralSummary">Carregando…</p>
+          <button type="button" class="btn btn-sm btn-outline-primary cc-op__btn" onclick="abrirModuloDashboard('central-entradas')">Abrir</button>
+        </article>
+      </div>
+    </section>
+
+    <section class="cc-panel" data-component="DashboardAlert" aria-label="Alertas">
+      <div class="cc-section-title"><i class="fas fa-bell"></i> Alertas</div>
+      <div id="ccAlertsList">
+        <div class="cc-alerts-empty">Carregando alertas…</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- BLOCO 4 + 5 — Saúde e Atividade -->
+  <div class="cc-lower-split">
+    <section class="cc-panel" data-component="DashboardHealth" aria-label="Saúde da plataforma">
+      <div class="cc-section-title"><i class="fas fa-heartbeat"></i> Saúde da plataforma</div>
+      <div class="cc-health-grid" id="ccHealthGrid">
+        <div class="cc-health">
+          <div class="cc-health__left"><i class="fas fa-brain"></i><span>MIIP</span></div>
+          <span class="cc-health__badge" data-tone="muted"><span class="cc-health__dot"></span> —</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="cc-panel" data-component="DashboardTimeline" aria-label="Atividade recente">
+      <div class="cc-section-title"><i class="fas fa-stream"></i> Atividade recente</div>
+      <div id="ccTimeline">
+        <div class="cc-timeline-empty">Carregando…</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Detalhes do período (mesmos dados de antes — densidade secundária) -->
+  <details class="cc-details">
+    <summary>Detalhes do período · listas operacionais</summary>
+    <div class="cc-details__body">
+      <div class="cc-details-grid">
+        <div class="cc-detail-card">
+          <h5>Produtos mais vendidos</h5>
+          <div class="cc-detail-list" id="dashboardMaisVendidos">Carregando...</div>
+        </div>
+        <div class="cc-detail-card">
+          <h5>Produtos menos vendidos</h5>
+          <div class="cc-detail-list" id="dashboardMenosVendidos">Carregando...</div>
+        </div>
+        <div class="cc-detail-card">
+          <h5>Estoque baixo</h5>
+          <div class="cc-detail-list" id="dashboardEstoqueBaixo">Carregando...</div>
+        </div>
+        <div class="cc-detail-card">
+          <h5>Formas de pagamento</h5>
+          <div class="cc-detail-list" id="dashboardFormasPagamento">Carregando...</div>
+        </div>
+        <div class="cc-detail-card">
+          <h5>Próximos do vencimento</h5>
+          <div class="cc-detail-list" id="dashboardProdutosProximoVencimento"></div>
+        </div>
+        <div class="cc-detail-card">
+          <h5>Produtos vencidos</h5>
+          <div class="cc-detail-list" id="dashboardProdutosVencidos"></div>
+        </div>
+        <div class="cc-detail-card">
+          <h5>Backups recentes</h5>
+          <div class="cc-detail-list" id="dashboardBackupsRecentes">Carregando...</div>
+        </div>
+        <div class="cc-detail-card">
+          <h5>Alertas de auditoria</h5>
+          <div class="cc-detail-list" id="dashboardAlerts">Carregando...</div>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <!-- Sinks: IDs legados ainda atualizados pelo dashboard.js (zero alteração funcional) -->
+  <div class="cc-data-sink" aria-hidden="true">
+    <span id="dashboardVendasHoje">0</span>
+    <span id="dashboardFaturamentoHoje">R$ 0,00</span>
+    <span id="dashboardLucroHoje">R$ 0,00</span>
+    <span id="dashboardTicketHoje">R$ 0,00</span>
+    <span id="dashboardEquipamentosQtd">0</span>
+    <span id="dashboardEquipamentosOnline">0</span>
+    <span id="dashboardEquipamentosOffline">0</span>
+    <span id="dashboardEquipamentosFila">0</span>
+    <span id="dashboardSyncPendentes">0</span>
+    <span id="dashboardSyncConcluidas">0</span>
+    <span id="dashboardSyncErros">0</span>
+    <span id="dashboardProdutos">0</span>
+    <span id="dashboardAuditoriaUltimos7">0</span>
+    <span id="dashboardContasReceber">R$ 0,00</span>
+    <span id="dashboardContasReceberQtd">0 pendência(s)</span>
+    <span id="dashboardContasPagar">R$ 0,00</span>
+    <span id="dashboardContasPagarQtd">0 pendência(s)</span>
+  </div>
+</div>

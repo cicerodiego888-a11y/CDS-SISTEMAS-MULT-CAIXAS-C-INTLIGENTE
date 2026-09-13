@@ -1,0 +1,17 @@
+{
+  "recurso": "dashboard",
+  "somenteLeitura": true,
+  "acoes": ["dashboard", "ask", "layout", "executive", "health"],
+  "cards": [
+    "situacao",
+    "alertas",
+    "oportunidades",
+    "ia",
+    "previsoes",
+    "acoes",
+    "operacional",
+    "insights",
+    "personalizacao",
+    "executivo"
+  ]
+}

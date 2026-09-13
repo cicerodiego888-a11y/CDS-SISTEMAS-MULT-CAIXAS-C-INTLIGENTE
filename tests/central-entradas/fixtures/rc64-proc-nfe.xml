@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">
+  <NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+    <infNFe Id="NFe35260112345678000199550010000000641000000064" versao="4.00">
+      <ide>
+        <nNF>641</nNF>
+        <serie>1</serie>
+        <mod>55</mod>
+        <dhEmi>2026-06-01T10:00:00-03:00</dhEmi>
+        <dhSaiEnt>2026-06-02T08:00:00-03:00</dhSaiEnt>
+      </ide>
+      <emit>
+        <CNPJ>12345678000199</CNPJ>
+        <xNome>Distribuidora Teste Ltda</xNome>
+        <enderEmit>
+          <xLgr>Rua das Flores</xLgr>
+          <nro>100</nro>
+          <xBairro>Centro</xBairro>
+          <xMun>Fortaleza</xMun>
+          <UF>CE</UF>
+          <CEP>60000000</CEP>
+        </enderEmit>
+      </emit>
+      <det nItem="1">
+        <prod>
+          <cProd>ABC001</cProd>
+          <cEAN>7891234567890</cEAN>
+          <xProd>Refrigerante Cola 2L</xProd>
+          <NCM>22021000</NCM>
+          <uCom>UN</uCom>
+          <qCom>10.0000</qCom>
+          <vUnCom>5.50</vUnCom>
+          <vProd>55.00</vProd>
+        </prod>
+      </det>
+      <det nItem="2">
+        <prod>
+          <cProd>ABC002</cProd>
+          <cEANTrib>7891234567891</cEANTrib>
+          <xProd>Suco Natural 1L</xProd>
+          <NCM>20098990</NCM>
+          <uCom>CX</uCom>
+          <qCom>5.0000</qCom>
+          <vUnCom>12.00</vUnCom>
+          <vProd>60.00</vProd>
+        </prod>
+      </det>
+      <total>
+        <ICMSTot>
+          <vProd>115.00</vProd>
+          <vDesc>5.00</vDesc>
+          <vFrete>10.00</vFrete>
+          <vOutro>2.50</vOutro>
+          <vNF>122.50</vNF>
+        </ICMSTot>
+      </total>
+    </infNFe>
+  </NFe>
+</nfeProc>

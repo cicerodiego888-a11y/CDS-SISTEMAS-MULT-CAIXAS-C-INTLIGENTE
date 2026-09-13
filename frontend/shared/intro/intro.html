@@ -1,0 +1,44 @@
+<!-- UX INTRO EXPERIENCE 1.0 — markup oficial (injetado por intro.js) -->
+<div id="cdsIntroRoot" class="intro-root" data-phase="1" role="presentation" aria-hidden="false">
+  <div class="intro-stage" aria-hidden="true">
+    <div class="intro-gradient"></div>
+    <div class="intro-network" id="introNetwork"></div>
+  </div>
+
+  <div class="intro-center">
+    <!-- Símbolo CDS em SVG (linhas douradas) -->
+    <svg class="intro-symbol" id="introSymbol" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <radialGradient id="introGoldGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#e8b84a" stop-opacity="0.55"/>
+          <stop offset="100%" stop-color="#e8b84a" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <circle class="intro-symbol__glow" cx="100" cy="100" r="70"/>
+      <!-- Hexágono / rede -->
+      <path class="intro-draw" d="M100 28 L158 62 L158 138 L100 172 L42 138 L42 62 Z"/>
+      <!-- Núcleo -->
+      <circle class="intro-draw" cx="100" cy="100" r="22"/>
+      <!-- Conexões -->
+      <path class="intro-draw" d="M100 50 L100 78"/>
+      <path class="intro-draw" d="M100 122 L100 150"/>
+      <path class="intro-draw" d="M58 76 L82 90"/>
+      <path class="intro-draw" d="M142 76 L118 90"/>
+      <path class="intro-draw" d="M58 124 L82 110"/>
+      <path class="intro-draw" d="M142 124 L118 110"/>
+    </svg>
+
+    <div class="intro-logo-wrap" id="introLogoWrap">
+      <img class="intro-logo" id="introLogoImg" src="/branding/logo-oficial.png" alt="">
+    </div>
+
+    <div class="intro-brand-text" id="introBrandText">
+      <h1 class="intro-title" id="introTitle"></h1>
+      <p class="intro-subtitle" id="introSubtitle"></p>
+      <p class="intro-slogan" id="introSlogan"></p>
+      <p class="intro-version" id="introVersion"></p>
+    </div>
+
+    <ul class="intro-load" id="introLoadList" aria-live="polite"></ul>
+  </div>
+</div>

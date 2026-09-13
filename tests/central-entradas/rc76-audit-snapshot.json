@@ -1,0 +1,1938 @@
+{
+  "ok": true,
+  "dbPath": "C:/ProgramData/MercantilFiscal/dados/mercadao.db",
+  "geradoEm": "2026-07-19T01:30:27.993Z",
+  "tables": [
+    "central_entradas_config",
+    "central_entradas_documentos",
+    "central_entradas_eventos",
+    "central_entradas_historico",
+    "central_entradas_notificacoes",
+    "central_entradas_nsu"
+  ],
+  "allTablesSample": [
+    "auditoria",
+    "auditoria_alertas",
+    "auditoria_caixa",
+    "caixa",
+    "caixa_fechamentos",
+    "caixa_movimentacoes",
+    "caixa_sessoes",
+    "caixas",
+    "categorias",
+    "central_entradas_config",
+    "central_entradas_documentos",
+    "central_entradas_eventos",
+    "central_entradas_historico",
+    "central_entradas_notificacoes",
+    "central_entradas_nsu",
+    "clientes",
+    "compras",
+    "compras_devolucoes",
+    "compras_itens",
+    "configuracoes",
+    "configuracoes_validade",
+    "consignacoes",
+    "consignacoes_itens",
+    "contas_receber",
+    "contas_receber_pagamentos",
+    "contas_recebimento",
+    "conversoes_fisicas_lotes",
+    "equipamentos",
+    "equipamentos_configuracoes",
+    "equipamentos_drivers",
+    "equipamentos_eventos",
+    "equipamentos_fila",
+    "equipamentos_logs",
+    "estoque_movimentacoes",
+    "estoque_reservas",
+    "financeiro",
+    "financial_audit",
+    "financial_dead_letter",
+    "financial_events",
+    "financial_idempotency",
+    "financial_ledger",
+    "financial_outbox",
+    "fornecedores",
+    "licenca",
+    "licenca_execucao",
+    "licenca_historico",
+    "licenca_logs",
+    "miip_associacoes",
+    "miip_configuracoes",
+    "miip_decisoes",
+    "miip_estatisticas",
+    "miip_sinonimos",
+    "movimentacoes_comerciais",
+    "movimentacoes_perfil_comercial",
+    "nfce_notas",
+    "notas_recebidas",
+    "notas_recebidas_dfe",
+    "outbox_events",
+    "perfil_comercial",
+    "prestacao_faturamento",
+    "produto_atacado",
+    "produto_unidades",
+    "produto_unidades_comercializacao",
+    "produtos",
+    "produtos_ajustes_estoque",
+    "produtos_lotes",
+    "produtos_preco_historico",
+    "promocoes",
+    "promocoes_sugestoes",
+    "sqlite_sequence",
+    "subcategorias",
+    "tef_alertas_fraude",
+    "tef_alertas_monitoramento",
+    "tef_auditoria_acesso",
+    "tef_backups",
+    "tef_conciliacao",
+    "tef_conciliacoes",
+    "tef_configuracao",
+    "tef_configuracoes",
+    "tef_fechamentos",
+    "tef_locks",
+    "tef_logs",
+    "tef_metricas",
+    "tef_notificacoes_falha",
+    "tef_operacoes",
+    "tef_pinpad_catalogo",
+    "tef_pinpads",
+    "tef_servidores",
+    "tef_tokens",
+    "tef_tokens_cartao",
+    "tef_transacoes",
+    "terminais",
+    "usuario_permissoes",
+    "usuarios",
+    "venda_lotes",
+    "venda_origem_consignacao",
+    "venda_pagamentos",
+    "venda_recebimentos",
+    "vendas",
+    "vendas_canceladas",
+    "vendas_devolucoes",
+    "vendas_itens"
+  ],
+  "docsByStatusTipo": [
+    {
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipoDocumento": "RES_NFE",
+      "c": 25
+    },
+    {
+      "status": "AGUARDANDO_REVISAO",
+      "tipoDocumento": "PROC_NFE",
+      "c": 1
+    }
+  ],
+  "origem": [
+    {
+      "origem": "dfe",
+      "c": 26
+    }
+  ],
+  "idade": [
+    {
+      "faixa": "alguns_dias",
+      "c": 3
+    },
+    {
+      "faixa": "mais_antiga",
+      "c": 23
+    }
+  ],
+  "totais": {
+    "total": 26,
+    "resNfe": 25,
+    "procNfe": 1,
+    "aguardandoXml": 25,
+    "upload": 0,
+    "dfe": 26
+  },
+  "amostraRecente": [
+    {
+      "id": 37,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipoDocumento": "RES_NFE",
+      "origem": "dfe",
+      "chavePrefix": "23260712727145003193",
+      "nsu": "000000000000027",
+      "dataEmissao": "2026-07-16",
+      "createdAt": "2026-07-18 23:15:25"
+    },
+    {
+      "id": 36,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipoDocumento": "RES_NFE",
+      "origem": "dfe",
+      "chavePrefix": "23260710599113000109",
+      "nsu": "000000000000026",
+      "dataEmissao": "2026-07-14",
+      "createdAt": "2026-07-18 23:15:25"
+    },
+    {
+      "id": 35,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipoDocumento": "RES_NFE",
+      "origem": "dfe",
+      "chavePrefix": "23260729059206000179",
+      "nsu": "000000000000025",
+      "dataEmissao": "2026-07-13",
+      "createdAt": "2026-07-18 23:15:25"
+    },
+    {
+      "id": 34,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipoDocumento": "RES_NFE",
+      "origem": "dfe",
+      "chavePrefix": "23260712727145003193",
+      "nsu": "000000000000024",
+      "dataEmissao": "2026-07-11",
+      "createdAt": "2026-07-18 23:15:25"
+    },
+    {
+      "id": 33,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipoDocumento": "RES_NFE",
+      "origem": "dfe",
+      "chavePrefix": "23260707196033002141",
+      "nsu": "000000000000023",
+      "dataEmissao": "2026-07-10",
+      "createdAt": "2026-07-18 23:15:25"
+    },
+    {
+      "id": 31,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipoDocumento": "RES_NFE",
+      "origem": "dfe",
+      "chavePrefix": "23260707206816000387",
+      "nsu": "000000000000021",
+      "dataEmissao": "2026-07-09",
+      "createdAt": "2026-07-18 23:15:25"
+    },
+    {
+      "id": 32,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipoDocumento": "RES_NFE",
+      "origem": "dfe",
+      "chavePrefix": "23260706850713000473",
+      "nsu": "000000000000022",
+      "dataEmissao": "2026-07-09",
+      "createdAt": "2026-07-18 23:15:25"
+    },
+    {
+      "id": 28,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipoDocumento": "RES_NFE",
+      "origem": "dfe",
+      "chavePrefix": "23260760409075019503",
+      "nsu": "000000000000018",
+      "dataEmissao": "2026-07-08",
+      "createdAt": "2026-07-18 23:15:25"
+    },
+    {
+      "id": 29,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipoDocumento": "RES_NFE",
+      "origem": "dfe",
+      "chavePrefix": "23260710599113000109",
+      "nsu": "000000000000019",
+      "dataEmissao": "2026-07-08",
+      "createdAt": "2026-07-18 23:15:25"
+    },
+    {
+      "id": 30,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipoDocumento": "RES_NFE",
+      "origem": "dfe",
+      "chavePrefix": "23260708718921000368",
+      "nsu": "000000000000020",
+      "dataEmissao": "2026-07-08",
+      "createdAt": "2026-07-18 23:15:25"
+    },
+    {
+      "id": 26,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipoDocumento": "RES_NFE",
+      "origem": "dfe",
+      "chavePrefix": "23260706850713000473",
+      "nsu": "000000000000016",
+      "dataEmissao": "2026-07-06",
+      "createdAt": "2026-07-18 23:15:25"
+    },
+    {
+      "id": 27,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipoDocumento": "RES_NFE",
+      "origem": "dfe",
+      "chavePrefix": "23260763310411000101",
+      "nsu": "000000000000017",
+      "dataEmissao": "2026-07-06",
+      "createdAt": "2026-07-18 23:15:25"
+    }
+  ],
+  "eventosTipos": [
+    {
+      "tipo": "DOCUMENTO_RECEBIDO",
+      "c": 28
+    },
+    {
+      "tipo": "CIENCIA_ENVIADA",
+      "c": 16
+    },
+    {
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "c": 14
+    },
+    {
+      "tipo": "SYNC_INICIADA",
+      "c": 11
+    },
+    {
+      "tipo": "MANIFESTACAO_ACEITA",
+      "c": 8
+    },
+    {
+      "tipo": "MANIFESTACAO_REJEITADA",
+      "c": 8
+    },
+    {
+      "tipo": "SYNC_ERRO",
+      "c": 8
+    },
+    {
+      "tipo": "DOCUMENTO_PROCESSADO",
+      "c": 6
+    },
+    {
+      "tipo": "MIIP_CONCLUIDO",
+      "c": 6
+    },
+    {
+      "tipo": "PARSER_CONCLUIDO",
+      "c": 6
+    },
+    {
+      "tipo": "CONFIG_ALTERADA",
+      "c": 4
+    },
+    {
+      "tipo": "SYNC_CONCLUIDA",
+      "c": 2
+    },
+    {
+      "tipo": "COMPRA_GRAVADA",
+      "c": 1
+    },
+    {
+      "tipo": "DOCUMENTO_ATUALIZADO",
+      "c": 1
+    }
+  ],
+  "eventosManifestacao": [
+    {
+      "id": 141,
+      "tipo": "MANIFESTACAO_REJEITADA",
+      "resultado": "596",
+      "sucesso": 0,
+      "duracaoMs": 590.2717,
+      "descricao": "Manifestação rejeitada: Rejeicao: Evento apresentado apos o prazo permitido para o evento: [10 dias]",
+      "createdAt": "2026-07-19 01:29:58"
+    },
+    {
+      "id": 140,
+      "tipo": "CIENCIA_ENVIADA",
+      "resultado": "ENVIADA",
+      "sucesso": null,
+      "duracaoMs": null,
+      "descricao": "Ciência da Emissão (210210) enviada.",
+      "createdAt": "2026-07-19 01:29:57"
+    },
+    {
+      "id": 138,
+      "tipo": "MANIFESTACAO_REJEITADA",
+      "resultado": "596",
+      "sucesso": 0,
+      "duracaoMs": 476.213,
+      "descricao": "Manifestação rejeitada: Rejeicao: Evento apresentado apos o prazo permitido para o evento: [10 dias]",
+      "createdAt": "2026-07-19 01:28:57"
+    },
+    {
+      "id": 137,
+      "tipo": "CIENCIA_ENVIADA",
+      "resultado": "ENVIADA",
+      "sucesso": null,
+      "duracaoMs": null,
+      "descricao": "Ciência da Emissão (210210) enviada.",
+      "createdAt": "2026-07-19 01:28:56"
+    },
+    {
+      "id": 135,
+      "tipo": "MANIFESTACAO_REJEITADA",
+      "resultado": "596",
+      "sucesso": 0,
+      "duracaoMs": 447.2566,
+      "descricao": "Manifestação rejeitada: Rejeicao: Evento apresentado apos o prazo permitido para o evento: [10 dias]",
+      "createdAt": "2026-07-19 01:27:56"
+    },
+    {
+      "id": 134,
+      "tipo": "CIENCIA_ENVIADA",
+      "resultado": "ENVIADA",
+      "sucesso": null,
+      "duracaoMs": null,
+      "descricao": "Ciência da Emissão (210210) enviada.",
+      "createdAt": "2026-07-19 01:27:55"
+    },
+    {
+      "id": 132,
+      "tipo": "MANIFESTACAO_REJEITADA",
+      "resultado": "596",
+      "sucesso": 0,
+      "duracaoMs": 581.419,
+      "descricao": "Manifestação rejeitada: Rejeicao: Evento apresentado apos o prazo permitido para o evento: [10 dias]",
+      "createdAt": "2026-07-19 01:26:55"
+    },
+    {
+      "id": 131,
+      "tipo": "CIENCIA_ENVIADA",
+      "resultado": "ENVIADA",
+      "sucesso": null,
+      "duracaoMs": null,
+      "descricao": "Ciência da Emissão (210210) enviada.",
+      "createdAt": "2026-07-19 01:26:54"
+    },
+    {
+      "id": 129,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "656",
+      "sucesso": 0,
+      "duracaoMs": 846,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-19 01:15:59"
+    },
+    {
+      "id": 128,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "656",
+      "sucesso": 0,
+      "duracaoMs": 472,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-19 00:39:17"
+    },
+    {
+      "id": 127,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "656",
+      "sucesso": 0,
+      "duracaoMs": 487,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-19 00:38:17"
+    },
+    {
+      "id": 126,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "656",
+      "sucesso": 0,
+      "duracaoMs": 503,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-19 00:37:16"
+    },
+    {
+      "id": 125,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "656",
+      "sucesso": 0,
+      "duracaoMs": 508,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-19 00:36:15"
+    },
+    {
+      "id": 124,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "656",
+      "sucesso": 0,
+      "duracaoMs": 424,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-19 00:35:14"
+    },
+    {
+      "id": 123,
+      "tipo": "MANIFESTACAO_REJEITADA",
+      "resultado": "596",
+      "sucesso": 0,
+      "duracaoMs": 419.5361,
+      "descricao": "Manifestação rejeitada: Rejeicao: Evento apresentado apos o prazo permitido para o evento: [10 dias]",
+      "createdAt": "2026-07-19 00:34:14"
+    },
+    {
+      "id": 122,
+      "tipo": "CIENCIA_ENVIADA",
+      "resultado": "ENVIADA",
+      "sucesso": null,
+      "duracaoMs": null,
+      "descricao": "Ciência da Emissão (210210) enviada.",
+      "createdAt": "2026-07-19 00:34:13"
+    },
+    {
+      "id": 111,
+      "tipo": "MANIFESTACAO_REJEITADA",
+      "resultado": "596",
+      "sucesso": 0,
+      "duracaoMs": 395.6171,
+      "descricao": "Manifestação rejeitada: Rejeicao: Evento apresentado apos o prazo permitido para o evento: [10 dias]",
+      "createdAt": "2026-07-18 23:17:59"
+    },
+    {
+      "id": 110,
+      "tipo": "CIENCIA_ENVIADA",
+      "resultado": "ENVIADA",
+      "sucesso": null,
+      "duracaoMs": null,
+      "descricao": "Ciência da Emissão (210210) enviada.",
+      "createdAt": "2026-07-18 23:17:59"
+    },
+    {
+      "id": 108,
+      "tipo": "MANIFESTACAO_REJEITADA",
+      "resultado": "596",
+      "sucesso": 0,
+      "duracaoMs": 408.9096,
+      "descricao": "Manifestação rejeitada: Rejeicao: Evento apresentado apos o prazo permitido para o evento: [10 dias]",
+      "createdAt": "2026-07-18 23:17:47"
+    },
+    {
+      "id": 107,
+      "tipo": "CIENCIA_ENVIADA",
+      "resultado": "ENVIADA",
+      "sucesso": null,
+      "duracaoMs": null,
+      "descricao": "Ciência da Emissão (210210) enviada.",
+      "createdAt": "2026-07-18 23:17:46"
+    },
+    {
+      "id": 105,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "AGUARDANDO_NSU",
+      "sucesso": 1,
+      "duracaoMs": null,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-18 23:17:46"
+    },
+    {
+      "id": 104,
+      "tipo": "MANIFESTACAO_ACEITA",
+      "resultado": "135",
+      "sucesso": 1,
+      "duracaoMs": 487.4979,
+      "descricao": "Manifestação aceita pela SEFAZ.",
+      "createdAt": "2026-07-18 23:17:46"
+    },
+    {
+      "id": 103,
+      "tipo": "CIENCIA_ENVIADA",
+      "resultado": "ENVIADA",
+      "sucesso": null,
+      "duracaoMs": null,
+      "descricao": "Ciência da Emissão (210210) enviada.",
+      "createdAt": "2026-07-18 23:17:46"
+    },
+    {
+      "id": 101,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "AGUARDANDO_NSU",
+      "sucesso": 1,
+      "duracaoMs": null,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-18 23:17:46"
+    },
+    {
+      "id": 100,
+      "tipo": "MANIFESTACAO_ACEITA",
+      "resultado": "135",
+      "sucesso": 1,
+      "duracaoMs": 423.5817,
+      "descricao": "Manifestação aceita pela SEFAZ.",
+      "createdAt": "2026-07-18 23:17:46"
+    }
+  ],
+  "eventosSync": [
+    {
+      "id": 129,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "656",
+      "sucesso": 0,
+      "duracaoMs": 846,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-19 01:15:59"
+    },
+    {
+      "id": 128,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "656",
+      "sucesso": 0,
+      "duracaoMs": 472,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-19 00:39:17"
+    },
+    {
+      "id": 127,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "656",
+      "sucesso": 0,
+      "duracaoMs": 487,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-19 00:38:17"
+    },
+    {
+      "id": 126,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "656",
+      "sucesso": 0,
+      "duracaoMs": 503,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-19 00:37:16"
+    },
+    {
+      "id": 125,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "656",
+      "sucesso": 0,
+      "duracaoMs": 508,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-19 00:36:15"
+    },
+    {
+      "id": 124,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "656",
+      "sucesso": 0,
+      "duracaoMs": 424,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-19 00:35:14"
+    },
+    {
+      "id": 120,
+      "tipo": "SYNC_ERRO",
+      "resultado": "erro",
+      "sucesso": 0,
+      "duracaoMs": 4090,
+      "descricao": "Rejeicao: Consumo Indevido (Deve ser utilizado o ultNSU nas solicitacoes subsequentes. Tente apos 1 hora)",
+      "createdAt": "2026-07-19 00:31:09"
+    },
+    {
+      "id": 119,
+      "tipo": "SYNC_INICIADA",
+      "resultado": "em_andamento",
+      "sucesso": null,
+      "duracaoMs": null,
+      "descricao": "Sincronização SEFAZ iniciada",
+      "createdAt": "2026-07-19 00:31:05"
+    },
+    {
+      "id": 114,
+      "tipo": "SYNC_CONCLUIDA",
+      "resultado": "sucesso",
+      "sucesso": 1,
+      "duracaoMs": 639,
+      "descricao": "Sincronização concluída — nenhuma nota nova",
+      "createdAt": "2026-07-18 23:54:08"
+    },
+    {
+      "id": 113,
+      "tipo": "SYNC_INICIADA",
+      "resultado": "em_andamento",
+      "sucesso": null,
+      "duracaoMs": null,
+      "descricao": "Sincronização SEFAZ iniciada",
+      "createdAt": "2026-07-18 23:54:07"
+    },
+    {
+      "id": 105,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "AGUARDANDO_NSU",
+      "sucesso": 1,
+      "duracaoMs": null,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-18 23:17:46"
+    },
+    {
+      "id": 101,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "AGUARDANDO_NSU",
+      "sucesso": 1,
+      "duracaoMs": null,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-18 23:17:46"
+    },
+    {
+      "id": 97,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "AGUARDANDO_NSU",
+      "sucesso": 1,
+      "duracaoMs": null,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-18 23:17:45"
+    },
+    {
+      "id": 93,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "AGUARDANDO_NSU",
+      "sucesso": 1,
+      "duracaoMs": null,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-18 23:17:44"
+    },
+    {
+      "id": 89,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "AGUARDANDO_NSU",
+      "sucesso": 1,
+      "duracaoMs": null,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-18 23:17:44"
+    },
+    {
+      "id": 85,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "AGUARDANDO_NSU",
+      "sucesso": 1,
+      "duracaoMs": null,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-18 23:17:43"
+    },
+    {
+      "id": 81,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "AGUARDANDO_NSU",
+      "sucesso": 1,
+      "duracaoMs": null,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-18 23:17:43"
+    },
+    {
+      "id": 77,
+      "tipo": "CONSULTA_DFE_POS_MANIFESTACAO",
+      "resultado": "AGUARDANDO_NSU",
+      "sucesso": 1,
+      "duracaoMs": null,
+      "descricao": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-18 23:17:42"
+    },
+    {
+      "id": 69,
+      "tipo": "SYNC_CONCLUIDA",
+      "resultado": "sucesso",
+      "sucesso": 1,
+      "duracaoMs": 1117,
+      "descricao": "26 nova(s) nota(s) sincronizada(s)",
+      "createdAt": "2026-07-18 23:15:25"
+    },
+    {
+      "id": 42,
+      "tipo": "SYNC_INICIADA",
+      "resultado": "em_andamento",
+      "sucesso": null,
+      "duracaoMs": null,
+      "descricao": "Sincronização SEFAZ iniciada",
+      "createdAt": "2026-07-18 23:15:24"
+    },
+    {
+      "id": 41,
+      "tipo": "SYNC_ERRO",
+      "resultado": "erro",
+      "sucesso": 0,
+      "duracaoMs": 471,
+      "descricao": "Rejeicao: CNPJ-Base consultado difere do CNPJ-Base do Certificado Digital",
+      "createdAt": "2026-07-18 22:55:49"
+    },
+    {
+      "id": 40,
+      "tipo": "SYNC_INICIADA",
+      "resultado": "em_andamento",
+      "sucesso": null,
+      "duracaoMs": null,
+      "descricao": "Sincronização SEFAZ iniciada",
+      "createdAt": "2026-07-18 22:55:48"
+    },
+    {
+      "id": 39,
+      "tipo": "SYNC_ERRO",
+      "resultado": "erro",
+      "sucesso": 0,
+      "duracaoMs": 528,
+      "descricao": "Rejeicao: CNPJ-Base consultado difere do CNPJ-Base do Certificado Digital",
+      "createdAt": "2026-07-18 22:53:38"
+    },
+    {
+      "id": 38,
+      "tipo": "SYNC_INICIADA",
+      "resultado": "em_andamento",
+      "sucesso": null,
+      "duracaoMs": null,
+      "descricao": "Sincronização SEFAZ iniciada",
+      "createdAt": "2026-07-18 22:53:37"
+    },
+    {
+      "id": 37,
+      "tipo": "SYNC_ERRO",
+      "resultado": "erro",
+      "sucesso": 0,
+      "duracaoMs": 78,
+      "descricao": "Arquivo do certificado não encontrado no caminho configurado.",
+      "createdAt": "2026-07-18 22:52:32"
+    },
+    {
+      "id": 36,
+      "tipo": "SYNC_INICIADA",
+      "resultado": "em_andamento",
+      "sucesso": null,
+      "duracaoMs": null,
+      "descricao": "Sincronização SEFAZ iniciada",
+      "createdAt": "2026-07-18 22:52:32"
+    },
+    {
+      "id": 35,
+      "tipo": "SYNC_ERRO",
+      "resultado": "erro",
+      "sucesso": 0,
+      "duracaoMs": 465,
+      "descricao": "Rejeicao: CNPJ-Base consultado difere do CNPJ-Base do Certificado Digital",
+      "createdAt": "2026-07-18 22:48:10"
+    },
+    {
+      "id": 34,
+      "tipo": "SYNC_INICIADA",
+      "resultado": "em_andamento",
+      "sucesso": null,
+      "duracaoMs": null,
+      "descricao": "Sincronização SEFAZ iniciada",
+      "createdAt": "2026-07-18 22:48:09"
+    },
+    {
+      "id": 33,
+      "tipo": "SYNC_ERRO",
+      "resultado": "erro",
+      "sucesso": 0,
+      "duracaoMs": 487,
+      "descricao": "Rejeicao: CNPJ-Base consultado difere do CNPJ-Base do Certificado Digital",
+      "createdAt": "2026-07-18 22:46:35"
+    },
+    {
+      "id": 32,
+      "tipo": "SYNC_INICIADA",
+      "resultado": "em_andamento",
+      "sucesso": null,
+      "duracaoMs": null,
+      "descricao": "Sincronização SEFAZ iniciada",
+      "createdAt": "2026-07-18 22:46:35"
+    },
+    {
+      "id": 31,
+      "tipo": "SYNC_ERRO",
+      "resultado": "erro",
+      "sucesso": 0,
+      "duracaoMs": 599,
+      "descricao": "Rejeicao: CNPJ-Base consultado difere do CNPJ-Base do Certificado Digital",
+      "createdAt": "2026-07-18 22:39:17"
+    },
+    {
+      "id": 30,
+      "tipo": "SYNC_INICIADA",
+      "resultado": "em_andamento",
+      "sucesso": null,
+      "duracaoMs": null,
+      "descricao": "Sincronização SEFAZ iniciada",
+      "createdAt": "2026-07-18 22:39:17"
+    },
+    {
+      "id": 29,
+      "tipo": "SYNC_ERRO",
+      "resultado": "erro",
+      "sucesso": 0,
+      "duracaoMs": 728,
+      "descricao": "Rejeicao: CNPJ-Base consultado difere do CNPJ-Base do Certificado Digital",
+      "createdAt": "2026-07-18 22:38:26"
+    },
+    {
+      "id": 28,
+      "tipo": "SYNC_INICIADA",
+      "resultado": "em_andamento",
+      "sucesso": null,
+      "duracaoMs": null,
+      "descricao": "Sincronização SEFAZ iniciada",
+      "createdAt": "2026-07-18 22:38:25"
+    },
+    {
+      "id": 14,
+      "tipo": "SYNC_INICIADA",
+      "resultado": "em_andamento",
+      "sucesso": null,
+      "duracaoMs": null,
+      "descricao": "Teste sprint 8",
+      "createdAt": "2026-07-18 22:31:25"
+    }
+  ],
+  "eventosXmlWait": [],
+  "tempoMedioSync": {
+    "mediaMs": 920.2,
+    "n": 10,
+    "minMs": 78,
+    "maxMs": 4090
+  },
+  "tempoMedioParser": {
+    "mediaMs": 6.2,
+    "n": 6
+  },
+  "tempoMedioMiip": {
+    "mediaMs": 34.2,
+    "n": 6
+  },
+  "tempoMedioManifest": {
+    "mediaMs": 473.9,
+    "n": 22
+  },
+  "tempoMedioXmlWait": {
+    "mediaMs": null,
+    "n": 0
+  },
+  "contagemEventosCriticos": {
+    "syncOk": 2,
+    "syncErro": 8,
+    "e656": 1,
+    "e593": 0,
+    "cienciaOk": 16,
+    "cienciaRej": 14,
+    "downloadAuto": 0,
+    "downloadManual": 0
+  },
+  "nsu": {
+    "ultNsu": "000000000000000",
+    "maxNsu": "000000000000000",
+    "cnpj": "65957340000150",
+    "ambiente": 2,
+    "dataSync": "2026-07-18T23:54:08.109Z",
+    "updatedAt": "2026-07-18 23:54:08"
+  },
+  "configChaves": [
+    "http_retry",
+    "http_timeout_ms",
+    "log_detalhado",
+    "manifestacao_destinatario_politica",
+    "modo_debug",
+    "proxy_habilitado",
+    "proxy_url",
+    "sefaz_intervalo_tentativas_ms",
+    "sefaz_max_tentativas",
+    "sefaz_timeout_ms",
+    "sefaz_url_consulta_chave_homologacao",
+    "sefaz_url_consulta_chave_producao",
+    "sefaz_url_dfe_homologacao",
+    "sefaz_url_dfe_producao",
+    "sefaz_url_manifestacao_homologacao",
+    "sefaz_url_manifestacao_producao",
+    "sefaz_versao_servico",
+    "sync_ao_abrir",
+    "sync_automatica_habilitada",
+    "sync_horario_bloqueado_fim",
+    "sync_horario_bloqueado_inicio",
+    "sync_horario_permitido_fim",
+    "sync_horario_permitido_inicio",
+    "sync_intervalo_minutos",
+    "sync_max_documentos",
+    "sync_notificar_novas_notas",
+    "sync_reprocessamento_automatico",
+    "xml_wait_scheduler_state"
+  ],
+  "xmlWaitState": {
+    "atualizadoEm": "2026-07-19T01:29:58.559Z",
+    "documentos": {
+      "12": {
+        "documentoId": 12,
+        "chave": "23260608718921000368550000004658911236214127",
+        "nsu": "000000000000001",
+        "tentativas": 2,
+        "iniciadoEm": "2026-07-19T00:29:11.557Z",
+        "ultimaConsultaEm": "2026-07-19T01:26:55.527Z",
+        "proximaEm": "2026-07-19T01:46:55.534Z",
+        "correlationId": "f5ab74b3-bbf2-4056-9d02-0ce0aa936b12",
+        "timeoutAlertado": false
+      },
+      "13": {
+        "documentoId": 13,
+        "chave": "23260629059206000179550010013019891111214232",
+        "nsu": "000000000000002",
+        "tentativas": 1,
+        "iniciadoEm": "2026-07-19T00:29:11.972Z",
+        "ultimaConsultaEm": "2026-07-19T01:27:56.449Z",
+        "proximaEm": "2026-07-19T01:37:56.456Z",
+        "correlationId": "551fa9ff-e034-471c-9fd5-256f84a0478a",
+        "timeoutAlertado": false
+      },
+      "14": {
+        "documentoId": 14,
+        "chave": "23260660409075019503550010022213731931780090",
+        "nsu": "000000000000003",
+        "tentativas": 1,
+        "iniciadoEm": "2026-07-19T00:29:11.963Z",
+        "ultimaConsultaEm": "2026-07-19T01:28:57.354Z",
+        "proximaEm": "2026-07-19T01:38:57.359Z",
+        "correlationId": "a24d1bd2-1035-4cc6-bb37-f537f2663dcc",
+        "timeoutAlertado": false
+      },
+      "15": {
+        "documentoId": 15,
+        "chave": "23260607206816000387556010000000781272366756",
+        "nsu": "000000000000004",
+        "tentativas": 0,
+        "iniciadoEm": "2026-07-19T00:29:11.949Z",
+        "ultimaConsultaEm": null,
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "05c4e6ff-6ca1-49c6-a8d6-bc1d682b3359",
+        "timeoutAlertado": false
+      },
+      "16": {
+        "documentoId": 16,
+        "chave": "23260607206816000387556010000000791247462760",
+        "nsu": "000000000000006",
+        "tentativas": 0,
+        "iniciadoEm": "2026-07-19T00:29:11.939Z",
+        "ultimaConsultaEm": null,
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "5a75f1f4-7339-4540-9a2e-2f3adbf2aafd",
+        "timeoutAlertado": false
+      },
+      "17": {
+        "documentoId": 17,
+        "chave": "23260608718921000368550000004678101176247904",
+        "nsu": "000000000000007",
+        "tentativas": 0,
+        "iniciadoEm": "2026-07-19T00:29:11.926Z",
+        "ultimaConsultaEm": null,
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "9382b4f6-3d21-4adc-9f21-c52eb1d41840",
+        "timeoutAlertado": false
+      },
+      "18": {
+        "documentoId": 18,
+        "chave": "23260710599113000109550020016551601013077039",
+        "nsu": "000000000000008",
+        "tentativas": 0,
+        "iniciadoEm": "2026-07-19T00:29:11.903Z",
+        "ultimaConsultaEm": null,
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "cd288e00-be17-42e0-8f0e-a5fef58eb019",
+        "timeoutAlertado": false
+      },
+      "19": {
+        "documentoId": 19,
+        "chave": "23260710599113000109550020016551611013077044",
+        "nsu": "000000000000009",
+        "tentativas": 0,
+        "iniciadoEm": "2026-07-19T00:29:11.874Z",
+        "ultimaConsultaEm": null,
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "d81dc9e6-e7d6-4da4-89c0-bd86a8312040",
+        "timeoutAlertado": false
+      },
+      "20": {
+        "documentoId": 20,
+        "chave": "23260707196033002141550090012803881540117292",
+        "nsu": "000000000000010",
+        "tentativas": 0,
+        "iniciadoEm": "2026-07-19T00:29:11.831Z",
+        "ultimaConsultaEm": null,
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "a865321f-8965-440a-912f-a53ed320bcee",
+        "timeoutAlertado": false
+      },
+      "22": {
+        "documentoId": 22,
+        "chave": "23260712727145003193550290000074131660484027",
+        "nsu": "000000000000012",
+        "tentativas": 0,
+        "iniciadoEm": "2026-07-19T00:29:11.805Z",
+        "ultimaConsultaEm": null,
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "1ba7dec8-59fa-478a-8b9f-55cc54cca306",
+        "timeoutAlertado": false
+      },
+      "23": {
+        "documentoId": 23,
+        "chave": "23260741221516001549550010003760811220328657",
+        "nsu": "000000000000013",
+        "tentativas": 0,
+        "iniciadoEm": "2026-07-19T00:29:11.775Z",
+        "ultimaConsultaEm": null,
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "ba305e88-7a06-41a5-869e-faa75e1308cb",
+        "timeoutAlertado": false
+      },
+      "24": {
+        "documentoId": 24,
+        "chave": "23260741221516001549550010003760821433864294",
+        "nsu": "000000000000014",
+        "tentativas": 0,
+        "iniciadoEm": "2026-07-19T00:29:11.763Z",
+        "ultimaConsultaEm": null,
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "63e8d2b0-56c3-49d0-bf16-350dad1c8eb4",
+        "timeoutAlertado": false
+      },
+      "25": {
+        "documentoId": 25,
+        "chave": "23260708718921000368550000004697301249241765",
+        "nsu": "000000000000015",
+        "tentativas": 0,
+        "iniciadoEm": "2026-07-19T00:29:11.750Z",
+        "ultimaConsultaEm": null,
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "db59526c-85d2-4891-8465-8c6632103fc3",
+        "timeoutAlertado": false
+      },
+      "26": {
+        "documentoId": 26,
+        "chave": "23260706850713000473550010011168941193183347",
+        "nsu": "000000000000016",
+        "tentativas": 0,
+        "iniciadoEm": "2026-07-19T00:29:11.745Z",
+        "ultimaConsultaEm": null,
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "fa4d8be4-2322-418b-b85b-a60544854f6f",
+        "timeoutAlertado": false
+      },
+      "27": {
+        "documentoId": 27,
+        "chave": "23260763310411000101550040036003181910833930",
+        "nsu": "000000000000017",
+        "tentativas": 0,
+        "iniciadoEm": "2026-07-19T00:29:11.731Z",
+        "ultimaConsultaEm": null,
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "481ed2f9-0a45-4364-8757-82f1babde7a4",
+        "timeoutAlertado": false
+      },
+      "28": {
+        "documentoId": 28,
+        "chave": "23260760409075019503550010022270011490658536",
+        "nsu": "000000000000018",
+        "tentativas": 0,
+        "iniciadoEm": "2026-07-19T00:29:11.715Z",
+        "ultimaConsultaEm": null,
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "782641c6-be7f-413a-9e7d-58b88f475a51",
+        "timeoutAlertado": false
+      },
+      "29": {
+        "documentoId": 29,
+        "chave": "23260710599113000109550020016574661013101184",
+        "nsu": "000000000000019",
+        "tentativas": 0,
+        "iniciadoEm": "2026-07-19T00:29:11.700Z",
+        "ultimaConsultaEm": null,
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "6c133ca0-07f0-4ff2-88b4-8b237e212382",
+        "timeoutAlertado": false
+      },
+      "30": {
+        "documentoId": 30,
+        "chave": "23260708718921000368550000004711281488525213",
+        "nsu": "000000000000020",
+        "tentativas": 0,
+        "iniciadoEm": "2026-07-19T00:29:11.687Z",
+        "ultimaConsultaEm": null,
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "fc1084ee-febc-4e90-b4cb-afb7fb2dee57",
+        "timeoutAlertado": false
+      },
+      "31": {
+        "documentoId": 31,
+        "chave": "23260707206816000387556010000001421274723072",
+        "nsu": "000000000000021",
+        "tentativas": 0,
+        "iniciadoEm": "2026-07-19T00:29:11.671Z",
+        "ultimaConsultaEm": null,
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "8eb00ead-abc3-4946-8a07-988c6cf5abe2",
+        "timeoutAlertado": false
+      },
+      "32": {
+        "documentoId": 32,
+        "chave": "23260706850713000473550010011171941132151158",
+        "nsu": "000000000000022",
+        "tentativas": 1,
+        "iniciadoEm": "2026-07-19T00:29:11.658Z",
+        "ultimaConsultaEm": "2026-07-19T01:15:59.923Z",
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "0ceb29d4-315c-4f18-8952-bf7ed9ddfc85",
+        "timeoutAlertado": false
+      },
+      "33": {
+        "documentoId": 33,
+        "chave": "23260707196033002141550090012840571375100827",
+        "nsu": "000000000000023",
+        "tentativas": 1,
+        "iniciadoEm": "2026-07-19T00:29:11.638Z",
+        "ultimaConsultaEm": "2026-07-19T00:39:17.975Z",
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "c513b414-c481-4e21-9a9a-7594b1b75fe5",
+        "timeoutAlertado": false
+      },
+      "34": {
+        "documentoId": 34,
+        "chave": "23260712727145003193550290000074541369498532",
+        "nsu": "000000000000024",
+        "tentativas": 1,
+        "iniciadoEm": "2026-07-19T00:29:11.618Z",
+        "ultimaConsultaEm": "2026-07-19T00:38:17.279Z",
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "7cb6260a-8ee3-4ad9-81e4-ed6551578aea",
+        "timeoutAlertado": false
+      },
+      "35": {
+        "documentoId": 35,
+        "chave": "23260729059206000179550010013121671602352547",
+        "nsu": "000000000000025",
+        "tentativas": 1,
+        "iniciadoEm": "2026-07-19T00:29:11.601Z",
+        "ultimaConsultaEm": "2026-07-19T00:37:16.563Z",
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "a599de5d-50b1-4923-b69c-6eca3c9629c1",
+        "timeoutAlertado": false
+      },
+      "36": {
+        "documentoId": 36,
+        "chave": "23260710599113000109550020016592891013119760",
+        "nsu": "000000000000026",
+        "tentativas": 1,
+        "iniciadoEm": "2026-07-19T00:29:11.585Z",
+        "ultimaConsultaEm": "2026-07-19T00:36:15.824Z",
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "73ee6248-b285-43ef-aea7-a490cc1076b7",
+        "timeoutAlertado": false
+      },
+      "37": {
+        "documentoId": 37,
+        "chave": "23260712727145003193550290000074801828890801",
+        "nsu": "000000000000027",
+        "tentativas": 1,
+        "iniciadoEm": "2026-07-19T00:29:11.569Z",
+        "ultimaConsultaEm": "2026-07-19T00:35:14.998Z",
+        "proximaEm": "2026-07-19T01:25:59.916Z",
+        "correlationId": "9cbd8866-91a1-4cfb-bc85-c8218c338a4e",
+        "timeoutAlertado": false
+      }
+    },
+    "estadoOperacional": "NORMAL",
+    "contador656": 0,
+    "backoffAtual": 0,
+    "bloqueio656": null,
+    "estado593": null,
+    "fingerprint": null,
+    "historico": [
+      {
+        "timestamp": "2026-07-19T01:15:59.916Z",
+        "endpoint": null,
+        "cStat": "656",
+        "tempo": null,
+        "tempoSoap": null,
+        "resultado": "656",
+        "correlationId": "0ceb29d4-315c-4f18-8952-bf7ed9ddfc85",
+        "requestId": null,
+        "documento": 32,
+        "nsu": "000000000000027",
+        "chave": "23260706850713000473550010011171941132151158",
+        "estado": "NORMAL",
+        "categoria": "OPERACIONAL_SEFAZ"
+      },
+      {
+        "timestamp": "2026-07-19T01:25:57.685Z",
+        "endpoint": null,
+        "cStat": "656",
+        "tempo": 2242,
+        "tempoSoap": null,
+        "resultado": "SKIPPED",
+        "correlationId": "2a58b9c3-7c80-4ecf-ab28-3977eca594a6",
+        "requestId": null,
+        "nsu": "000000000000027",
+        "chave": "23260706850713000473550010011171941132151158",
+        "estado": "BLOCKED",
+        "categoria": "OPERACIONAL_SEFAZ"
+      },
+      {
+        "timestamp": "2026-07-19T01:26:55.509Z",
+        "endpoint": null,
+        "cStat": "596",
+        "tempo": null,
+        "tempoSoap": null,
+        "resultado": "596",
+        "correlationId": "f5ab74b3-bbf2-4056-9d02-0ce0aa936b12",
+        "requestId": null,
+        "documento": 12,
+        "nsu": null,
+        "chave": null,
+        "estado": "RECOVERING",
+        "categoria": "OPERACIONAL_SEFAZ"
+      },
+      {
+        "timestamp": "2026-07-19T01:27:56.448Z",
+        "endpoint": null,
+        "cStat": "596",
+        "tempo": null,
+        "tempoSoap": null,
+        "resultado": "596",
+        "correlationId": "551fa9ff-e034-471c-9fd5-256f84a0478a",
+        "requestId": null,
+        "documento": 13,
+        "nsu": null,
+        "chave": null,
+        "estado": "NORMAL",
+        "categoria": "OPERACIONAL_SEFAZ"
+      },
+      {
+        "timestamp": "2026-07-19T01:28:57.352Z",
+        "endpoint": null,
+        "cStat": "596",
+        "tempo": null,
+        "tempoSoap": null,
+        "resultado": "596",
+        "correlationId": "a24d1bd2-1035-4cc6-bb37-f537f2663dcc",
+        "requestId": null,
+        "documento": 14,
+        "nsu": null,
+        "chave": null,
+        "estado": "NORMAL",
+        "categoria": "OPERACIONAL_SEFAZ"
+      },
+      {
+        "timestamp": "2026-07-19T01:29:58.559Z",
+        "endpoint": null,
+        "cStat": "596",
+        "tempo": null,
+        "tempoSoap": null,
+        "resultado": "596",
+        "correlationId": "05c4e6ff-6ca1-49c6-a8d6-bc1d682b3359",
+        "requestId": null,
+        "documento": 15,
+        "nsu": null,
+        "chave": null,
+        "estado": "NORMAL",
+        "categoria": "OPERACIONAL_SEFAZ"
+      }
+    ],
+    "telemetria": {
+      "consultasSOAP": 5,
+      "consultasEvitadas": 1,
+      "bloqueios656": 1,
+      "erros593": 0,
+      "temposBloqueioMs": [
+        600000
+      ],
+      "temposConsultaMs": [],
+      "temposRespostaMs": [],
+      "temposEntreConsultasMs": [
+        655583,
+        60945,
+        60893,
+        61173
+      ],
+      "ultimoDesbloqueio": "2026-07-19T01:26:27.719Z",
+      "contagemCStat": {
+        "108": 0,
+        "109": 0,
+        "137": 0,
+        "138": 0,
+        "593": 0,
+        "656": 1
+      },
+      "errosInternos": {
+        "TIMEOUT": 0,
+        "SOAP_EXCEPTION": 0,
+        "ERRO_XML": 0,
+        "ERRO_RUNTIME": 0,
+        "ERRO_BANCO": 0,
+        "ERRO_UPLOAD": 0,
+        "ERRO_PARSER": 0,
+        "ERRO_MIIP": 0
+      },
+      "ultimaRespostaSEFAZ": {
+        "cStat": "596",
+        "em": "2026-07-19T01:29:58.509Z",
+        "correlationId": "05c4e6ff-6ca1-49c6-a8d6-bc1d682b3359",
+        "requestId": null,
+        "documentoId": 15,
+        "chave": null,
+        "nsu": null,
+        "mensagem": "Rejeicao: Evento apresentado apos o prazo permitido para o evento: [10 dias]",
+        "endpoint": null
+      },
+      "historicoDesbloqueios": [
+        {
+          "em": "2026-07-19T01:26:27.719Z",
+          "motivo": "janela_656_expirada",
+          "correlationId": "0ceb29d4-315c-4f18-8952-bf7ed9ddfc85",
+          "documentoId": 32
+        }
+      ],
+      "historicoErros593": [],
+      "ultimaConsultaEm": "2026-07-19T01:29:58.509Z"
+    },
+    "gateMetricas": {
+      "consultasSOAP": 5,
+      "consultasEvitadas": 1,
+      "bloqueios656": 1,
+      "erros593": 0,
+      "temposBloqueioMs": [
+        600000
+      ],
+      "temposConsultaMs": [],
+      "temposRespostaMs": [],
+      "temposEntreConsultasMs": [
+        655583,
+        60945,
+        60893,
+        61173
+      ],
+      "ultimoDesbloqueio": "2026-07-19T01:26:27.719Z",
+      "contagemCStat": {
+        "108": 0,
+        "109": 0,
+        "137": 0,
+        "138": 0,
+        "593": 0,
+        "656": 1
+      },
+      "errosInternos": {
+        "TIMEOUT": 0,
+        "SOAP_EXCEPTION": 0,
+        "ERRO_XML": 0,
+        "ERRO_RUNTIME": 0,
+        "ERRO_BANCO": 0,
+        "ERRO_UPLOAD": 0,
+        "ERRO_PARSER": 0,
+        "ERRO_MIIP": 0
+      },
+      "ultimaRespostaSEFAZ": {
+        "cStat": "596",
+        "em": "2026-07-19T01:29:58.509Z",
+        "correlationId": "05c4e6ff-6ca1-49c6-a8d6-bc1d682b3359",
+        "requestId": null,
+        "documentoId": 15,
+        "chave": null,
+        "nsu": null,
+        "mensagem": "Rejeicao: Evento apresentado apos o prazo permitido para o evento: [10 dias]",
+        "endpoint": null
+      },
+      "historicoDesbloqueios": [
+        {
+          "em": "2026-07-19T01:26:27.719Z",
+          "motivo": "janela_656_expirada",
+          "correlationId": "0ceb29d4-315c-4f18-8952-bf7ed9ddfc85",
+          "documentoId": 32
+        }
+      ],
+      "historicoErros593": [],
+      "ultimaConsultaEm": "2026-07-19T01:29:58.509Z"
+    },
+    "metricas": {
+      "documentosRecuperados": 0,
+      "documentosTimeout": 0,
+      "tentativasTotais": 10,
+      "temposRecuperacaoMs": [],
+      "iniciados": 25,
+      "canceladosUpload": 0,
+      "canceladosOutros": 0,
+      "bloqueios656": 1,
+      "consultasEvitadas656": 1,
+      "temposBloqueioMs": [
+        600000
+      ],
+      "ultimoDesbloqueioEm": "2026-07-19T01:26:27.719Z"
+    }
+  },
+  "xmlWaitUpdatedAt": "2026-07-18 22:29:58",
+  "gateState": null,
+  "fiscalHintsCentral": [
+    {
+      "chave": "xml_wait_scheduler_state",
+      "valor": "{\"atualizadoEm\":\"2026-07-19T01:29:58.559Z\",\"documentos\":{\"12\":{\"documentoId\":12,\"chave\":\"23260608718921000368550000004658911236214127\",\"nsu\""
+    }
+  ],
+  "pragma_configuracoes": [
+    "id",
+    "chave",
+    "valor",
+    "tipo",
+    "descricao",
+    "updated_at",
+    "fiscal_emitente_logradouro",
+    "fiscal_emitente_numero",
+    "fiscal_emitente_bairro"
+  ],
+  "sample_configuracoes": [
+    {
+      "fiscal_emitente_logradouro": "",
+      "fiscal_emitente_numero": "S/N",
+      "fiscal_emitente_bairro": ""
+    },
+    {
+      "fiscal_emitente_logradouro": "",
+      "fiscal_emitente_numero": "S/N",
+      "fiscal_emitente_bairro": ""
+    },
+    {
+      "fiscal_emitente_logradouro": "",
+      "fiscal_emitente_numero": "S/N",
+      "fiscal_emitente_bairro": ""
+    },
+    {
+      "fiscal_emitente_logradouro": "",
+      "fiscal_emitente_numero": "S/N",
+      "fiscal_emitente_bairro": ""
+    },
+    {
+      "fiscal_emitente_logradouro": "",
+      "fiscal_emitente_numero": "S/N",
+      "fiscal_emitente_bairro": ""
+    }
+  ],
+  "fiscalKv": [
+    {
+      "chave": "cnpj",
+      "valor": "65.957.340/0001-50"
+    },
+    {
+      "chave": "fiscal_ambiente",
+      "valor": "1"
+    },
+    {
+      "chave": "fiscal_certificado_path",
+      "valor": "C:\\ProgramData\\MercantilFiscal\\dados\\fiscal\\certificados\\certificado.pfx"
+    },
+    {
+      "chave": "fiscal_certificado_senha",
+      "valor": "[REDACTED]"
+    },
+    {
+      "chave": "fiscal_cnae",
+      "valor": ""
+    },
+    {
+      "chave": "fiscal_codigo_uf",
+      "valor": "23"
+    },
+    {
+      "chave": "fiscal_consulta_chave_url_homologacao",
+      "valor": "https://nfceh.sefaz.ce.gov.br/pages/ShowNFCe.html"
+    },
+    {
+      "chave": "fiscal_consulta_chave_url_producao",
+      "valor": "https://nfce.sefaz.ce.gov.br/pages/ShowNFCe.html"
+    },
+    {
+      "chave": "fiscal_csc_qrcode_url_homologacao",
+      "valor": "https://nfceh.sefaz.ce.gov.br/pages/ShowNFCe.html"
+    },
+    {
+      "chave": "fiscal_csc_qrcode_url_producao",
+      "valor": "https://nfce.sefaz.ce.gov.br/pages/ShowNFCe.html"
+    },
+    {
+      "chave": "fiscal_emitente_bairro",
+      "valor": "Pirajá"
+    },
+    {
+      "chave": "fiscal_emitente_cep",
+      "valor": "63034-050"
+    },
+    {
+      "chave": "fiscal_emitente_logradouro",
+      "valor": "Rua Vereador José Rodrigues Soares"
+    },
+    {
+      "chave": "fiscal_emitente_numero",
+      "valor": "268"
+    },
+    {
+      "chave": "fiscal_id_csc",
+      "valor": "000001"
+    },
+    {
+      "chave": "fiscal_ie",
+      "valor": "073252638"
+    },
+    {
+      "chave": "fiscal_im",
+      "valor": ""
+    },
+    {
+      "chave": "fiscal_municipio_codigo",
+      "valor": "2307304"
+    },
+    {
+      "chave": "fiscal_municipio_nome",
+      "valor": "Juazeiro do Norte"
+    },
+    {
+      "chave": "fiscal_numero_atual",
+      "valor": "3007"
+    },
+    {
+      "chave": "fiscal_regime_tributario",
+      "valor": "1"
+    },
+    {
+      "chave": "fiscal_serie",
+      "valor": "1"
+    },
+    {
+      "chave": "fiscal_token_csc",
+      "valor": "[REDACTED]"
+    },
+    {
+      "chave": "fiscal_tp_imp",
+      "valor": "4"
+    },
+    {
+      "chave": "fiscal_uf_sigla",
+      "valor": "CE"
+    },
+    {
+      "chave": "fiscal_ws_autorizacao_homologacao",
+      "valor": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx"
+    },
+    {
+      "chave": "fiscal_ws_autorizacao_producao",
+      "valor": "https://nfce.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx"
+    },
+    {
+      "chave": "fiscal_ws_retorno_homologacao",
+      "valor": "https://nfce-homologacao.svrs.rs.gov.br/ws/NFeRetAutorizacao/NFeRetAutorizacao4.asmx"
+    },
+    {
+      "chave": "fiscal_ws_retorno_producao",
+      "valor": "https://nfce.svrs.rs.gov.br/ws/NFeRetAutorizacao/NFeRetAutorizacao4.asmx"
+    },
+    {
+      "chave": "fiscal_ws_status_homologacao",
+      "valor": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeStatusServico/NFeStatusServico4.asmx"
+    },
+    {
+      "chave": "fiscal_ws_status_producao",
+      "valor": "https://nfce.svrs.rs.gov.br/ws/NfeStatusServico/NFeStatusServico4.asmx"
+    },
+    {
+      "chave": "migracao_item_fiscal_compras_itens",
+      "valor": "1"
+    },
+    {
+      "chave": "migracao_modo_fiscal_padrao_ativo",
+      "valor": "true"
+    },
+    {
+      "chave": "modo_dashboard_fiscal",
+      "valor": "1"
+    }
+  ],
+  "historicoRecente": [
+    {
+      "documentoId": 15,
+      "de": "AGUARDANDO_XML_COMPLETO",
+      "para": "AGUARDANDO_XML_COMPLETO",
+      "detalhe": "Manifestação rejeitada: Rejeicao: Evento apresentado apos o prazo permitido para o evento: [10 dias]",
+      "createdAt": "2026-07-19 01:29:58"
+    },
+    {
+      "documentoId": 15,
+      "de": "AGUARDANDO_XML_COMPLETO",
+      "para": "AGUARDANDO_XML_COMPLETO",
+      "detalhe": "Ciência da Emissão (210210) enviada.",
+      "createdAt": "2026-07-19 01:29:57"
+    },
+    {
+      "documentoId": 14,
+      "de": "AGUARDANDO_XML_COMPLETO",
+      "para": "AGUARDANDO_XML_COMPLETO",
+      "detalhe": "Manifestação rejeitada: Rejeicao: Evento apresentado apos o prazo permitido para o evento: [10 dias]",
+      "createdAt": "2026-07-19 01:28:57"
+    },
+    {
+      "documentoId": 14,
+      "de": "AGUARDANDO_XML_COMPLETO",
+      "para": "AGUARDANDO_XML_COMPLETO",
+      "detalhe": "Ciência da Emissão (210210) enviada.",
+      "createdAt": "2026-07-19 01:28:56"
+    },
+    {
+      "documentoId": 13,
+      "de": "AGUARDANDO_XML_COMPLETO",
+      "para": "AGUARDANDO_XML_COMPLETO",
+      "detalhe": "Manifestação rejeitada: Rejeicao: Evento apresentado apos o prazo permitido para o evento: [10 dias]",
+      "createdAt": "2026-07-19 01:27:56"
+    },
+    {
+      "documentoId": 13,
+      "de": "AGUARDANDO_XML_COMPLETO",
+      "para": "AGUARDANDO_XML_COMPLETO",
+      "detalhe": "Ciência da Emissão (210210) enviada.",
+      "createdAt": "2026-07-19 01:27:55"
+    },
+    {
+      "documentoId": 12,
+      "de": "AGUARDANDO_XML_COMPLETO",
+      "para": "AGUARDANDO_XML_COMPLETO",
+      "detalhe": "Manifestação rejeitada: Rejeicao: Evento apresentado apos o prazo permitido para o evento: [10 dias]",
+      "createdAt": "2026-07-19 01:26:55"
+    },
+    {
+      "documentoId": 32,
+      "de": "AGUARDANDO_XML_COMPLETO",
+      "para": "AGUARDANDO_XML_COMPLETO",
+      "detalhe": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-19 01:15:59"
+    },
+    {
+      "documentoId": 33,
+      "de": "AGUARDANDO_XML_COMPLETO",
+      "para": "AGUARDANDO_XML_COMPLETO",
+      "detalhe": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-19 00:39:17"
+    },
+    {
+      "documentoId": 34,
+      "de": "AGUARDANDO_XML_COMPLETO",
+      "para": "AGUARDANDO_XML_COMPLETO",
+      "detalhe": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-19 00:38:17"
+    },
+    {
+      "documentoId": 35,
+      "de": "AGUARDANDO_XML_COMPLETO",
+      "para": "AGUARDANDO_XML_COMPLETO",
+      "detalhe": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-19 00:37:16"
+    },
+    {
+      "documentoId": 36,
+      "de": "AGUARDANDO_XML_COMPLETO",
+      "para": "AGUARDANDO_XML_COMPLETO",
+      "detalhe": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-19 00:36:15"
+    },
+    {
+      "documentoId": 37,
+      "de": "AGUARDANDO_XML_COMPLETO",
+      "para": "AGUARDANDO_XML_COMPLETO",
+      "detalhe": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-19 00:35:14"
+    },
+    {
+      "documentoId": 12,
+      "de": "AGUARDANDO_XML_COMPLETO",
+      "para": "AGUARDANDO_XML_COMPLETO",
+      "detalhe": "Manifestação rejeitada: Rejeicao: Evento apresentado apos o prazo permitido para o evento: [10 dias]",
+      "createdAt": "2026-07-19 00:34:14"
+    },
+    {
+      "documentoId": 21,
+      "de": "EM_PROCESSAMENTO",
+      "para": "AGUARDANDO_REVISAO",
+      "detalhe": "MIIP identificou pendências — aguardando Central de Revisão",
+      "createdAt": "2026-07-18 23:54:15"
+    },
+    {
+      "documentoId": 21,
+      "de": "EM_PROCESSAMENTO",
+      "para": "EM_PROCESSAMENTO",
+      "detalhe": "MIIP concluído.",
+      "createdAt": "2026-07-18 23:54:14"
+    },
+    {
+      "documentoId": 21,
+      "de": "EM_PROCESSAMENTO",
+      "para": "EM_PROCESSAMENTO",
+      "detalhe": "Parser NF-e concluído.",
+      "createdAt": "2026-07-18 23:54:14"
+    },
+    {
+      "documentoId": 21,
+      "de": "SINCRONIZADA",
+      "para": "EM_PROCESSAMENTO",
+      "detalhe": "Início do pipeline oficial de processamento",
+      "createdAt": "2026-07-18 23:54:14"
+    },
+    {
+      "documentoId": 21,
+      "de": "SINCRONIZADA",
+      "para": "SINCRONIZADA",
+      "detalhe": "Documento atualizado.",
+      "createdAt": "2026-07-18 23:54:14"
+    },
+    {
+      "documentoId": 21,
+      "de": "AGUARDANDO_XML_COMPLETO",
+      "para": "SINCRONIZADA",
+      "detalhe": "XML completo recebido.",
+      "createdAt": "2026-07-18 23:54:14"
+    },
+    {
+      "documentoId": 21,
+      "de": "AGUARDANDO_XML_COMPLETO",
+      "para": "AGUARDANDO_XML_COMPLETO",
+      "detalhe": "Manifestação rejeitada: Rejeicao: Evento apresentado apos o prazo permitido para o evento: [10 dias]",
+      "createdAt": "2026-07-18 23:17:59"
+    },
+    {
+      "documentoId": 21,
+      "de": "AGUARDANDO_XML_COMPLETO",
+      "para": "AGUARDANDO_XML_COMPLETO",
+      "detalhe": "Ciência da Emissão (210210) enviada.",
+      "createdAt": "2026-07-18 23:17:59"
+    },
+    {
+      "documentoId": 29,
+      "de": "AGUARDANDO_XML_COMPLETO",
+      "para": "AGUARDANDO_XML_COMPLETO",
+      "detalhe": "Manifestação rejeitada: Rejeicao: Evento apresentado apos o prazo permitido para o evento: [10 dias]",
+      "createdAt": "2026-07-18 23:17:47"
+    },
+    {
+      "documentoId": 29,
+      "de": "AGUARDANDO_XML_COMPLETO",
+      "para": "AGUARDANDO_XML_COMPLETO",
+      "detalhe": "Ciência da Emissão (210210) enviada.",
+      "createdAt": "2026-07-18 23:17:46"
+    },
+    {
+      "documentoId": 30,
+      "de": "AGUARDANDO_XML_COMPLETO",
+      "para": "AGUARDANDO_XML_COMPLETO",
+      "detalhe": "Aguardando disponibilização do XML completo pela SEFAZ.",
+      "createdAt": "2026-07-18 23:17:46"
+    }
+  ],
+  "exemplosUpload": [],
+  "exemplosRes": [
+    {
+      "id": 37,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipo": "RES_NFE",
+      "origem": "dfe",
+      "nsu": "000000000000027",
+      "emissao": "2026-07-16"
+    },
+    {
+      "id": 36,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipo": "RES_NFE",
+      "origem": "dfe",
+      "nsu": "000000000000026",
+      "emissao": "2026-07-14"
+    },
+    {
+      "id": 35,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipo": "RES_NFE",
+      "origem": "dfe",
+      "nsu": "000000000000025",
+      "emissao": "2026-07-13"
+    },
+    {
+      "id": 34,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipo": "RES_NFE",
+      "origem": "dfe",
+      "nsu": "000000000000024",
+      "emissao": "2026-07-11"
+    },
+    {
+      "id": 33,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipo": "RES_NFE",
+      "origem": "dfe",
+      "nsu": "000000000000023",
+      "emissao": "2026-07-10"
+    }
+  ],
+  "exemplosProc": [
+    {
+      "id": 21,
+      "status": "AGUARDANDO_REVISAO",
+      "tipo": "PROC_NFE",
+      "origem": "dfe",
+      "nsu": "000000000000011",
+      "emissao": "2026-07-03"
+    }
+  ],
+  "exemplosAguardando": [
+    {
+      "id": 37,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipo": "RES_NFE",
+      "nsu": "000000000000027",
+      "chave": "23260712727145003193550290000074801828890801",
+      "updatedAt": "2026-07-18 23:15:25"
+    },
+    {
+      "id": 36,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipo": "RES_NFE",
+      "nsu": "000000000000026",
+      "chave": "23260710599113000109550020016592891013119760",
+      "updatedAt": "2026-07-18 23:15:25"
+    },
+    {
+      "id": 35,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipo": "RES_NFE",
+      "nsu": "000000000000025",
+      "chave": "23260729059206000179550010013121671602352547",
+      "updatedAt": "2026-07-18 23:15:25"
+    },
+    {
+      "id": 34,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipo": "RES_NFE",
+      "nsu": "000000000000024",
+      "chave": "23260712727145003193550290000074541369498532",
+      "updatedAt": "2026-07-18 23:15:25"
+    },
+    {
+      "id": 33,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipo": "RES_NFE",
+      "nsu": "000000000000023",
+      "chave": "23260707196033002141550090012840571375100827",
+      "updatedAt": "2026-07-18 23:15:25"
+    },
+    {
+      "id": 32,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipo": "RES_NFE",
+      "nsu": "000000000000022",
+      "chave": "23260706850713000473550010011171941132151158",
+      "updatedAt": "2026-07-18 23:15:25"
+    },
+    {
+      "id": 31,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipo": "RES_NFE",
+      "nsu": "000000000000021",
+      "chave": "23260707206816000387556010000001421274723072",
+      "updatedAt": "2026-07-18 23:15:25"
+    },
+    {
+      "id": 30,
+      "status": "AGUARDANDO_XML_COMPLETO",
+      "tipo": "RES_NFE",
+      "nsu": "000000000000020",
+      "chave": "23260708718921000368550000004711281488525213",
+      "updatedAt": "2026-07-18 23:15:25"
+    }
+  ],
+  "auditorProcessMemory": {
+    "rssMb": 35,
+    "heapUsedMb": 4
+  }
+}

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+  <infNFe Id="NFe35260198765432000188550010000000022000000002" versao="4.00">
+    <ide>
+      <nNF>2002</nNF>
+      <serie>2</serie>
+      <mod>55</mod>
+      <dhEmi>2026-07-01T14:30:00-03:00</dhEmi>
+    </ide>
+    <emit>
+      <CNPJ>98765432000188</CNPJ>
+      <xNome>Atacado Beta ME</xNome>
+      <enderEmit>
+        <xLgr>Av. Principal</xLgr>
+        <nro>500</nro>
+        <xBairro>Industrial</xBairro>
+        <xMun>Maracanau</xMun>
+        <UF>CE</UF>
+        <CEP>61900000</CEP>
+      </enderEmit>
+    </emit>
+    <det nItem="1">
+      <prod>
+        <cProd>XYZ999</cProd>
+        <cEAN>SEM GTIN</cEAN>
+        <xProd>Arroz Tipo 1 5kg</xProd>
+        <NCM>10063021</NCM>
+        <uCom>UN</uCom>
+        <qCom>20.0000</qCom>
+        <vUnCom>22.50</vUnCom>
+        <vProd>450.00</vProd>
+      </prod>
+    </det>
+    <total>
+      <ICMSTot>
+        <vProd>450.00</vProd>
+        <vDesc>0.00</vDesc>
+        <vFrete>0.00</vFrete>
+        <vOutro>0.00</vOutro>
+        <vNF>450.00</vNF>
+      </ICMSTot>
+    </total>
+  </infNFe>
+</NFe>

@@ -1,0 +1,25 @@
+{
+  "versao": "1.1.0",
+  "descricao": "Stop words — Motor Canonical MIIP",
+  "palavras": [
+    "DE",
+    "DA",
+    "DO",
+    "DOS",
+    "DAS",
+    "E",
+    "COM",
+    "PARA",
+    "EM",
+    "NO",
+    "NA",
+    "NOS",
+    "NAS",
+    "O",
+    "A",
+    "OS",
+    "AS",
+    "UM",
+    "UMA"
+  ]
+}

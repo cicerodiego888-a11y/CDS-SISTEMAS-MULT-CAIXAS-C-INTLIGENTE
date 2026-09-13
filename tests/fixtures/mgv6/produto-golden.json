@@ -1,0 +1,32 @@
+{
+  "produtos": [
+    {
+      "id": 1,
+      "plu": "1",
+      "nome": "Frango Do Dia Kg",
+      "preco_venda": 10.5,
+      "integrar_balanca": 1
+    },
+    {
+      "id": 2,
+      "plu": "2",
+      "nome": "Picadinho Kg",
+      "preco_venda": 28.99,
+      "integrar_balanca": 1
+    },
+    {
+      "id": 3,
+      "plu": "3",
+      "nome": "Costela Bovina Kg",
+      "preco_venda": 19.99,
+      "integrar_balanca": 1
+    }
+  ],
+  "config": {
+    "encoding": "WINDOWS-1252",
+    "lineEnding": "CRLF",
+    "tipoRegistro": "01",
+    "fileName": "TXITENS.TXT",
+    "registroLength": 320
+  }
+}

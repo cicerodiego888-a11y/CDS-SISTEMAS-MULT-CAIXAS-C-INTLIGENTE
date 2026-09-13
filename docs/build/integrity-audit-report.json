@@ -1,0 +1,485 @@
+{
+  "codigo": "INTEGRITY-AUDIT",
+  "geradoEm": "2026-08-04T14:27:36.578Z",
+  "checks": [
+    {
+      "id": "mib.dir",
+      "ok": true,
+      "detalhe": "backend/motores/mib/index.js"
+    },
+    {
+      "id": "cip.dir",
+      "ok": true,
+      "detalhe": "backend/motores/cip/index.js"
+    },
+    {
+      "id": "cia.dir",
+      "ok": true,
+      "detalhe": "backend/motores/cia/index.js"
+    },
+    {
+      "id": "plugins.dir",
+      "ok": true,
+      "detalhe": "backend/plugins/index.js"
+    },
+    {
+      "id": "mib.require",
+      "ok": true,
+      "detalhe": "require backend/motores/mib/index.js → object"
+    },
+    {
+      "id": "cip.require",
+      "ok": true,
+      "detalhe": "require backend/motores/cip/index.js → object"
+    },
+    {
+      "id": "cia.require",
+      "ok": true,
+      "detalhe": "require backend/motores/cia/index.js → object"
+    },
+    {
+      "id": "plugins.require",
+      "ok": true,
+      "detalhe": "require backend/plugins/index.js → object"
+    },
+    {
+      "id": "mib.exports",
+      "ok": true,
+      "detalhe": "MIB MIB-RC4.0"
+    },
+    {
+      "id": "cip.exports",
+      "ok": true,
+      "detalhe": "CIP CIP-RC1.0"
+    },
+    {
+      "id": "cia.exports",
+      "ok": true,
+      "detalhe": "CIA CIA-RC1.0"
+    },
+    {
+      "id": "plugins.exports",
+      "ok": true,
+      "detalhe": "APPS CIA-APPS-RC1.0"
+    },
+    {
+      "id": "rota.search.js",
+      "ok": true,
+      "detalhe": "backend/rotas/search.js"
+    },
+    {
+      "id": "rota.require.search",
+      "ok": true,
+      "detalhe": "require backend/rotas/search.js → function"
+    },
+    {
+      "id": "rota.intelligence.js",
+      "ok": true,
+      "detalhe": "backend/rotas/intelligence.js"
+    },
+    {
+      "id": "rota.require.intelligence",
+      "ok": true,
+      "detalhe": "require backend/rotas/intelligence.js → function"
+    },
+    {
+      "id": "rota.agent.js",
+      "ok": true,
+      "detalhe": "backend/rotas/agent.js"
+    },
+    {
+      "id": "rota.require.agent",
+      "ok": true,
+      "detalhe": "require backend/rotas/agent.js → function"
+    },
+    {
+      "id": "rota.plugins.js",
+      "ok": true,
+      "detalhe": "backend/rotas/plugins.js"
+    },
+    {
+      "id": "rota.require.plugins",
+      "ok": true,
+      "detalhe": "require backend/rotas/plugins.js → function"
+    },
+    {
+      "id": "rota.business-monitor.js",
+      "ok": true,
+      "detalhe": "backend/rotas/business-monitor.js"
+    },
+    {
+      "id": "rota.require.business-monitor",
+      "ok": true,
+      "detalhe": "require backend/rotas/business-monitor.js → function"
+    },
+    {
+      "id": "server.search",
+      "ok": true,
+      "detalhe": "backend/server.js contém /api/search"
+    },
+    {
+      "id": "server.intelligence",
+      "ok": true,
+      "detalhe": "backend/server.js contém /api/intelligence"
+    },
+    {
+      "id": "server.agent",
+      "ok": true,
+      "detalhe": "backend/server.js contém /api/agent"
+    },
+    {
+      "id": "server.plugins",
+      "ok": true,
+      "detalhe": "backend/server.js contém /api/plugins"
+    },
+    {
+      "id": "server.businessMonitor",
+      "ok": true,
+      "detalhe": "backend/server.js contém /api/business-monitor"
+    },
+    {
+      "id": "plugin.commercial-copilot.manifest",
+      "ok": true,
+      "detalhe": "backend/plugins/commercial-copilot/manifest.json"
+    },
+    {
+      "id": "plugin.commercial-copilot.js",
+      "ok": true,
+      "detalhe": "backend/plugins/commercial-copilot/plugin.js"
+    },
+    {
+      "id": "plugin.commercial-copilot.perms",
+      "ok": true,
+      "detalhe": "backend/plugins/commercial-copilot/permissions.json"
+    },
+    {
+      "id": "plugin.inventory-copilot.manifest",
+      "ok": true,
+      "detalhe": "backend/plugins/inventory-copilot/manifest.json"
+    },
+    {
+      "id": "plugin.inventory-copilot.js",
+      "ok": true,
+      "detalhe": "backend/plugins/inventory-copilot/plugin.js"
+    },
+    {
+      "id": "plugin.inventory-copilot.perms",
+      "ok": true,
+      "detalhe": "backend/plugins/inventory-copilot/permissions.json"
+    },
+    {
+      "id": "plugin.financial-copilot.manifest",
+      "ok": true,
+      "detalhe": "backend/plugins/financial-copilot/manifest.json"
+    },
+    {
+      "id": "plugin.financial-copilot.js",
+      "ok": true,
+      "detalhe": "backend/plugins/financial-copilot/plugin.js"
+    },
+    {
+      "id": "plugin.financial-copilot.perms",
+      "ok": true,
+      "detalhe": "backend/plugins/financial-copilot/permissions.json"
+    },
+    {
+      "id": "plugin.fiscal-copilot.manifest",
+      "ok": true,
+      "detalhe": "backend/plugins/fiscal-copilot/manifest.json"
+    },
+    {
+      "id": "plugin.fiscal-copilot.js",
+      "ok": true,
+      "detalhe": "backend/plugins/fiscal-copilot/plugin.js"
+    },
+    {
+      "id": "plugin.fiscal-copilot.perms",
+      "ok": true,
+      "detalhe": "backend/plugins/fiscal-copilot/permissions.json"
+    },
+    {
+      "id": "plugin.catalog-copilot.manifest",
+      "ok": true,
+      "detalhe": "backend/plugins/catalog-copilot/manifest.json"
+    },
+    {
+      "id": "plugin.catalog-copilot.js",
+      "ok": true,
+      "detalhe": "backend/plugins/catalog-copilot/plugin.js"
+    },
+    {
+      "id": "plugin.catalog-copilot.perms",
+      "ok": true,
+      "detalhe": "backend/plugins/catalog-copilot/permissions.json"
+    },
+    {
+      "id": "plugin.smart-dashboard.manifest",
+      "ok": true,
+      "detalhe": "backend/plugins/smart-dashboard/manifest.json"
+    },
+    {
+      "id": "plugin.smart-dashboard.js",
+      "ok": true,
+      "detalhe": "backend/plugins/smart-dashboard/plugin.js"
+    },
+    {
+      "id": "plugin.smart-dashboard.perms",
+      "ok": true,
+      "detalhe": "backend/plugins/smart-dashboard/permissions.json"
+    },
+    {
+      "id": "plugin.business-monitor.manifest",
+      "ok": true,
+      "detalhe": "backend/plugins/business-monitor/manifest.json"
+    },
+    {
+      "id": "plugin.business-monitor.js",
+      "ok": true,
+      "detalhe": "backend/plugins/business-monitor/plugin.js"
+    },
+    {
+      "id": "plugin.business-monitor.perms",
+      "ok": true,
+      "detalhe": "backend/plugins/business-monitor/permissions.json"
+    },
+    {
+      "id": "ui.cds-copiloto.js",
+      "ok": true,
+      "detalhe": "frontend/erp/js/cds-copiloto.js"
+    },
+    {
+      "id": "ui.cip-insights.js",
+      "ok": true,
+      "detalhe": "frontend/erp/js/cip-insights.js"
+    },
+    {
+      "id": "ui.mib-analytics.js",
+      "ok": true,
+      "detalhe": "frontend/erp/js/mib-analytics.js"
+    },
+    {
+      "id": "ui.enterprise-search.js",
+      "ok": true,
+      "detalhe": "frontend/erp/js/enterprise-search.js"
+    },
+    {
+      "id": "ui.knowledge-center.js",
+      "ok": true,
+      "detalhe": "frontend/erp/js/knowledge-center.js"
+    },
+    {
+      "id": "ui.AgentSDK.js",
+      "ok": true,
+      "detalhe": "frontend/shared/js/AgentSDK.js"
+    },
+    {
+      "id": "ui.SearchSDK.js",
+      "ok": true,
+      "detalhe": "frontend/shared/js/SearchSDK.js"
+    },
+    {
+      "id": "ui.cds-copiloto-widget.js",
+      "ok": true,
+      "detalhe": "frontend/shared/js/cds-copiloto-widget.js"
+    },
+    {
+      "id": "ui.index.html",
+      "ok": true,
+      "detalhe": "frontend/plugins/smart-dashboard/index.html"
+    },
+    {
+      "id": "ui.index.html",
+      "ok": true,
+      "detalhe": "frontend/plugins/business-monitor/index.html"
+    },
+    {
+      "id": "ui.index.html",
+      "ok": true,
+      "detalhe": "frontend/plugins/cia-apps-panel/index.html"
+    },
+    {
+      "id": "erp.nav.copiloto",
+      "ok": true,
+      "detalhe": "frontend/erp/index.html contém cds-copiloto"
+    },
+    {
+      "id": "pdv.widget",
+      "ok": true,
+      "detalhe": "frontend/pdv/index.html contém cds-copiloto-widget.js"
+    },
+    {
+      "id": "app.copiloto",
+      "ok": true,
+      "detalhe": "frontend/erp/js/app.js contém cds-copiloto"
+    },
+    {
+      "id": "sql.hotpath",
+      "ok": true,
+      "detalhe": "QueryOptimizer sem LIKE%/LOWER/REPLACE ativos"
+    },
+    {
+      "id": "script.test:mib",
+      "ok": true,
+      "detalhe": "node tests/mib/mib-rc10-motor-busca.test.js && node tests/mib/mib-rc11-catalogo-atomico.test.js && node tests/mib/mib-rc20-motor-cognitivo.test.js && node tests/mib/mib-rc30-enterprise-search.test.js && node tests/mib/mib-rc40-knowledge-graph.test.js"
+    },
+    {
+      "id": "script.test:cip",
+      "ok": true,
+      "detalhe": "node tests/cip/cip-rc10-intelligence.test.js"
+    },
+    {
+      "id": "script.test:cia",
+      "ok": true,
+      "detalhe": "node tests/cia/cia-rc10-agent.test.js"
+    },
+    {
+      "id": "script.test:cia-apps",
+      "ok": true,
+      "detalhe": "node tests/cia-apps/cia-apps-rc10-plugins.test.js"
+    },
+    {
+      "id": "script.test:smart-dashboard",
+      "ok": true,
+      "detalhe": "node tests/cia-apps/smart-dashboard-rc10.test.js"
+    },
+    {
+      "id": "script.test:business-monitor",
+      "ok": true,
+      "detalhe": "node tests/cia-apps/business-monitor-rc10.test.js"
+    },
+    {
+      "id": "script.test:stable",
+      "ok": true,
+      "detalhe": "node tests/stable/stable-10-certificacao.test.js"
+    },
+    {
+      "id": "discover.commercial-copilot",
+      "ok": true,
+      "detalhe": "encontrado"
+    },
+    {
+      "id": "discover.inventory-copilot",
+      "ok": true,
+      "detalhe": "encontrado"
+    },
+    {
+      "id": "discover.financial-copilot",
+      "ok": true,
+      "detalhe": "encontrado"
+    },
+    {
+      "id": "discover.fiscal-copilot",
+      "ok": true,
+      "detalhe": "encontrado"
+    },
+    {
+      "id": "discover.catalog-copilot",
+      "ok": true,
+      "detalhe": "encontrado"
+    },
+    {
+      "id": "discover.smart-dashboard",
+      "ok": true,
+      "detalhe": "encontrado"
+    },
+    {
+      "id": "discover.business-monitor",
+      "ok": true,
+      "detalhe": "encontrado"
+    }
+  ],
+  "suites": [
+    {
+      "nome": "mib-rc10",
+      "script": "tests/mib/mib-rc10-motor-busca.test.js",
+      "exitCode": 0,
+      "ms": 544,
+      "ok": true
+    },
+    {
+      "nome": "mib-rc11",
+      "script": "tests/mib/mib-rc11-catalogo-atomico.test.js",
+      "exitCode": 0,
+      "ms": 971,
+      "ok": true
+    },
+    {
+      "nome": "mib-rc20",
+      "script": "tests/mib/mib-rc20-motor-cognitivo.test.js",
+      "exitCode": 0,
+      "ms": 679,
+      "ok": true
+    },
+    {
+      "nome": "mib-rc30",
+      "script": "tests/mib/mib-rc30-enterprise-search.test.js",
+      "exitCode": 0,
+      "ms": 1184,
+      "ok": true
+    },
+    {
+      "nome": "mib-rc40",
+      "script": "tests/mib/mib-rc40-knowledge-graph.test.js",
+      "exitCode": 0,
+      "ms": 2665,
+      "ok": true
+    },
+    {
+      "nome": "cip-rc10",
+      "script": "tests/cip/cip-rc10-intelligence.test.js",
+      "exitCode": 0,
+      "ms": 880,
+      "ok": true
+    },
+    {
+      "nome": "cia-rc10",
+      "script": "tests/cia/cia-rc10-agent.test.js",
+      "exitCode": 0,
+      "ms": 1011,
+      "ok": true
+    },
+    {
+      "nome": "cia-apps-rc10",
+      "script": "tests/cia-apps/cia-apps-rc10-plugins.test.js",
+      "exitCode": 0,
+      "ms": 1098,
+      "ok": true
+    },
+    {
+      "nome": "smart-dashboard",
+      "script": "tests/cia-apps/smart-dashboard-rc10.test.js",
+      "exitCode": 0,
+      "ms": 954,
+      "ok": true
+    },
+    {
+      "nome": "business-monitor",
+      "script": "tests/cia-apps/business-monitor-rc10.test.js",
+      "exitCode": 0,
+      "ms": 1613,
+      "ok": true
+    },
+    {
+      "nome": "stable-10",
+      "script": "tests/stable/stable-10-certificacao.test.js",
+      "exitCode": 0,
+      "ms": 2394,
+      "ok": true
+    }
+  ],
+  "warnings": [
+    {
+      "id": "enterprise.sql",
+      "detalhe": "BaseSqlProvider ainda usa LOWER/REPLACE (fora do hot-path PDV)"
+    }
+  ],
+  "falhas": [],
+  "resultado": "INTEGRIDADE OK",
+  "resumo": {
+    "checksOk": 77,
+    "checksFail": 0,
+    "suitesOk": 11,
+    "suitesTotal": 11,
+    "warnings": 1
+  }
+}

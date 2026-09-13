@@ -1,0 +1,65 @@
+{
+  "layout": "MGV6-REAL-CLIENT-V1",
+  "descricaoMaxLegado": 50,
+  "nota": "RC14.15.8 — PLU CDS = código do item da balança / MGV6 (ITN_CODIGO). 39 e 12746 são ITENS DISTINTOS. Não usar EAN nem código interno como PLU.",
+  "produtos": [
+    {
+      "nome": "Frango Do Dia Kg",
+      "plu": "1",
+      "txEsperado": "000000001",
+      "precoLegado": 11.5
+    },
+    {
+      "nome": "Picadinho Kg",
+      "plu": "2",
+      "txEsperado": "000000002",
+      "precoLegado": 28.99
+    },
+    {
+      "nome": "Costela Bovina Kg",
+      "plu": "3",
+      "txEsperado": "000000003",
+      "precoLegado": 21.99
+    },
+    {
+      "nome": "Carne De Charque Kg",
+      "plu": "103",
+      "txEsperado": "000000103",
+      "precoLegado": 44.99
+    },
+    {
+      "nome": "Batata Inglesa .",
+      "plu": "150",
+      "txEsperado": "000000150",
+      "precoLegado": 5.99
+    },
+    {
+      "nome": "Milho Grão Kg",
+      "codigoInterno": "012841",
+      "plu": "39",
+      "txEsperado": "000000039",
+      "precoLegado": 2.79,
+      "nota": "ITN_CODIGO=39 — produto CDS 012841; distinto de Milho Grao 12746"
+    },
+    {
+      "nome": "Milho Grao",
+      "plu": "12746",
+      "txEsperado": "000012746",
+      "precoLegado": 2.5,
+      "nota": "ITN_CODIGO=12746 — item independente (não é o mesmo SKU do PLU 39)"
+    },
+    {
+      "nome": "Pêra Unidade",
+      "plu": "12780",
+      "txEsperado": "000012780",
+      "precoLegado": 3.5
+    },
+    {
+      "nome": "Carne Congelada De Bovino Sem Osso Maminha Da Alcatra - Qtde",
+      "plu": "13007",
+      "txEsperado": "000013007",
+      "precoLegado": 41.99,
+      "descricaoTx": "Carne Congelada De Bovino Sem Osso Maminha Da Alca"
+    }
+  ]
+}

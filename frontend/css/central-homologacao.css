@@ -1,0 +1,300 @@
+/* RC3.4 — Monitor de Ciclo DF-e / Homologação assistida */
+
+.central-hom-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.central-hom-tabs {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.central-hom-tab {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #f8fafc;
+  color: #334155;
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.central-hom-tab.active {
+  background: #0f172a;
+  color: #fff;
+  border-color: #0f172a;
+}
+
+.central-hom-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+}
+
+.central-hom-chip {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.78rem;
+  color: #334155;
+}
+
+.central-hom-table-wrap {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.central-hom-table thead {
+  background: #f8fafc;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #64748b;
+}
+
+.central-hom-chave {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+}
+
+.central-hom-tipo {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.central-hom-health {
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.central-hom-diag-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.central-hom-diag-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.85rem;
+  background: #fff;
+}
+
+.central-hom-diag-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  margin-bottom: 0.35rem;
+}
+
+.central-hom-diag-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.central-hom-diag-sub {
+  margin-top: 0.25rem;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.central-hom-checklist .central-hom-check-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.4rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.central-hom-check-box {
+  font-size: 1.1rem;
+  width: 1.4rem;
+}
+
+/* Modal inspeção */
+.central-hom-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1080;
+}
+
+.central-hom-modal.is-open {
+  display: block;
+}
+
+.central-hom-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.central-hom-modal-panel {
+  position: relative;
+  margin: 3vh auto;
+  width: min(1100px, 96vw);
+  max-height: 94vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+}
+
+.central-hom-modal-header,
+.central-hom-modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.9rem 1.1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.central-hom-modal-footer {
+  border-bottom: 0;
+  border-top: 1px solid #e2e8f0;
+  justify-content: flex-end;
+}
+
+.central-hom-modal-body {
+  padding: 1rem 1.1rem;
+}
+
+.central-hom-insp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 1rem;
+}
+
+@media (max-width: 900px) {
+  .central-hom-insp-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.central-hom-insp-block {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+  margin-bottom: 0.75rem;
+  background: #fcfcfd;
+}
+
+.central-hom-insp-block h6 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  margin-bottom: 0.55rem;
+}
+
+.central-hom-dl {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 0.25rem 0.5rem;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.central-hom-dl dt {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.central-hom-dl dd {
+  margin: 0;
+  word-break: break-all;
+}
+
+.central-hom-chave-full {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.central-hom-xml {
+  max-height: 180px;
+  overflow: auto;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 0.65rem;
+  font-size: 0.72rem;
+  margin: 0;
+}
+
+.central-hom-timeline {
+  position: relative;
+  padding-left: 0.25rem;
+}
+
+.central-hom-tl-item {
+  position: relative;
+  padding-left: 1.4rem;
+  padding-bottom: 0.85rem;
+  opacity: 0.45;
+}
+
+.central-hom-tl-item.is-done {
+  opacity: 1;
+}
+
+.central-hom-tl-dot {
+  position: absolute;
+  left: 0.15rem;
+  top: 0.35rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+
+.central-hom-tl-item.is-done .central-hom-tl-dot {
+  background: #16a34a;
+}
+
+.central-hom-tl-line {
+  position: absolute;
+  left: 0.35rem;
+  top: 0.95rem;
+  bottom: 0;
+  width: 2px;
+  background: #e2e8f0;
+}
+
+.central-hom-tl-title {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: #0f172a;
+}
+
+.central-hom-tl-meta {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.central-hom-eventos {
+  max-height: 220px;
+  overflow: auto;
+}
+
+.central-hom-ev {
+  border-bottom: 1px solid #f1f5f9;
+  padding: 0.4rem 0;
+  font-size: 0.82rem;
+}

@@ -1,0 +1,23 @@
+{
+  "versao": "1.0.0",
+  "categoria": "electrical",
+  "sinonimos": {
+    "FLOR": ["FLUORESCENTE"],
+    "FLUORESCENTE": ["FLOR"],
+    "LED": ["LED"],
+    "HALOG": ["HALOGENA"],
+    "HALOGENA": ["HALOG"],
+    "INCAND": ["INCANDESCENTE"],
+    "INCANDESCENTE": ["INCAND"],
+    "TOMADA": ["PONTO ELETRICO"],
+    "INTERRUPTOR": ["CHAVE"],
+    "DISJUNTOR": ["PROTECAO ELETRICA"],
+    "CABO": ["FIO"],
+    "FIO": ["CABO"],
+    "VOLTAGEM": ["TENSAO"],
+    "TENSAO": ["VOLTAGEM"],
+    "AMPERE": ["CORRENTE"],
+    "W": ["WATT"],
+    "WATT": ["W"]
+  }
+}

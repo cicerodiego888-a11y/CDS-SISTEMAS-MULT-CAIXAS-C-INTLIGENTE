@@ -1,0 +1,179 @@
+/* RC14.12.2 — Painel de Diagnóstico Enterprise V1.0 */
+
+.central-eq-diag-enterprise .central-eq-diag-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.central-eq-diag-card {
+  background: #fff;
+  border: 1px solid #d9dee7;
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  min-height: 140px;
+}
+
+.central-eq-diag-card--wide {
+  grid-column: 1 / -1;
+}
+
+.central-eq-diag-card__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 10px;
+  color: #1f2937;
+  border-bottom: 1px solid #eef1f6;
+  padding-bottom: 6px;
+}
+
+.central-eq-diag-dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  margin: 0;
+}
+
+.central-eq-diag-dl--resumo {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.central-eq-diag-dl dt {
+  margin: 0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.central-eq-diag-dl dd {
+  margin: 2px 0 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #111827;
+  word-break: break-word;
+}
+
+.central-eq-diag-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f3f4f6;
+}
+
+.central-eq-diag-status--online { background: #ecfdf5; color: #065f46; }
+.central-eq-diag-status--offline { background: #fef2f2; color: #991b1b; }
+.central-eq-diag-status--connecting { background: #fffbeb; color: #92400e; }
+.central-eq-diag-status--unknown { background: #f3f4f6; color: #4b5563; }
+
+.central-eq-diag-check {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.central-eq-diag-check li {
+  font-size: 0.88rem;
+  padding: 4px 0;
+}
+
+.central-eq-diag-check li.ok { color: #047857; font-weight: 600; }
+.central-eq-diag-check li.off { color: #6b7280; }
+
+.central-eq-diag-etapas {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  font-size: 0.9rem;
+}
+.central-eq-diag-etapas li {
+  padding: 0.2rem 0;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+.central-eq-diag-etapas li.ok { color: #047857; font-weight: 600; }
+.central-eq-diag-etapas li.off { color: #b91c1c; font-weight: 600; }
+.central-eq-diag-etapas li.pending { color: #6b7280; }
+
+.central-eq-diag-homo {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.central-eq-diag-homo__pct {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #111827;
+  line-height: 1;
+}
+
+.central-eq-diag-homo__label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #047857;
+}
+
+.central-eq-diag-logs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.central-eq-diag-logs li {
+  display: grid;
+  grid-template-columns: 70px 1fr auto;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.85rem;
+}
+
+.central-eq-diag-logs .tipo {
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.central-eq-diag-logs .data {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.central-eq-diag-problema {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 0.9rem;
+  color: #7c2d12;
+}
+
+@media (max-width: 1199.98px) {
+  .central-eq-diag-enterprise .central-eq-diag-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767.98px) {
+  .central-eq-diag-enterprise .central-eq-diag-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .central-eq-diag-dl {
+    grid-template-columns: 1fr;
+  }
+
+  .central-eq-diag-logs li {
+    grid-template-columns: 1fr;
+  }
+}

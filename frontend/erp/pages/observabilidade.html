@@ -1,0 +1,246 @@
+<div class="cds-obs-page mt-3" id="cdsObsRoot">
+  <div id="cdsObsHeaderHost"></div>
+
+  <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+    <span class="badge bg-secondary">READ-ONLY</span>
+    <span class="badge bg-dark" id="cdsObsSchema">obs.v1</span>
+    <span class="text-muted small" id="cdsObsGeradoEm">—</span>
+    <button type="button" class="btn btn-sm btn-outline-primary ms-auto" id="cdsObsRefresh">
+      <i class="fas fa-sync-alt me-1"></i>Atualizar
+    </button>
+  </div>
+
+  <div class="alert alert-warning d-none" id="cdsObsAcessoNegado" role="alert">
+    Acesso restrito a SUPER_ADMIN.
+  </div>
+
+  <div class="cds-obs-status-bar mb-3" id="cdsObsStatusGeral" aria-live="polite">
+    <span class="cds-obs-dot" data-status="saudavel"></span>
+    <strong>Status geral:</strong>
+    <span id="cdsObsStatusLabel">—</span>
+  </div>
+
+  <div class="row g-3 mb-3" id="cdsObsKpis"></div>
+
+  <section class="card shadow-sm cds-obs-card mb-3" id="cdsObsHistoryPanel">
+    <div class="card-header d-flex flex-wrap gap-2 align-items-center">
+      <strong><i class="fas fa-history me-2"></i>Histórico e retenção</strong>
+      <span class="badge bg-secondary">READ-ONLY</span>
+      <div class="ms-auto d-flex flex-wrap gap-2 align-items-center">
+        <label class="small text-muted mb-0" for="cdsObsHistHours">Período</label>
+        <select id="cdsObsHistHours" class="form-select form-select-sm" style="width:130px">
+          <option value="6">6 horas</option>
+          <option value="24" selected>24 horas</option>
+          <option value="72">3 dias</option>
+          <option value="168">7 dias</option>
+          <option value="720">30 dias</option>
+        </select>
+        <label class="small text-muted mb-0" for="cdsObsHistMetric">Métrica</label>
+        <select id="cdsObsHistMetric" class="form-select form-select-sm" style="width:160px">
+          <option value="boot_ms">Boot</option>
+          <option value="login_ms">Login</option>
+          <option value="lazy_first_ms">Lazy 1ª</option>
+          <option value="recursos_rss_mb">RSS MB</option>
+          <option value="recursos_cpu">CPU %</option>
+          <option value="recursos_el_ms">Event Loop</option>
+          <option value="miip_ms">MIIP</option>
+          <option value="nfe_ms">NF-e</option>
+          <option value="alerts_ativos">Alertas</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="cdsObsHistApply">Aplicar</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="cdsObsExportJson">JSON</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="cdsObsExportCsv">CSV</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="row g-3 mb-2">
+        <div class="col-lg-8">
+          <div class="small text-muted mb-1">Série temporal</div>
+          <div id="cdsObsHistChart" class="cds-obs-chart" aria-label="Gráfico histórico"></div>
+        </div>
+        <div class="col-lg-4">
+          <div class="small text-muted mb-1">Comparação (últimas 24h vs 24h anteriores)</div>
+          <div id="cdsObsHistCompare" class="small">—</div>
+        </div>
+      </div>
+      <div class="small text-muted" id="cdsObsHistMeta">Sem snapshots ainda — o sampler grava periodicamente.</div>
+    </div>
+  </section>
+
+  <section class="card shadow-sm cds-obs-card mb-3" id="cdsObsAlertsPanel">
+    <div class="card-header d-flex flex-wrap gap-2 align-items-center">
+      <strong><i class="fas fa-bell me-2"></i>Alertas</strong>
+      <span class="badge bg-danger" id="cdsObsAlertCount">0</span>
+      <div class="ms-auto d-flex flex-wrap gap-2 align-items-center">
+        <label class="small text-muted mb-0" for="cdsObsAlertSev">Severidade</label>
+        <select id="cdsObsAlertSev" class="form-select form-select-sm" style="width:140px">
+          <option value="">Todas</option>
+          <option value="critica">Crítica</option>
+          <option value="alta">Alta</option>
+          <option value="media">Média</option>
+          <option value="baixa">Baixa</option>
+        </select>
+        <label class="small text-muted mb-0" for="cdsObsAlertStatus">Status</label>
+        <select id="cdsObsAlertStatus" class="form-select form-select-sm" style="width:140px">
+          <option value="ativo">Ativos</option>
+          <option value="historico">Histórico</option>
+          <option value="resolvido">Resolvidos</option>
+        </select>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="d-flex flex-wrap gap-3 mb-3 small" id="cdsObsAlertCounters">
+        <span>Ativos: <strong id="cdsObsAlertAtivos">0</strong></span>
+        <span>Crítica: <strong id="cdsObsAlertCrit">0</strong></span>
+        <span>Alta: <strong id="cdsObsAlertAlta">0</strong></span>
+        <span>Média: <strong id="cdsObsAlertMedia">0</strong></span>
+        <span>Baixa: <strong id="cdsObsAlertBaixa">0</strong></span>
+        <span>Histórico: <strong id="cdsObsAlertHist">0</strong></span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-striped mb-0">
+          <thead>
+            <tr>
+              <th>Quando</th>
+              <th>Severidade</th>
+              <th>Regra</th>
+              <th>Título</th>
+              <th>Métrica</th>
+              <th>Ocorr.</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="cdsObsAlertsBody">
+            <tr><td colspan="7" class="text-center text-muted py-3">Nenhum alerta</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div class="row g-3 mb-3">
+    <div class="col-lg-6">
+      <section class="card shadow-sm cds-obs-card">
+        <div class="card-header"><strong><i class="fas fa-bolt me-2"></i>Performance</strong></div>
+        <div class="card-body">
+          <dl class="row mb-0 cds-obs-dl" id="cdsObsPerf">
+            <dt class="col-6">Boot</dt><dd class="col-6" data-k="boot">—</dd>
+            <dt class="col-6">Login</dt><dd class="col-6" data-k="login">—</dd>
+            <dt class="col-6">Abertura módulos (1ª)</dt><dd class="col-6" data-k="first">—</dd>
+            <dt class="col-6">Lazy Created</dt><dd class="col-6" data-k="created">—</dd>
+            <dt class="col-6">Lazy Reused</dt><dd class="col-6" data-k="reused">—</dd>
+            <dt class="col-6">Background</dt><dd class="col-6" data-k="background">—</dd>
+          </dl>
+        </div>
+      </section>
+    </div>
+    <div class="col-lg-6">
+      <section class="card shadow-sm cds-obs-card">
+        <div class="card-header"><strong><i class="fas fa-microchip me-2"></i>Recursos</strong></div>
+        <div class="card-body">
+          <dl class="row mb-0 cds-obs-dl" id="cdsObsRecursos">
+            <dt class="col-6">Heap Used</dt><dd class="col-6" data-k="heap">—</dd>
+            <dt class="col-6">RSS</dt><dd class="col-6" data-k="rss">—</dd>
+            <dt class="col-6">CPU</dt><dd class="col-6" data-k="cpu">—</dd>
+            <dt class="col-6">Event Loop Delay</dt><dd class="col-6" data-k="eld">—</dd>
+            <dt class="col-6">Uptime</dt><dd class="col-6" data-k="uptime">—</dd>
+            <dt class="col-6">Samples</dt><dd class="col-6" data-k="samples">—</dd>
+          </dl>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-4">
+      <section class="card shadow-sm cds-obs-card">
+        <div class="card-header d-flex justify-content-between">
+          <strong>MIIP</strong><span class="cds-obs-pill" data-domain="miip">—</span>
+        </div>
+        <div class="card-body small" id="cdsObsMiip">—</div>
+      </section>
+    </div>
+    <div class="col-md-4">
+      <section class="card shadow-sm cds-obs-card">
+        <div class="card-header d-flex justify-content-between">
+          <strong>Central</strong><span class="cds-obs-pill" data-domain="central">—</span>
+        </div>
+        <div class="card-body small" id="cdsObsCentral">—</div>
+      </section>
+    </div>
+    <div class="col-md-4">
+      <section class="card shadow-sm cds-obs-card">
+        <div class="card-header d-flex justify-content-between">
+          <strong>NF-e</strong><span class="cds-obs-pill" data-domain="nfe">—</span>
+        </div>
+        <div class="card-body small" id="cdsObsNfe">—</div>
+      </section>
+    </div>
+  </div>
+
+  <section class="card shadow-sm cds-obs-card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <strong><i class="fas fa-stream me-2"></i>Últimos eventos</strong>
+      <span class="text-muted small">BOOT · LOGIN · MODULE · MIIP · SOAP · CENTRAL · BACKGROUND · RESOURCE</span>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-striped mb-0">
+          <thead>
+            <tr>
+              <th>Quando</th>
+              <th>Grupo</th>
+              <th>Evento</th>
+              <th>Nível</th>
+              <th>Duração</th>
+              <th>Origem</th>
+            </tr>
+          </thead>
+          <tbody id="cdsObsRecentBody">
+            <tr><td colspan="6" class="text-center text-muted py-3">Sem eventos</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
+<style>
+  .cds-obs-page { --obs-ok: #1b7a3d; --obs-warn: #a67c00; --obs-crit: #b00020; }
+  .cds-obs-status-bar {
+    display: flex; align-items: center; gap: .6rem;
+    padding: .75rem 1rem; border-radius: .5rem;
+    background: linear-gradient(120deg, #f7fafc 0%, #eef3f8 100%);
+    border: 1px solid #d9e2ec;
+  }
+  .cds-obs-dot {
+    width: .85rem; height: .85rem; border-radius: 50%;
+    background: #94a3b8; box-shadow: 0 0 0 3px rgba(148,163,184,.25);
+  }
+  .cds-obs-dot[data-status="saudavel"] { background: var(--obs-ok); box-shadow: 0 0 0 3px rgba(27,122,61,.2); }
+  .cds-obs-dot[data-status="atencao"] { background: #e6b800; box-shadow: 0 0 0 3px rgba(230,184,0,.25); }
+  .cds-obs-dot[data-status="critico"] { background: var(--obs-crit); box-shadow: 0 0 0 3px rgba(176,0,32,.2); }
+  .cds-obs-kpi {
+    border: 1px solid #d9e2ec; border-radius: .6rem; padding: .9rem 1rem;
+    background: #fff; height: 100%;
+  }
+  .cds-obs-kpi__title { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: #52606d; margin-bottom: .35rem; }
+  .cds-obs-kpi__atual { font-size: 1.35rem; font-weight: 700; color: #102a43; }
+  .cds-obs-kpi__grid { display: grid; grid-template-columns: 1fr 1fr; gap: .2rem .75rem; font-size: .78rem; color: #486581; margin-top: .5rem; }
+  .cds-obs-pill {
+    font-size: .72rem; padding: .15rem .45rem; border-radius: 999px;
+    background: #eef2f6; color: #334e68;
+  }
+  .cds-obs-pill[data-status="saudavel"] { background: #e3f9e5; color: var(--obs-ok); }
+  .cds-obs-pill[data-status="atencao"] { background: #fff3bf; color: var(--obs-warn); }
+  .cds-obs-pill[data-status="critico"] { background: #ffe3e3; color: var(--obs-crit); }
+  .cds-obs-dl dt { font-weight: 500; color: #486581; }
+  .cds-obs-dl dd { margin-bottom: .35rem; font-variant-numeric: tabular-nums; }
+  .cds-obs-card .card-header { background: #f8fafc; }
+  .cds-obs-chart {
+    min-height: 160px; border: 1px solid #d9e2ec; border-radius: .5rem;
+    background: linear-gradient(180deg, #fbfdff 0%, #f5f7fa 100%);
+    padding: .5rem;
+  }
+  .cds-obs-chart svg { width: 100%; height: 150px; display: block; }
+</style>

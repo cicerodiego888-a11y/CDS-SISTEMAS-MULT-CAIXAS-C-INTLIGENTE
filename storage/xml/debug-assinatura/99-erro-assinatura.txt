@@ -1,0 +1,9 @@
+Error: XPath parse error
+    at XPathParser.parse (C:\Users\Cicero Diego\Desktop\SIST. GESTÃO MERCANTIL MOD. FISCAL\node_modules\xpath\xpath.js:1290:27)
+    at new XPathExpression (C:\Users\Cicero Diego\Desktop\SIST. GESTÃO MERCANTIL MOD. FISCAL\node_modules\xpath\xpath.js:4397:24)
+    at exports.selectWithResolver (C:\Users\Cicero Diego\Desktop\SIST. GESTÃO MERCANTIL MOD. FISCAL\node_modules\xpath\xpath.js:4874:26)
+    at SignedXml.createReferences (C:\Users\Cicero Diego\Desktop\SIST. GESTÃO MERCANTIL MOD. FISCAL\node_modules\xml-crypto\lib\signed-xml.js:793:33)
+    at SignedXml.createSignedInfo (C:\Users\Cicero Diego\Desktop\SIST. GESTÃO MERCANTIL MOD. FISCAL\node_modules\xml-crypto\lib\signed-xml.js:904:21)
+    at SignedXml.computeSignature (C:\Users\Cicero Diego\Desktop\SIST. GESTÃO MERCANTIL MOD. FISCAL\node_modules\xml-crypto\lib\signed-xml.js:689:30)
+    at assinarNFe (C:\Users\Cicero Diego\Desktop\SIST. GESTÃO MERCANTIL MOD. FISCAL\backend\services\fiscal\signer.js:50:9)
+    at emitirPorVendaId (C:\Users\Cicero Diego\Desktop\SIST. GESTÃO MERCANTIL MOD. FISCAL\backend\services\fiscal\emissor.js:177:21)

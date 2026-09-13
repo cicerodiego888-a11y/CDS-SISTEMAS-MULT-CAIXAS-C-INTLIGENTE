@@ -1,0 +1,12 @@
+{
+  "versao": "1.0.0",
+  "descricao": "Cores — Attribute Engine MIIP",
+  "cores": [
+    "BRANCO", "BRANCA", "PRETO", "PRETA", "CINZA", "VERMELHO", "VERMELHA", "AZUL", "VERDE",
+    "AMARELO", "LARANJA", "ROSA", "ROXO", "VIOLETA", "MARROM", "BEGE",
+    "CREME", "DOURADO", "PRATEADO", "COBRE", "BRONZE", "NATURAL",
+    "CRU", "CRISTAL", "TRANSPARENTE", "FUME", "COLORIDO", "MULTICOR",
+    "NEVE", "GELO", "OFF", "WHITE", "CHAMPANHE", "TERRACOTA", "GRAFITE",
+    "ANIL", "TURQUESA", "SALMAO", "BORDO", "VINHO", "CAQUI", "AREIA"
+  ]
+}

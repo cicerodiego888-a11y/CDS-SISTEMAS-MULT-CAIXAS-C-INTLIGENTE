@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.01">
+  <chNFe>35260112345678000199550010000000641000000064</chNFe>
+  <CNPJ>12345678000199</CNPJ>
+  <xNome>Distribuidora Teste Ltda</xNome>
+  <IE>123456789</IE>
+  <dhEmi>2026-06-01T10:00:00-03:00</dhEmi>
+  <tpNF>1</tpNF>
+  <vNF>122.50</vNF>
+  <digVal>abc123</digVal>
+  <dhRecbto>2026-06-01T10:05:00-03:00</dhRecbto>
+  <nProt>135260000000001</nProt>
+  <cSitNFe>1</cSitNFe>
+</resNFe>

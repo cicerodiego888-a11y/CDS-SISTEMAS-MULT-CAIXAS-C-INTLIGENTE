@@ -1,0 +1,212 @@
+{
+  "caso": {
+    "bruto": 83.4,
+    "desconto": 5.4,
+    "liquido": 78
+  },
+  "motor": {
+    "valorFiscalBruto": 83.4,
+    "valorFiscalLiquido": 78,
+    "valorFiscalEfetivo": 78
+  },
+  "midp": {
+    "saldoFiscal": 0
+  },
+  "modelo": "MODELO_LIQUIDO",
+  "grupos": {
+    "ide": true,
+    "emit": true,
+    "dest": true,
+    "det": true,
+    "prod": true,
+    "imposto": true,
+    "ICMS": true,
+    "PIS": true,
+    "COFINS": true,
+    "IPI": false,
+    "ISSQN": false,
+    "ICMSTot": true,
+    "transp": true,
+    "pag": true,
+    "detPag": true,
+    "infAdic": true,
+    "infRespTec": false,
+    "Signature": false,
+    "protNFe": false,
+    "vTotTrib": false,
+    "infNFeSupl": false
+  },
+  "totais": {
+    "vProd": 78,
+    "vDesc": 0,
+    "vFrete": 0,
+    "vSeg": 0,
+    "vOutro": 0,
+    "vIPI": 0,
+    "vST": 0,
+    "vNF": 78,
+    "vBC": 0,
+    "vICMS": 0,
+    "vPIS": 0,
+    "vCOFINS": 0
+  },
+  "coerencia": {
+    "somaDetVProd": 78,
+    "vProd": 78,
+    "diffProd": 0,
+    "sefazVNF": 78,
+    "vNF": 78,
+    "diffVNF": 0,
+    "somaPag": 78,
+    "vTroco": null,
+    "diffPag": 0
+  },
+  "formulas": {
+    "vNF": "PASSOU",
+    "vProd_vs_det": "PASSOU",
+    "pag_vs_vNF": "PASSOU",
+    "identidade": "PASSOU",
+    "vBC": "PASSOU (SN CRT1 sem BC)",
+    "vICMS": "PASSOU (CSOSN102)",
+    "vPIS": "PASSOU (PISNT)",
+    "vCOFINS": "PASSOU (COFINSNT)",
+    "vTotTrib": "AUSENTE (opcional NFC-e)"
+  },
+  "roundCases": [
+    {
+      "desconto": 0.01,
+      "modelo": "MODELO_BRUTO",
+      "vProd": 10,
+      "vDesc": 0.01,
+      "vNF": 9.99,
+      "diff": 0
+    },
+    {
+      "desconto": 0.02,
+      "modelo": "MODELO_LIQUIDO",
+      "vProd": 10,
+      "vDesc": 0,
+      "vNF": 10,
+      "diff": 0
+    },
+    {
+      "desconto": 0.03,
+      "modelo": "MODELO_LIQUIDO",
+      "vProd": 10,
+      "vDesc": 0,
+      "vNF": 10,
+      "diff": 0
+    },
+    {
+      "desconto": 0.05,
+      "modelo": "MODELO_LIQUIDO",
+      "vProd": 10,
+      "vDesc": 0,
+      "vNF": 10,
+      "diff": 0
+    },
+    {
+      "desconto": 0.1,
+      "modelo": "MODELO_LIQUIDO",
+      "vProd": 10,
+      "vDesc": 0,
+      "vNF": 10,
+      "diff": 0
+    },
+    {
+      "desconto": 0.99,
+      "modelo": "MODELO_LIQUIDO",
+      "vProd": 10,
+      "vDesc": 0,
+      "vNF": 10,
+      "diff": 0
+    }
+  ],
+  "fracionado": {
+    "vProd": 7.55,
+    "vDesc": 0,
+    "vNF": 7.55,
+    "modelo": "MODELO_LIQUIDO"
+  },
+  "payCases": [
+    {
+      "name": "dinheiro",
+      "ok": true,
+      "soma": 78,
+      "vnf": 78,
+      "saldoFiscal": 0,
+      "erro": null
+    },
+    {
+      "name": "pix",
+      "ok": true,
+      "soma": 78,
+      "vnf": 78,
+      "saldoFiscal": 0,
+      "erro": null
+    },
+    {
+      "name": "cartao",
+      "ok": true,
+      "soma": 78,
+      "vnf": 78,
+      "saldoFiscal": 0,
+      "erro": null
+    },
+    {
+      "name": "multi_pix_dinheiro",
+      "ok": true,
+      "soma": 78,
+      "vnf": 78,
+      "saldoFiscal": 0,
+      "erro": null
+    },
+    {
+      "name": "insuficiente",
+      "ok": false,
+      "soma": 70,
+      "vnf": 78,
+      "saldoFiscal": 8,
+      "erro": "Pagamento fiscal insuficiente."
+    }
+  ],
+  "assinaturaAudit": {
+    "lib": "xml-crypto",
+    "canonicalization": true,
+    "digestSha1": true,
+    "rsaSha1": true,
+    "enveloped": true,
+    "referenceId": true,
+    "extraiDigest": true,
+    "xmlGeradoTemSignature": false,
+    "observacao": "XML desta auditoria é pré-assinatura (antes de assinarNFe). Signature/protNFe só após cert+SEFAZ."
+  },
+  "duplicatas": {
+    "xmlBuilders": [
+      "backend/services/fiscal/xmlBuilder.js (NFC-e 65)",
+      "backend/services/fiscal/xmlBuilderNfeVenda.js (NF-e 55)",
+      "backend/services/fiscal/nfeDevolucaoCompra.js"
+    ],
+    "icmsTot": [
+      "xmlBuilder.js",
+      "xmlBuilderNfeVenda.js",
+      "nfeDevolucaoCompra.js"
+    ],
+    "vNF": [
+      "xmlBuilder.js determinarModeloDeTotais/buildNfceXml",
+      "xmlBuilderNfeVenda.js",
+      "nfeDevolucaoCompra.js"
+    ],
+    "desconto": [
+      "valorFiscalLiquido.js (RC7.10.1)",
+      "xmlBuilder ratearDescontoNosItens (só MODELO_BRUTO)",
+      "xmlBuilderNfeVenda.js"
+    ]
+  },
+  "xmlPath": "C:\\projetos\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\auditoria\\rc7103-homologacao-nfce\\nfce-caso-real-8340-540-7800-sem-assinar.xml",
+  "xsd": {
+    "ferramenta": "xmllint ausente no ambiente",
+    "status": "NAO_EXECUTADO_FULL",
+    "structuralRequiredOk": true
+  }
+}

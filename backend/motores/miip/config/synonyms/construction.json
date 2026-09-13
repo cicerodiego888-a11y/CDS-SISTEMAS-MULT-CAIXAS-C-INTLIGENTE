@@ -1,0 +1,22 @@
+{
+  "versao": "1.0.0",
+  "categoria": "construction",
+  "sinonimos": {
+    "VERGALHAO": ["BARRA DE ACO"],
+    "BARRA": ["VERGALHAO"],
+    "CIMENTO CPII": ["CIMENTO CP II"],
+    "CIMENTO CP II": ["CIMENTO CPII"],
+    "ARGAMASSA": ["MASSA"],
+    "MASSA": ["ARGAMASSA"],
+    "BLOCO": ["TIJOLO"],
+    "TIJOLO": ["BLOCO"],
+    "TELHA": ["COBERTURA"],
+    "CERAMICO": ["CERAMICA"],
+    "CERAMICA": ["CERAMICO"],
+    "CONCRETO": ["CIMENTICIO"],
+    "SILICONE": ["VEDANTE"],
+    "VEDANTE": ["SILICONE"],
+    "COLA": ["ADESIVO"],
+    "ADESIVO": ["COLA"]
+  }
+}

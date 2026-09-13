@@ -1,0 +1,214 @@
+{
+  "codigo": "STABLE-1.0",
+  "geradoEm": "2026-08-04T14:27:48.606Z",
+  "etapas": {
+    "e1_auditoria": {
+      "findings": [],
+      "enterpriseWarn": true,
+      "hotPathOk": true
+    },
+    "e2_benchmark": {
+      "porTermo": {
+        "A": {
+          "media": 0.0168,
+          "max": 0.064,
+          "min": 0.013,
+          "cacheHitPct": 1,
+          "fonteUltima": null
+        },
+        "AR": {
+          "media": 0.0183,
+          "max": 0.035,
+          "min": 0.016,
+          "cacheHitPct": 1,
+          "fonteUltima": null
+        },
+        "ARR": {
+          "media": 0.0158,
+          "max": 0.172,
+          "min": 0.007,
+          "cacheHitPct": 1,
+          "fonteUltima": null
+        },
+        "ARRO": {
+          "media": 0.0081,
+          "max": 0.018,
+          "min": 0.007,
+          "cacheHitPct": 1,
+          "fonteUltima": null
+        },
+        "ARROZ": {
+          "media": 0.0097,
+          "max": 0.114,
+          "min": 0.007,
+          "cacheHitPct": 1,
+          "fonteUltima": null
+        }
+      },
+      "mediaGeral": 0.0137,
+      "ramMb": 1.2100000000000009,
+      "cpuDelta": {
+        "userUs": 0,
+        "systemUs": 0
+      }
+    },
+    "e3_escala": {
+      "10000": {
+        "media": 0.0589,
+        "max": 1.508,
+        "min": 0.008,
+        "modo": "db+catalog",
+        "tamanho": 10000
+      },
+      "50000": {
+        "media": 3.7374,
+        "max": 9.1651,
+        "min": 3.476,
+        "modo": "catalog_snapshot",
+        "tamanho": 50000
+      },
+      "100000": {
+        "media": 3.6498,
+        "max": 5.3702,
+        "min": 3.4718,
+        "modo": "catalog_snapshot",
+        "tamanho": 100000
+      }
+    },
+    "e4_catalog": {
+      "tamanho": 10000,
+      "versao": 4,
+      "swaps": 4,
+      "rebuildSimultaneoSeguro": true,
+      "semDuplicacao": true,
+      "ramDeltaMb": 6.74
+    },
+    "e5_hotcache": {
+      "rebuild": {
+        "produtos": 40,
+        "em": "2026-08-04T14:27:50.436Z"
+      },
+      "stats": {
+        "tamanho": 40,
+        "max": 400,
+        "hits": 100,
+        "misses": 0,
+        "protegidos": 40,
+        "reconstruidoEm": "2026-08-04T14:27:50.436Z"
+      },
+      "hotHitRate": 1,
+      "adaptiveHitRate": 1,
+      "produtosQuentes": 40
+    },
+    "e6_atualizacao": {
+      "ok": true,
+      "semRestart": true,
+      "tamanhoAntes": 10000,
+      "tamanhoDepois": 10001
+    },
+    "e7_stress": {
+      "operadores": 20,
+      "consultas": 167,
+      "erros": 0,
+      "media": 0.0691,
+      "max": 1.16,
+      "min": 0.041
+    },
+    "e8_plugins": {
+      "smartDashboardOff": true,
+      "businessMonitorOff": true,
+      "ciaOk": true,
+      "buscaOk": true
+    },
+    "e9_sandbox": {
+      "timeoutIsolado": true,
+      "falhaIsolada": true,
+      "circuit": {
+        "state": "open",
+        "failures": 2,
+        "openUntil": 1785853670711
+      },
+      "erpOk": true
+    },
+    "e10_logs": {
+      "unhandledRejections": 0
+    },
+    "e11_pdv": {
+      "media": 0.0316,
+      "max": 1.843,
+      "min": 0.008,
+      "segundaVendaOk": true,
+      "consultas": 500
+    }
+  },
+  "criterios": {
+    "buscaMaxMs": 20,
+    "cacheHitMin": 0.9,
+    "stressOps": 20
+  },
+  "resultado": "APTO PARA PRODUÇÃO",
+  "falhas": [],
+  "resumo": {
+    "tempoTotalMs": 2229,
+    "ramInicioMb": 7.24,
+    "ramFimMb": 160.23,
+    "cpuUserDeltaUs": 2188000,
+    "cpuSystemDeltaUs": 360000,
+    "mib": {
+      "MIB_VERSION": "4.0.0",
+      "MIB_STATUS": "RC4.0",
+      "MIB_RELEASE_DATE": "2026-08-03",
+      "MIB_CODIGO": "MIB-RC4.0"
+    },
+    "cia": {
+      "CIA_VERSION": "1.0.0",
+      "CIA_STATUS": "RC1.0",
+      "CIA_RELEASE_DATE": "2026-08-03",
+      "CIA_CODIGO": "CIA-RC1.0"
+    },
+    "cip": {
+      "CIP_VERSION": "1.0.0",
+      "CIP_STATUS": "RC1.0",
+      "CIP_RELEASE_DATE": "2026-08-03",
+      "CIP_CODIGO": "CIP-RC1.0"
+    },
+    "searchService": "ProductProvider→MIB",
+    "plugins": [
+      {
+        "id": "business-monitor",
+        "enabled": true,
+        "loaded": true
+      },
+      {
+        "id": "catalog-copilot",
+        "enabled": true,
+        "loaded": true
+      },
+      {
+        "id": "commercial-copilot",
+        "enabled": true,
+        "loaded": true
+      },
+      {
+        "id": "financial-copilot",
+        "enabled": true,
+        "loaded": true
+      },
+      {
+        "id": "fiscal-copilot",
+        "enabled": true,
+        "loaded": true
+      },
+      {
+        "id": "inventory-copilot",
+        "enabled": true,
+        "loaded": true
+      },
+      {
+        "id": "smart-dashboard",
+        "enabled": true,
+        "loaded": true
+      }
+    ]
+  }
+}

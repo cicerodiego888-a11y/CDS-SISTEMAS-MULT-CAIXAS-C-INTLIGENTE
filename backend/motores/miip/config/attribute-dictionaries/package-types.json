@@ -1,0 +1,10 @@
+{
+  "versao": "1.0.0",
+  "descricao": "Tipos de embalagem — Attribute Engine MIIP",
+  "embalagens": [
+    "CAIXA", "PACOTE", "CONJUNTO", "FARDO", "SACO", "LATA", "GALAO",
+    "GARRAFA", "FRASCO", "POTE", "TUBO", "ROLO", "BOBINA", "BLISTER",
+    "ENVELOPE", "BANDEJA", "CARTELA", "DISPLAY", "REFIL", "SACHE",
+    "UNIDADE", "PAR", "KIT", "PACK", "BAG"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "versao": "1.0.0",
+  "categoria": "grocery",
+  "sinonimos": {
+    "ARROZ": ["CEREAL"],
+    "FEIJAO": ["GRAO"],
+    "OLEO": ["OLEO DE SOJA"],
+    "ACUCAR": ["SACAROSE"],
+    "REFINADO": ["BRANCO"],
+    "INTEGRAL": ["COMPLETO"],
+    "LEITE": ["LACTEO"],
+    "CAFE": ["GRAO TORRADO"],
+    "DETERGENTE": ["LAVA LOUCAS"],
+    "SABAO": ["DETERGENTE EM PO"],
+    "BISCOITO": ["BOLACHA"],
+    "BOLACHA": ["BISCOITO"],
+    "MACARRAO": ["MASSA ALIMENTICIA"],
+    "FARINHA": ["FECULA"]
+  }
+}

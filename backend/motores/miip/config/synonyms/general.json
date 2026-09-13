@@ -1,0 +1,27 @@
+{
+  "versao": "1.0.0",
+  "categoria": "general",
+  "sinonimos": {
+    "LAMP": ["LAMPADA"],
+    "LAMPADA": ["LAMP", "LUMINARIA"],
+    "CX": ["CAIXA"],
+    "CAIXA": ["CX"],
+    "UN": ["UNIDADE"],
+    "UNIDADE": ["UN"],
+    "PCT": ["PACOTE"],
+    "PACOTE": ["PCT"],
+    "CJ": ["CONJUNTO"],
+    "CONJUNTO": ["CJ"],
+    "KIT": ["KIT", "CONJUNTO"],
+    "EMB": ["EMBALAGEM"],
+    "EMBALAGEM": ["EMB"],
+    "BRANCO": ["BRANCA"],
+    "BRANCA": ["BRANCO"],
+    "PRETO": ["PRETA"],
+    "PRETA": ["PRETO"],
+    "TRANSPARENTE": ["CRISTAL"],
+    "CRISTAL": ["TRANSPARENTE"],
+    "REFIL": ["REPOSICAO"],
+    "REPOSICAO": ["REFIL"]
+  }
+}

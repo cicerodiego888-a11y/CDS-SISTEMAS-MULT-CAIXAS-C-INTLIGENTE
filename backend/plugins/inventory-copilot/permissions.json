@@ -1,0 +1,5 @@
+{
+  "recurso": "estoque",
+  "somenteLeitura": true,
+  "acoes": ["ask", "health"]
+}
