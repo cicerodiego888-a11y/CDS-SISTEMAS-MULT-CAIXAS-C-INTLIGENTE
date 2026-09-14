@@ -10,7 +10,7 @@ const path = require('path');
 const dbModule = require('../../database');
 const { fazerBackupManual, obterPastaBackupPadrao } = require('../backupManual');
 const { findOrCreateMarca } = require('../MarcaService');
-const { aplicarAjusteEstoqueProduto } = require('../ajusteEstoqueService');
+const { aplicarAjusteEstoqueProduto, substituirSaldosEstoqueProduto } = require('../ajusteEstoqueService');
 const { obterProdutoEmbalagemService } = require('../produto-embalagem/ProdutoEmbalagemService');
 const {
   chaveNomeCadastroSimples,
@@ -58,6 +58,15 @@ function dbAll(db, sql, params = []) {
 function aplicarAjusteAsync(db, opcoes) {
   return new Promise((resolve, reject) => {
     aplicarAjusteEstoqueProduto(db, opcoes, (err, result) => {
+      if (err) return reject(err);
+      resolve(result);
+    });
+  });
+}
+
+function substituirSaldosAsync(db, opcoes) {
+  return new Promise((resolve, reject) => {
+    substituirSaldosEstoqueProduto(db, opcoes, (err, result) => {
       if (err) return reject(err);
       resolve(result);
     });
@@ -248,11 +257,13 @@ async function registrarEstoqueInicial(db, {
   const ajusteFiscal = Math.max(0, Number(estoque.estoque_fiscal) || 0);
   const ajusteNaoFiscal = Math.max(0, Number(estoque.estoque_nao_fiscal) || 0);
   const qtd = arredondarCasas(ajusteFiscal + ajusteNaoFiscal, 3);
-  if (!Number.isFinite(qtd) || qtd <= 0) {
+  const substituir = estoque.substituir_saldos === true || estoque.modo_estoque === 'V2';
+
+  if (!substituir && (!Number.isFinite(qtd) || qtd <= 0)) {
     return { lancado: 0, movimentado: false };
   }
 
-  if (await jaTemEstoqueInicialImportacao(db, produtoId)) {
+  if (!substituir && await jaTemEstoqueInicialImportacao(db, produtoId)) {
     return { lancado: 0, movimentado: false, ja_existia: true };
   }
 
@@ -278,7 +289,21 @@ async function registrarEstoqueInicial(db, {
     custoTotal
   });
 
-  // V2: distribuição explícita por colunas Estoque Fiscal / Não Fiscal
+  if (substituir) {
+    const resultado = await substituirSaldosAsync(db, {
+      produtoId,
+      saldoFiscalFinal: ajusteFiscal,
+      saldoNaoFiscalFinal: ajusteNaoFiscal,
+      motivo,
+      usuarioId: usuarioId || null,
+      usuarioNome: usuarioNome || 'Importação Inicial'
+    });
+    if (!resultado || resultado.alterado === false) {
+      return { lancado: 0, movimentado: false, ja_correto: true };
+    }
+    return { lancado: qtd, movimentado: true };
+  }
+
   await aplicarAjusteAsync(db, {
     produtoId,
     ajusteFiscal,
@@ -406,7 +431,8 @@ async function aplicarCustoPrecoProdutoExistente(db, produtoId, linha, { forcarF
 }
 
 /**
- * EXISTENTE_ATUALIZAR: soma estoque (idempotente) + custo/preço informados
+ * EXISTENTE_ATUALIZAR: V2 substitui saldo absoluto; legado soma estoque (idempotente)
+ * + custo/preço informados + classificação somente quando o banco estiver NULL.
  * + classificação somente quando o banco estiver NULL.
  * Nunca sobrescreve categoria/subcategoria já preenchidas.
  */

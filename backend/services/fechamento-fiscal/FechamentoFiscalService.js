@@ -362,6 +362,65 @@ async function removerRecebimento(fechamentoId, recebimentoId, deps = {}) {
   return obterPorId(fechamentoId, { db });
 }
 
+/**
+ * Substitui a lista inteira de máquinas em uma transação.
+ * Lista vazia remove todas e zera valor_informado / quantidade_maquinas.
+ */
+async function substituirRecebimentos(fechamentoId, lista = [], deps = {}) {
+  const db = getDb(deps.db);
+  await assertModuloAtivo(db, deps);
+  const ff = await obterPorId(fechamentoId, { db });
+  if (![STATUS.RASCUNHO, STATUS.PREVIA].includes(ff.status)) {
+    const err = new Error('Recebimentos só podem ser alterados em RASCUNHO ou PREVIA.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const itens = Array.isArray(lista) ? lista : [];
+  const id = Number(fechamentoId);
+
+  await run(db, 'BEGIN IMMEDIATE');
+  try {
+    await run(db, `DELETE FROM fechamentos_fiscais_recebimentos WHERE fechamento_fiscal_id = ?`, [id]);
+    for (const payload of itens) {
+      const operadora = String(payload.operadora || payload.descricao || '').trim();
+      if (!operadora) {
+        const err = new Error('Informe a máquina/operadora.');
+        err.statusCode = 400;
+        throw err;
+      }
+      const valor = arredondarMoeda(payload.valor);
+      if (!(valor > 0)) {
+        const err = new Error('Valor do recebimento deve ser maior que zero.');
+        err.statusCode = 400;
+        throw err;
+      }
+      const cnpjRec = normalizarCnpj(payload.cnpj) || ff.cnpj;
+      await run(
+        db,
+        `INSERT INTO fechamentos_fiscais_recebimentos
+          (fechamento_fiscal_id, operadora, descricao, cnpj, valor, observacao, criado_em)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          operadora,
+          payload.descricao != null ? String(payload.descricao) : operadora,
+          cnpjRec,
+          valor,
+          payload.observacao != null ? String(payload.observacao) : null,
+          agoraLocal()
+        ]
+      );
+    }
+    await recalcularTotaisRecebimentos(db, id);
+    await run(db, 'COMMIT');
+  } catch (err) {
+    try { await run(db, 'ROLLBACK'); } catch (_) { /* ignore */ }
+    throw err;
+  }
+  return obterPorId(id, { db });
+}
+
 async function persistirPrevia(db, fechamento, previa, produtos, opts) {
   await run(db, 'BEGIN IMMEDIATE');
   try {
@@ -634,6 +693,7 @@ module.exports = {
   obterPorId,
   adicionarRecebimento,
   removerRecebimento,
+  substituirRecebimentos,
   gerarPrevia,
   cancelarFechamento,
   validarFiscal,

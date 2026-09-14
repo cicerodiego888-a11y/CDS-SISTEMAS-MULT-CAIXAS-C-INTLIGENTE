@@ -7,6 +7,10 @@
  *   + consumo de saldo FISCAL (quantidade_fiscal > 0)
  *   → quantidade_elegivel = quantidade_fiscal (líquida de devoluções / já utilizada)
  *
+ * Monitoramento (aditivo):
+ *   item_fiscal = 1 AND saldo_fiscal > 0
+ *   (não usa estoque_atual; saldo_nao_fiscal isolado não habilita fechamento)
+ *
  * quantidade_nao_fiscal NÃO é quantidade elegível — só auditoria/explicação.
  */
 
@@ -174,6 +178,7 @@ async function carregarItensDia(db, dataNorm) {
        p.nome AS nome,
        p.codigo AS codigo,
        COALESCE(p.item_fiscal, 0) AS item_fiscal,
+       COALESCE(p.saldo_fiscal, 0) AS saldo_fiscal,
        COALESCE(vi.quantidade, 0) AS quantidade_original,
        COALESCE(vi.quantidade_fiscal, 0) AS quantidade_fiscal,
        COALESCE(vi.quantidade_nao_fiscal, 0) AS quantidade_nao_fiscal,
@@ -230,10 +235,28 @@ function isOperacaoNaoFiscal(row) {
 }
 
 /**
+ * Produto monitorável / elegível no fechamento:
+ * item_fiscal = 1 AND saldo_fiscal > 0 (não usa estoque_atual nem saldo_nao_fiscal).
+ */
+function produtoTemSaldoFiscalDisponivel(row) {
+  return Number(row?.item_fiscal || 0) === 1 && Number(row?.saldo_fiscal || 0) > 0;
+}
+
+/** Valor não fiscal da linha, só para painel de produtos com saldo fiscal. */
+function valorNaoFiscalItemPainel(row) {
+  const vLinha = Number(row?.valor_nao_fiscal || 0);
+  if (vLinha > 0) return arredondarMoeda(vLinha);
+  const qOrig = Number(row?.quantidade_original || row?.quantidade || 0);
+  const vOrig = Number(row?.valor_original || row?.subtotal || 0);
+  if (qOrig > 0 && vOrig > 0) return arredondarMoeda(vOrig);
+  return 0;
+}
+
+/**
  * Quantidade fiscal consumida em operação não fiscal (antes de devolução/uso).
  */
 function quantidadeFiscalConsumidaEmOperacaoNaoFiscal(row) {
-  if (Number(row.item_fiscal || 0) !== 1) return 0;
+  if (!produtoTemSaldoFiscalDisponivel(row)) return 0;
   if (!isOperacaoNaoFiscal(row)) return 0;
   if (classificarOrigemDistribuicao(row) === ORIGEM_LEGADA_AMBIGUA) return 0;
   return max0(row.quantidade_fiscal);
@@ -363,7 +386,10 @@ async function listarMonitoramentoProdutosDoDia(db, data, opts = {}) {
 
   const map = new Map();
   for (const r of rows) {
-    if (Number(r.item_fiscal || 0) !== 1) continue;
+    // Regra fiscal:
+    // somente produtos fiscais com saldo fiscal disponível
+    // podem entrar no monitoramento do fechamento.
+    if (!produtoTemSaldoFiscalDisponivel(r)) continue;
     if (!isOperacaoNaoFiscal(r)) continue;
 
     const pid = Number(r.produto_id);
@@ -449,11 +475,9 @@ async function obterResumoDia(db, data, opts = {}) {
   let ambigua = 0;
   const pendenciasFiscais = new Map();
 
-  const vendaValorContado = new Set();
-
   for (const r of rows) {
     const vid = Number(r.venda_id);
-    vendasIds.add(vid);
+    const noPainelFiscal = produtoTemSaldoFiscalDisponivel(r);
 
     if (
       Number(r.decisao_fiscal_automatica_bloqueada || 0) === 1
@@ -472,22 +496,16 @@ async function obterResumoDia(db, data, opts = {}) {
       });
     }
 
-    if (Number(r.item_fiscal || 0) === 1) {
-      produtosFiscaisVendidos.add(Number(r.produto_id));
-    }
+    if (!noPainelFiscal) continue;
+
+    vendasIds.add(vid);
+    produtosFiscaisVendidos.add(Number(r.produto_id));
 
     if (isOperacaoNaoFiscal(r)) {
       vendasNaoFiscaisIds.add(vid);
-      if (!vendaValorContado.has(vid)) {
-        vendaValorContado.add(vid);
-        const vNf = Number(r.venda_valor_nao_fiscal || 0);
-        const total = Number(r.venda_total || 0);
-        // Sem NFC-e: valor comercial da operação conta como não fiscal
-        // (mesmo quando o motor gravou fatia em valor_fiscal por consumo de saldo).
-        valorNaoFiscalVendido = arredondarMoeda(
-          valorNaoFiscalVendido + (vNf > 0 ? vNf : total)
-        );
-      }
+      valorNaoFiscalVendido = arredondarMoeda(
+        valorNaoFiscalVendido + valorNaoFiscalItemPainel(r)
+      );
     }
 
     if (classificarOrigemDistribuicao(r) === ORIGEM_LEGADA_AMBIGUA) {
@@ -575,6 +593,7 @@ async function snapshotComercial(db) {
 
 module.exports = {
   ORIGEM_LEGADA_AMBIGUA,
+  produtoTemSaldoFiscalDisponivel,
   listarLotesElegiveisDoDia,
   listarProdutosElegiveisDoDia,
   listarMonitoramentoProdutosDoDia,

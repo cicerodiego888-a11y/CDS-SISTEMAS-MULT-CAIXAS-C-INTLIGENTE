@@ -194,10 +194,112 @@ function definirSaldosIniciaisProduto(saldoFiscal, saldoNaoFiscal) {
   };
 }
 
+function normalizarSaldoAbsoluto(valor) {
+  const n = Number(valor);
+  if (!Number.isFinite(n)) return 0;
+  return Number(n.toFixed(3));
+}
+
+/**
+ * SET absoluto de saldos (importação inicial V2).
+ * Não altera o ajuste incremental usado em venda/compra/PDV/ajuste manual.
+ * 0/0 é alvo válido. Sem movimentação se já estiver no saldo correto.
+ */
+function substituirSaldosEstoqueProduto(db, opcoes, callback) {
+  const {
+    produtoId,
+    saldoFiscalFinal,
+    saldoNaoFiscalFinal,
+    motivo,
+    usuarioId,
+    usuarioNome
+  } = opcoes || {};
+
+  const alvoFiscal = normalizarSaldoAbsoluto(saldoFiscalFinal);
+  const alvoNaoFiscal = normalizarSaldoAbsoluto(saldoNaoFiscalFinal);
+
+  if (alvoFiscal < 0 || alvoNaoFiscal < 0) {
+    return callback(new Error('Saldos finais não podem ser negativos.'));
+  }
+
+  if (!motivo || !String(motivo).trim()) {
+    return callback(new Error('Motivo do ajuste é obrigatório.'));
+  }
+
+  db.get(
+    'SELECT saldo_fiscal, saldo_nao_fiscal FROM produtos WHERE id = ?',
+    [produtoId],
+    (getErr, produto) => {
+      if (getErr) return callback(getErr);
+      if (!produto) return callback(new Error('Produto não encontrado.'));
+
+      const saldoFiscalAntes = Number((Number(produto.saldo_fiscal || 0)).toFixed(3));
+      const saldoNaoFiscalAntes = Number((Number(produto.saldo_nao_fiscal || 0)).toFixed(3));
+      const estoqueTotalAntes = Number((saldoFiscalAntes + saldoNaoFiscalAntes).toFixed(3));
+
+      const saldoFiscalDepois = alvoFiscal;
+      const saldoNaoFiscalDepois = alvoNaoFiscal;
+      const estoqueTotalDepois = Number((saldoFiscalDepois + saldoNaoFiscalDepois).toFixed(3));
+
+      const deltaFiscal = Number((saldoFiscalDepois - saldoFiscalAntes).toFixed(3));
+      const deltaNaoFiscal = Number((saldoNaoFiscalDepois - saldoNaoFiscalAntes).toFixed(3));
+
+      if (deltaFiscal === 0 && deltaNaoFiscal === 0) {
+        return callback(null, {
+          alterado: false,
+          motivo: 'SALDO_JA_CORRETO',
+          saldo_fiscal: saldoFiscalDepois,
+          saldo_nao_fiscal: saldoNaoFiscalDepois,
+          estoque_atual: estoqueTotalDepois
+        });
+      }
+
+      db.run(
+        `UPDATE produtos
+         SET saldo_fiscal = ?,
+             saldo_nao_fiscal = ?,
+             estoque_atual = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [saldoFiscalDepois, saldoNaoFiscalDepois, estoqueTotalDepois, produtoId],
+        (upErr) => {
+          if (upErr) return callback(upErr);
+
+          registrarAjusteEstoque(db, {
+            produto_id: produtoId,
+            usuario_id: usuarioId,
+            usuario_nome: usuarioNome,
+            motivo: String(motivo).trim(),
+            ajuste_fiscal: deltaFiscal,
+            ajuste_nao_fiscal: deltaNaoFiscal,
+            saldo_fiscal_antes: saldoFiscalAntes,
+            saldo_fiscal_depois: saldoFiscalDepois,
+            saldo_nao_fiscal_antes: saldoNaoFiscalAntes,
+            saldo_nao_fiscal_depois: saldoNaoFiscalDepois,
+            estoque_total_antes: estoqueTotalAntes,
+            estoque_total_depois: estoqueTotalDepois
+          }, (histErr) => {
+            if (histErr) return callback(histErr);
+            callback(null, {
+              alterado: true,
+              saldo_fiscal: saldoFiscalDepois,
+              saldo_nao_fiscal: saldoNaoFiscalDepois,
+              estoque_atual: estoqueTotalDepois,
+              ajuste_fiscal: deltaFiscal,
+              ajuste_nao_fiscal: deltaNaoFiscal
+            });
+          });
+        }
+      );
+    }
+  );
+}
+
 module.exports = {
   produtoTemMovimentacoes,
   produtoTemVendas,
   registrarAjusteEstoque,
   aplicarAjusteEstoqueProduto,
-  definirSaldosIniciaisProduto
+  definirSaldosIniciaisProduto,
+  substituirSaldosEstoqueProduto
 };

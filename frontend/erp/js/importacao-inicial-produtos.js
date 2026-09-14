@@ -953,7 +953,11 @@ function verDetalheImportacaoInicial(idx) {
         <dt class="col-sm-4">Tipo</dt><dd class="col-sm-8">${escapeHtmlImport((l.apresentacoes && l.apresentacoes[0] && l.apresentacoes[0].tipo) || '—')}</dd>
         <dt class="col-sm-4">Conversão</dt><dd class="col-sm-8">${escapeHtmlImport((l.estoque && l.estoque.conversao_label) || '—')}</dd>
         <dt class="col-sm-4">Valor</dt><dd class="col-sm-8">${moedaImport((l.apresentacoes && l.apresentacoes[0] && (l.apresentacoes[0].valor_compra ?? l.apresentacoes[0].custo)) || null)}</dd>
-        <dt class="col-sm-4">Estoque</dt><dd class="col-sm-8">${enr.precisa_estoque ? `+${escapeHtmlImport((l.estoque && l.estoque.estoque_inicial_label) || '')}` : 'sem novo lançamento'}</dd>
+        <dt class="col-sm-4">Estoque</dt><dd class="col-sm-8">${enr.precisa_estoque
+          ? (l.estoque && l.estoque.substituir_saldos
+            ? `SET ${escapeHtmlImport((l.estoque && l.estoque.estoque_total_label) || '')}`
+            : `+${escapeHtmlImport((l.estoque && l.estoque.estoque_inicial_label) || '')}`)
+          : 'sem novo lançamento'}</dd>
         <dt class="col-sm-4">Unidade base</dt><dd class="col-sm-8">${enr.corrigir_unidade_base
           ? `${escapeHtmlImport(enr.unidade_atual || '—')} → ${escapeHtmlImport(enr.unidade_arquivo || p.unidade_base || '—')}`
           : escapeHtmlImport(p.unidade_base || '—')}</dd>
@@ -982,13 +986,22 @@ function verDetalheImportacaoInicial(idx) {
       <h6>${l.status === 'EXISTENTE_ATUALIZAR' ? 'Atualização de produto existente' : 'Produto existente'}</h6>
       <dl class="row mb-0">
         <dt class="col-sm-4">Status</dt><dd class="col-sm-8">${l.status === 'EXISTENTE_ATUALIZAR' ? 'EXISTENTE — ATUALIZAR' : 'EXISTENTE'}</dd>
-        <dt class="col-sm-4">Estoque atual</dt><dd class="col-sm-8">${escapeHtmlImport(String(prev.estoque_atual ?? '—'))}</dd>
+        <dt class="col-sm-4">Estoque atual fiscal</dt><dd class="col-sm-8">${escapeHtmlImport(String(prev.estoque_fiscal_atual ?? prev.saldo_fiscal ?? '—'))}</dd>
+        <dt class="col-sm-4">Estoque atual não fiscal</dt><dd class="col-sm-8">${escapeHtmlImport(String(prev.estoque_nao_fiscal_atual ?? prev.saldo_nao_fiscal ?? '—'))}</dd>
+        ${prev.modo_estoque_preview === 'SET' ? `
+        <dt class="col-sm-4">Estoque fiscal planilha</dt><dd class="col-sm-8">${escapeHtmlImport(String(prev.estoque_fiscal_planilha ?? '—'))}</dd>
+        <dt class="col-sm-4">Estoque não fiscal planilha</dt><dd class="col-sm-8">${escapeHtmlImport(String(prev.estoque_nao_fiscal_planilha ?? '—'))}</dd>
+        <dt class="col-sm-4">Estoque fiscal final</dt><dd class="col-sm-8">${escapeHtmlImport(String(prev.estoque_fiscal_final ?? '—'))}</dd>
+        <dt class="col-sm-4">Estoque não fiscal final</dt><dd class="col-sm-8">${escapeHtmlImport(String(prev.estoque_nao_fiscal_final ?? '—'))}</dd>
+        <dt class="col-sm-4">Estoque total final</dt><dd class="col-sm-8">${escapeHtmlImport(String(prev.estoque_total_final ?? prev.estoque_final ?? '—'))}</dd>
+        ` : `
         <dt class="col-sm-4">Qtd. a lançar</dt><dd class="col-sm-8">${Number(prev.alterar_estoque) === true
           ? `+${escapeHtmlImport(String(prev.quantidade_importada ?? 0))} UN`
           : (Number(prev.quantidade_arquivo || 0) > 0
             ? `0 UN (já lançado — ${escapeHtmlImport(String(prev.quantidade_arquivo))} UN na planilha)`
             : '— não alterar —')}</dd>
         <dt class="col-sm-4">= Estoque final</dt><dd class="col-sm-8">${escapeHtmlImport(String(prev.estoque_final ?? '—'))}</dd>
+        `}
         <dt class="col-sm-4">Custo</dt><dd class="col-sm-8">${htmlCampoMoedaExistente(prev, 'custo')}</dd>
         <dt class="col-sm-4">Venda</dt><dd class="col-sm-8">${htmlCampoMoedaExistente(prev, 'venda')}</dd>
         <dt class="col-sm-4">Categoria</dt><dd class="col-sm-8">${prev.alterar_categoria

@@ -190,7 +190,7 @@ function resolverCustosEPrecos(produto, apresentacoesDoProduto) {
   };
 }
 
-function montarEstoquePreview(produto, pricing, { itemFiscalBucket = 1 } = {}) {
+function montarEstoquePreview(produto, pricing, { itemFiscalBucket = 1, forcarModoV2 = false } = {}) {
   const fatorInfo = resolverFatorConversao(pricing.apresentacoes);
   const unidadeBase = String(
     normalizarUnidadeBaseCadastro(produto.unidade_base || 'UN')
@@ -206,7 +206,7 @@ function montarEstoquePreview(produto, pricing, { itemFiscalBucket = 1 } = {}) {
     _apresentacoes_pricing: pricing.apresentacoes,
     fator_conversao: produto.fator_conversao != null ? produto.fator_conversao : fatorInfo.fator
   };
-  const resolvido = resolverEstoquesImportacaoLinha(produtoComApr, { itemFiscalBucket });
+  const resolvido = resolverEstoquesImportacaoLinha(produtoComApr, { itemFiscalBucket, forcarModoV2 });
 
   const qtdParaCusto = Number(resolvido.quantidade_origem) > 0
     ? Number(resolvido.quantidade_origem)
@@ -236,6 +236,7 @@ function montarEstoquePreview(produto, pricing, { itemFiscalBucket = 1 } = {}) {
     estoque_total: total,
     estoque_inicial: total,
     estoque_inicial_label: `${total} ${unidadeBase}`,
+    substituir_saldos: resolvido.modo === 'V2',
     estoque_fiscal_label: `${Number(resolvido.estoque_fiscal) || 0} ${unidadeBase}`,
     estoque_nao_fiscal_label: `${Number(resolvido.estoque_nao_fiscal) || 0} ${unidadeBase}`,
     estoque_total_label: `${total} ${unidadeBase}`,
@@ -370,17 +371,40 @@ function montarPreviewAtualizacao({
   const qtdArquivo = Number(estoque?.estoque_total != null
     ? estoque.estoque_total
     : estoque?.estoque_inicial || 0);
-  const qtdSomar = precisaStock && Number.isFinite(qtdArquivo) && qtdArquivo > 0 ? qtdArquivo : 0;
+  const substituir = estoque?.substituir_saldos === true || estoque?.modo_estoque === 'V2';
+  const fiscalAtual = Number(produtoDb?.saldo_fiscal || 0);
+  const naoFiscalAtual = Number(produtoDb?.saldo_nao_fiscal || 0);
+  const fiscalPlanilha = Number(estoque?.estoque_fiscal || 0);
+  const naoFiscalPlanilha = Number(estoque?.estoque_nao_fiscal || 0);
+  const fiscalFinal = substituir ? fiscalPlanilha : fiscalAtual;
+  const naoFiscalFinal = substituir ? naoFiscalPlanilha : naoFiscalAtual;
+  const qtdSomar = !substituir && precisaStock && Number.isFinite(qtdArquivo) && qtdArquivo > 0
+    ? qtdArquivo
+    : 0;
+  const estoqueFinal = substituir
+    ? arredondarCasas(fiscalPlanilha + naoFiscalPlanilha, 3)
+    : arredondarCasas(estoqueAtual + qtdSomar, 3);
   const alteraCusto = deveAtualizarCustoExistente(produtoRaw, pricing, produtoDb);
   const alteraPreco = deveAtualizarPrecoExistente(produtoRaw, pricing, produtoDb);
   const custoAtual = Number.isFinite(Number(produtoDb?.preco_compra)) ? Number(produtoDb.preco_compra) : null;
   const precoAtual = Number.isFinite(Number(produtoDb?.preco_venda)) ? Number(produtoDb.preco_venda) : null;
+  const alterarEstoque = substituir
+    ? (precisaStock === true)
+    : qtdSomar > 0;
 
   return {
     estoque_atual: estoqueAtual,
-    quantidade_importada: qtdSomar,
+    quantidade_importada: substituir ? arredondarCasas(fiscalPlanilha + naoFiscalPlanilha, 3) : qtdSomar,
     quantidade_arquivo: qtdArquivo,
-    estoque_final: arredondarCasas(estoqueAtual + qtdSomar, 3),
+    estoque_final: estoqueFinal,
+    modo_estoque_preview: substituir ? 'SET' : 'SOMA',
+    estoque_fiscal_atual: fiscalAtual,
+    estoque_nao_fiscal_atual: naoFiscalAtual,
+    estoque_fiscal_planilha: fiscalPlanilha,
+    estoque_nao_fiscal_planilha: naoFiscalPlanilha,
+    estoque_fiscal_final: substituir ? fiscalFinal : (alterarEstoque ? fiscalAtual + qtdSomar : fiscalAtual),
+    estoque_nao_fiscal_final: substituir ? naoFiscalFinal : naoFiscalAtual,
+    estoque_total_final: estoqueFinal,
     custo_atual: custoAtual,
     novo_custo: alteraCusto ? pricing.custo_unitario : null,
     novo_custo_label: alteraCusto ? pricing.custo_unitario : LABEL_NAO_ALTERAR,
@@ -390,13 +414,13 @@ function montarPreviewAtualizacao({
     categoria_preservada: produtoDb?.categoria_nome || null,
     subcategoria_preservada: produtoDb?.subcategoria_nome || null,
     item_fiscal_preservado: Number(produtoDb?.item_fiscal) === 0 ? 0 : 1,
-    saldo_fiscal: Number(produtoDb?.saldo_fiscal || 0),
-    saldo_nao_fiscal: Number(produtoDb?.saldo_nao_fiscal || 0),
+    saldo_fiscal: fiscalAtual,
+    saldo_nao_fiscal: naoFiscalAtual,
     alterar_custo: alteraCusto,
     alterar_preco: alteraPreco,
-    alterar_estoque: qtdSomar > 0,
-    estoque_fiscal_lancar: precisaStock ? Number(estoque?.estoque_fiscal || 0) : 0,
-    estoque_nao_fiscal_lancar: precisaStock ? Number(estoque?.estoque_nao_fiscal || 0) : 0,
+    alterar_estoque: alterarEstoque,
+    estoque_fiscal_lancar: precisaStock ? fiscalPlanilha : 0,
+    estoque_nao_fiscal_lancar: precisaStock ? naoFiscalPlanilha : 0,
     alterar_categoria: alterarCategoria === true,
     alterar_subcategoria: alterarSubcategoria === true,
     custo_exibicao: rotuloCampoMoedaExistente({
@@ -589,6 +613,7 @@ async function validarImportacao(db, dadosExtraidos, { nomeArquivo, modo_fiscal_
   const indices = await carregarIndicesExistentes(db);
   const catalogoClassificacao = await carregarCatalogoClassificacao(db);
   const duplicidadesArquivo = mapearDuplicidadesCodigoArquivo(dadosExtraidos.produtos);
+  const forcarModoV2 = dadosExtraidos.temColunasEstoqueV2 === true;
   const linhas = [];
   let prontos = 0;
   let erros = 0;
@@ -655,7 +680,10 @@ async function validarImportacao(db, dadosExtraidos, { nomeArquivo, modo_fiscal_
     } else {
       // Legado: bucket inicial segue modo fiscal opcional; V2 ignora o radio
       const bucketLegado = modoFiscal === MODOS_FISCAIS_IMPORTACAO.NAO_FISCAL ? 0 : 1;
-      const preEstoque = montarEstoquePreview(produtoRaw, pricing, { itemFiscalBucket: bucketLegado });
+      const preEstoque = montarEstoquePreview(produtoRaw, pricing, {
+        itemFiscalBucket: bucketLegado,
+        forcarModoV2
+      });
       itemFiscalLinha = resolverItemFiscalProdutoNovo({
         estoqueFiscal: preEstoque.estoque_fiscal,
         estoqueNaoFiscal: preEstoque.estoque_nao_fiscal,
@@ -666,7 +694,8 @@ async function validarImportacao(db, dadosExtraidos, { nomeArquivo, modo_fiscal_
     }
 
     const estoque = montarEstoquePreview(produtoRaw, pricing, {
-      itemFiscalBucket: itemFiscalLinha
+      itemFiscalBucket: itemFiscalLinha,
+      forcarModoV2
     });
     // Re-resolve item_fiscal novo com estoque final (V2)
     if (!match?.produto) {
@@ -679,7 +708,8 @@ async function validarImportacao(db, dadosExtraidos, { nomeArquivo, modo_fiscal_
       // Se bucket mudou no legado, remontar
       if (estoque.modo_estoque === 'LEGADO') {
         Object.assign(estoque, montarEstoquePreview(produtoRaw, pricing, {
-          itemFiscalBucket: itemFiscalLinha
+          itemFiscalBucket: itemFiscalLinha,
+          forcarModoV2
         }));
       }
     }
@@ -769,7 +799,16 @@ async function validarImportacao(db, dadosExtraidos, { nomeArquivo, modo_fiscal_
         const embDb = await carregarEmbalagensProduto(db, match.produto.id);
         const classif = classificarApresentacoesArquivo(pricing.apresentacoes, embDb);
         const jaEstoque = await jaTemEstoqueInicialImportacao(db, match.produto.id);
-        const precisaStock = Number(estoque.estoque_total || estoque.estoque_inicial || 0) > 0 && !jaEstoque;
+        const fiscalAtual = Number(match.produto.saldo_fiscal || 0);
+        const naoFiscalAtual = Number(match.produto.saldo_nao_fiscal || 0);
+        const fiscalAlvo = Number(estoque.estoque_fiscal || 0);
+        const naoFiscalAlvo = Number(estoque.estoque_nao_fiscal || 0);
+        const precisaStock = controlaEstoque && estoque.substituir_saldos === true
+          ? (
+            Number(fiscalAtual.toFixed(3)) !== Number(fiscalAlvo.toFixed(3))
+            || Number(naoFiscalAtual.toFixed(3)) !== Number(naoFiscalAlvo.toFixed(3))
+          )
+          : Number(estoque.estoque_total || estoque.estoque_inicial || 0) > 0 && !jaEstoque;
         const corrigeUnidade = precisaCorrigirUnidadeBase(
           match.produto,
           produtoRaw.unidade_base,

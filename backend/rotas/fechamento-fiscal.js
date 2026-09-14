@@ -252,6 +252,17 @@ router.post('/:id/recebimentos', async (req, res) => {
   }
 });
 
+router.put('/:id/recebimentos', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const lista = Array.isArray(body.recebimentos) ? body.recebimentos : [];
+    const item = await service.substituirRecebimentos(req.params.id, lista);
+    res.json(item);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
 router.delete('/:id/recebimentos/:recebimentoId', async (req, res) => {
   try {
     const item = await service.removerRecebimento(req.params.id, req.params.recebimentoId);

@@ -12,6 +12,7 @@ let __ffdEstado = {
   previa: null,
   indicadores: null,
   recebimentos: [],
+  recebimentosLocais: false,
   vista: 'venda', // venda | produto
   validacao: null,
   documentos: [],
@@ -566,7 +567,7 @@ function ffdRenderAlertaInteligente(resumo) {
       <div class="alert alert-light border mb-0">
         <div class="fw-semibold mb-2">Nenhuma unidade fiscal foi consumida em vendas não fiscais hoje.</div>
         <div class="small text-muted">
-          Produtos fiscais vendidos: <strong>${r.produtos_fiscais_vendidos ?? 0}</strong><br>
+          Produtos com saldo fiscal vendidos: <strong>${r.produtos_fiscais_vendidos ?? 0}</strong><br>
           Unidades fiscais consumidas em operações não fiscais: <strong>0</strong>
         </div>
         <div class="small mt-2">Por isso, não há valores disponíveis para composição do fechamento.</div>
@@ -670,8 +671,10 @@ function ffdAbrirDetalheProduto(prod) {
 
 function ffdRenderConciliacaoRecebimentos() {
   const el = document.getElementById('ffdConciliacao');
-  if (!el) return;
   const informado = ffdTotalRecebimentos();
+  const tot = document.getElementById('ffdTotalInformado');
+  if (tot) tot.textContent = ffdFmtMoney(informado);
+  if (!el) return;
   const referencia = ffdValorReferenciaConciliacao();
   const difRec = ffdDiferencaConciliacao();
   const temPrevia = Boolean(__ffdEstado.previa && (__ffdEstado.previa.valor_distribuido != null
@@ -710,6 +713,7 @@ function ffdLimparUiAposAutorizado() {
 
   // Limpa formulário de trabalho — dados fiscais ficam no banco / NFC-e Emitidas.
   __ffdEstado.recebimentos = [];
+  __ffdEstado.recebimentosLocais = false;
   __ffdEstado.previa = null;
   __ffdEstado.validacao = null;
 
@@ -795,6 +799,7 @@ function loadFechamentoFiscalDoDia() {
     previa: null,
     indicadores: null,
     recebimentos: [],
+    recebimentosLocais: false,
     vista: 'venda',
     validacao: null,
     documentos: [],
@@ -835,13 +840,13 @@ function loadFechamentoFiscalDoDia() {
       <div class="row g-3 mb-3">
         <div class="col-6 col-lg-3">
           <div class="border rounded-3 p-3 h-100 bg-white shadow-sm">
-            <div class="text-muted text-uppercase small">Vendas do dia</div>
+            <div class="text-muted text-uppercase small">Vendas com saldo fiscal</div>
             <div class="display-6 fs-2" id="ffdKpiVendasDia">—</div>
           </div>
         </div>
         <div class="col-6 col-lg-3">
           <div class="border rounded-3 p-3 h-100 bg-white shadow-sm">
-            <div class="text-muted text-uppercase small">Não fiscal</div>
+            <div class="text-muted text-uppercase small">Não fiscal (saldo fiscal)</div>
             <div class="display-6 fs-2" id="ffdKpiValorNf">—</div>
             <div class="small text-muted"><span id="ffdKpiVendasNf">0</span> operações</div>
           </div>
@@ -1046,14 +1051,32 @@ function ffdRenderMaquinas() {
       </tr>`).join('');
     body.querySelectorAll('[data-ffd-rm]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        __ffdEstado.recebimentos.splice(Number(btn.getAttribute('data-ffd-rm')), 1);
-        ffdRenderMaquinas();
-        ffdRenderConciliacaoRecebimentos();
+        ffdRemoverMaquinaUi(Number(btn.getAttribute('data-ffd-rm')));
       });
     });
   }
-  $('#ffdTotalInformado').text(ffdFmtMoney(ffdTotalRecebimentos()));
   ffdRenderConciliacaoRecebimentos();
+}
+
+async function ffdPersistirRecebimentosSeRascunho() {
+  const id = __ffdEstado.fechamentoId;
+  if (!id || ffdFechamentoFinalizado()) return;
+  try {
+    await ffdSincronizarRecebimentos(id);
+    __ffdEstado.recebimentosLocais = false;
+    ffdRenderMaquinas();
+  } catch (err) {
+    ffdNotify(err.message || 'Falha ao salvar máquinas.', 'danger');
+  }
+}
+
+function ffdRemoverMaquinaUi(idx) {
+  const i = Number(idx);
+  if (!Number.isInteger(i) || i < 0) return;
+  __ffdEstado.recebimentos.splice(i, 1);
+  __ffdEstado.recebimentosLocais = true;
+  ffdRenderMaquinas();
+  ffdPersistirRecebimentosSeRascunho();
 }
 
 async function ffdAdicionarMaquinaUi() {
@@ -1064,12 +1087,19 @@ async function ffdAdicionarMaquinaUi() {
     cnpj: dados.cnpj || '',
     valor: dados.valor
   });
+  __ffdEstado.recebimentosLocais = true;
   ffdRenderMaquinas();
+  await ffdPersistirRecebimentosSeRascunho();
 }
 
 async function ffdCarregarDia(opts = {}) {
   const silencioso = Boolean(opts.silencioso);
   const data = String($('#ffdData').val() || ffdHojeISO());
+  if (__ffdEstado.data && __ffdEstado.data !== data) {
+    __ffdEstado.recebimentosLocais = false;
+    __ffdEstado.recebimentos = [];
+    __ffdEstado.previa = null;
+  }
   __ffdEstado.data = data;
   try {
     if (!__ffdEstado.moduloOn) {
@@ -1098,16 +1128,17 @@ async function ffdCarregarDia(opts = {}) {
       if (finalizado) {
         // Não reidrata recebimentos/prévia na UI — limpeza automática pós-autorização.
         __ffdEstado.recebimentos = [];
+        __ffdEstado.recebimentosLocais = false;
         __ffdEstado.previa = null;
         __ffdEstado.valorFechado = Number(ff.valor_distribuido || ff.valor_informado || 0);
       } else {
-        if (!silencioso || !(__ffdEstado.recebimentos || []).length) {
+        if (!silencioso && !__ffdEstado.recebimentosLocais) {
           __ffdEstado.recebimentos = (ff.recebimentos || []).map((r) => ({
             id: r.id, operadora: r.operadora, cnpj: r.cnpj, valor: Number(r.valor)
           }));
+          ffdRenderMaquinas();
         }
         if (!silencioso) {
-          ffdRenderMaquinas();
           $('#ffdValorAlvo').val(Number(ff.valor_alvo || 250).toFixed(2));
           $('#ffdValorMin').val(Number(ff.valor_min || 80).toFixed(2));
           $('#ffdValorMax').val(Number(ff.valor_max || 400).toFixed(2));
@@ -1185,6 +1216,9 @@ async function ffdCarregarDia(opts = {}) {
     } else if (!silencioso) {
       __ffdEstado.fechamentoId = null;
       __ffdEstado.statusFiscal = null;
+      if (!__ffdEstado.recebimentosLocais) {
+        __ffdEstado.recebimentos = [];
+      }
       ffdRenderMaquinas();
     }
 
@@ -2156,20 +2190,21 @@ async function ffdGarantirRascunho() {
 }
 
 async function ffdSincronizarRecebimentos(fechamentoId) {
-  const detResp = await fetch(`${ffdApi()}/fiscal/fechamentos/${fechamentoId}`, { headers: ffdHeaders() });
-  const det = await detResp.json().catch(() => ({}));
-  for (const r of det.recebimentos || []) {
-    await fetch(`${ffdApi()}/fiscal/fechamentos/${fechamentoId}/recebimentos/${r.id}`, {
-      method: 'DELETE', headers: ffdHeaders()
-    });
-  }
-  for (const r of __ffdEstado.recebimentos) {
-    const resp = await fetch(`${ffdApi()}/fiscal/fechamentos/${fechamentoId}/recebimentos`, {
-      method: 'POST', headers: ffdHeaders(), body: JSON.stringify(r)
-    });
-    const body = await resp.json().catch(() => ({}));
-    if (!resp.ok) throw new Error(body.error || 'Falha ao salvar recebimento');
-  }
+  const lista = (__ffdEstado.recebimentos || []).map((r) => ({
+    operadora: r.operadora,
+    cnpj: r.cnpj || '',
+    valor: Number(r.valor)
+  }));
+  const resp = await fetch(`${ffdApi()}/fiscal/fechamentos/${fechamentoId}/recebimentos`, {
+    method: 'PUT',
+    headers: ffdHeaders(),
+    body: JSON.stringify({ recebimentos: lista })
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(ffdErroApi(body, 'Falha ao salvar recebimentos'));
+  __ffdEstado.recebimentos = (body.recebimentos || []).map((r) => ({
+    id: r.id, operadora: r.operadora, cnpj: r.cnpj, valor: Number(r.valor)
+  }));
 }
 
 async function ffdSalvarRascunho() {
@@ -2261,6 +2296,7 @@ async function ffdCancelar() {
     if (!resp.ok) throw new Error(body.error || `HTTP ${resp.status}`);
     __ffdEstado.fechamentoId = null;
     __ffdEstado.recebimentos = [];
+    __ffdEstado.recebimentosLocais = false;
     __ffdEstado.previa = null;
     ffdRenderMaquinas();
     ffdRenderPrevia(null);

@@ -206,10 +206,10 @@ describe('Margem Bruta Real — header / resumo', () => {
     assert.match(rota, /\/margem-bruta\/resumo/);
     assert.match(rota, /calcularResumoMargemBrutaAsync/);
     assert.match(rota, /resolverPeriodoOperacional/);
-    assert.match(page, /ccMargemBrutaCard/);
+    assert.doesNotMatch(page, /ccMargemBrutaCard/);
+    assert.match(page, /ccMargemBrutaDashboardKpi/);
     assert.match(page, /Margem Bruta Real/);
     assert.match(js, /dashboardMargemBrutaLucro/);
-    assert.match(js, /ccMargemBrutaLucro/);
     assert.match(js, /\/dashboard\/margem-bruta\/resumo/);
     const periodo = resolverPeriodoOperacional({ inicio: '2026-09-01', fim: '2026-09-13' });
     assert.equal(periodo.inicio, '2026-09-01');

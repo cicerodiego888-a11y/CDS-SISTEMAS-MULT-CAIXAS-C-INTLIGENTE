@@ -680,8 +680,9 @@ function calcularEstoqueInicial({ quantidadeDocumento, fatorConversao }) {
 
 /**
  * Monta saldos V2 a partir das colunas oficiais (UN base) ou legado Estoque Inicial.
+ * Células V2 vazias valem 0 quando a planilha possui as colunas (forcarModoV2).
  * @returns {{
- *   modo: 'V2'|'LEGADO'|'ZERO',
+ *   modo: 'V2'|'LEGADO'|'ZERO'|'CONFLITO',
  *   estoque_fiscal: number,
  *   estoque_nao_fiscal: number,
  *   estoque_total: number,
@@ -689,7 +690,29 @@ function calcularEstoqueInicial({ quantidadeDocumento, fatorConversao }) {
  *   erro?: string
  * }}
  */
-function resolverEstoquesImportacaoLinha(produto, { itemFiscalBucket = 1 } = {}) {
+const ALIASES_COLUNA_ESTOQUE_V2 = Object.freeze([
+  'estoque_fiscal',
+  'qtd_fiscal',
+  'quantidade_fiscal',
+  'saldo_fiscal',
+  'estoque_nao_fiscal',
+  'qtd_nao_fiscal',
+  'quantidade_nao_fiscal',
+  'saldo_nao_fiscal'
+]);
+
+function linhaPossuiColunaEstoqueV2(row) {
+  const chaves = new Set(
+    Object.keys(row || {}).map((h) => chaveHeader(h)).filter(Boolean)
+  );
+  return ALIASES_COLUNA_ESTOQUE_V2.some((alias) => chaves.has(chaveHeader(alias)));
+}
+
+function planilhaPossuiColunasEstoqueV2(produtosRaw) {
+  return (produtosRaw || []).some((row) => linhaPossuiColunaEstoqueV2(row));
+}
+
+function resolverEstoquesImportacaoLinha(produto, { itemFiscalBucket = 1, forcarModoV2 = false } = {}) {
   const fiscalInf = campoNumericoInformado(produto.estoque_fiscal);
   const naoFiscalInf = campoNumericoInformado(produto.estoque_nao_fiscal);
   const temV2 = fiscalInf || naoFiscalInf;
@@ -744,6 +767,18 @@ function resolverEstoquesImportacaoLinha(produto, { itemFiscalBucket = 1 } = {})
       estoque_nao_fiscal: arredondarCasas(naoFiscal, 3),
       estoque_total: arredondarCasas(q, 3),
       estoque_inicial: arredondarCasas(q, 3),
+      quantidade_origem: calcLegado.quantidade_origem,
+      fator_conversao: calcLegado.fator_conversao
+    };
+  }
+
+  if (forcarModoV2) {
+    return {
+      modo: 'V2',
+      estoque_fiscal: 0,
+      estoque_nao_fiscal: 0,
+      estoque_total: 0,
+      estoque_inicial: 0,
       quantidade_origem: calcLegado.quantidade_origem,
       fator_conversao: calcLegado.fator_conversao
     };
@@ -1056,6 +1091,9 @@ module.exports = {
   campoTextoFiscalPreenchido,
   resolverItemFiscalProdutoNovo,
   resolverEstoquesImportacaoLinha,
+  planilhaPossuiColunasEstoqueV2,
+  linhaPossuiColunaEstoqueV2,
+  ALIASES_COLUNA_ESTOQUE_V2,
   STATUS,
   linhaBloqueiaPorClassificacao,
   linhaAtencaoPermiteImportar,

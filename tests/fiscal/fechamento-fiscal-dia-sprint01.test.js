@@ -16,6 +16,7 @@ const {
   criarRascunho,
   adicionarRecebimento,
   removerRecebimento,
+  substituirRecebimentos,
   obterPorId,
   gerarPrevia,
   gerarPreviaDistribuicao,
@@ -286,6 +287,15 @@ async function main() {
     const rec = ff.recebimentos[0];
     const atualizado = await removerRecebimento(fechamentoId, rec.id, { db });
     assert.strictEqual(atualizado.recebimentos.length, 2);
+  });
+
+  await test('Lista vazia apaga todas as máquinas e zera valor informado', async () => {
+    const vazio = await substituirRecebimentos(fechamentoId, [], { db });
+    assert.strictEqual(vazio.recebimentos.length, 0);
+    assert.strictEqual(Number(vazio.valor_informado), 0);
+    assert.strictEqual(Number(vazio.quantidade_maquinas), 0);
+    const conferido = await obterPorId(fechamentoId, { db });
+    assert.strictEqual(conferido.recebimentos.length, 0);
   });
 
   db.close();

@@ -9,7 +9,8 @@ const {
   chaveHeader,
   mapearLinhaProduto,
   mapearLinhaApresentacao,
-  mapearLinhaQuantidade
+  mapearLinhaQuantidade,
+  planilhaPossuiColunasEstoqueV2
 } = require('./helpers');
 
 function sheetParaObjetos(workbook, nomePreferido) {
@@ -60,6 +61,7 @@ function extrairDadosImportacao(buffer) {
     abas,
     produtos,
     apresentacoes,
+    temColunasEstoqueV2: planilhaPossuiColunasEstoqueV2(produtosRaw),
     total_linhas_produtos: produtosRaw.length,
     total_linhas_apresentacoes: apresentacoesRaw.length
   };

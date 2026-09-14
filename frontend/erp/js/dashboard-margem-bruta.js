@@ -44,18 +44,13 @@
   }
 
   function aplicarResumoMargemBruta(resumo) {
-    if (!document.getElementById('ccMargemBrutaCard') && !document.getElementById('ccMargemBrutaDashboardKpi')) {
+    if (!document.getElementById('ccMargemBrutaDashboardKpi')) {
       return;
     }
     const fat = resumo && resumo.faturamento_bruto;
     const cmv = resumo && resumo.custo_mercadoria;
     const lucro = resumo && resumo.lucro_bruto;
     const margem = resumo && resumo.margem_bruta;
-
-    setTexto('ccMargemBrutaLucro', moeda(lucro));
-    setTexto('ccMargemBrutaPct', pct(margem));
-    setTexto('ccMargemBrutaFat', moeda(fat));
-    setTexto('ccMargemBrutaCmv', moeda(cmv));
 
     setTexto('dashboardMargemBrutaLucro', moeda(lucro));
     setTexto('dashboardMargemBrutaPct', pct(margem));
@@ -79,7 +74,7 @@
   }
 
   async function carregarResumoMargemBruta() {
-    if (!document.getElementById('ccMargemBrutaCard') && !document.getElementById('ccMargemBrutaDashboardKpi')) {
+    if (!document.getElementById('ccMargemBrutaDashboardKpi')) {
       pararPollMargemBruta();
       return null;
     }
@@ -133,7 +128,7 @@
   }
 
   function initMargemBrutaHeader() {
-    if (!document.getElementById('ccMargemBrutaCard') && !document.getElementById('ccMargemBrutaDashboardKpi')) {
+    if (!document.getElementById('ccMargemBrutaDashboardKpi')) {
       pararPollMargemBruta();
       return;
     }
