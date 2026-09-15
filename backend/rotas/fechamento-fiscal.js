@@ -272,6 +272,15 @@ router.delete('/:id/recebimentos/:recebimentoId', async (req, res) => {
   }
 });
 
+router.post('/:id/complementacao', async (req, res) => {
+  try {
+    const item = await service.gerarComplementacaoFiscal(req.params.id, { persistir: true });
+    res.json(item);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
 router.post('/:id/previa', async (req, res) => {
   try {
     const body = req.body || {};

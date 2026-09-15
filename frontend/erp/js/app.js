@@ -284,6 +284,14 @@ async function loadPage(page) {
         return;
     }
 
+    if (page === 'fechamento-fiscal-dia'
+        && typeof fechamentoFiscalDiaMenuPermitido === 'function'
+        && !fechamentoFiscalDiaMenuPermitido()) {
+        showNotification('Fechamento Fiscal do Dia está desativado.', 'warning');
+        if (page !== 'dashboard') loadPage('dashboard');
+        return;
+    }
+
     if (!usuarioTemPermissao(page)) {
         showNotification('Você não tem permissão para acessar esta página.', 'warning');
         if (page !== 'dashboard') loadPage('dashboard');

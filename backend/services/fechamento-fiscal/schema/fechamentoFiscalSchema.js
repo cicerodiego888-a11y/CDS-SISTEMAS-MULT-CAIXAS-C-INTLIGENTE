@@ -155,6 +155,38 @@ const DDL = [
     erro_tecnico TEXT,
     criado_em TEXT NOT NULL DEFAULT (datetime('now','localtime')),
     FOREIGN KEY (fechamento_fiscal_id) REFERENCES fechamentos_fiscais(id) ON DELETE CASCADE
+  )`,
+  `CREATE TABLE IF NOT EXISTS fechamentos_fiscais_complementacao (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fechamento_fiscal_id INTEGER NOT NULL UNIQUE,
+    cnpj TEXT NOT NULL DEFAULT '',
+    empresa_id INTEGER,
+    data_fechamento TEXT NOT NULL,
+    valor_recebido REAL NOT NULL DEFAULT 0,
+    cobertura_fiscal REAL NOT NULL DEFAULT 0,
+    deficit REAL NOT NULL DEFAULT 0,
+    valor_complementado REAL NOT NULL DEFAULT 0,
+    deficit_restante REAL NOT NULL DEFAULT 0,
+    origem_recebimento TEXT NOT NULL DEFAULT 'FECHAMENTOS_FISCAIS_RECEBIMENTOS',
+    recebimentos_json TEXT,
+    estoque_movimentado INTEGER NOT NULL DEFAULT 0,
+    criado_em TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    atualizado_em TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY (fechamento_fiscal_id) REFERENCES fechamentos_fiscais(id) ON DELETE CASCADE
+  )`,
+  `CREATE TABLE IF NOT EXISTS fechamentos_fiscais_complementacao_itens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    complementacao_id INTEGER NOT NULL,
+    fechamento_fiscal_id INTEGER NOT NULL,
+    produto_id INTEGER NOT NULL,
+    venda_origem_id INTEGER,
+    venda_item_origem_id INTEGER,
+    valor REAL NOT NULL DEFAULT 0,
+    quantidade REAL NOT NULL DEFAULT 0,
+    ordem INTEGER NOT NULL DEFAULT 0,
+    criado_em TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY (complementacao_id) REFERENCES fechamentos_fiscais_complementacao(id) ON DELETE CASCADE,
+    FOREIGN KEY (fechamento_fiscal_id) REFERENCES fechamentos_fiscais(id) ON DELETE CASCADE
   )`
 ];
 
@@ -172,7 +204,10 @@ const INDICES = [
   `CREATE INDEX IF NOT EXISTS idx_ffdi_documento ON fechamentos_fiscais_documentos_itens(documento_id)`,
   `CREATE INDEX IF NOT EXISTS idx_ffdp_documento ON fechamentos_fiscais_documentos_pagamentos(documento_id)`,
   `CREATE INDEX IF NOT EXISTS idx_fftx_fechamento ON fechamentos_fiscais_transmissoes(fechamento_fiscal_id)`,
-  `CREATE INDEX IF NOT EXISTS idx_fftx_documento ON fechamentos_fiscais_transmissoes(documento_id)`
+  `CREATE INDEX IF NOT EXISTS idx_fftx_documento ON fechamentos_fiscais_transmissoes(documento_id)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_ffc_fechamento ON fechamentos_fiscais_complementacao(fechamento_fiscal_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_ffci_fechamento ON fechamentos_fiscais_complementacao_itens(fechamento_fiscal_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_ffci_complementacao ON fechamentos_fiscais_complementacao_itens(complementacao_id)`
 ];
 
 const ALTERS = [

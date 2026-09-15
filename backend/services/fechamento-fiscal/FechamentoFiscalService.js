@@ -11,9 +11,11 @@ const {
   listarLotesElegiveisDoDia,
   listarMonitoramentoProdutosDoDia,
   obterResumoDia,
-  snapshotComercial
+  snapshotComercial,
+  agregarProdutosDosLotes
 } = require('./FechamentoFiscalElegibilidadeService');
 const { gerarPreviaDistribuicao } = require('./FechamentoFiscalDistribuicaoService');
+const complementacao = require('./FechamentoFiscalComplementacaoService');
 const preparacao = require('./FechamentoFiscalPreparacaoService');
 const moduloConfig = require('./fechamentoFiscalModuloConfig');
 
@@ -156,6 +158,12 @@ async function recalcularTotaisRecebimentos(db, fechamentoId) {
   return { valorInformado, quantidade: rows.length, recebimentos: rows };
 }
 
+async function atualizarComplementacaoDoFechamento(db, fechamentoId) {
+  const row = await get(db, `SELECT * FROM fechamentos_fiscais WHERE id = ?`, [Number(fechamentoId)]);
+  if (!row) return null;
+  return complementacao.gerarComplementacaoFiscal(row, { db, persistir: true }).catch(() => null);
+}
+
 async function montarDetalhe(db, row) {
   if (!row) return null;
   const recebimentos = await listarRecebimentos(db, row.id);
@@ -197,6 +205,7 @@ async function montarDetalhe(db, row) {
       itens: itensPorVenda.get(v.id) || []
     })),
     documentos,
+    complementacao: await complementacao.lerComplementacao(db, row.id),
     transmissao_habilitada: false
   };
 }
@@ -335,6 +344,7 @@ async function adicionarRecebimento(fechamentoId, payload = {}, deps = {}) {
   );
 
   await recalcularTotaisRecebimentos(db, Number(fechamentoId));
+  await atualizarComplementacaoDoFechamento(db, fechamentoId);
   return obterPorId(fechamentoId, { db });
 }
 
@@ -359,6 +369,7 @@ async function removerRecebimento(fechamentoId, recebimentoId, deps = {}) {
     throw err;
   }
   await recalcularTotaisRecebimentos(db, Number(fechamentoId));
+  await atualizarComplementacaoDoFechamento(db, fechamentoId);
   return obterPorId(fechamentoId, { db });
 }
 
@@ -418,6 +429,7 @@ async function substituirRecebimentos(fechamentoId, lista = [], deps = {}) {
     try { await run(db, 'ROLLBACK'); } catch (_) { /* ignore */ }
     throw err;
   }
+  await atualizarComplementacaoDoFechamento(db, id);
   return obterPorId(id, { db });
 }
 
@@ -532,8 +544,7 @@ async function gerarPrevia(params = {}, deps = {}) {
   const data = normalizarData(dataResolvida);
   const excluirFechamentoId = params.fechamento_id || params.id || null;
   const resumo = await obterResumoDia(db, data, { excluirFechamentoId });
-  const lotes = resumo.lotes || [];
-  const produtos = resumo.produtos || [];
+  const lotesMonitor = resumo.lotes || [];
 
   let valorInformado = params.valor_informado != null
     ? arredondarMoeda(params.valor_informado)
@@ -544,6 +555,14 @@ async function gerarPrevia(params = {}, deps = {}) {
   }
 
   if (valorInformado == null) valorInformado = 0;
+
+  const produtosComp = await complementacao.obterProdutosFiscaisDisponiveisParaComplementacao(db);
+  const lotes = complementacao.mesclarLotesMonitoramentoComComplementacao(
+    lotesMonitor,
+    produtosComp,
+    { valorAlvoCents: toCentavos(valorInformado) }
+  );
+  const produtos = lotes.length ? agregarProdutosDosLotes(lotes) : (resumo.produtos || []);
 
   const opts = {
     valorAlvo: Number(
@@ -612,6 +631,13 @@ async function gerarPrevia(params = {}, deps = {}) {
       await persistirPrevia(db, fechamento, previa, produtos, opts);
     }
     fechamento = await obterPorId(fechamento.id, { db });
+    await atualizarComplementacaoDoFechamento(db, fechamento.id);
+    fechamento = await obterPorId(fechamento.id, { db });
+  } else if (fechamento) {
+    fechamento.complementacao = await complementacao.gerarComplementacaoFiscal(fechamento, {
+      db,
+      persistir: false
+    }).catch(() => null);
   }
 
   const snapshotDepois = deps.capturarSnapshot !== false
@@ -623,6 +649,7 @@ async function gerarPrevia(params = {}, deps = {}) {
     resumo,
     previa,
     fechamento,
+    complementacao: fechamento && fechamento.complementacao ? fechamento.complementacao : null,
     indicadores: {
       produtos_elegiveis: resumo.itens_fiscais_elegiveis,
       linhas_elegiveis: resumo.linhas_elegiveis,
@@ -694,6 +721,8 @@ module.exports = {
   adicionarRecebimento,
   removerRecebimento,
   substituirRecebimentos,
+  gerarComplementacaoFiscal: complementacao.gerarComplementacaoFiscal,
+  calcularComplementacaoFiscal: complementacao.calcularComplementacaoFiscal,
   gerarPrevia,
   cancelarFechamento,
   validarFiscal,

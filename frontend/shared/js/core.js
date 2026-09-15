@@ -115,6 +115,7 @@ const PAGINAS_MODULO_FISCAL = Object.freeze([
     'nfe-fila',
     'nfe-diagnostico',
     'central-contabil',
+    'fechamento-fiscal-dia',
     'central-entradas',
     'central-diagnostico',
     'dfe-auditoria',
@@ -145,6 +146,7 @@ const CATALOGO_PESQUISA_PAGINAS = Object.freeze([
     { page: 'nfe-fila', titulo: 'Fila NF-e', keywords: 'fila nf-e', fiscal: true },
     { page: 'nfe-diagnostico', titulo: 'Diagnóstico NF-e', keywords: 'diagnóstico nf-e', fiscal: true },
     { page: 'central-contabil', titulo: 'Central Contábil', keywords: 'contabilidade exportação zip xml contador escritório', fiscal: true },
+    { page: 'fechamento-fiscal-dia', titulo: 'Fechamento Fiscal do Dia', keywords: 'fechamento fiscal dia maquineta nfc-e composição', fiscal: true, moduloFechamentoFiscalDia: true },
     { page: 'central-equipamentos', titulo: 'Central de Equipamentos', keywords: 'balança discovery identidade equipamentos central saúde', fiscal: false },
     { page: 'central-diagnostico', titulo: 'Saúde da Central', keywords: 'diagnóstico central fiscal', fiscal: true },
     { page: 'dfe-auditoria', titulo: 'Auditoria DF-e', keywords: 'dfe auditoria nsu sync dist sefaz suporte', fiscal: true },
@@ -197,6 +199,53 @@ function implantacaoPermiteMultiCaixa() {
 /** RC8.0.3 — Expedição contratada (menu/rota/pesquisa). Independente do módulo fiscal. */
 function expedicaoHabilitada() {
     return possuiRecurso('expedicao');
+}
+
+/** Permitir Fechamento Fiscal do Dia (configuração, não licença). Padrão: oculto. */
+function fechamentoFiscalDiaMenuPermitido() {
+    return window.__cdsFechamentoFiscalDiaOn === true;
+}
+
+function aplicarVisibilidadeMenuFechamentoFiscalDia(on, opts = {}) {
+    window.__cdsFechamentoFiscalDiaOn = Boolean(on);
+    if (typeof filtrarMenuPorPermissoes === 'function') {
+        filtrarMenuPorPermissoes();
+    } else {
+        const el = document.getElementById('nav-fechamento-fiscal-dia');
+        if (el) {
+            if (window.__cdsFechamentoFiscalDiaOn) {
+                el.removeAttribute('hidden');
+                el.style.display = '';
+            } else {
+                el.setAttribute('hidden', '');
+                el.style.display = 'none';
+            }
+        }
+    }
+    if (
+        !window.__cdsFechamentoFiscalDiaOn
+        && opts.redirecionar !== false
+        && currentPage === 'fechamento-fiscal-dia'
+        && typeof loadPage === 'function'
+    ) {
+        loadPage('dashboard');
+    }
+}
+
+async function hidratarMenuFechamentoFiscalDia() {
+    window.__cdsFechamentoFiscalDiaOn = false;
+    try {
+        const response = await fetch(`${API_URL}/configuracoes/fechamento_fiscal_do_dia`, {
+            headers: {
+                Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+            }
+        });
+        if (!response.ok) return;
+        const data = await response.json().catch(() => ({}));
+        window.__cdsFechamentoFiscalDiaOn = Boolean(data.permitido) || data.valor === 'ATIVADO';
+    } catch (_) {
+        window.__cdsFechamentoFiscalDiaOn = false;
+    }
 }
 
 function paginaEhModuloFiscal(page) {
@@ -332,7 +381,7 @@ function paginaPermitidaPorImplantacao(page) {
     if (p === 'nfe-central' || p === 'nfe-avulsa' || p === 'nfe-monitor' || p === 'nfe-fila' || p === 'nfe-diagnostico') {
         return possuiRecurso('nfe');
     }
-    if (p === 'central-entradas' || p === 'central-diagnostico' || p === 'dfe-auditoria' || p === 'monitoring' || p === 'central-contabil' || p === 'f12-admin') {
+    if (p === 'central-entradas' || p === 'central-diagnostico' || p === 'dfe-auditoria' || p === 'monitoring' || p === 'central-contabil' || p === 'f12-admin' || p === 'fechamento-fiscal-dia') {
         return fiscalHabilitado();
     }
     if (p === 'caixas' && !implantacaoPermiteMultiCaixa()) return false;
@@ -354,6 +403,7 @@ function pesquisarPaginasSistema(termo) {
 
     return CATALOGO_PESQUISA_PAGINAS.filter((item) => {
         if (item.fiscal && !fiscalOn) return false;
+        if (item.moduloFechamentoFiscalDia && !fechamentoFiscalDiaMenuPermitido()) return false;
         if (item.recurso && !possuiRecurso(item.recurso)) return false;
         if (!paginaPermitidaPorImplantacao(item.page)) return false;
         const blob = `${item.titulo} ${item.keywords} ${item.page}`.toLowerCase();
@@ -1105,12 +1155,21 @@ function filtrarMenuPorPermissoes() {
             return;
         }
 
+        if (page === 'fechamento-fiscal-dia' && !fechamentoFiscalDiaMenuPermitido()) {
+            $item.hide();
+            $item.attr('hidden', 'hidden');
+            return;
+        }
+
         if (!usuarioTemPermissao(page)) {
             $item.hide();
             return;
         }
 
         $item.show();
+        if (page === 'fechamento-fiscal-dia') {
+            $item.removeAttr('hidden');
+        }
     });
 
     $('#nav-config-avancadas').toggle(isSuperAdminUser());
@@ -1382,6 +1441,7 @@ function inicializarShellModulo(options = {}) {
         success: function () {
             carregarConfiguracaoImplantacao().finally(async function () {
                 await carregarModoFiscalInicial();
+                await hidratarMenuFechamentoFiscalDia();
                 iniciarSincronizacaoModoFiscalServidor();
 
                 if (implantacaoPermiteFiscal() && moduloAtualUsaAtalhoF12()) {
@@ -1424,6 +1484,8 @@ window.aplicarIdentidadeVisualCds = aplicarIdentidadeVisualCds;
 window.fiscalHabilitado = fiscalHabilitado;
 window.possuiRecurso = possuiRecurso;
 window.expedicaoHabilitada = expedicaoHabilitada;
+window.fechamentoFiscalDiaMenuPermitido = fechamentoFiscalDiaMenuPermitido;
+window.aplicarVisibilidadeMenuFechamentoFiscalDia = aplicarVisibilidadeMenuFechamentoFiscalDia;
 window.implantacaoPermiteFiscal = implantacaoPermiteFiscal;
 window.implantacaoPermiteMultiCaixa = implantacaoPermiteMultiCaixa;
 window.obterRecursosImplantacao = obterRecursosImplantacao;

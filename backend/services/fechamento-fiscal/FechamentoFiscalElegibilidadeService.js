@@ -551,6 +551,40 @@ async function obterResumoDia(db, data, opts = {}) {
   };
 }
 
+/**
+ * Cobertura fiscal já documentada no dia: operações COM NFC-e autorizada
+ * (não usa lotes elegíveis; canceladas já ficam de fora de carregarItensDia).
+ */
+async function calcularCoberturaFiscalDoDia(db, data) {
+  const dataNorm = String(data || '').trim().slice(0, 10);
+  const rows = await carregarItensDia(db, dataNorm);
+  const { byItem } = await carregarDevolucoesDoDia(db, dataNorm);
+  const vendasCobertas = new Set();
+  let total = 0;
+
+  for (const r of rows) {
+    if (isOperacaoNaoFiscal(r)) continue;
+    if (Number(r.decisao_fiscal_automatica_bloqueada || 0) === 1) continue;
+    const vid = Number(r.venda_id);
+    if (vendasCobertas.has(vid)) continue;
+    vendasCobertas.add(vid);
+    let v = Number(r.venda_valor_fiscal || 0);
+    if (!(v > 0)) v = Number(r.venda_total || 0);
+    total = arredondarMoeda(total + v);
+  }
+
+  for (const r of rows) {
+    const vid = Number(r.venda_id);
+    if (!vendasCobertas.has(vid)) continue;
+    const dev = byItem.get(Number(r.venda_item_id));
+    if (dev && Number(dev.valor || 0) > 0) {
+      total = arredondarMoeda(total - Number(dev.valor));
+    }
+  }
+
+  return arredondarMoeda(Math.max(0, total));
+}
+
 async function snapshotComercial(db) {
   const vendas = await promisifyGet(db, `SELECT COUNT(*) AS n FROM vendas`);
   const financeiro = await promisifyGet(db, `SELECT COUNT(*) AS n FROM financeiro`).catch(() => ({ n: 0 }));
@@ -599,6 +633,7 @@ module.exports = {
   listarMonitoramentoProdutosDoDia,
   agregarProdutosDosLotes,
   obterResumoDia,
+  calcularCoberturaFiscalDoDia,
   snapshotComercial,
   calcularValorFiscalElegivel,
   quantidadeFiscalConsumidaEmOperacaoNaoFiscal,

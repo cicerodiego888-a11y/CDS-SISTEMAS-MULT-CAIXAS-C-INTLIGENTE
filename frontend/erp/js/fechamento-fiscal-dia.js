@@ -11,6 +11,7 @@ let __ffdEstado = {
   resumo: null,
   previa: null,
   indicadores: null,
+  complementacao: null,
   recebimentos: [],
   recebimentosLocais: false,
   vista: 'venda', // venda | produto
@@ -669,6 +670,36 @@ function ffdAbrirDetalheProduto(prod) {
   ffdAlert(txt, prod.nome || 'Detalhe do produto');
 }
 
+function ffdRenderComplementacao(comp) {
+  const el = document.getElementById('ffdComplementacaoPainel');
+  if (!el) return;
+  const c = comp || __ffdEstado.complementacao;
+  if (!c) {
+    el.innerHTML = '';
+    return;
+  }
+  const restante = Number(c.deficit_restante || 0);
+  const alerta = restante > 0.004
+    ? `<div class="alert alert-warning py-2 px-3 mb-0 mt-2">Há déficit restante de ${ffdFmtMoney(restante)} sem produtos fiscais elegíveis suficientes. Nenhuma saída extra foi inventada.</div>`
+    : '';
+  const itens = (c.itens_complementacao || []).map((it) =>
+    `<li>Produto #${ffdEsc(it.produto_id)}${it.nome ? ` — ${ffdEsc(it.nome)}` : ''} · ${ffdFmtMoney(it.valor)}</li>`
+  ).join('');
+  el.innerHTML = `
+    <div class="border rounded-3 p-3 bg-light">
+      <div class="fw-semibold mb-2">Complementação fiscal por recebimento</div>
+      <div class="row g-2 small">
+        <div class="col-md"><div class="text-muted">Recebimentos da maquineta</div><strong>${ffdFmtMoney(c.valor_recebido)}</strong></div>
+        <div class="col-md"><div class="text-muted">Cobertura fiscal</div><strong>${ffdFmtMoney(c.cobertura_fiscal)}</strong></div>
+        <div class="col-md"><div class="text-muted">Déficit</div><strong>${ffdFmtMoney(c.deficit)}</strong></div>
+        <div class="col-md"><div class="text-muted">Complementação fiscal</div><strong>${ffdFmtMoney(c.valor_complementado)}</strong></div>
+        <div class="col-md"><div class="text-muted">Déficit restante</div><strong>${ffdFmtMoney(c.deficit_restante)}</strong></div>
+      </div>
+      ${itens ? `<ul class="small mt-2 mb-0">${itens}</ul>` : '<div class="small text-muted mt-2">Nenhum item de complementação.</div>'}
+      ${alerta}
+    </div>`;
+}
+
 function ffdRenderConciliacaoRecebimentos() {
   const el = document.getElementById('ffdConciliacao');
   const informado = ffdTotalRecebimentos();
@@ -798,6 +829,7 @@ function loadFechamentoFiscalDoDia() {
     resumo: null,
     previa: null,
     indicadores: null,
+    complementacao: null,
     recebimentos: [],
     recebimentosLocais: false,
     vista: 'venda',
@@ -906,6 +938,7 @@ function loadFechamentoFiscalDoDia() {
           </div>
           <div class="text-end fw-semibold mb-3">TOTAL INFORMADO <span id="ffdTotalInformado">${ffdFmtMoney(0)}</span></div>
           <div id="ffdConciliacao"></div>
+          <div id="ffdComplementacaoPainel" class="mt-3"></div>
         </div>
       </div>
 
@@ -1123,6 +1156,8 @@ async function ffdCarregarDia(opts = {}) {
       __ffdEstado.fechamentoId = ff.id;
       __ffdEstado.statusFiscal = ff.status || null;
       __ffdEstado.documentos = ff.documentos || [];
+      __ffdEstado.complementacao = ff.complementacao || null;
+      ffdRenderComplementacao(__ffdEstado.complementacao);
       const finalizado = ffdFechamentoFinalizado(ff.status);
 
       if (finalizado) {
@@ -2269,6 +2304,8 @@ async function ffdAtualizarPrevia() {
       if (!body.previa) {
         throw new Error('A API não retornou a prévia. Tente novamente.');
       }
+      __ffdEstado.complementacao = body.complementacao || (body.fechamento && body.fechamento.complementacao) || null;
+      ffdRenderComplementacao(__ffdEstado.complementacao);
       ffdRenderPrevia(body.previa);
       if (body.previa.perfeita) {
         ffdNotify('Prévia atualizada — distribuição concluída. Conciliação não substitui a validação fiscal.', 'success');
