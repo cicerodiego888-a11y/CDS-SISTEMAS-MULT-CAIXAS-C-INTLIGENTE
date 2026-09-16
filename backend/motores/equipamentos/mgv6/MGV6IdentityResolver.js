@@ -22,6 +22,7 @@
 
 const { MGV6Error, CODES } = require('./MGV6Errors');
 const { DEFAULTS } = require('./MGV6Configuration');
+const { parseMGV6ItemCodeInteger, formatMGV6ItemCode } = require('./MGV6ItemCodeFormat');
 
 /** @deprecated RC14.15.5 — dados históricos podem existir; não usados na exportação */
 const TIPO_MGV6 = 'MGV6';
@@ -61,8 +62,8 @@ function extrairPluBalanca(produto = {}) {
   ];
   for (const c of candidatos) {
     if (c == null || String(c).trim() === '') continue;
-    const digits = String(c).trim().replace(/\D/g, '');
-    if (digits) return digits;
+    const n = parseMGV6ItemCodeInteger(c);
+    if (n != null) return String(n);
   }
   return '';
 }
@@ -192,7 +193,7 @@ function resolverIdentidade(produto = {}) {
   }
 
   const codigo9 = check.codigo.padStart(CODIGO_DIGITOS, '0');
-  const cccccc = check.codigo.padStart(6, '0').slice(-6);
+  const cccccc = formatMGV6ItemCode(check.codigo);
 
   return {
     plu: check.codigo,

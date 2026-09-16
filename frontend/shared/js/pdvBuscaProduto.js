@@ -7,6 +7,36 @@
   'use strict';
 
   const LIMITE_RESULTADOS = 20;
+
+  function obterParseMGV6ScaleEan13() {
+    if (global.ParseMGV6ScaleEan13 && typeof global.ParseMGV6ScaleEan13.parseMGV6ScaleEan13 === 'function') {
+      return global.ParseMGV6ScaleEan13.parseMGV6ScaleEan13;
+    }
+    if (typeof global.parseMGV6ScaleEan13 === 'function') {
+      return global.parseMGV6ScaleEan13;
+    }
+    try {
+      if (typeof require === 'function') {
+        return require('./parseMGV6ScaleEan13').parseMGV6ScaleEan13;
+      }
+    } catch (_) { /* script de browser / Electron sem require relativo */ }
+    return function () { return null; };
+  }
+
+  /**
+   * Se o termo for EAN-13 MGV6 válido, a busca/MIP recebe o PLU numérico.
+   */
+  function termoIdentificacaoPdv(termo) {
+    const parsed = obterParseMGV6ScaleEan13()(termo);
+    if (parsed && parsed.ok === true && parsed.plu != null) {
+      return String(parsed.plu);
+    }
+    return String(termo || '').trim();
+  }
+
+  function parseMGV6DoTermo(termo) {
+    return obterParseMGV6ScaleEan13()(termo);
+  }
   const DEBOUNCE_MS = 220;
 
   let resultados = [];
@@ -60,6 +90,12 @@
     if (!t) return false;
 
     if (ehTermoSomenteDigitos(t)) {
+      const mgv6 = parseMGV6DoTermo(t);
+      if (mgv6 && mgv6.ok === true) {
+        const pluMgv6 = String(mgv6.plu);
+        return identificadoresNumericosIguais(produto.plu, pluMgv6)
+          || identificadoresNumericosIguais(produto.codigo, pluMgv6);
+      }
       // Não usar produto.id: "3" não deve casar com id=3 de outro SKU
       return identificadoresNumericosIguais(produto.plu, t)
         || identificadoresNumericosIguais(produto.codigo, t)
@@ -549,9 +585,28 @@
     }
 
     Promise.resolve()
-      .then(() => identificarViaMip(termoDaBusca))
+      .then(() => {
+        const mgv6 = parseMGV6DoTermo(termoDaBusca);
+        if (mgv6 && mgv6.ok === false) {
+          return { encontrado: false, _mgv6DvInvalido: true };
+        }
+        return identificarViaMip(termoIdentificacaoPdv(termoDaBusca));
+      })
       .then((mip) => {
         if (!respostaAindaValida()) return null;
+
+        if (mip && mip._mgv6DvInvalido) {
+          ultimoMipBusca = null;
+          resultados = [];
+          sugestoes = [];
+          termoDosResultados = termoDaBusca;
+          indiceSelecionado = -1;
+          if (lista) {
+            lista.innerHTML = '<p class="vazio">Etiqueta MGV6 inválida (dígito verificador).</p>';
+            lista.classList.add('aberta');
+          }
+          return { resolvidoMip: true };
+        }
 
         if (mip && mip.encontrado) {
           const produto = produtoDoMip(mip, termoDaBusca);
@@ -844,6 +899,7 @@
       identificadoresNumericosIguais,
       produtoCorrespondeAoTermo,
       filtrarResultadosParaTermo,
+      termoIdentificacaoPdv,
       DEBOUNCE_MS
     }
   };

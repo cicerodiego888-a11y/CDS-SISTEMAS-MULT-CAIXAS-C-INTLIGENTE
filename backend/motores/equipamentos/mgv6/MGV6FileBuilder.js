@@ -32,6 +32,10 @@ const {
 } = require('./MGV6Validator');
 const identity = require('./MGV6IdentityResolver');
 const { MGV6Error, CODES } = require('./MGV6Errors');
+const {
+  formatMGV6ItemCode,
+  formatMGV6ItemCode9
+} = require('./MGV6ItemCodeFormat');
 
 /**
  * RC14.15.5 — campo numérico posições 11–19 (exatamente 9 caracteres).
@@ -76,19 +80,19 @@ function formatarBlocoPreco(centavos) {
   return formatarCampoNumericoMgv6(centavos);
 }
 
+/** PPPPPP+VVV — independente de CCCCCC / PLU. */
+function formatMGV6Price(price) {
+  return formatarCampoNumericoMgv6(price);
+}
+
 /**
  * Bloco posicional TT+Z+CCCCCC (9 chars). Não é entidade "código MGV6".
- * @param {string} codigoDigitos — PLU / código do item
+ * CCCCCC via formatMGV6ItemCode (padStart 6) — nunca formatter de preço.
+ * @param {string|number} codigoDigitos — PLU / código do item
  * @returns {string}
  */
 function formatarCodigo9(codigoDigitos) {
-  try {
-    return identity.formatarCodigoMgv69(codigoDigitos);
-  } catch (err) {
-    if (err && err.code === CODES.CODE_OVERFLOW) throw err;
-    if (err && err.code === CODES.CODE_INVALID) throw err;
-    throw err;
-  }
+  return formatMGV6ItemCode9(codigoDigitos);
 }
 
 /**
@@ -325,6 +329,9 @@ module.exports = {
   buildProdutos,
   formatarCampoNumericoMgv6,
   formatarBlocoPreco,
+  formatMGV6Price,
+  formatMGV6ItemCode,
+  formatMGV6ItemCode9,
   formatarCodigo9,
   formatarDescricaoArea
 };

@@ -8,6 +8,7 @@
 const fs = require('fs');
 const { REGISTRO_LENGTH } = require('./MGV6Configuration');
 const { MGV6Error, CODES } = require('./MGV6Errors');
+const { formatMGV6ItemCode, formatMGV6ItemCode9, parseMGV6ItemCodeInteger } = require('./MGV6ItemCodeFormat');
 
 const CRLF = '\r\n';
 
@@ -124,10 +125,9 @@ function validarArquivoTxitensGerado(caminhoAbs, opcoes = {}) {
   const plusEsperados = Array.isArray(opcoes.plusEsperados) ? opcoes.plusEsperados : null;
   if (plusEsperados && plusEsperados.length) {
     for (let i = 0; i < plusEsperados.length; i += 1) {
-      const esperado = String(plusEsperados[i]).replace(/\D/g, '');
-      if (!esperado) continue;
-      const cccccc = esperado.padStart(6, '0').slice(-6);
-      const blocoEsp = esperado.padStart(9, '0');
+      if (parseMGV6ItemCodeInteger(plusEsperados[i]) == null) continue;
+      const cccccc = formatMGV6ItemCode(plusEsperados[i]);
+      const blocoEsp = formatMGV6ItemCode9(plusEsperados[i]);
       if (blocos9[i] !== blocoEsp && plusExportados[i] !== cccccc) {
         throw MGV6Error.fromCode(
           CODES.FILE_INVALID,

@@ -193,7 +193,7 @@ describe('RC14.15.15 — barreiras (sem alterar bancos/motores proibidos)', () =
       path.join(ROOT, 'frontend/shared/js/pdvBuscaProduto.js'),
       'utf8'
     );
-    assert.doesNotMatch(src, /MGV6|ConnectionManager|ToledoPrixIVDriver/);
+    assert.doesNotMatch(src, /ConnectionManager|ToledoPrixIVDriver|MGV6FileBuilder|MGV6ItemCodeFormat/);
     const catalog = fs.readFileSync(
       path.join(ROOT, 'backend/motores/mib/catalog/CatalogSnapshot.js'),
       'utf8'

@@ -3330,6 +3330,34 @@ function codigoEhBalanca(codigo) {
     return /^2\d{12}$/.test(String(codigo || '').trim());
 }
 
+function parseMGV6ScaleEan13Pdv(codigo) {
+    if (typeof parseMGV6ScaleEan13 === 'function') {
+        return parseMGV6ScaleEan13(codigo);
+    }
+    if (typeof ParseMGV6ScaleEan13 !== 'undefined'
+        && ParseMGV6ScaleEan13
+        && typeof ParseMGV6ScaleEan13.parseMGV6ScaleEan13 === 'function') {
+        return ParseMGV6ScaleEan13.parseMGV6ScaleEan13(codigo);
+    }
+    return null;
+}
+
+function montarParseMotorMGV6(parsed) {
+    return {
+        sucesso: true,
+        semLayoutAtivo: false,
+        resultado: {
+            plu: String(parsed.plu),
+            pluRaw: parsed.itemCode,
+            valorTotal: Number(parsed.total) / 100,
+            peso: null,
+            tipoPayload: 'VALOR',
+            layoutId: 'MGV6_SCALE_EAN13'
+        },
+        layout: { preset_id: 'MGV6_SCALE_EAN13' }
+    };
+}
+
 function unidadeEhKg(produto) {
     return String(produto?.unidade || '').toLowerCase() === 'kg';
 }
@@ -4043,7 +4071,19 @@ async function adicionarProdutoPorCodigoViaMip(codigoDigitado) {
     const nowMs = () => ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now());
 
     try {
-        if (ehEtiqueta) {
+        const mgv6 = parseMGV6ScaleEan13Pdv(codigoParaMip);
+        if (mgv6 && mgv6.ok === false) {
+            showNotification('Etiqueta MGV6 inválida (dígito verificador).', 'warning');
+            return;
+        }
+        if (mgv6 && mgv6.ok === true) {
+            parseMotor = montarParseMotorMGV6(mgv6);
+            codigoParaMip = String(mgv6.plu);
+            consultas += 1;
+            const t0Mip = nowMs();
+            resultado = await identificarProdutoViaMip(codigoParaMip, { aposMotorEquipamentos: true });
+            tempoMipMs = Number((nowMs() - t0Mip).toFixed(3));
+        } else if (ehEtiqueta) {
             consultas += 1;
             const t0Motor = nowMs();
             parseMotor = await interpretarEtiquetaViaMotorEquipamentos(codigoParaMip);
