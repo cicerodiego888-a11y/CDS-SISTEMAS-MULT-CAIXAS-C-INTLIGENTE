@@ -609,11 +609,9 @@ router.get('/notas/:id/cancelamento-diagnostico', async (req, res) => {
 
 router.get('/notas/:id', (req, res) => {
   db.get(`
-    SELECT n.*, v.codigo as venda_codigo, v.total as venda_total,
-           d.valor_total as fechamento_valor_total
+    SELECT n.*, v.codigo as venda_codigo, v.total as venda_total
     FROM nfce_notas n
     LEFT JOIN vendas v ON v.id = n.venda_id
-    LEFT JOIN fechamentos_fiscais_documentos d ON d.id = n.fechamento_documento_id
     WHERE n.id = ?
   `, [req.params.id], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });

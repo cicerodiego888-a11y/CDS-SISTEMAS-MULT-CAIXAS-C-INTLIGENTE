@@ -2,7 +2,8 @@
  * Abertura de PDV/ERP em tela cheia no Electron.
  * window.open de comprovante continua pequeno; módulo nunca herda 420x720.
  */
-const { BrowserWindow, screen } = require('electron');
+const { BrowserWindow, screen, ipcMain } = require('electron');
+const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { resolverIconeJanela } = require('./electron-icon');
@@ -59,9 +60,19 @@ function janelaAbertaEhComprovante(details = {}) {
   return false;
 }
 
+function urlEhAboutBlank(url) {
+  const u = String(url || '').trim().toLowerCase();
+  if (!u) return true;
+  return u === 'about:blank'
+    || u.startsWith('about:blank#')
+    || u.startsWith('about:blank?')
+    || u === '/about:blank'
+    || /\/about:blank$/i.test(u);
+}
+
 function resolverUrlModulo(url, sender) {
   const bruto = String(url || '').trim();
-  if (/^https?:\/\//i.test(bruto)) return bruto;
+  if (/^https?:\/\//i.test(bruto) && !urlEhAboutBlank(bruto)) return bruto;
   let origin = 'http://127.0.0.1:3001';
   try {
     if (sender && typeof sender.getURL === 'function') {
@@ -69,6 +80,9 @@ function resolverUrlModulo(url, sender) {
       if (atual && /^https?:/i.test(atual)) origin = new URL(atual).origin;
     }
   } catch (_) { /* ignore */ }
+  if (urlEhAboutBlank(bruto) || /^https?:\/\/[^/]+\/about:blank/i.test(bruto)) {
+    return `${origin}/erp`;
+  }
   const caminho = bruto
     ? (bruto.startsWith('/') ? bruto : `/${bruto}`)
     : '/erp';
@@ -165,10 +179,25 @@ function configurarAberturaJanelas(win) {
 
     const destino = String((details && details.url) || '');
     const nome = String((details && details.frameName) || '');
+
+    if (urlEhAboutBlank(destino) && nome !== 'cds-pdv' && nome !== 'cds-erp') {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          width: 1024,
+          height: 768,
+          title: 'Impressão',
+          alwaysOnTop: false,
+          autoHideMenuBar: true,
+          webPreferences: { nodeIntegration: false, contextIsolation: true }
+        }
+      };
+    }
+
     const modulo = nome === 'cds-pdv' || /\/pdv/i.test(destino) || /modulo=pdv/i.test(destino)
       ? 'pdv'
       : 'erp';
-    const urlParaAbrir = destino && destino !== 'about:blank'
+    const urlParaAbrir = destino && !urlEhAboutBlank(destino)
       ? destino
       : (modulo === 'pdv' ? '/pdv' : '/erp');
 
@@ -185,9 +214,11 @@ function configurarAberturaJanelas(win) {
   win.webContents.on('did-create-window', (child, details) => {
     try {
       if (!child || child.isDestroyed()) return;
-      if (janelaAbertaEhComprovante(details || {})) {
-        child.setAlwaysOnTop(true);
-        child.focus();
+      if (janelaAbertaEhComprovante(details || {}) || urlEhAboutBlank(details && details.url)) {
+        if (janelaAbertaEhComprovante(details || {})) {
+          child.setAlwaysOnTop(true);
+          child.focus();
+        }
         return;
       }
       child.setAlwaysOnTop(false);
@@ -266,6 +297,49 @@ function devolverFocoJanela(win) {
     win.show();
     win.focus();
   } catch (_) { /* ignore */ }
+}
+
+function registrarIpcImprimirRelatorioHtml(ipcMainRef) {
+  const ipc = ipcMainRef || ipcMain;
+  if (!ipc || typeof ipc.handle !== 'function') return;
+  try { ipc.removeHandler('imprimir-relatorio-html'); } catch (_) { /* ignore */ }
+  ipc.handle('imprimir-relatorio-html', async (event, payload = {}) => {
+    const html = String(payload.html || '');
+    if (!html.trim()) {
+      return { ok: false, erro: 'Relatório vazio.' };
+    }
+    const origem = obterJanelaOrigemComprovante(event);
+    const win = new BrowserWindow({
+      width: 1100,
+      height: 800,
+      title: String(payload.titulo || 'Relatório'),
+      parent: origem || undefined,
+      modal: false,
+      show: true,
+      alwaysOnTop: false,
+      autoHideMenuBar: true,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true
+      }
+    });
+    const tmp = path.join(os.tmpdir(), `cds-relatorio-${process.pid}-${Date.now()}.html`);
+    await fs.promises.writeFile(tmp, html, 'utf8');
+    try {
+      await win.loadFile(tmp);
+      try { win.focus(); } catch (_) { /* ignore */ }
+      await new Promise((resolve) => {
+        try {
+          win.webContents.print({ silent: false, printBackground: true }, () => resolve());
+        } catch (_) {
+          resolve();
+        }
+      });
+      return { ok: true };
+    } finally {
+      fs.promises.unlink(tmp).catch(() => {});
+    }
+  });
 }
 
 function registrarIpcAbrirComprovante(ipcMain) {
@@ -396,7 +470,8 @@ function registrarIpcAbrirComprovante(ipcMain) {
       cupomWindow.show();
       try { cupomWindow.moveTop(); } catch (_) { /* ignore */ }
 
-      if (deviceName) {
+      const enviarImpressora = options.enviarImpressora !== false;
+      if (deviceName && enviarImpressora) {
         executarImpressao(() => {});
       } else {
         impressaoConcluida = true;
@@ -413,12 +488,15 @@ module.exports = {
   aplicarJanelaModuloTelaCheia,
   janelaAbertaEhModuloApp,
   janelaAbertaEhComprovante,
+  urlEhAboutBlank,
+  resolverUrlModulo,
   abrirJanelaModuloApp,
   registrarJanelaPrincipalComoModulo,
   configurarAberturaJanelas,
   registrarIpcAbrirModulo,
   registrarIpcForcarReflow,
   registrarIpcAbrirComprovante,
+  registrarIpcImprimirRelatorioHtml,
   aplicarReflowNaJanelaOrigem,
   nomeImpressoraTermicaValido,
   obterJanelaOrigemComprovante

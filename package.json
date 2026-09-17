@@ -177,6 +177,7 @@
     "test:nfe-devolucao-rc3": "node --test tests/faturamento/rc3-controle-saldo-devolucao.test.js",
     "test:nfe-devolucao-rc4": "node --test tests/faturamento/rc4-lifecycle-nfe-devolucao.test.js",
     "test:nfe-devolucao-rc5": "node --test tests/faturamento/rc5-nfe-devolucao-venda.test.js",
+    "test:nfe-devolucao-rc6": "node --test tests/faturamento/rc6-nfe-devolucao-compra-ui.test.js",
     "test:discovery-v1": "node --test tests/equipamentos/discovery-engine-v1.test.js",
     "test:discovery-ethernet-v15": "node --test tests/equipamentos/discovery-ethernet-v15.test.js",
     "test:discovery-export-fix": "node --test tests/equipamentos/rc14123-discovery-export-fix.test.js",

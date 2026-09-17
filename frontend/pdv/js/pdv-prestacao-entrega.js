@@ -605,7 +605,7 @@
 
       if (vendaId && typeof imprimirDANFEFiscal === 'function') {
         try {
-          await imprimirDANFEFiscal(vendaId);
+          await imprimirDANFEFiscal(vendaId, { automatico: true });
         } catch (_) {
           if (typeof processarFiscalPosPagamentoPosVenda === 'function') {
             processarFiscalPosPagamentoPosVenda(vendaId, data);
@@ -614,7 +614,7 @@
         return;
       }
     } else if (cfg.cupom_nao_fiscal && !fiscal && vendaId && typeof imprimirCupomNaoFiscal === 'function') {
-      try { imprimirCupomNaoFiscal(vendaId, data); } catch (_) { /* ignore */ }
+      try { imprimirCupomNaoFiscal(vendaId, data, undefined, undefined, { automatico: true }); } catch (_) { /* ignore */ }
     }
   }
 

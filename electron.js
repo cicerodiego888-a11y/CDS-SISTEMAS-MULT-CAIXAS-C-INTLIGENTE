@@ -56,11 +56,12 @@ ipcMain.handle('listar-impressoras', async (event) => {
 
 // RC3.5.1 — Portal Nacional da NF-e (npm start usa electron.js como main)
 const { registrarPortalNfeHandlers } = require('./electron-registrar-portal-nfe');
-const { configurarAberturaJanelas, registrarIpcAbrirModulo, registrarIpcForcarReflow, registrarIpcAbrirComprovante, registrarJanelaPrincipalComoModulo, nomeImpressoraTermicaValido } = require('./electron-janelas-modulo');
+const { configurarAberturaJanelas, registrarIpcAbrirModulo, registrarIpcForcarReflow, registrarIpcAbrirComprovante, registrarIpcImprimirRelatorioHtml, registrarJanelaPrincipalComoModulo, nomeImpressoraTermicaValido } = require('./electron-janelas-modulo');
 registrarPortalNfeHandlers(ipcMain, () => mainWindow);
 registrarIpcAbrirModulo(ipcMain);
 registrarIpcForcarReflow(ipcMain);
 registrarIpcAbrirComprovante(ipcMain);
+registrarIpcImprimirRelatorioHtml(ipcMain);
 
 ipcMain.removeHandler('selecionar-pasta-backup');
 ipcMain.handle('selecionar-pasta-backup', async (event) => {

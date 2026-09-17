@@ -12,8 +12,10 @@ const { variantesPlu } = require('../utils/normalizarPlu');
 const MipLookupCache = require('../observability/MipLookupCache');
 
 const COLUNAS_PRODUTO = `
-  id, codigo, codigo_barras, nome, unidade, preco_venda, ativo
+  p.id, p.codigo, p.codigo_barras, p.nome, p.unidade, p.preco_venda, p.ativo, p.marca_id,
+  COALESCE(m.nome, '') AS marca
 `;
+const FROM_PRODUTO = 'FROM produtos p LEFT JOIN marcas m ON m.id = p.marca_id';
 
 function mapProduto(row) {
   if (!row) return null;
@@ -24,7 +26,9 @@ function mapProduto(row) {
     nome: row.nome,
     unidade: row.unidade,
     preco_venda: row.preco_venda,
-    ativo: row.ativo
+    ativo: row.ativo,
+    marca_id: row.marca_id != null ? Number(row.marca_id) : null,
+    marca: String(row.marca || '').trim()
   };
 }
 
@@ -53,6 +57,22 @@ class ProdutoIdentidadeCatalogo {
     if (this._cache) this._cache.clear();
   }
 
+  async _buscarProdutoRow(whereComAlias, whereSimples, params) {
+    await this._ready();
+    try {
+      return await this._helpers.get(
+        `SELECT ${COLUNAS_PRODUTO} ${FROM_PRODUTO} WHERE ${whereComAlias} LIMIT 1`,
+        params
+      );
+    } catch (err) {
+      if (!/no such table: marcas/i.test(String(err && err.message))) throw err;
+      return this._helpers.get(
+        `SELECT id, codigo, codigo_barras, nome, unidade, preco_venda, ativo FROM produtos WHERE ${whereSimples} LIMIT 1`,
+        params
+      );
+    }
+  }
+
   async _ready() {
     if (!this._helpers) throw new Error('Database não disponível para ProdutoIdentidadeCatalogo.');
     await this._helpers.whenReady();
@@ -66,10 +86,7 @@ class ProdutoIdentidadeCatalogo {
     }
 
     await this._ready();
-    const row = await this._helpers.get(
-      `SELECT ${COLUNAS_PRODUTO} FROM produtos WHERE id = ? LIMIT 1`,
-      [id]
-    );
+    const row = await this._buscarProdutoRow('p.id = ?', 'id = ?', [id]);
     const produto = mapProduto(row);
     if (this._cache) this._cache.set(key, produto);
     return produto;
@@ -83,10 +100,7 @@ class ProdutoIdentidadeCatalogo {
     }
 
     await this._ready();
-    const row = await this._helpers.get(
-      `SELECT ${COLUNAS_PRODUTO} FROM produtos WHERE codigo = ? LIMIT 1`,
-      [codigo]
-    );
+    const row = await this._buscarProdutoRow('p.codigo = ?', 'codigo = ?', [codigo]);
     const produto = mapProduto(row);
     if (this._cache) this._cache.set(key, produto);
     return produto;
@@ -100,10 +114,7 @@ class ProdutoIdentidadeCatalogo {
     }
 
     await this._ready();
-    const row = await this._helpers.get(
-      `SELECT ${COLUNAS_PRODUTO} FROM produtos WHERE codigo_barras = ? LIMIT 1`,
-      [codigoBarras]
-    );
+    const row = await this._buscarProdutoRow('p.codigo_barras = ?', 'codigo_barras = ?', [codigoBarras]);
     const produto = mapProduto(row);
     if (this._cache) this._cache.set(key, produto);
     return produto;

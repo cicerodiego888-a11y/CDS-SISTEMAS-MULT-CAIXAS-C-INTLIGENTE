@@ -142,6 +142,138 @@ function obterNotaEmAndamento(compraId) {
   });
 }
 
+function modeloDaChaveNfe(chave) {
+  const d = onlyDigits(chave);
+  return d.length === 44 ? d.slice(20, 22) : '';
+}
+
+function avaliarValidacaoNfeOrigemDevolucao({
+  compra,
+  chave,
+  saldos,
+  fonteXml,
+  espelhamentoOk
+} = {}) {
+  const erros = [];
+  if (!compra) {
+    erros.push({ codigo: 'INEXISTENTE', mensagem: 'NF-e inexistente.' });
+    return { ok: false, erros };
+  }
+  const d = onlyDigits(chave || compra.chave_acesso);
+  if (d.length !== 44) {
+    erros.push({ codigo: 'CHAVE_INVALIDA', mensagem: 'Chave de acesso inválida.' });
+  }
+  const modelo = String(compra.modelo_nf || modeloDaChaveNfe(d) || '')
+    .replace(/\D/g, '')
+    .padStart(2, '0')
+    .slice(-2);
+  if (d.length === 44 && modelo && modelo !== '55') {
+    erros.push({
+      codigo: 'MODELO',
+      mensagem: 'Somente NF-e modelo 55 pode ser utilizada para devolução.'
+    });
+  }
+  const cancelada = String(compra.status || '').toLowerCase() === 'cancelada'
+    || Boolean(saldos && saldos.compraCancelada);
+  if (cancelada) {
+    erros.push({
+      codigo: 'CANCELADA',
+      mensagem: 'Esta NF-e está cancelada e não pode ser utilizada para devolução.'
+    });
+  }
+  if (saldos && Number(saldos.totais && saldos.totais.saldo) <= 0) {
+    erros.push({
+      codigo: 'SEM_PRODUTOS',
+      mensagem: 'Não há produtos disponíveis para devolução nesta NF-e.'
+    });
+  }
+  if (espelhamentoOk === false && !fonteXml) {
+    erros.push({
+      codigo: 'XML',
+      mensagem: 'XML da NF-e original não está disponível.'
+    });
+  }
+  return { ok: erros.length === 0, erros };
+}
+
+function listarOrigensNfeDevolucaoCompra(filtros = {}) {
+  const chave = onlyDigits(filtros.chave);
+  const numero = String(filtros.numero || '').trim();
+  const serie = String(filtros.serie || '').trim();
+  const fornecedor = String(filtros.fornecedor || '').trim();
+  const data = String(filtros.data || '').trim();
+  const compraId = Number(filtros.compraId || filtros.compra || 0);
+
+  let sql = `
+    SELECT
+      c.id,
+      c.numero_nf,
+      c.serie_nf,
+      c.modelo_nf,
+      c.chave_acesso,
+      c.data_emissao,
+      c.data_compra,
+      c.fornecedor,
+      c.fornecedor_cnpj,
+      c.valor_total_nota,
+      c.total,
+      c.status
+    FROM compras c
+    WHERE 1=1
+  `;
+  const params = [];
+  if (compraId > 0) {
+    sql += ' AND c.id = ?';
+    params.push(compraId);
+  }
+  if (chave) {
+    sql += ' AND REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(c.chave_acesso,\'\'),\'.\',\'\'),\'/\',\'\'),\'-\',\'\'),\' \',\'\') LIKE ?';
+    params.push(`%${chave}%`);
+  }
+  if (numero) {
+    sql += ' AND CAST(c.numero_nf AS TEXT) LIKE ?';
+    params.push(`%${numero}%`);
+  }
+  if (serie) {
+    sql += ' AND CAST(c.serie_nf AS TEXT) LIKE ?';
+    params.push(`%${serie}%`);
+  }
+  if (fornecedor) {
+    sql += ' AND (c.fornecedor LIKE ? OR REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(c.fornecedor_cnpj,\'\'),\'.\',\'\'),\'/\',\'\'),\'-\',\'\'),\' \',\'\') LIKE ?)';
+    const like = `%${fornecedor}%`;
+    params.push(like, `%${onlyDigits(fornecedor) || fornecedor}%`);
+  }
+  if (data) {
+    sql += ' AND (date(c.data_emissao) = date(?) OR date(c.data_compra) = date(?))';
+    params.push(data, data);
+  }
+  sql += ' ORDER BY c.data_compra DESC, c.id DESC LIMIT 80';
+
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) return reject(err);
+      const origens = (rows || []).map((r) => {
+        const ch = onlyDigits(r.chave_acesso);
+        const st = String(r.status || '').toLowerCase();
+        const modelo = String(r.modelo_nf || modeloDaChaveNfe(ch) || '').replace(/\D/g, '');
+        return {
+          compraId: r.id,
+          numero: r.numero_nf,
+          serie: r.serie_nf,
+          modelo: modelo || r.modelo_nf,
+          data: r.data_emissao || r.data_compra,
+          fornecedor: r.fornecedor,
+          valor: r.valor_total_nota != null ? r.valor_total_nota : r.total,
+          status: st === 'cancelada' ? 'Cancelada' : 'Autorizada',
+          status_raw: r.status,
+          chave_acesso: ch
+        };
+      });
+      resolve(origens);
+    });
+  });
+}
+
 function carregarCompraCabecalho(compraId) {
   return new Promise((resolve, reject) => {
     db.get(`
@@ -606,19 +738,6 @@ async function prepararNfeDevolucaoCompra(compraId) {
       };
     });
 
-  // Itens sem saldo ainda aparecem na UI (histórico/status), mas não na emissão
-  const itensPainel = saldos.itens.map((s) => ({
-    compra_item_id: s.compra_item_id,
-    produto_id: s.produto_id,
-    produto_nome: s.produto_nome,
-    produto_codigo: s.produto_codigo,
-    quantidade_comprada: s.quantidade_comprada,
-    quantidade_devolvida: s.quantidade_devolvida,
-    saldo: s.saldo,
-    status_saldo: s.status,
-    status_ui: s.status_ui
-  }));
-
   let espelhamento = null;
   let itensFinais = itensComSaldo;
   let motivoEspelhamento = null;
@@ -672,6 +791,38 @@ async function prepararNfeDevolucaoCompra(compraId) {
   else if (!espelhamento?.ok) motivoBloqueio = motivoEspelhamento || 'Espelhamento fiscal da NF-e original indisponível.';
 
   const rascunho = await obterRascunhoDevolucaoCompra(id);
+  const validacaoOrigem = avaliarValidacaoNfeOrigemDevolucao({
+    compra,
+    chave,
+    saldos,
+    fonteXml: espelhamento?.fonteXml || null,
+    espelhamentoOk: Boolean(espelhamento?.ok)
+  });
+
+  const itensPainel = saldos.itens.map((s) => {
+    const emitivel = itensFinais.find((it) => Number(it.compra_item_id) === Number(s.compra_item_id));
+    const trib = mapearTributosItem(compra, s);
+    return {
+      compra_item_id: s.compra_item_id,
+      produto_id: s.produto_id,
+      produto_nome: s.produto_nome,
+      produto_codigo: s.produto_codigo,
+      ncm: emitivel?.ncm || s.ncm,
+      unidade: emitivel?.unidade || s.unidade,
+      cfop_origem: emitivel?.cfop_original || emitivel?.cfop || s.cfop,
+      cst: emitivel?.cst || trib.cst,
+      csosn: emitivel?.csosn || trib.csosn,
+      valor_unitario: emitivel?.valor_unitario != null ? emitivel.valor_unitario : s.valor_unitario,
+      quantidade_comprada: s.quantidade_comprada,
+      quantidade_devolvida: s.quantidade_devolvida,
+      saldo: s.saldo,
+      status_saldo: s.status,
+      status_ui: s.status_ui,
+      tributosEspelhados: emitivel?.tributosEspelhados || null
+    };
+  });
+
+  const enderecoParts = [compra.rua, compra.numero, compra.bairro].filter(Boolean);
 
   return {
     tipoDocumento: 'DEVOLUCAO',
@@ -681,15 +832,40 @@ async function prepararNfeDevolucaoCompra(compraId) {
     refNFe: chave,
     podeEmitir,
     motivoBloqueio,
+    validacaoOrigem,
+    naturezaOperacao: 'DEVOLUÇÃO DE COMPRA',
     compra: {
       id: compra.id,
       fornecedor: compra.fornecedor,
       fornecedor_cnpj: compra.fornecedor_cnpj || compra.fornecedor_doc_cadastro,
+      fornecedor_ie: compra.inscricao_estadual || '',
+      fornecedor_endereco: enderecoParts.join(', '),
+      fornecedor_municipio: compra.cidade || '',
+      fornecedor_uf: compra.uf || '',
+      fornecedor_cep: compra.cep || '',
+      fornecedor_completo: {
+        razao_social: compra.fornecedor,
+        cnpj: compra.fornecedor_cnpj || compra.fornecedor_doc_cadastro,
+        ie: compra.inscricao_estadual || '',
+        rua: compra.rua || '',
+        numero: compra.numero || '',
+        bairro: compra.bairro || '',
+        municipio: compra.cidade || '',
+        uf: compra.uf || '',
+        cep: compra.cep || ''
+      },
       total: compra.total,
+      valor_total_nota: compra.valor_total_nota != null ? compra.valor_total_nota : compra.total,
+      valor_produtos: compra.valor_produtos,
+      valor_desconto: compra.valor_desconto,
+      valor_frete: compra.valor_frete,
       status: compra.status,
+      situacao: String(compra.status || '').toLowerCase() === 'cancelada' ? 'Cancelada' : 'Autorizada',
       chave_acesso: chave,
       numero_nf: compra.numero_nf,
       serie_nf: compra.serie_nf,
+      modelo_nf: compra.modelo_nf || modeloDaChaveNfe(chave),
+      data_emissao: compra.data_emissao || compra.data_compra,
       csosn_cst: compra.csosn_cst || compra.csosn_cst_xml,
       cst_pis: compra.cst_pis || compra.cst_pis_xml,
       cst_cofins: compra.cst_cofins || compra.cst_cofins_xml,
@@ -1426,6 +1602,8 @@ module.exports = {
   montarResumoPreviaDevolucao,
   montarDocumentoXmlDevolucaoCompra,
   prepararNfeDevolucaoCompra,
+  listarOrigensNfeDevolucaoCompra,
+  avaliarValidacaoNfeOrigemDevolucao,
   obterNfeDevolucaoPorId,
   listarHistoricoDevolucaoCompra,
   cancelarNfeDevolucaoCompra,

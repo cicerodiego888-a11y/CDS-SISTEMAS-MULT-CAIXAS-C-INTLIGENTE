@@ -27,15 +27,15 @@ BT
 0 -14 Td
 (- Vers?o: 1.0.3) Tj
 0 -14 Td
-(- Commit: 925bf82) Tj
+(- Commit: 8620fe6) Tj
 0 -14 Td
-(- Build: 2026-09-16T15:19:04.245Z) Tj
+(- Build: 2026-09-17T20:39:59.249Z) Tj
 0 -14 Td
-(- Hash app.asar: `968fe7386f46900f037b4faa4c1365b3b8f08cc030f1e3efbb097b51d868dcf5`) Tj
+(- Hash app.asar: `74777d3f2e696df8dcc24b50541c702e6894d64fa03657ab39f7067166cb6d51`) Tj
 0 -14 Td
 (- Origem: instalador-desatualizado) Tj
 0 -14 Td
-(- Data: 2026-09-16T15:47:50.536Z) Tj
+(- Data: 2026-09-17T20:52:05.955Z) Tj
 0 -14 Td
 () Tj
 0 -14 Td
@@ -45,15 +45,15 @@ BT
 0 -14 Td
 (? Inicializa??o do ERP) Tj
 0 -14 Td
-(  - DB ok | pacote: instalador-desatualizado | asar: 968fe7386f46?) Tj
+(  - DB ok | pacote: instalador-desatualizado | asar: 74777d3f2e69?) Tj
 0 -14 Td
 (? Login) Tj
 0 -14 Td
-(  - user=rc4320_1789573668863 perfil=SUPER_ADMIN) Tj
+(  - user=rc4320_1789678324021 perfil=SUPER_ADMIN) Tj
 0 -14 Td
 (? Cadastro de Produtos) Tj
 0 -14 Td
-(  - CRUD ok | embalagem CX?12 | codigo=RC4320-1789573666344-P) Tj
+(  - CRUD ok | embalagem CX?12 | codigo=RC4320-1789678320511-P) Tj
 0 -14 Td
 (? Compras) Tj
 0 -14 Td
@@ -61,7 +61,7 @@ BT
 0 -14 Td
 (? Financeiro) Tj
 0 -14 Td
-(  - parser financeiro OK | parcela R$500 | registros financeiro=18) Tj
+(  - parser financeiro OK | parcela R$500 | registros financeiro=43) Tj
 0 -14 Td
 (? Estoque) Tj
 0 -14 Td
@@ -85,11 +85,11 @@ BT
 0 -14 Td
 (? Relat?rios) Tj
 0 -14 Td
-(  - compras=0 fin=18 prod=342) Tj
+(  - compras=1 fin=43 prod=785) Tj
 0 -14 Td
 (? Performance) Tj
 0 -14 Td
-(  - 4.2s | mem 32.3MB | sql=16) Tj
+(  - 5.4s | mem 28.8MB | sql=16) Tj
 0 -14 Td
 () Tj
 0 -14 Td
@@ -97,11 +97,11 @@ BT
 0 -14 Td
 () Tj
 0 -14 Td
-(- Tempo total: 4.2s) Tj
+(- Tempo total: 5.4s) Tj
 0 -14 Td
-(- Mem?ria m?xima: 32.3 MB) Tj
+(- Mem?ria m?xima: 28.8 MB) Tj
 0 -14 Td
-(- CPU user: 2594 ms) Tj
+(- CPU user: 2813 ms) Tj
 0 -14 Td
 (- Testes/etapas: 12) Tj
 0 -14 Td

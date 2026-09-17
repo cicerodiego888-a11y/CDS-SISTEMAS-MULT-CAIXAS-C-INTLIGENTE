@@ -79,7 +79,14 @@ function renderConfiguracoes(configuracoes) {
     configuracoes = configuracoes.filter(config =>
         !fiscalConfigKeys.has(config.chave) &&
         !pixConfigKeys.has(config.chave) &&
-        config.chave !== 'endereco'
+        config.chave !== 'endereco' &&
+        config.chave !== 'imprimir_cupom' &&
+        config.chave !== 'pdv_imprimir_cupom' &&
+        config.chave !== 'pdv_exigir_ncm_cadastro' &&
+        config.chave !== 'pdv_permitir_editar_preco_unitario' &&
+        config.chave !== 'pdv_permitir_transferencia_nao_fiscal_fiscal' &&
+        config.chave !== 'empresa_permite_venda_sem_estoque' &&
+        config.chave !== 'empresa_controla_validade'
     );
 
     const ordemCamposEmpresa = [
@@ -153,9 +160,12 @@ function renderConfiguracoes(configuracoes) {
                             <i class="fas fa-spinner fa-spin"></i> Carregando...
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-4 d-flex flex-column gap-2">
                         <button class="btn btn-info" onclick="configurarImpressoraCupom()">
                             <i class="fas fa-cog"></i> Configurar
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" id="btnToggleImprimirCupom" onclick="alternarImpressaoCupomPdv()">
+                            <i class="fas fa-print"></i> Impressão: ...
                         </button>
                     </div>
                 </div>
@@ -213,6 +223,7 @@ function renderConfiguracoes(configuracoes) {
 
     $('#page-content').html(html);
     carregarImpressoraCupom();
+    carregarEstadoImpressaoCupomPdv();
 }
 
 // --- PIX AUTOMÁTICO ---
@@ -588,6 +599,16 @@ async function saveConfiguracoes() {
         const chave = $(this).attr('id');
         const valor = $(this).val();
         if (!chave || chave === 'logoUpload' || chave === 'loginBackgroundUpload') return;
+        if (
+            chave === 'pdv_imprimir_cupom'
+            || chave === 'imprimir_cupom'
+            || chave === 'cfgPdvImprimirCupom'
+            || chave === 'pdv_exigir_ncm_cadastro'
+            || chave === 'pdv_permitir_editar_preco_unitario'
+            || chave === 'pdv_permitir_transferencia_nao_fiscal_fiscal'
+            || chave === 'empresa_permite_venda_sem_estoque'
+            || chave === 'empresa_controla_validade'
+        ) return;
         if (chave === 'logo_path') {
             configs.push({
                 chave: 'logo',
@@ -1135,6 +1156,59 @@ async function configurarImpressoraCupom() {
     } catch (error) {
         showNotification('Erro ao configurar impressora', 'danger');
         console.error(error);
+    }
+}
+
+function atualizarBotaoImpressaoCupomPdv(permitido) {
+    const btn = document.getElementById('btnToggleImprimirCupom');
+    if (!btn) return;
+    const ativo = permitido !== false;
+    btn.dataset.ativo = ativo ? '1' : '0';
+    btn.innerHTML = ativo
+        ? '<i class="fas fa-print"></i> Impressão: ATIVADA'
+        : '<i class="fas fa-print-slash"></i> Impressão: DESATIVADA';
+    btn.classList.toggle('btn-outline-primary', ativo);
+    btn.classList.toggle('btn-outline-secondary', !ativo);
+}
+
+async function carregarEstadoImpressaoCupomPdv() {
+    try {
+        const resp = await fetch(`${API_URL}/configuracoes/pdv_imprimir_cupom`, {
+            headers: { Authorization: 'Bearer ' + (localStorage.getItem('token') || '') }
+        });
+        const data = await resp.json().catch(() => ({}));
+        atualizarBotaoImpressaoCupomPdv(!(data && data.valor === 'DESATIVADO') && data.permitido !== false);
+    } catch (_) {
+        atualizarBotaoImpressaoCupomPdv(true);
+    }
+}
+
+async function alternarImpressaoCupomPdv() {
+    const btn = document.getElementById('btnToggleImprimirCupom');
+    const atualAtivo = !btn || btn.dataset.ativo !== '0';
+    const valor = atualAtivo ? 'DESATIVADO' : 'ATIVADO';
+    try {
+        const resp = await fetch(`${API_URL}/configuracoes/pdv_imprimir_cupom`, {
+            method: 'PUT',
+            headers: {
+                Authorization: 'Bearer ' + (localStorage.getItem('token') || ''),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ valor })
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+            throw new Error(data.error || data.erro || 'Não foi possível alterar a impressão.');
+        }
+        atualizarBotaoImpressaoCupomPdv(data.permitido === true);
+        showNotification(
+            data.valor === 'DESATIVADO'
+                ? 'Impressão automática de cupom DESATIVADA.'
+                : 'Impressão automática de cupom ATIVADA.',
+            'success'
+        );
+    } catch (err) {
+        showNotification(err.message || 'Erro ao alterar impressão de cupom.', 'danger');
     }
 }
 

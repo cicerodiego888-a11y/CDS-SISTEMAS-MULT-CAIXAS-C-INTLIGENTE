@@ -382,17 +382,35 @@ function corrigirIntegridadeQuantidadesFiscais(itens = [], opcoes = {}) {
  * Faixa válida de quantidade fiscal (estoque).
  * min = o que não cabe no saldo não fiscal; max = o que cabe no saldo fiscal.
  */
-function obterFaixaQuantidadeFiscal(quantidadeVendida, saldoFiscal, saldoNaoFiscal) {
+function obterFaixaQuantidadeFiscal(quantidadeVendida, saldoFiscal, saldoNaoFiscal, opcoes = {}) {
   const quantidadeVendidaNum = Number(quantidadeVendida || 0);
   const saldoFiscalNum = Number(saldoFiscal || 0);
   const saldoNaoFiscalNum = Number(saldoNaoFiscal || 0);
   const estoqueTotal = saldoFiscalNum + saldoNaoFiscalNum;
+  const opts = opcoes && typeof opcoes === 'object' ? opcoes : {};
+  const permitirVendaSemEstoque = Boolean(opts.permitirVendaSemEstoque);
 
   if (quantidadeVendidaNum > estoqueTotal + 1e-9) {
+    if (!permitirVendaSemEstoque) {
+      return {
+        sucesso: false,
+        estoqueTotal,
+        mensagem: `Saldo insuficiente. Disponível: ${estoqueTotal}`
+      };
+    }
+    const nfDisponivel = Math.max(0, saldoNaoFiscalNum);
+    const fDisponivel = Math.max(0, saldoFiscalNum);
+    const quantidadeFiscalMin = Math.max(0, Math.min(quantidadeVendidaNum, fDisponivel));
+    const quantidadeFiscalMax = Math.max(
+      quantidadeFiscalMin,
+      quantidadeVendidaNum - nfDisponivel
+    );
     return {
-      sucesso: false,
+      sucesso: true,
       estoqueTotal,
-      mensagem: `Saldo insuficiente. Disponível: ${estoqueTotal}`
+      vendaSemEstoque: true,
+      quantidadeFiscalMin,
+      quantidadeFiscalMax
     };
   }
 
@@ -412,14 +430,20 @@ function distribuirQuantidadeVenda(
   quantidadeVendida,
   saldoFiscal,
   saldoNaoFiscal,
-  vendaFiscal = true
+  vendaFiscal = true,
+  opcoes = {}
 ) {
   quantidadeVendida = Number(quantidadeVendida || 0);
   saldoFiscal = Number(saldoFiscal || 0);
   saldoNaoFiscal = Number(saldoNaoFiscal || 0);
   const priorizarFiscal = parseVendaFiscalFlag(vendaFiscal);
 
-  const faixa = obterFaixaQuantidadeFiscal(quantidadeVendida, saldoFiscal, saldoNaoFiscal);
+  const faixa = obterFaixaQuantidadeFiscal(
+    quantidadeVendida,
+    saldoFiscal,
+    saldoNaoFiscal,
+    opcoes
+  );
   if (!faixa.sucesso) {
     return {
       sucesso: false,
@@ -472,13 +496,19 @@ function calcularValoresFiscaisItem(item, quantidadeFiscal, quantidadeNaoFiscal)
   return { valorFiscal, valorNaoFiscal, subtotalVenda, qtdEstoque };
 }
 
-function distribuirItemVenda(item, saldoFiscal, saldoNaoFiscal, vendaFiscal = true) {
+function distribuirItemVenda(item, saldoFiscal, saldoNaoFiscal, vendaFiscal = true, opcoes = {}) {
   const qtdVenda = Number(item.quantidade || 0);
   const qtdEstoque = item.quantidade_estoque != null && item.quantidade_estoque !== ''
     ? Number(item.quantidade_estoque)
     : qtdVenda;
 
-  const resultado = distribuirQuantidadeVenda(qtdEstoque, saldoFiscal, saldoNaoFiscal, vendaFiscal);
+  const resultado = distribuirQuantidadeVenda(
+    qtdEstoque,
+    saldoFiscal,
+    saldoNaoFiscal,
+    vendaFiscal,
+    opcoes
+  );
   if (!resultado.sucesso) {
     return resultado;
   }
@@ -506,8 +536,8 @@ function distribuirItemVenda(item, saldoFiscal, saldoNaoFiscal, vendaFiscal = tr
 /**
  * Distribuição no extremo oposto (mínimo fiscal / máximo não fiscal possível).
  */
-function distribuirItemVendaMinimoFiscal(item, saldoFiscal, saldoNaoFiscal) {
-  return distribuirItemVenda(item, saldoFiscal, saldoNaoFiscal, false);
+function distribuirItemVendaMinimoFiscal(item, saldoFiscal, saldoNaoFiscal, opcoes = {}) {
+  return distribuirItemVenda(item, saldoFiscal, saldoNaoFiscal, false, opcoes);
 }
 
 function somarPagamentosNaoDinheiro(pagamentos = [], totalVenda = 0) {
@@ -721,12 +751,13 @@ function distribuirItensVendaComValorFiscalEfetivo(entradas = [], vendaFiscal = 
     const saldoFiscal = Number(entrada.saldoFiscal != null ? entrada.saldoFiscal : 0);
     const saldoNaoFiscal = Number(entrada.saldoNaoFiscal != null ? entrada.saldoNaoFiscal : 0);
 
-    const maxRes = distribuirItemVenda(item, saldoFiscal, saldoNaoFiscal, vendaFiscal);
+    const opDist = { permitirVendaSemEstoque: Boolean(opcoes.permitirVendaSemEstoque) };
+    const maxRes = distribuirItemVenda(item, saldoFiscal, saldoNaoFiscal, vendaFiscal, opDist);
     if (!maxRes.sucesso) {
       return { sucesso: false, erro: maxRes, item };
     }
 
-    const minRes = distribuirItemVendaMinimoFiscal(item, saldoFiscal, saldoNaoFiscal);
+    const minRes = distribuirItemVendaMinimoFiscal(item, saldoFiscal, saldoNaoFiscal, opDist);
     if (!minRes.sucesso) {
       return { sucesso: false, erro: minRes, item };
     }

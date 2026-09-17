@@ -10,24 +10,28 @@ function isModoFiscalVisualizacaoAtivo() {
 }
 
 /**
+ * F12 ativo: nenhuma tela pode exibir saldo, rótulo ou item não fiscal.
+ */
+function f12OcultaNaoFiscal() {
+    return isModoFiscalVisualizacaoAtivo();
+}
+
+/**
  * Gestão de estoque no cadastro de produtos (ERP).
- *
- * O F12 / modo fiscal do PDV é visualização operacional e NÃO deve esconder
- * saldo não fiscal no ajuste/cadastro, nem filtrar a lista de produtos.
- * O cadastro opera sempre com os dois saldos (fiscal + não fiscal).
+ * Com F12 ativo, só o saldo fiscal fica visível.
  */
 function gestaoEstoqueDuploHabilitada() {
-    return true;
+    return !f12OcultaNaoFiscal();
 }
 
-/** Query para APIs de cadastro/listagem de produtos no ERP (sempre modo completo). */
+/** Query para APIs de cadastro/listagem de produtos no ERP. */
 function modoFiscalQueryParamGestaoProdutos() {
-    return '0';
+    return modoFiscalQueryParam();
 }
 
-/** true = UI de cadastro/ajuste exibe só saldo fiscal. No ERP isso fica desligado. */
+/** true = UI de cadastro/ajuste exibe só saldo fiscal. */
 function isModoFiscalSomenteCadastroEstoque() {
-    return false;
+    return f12OcultaNaoFiscal();
 }
 
 function atualizarBarraModoFiscalSidebar() {
@@ -152,6 +156,8 @@ function recarregarModulosModoFiscal() {
         }
     } else if (page === 'pdv' && typeof loadPDV === 'function') {
         loadPDV();
+    } else if (typeof recarregarCatalogoPdv === 'function') {
+        recarregarCatalogoPdv();
     } else if (page === 'dashboard' && typeof carregarDashboardComFiltro === 'function') {
         carregarDashboardComFiltro();
     } else if (page === 'monitoring' && typeof atualizarMonitoringModoFiscal === 'function') {
@@ -168,6 +174,7 @@ function recarregarModulosModoFiscal() {
 
 window.modoFiscalQueryParam = modoFiscalQueryParam;
 window.isModoFiscalVisualizacaoAtivo = isModoFiscalVisualizacaoAtivo;
+window.f12OcultaNaoFiscal = f12OcultaNaoFiscal;
 window.gestaoEstoqueDuploHabilitada = gestaoEstoqueDuploHabilitada;
 window.modoFiscalQueryParamGestaoProdutos = modoFiscalQueryParamGestaoProdutos;
 window.isModoFiscalSomenteCadastroEstoque = isModoFiscalSomenteCadastroEstoque;

@@ -160,6 +160,25 @@
     }
   }
 
+  function obterMarcaProdutoPdv(produto) {
+    return String(produto?.marca || produto?.marca_nome || '').trim();
+  }
+
+  /**
+   * Nome da lista do PDV: marca na frente quando existir e ainda não iniciar o nome.
+   */
+  function nomeExibicaoProdutoPdv(produto) {
+    const nome = String(produto?.nome || '').trim() || '-';
+    const marca = obterMarcaProdutoPdv(produto);
+    if (!marca) return nome;
+    const nomeNorm = nome.toLowerCase();
+    const marcaNorm = marca.toLowerCase();
+    if (nomeNorm === marcaNorm || nomeNorm.startsWith(`${marcaNorm} `)) {
+      return nome;
+    }
+    return `${marca} ${nome}`;
+  }
+
   function formatarPrecoProduto(produto) {
     const temPromocao = produto?.tem_promocao === 1 || produto?.tem_promocao === true;
     const precoPromo = Number(produto?.preco_promocional || 0);
@@ -172,8 +191,7 @@
   }
 
   function obterModoFiscal() {
-    // Busca operacional do PDV sempre em modo completo (dois saldos).
-    // F12 afeta emissão, não a disponibilidade na busca.
+    // Busca/catálogo sempre completo para o motor F+NF. F12 só oculta o rótulo NF.
     return '0';
   }
 
@@ -206,16 +224,19 @@
 
     const cache = global.produtosDisponiveis || [];
     const noCache = cache.find((p) => Number(p.id) === id);
+    const mipProd = resultado.produto || {};
     let produto;
     if (noCache) {
       produto = { ...noCache, match_exato: 1, _fonte: 'mip', _termoOrigem: termo };
     } else {
-      const base = resultado.produto || { id };
+      const base = { id, ...mipProd };
       const normalizado = typeof global.normalizarProdutoPdvLista === 'function'
         ? global.normalizarProdutoPdvLista([base])[0]
         : base;
       produto = { ...normalizado, id, match_exato: 1, _fonte: 'mip', _termoOrigem: termo };
     }
+    const marcaMip = obterMarcaProdutoPdv(mipProd) || obterMarcaProdutoPdv(produto);
+    if (marcaMip) produto.marca = marcaMip;
 
     if (resultado.meta && resultado.meta.plu != null) {
       produto.plu = String(resultado.meta.plu);
@@ -363,9 +384,15 @@
       || produto.codigo_barras
       || produto.codigo
       || produto.id;
-    const nome = typeof global.escapeHtml === 'function'
-      ? global.escapeHtml(produto.nome || '-')
-      : String(produto.nome || '-');
+    const esc = typeof global.escapeHtml === 'function'
+      ? global.escapeHtml
+      : (v) => String(v == null ? '' : v);
+    const marca = obterMarcaProdutoPdv(produto);
+    const nomeBase = String(produto.nome || '-');
+    const nomeHtml = esc(nomeBase);
+    const marcaHtml = marca
+      ? `<span class="pdv-autocomplete-marca">${esc(marca)}</span> `
+      : '';
     const termoOrigemAttr = produto._termoOrigem != null
       ? String(produto._termoOrigem)
       : (termoDosResultados != null ? String(termoDosResultados) : '');
@@ -380,7 +407,7 @@
           ${extraClass ? 'data-sugestao="1"' : ''}
           tabindex="-1"
         >
-          <span class="pdv-autocomplete-nome">${nome}${semEstoque ? ' <small class="pdv-autocomplete-sem-estoque">Verificar estoque</small>' : ''}${promocao ? ' <small class="pdv-autocomplete-promo">PROMO</small>' : ''}</span>
+          <span class="pdv-autocomplete-nome">${marcaHtml}${nomeHtml}${semEstoque ? ' <small class="pdv-autocomplete-sem-estoque">Verificar estoque</small>' : ''}${promocao ? ' <small class="pdv-autocomplete-promo">PROMO</small>' : ''}</span>
           <span class="pdv-autocomplete-meta">
             <span class="pdv-autocomplete-codigo">${codigoExibicao}</span>
             <strong class="pdv-autocomplete-preco">${formatarPrecoProduto(produto)}</strong>
@@ -893,6 +920,7 @@
     estaAberto: () => dropdownAberto,
     fechar: fecharLista,
     confirmarEntrada,
+    nomeExibicaoProdutoPdv,
     /** Helpers exportados para testes RC14.15.15 (sem alterar contrato MIP). */
     _test: {
       ehTermoSomenteDigitos,
@@ -900,6 +928,7 @@
       produtoCorrespondeAoTermo,
       filtrarResultadosParaTermo,
       termoIdentificacaoPdv,
+      nomeExibicaoProdutoPdv,
       DEBOUNCE_MS
     }
   };

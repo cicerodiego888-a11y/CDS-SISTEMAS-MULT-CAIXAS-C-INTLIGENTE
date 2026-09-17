@@ -1769,6 +1769,8 @@ function criarTabelas() {
       if (err) console.error('Erro ao criar tabela compras_itens:', err);
       else console.log('Tabela compras_itens criada/verificada');
     });
+    db.run('CREATE INDEX IF NOT EXISTS idx_compras_itens_produto_id ON compras_itens(produto_id)', () => {});
+    db.run('CREATE INDEX IF NOT EXISTS idx_compras_data_compra ON compras(data_compra)', () => {});
 
     db.run(`
       CREATE TABLE IF NOT EXISTS compras_devolucoes (
@@ -2136,6 +2138,9 @@ function criarTabelas() {
     `, (err) => {
       if (err) console.error('Erro ao criar tabela nfce_notas:', err);
       else console.log('Tabela nfce_notas criada/verificada');
+      aplicarAlteracaoSegura('nfce_notas', `ALTER TABLE nfce_notas ADD COLUMN fechamento_fiscal_id INTEGER`);
+      aplicarAlteracaoSegura('nfce_notas', `ALTER TABLE nfce_notas ADD COLUMN fechamento_documento_id INTEGER`);
+      aplicarAlteracaoSegura('nfce_notas', `ALTER TABLE nfce_notas ADD COLUMN origem TEXT DEFAULT 'venda'`);
     });
 
     // @deprecated RC1 — Tabela legada; migração futura para central_entradas_documentos.
@@ -2985,7 +2990,10 @@ function inserirConfiguracoesPadrao() {
     ,['modo_dashboard_fiscal', '1', 'boolean', 'Modo fiscal ativo por padrão (F12) — ERP e PDV']
     ,['pdv_permitir_transferencia_nao_fiscal_fiscal', 'DESATIVADO', 'string', 'Permitir transferência de estoque não fiscal para fiscal no PDV']
     ,['pdv_permitir_editar_preco_unitario', 'DESATIVADO', 'string', 'Permitir editar preço unitário no PDV e atualizar cadastro do produto']
+    ,['pdv_exigir_ncm_cadastro', 'DESATIVADO', 'string', 'No PDV, se o produto não tiver NCM, pedir o código e atualizar o cadastro']
+    ,['pdv_imprimir_cupom', 'ATIVADO', 'string', 'Imprimir cupom automaticamente ao finalizar a venda no PDV']
     ,['empresa_controla_validade', 'ATIVADO', 'string', 'Empresa controla validade de produtos (lotes/FEFO/alertas)']
+    ,['empresa_permite_venda_sem_estoque', 'DESATIVADO', 'string', 'Permitir venda sem estoque (baixa continua; saldo pode ficar negativo)']
   ];
 
   configs.forEach(config => {
@@ -3013,10 +3021,28 @@ function inserirConfiguracoesPadrao() {
     console.warn('[PDV] Falha ao hidratar flag editar preço unitário:', hidrPrecoErr && hidrPrecoErr.message);
   }
   try {
+    const cfgExigirNcmPdv = require('./services/estoque/pdvExigirNcmCadastroConfig');
+    cfgExigirNcmPdv.hidratar(db);
+  } catch (hidrNcmErr) {
+    console.warn('[PDV] Falha ao hidratar flag exigir NCM no cadastro:', hidrNcmErr && hidrNcmErr.message);
+  }
+  try {
+    const cfgImprimirCupomPdv = require('./services/estoque/pdvImprimirCupomConfig');
+    cfgImprimirCupomPdv.hidratar(db);
+  } catch (hidrCupomErr) {
+    console.warn('[PDV] Falha ao hidratar flag imprimir cupom:', hidrCupomErr && hidrCupomErr.message);
+  }
+  try {
     const cfgValidadeEmpresa = require('./services/estoque/empresaControlaValidadeConfig');
     cfgValidadeEmpresa.hidratar(db);
   } catch (hidrValErr) {
     console.warn('[VALIDADE] Falha ao hidratar flag empresa_controla_validade:', hidrValErr && hidrValErr.message);
+  }
+  try {
+    const cfgVendaSemEstoque = require('./services/estoque/empresaPermiteVendaSemEstoqueConfig');
+    cfgVendaSemEstoque.hidratar(db);
+  } catch (hidrEstErr) {
+    console.warn('[ESTOQUE] Falha ao hidratar flag empresa_permite_venda_sem_estoque:', hidrEstErr && hidrEstErr.message);
   }
 
   // RC0.1.0 — remove identidade de demonstração (não altera schema nem regras de negócio)

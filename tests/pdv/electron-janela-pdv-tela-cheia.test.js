@@ -29,6 +29,8 @@ describe('Electron — PDV em tela cheia', () => {
     assert.match(src, /action: 'deny'/);
     assert.match(src, /abrir-modulo-app/);
     assert.match(src, /win\.maximize\(\)/);
+    assert.match(src, /function urlEhAboutBlank/);
+    assert.match(src, /title: 'Impressão'/);
     assert.doesNotMatch(src, /if \(!destino \|\| destino === 'about:blank'\) return true;/);
   });
 
@@ -49,6 +51,7 @@ describe('Electron — PDV em tela cheia', () => {
 
     const electronJs = read('electron.js');
     assert.match(electronJs, /registrarIpcAbrirComprovante\(ipcMain\)/);
+    assert.match(electronJs, /registrarIpcImprimirRelatorioHtml\(ipcMain\)/);
     assert.doesNotMatch(electronJs, /ipcMain\.on\('abrir-comprovante'/);
     assert.match(janelas, /lower === 'cupom'/);
   });

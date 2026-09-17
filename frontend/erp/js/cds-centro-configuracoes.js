@@ -207,6 +207,27 @@
             </button>
           </div>
         `, 'validade controlar lote fefo empresa')}
+        ${card('<i class="fas fa-boxes"></i> Venda sem estoque', `
+          <p class="cds-cfg-hint mb-3">
+            Somente <strong>Super Usuário</strong>.
+            <strong>DESATIVADO</strong> (padrão): bloqueia venda com saldo insuficiente.
+            <strong>ATIVADO</strong>: permite vender mesmo zerado — a baixa e a entrada continuam iguais; o saldo pode ficar negativo.
+            Não desliga o controle de estoque do cadastro.
+          </p>
+          <label class="form-label" for="cfgEmpresaPermiteVendaSemEstoque">Permitir venda sem estoque</label>
+          <select class="form-select mb-2" id="cfgEmpresaPermiteVendaSemEstoque" data-cfg-search="venda sem estoque negativo saldo insuficiente permitir">
+            <option value="DESATIVADO">DESATIVADO — bloquear saldo insuficiente</option>
+            <option value="ATIVADO">ATIVADO — permitir venda sem estoque</option>
+          </select>
+          <div class="cds-cfg-actions">
+            <button type="button" class="btn btn-warning btn-sm" id="btnPermitirVendaSemEstoque">
+              <i class="fas fa-unlock"></i> Permitir venda sem estoque
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" id="btnSalvarEmpresaPermiteVendaSemEstoque">
+              <i class="fas fa-save"></i> Salvar
+            </button>
+          </div>
+        `, 'venda sem estoque negativo saldo insuficiente permitir')}
         ${fiscalUi ? `<div class="cds-cfg-note">Razão social, CNPJ, IE e certificado são editados em <strong>Plataforma Fiscal</strong> (Super Usuário).</div>
         <div id="secaoPadraoFiscalEmpresa">
           ${card('<i class="fas fa-file-invoice"></i> Padrão Fiscal da Empresa', `
@@ -746,6 +767,41 @@
             </button>
           </div>
         `, 'editar preço unitário pdv cadastro produto estoque super usuário')}
+        ${card('<i class="fas fa-barcode"></i> PDV — NCM no cadastro', `
+          <p class="cds-cfg-hint mb-3">
+            Somente <strong>Super Usuário</strong>.
+            Quando <strong>DESATIVADO</strong> (padrão), o PDV não pede NCM na inclusão.
+            Quando <strong>ATIVADO</strong>, se o produto não tiver NCM (8 dígitos) o PDV pede o código
+            e grava no cadastro — igual à alteração de preço unitário.
+          </p>
+          <label class="form-label" for="cfgPdvExigirNcmCadastro">Pedir NCM no PDV e atualizar cadastro</label>
+          <select class="form-select" id="cfgPdvExigirNcmCadastro" data-cfg-search="ncm pdv cadastro produto fiscal">
+            <option value="DESATIVADO">DESATIVADO</option>
+            <option value="ATIVADO">ATIVADO</option>
+          </select>
+          <div class="cds-cfg-actions mt-2">
+            <button type="button" class="btn btn-primary btn-sm" id="btnSalvarPdvExigirNcmCadastro">
+              <i class="fas fa-save"></i> Salvar
+            </button>
+          </div>
+        `, 'ncm pdv cadastro produto fiscal super usuário')}
+        ${card('<i class="fas fa-print"></i> PDV — Impressão de cupom', `
+          <p class="cds-cfg-hint mb-3">
+            Somente <strong>Super Usuário</strong>.
+            Quando <strong>ATIVADO</strong> (padrão), o PDV imprime o cupom ao finalizar a venda (NFC-e ou não fiscal).
+            Quando <strong>DESATIVADO</strong>, a venda segue sem imprimir; a reimpressão no histórico continua disponível.
+          </p>
+          <label class="form-label" for="cfgPdvImprimirCupom">Imprimir cupom automaticamente no PDV</label>
+          <select class="form-select" id="cfgPdvImprimirCupom" data-cfg-search="cupom impressão imprimir pdv fiscal não fiscal">
+            <option value="ATIVADO">ATIVADO</option>
+            <option value="DESATIVADO">DESATIVADO</option>
+          </select>
+          <div class="cds-cfg-actions mt-2">
+            <button type="button" class="btn btn-primary btn-sm" id="btnSalvarPdvImprimirCupom">
+              <i class="fas fa-save"></i> Salvar
+            </button>
+          </div>
+        `, 'cupom impressão imprimir pdv fiscal super usuário')}
       </div>
     `;
   }
@@ -884,6 +940,147 @@
           data.valor === 'ATIVADO'
             ? 'Edição de unitário no PDV ATIVADA (atualiza cadastro).'
             : 'Edição de unitário no PDV DESATIVADA.',
+          'success'
+        );
+      }
+    } catch (err) {
+      if (typeof global.showNotification === 'function') {
+        global.showNotification(err.message || 'Erro ao salvar configuração.', 'danger');
+      }
+    }
+  }
+
+  function hidratarExigirNcmCadastroPdv() {
+    const sel = document.getElementById('cfgPdvExigirNcmCadastro');
+    if (!sel) return;
+    const api = typeof API_URL !== 'undefined' ? API_URL : '/api';
+    fetch(`${api}/configuracoes/pdv_exigir_ncm_cadastro`, {
+      headers: headersCfgApi()
+    }).then((r) => r.ok ? r.json() : { valor: 'DESATIVADO' }).then((data) => {
+      sel.value = data && data.valor === 'ATIVADO' ? 'ATIVADO' : 'DESATIVADO';
+    }).catch(() => {
+      sel.value = 'DESATIVADO';
+    });
+  }
+
+  async function salvarExigirNcmCadastroPdv() {
+    const sel = document.getElementById('cfgPdvExigirNcmCadastro');
+    if (!sel) return;
+    const api = typeof API_URL !== 'undefined' ? API_URL : '/api';
+    try {
+      const resp = await fetch(`${api}/configuracoes/pdv_exigir_ncm_cadastro`, {
+        method: 'PUT',
+        headers: headersCfgApi(),
+        body: JSON.stringify({ valor: sel.value })
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error(data.error || data.erro || 'Não foi possível salvar.');
+      }
+      sel.value = data.valor === 'ATIVADO' ? 'ATIVADO' : 'DESATIVADO';
+      if (typeof global.showNotification === 'function') {
+        global.showNotification(
+          data.valor === 'ATIVADO'
+            ? 'PDV vai pedir NCM e gravar no cadastro.'
+            : 'Pedido de NCM no PDV DESATIVADO.',
+          'success'
+        );
+      }
+    } catch (err) {
+      if (typeof global.showNotification === 'function') {
+        global.showNotification(err.message || 'Erro ao salvar configuração.', 'danger');
+      }
+    }
+  }
+
+  function hidratarImprimirCupomPdv() {
+    const sel = document.getElementById('cfgPdvImprimirCupom');
+    if (!sel) return;
+    const api = typeof API_URL !== 'undefined' ? API_URL : '/api';
+    fetch(`${api}/configuracoes/pdv_imprimir_cupom`, {
+      headers: headersCfgApi()
+    }).then((r) => r.ok ? r.json() : { valor: 'ATIVADO' }).then((data) => {
+      sel.value = data && data.valor === 'DESATIVADO' ? 'DESATIVADO' : 'ATIVADO';
+    }).catch(() => {
+      sel.value = 'ATIVADO';
+    });
+  }
+
+  async function salvarImprimirCupomPdv(opcoes) {
+    const silencioso = !!(opcoes && opcoes.silencioso);
+    const sel = document.getElementById('cfgPdvImprimirCupom');
+    if (!sel) return;
+    const api = typeof API_URL !== 'undefined' ? API_URL : '/api';
+    try {
+      const resp = await fetch(`${api}/configuracoes/pdv_imprimir_cupom`, {
+        method: 'PUT',
+        headers: headersCfgApi(),
+        body: JSON.stringify({ valor: sel.value })
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error(data.error || data.erro || 'Não foi possível salvar.');
+      }
+      sel.value = data.valor === 'DESATIVADO' ? 'DESATIVADO' : 'ATIVADO';
+      if (!silencioso && typeof global.showNotification === 'function') {
+        global.showNotification(
+          data.valor === 'DESATIVADO'
+            ? 'Impressão automática de cupom DESATIVADA.'
+            : 'Impressão automática de cupom ATIVADA.',
+          'success'
+        );
+      }
+    } catch (err) {
+      if (typeof global.showNotification === 'function') {
+        global.showNotification(err.message || 'Erro ao salvar configuração.', 'danger');
+      }
+      throw err;
+    }
+  }
+
+  function hidratarEmpresaPermiteVendaSemEstoque() {
+    const sel = document.getElementById('cfgEmpresaPermiteVendaSemEstoque');
+    if (!sel) return;
+    const api = typeof API_URL !== 'undefined' ? API_URL : '/api';
+    fetch(`${api}/configuracoes/empresa_permite_venda_sem_estoque`, {
+      headers: headersCfgApi()
+    }).then((r) => r.ok ? r.json() : { valor: 'DESATIVADO' }).then((data) => {
+      sel.value = data && data.valor === 'ATIVADO' ? 'ATIVADO' : 'DESATIVADO';
+    }).catch(() => {
+      sel.value = 'DESATIVADO';
+    });
+  }
+
+  async function salvarEmpresaPermiteVendaSemEstoque() {
+    const sel = document.getElementById('cfgEmpresaPermiteVendaSemEstoque');
+    if (!sel) return;
+    const valor = sel.value === 'ATIVADO' ? 'ATIVADO' : 'DESATIVADO';
+    if (valor === 'ATIVADO') {
+      const ok = window.confirm(
+        'A empresa permitirá venda com saldo insuficiente.\n\n'
+        + 'Compra, baixa e relatórios continuam iguais.\n'
+        + 'O estoque poderá ficar negativo.\n\n'
+        + 'Confirma?'
+      );
+      if (!ok) return;
+    }
+    const api = typeof API_URL !== 'undefined' ? API_URL : '/api';
+    try {
+      const resp = await fetch(`${api}/configuracoes/empresa_permite_venda_sem_estoque`, {
+        method: 'PUT',
+        headers: headersCfgApi(),
+        body: JSON.stringify({ valor })
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error(data.error || data.erro || 'Não foi possível salvar.');
+      }
+      sel.value = data.valor === 'ATIVADO' ? 'ATIVADO' : 'DESATIVADO';
+      if (typeof global.showNotification === 'function') {
+        global.showNotification(
+          data.valor === 'ATIVADO'
+            ? 'Venda sem estoque ATIVADA. A baixa continua; o saldo pode ficar negativo.'
+            : 'Venda sem estoque DESATIVADA.',
           'success'
         );
       }
@@ -1381,6 +1578,14 @@
     document.getElementById('btnSalvarPdvEditarPrecoUnitario')?.addEventListener('click', () => {
       void salvarEditarPrecoUnitarioPdv();
     });
+    hidratarExigirNcmCadastroPdv();
+    document.getElementById('btnSalvarPdvExigirNcmCadastro')?.addEventListener('click', () => {
+      void salvarExigirNcmCadastroPdv();
+    });
+    hidratarImprimirCupomPdv();
+    document.getElementById('btnSalvarPdvImprimirCupom')?.addEventListener('click', () => {
+      void salvarImprimirCupomPdv();
+    });
     hidratarFechamentoFiscalDia();
     document.getElementById('btnSalvarFechamentoFiscalDia')?.addEventListener('click', () => {
       void salvarFechamentoFiscalDia();
@@ -1394,6 +1599,15 @@
       if (sel) sel.value = 'DESATIVADO';
       void salvarEmpresaControlaValidade();
     });
+    hidratarEmpresaPermiteVendaSemEstoque();
+    document.getElementById('btnSalvarEmpresaPermiteVendaSemEstoque')?.addEventListener('click', () => {
+      void salvarEmpresaPermiteVendaSemEstoque();
+    });
+    document.getElementById('btnPermitirVendaSemEstoque')?.addEventListener('click', () => {
+      const sel = document.getElementById('cfgEmpresaPermiteVendaSemEstoque');
+      if (sel) sel.value = 'ATIVADO';
+      void salvarEmpresaPermiteVendaSemEstoque();
+    });
 
     document.getElementById('btnAbrirConfigFiscalOficial')?.addEventListener('click', () => {
       ativarCategoria('plataformaFiscal');
@@ -1406,9 +1620,15 @@
     });
 
     document.getElementById('btnCdsCfgSalvar')?.addEventListener('click', () => {
-      if (typeof global.salvarConfiguracoesAvancadas === 'function') {
-        global.salvarConfiguracoesAvancadas().then?.(() => atualizarPainelExecutivo());
-      }
+      Promise.resolve(salvarImprimirCupomPdv({ silencioso: true }))
+        .catch(() => null)
+        .then(() => {
+          if (typeof global.salvarConfiguracoesAvancadas === 'function') {
+            return global.salvarConfiguracoesAvancadas();
+          }
+          return null;
+        })
+        .then(() => atualizarPainelExecutivo());
     });
 
     // Ao desligar PDV, sugere desligar Histórico de Vendas (ainda editável).

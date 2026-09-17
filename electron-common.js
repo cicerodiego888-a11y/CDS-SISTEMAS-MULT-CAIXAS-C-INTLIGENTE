@@ -1,6 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const { resolverIconeJanela } = require('./electron-icon');
-const { configurarAberturaJanelas, registrarIpcAbrirModulo, registrarIpcForcarReflow, registrarIpcAbrirComprovante, registrarJanelaPrincipalComoModulo, nomeImpressoraTermicaValido } = require('./electron-janelas-modulo');
+const { configurarAberturaJanelas, registrarIpcAbrirModulo, registrarIpcForcarReflow, registrarIpcAbrirComprovante, registrarIpcImprimirRelatorioHtml, registrarJanelaPrincipalComoModulo, nomeImpressoraTermicaValido } = require('./electron-janelas-modulo');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -327,6 +327,7 @@ function registrarHandlersIpc() {
   registrarIpcAbrirModulo(ipcMain);
   registrarIpcForcarReflow(ipcMain);
   registrarIpcAbrirComprovante(ipcMain);
+  registrarIpcImprimirRelatorioHtml(ipcMain);
 
   ipcMain.removeHandler('imprimir-danfe-silencioso');
   ipcMain.handle('imprimir-danfe-silencioso', async (event, html, deviceName) => {

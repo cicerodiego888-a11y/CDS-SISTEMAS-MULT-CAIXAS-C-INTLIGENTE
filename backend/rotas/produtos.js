@@ -204,13 +204,13 @@ function normalizarProdutoResposta(produto, modoFiscal) {
     valor_estoque: Number((estoqueAtual * precoCompra).toFixed(2))
   };
 
-  if (modoFiscal) {
-    return {
-      ...base,
-      estoque_exibido: saldoFiscal,
-      valor_estoque: Number((saldoFiscal * precoCompra).toFixed(2))
-    };
-  }
+    if (modoFiscal) {
+        return {
+            ...base,
+            estoque_exibido: saldoFiscal,
+            valor_estoque: Number((saldoFiscal * precoCompra).toFixed(2))
+        };
+    }
 
   return {
     ...base,
@@ -636,6 +636,7 @@ router.get('/', (req, res) => {
       (SELECT quantidade_minima FROM produto_atacado WHERE produto_id = p.id ORDER BY quantidade_minima ASC LIMIT 1) AS quantidade_minima_atacado,
       c.nome AS categoria_nome,
       s.nome AS subcategoria_nome,
+      m.nome AS marca_nome,
       CAST(julianday(date(p.data_validade)) - julianday(date('now', 'localtime')) AS INTEGER) AS dias_para_vencer,
       CASE
         WHEN COALESCE(p.controlar_validade, 0) != 1 OR p.data_validade IS NULL OR p.data_validade = '' THEN NULL
@@ -646,6 +647,7 @@ router.get('/', (req, res) => {
     FROM produtos p
     LEFT JOIN categorias c ON c.id = p.categoria_id
     LEFT JOIN subcategorias s ON s.id = p.subcategoria_id
+    LEFT JOIN marcas m ON m.id = p.marca_id
     WHERE 1=1
       ${filtroFiscal}
       ${filtroExtra}
@@ -659,7 +661,8 @@ router.get('/', (req, res) => {
     const produtos = (rows || []).map((p) => normalizarProdutoResposta({
       ...p,
       categoria: p.categoria_nome || p.categoria || '',
-      subcategoria: p.subcategoria_nome || ''
+      subcategoria: p.subcategoria_nome || '',
+      marca: p.marca_nome || p.marca || ''
     }, modoFiscal));
 
     res.json(produtos);
@@ -795,57 +798,45 @@ router.get('/:id/historico-estoque', (req, res) => {
 router.get('/relatorio-estoque', (req, res) => {
   const { inicio, fim } = req.query;
   const modoFiscal = isModoFiscalQuery(req.query.modo_fiscal);
-  const filtroFiscal = filtroSqlModoFiscalProduto(modoFiscal, 'p');
 
-  const filtrosSubconsulta = [];
-  const paramsSubconsulta = [];
-  const filtrosExists = [];
-  const paramsExists = [];
-
+  const filtrosUltima = [];
+  const paramsUltima = [];
   if (inicio) {
-    filtrosSubconsulta.push('c2.data_compra >= ?');
-    paramsSubconsulta.push(inicio);
-
-    filtrosExists.push('c3.data_compra >= ?');
-    paramsExists.push(inicio);
+    filtrosUltima.push('c.data_compra >= ?');
+    paramsUltima.push(inicio);
   }
-
   if (fim) {
-    filtrosSubconsulta.push('c2.data_compra <= ?');
-    paramsSubconsulta.push(fim);
-
-    filtrosExists.push('c3.data_compra <= ?');
-    paramsExists.push(fim);
+    filtrosUltima.push('c.data_compra <= ?');
+    paramsUltima.push(fim);
   }
-
-  const andExists = filtrosExists.length
-    ? `
-      AND EXISTS (
-        SELECT 1
-        FROM compras c3
-        INNER JOIN compras_itens ci3 ON ci3.compra_id = c3.id
-        WHERE ci3.produto_id = p.id
-          AND ${filtrosExists.join(' AND ')}
-      )
-    `
-    : '';
-
-  const filtrosUltimaCompra = filtrosSubconsulta.length
-    ? ` AND ${filtrosSubconsulta.join(' AND ')}`
+  const whereUltima = filtrosUltima.length ? `WHERE ${filtrosUltima.join(' AND ')}` : '';
+  const exigirCompraNoPeriodo = filtrosUltima.length
+    ? 'AND uc.ultima_compra_data IS NOT NULL'
     : '';
 
   const sql = `
     SELECT
-      p.*,
+      p.id,
+      p.nome,
+      p.codigo,
+      p.unidade,
+      p.categoria_id,
+      p.saldo_fiscal,
+      p.saldo_nao_fiscal,
+      p.estoque_atual,
+      p.estoque_minimo,
+      p.preco_compra,
+      p.lote,
+      p.data_validade,
+      p.controlar_validade,
+      p.dias_alerta_validade,
+      p.reservado_fiscal,
+      p.reservado_nao_fiscal,
+      p.produto_fracionado,
+      p.vendido_por_peso,
+      p.item_fiscal,
       c.nome AS categoria_nome,
-      s.nome AS subcategoria_nome,
-      (
-        SELECT MAX(c2.data_compra)
-        FROM compras c2
-        INNER JOIN compras_itens ci2 ON ci2.compra_id = c2.id
-        WHERE ci2.produto_id = p.id
-        ${filtrosUltimaCompra}
-      ) AS ultima_compra_data,
+      uc.ultima_compra_data,
       CAST(julianday(date(p.data_validade)) - julianday(date('now', 'localtime')) AS INTEGER) AS dias_para_vencer,
       CASE
         WHEN COALESCE(p.controlar_validade, 0) != 1 OR p.data_validade IS NULL OR p.data_validade = '' THEN NULL
@@ -855,27 +846,56 @@ router.get('/relatorio-estoque', (req, res) => {
       END AS status_validade
     FROM produtos p
     LEFT JOIN categorias c ON c.id = p.categoria_id
-    LEFT JOIN subcategorias s ON s.id = p.subcategoria_id
+    LEFT JOIN (
+      SELECT ci.produto_id, MAX(c.data_compra) AS ultima_compra_data
+      FROM compras_itens ci
+      INNER JOIN compras c ON c.id = ci.compra_id
+      ${whereUltima}
+      GROUP BY ci.produto_id
+    ) uc ON uc.produto_id = p.id
     WHERE 1=1
-      ${filtroFiscal}
-      ${andExists}
-    ORDER BY p.nome ASC
+      ${exigirCompraNoPeriodo}
+    ORDER BY p.nome COLLATE NOCASE ASC, p.id ASC
   `;
 
-  const params = [...paramsSubconsulta, ...paramsExists];
-
-  db.all(sql, params, (err, rows) => {
+  db.all(sql, paramsUltima, (err, rows) => {
     if (err) {
       console.error('Erro ao gerar relatório de estoque:', err.message);
       return res.status(500).json({ error: err.message });
     }
 
-    const produtos = (rows || []).map((p) => normalizarProdutoResposta({
-      ...p,
-      categoria: p.categoria_nome || p.categoria || '',
-      subcategoria: p.subcategoria_nome || p.subcategoria || '',
-      ultima_compra_data: p.ultima_compra_data || null
-    }, modoFiscal));
+    const produtos = (rows || []).map((p) => {
+      const saldoFiscal = Number(p.saldo_fiscal ?? 0);
+      const saldoNaoFiscal = Number(p.saldo_nao_fiscal ?? 0);
+      const estoqueAtual = saldoFiscal + saldoNaoFiscal;
+      const precoCompra = Number(p.preco_compra || 0);
+      const qtdExibida = modoFiscal ? saldoFiscal : estoqueAtual;
+      return {
+        id: p.id,
+        nome: p.nome,
+        codigo: p.codigo,
+        unidade: p.unidade || 'UN',
+        categoria_id: p.categoria_id,
+        categoria: p.categoria_nome || '',
+        saldo_fiscal: saldoFiscal,
+        saldo_nao_fiscal: saldoNaoFiscal,
+        estoque_atual: estoqueAtual,
+        estoque_exibido: qtdExibida,
+        estoque_minimo: Number(p.estoque_minimo || 0),
+        preco_compra: precoCompra,
+        lote: p.lote || '',
+        data_validade: p.data_validade,
+        controlar_validade: p.controlar_validade,
+        reservado_fiscal: Number(p.reservado_fiscal || 0),
+        reservado_nao_fiscal: Number(p.reservado_nao_fiscal || 0),
+        produto_fracionado: Number(p.produto_fracionado || p.vendido_por_peso || 0) ? 1 : 0,
+        item_fiscal: p.item_fiscal,
+        ultima_compra_data: p.ultima_compra_data || null,
+        dias_para_vencer: p.dias_para_vencer,
+        status_validade: p.status_validade,
+        valor_estoque: Number((qtdExibida * precoCompra).toFixed(2))
+      };
+    });
 
     res.json(produtos);
   });

@@ -160,10 +160,13 @@ function formatarQuantidadeEstoqueKg(item) {
 }
 
 function showVendaModal(venda) {
+    const f12Fiscal = typeof modoFiscalAtivoSistema === 'function'
+        ? modoFiscalAtivoSistema() === true
+        : (typeof localStorage !== 'undefined' && localStorage.getItem('pdv_modo_fiscal_ativo') === '1');
     // Visão comercial completa — NF-e não substitui itens/totais.
     const itens = filtrarItensHistoricoVenda(venda);
     const totalExibido = obterTotalExibicaoHistoricoVenda(venda, itens);
-    const mostrarNaoFiscal = exibirCupomNaoFiscalHistorico(venda);
+    const mostrarNaoFiscal = !f12Fiscal && exibirCupomNaoFiscalHistorico(venda);
     const blocoNfe = typeof montarHtmlNfeVinculadaHistorico === 'function'
         ? montarHtmlNfeVinculadaHistorico(venda)
         : '';
@@ -176,12 +179,14 @@ function showVendaModal(venda) {
             <td>${formatCurrency(item.preco_unitario)}</td>
             <td>${formatarQuantidadeVendaItem(item)}</td>
             <td>${Number(item.quantidade_fiscal ?? 0).toFixed(3).replace('.', ',')}</td>
-            <td>${Number(item.quantidade_nao_fiscal ?? 0).toFixed(3).replace('.', ',')}</td>
-            <td>${formatarQuantidadeEstoqueKg(item)}</td>
+            ${f12Fiscal ? '' : `<td>${Number(item.quantidade_nao_fiscal ?? 0).toFixed(3).replace('.', ',')}</td>`}
+            <td>${f12Fiscal
+                ? `${Number(item.quantidade_fiscal ?? 0).toFixed(3).replace('.', ',')} KG`
+                : formatarQuantidadeEstoqueKg(item)}</td>
             <td>${formatCurrency(item.valor_fiscal ?? 0)}</td>
-            <td>${formatCurrency(item.valor_nao_fiscal ?? 0)}</td>
+            ${f12Fiscal ? '' : `<td>${formatCurrency(item.valor_nao_fiscal ?? 0)}</td>`}
             <td>${formatCurrency(item.subtotal)}</td>
-        </tr>`).join('') || `<tr><td colspan="11" class="text-center">Nenhum item encontrado.</td></tr>`;
+        </tr>`).join('') || `<tr><td colspan="${f12Fiscal ? 9 : 11}" class="text-center">Nenhum item encontrado.</td></tr>`;
 
     const modalHtml = `
         <div class="modal fade" id="vendaModal" tabindex="-1" aria-labelledby="vendaModalLabel" aria-hidden="true">
@@ -238,10 +243,10 @@ function showVendaModal(venda) {
                                         <th>Preço</th>
                                         <th>Qtd Venda</th>
                                         <th>Qtd Fiscal (KG)</th>
-                                        <th>Qtd Não Fiscal (KG)</th>
+                                        ${f12Fiscal ? '' : '<th>Qtd Não Fiscal (KG)</th>'}
                                         <th>Estoque (KG)</th>
                                         <th>Valor Fiscal</th>
-                                        <th>Valor Não Fiscal</th>
+                                        ${f12Fiscal ? '' : '<th>Valor Não Fiscal</th>'}
                                         <th>Subtotal</th>
                                     </tr>
                                 </thead>

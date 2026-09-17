@@ -1,5 +1,5 @@
 /**
- * Cadastro de produtos (ERP) não deve herdar F12/PDV para esconder saldo não fiscal.
+ * Cadastro de produtos (ERP): F12 ativo oculta saldo não fiscal.
  */
 'use strict';
 
@@ -22,20 +22,16 @@ function loadHelpers(globals = {}) {
     implantacaoPermiteFiscal: globals.implantacaoPermiteFiscal,
     modoFiscalAtivoSistema: globals.modoFiscalAtivoSistema
   };
-  // eslint-disable-next-line global-require, import/no-dynamic-require
   delete require.cache[require.resolve(helpersPath)];
-  // modoFiscalHelpers uses bare functions + window assignment; eval in sandbox
   const fs = require('fs');
   const code = fs.readFileSync(helpersPath, 'utf8');
   const sandbox = { window: root, module: { exports: {} }, exports: {}, console };
-  // Attach expected globals used inside the file
   Object.assign(sandbox, {
     modoFiscalAtivoSistema: root.modoFiscalAtivoSistema,
     implantacaoPermiteFiscal: root.implantacaoPermiteFiscal,
     localStorage: root.localStorage,
     document: { body: { classList: { toggle() {} } }, getElementById: () => null, querySelector: () => null }
   });
-  // eslint-disable-next-line no-new-func
   const fn = new Function(
     'window',
     'module',
@@ -45,7 +41,7 @@ function loadHelpers(globals = {}) {
     'document',
     'modoFiscalAtivoSistema',
     'implantacaoPermiteFiscal',
-    `${code}\nreturn { gestaoEstoqueDuploHabilitada, modoFiscalQueryParamGestaoProdutos, isModoFiscalSomenteCadastroEstoque, isModoFiscalVisualizacaoAtivo, modoFiscalQueryParam };`
+    `${code}\nreturn { gestaoEstoqueDuploHabilitada, modoFiscalQueryParamGestaoProdutos, isModoFiscalSomenteCadastroEstoque, isModoFiscalVisualizacaoAtivo, modoFiscalQueryParam, f12OcultaNaoFiscal };`
   );
   return fn(
     root,
@@ -74,22 +70,24 @@ function test(nome, fn) {
 let ok = 0;
 let fail = 0;
 
-if (test('Com F12/PDV fiscal ON, gestão de produtos continua modo completo (0)', () => {
+if (test('Com F12 ativo, cadastro ERP fica somente fiscal', () => {
   const h = loadHelpers({
     modoFiscalAtivoSistema: () => true,
     implantacaoPermiteFiscal: () => true
   });
   assert.strictEqual(h.isModoFiscalVisualizacaoAtivo(), true);
-  assert.strictEqual(h.modoFiscalQueryParamGestaoProdutos(), '0');
-  assert.strictEqual(h.gestaoEstoqueDuploHabilitada(), true);
-  assert.strictEqual(h.isModoFiscalSomenteCadastroEstoque(), false);
+  assert.strictEqual(h.f12OcultaNaoFiscal(), true);
+  assert.strictEqual(h.modoFiscalQueryParamGestaoProdutos(), '1');
+  assert.strictEqual(h.gestaoEstoqueDuploHabilitada(), false);
+  assert.strictEqual(h.isModoFiscalSomenteCadastroEstoque(), true);
 })) ok++; else fail++;
 
-if (test('Mesmo com implantação sem fiscal, cadastro ERP não fica “somente fiscal” por F12', () => {
+if (test('Com F12 inativo, cadastro ERP mostra os dois saldos', () => {
   const h = loadHelpers({
-    modoFiscalAtivoSistema: () => true,
-    implantacaoPermiteFiscal: () => false
+    modoFiscalAtivoSistema: () => false,
+    implantacaoPermiteFiscal: () => true
   });
+  assert.strictEqual(h.f12OcultaNaoFiscal(), false);
   assert.strictEqual(h.gestaoEstoqueDuploHabilitada(), true);
   assert.strictEqual(h.isModoFiscalSomenteCadastroEstoque(), false);
   assert.strictEqual(h.modoFiscalQueryParamGestaoProdutos(), '0');

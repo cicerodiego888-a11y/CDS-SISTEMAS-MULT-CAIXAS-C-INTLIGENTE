@@ -196,20 +196,21 @@ VOLTE SEMPRE.
 `;
 }
 
-async function enviarCupomNaoFiscalParaImpressora(vendaId, venda, total, desconto) {
+async function enviarCupomNaoFiscalParaImpressora(vendaId, venda, total, desconto, enviarImpressora) {
     const cupomHtml = montarHtmlCupomNaoFiscal(vendaId, venda, total, desconto);
-    const deviceName = await obterDeviceNameImpressoraCupom();
+    const deviceName = enviarImpressora === false ? null : await obterDeviceNameImpressoraCupom();
 
     if (window.electronAPI?.abrirComprovante) {
         window.electronAPI.abrirComprovante(cupomHtml, {
             silent: false,
             autoFecharMs: 5000,
-            deviceName
+            deviceName,
+            enviarImpressora: enviarImpressora !== false
         });
         return;
     }
 
-    if (window.electronAPI?.imprimirDANFESilencioso) {
+    if (enviarImpressora !== false && window.electronAPI?.imprimirDANFESilencioso) {
         await window.electronAPI.imprimirDANFESilencioso(cupomHtml, deviceName);
         if (typeof showNotification === 'function') {
             showNotification('Cupom não fiscal enviado para impressora.', 'success');
@@ -229,10 +230,27 @@ async function enviarCupomNaoFiscalParaImpressora(vendaId, venda, total, descont
     janela.document.write(cupomHtml);
     janela.document.close();
     janela.focus();
-    janela.print();
+    if (enviarImpressora !== false) {
+        janela.print();
+    }
 }
 
-async function imprimirCupomNaoFiscal(vendaId, venda, total, desconto) {
+function impressaoAutomaticaCupomPermitida() {
+    if (typeof window.pdvImprimirCupomAtivo === 'function') {
+        return window.pdvImprimirCupomAtivo() !== false;
+    }
+    return true;
+}
+
+function deveEnviarCupomParaImpressora(opcoes) {
+    if (opcoes && opcoes.forcarImpressora === true) return true;
+    if (opcoes && opcoes.automatico === true) {
+        return impressaoAutomaticaCupomPermitida();
+    }
+    return true;
+}
+
+async function imprimirCupomNaoFiscal(vendaId, venda, total, desconto, opcoes) {
     if (!vendaId || !venda) {
         if (typeof showNotification === 'function') {
             showNotification('Dados insuficientes para imprimir cupom não fiscal.', 'warning');
@@ -247,7 +265,13 @@ async function imprimirCupomNaoFiscal(vendaId, venda, total, desconto) {
             vendaCupom = { ...venda, ...empresa };
         }
 
-        await enviarCupomNaoFiscalParaImpressora(vendaId, vendaCupom, total, desconto);
+        await enviarCupomNaoFiscalParaImpressora(
+            vendaId,
+            vendaCupom,
+            total,
+            desconto,
+            deveEnviarCupomParaImpressora(opcoes)
+        );
     } catch (error) {
         console.error('Erro ao imprimir cupom não fiscal:', error);
         if (typeof showNotification === 'function') {
@@ -256,7 +280,7 @@ async function imprimirCupomNaoFiscal(vendaId, venda, total, desconto) {
     }
 }
 
-async function imprimirDANFEFiscal(vendaId) {
+async function imprimirDANFEFiscal(vendaId, opcoes) {
     if (!vendaId) {
         if (typeof showNotification === 'function') {
             showNotification('Venda não informada para reimpressão.', 'warning');
@@ -295,19 +319,21 @@ async function imprimirDANFEFiscal(vendaId) {
             return;
         }
 
-        const deviceName = await obterDeviceNameImpressoraCupom();
+        const enviarImpressora = deveEnviarCupomParaImpressora(opcoes);
+        const deviceName = enviarImpressora ? await obterDeviceNameImpressoraCupom() : null;
 
         if (window.electronAPI?.abrirComprovante) {
             window.electronAPI.abrirComprovante(htmlDanfe, {
                 silent: false,
                 autoFecharMs: 5000,
                 deviceName,
-                htmlImpressao: htmlTermico
+                htmlImpressao: htmlTermico,
+                enviarImpressora
             });
             return;
         }
 
-        if (window.electronAPI?.imprimirDANFESilencioso) {
+        if (enviarImpressora && window.electronAPI?.imprimirDANFESilencioso) {
             await window.electronAPI.imprimirDANFESilencioso(htmlTermico || htmlDanfe, deviceName);
             if (typeof showNotification === 'function') {
                 showNotification('Cupom fiscal enviado para impressora.', 'success');

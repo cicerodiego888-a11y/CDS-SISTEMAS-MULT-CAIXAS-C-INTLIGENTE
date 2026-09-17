@@ -79,9 +79,10 @@ const CDS_ERP_PAGE_SCRIPTS = Object.freeze({
         '/erp/js/configuracoes.js',
         '/erp/js/cds-centro-configuracoes.js'
     ],
-    fiscal: ['/shared/js/fiscalImpressao.js', '/erp/js/fiscal.js'],
+    fiscal: ['/shared/js/fiscalImpressao.js', '/shared/js/vendasHistoricoUi.js', '/erp/js/fiscal.js'],
     'nfe-central': ['/shared/js/fiscalImpressao.js', '/shared/js/nfeDanfeViewer.js', '/erp/js/nfe-central.js'],
     'nfe-avulsa': ['/shared/js/nfeDanfeViewer.js', '/erp/js/nfe-avulsa.js'],
+    'nfe-devolucao-compra': ['/shared/js/nfeDanfeViewer.js', '/erp/js/nfe-devolucao-compra.js'],
     'nfe-monitor': ['/erp/js/nfe-operacional.js'],
     'nfe-fila': ['/erp/js/nfe-operacional.js'],
     'nfe-diagnostico': ['/erp/js/nfe-operacional.js'],
@@ -461,6 +462,10 @@ async function loadPage(page) {
             return typeof loadNfeAvulsa === 'function'
                 ? loadNfeAvulsa()
                 : $('#page-content').html('<div class="alert alert-danger">Erro ao carregar Nova NF-e.</div>');
+        case 'nfe-devolucao-compra':
+            return typeof loadNfeDevolucaoCompra === 'function'
+                ? loadNfeDevolucaoCompra()
+                : $('#page-content').html('<div class="alert alert-danger">Erro ao carregar Devolução de Compra.</div>');
         case 'nfe-monitor':
             return typeof loadNfeMonitor === 'function'
                 ? loadNfeMonitor()

@@ -23,6 +23,7 @@ const ARQUIVOS_OBRIGATORIOS = [
   'frontend/erp/js/faturamento.js',
   'frontend/erp/js/nfe-central.js',
   'frontend/erp/js/nfe-avulsa.js',
+  'frontend/erp/js/nfe-devolucao-compra.js',
   'frontend/erp/js/nfe-operacional.js',
   'frontend/erp/js/configuracoes.js',
   'backend/server.js',

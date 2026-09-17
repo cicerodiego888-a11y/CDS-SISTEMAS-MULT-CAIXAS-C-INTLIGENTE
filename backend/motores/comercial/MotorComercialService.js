@@ -15,6 +15,7 @@ const fxnfReservas = require('../../services/fiscalNaoFiscal/reservasPublico');
 const mts = require('../mts');
 const auditoria = require('./PedidoEstoqueAuditoria');
 const { TipoSaldo } = require('../../services/fiscalNaoFiscal/constants');
+const cfgVendaSemEstoque = require('../../services/estoque/empresaPermiteVendaSemEstoqueConfig');
 
 function round3(n) {
   return Math.round(Number(n || 0) * 1000) / 1000;
@@ -182,6 +183,21 @@ async function analisarDisponibilidadeFiscal(itensBrutos, opts = {}) {
         disponivel_nao_fiscal: disp.disponivel_nao_fiscal,
         detalhes: { motivo: 'fiscal_insuficiente_nao_fiscal_ok' },
         usuario_id: opts.usuarioId || null
+      });
+      continue;
+    }
+
+    if (cfgVendaSemEstoque.estaAtivadaSync()) {
+      plano.push({
+        produto_id: item.produto_id,
+        quantidade: item.quantidade,
+        acao: 'RESERVAR',
+        transferir: 0,
+        linhas: item.linhas,
+        disponivel_fiscal: disp.disponivel_fiscal,
+        disponivel_nao_fiscal: disp.disponivel_nao_fiscal,
+        disponivel_total: disp.disponivel_total,
+        venda_sem_estoque: true
       });
       continue;
     }

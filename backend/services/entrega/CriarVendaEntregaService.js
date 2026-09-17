@@ -16,6 +16,7 @@ const {
   aplicarTransferenciasPdv
 } = require('../estoque/transferenciaNaoFiscalParaFiscalPdv');
 const cfgTransferenciaPdv = require('../estoque/pdvTransferenciaNaoFiscalFiscalConfig');
+const cfgVendaSemEstoque = require('../estoque/empresaPermiteVendaSemEstoqueConfig');
 const mpfc = require('../mpfc');
 const { calcularEstoqueProduto } = require('../estoque/EstoqueDisponivelService');
 const { saldosParaDistribuicaoVenda } = require('../estoque/produtoControlaEstoque');
@@ -212,7 +213,8 @@ function criarVendaEntrega(req, res) {
           midpAtivo,
           desconto: Number(body.desconto || 0),
           acrescimo: Number(body.acrescimo || 0),
-          politicaFiscalComercial: politicaMpfc
+          politicaFiscalComercial: politicaMpfc,
+          permitirVendaSemEstoque: cfgVendaSemEstoque.estaAtivadaSync()
         }
       );
 

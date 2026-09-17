@@ -700,6 +700,11 @@ function montarHtmlAcoesNfceEmitida(n) {
                             <i class="fas fa-file-alt fa-fw me-2 text-muted"></i>Resumo NFC-e / TEF
                         </button>
                     </li>
+                    <li>
+                        <button type="button" class="dropdown-item py-2" onclick="visualizarXmlNfce(${nfceId})">
+                            <i class="fas fa-code fa-fw me-2 text-muted"></i>Visualizar XML
+                        </button>
+                    </li>
                     ${blocoOperacional}
                 </ul>
             </div>

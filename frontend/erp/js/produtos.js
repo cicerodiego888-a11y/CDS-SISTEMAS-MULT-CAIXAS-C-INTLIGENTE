@@ -800,7 +800,7 @@ function inicializarMotorConversaoUnidadesCadastro() {
 // MÓDULO DE PRODUTOS
 // =========================
 
-/** Cadastro ERP: nunca herdar F12/PDV — sempre modo completo (dois saldos). */
+/** Cadastro ERP: F12 ativo oculta não fiscal. */
 function modoFiscalParamGestaoProdutosLocal() {
     if (typeof modoFiscalQueryParamGestaoProdutos === 'function') {
         return modoFiscalQueryParamGestaoProdutos();
@@ -1044,7 +1044,7 @@ function montarHtmlCamposEstoqueProduto(produto, isEdit, opcoes = {}) {
     // Bloqueia edição do Estoque Inicial somente após a 1ª venda
     const temVendas = Boolean(opcoes.temVendas ?? produto?.tem_vendas);
     const permiteEditarSaldos = !isEdit || !temVendas;
-    // Cadastro: dois saldos sempre (F12 do PDV não esconde não fiscal)
+    // Cadastro: F12 ativo exibe só saldo fiscal
     const modoFiscal = estoqueCadastroSomenteFiscal();
     const saldoFiscal = Number(produto?.saldo_fiscal ?? 0);
     const saldoNaoFiscal = Number(produto?.saldo_nao_fiscal ?? 0);
@@ -1300,6 +1300,33 @@ function formatarColunaEstoqueLista(p) {
     `;
 }
 
+function quantidadeEstoqueRelatorio(p) {
+    return Number(p.saldo_fiscal ?? 0) + Number(p.saldo_nao_fiscal ?? 0);
+}
+
+function formatarColunaEstoqueRelatorio(p) {
+    const unidade = p.unidade || '';
+    const opcoesFormato = { produtoFracionado: produtoUsaConversaoUnidades(p) };
+    const fiscal = Number(p.saldo_fiscal ?? 0);
+    const naoFiscal = Number(p.saldo_nao_fiscal ?? 0);
+    return `F ${formatarEstoqueProduto(fiscal, unidade, opcoesFormato)} / NF ${formatarEstoqueProduto(naoFiscal, unidade, opcoesFormato)}`;
+}
+
+function textoStatusRelatorio(p) {
+    const partes = [];
+    const estoque = classificarEstoqueRelatorio(p);
+    if (estoque === 'estoque_baixo') partes.push('Estoque baixo');
+    else if (estoque === 'proximo_minimo') partes.push('Próximo do mínimo');
+
+    const validade = classificarValidadeRelatorio(p);
+    if (validade === 'vencido') partes.push('Vencido');
+    else if (validade === 'proximo_vencimento') {
+        partes.push(`Vence em ${Number(p.dias_para_vencer ?? 0)} dia(s)`);
+    }
+
+    return partes.length ? partes.join(' · ') : 'OK';
+}
+
 const RELATORIO_PRODUTOS_FILTROS = {
     todos: 'Todos os produtos',
     estoque_baixo: 'Estoque baixo',
@@ -1479,99 +1506,117 @@ function formatarUltimaCompraRelatorio(valor) {
     return formatDate(valor);
 }
 
-function printRelatorioEstoqueProdutos() {
-    const $modal = $('#relatorio-estoque-modal');
-    if (!$modal.length) return;
-
-    const title = 'Relatório de Estoque';
-    const bodyHtml = $modal.find('.modal-body').html();
-    const css = `
-        <style>
-            body { font-family: Arial, sans-serif; color: #222; padding: 20px; }
-            h1 { font-size: 20px; margin-bottom: 20px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-            th { background: #f8f9fa; }
-            tr.table-danger td { background-color: #f8d7da; }
-            tr.table-warning td { background-color: #fff3cd; }
-            .badge { display: inline-block; padding: 0.35em 0.65em; border-radius: 0.35rem; }
-            .badge.bg-danger { background-color: #dc3545; color: white; }
-            .badge.bg-warning { background-color: #ffc107; color: #212529; }
-            .badge.bg-secondary { background-color: #6c757d; color: white; }
-            .no-print { display: none !important; }
-        </style>
-    `;
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-            <head>
-                <title>${title}</title>
-                ${css}
-            </head>
-            <body>
-                <h1>${title}</h1>
-                ${bodyHtml}
-            </body>
-        </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-}
-
-function carregarRelatorioEstoqueProdutos(tipoFiltro = 'todos', filtroInicio = '', filtroFim = '') {
-    const params = new URLSearchParams();
-    const modoFiscal = modoFiscalParamGestaoProdutosLocal();
-    params.append('modo_fiscal', modoFiscal);
-
-    if (filtroInicio) params.append('inicio', filtroInicio);
-    if (filtroFim) params.append('fim', filtroFim);
-
-    $.ajax({
-        url: `${API_URL}/produtos/relatorio-estoque?${params.toString()}`,
-        method: 'GET',
-        headers: {
-            Authorization: 'Bearer ' + (localStorage.getItem('token') || '')
-        },
-        success: function(produtos) {
-            renderRelatorioEstoqueProdutos(produtos || [], tipoFiltro, filtroInicio, filtroFim);
-        },
-        error: function(xhr) {
-            const erro = xhr.responseJSON?.error || 'Erro ao carregar relatório de estoque.';
-            showNotification(erro, 'danger');
-        }
-    });
-}
-
-function renderRelatorioEstoqueProdutos(produtos, tipoFiltro = 'todos', filtroInicio = '', filtroFim = '') {
-    produtos = Array.isArray(produtos) ? produtos : [];
-    const inicio = parseRelatorioData(filtroInicio);
-    const fim = parseRelatorioData(filtroFim);
-
-    let produtosFiltrados = produtos;
-
-    if (inicio || fim) {
-        produtosFiltrados = produtos.filter(p => isRelatorioDataDentroDoIntervalo(p.ultima_compra_data, inicio, fim));
+function imprimirHtmlRelatorioProdutos(html) {
+    if (window.electronAPI && typeof window.electronAPI.imprimirRelatorioHtml === 'function') {
+        window.electronAPI.imprimirRelatorioHtml({
+            html,
+            titulo: 'Relatório de Estoque'
+        }).catch(() => {});
+        return;
     }
 
-    const produtosExibidos = filtrarProdutosRelatorio(produtosFiltrados, tipoFiltro);
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('title', 'Impressão do relatório de estoque');
+    iframe.style.cssText = 'position:fixed;left:-10000px;top:0;width:1024px;height:768px;border:0;background:#fff;';
+    document.body.appendChild(iframe);
 
-    const valorTotalFiscal = produtosExibidos.reduce((sum, p) => {
-        const qtd = obterQuantidadeEstoqueProduto(p);
-        return sum + (qtd * Number(p.preco_compra || 0));
-    }, 0);
+    const win = iframe.contentWindow;
+    const doc = win && win.document;
+    if (!doc) {
+        iframe.remove();
+        return;
+    }
 
-    const tituloModo = RELATORIO_PRODUTOS_FILTROS[tipoFiltro] || 'Todos os produtos';
+    doc.open();
+    doc.write(html);
+    doc.close();
 
-    const filtroLegenda = `Exibindo ${produtosExibidos.length} produto(s) de ${produtosFiltrados.length} no período.`;
+    let finalizado = false;
+    const finalizar = () => {
+        if (finalizado) return;
+        finalizado = true;
+        try { iframe.remove(); } catch (_) { /* ignore */ }
+    };
 
-    const filtroDatasTexto = (inicio || fim)
-        ? `Filtro aplicado pela data da última compra: ${filtroInicio || 'início não informado'} até ${filtroFim || 'fim não informado'}.`
-        : 'Nenhum filtro de data aplicado.';
+    const imprimir = () => {
+        try { win.addEventListener('afterprint', finalizar); } catch (_) { /* ignore */ }
+        try {
+            win.focus();
+            win.print();
+        } catch (_) {
+            finalizar();
+        }
+    };
+
+    setTimeout(imprimir, 300);
+    setTimeout(finalizar, 180000);
+}
+
+function montarLinhasRelatorioEstoque(produtosExibidos) {
+    if (!produtosExibidos.length) {
+        return '<tr><td colspan="9" class="text-center">Nenhum produto encontrado para o filtro selecionado.</td></tr>';
+    }
+
+    return produtosExibidos.map((p) => {
+        const estoqueAtual = quantidadeEstoqueRelatorio(p);
+        const estoqueMinimo = Number(p.estoque_minimo || 0);
+        const totalItem = estoqueAtual * Number(p.preco_compra || 0);
+        const classes = classesLinhaStatusProduto(obterStatusVisualProduto(p));
+        return `<tr class="${classes.row}"><td class="${classes.text}">${escapeHtml(p.nome || '-')}</td><td>${escapeHtml(p.categoria || '-')}</td><td>${escapeHtml(formatarColunaEstoqueRelatorio(p))}</td><td>${estoqueMinimo}</td><td>${escapeHtml(p.lote || '-')}</td><td>${escapeHtml(formatarValidadeRelatorio(p.data_validade))}</td><td>${escapeHtml(formatarUltimaCompraRelatorio(p.ultima_compra_data))}</td><td>${escapeHtml(formatCurrency(totalItem))}</td><td>${escapeHtml(textoStatusRelatorio(p))}</td></tr>`;
+    }).join('');
+}
+
+function printRelatorioEstoqueProdutos() {
+    const itens = Array.isArray(window.__cdsRelatorioEstoqueItens) ? window.__cdsRelatorioEstoqueItens : [];
+    const tituloModo = document.getElementById('relatorio-estoque-titulo-modo')?.textContent || 'Todos os produtos';
+    const filtroLegenda = document.getElementById('relatorio-estoque-legenda')?.textContent || '';
+    const filtroDatasTexto = document.getElementById('relatorio-estoque-filtro-datas')?.textContent || '';
+    const valorTotalTexto = document.getElementById('relatorio-estoque-valor-total')?.textContent || '';
+    const title = 'Relatório de Estoque';
+
+    imprimirHtmlRelatorioProdutos(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>${title}</title>
+<style>
+body{font-family:Arial,sans-serif;color:#222;padding:16px;font-size:11px}
+h1{font-size:18px;margin:0 0 8px}
+p{margin:0 0 4px}
+table{width:100%;border-collapse:collapse;margin-top:12px}
+th,td{border:1px solid #ccc;padding:4px 6px;text-align:left;vertical-align:top}
+th{background:#f8f9fa}
+tr.table-danger td{background:#f8d7da}
+tr.table-warning td{background:#fff3cd}
+@page{size:A4 landscape;margin:10mm}
+</style>
+</head>
+<body>
+<h1>${title}</h1>
+<p><strong>${escapeHtml(tituloModo)}</strong></p>
+<p>${escapeHtml(filtroLegenda)}</p>
+<p>${escapeHtml(filtroDatasTexto)}</p>
+<p>${escapeHtml(valorTotalTexto)}</p>
+<table>
+<thead><tr><th>Produto</th><th>Categoria</th><th>Estoque</th><th>Mínimo</th><th>Lote</th><th>Validade</th><th>Última compra</th><th>Total em estoque</th><th>Status</th></tr></thead>
+<tbody>${montarLinhasRelatorioEstoque(itens)}</tbody>
+</table>
+</body>
+</html>`);
+}
+
+function garantirModalRelatorioEstoque(tipoFiltro, filtroInicio, filtroFim) {
+    let modalEl = document.getElementById('relatorio-estoque-modal');
+    if (modalEl) {
+        modalEl.setAttribute('data-tipo-filtro', tipoFiltro);
+        const tipoSel = document.getElementById('relatorio-tipo-filtro');
+        if (tipoSel) tipoSel.innerHTML = montarOptionsFiltroRelatorio(tipoFiltro);
+        const inicioEl = document.getElementById('relatorio-data-inicio');
+        const fimEl = document.getElementById('relatorio-data-fim');
+        if (inicioEl) inicioEl.value = filtroInicio || '';
+        if (fimEl) fimEl.value = filtroFim || '';
+        return modalEl;
+    }
 
     const modalHtml = `
         <div class="modal fade" id="relatorio-estoque-modal" tabindex="-1" data-tipo-filtro="${tipoFiltro}">
@@ -1611,21 +1656,19 @@ function renderRelatorioEstoqueProdutos(produtos, tipoFiltro = 'todos', filtroIn
                                 </button>
                             </div>
                         </div>
-
                         <div class="mb-3">
-                            <strong>${tituloModo}</strong>
-                            <div class="text-muted">${filtroLegenda}</div>
-                            <div class="text-muted">${filtroDatasTexto}</div>
-                            <div class="text-muted">Valor fiscal total exibido: ${formatCurrency(valorTotalFiscal)}</div>
+                            <strong id="relatorio-estoque-titulo-modo">Carregando...</strong>
+                            <div class="text-muted" id="relatorio-estoque-legenda"></div>
+                            <div class="text-muted" id="relatorio-estoque-filtro-datas"></div>
+                            <div class="text-muted" id="relatorio-estoque-valor-total"></div>
                         </div>
-
                         <div class="table-responsive">
-                            <table class="table table-striped table-hover">
+                            <table class="table table-sm table-striped table-hover">
                                 <thead>
                                     <tr>
                                         <th>Produto</th>
                                         <th>Categoria</th>
-                                        <th>${tituloColunaEstoqueLista()}</th>
+                                        <th id="relatorio-estoque-th-estoque">Estoque</th>
                                         <th>Mínimo</th>
                                         <th>Lote</th>
                                         <th>Validade</th>
@@ -1634,39 +1677,12 @@ function renderRelatorioEstoqueProdutos(produtos, tipoFiltro = 'todos', filtroIn
                                         <th>Status</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    ${produtosExibidos.length === 0 ? `
-                                        <tr>
-                                            <td colspan="9" class="text-center">
-                                                Nenhum produto encontrado para o filtro selecionado.
-                                            </td>
-                                        </tr>
-                                    ` : produtosExibidos.map(p => {
-                                        const estoqueAtual = obterQuantidadeEstoqueProduto(p);
-                                        const estoqueMinimo = Number(p.estoque_minimo || 0);
-                                        const precoCompra = Number(p.preco_compra || 0);
-                                        const totalItem = estoqueAtual * precoCompra;
-                                        const classes = classesLinhaStatusProduto(obterStatusVisualProduto(p));
-
-                                        return `
-                                            <tr class="${classes.row}">
-                                                <td class="${classes.text}">${escapeHtml(p.nome || '-')}</td>
-                                                <td>${escapeHtml(p.categoria || '-')}</td>
-                                                <td>${formatarColunaEstoqueLista(p)}</td>
-                                                <td>${estoqueMinimo}</td>
-                                                <td>${escapeHtml(p.lote || '-')}</td>
-                                                <td>${formatarValidadeRelatorio(p.data_validade)}</td>
-                                                <td>${formatarUltimaCompraRelatorio(p.ultima_compra_data)}</td>
-                                                <td>${formatCurrency(totalItem)}</td>
-                                                <td>${montarBadgesStatusRelatorio(p)}</td>
-                                            </tr>
-                                        `;
-                                    }).join('')}
+                                <tbody id="relatorio-estoque-tbody">
+                                    <tr><td colspan="9" class="text-center">Carregando relatório...</td></tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
-
                     <div class="modal-footer no-print">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
                     </div>
@@ -1676,17 +1692,101 @@ function renderRelatorioEstoqueProdutos(produtos, tipoFiltro = 'todos', filtroIn
     `;
 
     $('#modal-container').html(modalHtml);
-
-    const modalEl = document.getElementById('relatorio-estoque-modal');
+    modalEl = document.getElementById('relatorio-estoque-modal');
     const modal = new bootstrap.Modal(modalEl);
-
     modalEl.addEventListener('hidden.bs.modal', function () {
+        window.__cdsRelatorioEstoqueItens = [];
+        window.__cdsRelatorioEstoqueCache = null;
         modal.dispose();
         $('#relatorio-estoque-modal').remove();
         $('.modal-backdrop').remove();
     });
-
     modal.show();
+    return modalEl;
+}
+
+function carregarRelatorioEstoqueProdutos(tipoFiltro = 'todos', filtroInicio = '', filtroFim = '') {
+    garantirModalRelatorioEstoque(tipoFiltro, filtroInicio, filtroFim);
+
+    const cache = window.__cdsRelatorioEstoqueCache;
+    if (cache && cache.inicio === (filtroInicio || '') && cache.fim === (filtroFim || '') && Array.isArray(cache.produtos)) {
+        renderRelatorioEstoqueProdutos(cache.produtos, tipoFiltro, filtroInicio, filtroFim);
+        return;
+    }
+
+    const tbody = document.getElementById('relatorio-estoque-tbody');
+    if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center">Carregando relatório...</td></tr>';
+    }
+
+    const params = new URLSearchParams();
+    params.append('modo_fiscal', modoFiscalParamGestaoProdutosLocal());
+    if (filtroInicio) params.append('inicio', filtroInicio);
+    if (filtroFim) params.append('fim', filtroFim);
+
+    $.ajax({
+        url: `${API_URL}/produtos/relatorio-estoque?${params.toString()}`,
+        method: 'GET',
+        headers: {
+            Authorization: 'Bearer ' + (localStorage.getItem('token') || '')
+        },
+        success: function(produtos) {
+            window.__cdsRelatorioEstoqueCache = {
+                produtos: produtos || [],
+                inicio: filtroInicio || '',
+                fim: filtroFim || ''
+            };
+            renderRelatorioEstoqueProdutos(produtos || [], tipoFiltro, filtroInicio, filtroFim);
+        },
+        error: function(xhr) {
+            const erro = xhr.responseJSON?.error || 'Erro ao carregar relatório de estoque.';
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center text-danger">${escapeHtml(erro)}</td></tr>`;
+            }
+            showNotification(erro, 'danger');
+        }
+    });
+}
+
+function renderRelatorioEstoqueProdutos(produtos, tipoFiltro = 'todos', filtroInicio = '', filtroFim = '') {
+    produtos = Array.isArray(produtos) ? produtos : [];
+    garantirModalRelatorioEstoque(tipoFiltro, filtroInicio, filtroFim);
+
+    const inicio = parseRelatorioData(filtroInicio);
+    const fim = parseRelatorioData(filtroFim);
+    let produtosFiltrados = produtos;
+    if (inicio || fim) {
+        produtosFiltrados = produtos.filter((p) => isRelatorioDataDentroDoIntervalo(p.ultima_compra_data, inicio, fim));
+    }
+
+    const produtosExibidos = filtrarProdutosRelatorio(produtosFiltrados, tipoFiltro);
+    window.__cdsRelatorioEstoqueItens = produtosExibidos;
+
+    const valorTotalFiscal = produtosExibidos.reduce((sum, p) => {
+        return sum + (quantidadeEstoqueRelatorio(p) * Number(p.preco_compra || 0));
+    }, 0);
+
+    const tituloModo = RELATORIO_PRODUTOS_FILTROS[tipoFiltro] || 'Todos os produtos';
+    const filtroLegenda = `Exibindo ${produtosExibidos.length} produto(s) de ${produtosFiltrados.length} no período.`;
+    const filtroDatasTexto = (inicio || fim)
+        ? `Filtro aplicado pela data da última compra: ${filtroInicio || 'início não informado'} até ${filtroFim || 'fim não informado'}.`
+        : 'Nenhum filtro de data aplicado.';
+
+    const tituloEl = document.getElementById('relatorio-estoque-titulo-modo');
+    const legendaEl = document.getElementById('relatorio-estoque-legenda');
+    const datasEl = document.getElementById('relatorio-estoque-filtro-datas');
+    const valorEl = document.getElementById('relatorio-estoque-valor-total');
+    const thEstoque = document.getElementById('relatorio-estoque-th-estoque');
+    const tbody = document.getElementById('relatorio-estoque-tbody');
+    const modalEl = document.getElementById('relatorio-estoque-modal');
+
+    if (tituloEl) tituloEl.textContent = tituloModo;
+    if (legendaEl) legendaEl.textContent = filtroLegenda;
+    if (datasEl) datasEl.textContent = filtroDatasTexto;
+    if (valorEl) valorEl.textContent = `Valor total em estoque (F + NF): ${formatCurrency(valorTotalFiscal)}`;
+    if (thEstoque) thEstoque.textContent = 'Estoque';
+    if (modalEl) modalEl.setAttribute('data-tipo-filtro', tipoFiltro);
+    if (tbody) tbody.innerHTML = montarLinhasRelatorioEstoque(produtosExibidos);
 }
 
 
@@ -5344,7 +5444,7 @@ function historicoProduto(produtoId) {
     Promise.all([
         fetch(`${API_URL}/produtos/${produtoId}/historico-estoque`, { headers }).then((r) => (r.ok ? r.json() : [])),
         fetch(`${API_URL}/produtos/${produtoId}/historico-precos`, { headers }).then((r) => (r.ok ? r.json() : [])),
-        fetch(`${API_URL}/produtos/${produtoId}`, { headers }).then((r) => (r.ok ? r.json() : null))
+        fetch(`${API_URL}/produtos/${produtoId}?modo_fiscal=${modoFiscalParamGestaoProdutosLocal()}`, { headers }).then((r) => (r.ok ? r.json() : null))
     ])
         .then(([ajustes, precos, produto]) => {
             const nomeProduto = produto?.nome || `Produto #${produtoId}`;
@@ -5473,8 +5573,9 @@ window.deleteProduto = deleteProduto;
 
 // Editar produto
 function editProduto(id) {
+    const modoFiscal = modoFiscalParamGestaoProdutosLocal();
     $.ajax({
-        url: `${API_URL}/produtos/${id}`,
+        url: `${API_URL}/produtos/${id}?modo_fiscal=${modoFiscal}`,
         method: 'GET',
         headers: {
             Authorization: 'Bearer ' + (localStorage.getItem('token') || '')
@@ -5496,11 +5597,10 @@ function abrirModalAjustarEstoque(produtoId) {
         return;
     }
 
-    // Ajuste no cadastro sempre com os dois saldos (F12/PDV não esconde não fiscal)
     const modoFiscal = estoqueCadastroSomenteFiscal();
 
     $.ajax({
-        url: `${API_URL}/produtos/${produtoId}`,
+        url: `${API_URL}/produtos/${produtoId}?modo_fiscal=${modoFiscalParamGestaoProdutosLocal()}`,
         method: 'GET',
         headers: {
             Authorization: 'Bearer ' + (localStorage.getItem('token') || '')

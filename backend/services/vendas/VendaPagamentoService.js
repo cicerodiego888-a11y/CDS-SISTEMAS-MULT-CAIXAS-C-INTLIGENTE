@@ -17,6 +17,7 @@ const {
   aplicarTransferenciasPdv
 } = require('../estoque/transferenciaNaoFiscalParaFiscalPdv');
 const cfgTransferenciaPdv = require('../estoque/pdvTransferenciaNaoFiscalFiscalConfig');
+const cfgVendaSemEstoque = require('../estoque/empresaPermiteVendaSemEstoqueConfig');
 const {
   ordenarRecebimentosAB,
   persistirGrupoRecebimento,
@@ -161,7 +162,12 @@ function reduzirEstoqueComFEFO(vendaItemId, produtoId, quantidade, itemFiscal, c
 
     // Produto controla validade - usar FEFO
     lotesService.consumirLotesFEFO(produtoId, quantidade, (consumoErr, consumoLotes) => {
-      if (consumoErr) return callback(consumoErr);
+      if (consumoErr) {
+        if (cfgVendaSemEstoque.estaAtivadaSync()) {
+          return atualizarSaldoProdutoAposBaixa(produtoId, quantidade, itemFiscal, callback);
+        }
+        return callback(consumoErr);
+      }
 
       const aposRegistro = (registroErr) => {
         if (registroErr) return callback(registroErr);
@@ -688,7 +694,8 @@ db.all(`
       midpAtivo,
       desconto: Number(desconto || 0),
       acrescimo: Number(acrescimo || 0),
-      politicaFiscalComercial: politicaMpfc
+      politicaFiscalComercial: politicaMpfc,
+      permitirVendaSemEstoque: cfgVendaSemEstoque.estaAtivadaSync()
     }
   );
 
@@ -985,7 +992,8 @@ db.all(`
       midpAtivo,
       desconto: Number(desconto || 0),
       acrescimo: Number(acrescimo || 0),
-      politicaFiscalComercial: politicaMpfc
+      politicaFiscalComercial: politicaMpfc,
+      permitirVendaSemEstoque: cfgVendaSemEstoque.estaAtivadaSync()
     }
   );
 

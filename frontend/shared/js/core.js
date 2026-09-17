@@ -111,6 +111,7 @@ const PAGINAS_MODULO_FISCAL = Object.freeze([
     'fiscal',
     'nfe-central',
     'nfe-avulsa',
+    'nfe-devolucao-compra',
     'nfe-monitor',
     'nfe-fila',
     'nfe-diagnostico',
@@ -142,6 +143,7 @@ const CATALOGO_PESQUISA_PAGINAS = Object.freeze([
     { page: 'fiscal', titulo: 'NFC-e Emitidas', keywords: 'nfc-e nfce nota consumidor emissão', fiscal: true },
     { page: 'nfe-central', titulo: 'Central NF-e', keywords: 'nf-e nfe nota fiscal emissão central documental', fiscal: true },
     { page: 'nfe-avulsa', titulo: 'Nova NF-e', keywords: 'nf-e nfe avulsa emitir nota fiscal', fiscal: true },
+    { page: 'nfe-devolucao-compra', titulo: 'Devolução de Compra', keywords: 'devolução compra nf-e fornecedor', fiscal: true },
     { page: 'nfe-monitor', titulo: 'Monitor NF-e', keywords: 'monitor nf-e sefaz', fiscal: true },
     { page: 'nfe-fila', titulo: 'Fila NF-e', keywords: 'fila nf-e', fiscal: true },
     { page: 'nfe-diagnostico', titulo: 'Diagnóstico NF-e', keywords: 'diagnóstico nf-e', fiscal: true },
@@ -378,7 +380,7 @@ function paginaPermitidaPorImplantacao(page) {
     const p = String(page || '');
 
     if (p === 'fiscal') return possuiRecurso('nfce');
-    if (p === 'nfe-central' || p === 'nfe-avulsa' || p === 'nfe-monitor' || p === 'nfe-fila' || p === 'nfe-diagnostico') {
+    if (p === 'nfe-central' || p === 'nfe-avulsa' || p === 'nfe-devolucao-compra' || p === 'nfe-monitor' || p === 'nfe-fila' || p === 'nfe-diagnostico') {
         return possuiRecurso('nfe');
     }
     if (p === 'central-entradas' || p === 'central-diagnostico' || p === 'dfe-auditoria' || p === 'monitoring' || p === 'central-contabil' || p === 'f12-admin' || p === 'fechamento-fiscal-dia') {

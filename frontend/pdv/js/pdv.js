@@ -355,6 +355,7 @@ function normalizarProdutoPdvLista(produtos) {
         estoque_atual: (Number(p.saldo_fiscal ?? 0) + Number(p.saldo_nao_fiscal ?? 0))
             || Number(p.estoque_atual || 0),
         preco_venda: Number(p.preco_venda || 0),
+        ncm: String(p.ncm != null ? p.ncm : '').trim(),
         permite_venda_unidade: Number(p.permite_venda_unidade ?? 0) === 1 ? 1 : 0,
         peso_medio_unidade: Number(p.peso_medio_unidade ?? 0),
         preco_unidade: Number(p.preco_unidade ?? 0)
@@ -494,8 +495,7 @@ function atualizarPreviewVendaUnidadeModal(produto) {
 }
 
 function urlProdutosPdv() {
-    // Catálogo do PDV sempre carrega os dois saldos (F + NF).
-    // F12 controla emissão fiscal, não a visibilidade do estoque na busca.
+    // Catálogo e motores sempre com F+NF. F12 só oculta o rótulo NF na UI.
     return `${API_URL}/produtos?modo_fiscal=0`;
 }
 
@@ -720,6 +720,9 @@ function loadPDV() {
     inicializarSincronizacaoCatalogoPdv();
     carregarFlagTransferenciaNaoFiscalFiscalPdv();
     carregarFlagEditarPrecoUnitarioPdv();
+    carregarFlagVendaSemEstoquePdv();
+    carregarFlagExigirNcmCadastroPdv();
+    carregarFlagImprimirCupomPdv();
 
     $.ajax({
         url: urlProdutosPdv(),
@@ -1613,16 +1616,32 @@ function distribuirQuantidadeVendaLocal(quantidadeVendida, saldoFiscal, saldoNao
     const priorizarFiscal = vendaFiscal === true;
 
     const estoqueTotal = saldoFiscal + saldoNaoFiscal;
+    let quantidadeFiscal;
+    let quantidadeNaoFiscal;
 
     if (quantidadeVendida > estoqueTotal) {
+        if (!pdvPermitirVendaSemEstoque()) {
+            return {
+                sucesso: false,
+                estoqueTotal
+            };
+        }
+        const nfDisponivel = Math.max(0, saldoNaoFiscal);
+        const fDisponivel = Math.max(0, saldoFiscal);
+        if (priorizarFiscal) {
+            quantidadeFiscal = Math.max(fDisponivel, quantidadeVendida - nfDisponivel);
+            quantidadeNaoFiscal = quantidadeVendida - quantidadeFiscal;
+        } else {
+            quantidadeNaoFiscal = Math.max(nfDisponivel, quantidadeVendida - fDisponivel);
+            quantidadeFiscal = quantidadeVendida - quantidadeNaoFiscal;
+        }
         return {
-            sucesso: false,
+            sucesso: true,
+            quantidadeFiscal,
+            quantidadeNaoFiscal,
             estoqueTotal
         };
     }
-
-    let quantidadeFiscal;
-    let quantidadeNaoFiscal;
 
     if (priorizarFiscal) {
         quantidadeFiscal = Math.min(quantidadeVendida, saldoFiscal);
@@ -1967,7 +1986,7 @@ function processarFiscalPosPagamentoPosVenda(vendaId, resultado) {
 
     if (fiscalAutorizadaParaImpressao(fiscal)) {
         showNotification('NFC-e autorizada pela SEFAZ!', 'success');
-        imprimirDANFEFiscal(vendaId);
+        imprimirDANFEFiscal(vendaId, { automatico: true });
         return;
     }
 
@@ -2298,6 +2317,9 @@ function pdvModoFiscalAtivo() {
 
 let pdvFlagTransferenciaNaoFiscalFiscal = false;
 let pdvFlagEditarPrecoUnitario = false;
+let pdvFlagVendaSemEstoque = false;
+let pdvFlagExigirNcmCadastro = false;
+let pdvFlagImprimirCupom = true;
 
 function pdvPermitirTransferenciaNaoFiscalFiscal() {
     return pdvFlagTransferenciaNaoFiscalFiscal === true;
@@ -2305,6 +2327,33 @@ function pdvPermitirTransferenciaNaoFiscalFiscal() {
 
 function pdvPermitirEditarPrecoUnitario() {
     return pdvFlagEditarPrecoUnitario === true;
+}
+
+function pdvPermitirVendaSemEstoque() {
+    return pdvFlagVendaSemEstoque === true;
+}
+
+function pdvExigirNcmCadastroAtivo() {
+    return pdvFlagExigirNcmCadastro === true;
+}
+
+function pdvImprimirCupomAtivo() {
+    return pdvFlagImprimirCupom !== false;
+}
+window.pdvImprimirCupomAtivo = pdvImprimirCupomAtivo;
+
+function atualizarBotaoCupomPdv() {
+    const btn = document.getElementById('btnImprimirCupomPdv');
+    if (!btn) return;
+    const ativo = pdvImprimirCupomAtivo();
+    btn.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+    btn.title = ativo
+        ? 'Impressão de cupom ATIVADA (clique para desativar)'
+        : 'Impressão de cupom DESATIVADA (clique para ativar)';
+    btn.innerHTML = ativo
+        ? '<i class="fas fa-print"></i> <span class="d-none d-lg-inline">Cupom ON</span>'
+        : '<i class="fas fa-print"></i> <span class="d-none d-lg-inline">Cupom OFF</span>';
+    btn.classList.toggle('btn-cupom-pdv-off', !ativo);
 }
 
 function carregarFlagTransferenciaNaoFiscalFiscalPdv() {
@@ -2348,6 +2397,335 @@ function carregarFlagEditarPrecoUnitarioPdv() {
         }
     }).catch(function () {
         pdvFlagEditarPrecoUnitario = false;
+    });
+}
+
+function carregarFlagVendaSemEstoquePdv() {
+    const token = localStorage.getItem('token') || '';
+    if (!token || typeof API_URL === 'undefined') {
+        pdvFlagVendaSemEstoque = false;
+        return;
+    }
+    fetch(`${API_URL}/configuracoes/empresa_permite_venda_sem_estoque`, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: { Authorization: 'Bearer ' + token }
+    }).then(function (response) {
+        if (!response.ok) return { permitido: false };
+        return response.json();
+    }).then(function (data) {
+        pdvFlagVendaSemEstoque = data && data.permitido === true;
+    }).catch(function () {
+        pdvFlagVendaSemEstoque = false;
+    });
+}
+
+function carregarFlagExigirNcmCadastroPdv() {
+    const token = localStorage.getItem('token') || '';
+    if (!token || typeof API_URL === 'undefined') {
+        pdvFlagExigirNcmCadastro = false;
+        return;
+    }
+    fetch(`${API_URL}/configuracoes/pdv_exigir_ncm_cadastro`, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: { Authorization: 'Bearer ' + token }
+    }).then(function (response) {
+        if (!response.ok) return { permitido: false };
+        return response.json();
+    }).then(function (data) {
+        pdvFlagExigirNcmCadastro = data && data.permitido === true;
+    }).catch(function () {
+        pdvFlagExigirNcmCadastro = false;
+    });
+}
+
+function carregarFlagImprimirCupomPdv() {
+    const token = localStorage.getItem('token') || '';
+    if (!token || typeof API_URL === 'undefined') {
+        pdvFlagImprimirCupom = true;
+        atualizarBotaoCupomPdv();
+        return;
+    }
+    fetch(`${API_URL}/configuracoes/pdv_imprimir_cupom`, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: { Authorization: 'Bearer ' + token }
+    }).then(function (response) {
+        if (!response.ok) return { permitido: true };
+        return response.json();
+    }).then(function (data) {
+        pdvFlagImprimirCupom = !(data && data.valor === 'DESATIVADO') && data.permitido !== false;
+        atualizarBotaoCupomPdv();
+    }).catch(function () {
+        pdvFlagImprimirCupom = true;
+        atualizarBotaoCupomPdv();
+    });
+}
+
+function alternarImpressaoCupomPdv() {
+    const token = localStorage.getItem('token') || '';
+    if (!token || typeof API_URL === 'undefined') return;
+    const valor = pdvImprimirCupomAtivo() ? 'DESATIVADO' : 'ATIVADO';
+    fetch(`${API_URL}/configuracoes/pdv_imprimir_cupom`, {
+        method: 'PUT',
+        cache: 'no-store',
+        headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ valor })
+    }).then(function (response) {
+        return response.json().then(function (data) {
+            return { ok: response.ok, data: data || {} };
+        });
+    }).then(function (res) {
+        if (!res.ok) {
+            throw new Error(res.data.error || res.data.erro || 'Não foi possível alterar a impressão.');
+        }
+        pdvFlagImprimirCupom = res.data.permitido === true;
+        atualizarBotaoCupomPdv();
+        showNotification(
+            pdvFlagImprimirCupom
+                ? 'Impressão de cupom ATIVADA.'
+                : 'Impressão de cupom DESATIVADA.',
+            'success'
+        );
+    }).catch(function (err) {
+        showNotification(err.message || 'Erro ao alterar impressão de cupom.', 'danger');
+    });
+}
+
+function pdvNcmDigitos(ncm) {
+    return String(ncm == null ? '' : ncm).replace(/\D/g, '');
+}
+
+function pdvNcmValido(ncm) {
+    const d = pdvNcmDigitos(ncm);
+    return d.length === 8 && d !== '00000000';
+}
+
+function pdvDeveInformarNcm(produto) {
+    if (!pdvExigirNcmCadastroAtivo()) return false;
+    if (typeof implantacaoPermiteFiscal === 'function' && !implantacaoPermiteFiscal()) {
+        return false;
+    }
+    return !pdvNcmValido(produto && produto.ncm);
+}
+
+function copiarTextoSimplesPdv(texto, mensagemOk) {
+    const valor = String(texto || '').trim();
+    if (!valor) {
+        showNotification('Não há nome para copiar.', 'warning');
+        return;
+    }
+    const ok = () => showNotification(mensagemOk || 'Copiado.', 'success');
+    const fallback = () => {
+        const area = document.createElement('textarea');
+        area.value = valor;
+        area.setAttribute('readonly', '');
+        area.style.position = 'fixed';
+        area.style.left = '-9999px';
+        document.body.appendChild(area);
+        area.select();
+        try {
+            document.execCommand('copy');
+            ok();
+        } catch (_) {
+            showNotification('Não foi possível copiar o nome.', 'danger');
+        }
+        area.remove();
+    };
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(valor).then(ok).catch(fallback);
+        return;
+    }
+    fallback();
+}
+
+function abrirModalNcmProdutoPdv(produto, callback) {
+    $('#modalNcmProdutoPdv').remove();
+    const nomeProduto = String(produto && produto.nome ? produto.nome : '').trim()
+        || 'Este produto';
+    const nomeExibicao = (window.PdvBuscaProduto
+        && typeof PdvBuscaProduto.nomeExibicaoProdutoPdv === 'function')
+        ? String(PdvBuscaProduto.nomeExibicaoProdutoPdv(produto) || nomeProduto).trim()
+        : nomeProduto;
+    const ncmInicial = pdvNcmDigitos(produto && produto.ncm).slice(0, 8);
+    const html = `
+        <div class="modal fade" id="modalNcmProdutoPdv" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+            <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;">
+                <div class="modal-content">
+                    <div class="modal-body py-4">
+                        <div class="d-flex align-items-start gap-2 mb-2">
+                            <p class="mb-0 fw-bold flex-grow-1">${escapeHtml(nomeExibicao)} não tem NCM.</p>
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                id="btnCopiarNomeNcmPdv" title="Copiar nome para buscar o NCM" tabindex="-1">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <p class="mb-3 text-muted small">Informe o NCM (8 dígitos) para incluir na venda. O cadastro será atualizado.</p>
+                        <label class="form-label" for="inputNcmProdutoPdv">NCM</label>
+                        <input type="text" class="form-control text-center" id="inputNcmProdutoPdv"
+                            inputmode="numeric" autocomplete="off" spellcheck="false" enterkeyhint="done"
+                            placeholder="00000000" value="${escapeHtml(ncmInicial)}"
+                            style="font-size: 1.35rem; letter-spacing: 0.18em; font-variant-numeric: tabular-nums;">
+                        <div class="text-muted small text-end mt-1" id="hintNcmProdutoPdv">${ncmInicial.length}/8</div>
+                    </div>
+                    <div class="modal-footer justify-content-center py-2">
+                        <button type="button" class="btn btn-secondary" id="btnNcmProdutoPdvNao">Não</button>
+                        <button type="button" class="btn btn-primary" id="btnNcmProdutoPdvSim">Sim</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    $('body').append(html);
+    const modalEl = document.getElementById('modalNcmProdutoPdv');
+    const modal = new bootstrap.Modal(modalEl);
+    let decidido = false;
+    const obterInputNcm = () => document.getElementById('inputNcmProdutoPdv');
+    const aplicarDigitosNcm = (valor) => {
+        const input = obterInputNcm();
+        if (!input) return '';
+        const digitos = pdvNcmDigitos(valor).slice(0, 8);
+        input.value = digitos;
+        const hint = document.getElementById('hintNcmProdutoPdv');
+        if (hint) hint.textContent = `${digitos.length}/8`;
+        return digitos;
+    };
+    const focarInputNcm = () => {
+        const input = obterInputNcm();
+        if (!input) return;
+        input.focus({ preventScroll: true });
+    };
+    const lerNcm = () => pdvNcmDigitos(obterInputNcm() ? obterInputNcm().value : '');
+    const onKeydownCaptura = (e) => {
+        if (!document.getElementById('modalNcmProdutoPdv') || decidido) return;
+        const input = obterInputNcm();
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+            confirmar();
+            return;
+        }
+        if (e.key === 'Escape' || e.key === 'Esc') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+            finalizar(null);
+            return;
+        }
+        if (!input) return;
+        if (e.key === 'Backspace' || e.key === 'Delete') {
+            if (document.activeElement !== input) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+                const atual = lerNcm();
+                aplicarDigitosNcm(e.key === 'Backspace' ? atual.slice(0, -1) : '');
+                focarInputNcm();
+            }
+            return;
+        }
+        if (/^[0-9]$/.test(e.key)) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+            aplicarDigitosNcm(lerNcm() + e.key);
+            focarInputNcm();
+        }
+    };
+    const finalizar = (ncm) => {
+        if (decidido) return;
+        decidido = true;
+        document.removeEventListener('keydown', onKeydownCaptura, true);
+        modal.hide();
+        if (typeof callback === 'function') callback(ncm);
+    };
+    const confirmar = () => {
+        const ncm = lerNcm();
+        if (!pdvNcmValido(ncm)) {
+            showNotification('Informe um NCM com 8 dígitos.', 'warning');
+            focarInputNcm();
+            return;
+        }
+        finalizar(ncm);
+    };
+    $('#btnNcmProdutoPdvSim').off('click').on('click', function (e) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        confirmar();
+    });
+    $('#btnNcmProdutoPdvNao').off('click').on('click', function (e) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        finalizar(null);
+    });
+    $('#btnCopiarNomeNcmPdv').off('mousedown click').on('mousedown', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }).on('click', function (e) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        copiarTextoSimplesPdv(nomeExibicao, 'Nome copiado. Cole na busca do NCM.');
+        setTimeout(focarInputNcm, 0);
+    });
+    $('#inputNcmProdutoPdv').off('input.ncmPdv paste.ncmPdv blur.ncmPdv').on('input.ncmPdv paste.ncmPdv', function () {
+        aplicarDigitosNcm(this.value);
+    }).on('blur.ncmPdv', function () {
+        if (decidido || !document.getElementById('modalNcmProdutoPdv')) return;
+        setTimeout(focarInputNcm, 0);
+    });
+    document.addEventListener('keydown', onKeydownCaptura, true);
+    $(modalEl).off('shown.bs.modal.ncmPdv').on('shown.bs.modal.ncmPdv', function () {
+        aplicarDigitosNcm(obterInputNcm() ? obterInputNcm().value : ncmInicial);
+        focarInputNcm();
+        setTimeout(focarInputNcm, 50);
+        setTimeout(focarInputNcm, 160);
+    });
+    $(modalEl).off('hidden.bs.modal.ncmPdv').on('hidden.bs.modal.ncmPdv', function () {
+        document.removeEventListener('keydown', onKeydownCaptura, true);
+        $('#modalNcmProdutoPdv').remove();
+        if (!decidido && typeof callback === 'function') {
+            decidido = true;
+            callback(null);
+        }
+    });
+    modal.show();
+}
+
+function sincronizarNcmCadastroProdutoPdv(produto, ncm, callback) {
+    const produtoId = Number(produto && produto.id || 0);
+    const ncmDigitos = pdvNcmDigitos(ncm);
+    const done = typeof callback === 'function' ? callback : function () {};
+    if (!produtoId || !pdvNcmValido(ncmDigitos) || typeof API_URL === 'undefined') {
+        done(false);
+        return;
+    }
+    const token = localStorage.getItem('token') || '';
+    $.ajax({
+        url: `${API_URL}/produtos/${produtoId}`,
+        method: 'PUT',
+        contentType: 'application/json',
+        headers: { Authorization: 'Bearer ' + token },
+        data: JSON.stringify({ ncm: ncmDigitos })
+    }).done(function (atualizado) {
+        let noCatalogo = null;
+        if (atualizado && atualizado.id != null) {
+            noCatalogo = upsertProdutoNoCatalogoPdv(atualizado);
+        } else {
+            noCatalogo = upsertProdutoNoCatalogoPdv(Object.assign({}, produto, { ncm: ncmDigitos }));
+        }
+        showNotification('NCM atualizado no cadastro do produto.', 'success');
+        done(true, noCatalogo || Object.assign({}, produto, { ncm: ncmDigitos }));
+    }).fail(function (xhr) {
+        showNotification(
+            (xhr.responseJSON && xhr.responseJSON.error) || 'Não foi possível atualizar o NCM no cadastro.',
+            'danger'
+        );
+        done(false);
     });
 }
 
@@ -2531,37 +2909,110 @@ function produtoControlaEstoquePdv(produto) {
     return Number(produto.controla_estoque) !== 0;
 }
 
+function formatarSaldoPdvMensagem(valor) {
+    const n = Number(valor || 0);
+    if (typeof formatarQuantidadePdv === 'function') {
+        try {
+            return formatarQuantidadePdv(n);
+        } catch (_) { /* fallback */ }
+    }
+    return String(n);
+}
+
+function abrirModalVendaSemEstoquePdv(produto, detalhe, callback) {
+    $('#modalVendaSemEstoquePdv').remove();
+    const nome = escapeHtml(produto && produto.nome ? produto.nome : 'Este produto');
+    const disponivel = formatarSaldoPdvMensagem(detalhe && detalhe.disponivel);
+    const html = `
+        <div class="modal fade" id="modalVendaSemEstoquePdv" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+            <div class="modal-dialog modal-sm modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-body text-center py-4">
+                        <p class="mb-2 fw-bold fs-5">${nome} não tem estoque.</p>
+                        <p class="mb-3 text-muted small">Disponível: ${escapeHtml(disponivel)}</p>
+                        <p class="mb-0">Deseja continuar?</p>
+                    </div>
+                    <div class="modal-footer justify-content-center py-2">
+                        <button type="button" class="btn btn-secondary" id="btnVendaSemEstoqueNao">Não</button>
+                        <button type="button" class="btn btn-primary" id="btnVendaSemEstoqueSim">Sim</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    $('body').append(html);
+    const modalEl = document.getElementById('modalVendaSemEstoquePdv');
+    const modal = new bootstrap.Modal(modalEl);
+    let decidido = false;
+    const onKeydownCaptura = (e) => {
+        if (!document.getElementById('modalVendaSemEstoquePdv')) return;
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            finalizar(true);
+            return;
+        }
+        if (e.key === 'Escape' || e.key === 'Esc') {
+            e.preventDefault();
+            e.stopPropagation();
+            finalizar(false);
+        }
+    };
+    const finalizar = (sim) => {
+        if (decidido) return;
+        decidido = true;
+        document.removeEventListener('keydown', onKeydownCaptura, true);
+        modal.hide();
+        if (typeof callback === 'function') callback(sim === true);
+    };
+    $('#btnVendaSemEstoqueSim').off('click').on('click', function (e) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        finalizar(true);
+    });
+    $('#btnVendaSemEstoqueNao').off('click').on('click', function (e) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        finalizar(false);
+    });
+    document.addEventListener('keydown', onKeydownCaptura, true);
+    $(modalEl).off('shown.bs.modal.vendaSemEstoque').on('shown.bs.modal.vendaSemEstoque', function () {
+        const btnSim = document.getElementById('btnVendaSemEstoqueSim');
+        if (btnSim) btnSim.focus({ preventScroll: true });
+    });
+    $(modalEl).off('hidden.bs.modal.vendaSemEstoque').on('hidden.bs.modal.vendaSemEstoque', function () {
+        document.removeEventListener('keydown', onKeydownCaptura, true);
+        $('#modalVendaSemEstoquePdv').remove();
+        if (!decidido && typeof callback === 'function') {
+            decidido = true;
+            callback(false);
+        }
+    });
+    modal.show();
+}
+
 function validarEstoqueVenda(produto, quantidade, modoFiscal) {
     if (!produtoControlaEstoquePdv(produto)) {
         return { sucesso: true };
     }
 
     const saldos = pdvResolverSaldosProduto(produto);
-    const saldoFiscal = saldos.saldo_fiscal;
-    const saldoNaoFiscal = saldos.saldo_nao_fiscal;
     const saldoTotal = Number(saldos.estoque_atual || 0);
 
-    // Inclusão no carrinho usa o estoque total (F + NF). Modo fiscal não
-    // bloqueia produto só com saldo não fiscal; a pergunta de transferência
-    // é um passo separado depois da quantidade.
+    // Inclusão usa o motor F+NF. F12 não bloqueia produto só com saldo NF.
     if (quantidade > saldoTotal + 1e-9) {
-        if (modoFiscal && saldoFiscal <= 0 && saldoNaoFiscal <= 0) {
-            return {
-                sucesso: false,
-                mensagem:
-`Saldo insuficiente.
-
-Disponível: 0`
-            };
-        }
-
-        return {
+        const resultado = {
             sucesso: false,
+            disponivel: saldoTotal,
             mensagem:
 `Saldo insuficiente.
 
 Disponível: ${saldoTotal}`
         };
+        if (pdvPermitirVendaSemEstoque()) {
+            resultado.confirmarSemEstoque = true;
+        }
+        return resultado;
     }
 
     return { sucesso: true };
@@ -2579,7 +3030,11 @@ function pdvPodeIniciarInclusaoProduto(produto) {
     if (Number(saldos.estoque_atual || 0) > 1e-9) {
         return { sucesso: true };
     }
-    return pdvValidarEstoqueVenda(produto, 1);
+    const resultado = pdvValidarEstoqueVenda(produto, 1);
+    if (resultado && resultado.confirmarSemEstoque) {
+        return { sucesso: true, confirmarSemEstoque: true };
+    }
+    return resultado;
 }
 
 function pdvNotificarBloqueioInclusaoProduto(produto) {
@@ -2596,18 +3051,17 @@ function pdvNotificarBloqueioInclusaoProduto(produto) {
 
 function pdvNotificarEstoqueInsuficiente(produto, quantidade) {
     const resultado = pdvValidarEstoqueVenda(produto, quantidade);
-    if (!resultado.sucesso) {
-        const mensagem = produto?.nome
-            ? resultado.mensagem.replace('Saldo insuficiente.', `Saldo insuficiente para ${produto.nome}.`)
-            : resultado.mensagem;
-        showNotification(mensagem, 'danger');
-        return false;
+    if (resultado.sucesso || resultado.confirmarSemEstoque) {
+        return true;
     }
-    return true;
+    const mensagem = produto?.nome
+        ? resultado.mensagem.replace('Saldo insuficiente.', `Saldo insuficiente para ${produto.nome}.`)
+        : resultado.mensagem;
+    showNotification(mensagem, 'danger');
+    return false;
 }
 
 function pdvEstoqueDisponivel(produto) {
-    // Disponibilidade operacional = F + NF, independente do F12.
     const saldos = pdvResolverSaldosProduto(produto);
     return Number(saldos.estoque_atual || 0);
 }
@@ -2615,6 +3069,9 @@ function pdvEstoqueDisponivel(produto) {
 function pdvRotuloEstoque(produto) {
     const saldos = pdvResolverSaldosProduto(produto);
     const fiscal = Number(saldos.saldo_fiscal || 0);
+    if (pdvModoFiscalAtivo()) {
+        return String(fiscal);
+    }
     const naoFiscal = Number(saldos.saldo_nao_fiscal || 0);
     const total = Number(saldos.estoque_atual || (fiscal + naoFiscal));
     return `F: ${fiscal} | NF: ${naoFiscal} | Total: ${total}`;
@@ -2674,9 +3131,11 @@ function focarCampoCodigo(opcoes) {
     const limpar = opts.limpar !== false;
 
     setTimeout(() => {
-        // Não roubar o foco enquanto um modal estiver aberto (ex.: quantidade / transferir estoque)
+        // Não roubar o foco enquanto um modal estiver aberto (ex.: quantidade / transferir estoque / NCM)
         if (document.querySelector('.modal.show')) return;
         if (document.getElementById('modalTransferirEstoquePdv')) return;
+        if (document.getElementById('modalNcmProdutoPdv')) return;
+        if (document.getElementById('inputNcmProdutoPdv')) return;
 
         const input = $('#buscaProdutoPdv');
         if (!input.length) return;
@@ -2823,6 +3282,11 @@ function bindEventosPDV() {
         }
     });
     $('#btnFechamentoCaixaPdv').off('click').on('click', abrirFechamentoCaixa);
+
+    $('#btnImprimirCupomPdv').off('click').on('click', function () {
+        alternarImpressaoCupomPdv();
+    });
+    atualizarBotaoCupomPdv();
 
     $('#btnCalculadoraPdv').off('click').on('click', function() {
         $('#pdvCalculadoraFlutuante').toggleClass('d-none');
@@ -3681,6 +4145,30 @@ function adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExt
         return;
     }
 
+    if (pdvDeveInformarNcm(produto) && opcoes.ncmInformadoNoPdv !== true) {
+        abrirModalNcmProdutoPdv(produto, function (ncmDigitado) {
+            if (!ncmDigitado) {
+                focarCampoCodigo({ limpar: true });
+                return;
+            }
+            sincronizarNcmCadastroProdutoPdv(produto, ncmDigitado, function (ok, produtoAtualizado) {
+                if (!ok) {
+                    focarCampoCodigo({ limpar: true });
+                    return;
+                }
+                adicionarItemNoCarrinho(
+                    produtoAtualizado || Object.assign({}, produto, { ncm: ncmDigitado }),
+                    quantidade,
+                    precoUnitario,
+                    mensagemExtra,
+                    promocao,
+                    { ...opcoes, ncmInformadoNoPdv: true }
+                );
+            });
+        });
+        return;
+    }
+
     const recusouTransferencia = opcoes.transferenciaResposta === false;
     const pendingAtual = Number(itemExistentePre?.transferencia_nao_fiscal_para_fiscal || 0);
     const adicionalTransferencia = !recusouTransferencia
@@ -3703,7 +4191,22 @@ function adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExt
         }
         : produto;
 
-    if (!pdvNotificarEstoqueInsuficiente(produtoParaValidar, quantidadeEstoque)) {
+    const qtdEstoqueChecagem = quantidadeEstoqueValidacao;
+    const validacaoEstoque = pdvValidarEstoqueVenda(produtoParaValidar, qtdEstoqueChecagem);
+    if (validacaoEstoque.confirmarSemEstoque && opcoes.vendaSemEstoqueConfirmada !== true) {
+        abrirModalVendaSemEstoquePdv(produto, validacaoEstoque, function (sim) {
+            if (!sim) {
+                focarCampoCodigo({ limpar: true });
+                return;
+            }
+            adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExtra, promocao, {
+                ...opcoes,
+                vendaSemEstoqueConfirmada: true
+            });
+        });
+        return;
+    }
+    if (!pdvNotificarEstoqueInsuficiente(produtoParaValidar, qtdEstoqueChecagem)) {
         return;
     }
 
@@ -3781,6 +4284,22 @@ function adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExt
                 : Number(novaQuantidadeBruta.toFixed(2)));
         const novaQuantidadeEstoque = obterQuantidadeEstoqueParaVenda(produto, novaQuantidade, tipoVenda);
 
+        if (opcoes.vendaSemEstoqueConfirmada !== true) {
+            const validacaoTotal = pdvValidarEstoqueVenda(produtoParaValidar, novaQuantidadeEstoque);
+            if (validacaoTotal.confirmarSemEstoque) {
+                abrirModalVendaSemEstoquePdv(produto, validacaoTotal, function (sim) {
+                    if (!sim) {
+                        focarCampoCodigo({ limpar: true });
+                        return;
+                    }
+                    adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExtra, promocao, {
+                        ...opcoes,
+                        vendaSemEstoqueConfirmada: true
+                    });
+                });
+                return;
+            }
+        }
         if (!pdvNotificarEstoqueInsuficiente(produtoParaValidar, novaQuantidadeEstoque)) {
             return;
         }
@@ -3943,11 +4462,8 @@ function continuarAdicionarProdutoPdv(produto, promocao, tipoVenda = TIPO_VENDA_
     if (tipoVendaEhUnidade(tipoVenda)) {
         const qtdTeste = obterQuantidadeEstoqueParaVenda(produto, 1, TIPO_VENDA_UNIDADE);
         const qtdMin = qtdTeste > 0 ? qtdTeste : 0.001;
-        const saldos = pdvResolverSaldosProduto(produto);
-        if (produtoControlaEstoquePdv(produto) && qtdMin > Number(saldos.estoque_atual || 0) + 1e-9) {
-            if (!pdvNotificarEstoqueInsuficiente(produto, qtdMin)) {
-                return;
-            }
+        if (produtoControlaEstoquePdv(produto) && !pdvNotificarEstoqueInsuficiente(produto, qtdMin)) {
+            return;
         }
 
         abrirModalQuantidadeProduto(produto, function (quantidade) {
@@ -4378,7 +4894,7 @@ async function adicionarProdutoPorCodigoViaMip(codigoDigitado) {
     });
 }
 
-function atualizarQuantidade(index, quantidade) {
+function atualizarQuantidade(index, quantidade, opcoes = {}) {
     const item = carrinho[index];
 
     if (!item) return;
@@ -4406,6 +4922,19 @@ function atualizarQuantidade(index, quantidade) {
     if (vendaUnidade && quantidadeEstoque <= 0) {
         showNotification('Peso médio da unidade não configurado para este produto.', 'warning');
         atualizarCarrinho();
+        return;
+    }
+
+    const validacaoEstoque = pdvValidarEstoqueVenda(produto, quantidadeEstoque);
+    if (validacaoEstoque.confirmarSemEstoque && opcoes.vendaSemEstoqueConfirmada !== true) {
+        abrirModalVendaSemEstoquePdv(produto, validacaoEstoque, function (sim) {
+            if (!sim) {
+                atualizarCarrinho();
+                focarCampoCodigo({ limpar: true });
+                return;
+            }
+            atualizarQuantidade(index, quantidade, { vendaSemEstoqueConfirmada: true });
+        });
         return;
     }
 
@@ -5944,7 +6473,7 @@ async function executarFinalizacaoVenda(emitirFiscal = false, cpfCnpjNota = null
                         imprimirCupomNaoFiscal(vendaId, {
                             ...payload,
                             itens: itensParaCupom
-                        }, total, desconto);
+                        }, total, desconto, { automatico: true });
                         encerrarPosVendaUmaVez();
                         showNotification('Venda não fiscal finalizada com sucesso.', 'success');
                         return;
@@ -5963,7 +6492,7 @@ async function executarFinalizacaoVenda(emitirFiscal = false, cpfCnpjNota = null
                         imprimirCupomNaoFiscal(vendaId, {
                             ...payload,
                             itens: itensParaCupom
-                        }, total, desconto);
+                        }, total, desconto, { automatico: true });
                     }
 
                     encerrarPosVendaUmaVez();
@@ -6153,7 +6682,7 @@ function emitirNFCeVenda(vendaId) {
             }
 
             showNotification('NFC-e autorizada pela SEFAZ!', 'success');
-            imprimirDANFEFiscal(vendaId);
+            imprimirDANFEFiscal(vendaId, { automatico: true });
         },
 
         error: function(xhr) {
@@ -6514,13 +7043,9 @@ function confirmarQuantidadeProduto(produto, callback, modal, opcoes = {}) {
         return;
     }
 
-    const saldosTotais = pdvResolverSaldosProduto(produto);
-    if (produtoControlaEstoquePdv(produto)
-        && quantidadeEstoque > Number(saldosTotais.estoque_atual || 0) + 1e-9) {
-        if (!pdvNotificarEstoqueInsuficiente(produto, quantidadeEstoque)) {
-            $('#inputQuantidadeProduto').focus();
-            return;
-        }
+    if (produtoControlaEstoquePdv(produto) && !pdvNotificarEstoqueInsuficiente(produto, quantidadeEstoque)) {
+        $('#inputQuantidadeProduto').focus();
+        return;
     }
 
     if (document.activeElement) {
@@ -7473,7 +7998,7 @@ function toggleProdutosCategoria(categoriaId) {
                             <div class="p-2 border-bottom produto-item" data-produto-id="${p.id}">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
-                                        <strong>${escapeHtml(p.nome)}</strong>
+                                        <strong>${escapeHtml(nomeExibicaoProdutoConsultaPdv(p))}</strong>
                                         <small class="text-muted d-block">${escapeHtml(p.codigo_barras || p.codigo || '')}</small>
                                         ${p.subcategoria_nome || p.subcategoria
                                             ? `<small class="text-muted d-block">${escapeHtml(p.subcategoria_nome || p.subcategoria)}</small>`
@@ -7598,11 +8123,21 @@ function nomeCategoriaProdutoConsulta(produto) {
     return nome || 'Sem categoria';
 }
 
+function nomeExibicaoProdutoConsultaPdv(p) {
+    if (typeof window.PdvBuscaProduto?.nomeExibicaoProdutoPdv === 'function') {
+        return window.PdvBuscaProduto.nomeExibicaoProdutoPdv(p);
+    }
+    const nome = String(p?.nome || '').trim() || '-';
+    const marca = String(p?.marca || p?.marca_nome || '').trim();
+    if (!marca) return nome;
+    const nomeNorm = nome.toLowerCase();
+    const marcaNorm = marca.toLowerCase();
+    if (nomeNorm === marcaNorm || nomeNorm.startsWith(`${marcaNorm} `)) return nome;
+    return `${marca} ${nome}`;
+}
+
 function montarLinhaProdutoConsultaPDV(p) {
-    const saldos = pdvResolverSaldosProduto(p);
-    const fiscal = Number(saldos.saldo_fiscal || 0);
-    const naoFiscal = Number(saldos.saldo_nao_fiscal || 0);
-    const estoque = Number(saldos.estoque_atual || (fiscal + naoFiscal));
+    const estoque = Number(pdvEstoqueDisponivel(p) || 0);
     const preco = Number(p.preco_venda || 0);
     const precoCompra = Number(p.preco_compra || 0);
     const estoqueBaixo = estoque <= Number(p.estoque_minimo || 0);
@@ -7617,13 +8152,13 @@ function montarLinhaProdutoConsultaPDV(p) {
         ? `<del class="text-muted small">${formatCurrency(preco)}</del> ${formatCurrency(precoPromocional)}`
         : formatCurrency(precoExibido);
 
-    const rotuloEstoque = `F: ${fiscal} | NF: ${naoFiscal} | Total: ${estoque}`;
+    const rotuloEstoque = pdvRotuloEstoque(p);
 
     return `
             <tr ${temPromocao ? 'class="table-warning"' : ''}>
                 <td>${p.id}</td>
                 <td>
-                    <strong>${escapeHtml(p.nome)}</strong>${marcaPromocao}<br>
+                    <strong>${escapeHtml(nomeExibicaoProdutoConsultaPdv(p))}</strong>${marcaPromocao}<br>
                     <small class="text-muted">
                         Código: ${escapeHtml(p.codigo || '-')} |
                         Barras: ${escapeHtml(p.codigo_barras || '-')}
@@ -7873,6 +8408,7 @@ $(document).on('hidden.bs.modal', '.modal', function () {
         $('body').css('padding-right', '');
 
         // UX-03.3: devolver o teclado à barra de pesquisa do PDV
+        if (document.getElementById('modalNcmProdutoPdv')) return;
         if (typeof currentPage !== 'undefined' && currentPage === 'pdv' && $('#buscaProdutoPdv').length) {
             focarCampoCodigo({ limpar: true });
         }

@@ -36,10 +36,11 @@ describe('Sprint 08.2 — menu original NFC-e Emitidas', () => {
     assert.doesNotMatch(FRONT_FISCAL, /n\.venda_id \? `.*cancelarNfce/);
   });
 
-  it('B — menu contém exatamente as 4 opções originais (textos)', () => {
+  it('B — menu contém as opções originais mais Visualizar XML', () => {
     const bloco = blocoMenuAcoes();
     assert.match(bloco, /Ver detalhes/);
     assert.match(bloco, /Resumo NFC-e \/ TEF/);
+    assert.match(bloco, /Visualizar XML/);
     assert.match(bloco, /Devolução parcial/);
     assert.match(bloco, /Cancelar venda/);
     assert.doesNotMatch(bloco, /Reimprimir [Cc]upom|Cupom Fiscal|Abrir DANFE/);
@@ -62,7 +63,7 @@ describe('Sprint 08.2 — menu original NFC-e Emitidas', () => {
     const bloco = blocoMenuAcoes();
     assert.match(
       bloco,
-      /Ver detalhes[\s\S]*Resumo NFC-e \/ TEF[\s\S]*\$\{blocoOperacional\}/
+      /Ver detalhes[\s\S]*Resumo NFC-e \/ TEF[\s\S]*Visualizar XML[\s\S]*\$\{blocoOperacional\}/
     );
     assert.match(bloco, /fa-undo[\s\S]*Devolução parcial/);
     assert.match(bloco, /fa-times[\s\S]*Cancelar venda/);
@@ -73,6 +74,7 @@ describe('Sprint 08.2 — menu original NFC-e Emitidas', () => {
   it('E — cada opção chama o fluxo existente correspondente', () => {
     assert.match(FRONT_FISCAL, /viewVenda\(/);
     assert.match(FRONT_FISCAL, /verDetalheFiscal\(/);
+    assert.match(FRONT_FISCAL, /visualizarXmlNfce\(/);
     assert.match(FRONT_FISCAL, /verResumoVendaFiscalTEF\(/);
     assert.match(FRONT_FISCAL, /abrirDevolucaoVenda\(/);
     assert.match(FRONT_FISCAL, /cancelarVendaNaoFiscal\(/);

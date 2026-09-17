@@ -31,6 +31,7 @@ const {
   emitirNFeDevolucaoCompra,
   previaNfeDevolucaoCompra,
   prepararNfeDevolucaoCompra,
+  listarOrigensNfeDevolucaoCompra,
   obterNfeDevolucaoPorId,
   listarHistoricoDevolucaoCompra,
   cancelarNfeDevolucaoOficial,
@@ -1235,6 +1236,23 @@ router.get('/', (req, res) => {
       res.json(rows);
     });
   }).catch((err) => res.status(500).json({ error: err.message }));
+});
+
+/** RC6 — pesquisa de NF-e de origem (reutiliza compras persistidas; sem motor fiscal novo). */
+router.get('/nfe-devolucao/origens', async (req, res) => {
+  try {
+    const origens = await listarOrigensNfeDevolucaoCompra({
+      chave: req.query.chave,
+      numero: req.query.numero,
+      serie: req.query.serie,
+      fornecedor: req.query.fornecedor,
+      data: req.query.data,
+      compraId: req.query.compra || req.query.compraId
+    });
+    res.json({ success: true, origens });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 router.get('/:id', (req, res) => {

@@ -188,6 +188,135 @@ function montarHtmlNfeVinculadaHistorico(venda) {
         </div>`;
 }
 
+function baixarTextoXmlNfce(nomeArquivo, conteudo) {
+    const blob = new Blob([conteudo || ''], { type: 'application/xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nomeArquivo;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function copiarTextoXmlNfce(texto) {
+    const valor = String(texto || '');
+    if (!valor.trim()) {
+        if (typeof showNotification === 'function') showNotification('XML vazio.', 'warning');
+        return;
+    }
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(valor);
+        } else {
+            const ta = document.createElement('textarea');
+            ta.value = valor;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            ta.remove();
+        }
+        if (typeof showNotification === 'function') showNotification('XML copiado.', 'success');
+    } catch (_) {
+        if (typeof showNotification === 'function') {
+            showNotification('Não foi possível copiar o XML.', 'danger');
+        }
+    }
+}
+
+function visualizarXmlNfce(nfceId) {
+    const id = Number(nfceId);
+    if (!id) {
+        if (typeof showNotification === 'function') {
+            showNotification('NFC-e não disponível para visualizar o XML.', 'warning');
+        }
+        return;
+    }
+    const base = typeof API_URL !== 'undefined' ? API_URL : '/api';
+    const ajax = typeof $ !== 'undefined' && $.ajax
+        ? $.ajax.bind($)
+        : null;
+    if (!ajax) {
+        window.open(`${base}/fiscal/notas/${id}`, '_blank', 'noopener');
+        return;
+    }
+    ajax({
+        url: `${base}/fiscal/notas/${id}`,
+        method: 'GET',
+        success(nota) {
+            const xmlEnviado = String(nota.xml_enviado || '');
+            const xmlRetorno = String(nota.xml_retorno || '');
+            if (!xmlEnviado && !xmlRetorno) {
+                if (typeof showNotification === 'function') {
+                    showNotification('XML não disponível para esta NFC-e.', 'warning');
+                }
+                return;
+            }
+            const chave = String(nota.chave_acesso || nota.id || id);
+            const titulo = `XML NFC-e #${nota.id || id}${nota.status ? ` · ${nota.status}` : ''}`;
+            const modalHtml = `
+                <div class="modal fade" id="modalVisualizarXmlNfce" tabindex="-1">
+                    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">${escapeHtmlHistoricoVenda(titulo)}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-2 small text-muted">
+                                    Chave: ${escapeHtmlHistoricoVenda(nota.chave_acesso || '-')}
+                                </div>
+                                <h6 class="d-flex align-items-center justify-content-between gap-2">
+                                    <span>XML enviado</span>
+                                    <span>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCopiarXmlNfceEnviado">Copiar</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnBaixarXmlNfceEnviado">Baixar</button>
+                                    </span>
+                                </h6>
+                                <textarea class="form-control font-monospace mb-3" rows="12" readonly id="txtXmlNfceEnviado">${escapeHtmlHistoricoVenda(xmlEnviado)}</textarea>
+                                <h6 class="d-flex align-items-center justify-content-between gap-2">
+                                    <span>XML de retorno (SEFAZ)</span>
+                                    <span>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCopiarXmlNfceRetorno">Copiar</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnBaixarXmlNfceRetorno">Baixar</button>
+                                    </span>
+                                </h6>
+                                <textarea class="form-control font-monospace" rows="10" readonly id="txtXmlNfceRetorno">${escapeHtmlHistoricoVenda(xmlRetorno)}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            const host = document.getElementById('modal-container')
+                || document.getElementById('pdv-modal-container');
+            if (host && typeof $ !== 'undefined') {
+                $(host).html(modalHtml);
+            } else {
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+            }
+            const bind = (btnId, fn) => {
+                const el = document.getElementById(btnId);
+                if (el) el.addEventListener('click', fn);
+            };
+            bind('btnCopiarXmlNfceEnviado', () => copiarTextoXmlNfce(xmlEnviado));
+            bind('btnBaixarXmlNfceEnviado', () => baixarTextoXmlNfce(`NFCe-${chave}-enviado.xml`, xmlEnviado));
+            bind('btnCopiarXmlNfceRetorno', () => copiarTextoXmlNfce(xmlRetorno));
+            bind('btnBaixarXmlNfceRetorno', () => baixarTextoXmlNfce(`NFCe-${chave}-retorno.xml`, xmlRetorno));
+            const modalEl = document.getElementById('modalVisualizarXmlNfce');
+            if (modalEl && window.bootstrap && bootstrap.Modal) {
+                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            } else if (typeof $ !== 'undefined') {
+                $('#modalVisualizarXmlNfce').modal('show');
+            }
+        },
+        error(xhr) {
+            const msg = (xhr && xhr.responseJSON && xhr.responseJSON.error)
+                || 'Erro ao buscar XML da NFC-e.';
+            if (typeof showNotification === 'function') showNotification(msg, 'danger');
+        }
+    });
+}
+
 function abrirDanfeNfeHistorico(vendaId) {
     if (!moduloFiscalDisponivelHistorico()) {
         if (typeof showNotification === 'function') {
@@ -285,6 +414,12 @@ function montarHtmlAcoesHistoricoVenda(venda, opcoes = {}) {
                             <i class="fas fa-file-alt fa-fw me-2 text-muted"></i>Resumo NFC-e / TEF
                         </button>
                     </li>
+                    ${Number(venda.nfce_id) ? `
+                    <li>
+                        <button type="button" class="dropdown-item py-2" onclick="visualizarXmlNfce(${Number(venda.nfce_id)})">
+                            <i class="fas fa-code fa-fw me-2 text-muted"></i>Visualizar XML
+                        </button>
+                    </li>` : ''}
                     ${blocoImpressao}
                     ${blocoNfe}
                     ${blocoOperacional}
@@ -304,3 +439,4 @@ window.moduloFiscalDisponivelHistorico = moduloFiscalDisponivelHistorico;
 window.vendaHistoricoTemNfe = vendaHistoricoTemNfe;
 window.montarHtmlNfeVinculadaHistorico = montarHtmlNfeVinculadaHistorico;
 window.abrirDanfeNfeHistorico = abrirDanfeNfeHistorico;
+window.visualizarXmlNfce = visualizarXmlNfce;

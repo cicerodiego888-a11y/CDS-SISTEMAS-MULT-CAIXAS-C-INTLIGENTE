@@ -1835,7 +1835,7 @@ function renderCompras(compras) {
                                               : (parcial ? 'Devolver saldo' : 'Emitir NF-e de Devolução');
                                             return `
                                         <button class="btn btn-sm btn-danger"
-                                            onclick="abrirModalNFeDevolucaoCompra(${c.id})"
+                                            onclick="abrirTelaNfeDevolucaoCompra(${c.id})"
                                             title="${titulo}"
                                             ${totalDev ? 'disabled' : ''}>
                                             <i class="fas fa-file-invoice"></i> ${label}
@@ -5929,7 +5929,7 @@ function viewCompra(id) {
                             <p><strong>Observação:</strong> ${escapeHtml(compra.observacao || '-')}</p>
                             ${String(compra.chave_acesso || '').replace(/\D/g, '').length === 44 ? `
                             <div class="mb-3">
-                                <button class="btn btn-danger btn-sm" onclick="$('#viewCompraModal').modal('hide'); setTimeout(function(){ abrirModalNFeDevolucaoCompra(${compra.id}); }, 300);">
+                                <button class="btn btn-danger btn-sm" onclick="$('#viewCompraModal').modal('hide'); setTimeout(function(){ abrirTelaNfeDevolucaoCompra(${compra.id}); }, 300);">
                                     <i class="fas fa-file-invoice"></i> Emitir NF-e de Devolução
                                 </button>
                             </div>` : ''}
@@ -6634,6 +6634,11 @@ function salvarRascunhoDevolucaoCompra(compraId) {
     }).always(function() {
         $btn.prop('disabled', false).text('Salvar e Continuar Depois');
     });
+}
+
+function abrirTelaNfeDevolucaoCompra(id) {
+    window.__CDS_NFE_DEVOLUCAO_COMPRA_ID = id || null;
+    if (typeof loadPage === 'function') loadPage('nfe-devolucao-compra');
 }
 
 function abrirModalNFeDevolucaoCompra(id) {

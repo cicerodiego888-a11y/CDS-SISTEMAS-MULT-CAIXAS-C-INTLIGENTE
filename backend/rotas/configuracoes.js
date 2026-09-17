@@ -7,7 +7,10 @@ const db = require('../database');
 const { gravarAuditoria } = require('../services/auditoria');
 const cfgTransferenciaPdv = require('../services/estoque/pdvTransferenciaNaoFiscalFiscalConfig');
 const cfgEditarPrecoUnitarioPdv = require('../services/estoque/pdvEditarPrecoUnitarioConfig');
+const cfgExigirNcmPdv = require('../services/estoque/pdvExigirNcmCadastroConfig');
+const cfgImprimirCupomPdv = require('../services/estoque/pdvImprimirCupomConfig');
 const cfgValidadeEmpresa = require('../services/estoque/empresaControlaValidadeConfig');
+const cfgVendaSemEstoque = require('../services/estoque/empresaPermiteVendaSemEstoqueConfig');
 const cfgFechamentoFiscalDia = require('../services/fechamento-fiscal/fechamentoFiscalModuloConfig');
 const {
   garantirPastaBackupGravavel,
@@ -17,8 +20,12 @@ const {
 function chaveReservadaSuperAdmin(chave) {
   return cfgTransferenciaPdv.ehChave(chave)
     || cfgEditarPrecoUnitarioPdv.ehChave(chave)
+    || cfgExigirNcmPdv.ehChave(chave)
+    || cfgImprimirCupomPdv.ehChave(chave)
     || cfgValidadeEmpresa.ehChave(chave)
-    || cfgFechamentoFiscalDia.ehChave(chave);
+    || cfgVendaSemEstoque.ehChave(chave)
+    || cfgFechamentoFiscalDia.ehChave(chave)
+    || String(chave || '') === 'imprimir_cupom';
 }
 
 function auditarConfiguracao(req, acao, chave, detalhes = {}) {
@@ -411,6 +418,68 @@ router.put(
   }
 );
 
+router.get('/pdv_exigir_ncm_cadastro', (req, res) => {
+  cfgExigirNcmPdv.ler(db, (err, dados) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(dados);
+  });
+});
+
+router.get('/pdv_imprimir_cupom', (req, res) => {
+  cfgImprimirCupomPdv.ler(db, (err, dados) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(dados);
+  });
+});
+
+router.put(
+  '/pdv_imprimir_cupom',
+  cfgImprimirCupomPdv.exigirSuperAdminAlteracao,
+  (req, res) => {
+    cfgImprimirCupomPdv.salvar(db, req.body && req.body.valor, (err, dados) => {
+      if (err) {
+        const status = err.status || 500;
+        return res.status(status).json({ error: err.message });
+      }
+      auditarConfiguracao(req, 'atualizar_configuracao', cfgImprimirCupomPdv.CHAVE, {
+        valor: dados.valor
+      });
+      res.json({
+        message: dados.valor === 'ATIVADO'
+          ? 'Impressão automática de cupom ATIVADA.'
+          : 'Impressão automática de cupom DESATIVADA.',
+        ...dados
+      });
+    });
+  }
+);
+
+router.put(
+  '/pdv_exigir_ncm_cadastro',
+  cfgExigirNcmPdv.exigirSuperAdminAlteracao,
+  (req, res) => {
+    cfgExigirNcmPdv.salvar(db, req.body && req.body.valor, (err, dados) => {
+      if (err) {
+        const status = err.status || 500;
+        return res.status(status).json({ error: err.message });
+      }
+      auditarConfiguracao(req, 'atualizar_configuracao', cfgExigirNcmPdv.CHAVE, {
+        valor: dados.valor
+      });
+      res.json({
+        message: dados.valor === 'ATIVADO'
+          ? 'PDV vai pedir NCM e gravar no cadastro quando o produto não tiver.'
+          : 'Pedido de NCM no PDV DESATIVADO.',
+        ...dados
+      });
+    });
+  }
+);
+
 router.get('/fechamento_fiscal_do_dia', (req, res) => {
   cfgFechamentoFiscalDia.ler(db, (err, dados) => {
     if (err) {
@@ -472,6 +541,37 @@ router.put(
   }
 );
 
+router.get('/empresa_permite_venda_sem_estoque', (req, res) => {
+  cfgVendaSemEstoque.ler(db, (err, dados) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(dados);
+  });
+});
+
+router.put(
+  '/empresa_permite_venda_sem_estoque',
+  cfgVendaSemEstoque.exigirSuperAdminAlteracao,
+  (req, res) => {
+    cfgVendaSemEstoque.salvar(db, req.body && req.body.valor, (err, dados) => {
+      if (err) {
+        const status = err.status || 500;
+        return res.status(status).json({ error: err.message });
+      }
+      auditarConfiguracao(req, 'atualizar_configuracao', cfgVendaSemEstoque.CHAVE, {
+        valor: dados.valor
+      });
+      res.json({
+        message: dados.valor === 'ATIVADO'
+          ? 'Venda sem estoque ATIVADA. A baixa continua; o saldo pode ficar negativo.'
+          : 'Venda sem estoque DESATIVADA. Volta a bloquear saldo insuficiente.',
+        ...dados
+      });
+    });
+  }
+);
+
 router.get('/', (req, res) => {
   db.all('SELECT * FROM configuracoes ORDER BY chave', (err, rows) => {
     if (err) {
@@ -527,6 +627,32 @@ router.put('/:chave', (req, res) => {
     });
   }
 
+  if (cfgExigirNcmPdv.ehChave(chave)) {
+    return cfgExigirNcmPdv.exigirSuperAdminAlteracao(req, res, () => {
+      cfgExigirNcmPdv.salvar(db, valor, (err, dados) => {
+        if (err) {
+          const status = err.status || 500;
+          return res.status(status).json({ error: err.message });
+        }
+        auditarConfiguracao(req, 'atualizar_configuracao', chave, { valor: dados.valor });
+        res.json({ message: 'Configuração atualizada com sucesso', ...dados });
+      });
+    });
+  }
+
+  if (cfgImprimirCupomPdv.ehChave(chave)) {
+    return cfgImprimirCupomPdv.exigirSuperAdminAlteracao(req, res, () => {
+      cfgImprimirCupomPdv.salvar(db, valor, (err, dados) => {
+        if (err) {
+          const status = err.status || 500;
+          return res.status(status).json({ error: err.message });
+        }
+        auditarConfiguracao(req, 'atualizar_configuracao', chave, { valor: dados.valor });
+        res.json({ message: 'Configuração atualizada com sucesso', ...dados });
+      });
+    });
+  }
+
   if (cfgValidadeEmpresa.ehChave(chave)) {
     return cfgValidadeEmpresa.exigirSuperAdminAlteracao(req, res, () => {
       cfgValidadeEmpresa.salvar(db, valor, (err, dados) => {
@@ -538,6 +664,19 @@ router.put('/:chave', (req, res) => {
           valor: dados.valor,
           produtos_desmarcados: dados.produtos_desmarcados
         });
+        res.json({ message: 'Configuração atualizada com sucesso', ...dados });
+      });
+    });
+  }
+
+  if (cfgVendaSemEstoque.ehChave(chave)) {
+    return cfgVendaSemEstoque.exigirSuperAdminAlteracao(req, res, () => {
+      cfgVendaSemEstoque.salvar(db, valor, (err, dados) => {
+        if (err) {
+          const status = err.status || 500;
+          return res.status(status).json({ error: err.message });
+        }
+        auditarConfiguracao(req, 'atualizar_configuracao', chave, { valor: dados.valor });
         res.json({ message: 'Configuração atualizada com sucesso', ...dados });
       });
     });

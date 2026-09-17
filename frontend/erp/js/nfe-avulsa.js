@@ -322,6 +322,51 @@
 
   function loadNfeAvulsa() {
     itensAvulsa = [];
+    const htmlChooser = `
+      ${(typeof CdsPageShell !== 'undefined' && CdsPageShell.renderHeader)
+        ? CdsPageShell.renderHeader({
+          page: 'nfe-avulsa',
+          titulo: 'Nova NF-e',
+          subtitulo: 'Escolha o tipo de documento a emitir.',
+          breadcrumbVisible: true,
+          breadcrumb: [
+            { label: 'Fiscal', page: 'nfe-central' },
+            { label: 'Nova NF-e' }
+          ]
+        })
+        : ''}
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <h5 class="card-title">NF-e Normal</h5>
+              <p class="text-muted">Emissão avulsa de venda (origem NF_AVULSA).</p>
+              <button type="button" class="btn btn-primary" id="btnNfaTipoNormal">
+                Continuar com NF-e Normal
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <h5 class="card-title">Devolução de Compra</h5>
+              <p class="text-muted">Devolver mercadoria ao fornecedor, referenciando a NF-e original.</p>
+              <button type="button" class="btn btn-danger" id="btnNfaTipoDevolucao">
+                Devolução de Compra
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    $('#page-content').html(htmlChooser);
+    $('#btnNfaTipoNormal').on('click', renderFormAvulsa);
+    $('#btnNfaTipoDevolucao').on('click', function () {
+      if (typeof loadPage === 'function') loadPage('nfe-devolucao-compra');
+    });
+  }
+
+  function renderFormAvulsa() {
     const html = `
       ${(typeof CdsPageShell !== 'undefined' && CdsPageShell.renderHeader)
         ? CdsPageShell.renderHeader({ page: 'nfe-avulsa', toolbarHtml: '' })

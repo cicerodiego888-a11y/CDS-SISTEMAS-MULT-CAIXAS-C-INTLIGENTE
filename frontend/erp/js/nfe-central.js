@@ -113,7 +113,18 @@ function renderBannerNfePendente(notaId) {
 function renderNfeCentral() {
   const html = `
     ${(typeof CdsPageShell !== 'undefined' && CdsPageShell.renderHeader)
-      ? CdsPageShell.renderHeader({ page: 'nfe-central', toolbarHtml: '' })
+      ? CdsPageShell.renderHeader({
+        page: 'nfe-central',
+        toolbarHtml: `<div class="dropdown">
+          <button class="btn btn-sm btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+            <i class="fas fa-plus"></i> Nova NF-e
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><button type="button" class="dropdown-item" onclick="loadPage('nfe-avulsa')">NF-e Normal</button></li>
+            <li><button type="button" class="dropdown-item" onclick="loadPage('nfe-devolucao-compra')">Devolução de Compra</button></li>
+          </ul>
+        </div>`
+      })
       : ''}
     <div id="nfe-auth-banner"></div>
     <div class="card shadow-sm">
