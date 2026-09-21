@@ -10,7 +10,7 @@ const NFeParserService = require('../../../shared/nfe/NFeParserService');
 const NFeParserError = require('../../../shared/nfe/errors/NFeParserError');
 const { enriquecerParseComMiip } = require('../../../shared/nfe/enriquecerParseComMiip');
 const ProcessamentoResultadoDTO = require('../contracts/ProcessamentoResultadoDTO');
-const { DocumentoFiscalStatus } = require('../core/DocumentoFiscalStatus');
+const { DocumentoFiscalStatus, normalizarStatus } = require('../core/DocumentoFiscalStatus');
 const { paraDocumentoDetalheDTO } = require('../utils/centralEntradasMapper');
 const CentralDocumentosRepository = require('../repositories/CentralDocumentosRepository');
 const CentralHistoricoService = require('./CentralHistoricoService');
@@ -89,7 +89,15 @@ class CentralProcessamentoService {
       }
 
       const statusInicial = documento.status;
-      if (statusInicial !== DocumentoFiscalStatus.SINCRONIZADA) {
+      const statusNormalizado = normalizarStatus(statusInicial);
+      const statusProcessavel = new Set([
+        DocumentoFiscalStatus.SINCRONIZADA,
+        DocumentoFiscalStatus.XML_COMPLETO,
+        DocumentoFiscalStatus.EM_PROCESSAMENTO,
+        DocumentoFiscalStatus.NOVA
+      ]);
+
+      if (!statusProcessavel.has(statusNormalizado) && !opcoes.forcarReprocessamento) {
         const erro = new Error(`Documento não pode ser processado no status ${statusInicial}`);
         erro.statusCode = 400;
         throw erro;
@@ -219,10 +227,18 @@ class CentralProcessamentoService {
       if (error instanceof NFeParserError || error.statusCode === 400) {
         try {
           const doc = await this._documentosRepository.buscarPorId(documentoId);
-          if (doc?.status === DocumentoFiscalStatus.EM_PROCESSAMENTO) {
+          const statusDoc = doc ? normalizarStatus(doc.status) : null;
+          const emProcessamento = [
+            DocumentoFiscalStatus.EM_PROCESSAMENTO,
+            DocumentoFiscalStatus.XML_COMPLETO,
+            DocumentoFiscalStatus.SINCRONIZADA,
+            DocumentoFiscalStatus.NOVA
+          ].includes(statusDoc);
+
+          if (emProcessamento) {
             await this._transitionService.transicionar(
               documentoId,
-              DocumentoFiscalStatus.EM_PROCESSAMENTO,
+              doc.status,
               DocumentoFiscalStatus.ERRO,
               { detalhe: error.message, usuarioId: opcoes.usuarioId }
             );

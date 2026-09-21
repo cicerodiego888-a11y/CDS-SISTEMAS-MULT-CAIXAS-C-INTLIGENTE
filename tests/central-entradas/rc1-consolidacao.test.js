@@ -85,9 +85,9 @@ async function main() {
 
   await documentosRepository._obterSql().whenReady();
 
-  await test('DocumentoTransitionService valida transição inválida', async () => {
+  await test('DocumentoTransitionService valida transição inválida fora do contrato atual', async () => {
     await assert.rejects(
-      () => transitionService.transicionar(1, DocumentoFiscalStatus.SINCRONIZADA, DocumentoFiscalStatus.GRAVADA),
+      () => transitionService.transicionar(1, DocumentoFiscalStatus.FINALIZADA, DocumentoFiscalStatus.SINCRONIZADA),
       (err) => err.statusCode === 400
     );
   });
@@ -114,6 +114,30 @@ async function main() {
     assert.strictEqual(segundo.sucesso, true);
     assert.strictEqual(segundo.reutilizado, true);
     assert.ok(segundo.mensagem.includes('reutilizado'));
+  });
+
+  await test('CentralProcessamentoService reprocessa documento legado em EM_PROCESSAMENTO', async () => {
+    await limparDocumentoTeste();
+    const xml = fs.readFileSync(FIXTURE_XML, 'utf8');
+    const doc = await documentosRepository.inserir({
+      chave: CHAVE_RC1,
+      numero: '8888',
+      serie: '1',
+      fornecedor: 'Fornecedor RC1 legado',
+      cnpjFornecedor: '88888888000188',
+      dataEmissao: '2026-07-09',
+      valorTotal: 150,
+      xml,
+      origem: 'dfe',
+      status: 'EM_PROCESSAMENTO'
+    });
+
+    const resultado = await processamentoService.processar(doc.id);
+    assert.strictEqual(resultado.sucesso, true);
+    assert.ok(resultado.documento || resultado.parse);
+
+    const atualizado = await documentosRepository.buscarPorId(doc.id);
+    assert.ok([DocumentoFiscalStatus.AGUARDANDO_REVISAO, DocumentoFiscalStatus.PRONTA_PARA_COMPRA].includes(atualizado.status));
   });
 
   await test('CentralComprasBridgeService não reexecuta Parser/MIIP', async () => {

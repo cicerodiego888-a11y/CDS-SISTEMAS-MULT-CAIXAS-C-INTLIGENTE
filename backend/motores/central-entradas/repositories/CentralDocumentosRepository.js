@@ -515,6 +515,11 @@ class CentralDocumentosRepository extends IRepository {
     const sql = this._obterSql();
     await sql.whenReady();
 
+    await sql.run('DELETE FROM central_entradas_revisao_itens WHERE documento_id = ?', [id]);
+    await sql.run('DELETE FROM central_entradas_revisao_sessoes WHERE documento_id = ?', [id]);
+    await sql.run('DELETE FROM central_entradas_historico WHERE documento_id = ?', [id]);
+    await sql.run('DELETE FROM central_entradas_eventos WHERE documento_id = ?', [id]);
+
     const resultado = await sql.run(
       `DELETE FROM ${CentralDocumentosRepository.TABELA} WHERE id = ?`,
       [id]
