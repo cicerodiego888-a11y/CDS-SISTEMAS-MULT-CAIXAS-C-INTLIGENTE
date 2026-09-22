@@ -9,6 +9,7 @@ const cfgTransferenciaPdv = require('../services/estoque/pdvTransferenciaNaoFisc
 const cfgEditarPrecoUnitarioPdv = require('../services/estoque/pdvEditarPrecoUnitarioConfig');
 const cfgExigirNcmPdv = require('../services/estoque/pdvExigirNcmCadastroConfig');
 const cfgImprimirCupomPdv = require('../services/estoque/pdvImprimirCupomConfig');
+const cfgComposicaoItensPdv = require('../services/estoque/pdvComposicaoItensConfig');
 const cfgValidadeEmpresa = require('../services/estoque/empresaControlaValidadeConfig');
 const cfgVendaSemEstoque = require('../services/estoque/empresaPermiteVendaSemEstoqueConfig');
 const cfgFechamentoFiscalDia = require('../services/fechamento-fiscal/fechamentoFiscalModuloConfig');
@@ -22,6 +23,7 @@ function chaveReservadaSuperAdmin(chave) {
     || cfgEditarPrecoUnitarioPdv.ehChave(chave)
     || cfgExigirNcmPdv.ehChave(chave)
     || cfgImprimirCupomPdv.ehChave(chave)
+    || cfgComposicaoItensPdv.ehChave(chave)
     || cfgValidadeEmpresa.ehChave(chave)
     || cfgVendaSemEstoque.ehChave(chave)
     || cfgFechamentoFiscalDia.ehChave(chave)
@@ -452,6 +454,35 @@ router.put(
         message: dados.valor === 'ATIVADO'
           ? 'Impressão automática de cupom ATIVADA.'
           : 'Impressão automática de cupom DESATIVADA.',
+        ...dados
+      });
+    });
+  }
+);
+
+router.get('/pdv_composicao_itens', (req, res) => {
+  cfgComposicaoItensPdv.ler(db, (err, dados) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(dados);
+  });
+});
+
+router.put(
+  '/pdv_composicao_itens',
+  cfgComposicaoItensPdv.exigirSuperAdminAlteracao,
+  (req, res) => {
+    cfgComposicaoItensPdv.salvar(db, req.body && req.body.valor, (err, dados) => {
+      if (err) {
+        const status = err.status || 500;
+        return res.status(status).json({ error: err.message });
+      }
+      auditarConfiguracao(req, 'atualizar_configuracao', cfgComposicaoItensPdv.CHAVE, {
+        valor: dados.valor
+      });
+      res.json({
+        message: `Composição de itens do PDV: ${dados.valor}.`,
         ...dados
       });
     });

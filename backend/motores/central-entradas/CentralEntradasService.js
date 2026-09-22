@@ -104,19 +104,17 @@ class CentralEntradasService {
   }
 
   /**
-   * RC3.4.2 — recuperação manual excepcional (respeita Gate / SLEEP).
+   * RC3.4.2 + Sprint 2 — recuperação manual via MotorRecuperacaoXml + SEFAZQueryGate.
+   * Não cria consulta paralela: prioridade ALTA na mesma fila.
    */
   async solicitarXmlCompletoManual(id, opcoes = {}) {
-    const xmlWait = require('./services/CentralXmlWaitScheduler');
-    if (typeof xmlWait.solicitarXmlManual !== 'function') {
-      return this.processarCicloDfeDocumento(id, {
-        ...opcoes,
-        confirmado: true
-      });
-    }
-    return xmlWait.solicitarXmlManual(id, {
+    const { obterMotorRecuperacaoXml, PRIORIDADE } = require('./recuperacao-xml');
+    return obterMotorRecuperacaoXml().solicitarRecuperacaoManual(id, {
+      origem: 'CONSULTA_MANUAL',
+      prioridade: PRIORIDADE.ALTA,
       usuarioId: opcoes.usuarioId,
-      correlationId: opcoes.correlationId
+      correlationId: opcoes.correlationId,
+      executarImediato: opcoes.executarImediato !== false
     });
   }
 

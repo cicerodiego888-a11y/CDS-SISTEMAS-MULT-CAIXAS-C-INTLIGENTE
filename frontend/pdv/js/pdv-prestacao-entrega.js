@@ -339,17 +339,21 @@
           <div class="col-6">
             <div class="form-check">
               <input class="form-check-input" type="checkbox" id="prestMaquinetaOk" ${item.leva_maquineta ? '' : ''}>
-              <label class="form-check-label" for="prestMaquinetaOk">Confirmar maquineta</label>
+              <label class="form-check-label" for="prestMaquinetaOk">
+                Confirmar maquineta${item.leva_maquineta ? ' <span class="text-danger">*</span>' : ''}
+              </label>
             </div>
           </div>
           <div class="col-6">
             <div class="form-check">
               <input class="form-check-input" type="checkbox" id="prestTrocoOk">
-              <label class="form-check-label" for="prestTrocoOk">Confirmar troco</label>
+              <label class="form-check-label" for="prestTrocoOk">
+                Confirmar troco${Number(item.troco_para || 0) > 0 ? ' <span class="text-danger">*</span>' : ''}
+              </label>
             </div>
           </div>
           <div class="col-6">
-            <label class="form-label small">Troco devolvido (R$)</label>
+            <label class="form-label small">Troco devolvido (R$)${Number(item.troco_para || 0) > 0 ? ' <span class="text-danger">*</span>' : ''}</label>
             <input type="number" min="0" step="0.01" class="form-control form-control-sm" id="prestTrocoDevolvido" value="0">
           </div>
         </div>
@@ -371,12 +375,20 @@
     `);
 
     $('.prest-forma').on('click', function () {
+      limparDestaquesValidacaoPrestacao();
       const forma = $(this).data('forma');
       pagamentosLinhas = [{ forma_pagamento: forma, valor: total }];
       renderPagamentosLista(total);
     });
 
-    $('#btnPrestMisto').on('click', () => abrirEditorMisto(total));
+    $('#btnPrestMisto').on('click', () => {
+      limparDestaquesValidacaoPrestacao();
+      abrirEditorMisto(total);
+    });
+
+    $('#prestMaquinetaOk, #prestTrocoOk, #prestTrocoDevolvido, input[name="prestDoc"]').on('change input', () => {
+      limparDestaquesValidacaoPrestacao();
+    });
 
     $('#btnFinalizarPrestacao').on('click', () => finalizarPrestacao(item, total));
     $('#btnCancelarEntregaPrestacao').on('click', () => cancelarEntrega(item.id));
@@ -432,14 +444,131 @@
     renderPagamentosLista(total);
   }
 
-  async function finalizarPrestacao(item, total) {
-    if (!pagamentosLinhas.length) {
-      showNotification('Informe o pagamento recebido.', 'warning');
-      return;
+  function validarCamposObrigatoriosPrestacao(item, total) {
+    const faltando = [];
+
+    const documento = $('input[name="prestDoc"]:checked').val();
+    if (!documento) {
+      faltando.push({
+        campo: 'Documento',
+        seletor: 'input[name="prestDoc"]',
+        msg: 'Selecione NFC-e ou Venda Não Fiscal.'
+      });
     }
-    const soma = pagamentosLinhas.reduce((s, p) => s + Number(p.valor || 0), 0);
-    if (Math.abs(soma - total) >= 0.009) {
-      showNotification('A soma dos pagamentos deve ser igual ao total da venda.', 'danger');
+
+    if (!pagamentosLinhas.length) {
+      faltando.push({
+        campo: 'Pagamento recebido',
+        seletor: '#prestFormasRapidas',
+        msg: 'Selecione a forma de pagamento recebida.'
+      });
+    } else {
+      pagamentosLinhas.forEach((p, i) => {
+        if (!String(p.forma_pagamento || '').trim()) {
+          faltando.push({
+            campo: `Pagamento (linha ${i + 1})`,
+            seletor: '#prestPagamentosLista',
+            msg: 'Informe a forma de pagamento.'
+          });
+        }
+        if (!(Number(p.valor) > 0)) {
+          faltando.push({
+            campo: `Valor do pagamento (linha ${i + 1})`,
+            seletor: '#prestPagamentosLista',
+            msg: 'Informe um valor maior que zero.'
+          });
+        }
+      });
+      const soma = pagamentosLinhas.reduce((s, p) => s + Number(p.valor || 0), 0);
+      if (Math.abs(soma - Number(total || 0)) >= 0.009) {
+        faltando.push({
+          campo: 'Total do pagamento',
+          seletor: '#prestPagamentosBox',
+          msg: `A soma (${fmtMoney(soma)}) deve ser igual ao total da venda (${fmtMoney(total)}).`
+        });
+      }
+    }
+
+    if (item.leva_maquineta && !$('#prestMaquinetaOk').is(':checked')) {
+      faltando.push({
+        campo: 'Confirmar maquineta',
+        seletor: '#prestMaquinetaOk',
+        msg: 'Marque "Confirmar maquineta" — a entrega saiu com maquineta.'
+      });
+    }
+
+    if (Number(item.troco_para || 0) > 0 && !$('#prestTrocoOk').is(':checked')) {
+      faltando.push({
+        campo: 'Confirmar troco',
+        seletor: '#prestTrocoOk',
+        msg: 'Marque "Confirmar troco" — a entrega saiu com troco.'
+      });
+    }
+
+    if (Number(item.troco_para || 0) > 0) {
+      const trocoDev = Number($('#prestTrocoDevolvido').val());
+      if (!Number.isFinite(trocoDev) || trocoDev < 0) {
+        faltando.push({
+          campo: 'Troco devolvido',
+          seletor: '#prestTrocoDevolvido',
+          msg: 'Informe o valor do troco devolvido (pode ser 0).'
+        });
+      }
+    }
+
+    return faltando;
+  }
+
+  function limparDestaquesValidacaoPrestacao() {
+    $('.prestacao-campo-faltando').removeClass('prestacao-campo-faltando border border-danger rounded p-2');
+    $('#prestacaoAlertaValidacao').remove();
+  }
+
+  function avisarCamposFaltandoPrestacao(faltando) {
+    limparDestaquesValidacaoPrestacao();
+    if (!faltando.length) return;
+
+    faltando.forEach((f) => {
+      const $el = $(f.seletor).first();
+      if (!$el.length) return;
+      const $alvo = $el.closest('.mb-3, .col-6, .form-check, .row').first();
+      ($alvo.length ? $alvo : $el).addClass('prestacao-campo-faltando border border-danger rounded p-2');
+    });
+
+    const lista = faltando
+      .map((f) => `• <strong>${escapeHtml(f.campo)}</strong> — ${escapeHtml(f.msg)}`)
+      .join('<br>');
+    const $body = $('#prestacaoBody .p-3').first();
+    if ($body.length) {
+      $body.prepend(`
+        <div class="alert alert-warning" id="prestacaoAlertaValidacao" role="alert">
+          <strong>Falta preencher:</strong><br>${lista}
+        </div>
+      `);
+    }
+
+    const resumo = faltando.length === 1
+      ? `Falta preencher: ${faltando[0].campo}`
+      : `Faltam ${faltando.length} campos: ${faltando.map((f) => f.campo).join(', ')}`;
+    showNotification(resumo, 'warning');
+
+    try {
+      const primeiro = document.querySelector(faltando[0].seletor)
+        || document.getElementById('prestacaoAlertaValidacao');
+      if (primeiro && typeof primeiro.scrollIntoView === 'function') {
+        primeiro.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      if (primeiro && typeof primeiro.focus === 'function') {
+        primeiro.focus({ preventScroll: true });
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  async function finalizarPrestacao(item, total) {
+    limparDestaquesValidacaoPrestacao();
+    const faltando = validarCamposObrigatoriosPrestacao(item, total);
+    if (faltando.length) {
+      avisarCamposFaltandoPrestacao(faltando);
       return;
     }
 

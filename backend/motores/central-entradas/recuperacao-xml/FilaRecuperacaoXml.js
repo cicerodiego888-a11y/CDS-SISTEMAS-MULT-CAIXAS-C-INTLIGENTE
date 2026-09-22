@@ -1,5 +1,5 @@
 /**
- * FilaRecuperacaoXml — elegibilidade e fila lógica RC3.7.5.
+ * FilaRecuperacaoXml — elegibilidade e fila lógica RC3.7.5 + Sprint 2.
  *
  * Entram: XML_INDISPONIVEL, RESUMO_RECEBIDO (e alias AGUARDANDO_XML_COMPLETO).
  * Não entram: IMPORTADA, CANCELADA, FINALIZADA, DENEGADA, INUTILIZADA (+ demais terminais).
@@ -13,6 +13,7 @@ const {
   DocumentoFiscalStatus,
   normalizarStatus
 } = require('../core/DocumentoFiscalStatus');
+const { PRIORIDADE, PRIORIDADE_PESO } = require('./StatusRecuperacaoXml');
 
 const STATUS_MONITORADOS = Object.freeze([
   DocumentoFiscalStatus.XML_INDISPONIVEL,
@@ -29,7 +30,9 @@ const STATUS_EXCLUIDOS = Object.freeze([
   DocumentoFiscalStatus.PRONTA_IMPORTACAO,
   DocumentoFiscalStatus.EM_REVISAO,
   DocumentoFiscalStatus.XML_COMPLETO,
-  DocumentoFiscalStatus.NOVA
+  DocumentoFiscalStatus.NOVA,
+  DocumentoFiscalStatus.RECUPERACAO_ESGOTADA,
+  DocumentoFiscalStatus.FORA_JANELA_RECUPERACAO
 ]);
 
 /**
@@ -53,12 +56,32 @@ function filtrarCandidatosFila(documentos = []) {
 }
 
 /**
- * Ordena por prioridade: XML_INDISPONIVEL primeiro, depois mais antigos.
+ * Identidade operacional: CNPJ + ambiente + chave.
+ * @param {Object} doc
+ * @param {number} [ambiente]
+ * @returns {string}
+ */
+function chaveIdentidadeRecuperacao(doc = {}, ambiente = 1) {
+  const cnpj = String(doc.cnpjEmpresa || doc.cnpj_empresa || doc.cnpjDestinatario || '')
+    .replace(/\D/g, '');
+  const chave = String(doc.chave || '').replace(/\D/g, '');
+  const amb = Number(ambiente) === 1 ? 1 : 2;
+  return `${cnpj}|${amb}|${chave}`;
+}
+
+/**
+ * Ordena: prioridade ALTA → NORMAL → BAIXA; XML_INDISPONIVEL; mais antigos.
  * @param {Object[]} documentos
  * @returns {Object[]}
  */
 function ordenarFila(documentos = []) {
   return [...documentos].sort((a, b) => {
+    const pa = PRIORIDADE_PESO[a.recuperacaoPrioridade || a.prioridade || PRIORIDADE.NORMAL]
+      || PRIORIDADE_PESO[PRIORIDADE.NORMAL];
+    const pb = PRIORIDADE_PESO[b.recuperacaoPrioridade || b.prioridade || PRIORIDADE.NORMAL]
+      || PRIORIDADE_PESO[PRIORIDADE.NORMAL];
+    if (pa !== pb) return pa - pb;
+
     const sa = normalizarStatus(a.status);
     const sb = normalizarStatus(b.status);
     if (sa === DocumentoFiscalStatus.XML_INDISPONIVEL
@@ -71,10 +94,33 @@ function ordenarFila(documentos = []) {
   });
 }
 
+/**
+ * Deduplica por chave NFe (mantém o primeiro após ordenação).
+ * @param {Object[]} documentos
+ * @returns {Object[]}
+ */
+function deduplicarPorChave(documentos = []) {
+  const visto = new Set();
+  const out = [];
+  for (const doc of documentos) {
+    const chave = String(doc.chave || '').replace(/\D/g, '');
+    if (!chave) {
+      out.push(doc);
+      continue;
+    }
+    if (visto.has(chave)) continue;
+    visto.add(chave);
+    out.push(doc);
+  }
+  return out;
+}
+
 module.exports = {
   STATUS_MONITORADOS,
   STATUS_EXCLUIDOS,
   ehElegivelRecuperacaoXml,
   filtrarCandidatosFila,
-  ordenarFila
+  ordenarFila,
+  chaveIdentidadeRecuperacao,
+  deduplicarPorChave
 };

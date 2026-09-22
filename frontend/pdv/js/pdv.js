@@ -97,6 +97,17 @@ function restaurarVendaAbertaPdv() {
             return false;
         }
         carrinho = snap.carrinho;
+        if (Array.isArray(carrinho)) {
+            carrinho.forEach((item) => {
+                if (!item || typeof item !== 'object') return;
+                if (typeof PDVItemCompositionService !== 'undefined'
+                    && typeof PDVItemCompositionService.garantirLinhaId === 'function') {
+                    PDVItemCompositionService.garantirLinhaId(item);
+                } else if (!item.linha_id) {
+                    item.linha_id = 'L' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
+                }
+            });
+        }
         clienteSelecionado = snap.clienteSelecionado || null;
         formaPagamentoSelecionada = snap.formaPagamentoSelecionada || null;
         vendaPrazoInfo = snap.vendaPrazoInfo || null;
@@ -723,6 +734,7 @@ function loadPDV() {
     carregarFlagVendaSemEstoquePdv();
     carregarFlagExigirNcmCadastroPdv();
     carregarFlagImprimirCupomPdv();
+    carregarFlagComposicaoItensPdv();
 
     $.ajax({
         url: urlProdutosPdv(),
@@ -976,6 +988,14 @@ async function autoRegistrarTerminal() {
             success: function(terminal) {
                 terminalId = terminal.id;
                 terminalNome = String(terminal.nome || terminal.hostname || '').trim();
+                try {
+                    if (terminalHostname && !String(terminalHostname).startsWith('pdv-')) {
+                        localStorage.setItem('cds_pdv_hostname_preferido', terminalHostname);
+                    }
+                    if (terminal.caixa_id) {
+                        localStorage.setItem('cds_pdv_caixa_id', String(terminal.caixa_id));
+                    }
+                } catch (e) { /* ignore */ }
                 if (typeof atualizarContextoTerminalAtual === 'function') {
                     atualizarContextoTerminalAtual(terminal);
                 }
@@ -2320,6 +2340,8 @@ let pdvFlagEditarPrecoUnitario = false;
 let pdvFlagVendaSemEstoque = false;
 let pdvFlagExigirNcmCadastro = false;
 let pdvFlagImprimirCupom = true;
+/** @type {'UNIFICAR'|'SEPARAR'|'AUTOMATICO'} */
+let pdvModoComposicaoItens = 'UNIFICAR';
 
 function pdvPermitirTransferenciaNaoFiscalFiscal() {
     return pdvFlagTransferenciaNaoFiscalFiscal === true;
@@ -2341,6 +2363,17 @@ function pdvImprimirCupomAtivo() {
     return pdvFlagImprimirCupom !== false;
 }
 window.pdvImprimirCupomAtivo = pdvImprimirCupomAtivo;
+
+function pdvObterModoComposicaoItens() {
+    if (typeof PDVItemCompositionService !== 'undefined'
+        && typeof PDVItemCompositionService.normalizarModo === 'function') {
+        return PDVItemCompositionService.normalizarModo(pdvModoComposicaoItens);
+    }
+    const v = String(pdvModoComposicaoItens || 'UNIFICAR').toUpperCase();
+    if (v === 'SEPARAR' || v === 'AUTOMATICO') return v;
+    return 'UNIFICAR';
+}
+window.pdvObterModoComposicaoItens = pdvObterModoComposicaoItens;
 
 function atualizarBotaoCupomPdv() {
     const btn = document.getElementById('btnImprimirCupomPdv');
@@ -2461,6 +2494,37 @@ function carregarFlagImprimirCupomPdv() {
         pdvFlagImprimirCupom = true;
         atualizarBotaoCupomPdv();
     });
+}
+
+function carregarFlagComposicaoItensPdv() {
+    const token = localStorage.getItem('token') || '';
+    if (!token || typeof API_URL === 'undefined') {
+        pdvModoComposicaoItens = 'UNIFICAR';
+        return;
+    }
+    fetch(`${API_URL}/configuracoes/pdv_composicao_itens`, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: { Authorization: 'Bearer ' + token }
+    }).then(function (response) {
+        if (!response.ok) return { valor: 'UNIFICAR' };
+        return response.json();
+    }).then(function (data) {
+        const valor = data && data.valor != null ? data.valor : 'UNIFICAR';
+        pdvModoComposicaoItens = pdvObterModoComposicaoItensCall(valor);
+    }).catch(function () {
+        pdvModoComposicaoItens = 'UNIFICAR';
+    });
+}
+
+function pdvObterModoComposicaoItensCall(valor) {
+    if (typeof PDVItemCompositionService !== 'undefined'
+        && typeof PDVItemCompositionService.normalizarModo === 'function') {
+        return PDVItemCompositionService.normalizarModo(valor);
+    }
+    const v = String(valor || 'UNIFICAR').toUpperCase();
+    if (v === 'SEPARAR' || v === 'AUTOMATICO') return v;
+    return 'UNIFICAR';
 }
 
 function alternarImpressaoCupomPdv() {
@@ -4119,19 +4183,70 @@ function adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExt
         return;
     }
 
-    const itemExistentePre = carrinho.find(item =>
-        Number(item.id) === Number(produto.id) && normalizarTipoVendaItem(item) === tipoVenda
-    );
-    let quantidadeEstoqueValidacao = quantidadeEstoque;
-    if (itemExistentePre) {
-        const novaQuantidadeBrutaPre = Number(itemExistentePre.quantidade) + quantidade;
-        const novaQuantidadePre = tipoVendaEhUnidade(tipoVenda)
-            ? novaQuantidadeBrutaPre
-            : (etiquetaBalanca
-                ? normalizarQuantidadeEtiquetaPdv(novaQuantidadeBrutaPre)
-                : Number(novaQuantidadeBrutaPre.toFixed(2)));
-        quantidadeEstoqueValidacao = obterQuantidadeEstoqueParaVenda(produto, novaQuantidadePre, tipoVenda);
+    const precoCandidatoComposicao = promocao && !tipoVendaEhUnidade(tipoVenda) && !etiquetaBalanca
+        ? Number(promocao.preco_promocional || precoUnitario)
+        : precoUnitario;
+    const candidatoComposicao = {
+        id: produto.id,
+        produto_id: produto.id,
+        tipo_venda: tipoVenda,
+        preco_unitario: precoCandidatoComposicao,
+        tipo_preco: 'varejo',
+        desconto_percentual: promocao && !tipoVendaEhUnidade(tipoVenda) && !etiquetaBalanca
+            ? Number(promocao.desconto_percentual || 0)
+            : 0,
+        desconto_valor: 0,
+        desconto_manual: 0,
+        promocao_id: promocao?.id || null,
+        desconto_atacado: 0,
+        preco_manual: 0,
+        etiqueta_balanca: etiquetaBalanca,
+        subtotal_fixo: subtotalEtiquetaFixo
+    };
+    const modoComposicao = pdvObterModoComposicaoItens();
+    let decisaoComposicao;
+    if (typeof PDVItemCompositionService !== 'undefined'
+        && typeof PDVItemCompositionService.decidirComposicao === 'function') {
+        decisaoComposicao = PDVItemCompositionService.decidirComposicao(
+            carrinho,
+            candidatoComposicao,
+            modoComposicao
+        );
+    } else {
+        const existenteFallback = modoComposicao === 'SEPARAR'
+            ? null
+            : carrinho.find((item) =>
+                Number(item.id) === Number(produto.id) && normalizarTipoVendaItem(item) === tipoVenda
+            );
+        decisaoComposicao = existenteFallback
+            ? {
+                acao: 'UNIFICAR',
+                linhaExistente: existenteFallback,
+                index: carrinho.indexOf(existenteFallback),
+                linha_id: existenteFallback.linha_id || ('L' + Date.now())
+            }
+            : {
+                acao: 'CRIAR',
+                linhaExistente: null,
+                index: -1,
+                linha_id: 'L' + Date.now()
+            };
     }
+    const itemExistentePre = decisaoComposicao.acao === 'UNIFICAR' ? decisaoComposicao.linhaExistente : null;
+
+    const qtdJaNoCarrinho = (typeof PDVItemCompositionService !== 'undefined'
+        && typeof PDVItemCompositionService.somarQuantidadeProduto === 'function')
+        ? PDVItemCompositionService.somarQuantidadeProduto(carrinho, produto.id, tipoVenda)
+        : carrinho
+            .filter((item) => Number(item.id) === Number(produto.id) && normalizarTipoVendaItem(item) === tipoVenda)
+            .reduce((acc, item) => acc + Number(item.quantidade || 0), 0);
+    const quantidadeTotalPrevistaBruta = Number(qtdJaNoCarrinho) + Number(quantidade);
+    const quantidadeTotalPrevista = tipoVendaEhUnidade(tipoVenda)
+        ? quantidadeTotalPrevistaBruta
+        : (etiquetaBalanca
+            ? normalizarQuantidadeEtiquetaPdv(quantidadeTotalPrevistaBruta)
+            : Number(quantidadeTotalPrevistaBruta.toFixed(2)));
+    const quantidadeEstoqueValidacao = obterQuantidadeEstoqueParaVenda(produto, quantidadeTotalPrevista, tipoVenda);
 
     const analiseTransferencia = pdvAnalisarTransferenciaEstoque(produto, quantidadeEstoqueValidacao);
     if (analiseTransferencia.devePerguntar && opcoes.transferenciaResposta == null) {
@@ -4270,19 +4385,28 @@ function adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExt
     // calcula preco final considerando promoção primeiro, depois atacado (se mais vantajoso)
     let precoFinal = precoPromocional;
     let descontoAtacadoItem = 0;
-    
-    const itemExistente = carrinho.find(item =>
-        Number(item.id) === Number(produto.id) && normalizarTipoVendaItem(item) === tipoVenda
-    );
+
+    const itemExistente = decisaoComposicao.acao === 'UNIFICAR' ? decisaoComposicao.linhaExistente : null;
 
     if (itemExistente) {
+        if (typeof PDVItemCompositionService !== 'undefined'
+            && typeof PDVItemCompositionService.garantirLinhaId === 'function') {
+            PDVItemCompositionService.garantirLinhaId(itemExistente);
+        } else if (!itemExistente.linha_id) {
+            itemExistente.linha_id = decisaoComposicao.linha_id || ('L' + Date.now());
+        }
+
         const novaQuantidadeBruta = Number(itemExistente.quantidade) + quantidade;
         const novaQuantidade = tipoVendaEhUnidade(tipoVenda)
             ? novaQuantidadeBruta
             : (etiquetaBalanca
                 ? normalizarQuantidadeEtiquetaPdv(novaQuantidadeBruta)
                 : Number(novaQuantidadeBruta.toFixed(2)));
-        const novaQuantidadeEstoque = obterQuantidadeEstoqueParaVenda(produto, novaQuantidade, tipoVenda);
+        const novaQuantidadeEstoque = obterQuantidadeEstoqueParaVenda(
+            produto,
+            quantidadeTotalPrevista,
+            tipoVenda
+        );
 
         if (opcoes.vendaSemEstoqueConfirmada !== true) {
             const validacaoTotal = pdvValidarEstoqueVenda(produtoParaValidar, novaQuantidadeEstoque);
@@ -4332,6 +4456,9 @@ function adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExt
         itemExistente.desconto_atacado = descontoAtacadoItem;
         itemExistente.tipo_venda = tipoVenda;
         itemExistente.transferencia_nao_fiscal_para_fiscal = quantidadeTransferirLinha;
+        if (etiquetaBalanca) {
+            itemExistente.etiqueta_balanca = etiquetaBalanca;
+        }
         if (subtotalEtiquetaFixo != null && Number.isFinite(subtotalEtiquetaFixo)) {
             itemExistente.subtotal = Number((Number(itemExistente.subtotal || 0) + subtotalEtiquetaFixo).toFixed(2));
         }
@@ -4352,6 +4479,11 @@ function adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExt
                 : (etiquetaBalanca ? normalizarQuantidadeEtiquetaPdv(quantidade) : Number(quantidade.toFixed(2)));
 
             const novoItem = {
+                linha_id: decisaoComposicao.linha_id
+                    || (typeof PDVItemCompositionService !== 'undefined'
+                        && typeof PDVItemCompositionService.gerarLinhaId === 'function'
+                        ? PDVItemCompositionService.gerarLinhaId()
+                        : ('L' + Date.now())),
                 id: produto.id,
                 nome: produto.nome,
                 quantidade: qtdCarrinho,
@@ -4368,6 +4500,12 @@ function adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExt
                 tipo_venda: tipoVenda,
                 transferencia_nao_fiscal_para_fiscal: quantidadeTransferirLinha
             };
+            if (etiquetaBalanca) {
+                novoItem.etiqueta_balanca = etiquetaBalanca;
+            }
+            if (subtotalEtiquetaFixo != null && Number.isFinite(subtotalEtiquetaFixo)) {
+                novoItem.subtotal_fixo = subtotalEtiquetaFixo;
+            }
 
             if (subtotalEtiquetaFixo != null && Number.isFinite(subtotalEtiquetaFixo)) {
                 novoItem.subtotal = Number(subtotalEtiquetaFixo.toFixed(2));
@@ -4384,9 +4522,9 @@ function adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExt
             carrinho.push(novoItem);
     }
 
-    const idxDestaque = carrinho.findIndex((item) =>
-        Number(item.id) === Number(produto.id) && normalizarTipoVendaItem(item) === tipoVenda
-    );
+    const idxDestaque = itemExistente
+        ? carrinho.indexOf(itemExistente)
+        : carrinho.length - 1;
     // Nova venda após entrega configurada → volta o texto padrão do botão
     if (window.PdvVendaEntrega && typeof PdvVendaEntrega.estaConfigurada === 'function'
         && PdvVendaEntrega.estaConfigurada()) {

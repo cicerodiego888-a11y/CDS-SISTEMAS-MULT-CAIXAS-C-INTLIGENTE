@@ -229,7 +229,19 @@ class CentralNsuService {
       maxNsu: candidataMax,
       ultimoCstat: cStat,
       cooldownAte: null,
-      dataSincronizacao: agora.toISOString()
+      dataSincronizacao: agora.toISOString(),
+      ultimoRequestId: params.requestId || params.request_id || undefined,
+      ultimoLoteQtd: params.loteQtd != null ? Number(params.loteQtd) : undefined,
+      ultimoXmotivo: params.xMotivo || params.xmotivo || undefined,
+      ultimoStatusSync: params.statusSync || undefined,
+      lacunasJson: params.lacunasJson != null
+        ? (typeof params.lacunasJson === 'string'
+          ? params.lacunasJson
+          : JSON.stringify(params.lacunasJson))
+        : undefined,
+      cursorAnterior: atualUlt,
+      motivoAvanco: params.motivoAvanco
+        || `NSU ${atualUlt} → ${candidataUlt} (maxNSU=${candidataMax})`
     });
 
     logOperacaoCentral({
@@ -239,7 +251,13 @@ class CentralNsuService {
       cStat,
       resultado: 'OK',
       origem: 'CentralNsuService',
-      detalhe: { maxNsu: candidataMax }
+      detalhe: {
+        maxNsu: candidataMax,
+        cursorAnterior: atualUlt,
+        requestId: params.requestId || params.request_id || null,
+        loteQtd: params.loteQtd != null ? Number(params.loteQtd) : null,
+        motivo: params.motivoAvanco || null
+      }
     });
 
     return {
@@ -249,7 +267,8 @@ class CentralNsuService {
       cooldownAtivo: false,
       proximaConsultaEm: null,
       ultNsu: candidataUlt,
-      maxNsu: candidataMax
+      maxNsu: candidataMax,
+      cursorAnterior: atualUlt
     };
   }
 

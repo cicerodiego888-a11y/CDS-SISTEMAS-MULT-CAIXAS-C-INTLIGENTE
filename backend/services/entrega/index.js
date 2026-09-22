@@ -6,6 +6,7 @@ module.exports = {
   ...require('./enums'),
   ...require('./EntregaAuditoria'),
   ...require('./ComprovantePrestacao'),
+  ...require('./EntregaClienteSnapshot'),
   ...require('./EntregaRepository'),
   ...require('./EntregaValidator'),
   ...require('./EntregaService'),

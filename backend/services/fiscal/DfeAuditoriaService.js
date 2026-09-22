@@ -126,7 +126,10 @@ class DfeAuditoriaService {
         ultNsuNovo: dados.ultNsuNovo || dados.ultNsu,
         maxNsu: dados.maxNsu,
         avancou: !!dados.avancou,
-        cStat: dados.cStat
+        cStat: dados.cStat,
+        request_id: dados.request_id || dados.requestId || null,
+        loteQtd: dados.loteQtd != null ? Number(dados.loteQtd) : null,
+        lacunas: dados.lacunas != null ? Number(dados.lacunas) : null
       }
     });
   }
@@ -189,6 +192,10 @@ class DfeAuditoriaService {
     if (filtros.cnpj) {
       where.push('cnpj = ?');
       params.push(String(filtros.cnpj).replace(/\D/g, ''));
+    }
+    if (filtros.ambiente != null) {
+      where.push('ambiente = ?');
+      params.push(Number(filtros.ambiente));
     }
     if (filtros.dataInicio || filtros.data_inicio) {
       where.push('date(created_at) >= date(?)');

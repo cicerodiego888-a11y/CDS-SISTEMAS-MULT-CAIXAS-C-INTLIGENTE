@@ -451,6 +451,123 @@ router.post('/configuracao/testar-certificado', (req, res) => configuracaoContro
 router.post('/configuracao/health', (req, res) => configuracaoController.health(req, res));
 router.post('/configuracao/limpar-cache', (req, res) => configuracaoController.limparCache(req, res));
 
+/** Sprint 5 — Política operacional ASSISTIDO / AUTOMÁTICO */
+router.get('/operacao/config', async (req, res) => {
+  try {
+    const { obterOrchestratorOperacao } = require('../services/fiscal/central');
+    const orch = obterOrchestratorOperacao();
+    const cfg = await orch.obterConfig(req.query.cnpj || null, req.query.ambiente);
+    return res.json(cfg);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/operacao/config', async (req, res) => {
+  try {
+    const { obterOrchestratorOperacao } = require('../services/fiscal/central');
+    const orch = obterOrchestratorOperacao();
+    const body = req.body || {};
+    const cfg = await orch.salvarConfig(
+      {
+        modo: body.modo || body.modoOperacao,
+        flags: body.flags || body.acoesAutomaticas || {}
+      },
+      body.cnpj || req.query.cnpj || null,
+      body.ambiente != null ? body.ambiente : req.query.ambiente
+    );
+    return res.json(cfg);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/operacao/acoes-pendentes', async (req, res) => {
+  try {
+    const { obterOrchestratorOperacao } = require('../services/fiscal/central');
+    const orch = obterOrchestratorOperacao();
+    return res.json({
+      pendentes: orch.listarAcoesPendentes(req.query.cnpj || null, req.query.ambiente)
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/operacao/acoes/:actionId/confirmar', async (req, res) => {
+  try {
+    const { obterOrchestratorOperacao } = require('../services/fiscal/central');
+    const orch = obterOrchestratorOperacao();
+    const r = await orch.confirmarAcao(req.params.actionId, {
+      usuarioId: req.user?.id || req.usuario?.id || null
+    });
+    return res.json(r);
+  } catch (error) {
+    return res.status(error.status || 500).json({ error: error.message });
+  }
+});
+
+router.post('/operacao/acoes', async (req, res) => {
+  try {
+    const { obterOrchestratorOperacao } = require('../services/fiscal/central');
+    const orch = obterOrchestratorOperacao();
+    const body = req.body || {};
+    const r = await orch.solicitarAcao({
+      ...body,
+      origem: 'MANUAL',
+      usuarioId: req.user?.id || req.usuario?.id || null,
+      confirmado: body.confirmado === true
+    });
+    return res.json(r);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/operacao/auditoria', async (req, res) => {
+  try {
+    const { obterOrchestratorOperacao } = require('../services/fiscal/central');
+    const orch = obterOrchestratorOperacao();
+    return res.json({
+      registros: orch.listarAuditoria({
+        cnpj: req.query.cnpj || null,
+        ambiente: req.query.ambiente,
+        action_id: req.query.action_id || null,
+        limite: req.query.limite
+      })
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/operacao/painel', async (req, res) => {
+  try {
+    const { obterOrchestratorOperacao } = require('../services/fiscal/central');
+    const orch = obterOrchestratorOperacao();
+    const painel = await orch.obterPainelDashboard(req.query.cnpj || null, req.query.ambiente);
+    return res.json(painel);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/operacao/ciclo', async (req, res) => {
+  try {
+    const { obterOrchestratorOperacao } = require('../services/fiscal/central');
+    const orch = obterOrchestratorOperacao();
+    const body = req.body || {};
+    const r = await orch.executarCicloOperacional(
+      body.cnpj || req.query.cnpj,
+      body.ambiente != null ? body.ambiente : req.query.ambiente,
+      { periodo: body.periodo }
+    );
+    return res.json(r);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 router.get('/servico/status', async (req, res) => {
   try {
     const status = centralEntradasService.obterStatusServico();

@@ -1,8 +1,9 @@
 /**
- * CentralSyncExecucaoService — Execução de sincronização com mutex único (RC3.3.3).
+ * CentralSyncExecucaoService — Execução de sincronização com mutex (RC3.3.3 + Sprint 3).
  *
  * Proteção:
- * - nunca duas DistDFe simultâneas no processo;
+ * - 1 sincronização ativa por CNPJ + ambiente;
+ * - CNPJs diferentes podem operar em paralelo (Gate serializa SOAP por identidade);
  * - `forcar` ignora apenas cooldown/horário, NÃO o mutex;
  * - ciclo-dfe / diagnóstico devem usar `comLockDistDfe`.
  *
@@ -16,9 +17,10 @@ const CentralNsuRepository = require('../repositories/CentralNsuRepository');
 const CentralNsuService = require('./CentralNsuService');
 const { TIPOS_EVENTO, ORIGENS } = require('../config/centralEventosTipos');
 const { emitirEvento } = require('../utils/centralEventosEmitter');
-const { logCentral, logCentralErro } = require('../utils/centralLog');
+const { logCentralErro } = require('../utils/centralLog');
 const { criarCorrelationId, logOperacaoCentral } = require('../utils/centralOperacaoLog');
 const SincronizacaoResultadoDTO = require('../contracts/SincronizacaoResultadoDTO');
+const { obterDistNsuSyncLock } = require('../descoberta-nsu');
 
 class CentralSyncExecucaoService {
   constructor(deps = {}) {
@@ -35,6 +37,7 @@ class CentralSyncExecucaoService {
       ?? new CentralConfiguracaoService();
     this._notificacoes = deps.notificacoesService ?? new CentralNotificacoesService();
     this._emitirEvento = deps.emitirEvento || emitirEvento;
+    this._syncLock = deps.syncLock || obterDistNsuSyncLock();
     this._executando = false;
     this._lockDono = null;
     this._ultimaExecucao = null;
@@ -42,8 +45,9 @@ class CentralSyncExecucaoService {
     this._ultimoResultado = null;
   }
 
-  estaExecutando() {
-    return this._executando;
+  estaExecutando(cnpj = null, ambiente = null) {
+    if (cnpj != null) return this._syncLock.estaExecutando(cnpj, ambiente);
+    return this._executando || this._syncLock.estaExecutando();
   }
 
   definirProximaExecucao(data) {
@@ -52,8 +56,9 @@ class CentralSyncExecucaoService {
 
   obterEstado() {
     return {
-      executando: this._executando,
+      executando: this.estaExecutando(),
       lockDono: this._lockDono,
+      locksAtivos: this._syncLock.listarAtivos(),
       ultimaExecucao: this._ultimaExecucao,
       proximaExecucao: this._proximaExecucao,
       ultimoResultado: this._ultimoResultado
@@ -61,30 +66,30 @@ class CentralSyncExecucaoService {
   }
 
   /**
-   * Mutex único para qualquer DistDFe (sync, ciclo-dfe, diagnóstico).
+   * Mutex por CNPJ+ambiente (Sprint 3). Identidade opcional → lock global "*".
    * @param {string} dono
    * @param {Function} fn
-   * @returns {Promise<*>}
+   * @param {{ cnpj?: string, ambiente?: number }} [identidade]
    */
-  async comLockDistDfe(dono, fn) {
-    if (this._executando) {
+  async comLockDistDfe(dono, fn, identidade = {}) {
+    const resultado = await this._syncLock.comLock(dono, async () => {
+      this._executando = true;
+      this._lockDono = dono || 'dist-dfe';
+      try {
+        return await fn();
+      } finally {
+        this._executando = false;
+        this._lockDono = null;
+      }
+    }, identidade);
+
+    if (resultado && resultado.codigo === 'SYNC_EM_ANDAMENTO') {
       return {
-        sucesso: false,
-        ignorado: true,
-        codigo: 'SYNC_EM_ANDAMENTO',
-        mensagem: `Sincronização já em andamento (${this._lockDono || 'desconhecido'})`,
-        erros: ['Sincronização já em andamento']
+        ...resultado,
+        mensagem: resultado.mensagem || 'Sincronização já em andamento.'
       };
     }
-
-    this._executando = true;
-    this._lockDono = dono || 'dist-dfe';
-    try {
-      return await fn();
-    } finally {
-      this._executando = false;
-      this._lockDono = null;
-    }
+    return resultado;
   }
 
   /**
@@ -98,7 +103,6 @@ class CentralSyncExecucaoService {
     const usuarioId = opcoes.usuarioId ?? null;
     const correlationId = opcoes.correlationId || criarCorrelationId();
 
-    // RC7.4.2 — Gate operacional único (656/593). forcar NÃO bypassa.
     if (opcoes.ignorarBloqueio656 !== true) {
       try {
         const gate = require('./CentralSefazOperationalGate');
@@ -149,6 +153,19 @@ class CentralSyncExecucaoService {
       }
     }
 
+    let identidade = { cnpj: opcoes.cnpj, ambiente: opcoes.ambiente };
+    if (!identidade.cnpj) {
+      try {
+        const ctx = await this._config.obterContextoOperacional();
+        if (ctx.ok) {
+          identidade = {
+            cnpj: ctx.contexto.cnpj,
+            ambiente: Number(ctx.contexto.ambiente) === 1 ? 1 : 2
+          };
+        }
+      } catch { /* lock global */ }
+    }
+
     return this.comLockDistDfe(`sync:${origem}`, async () => {
       const inicio = Date.now();
       this._ultimaExecucao = new Date().toISOString();
@@ -168,7 +185,7 @@ class CentralSyncExecucaoService {
         resultado: 'em_andamento',
         sucesso: null,
         usuarioId,
-        detalhe: { correlationId }
+        detalhe: { correlationId, ...identidade }
       });
 
       try {
@@ -183,15 +200,7 @@ class CentralSyncExecucaoService {
         const duracaoMs = Date.now() - inicio;
         this._ultimoResultado = resultado;
 
-        if (String(resultado.cStat) === '656' || String(resultado.cStat) === '593') {
-          try {
-            await require('./CentralSefazOperationalGate').processarRespostaSefaz(resultado, {
-              correlationId,
-              nsu: resultado.ultNsu || null
-            });
-            resultado.gateProcessado = true;
-          } catch { /* ignore */ }
-        } else if (resultado.cStat) {
+        if (resultado.cStat) {
           try {
             await require('./CentralSefazOperationalGate').processarRespostaSefaz(resultado, {
               correlationId,
@@ -217,7 +226,9 @@ class CentralSyncExecucaoService {
             notasDuplicadas: resultado.notasDuplicadas || 0,
             cStat: resultado.cStat || null,
             ultNsu: resultado.ultNsu || null,
-            maxNsu: resultado.maxNsu || null
+            maxNsu: resultado.maxNsu || null,
+            requestId: resultado.requestId || null,
+            statusSync: resultado.statusSync || null
           }
         });
 
@@ -272,7 +283,7 @@ class CentralSyncExecucaoService {
 
         return { ...falha, duracaoMs, origem, correlationId };
       }
-    });
+    }, identidade);
   }
 
   /** @private */

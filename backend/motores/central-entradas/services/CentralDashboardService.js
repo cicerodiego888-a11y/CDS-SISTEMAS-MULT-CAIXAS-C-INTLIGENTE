@@ -30,7 +30,20 @@ class CentralDashboardService {
    */
   async obterResumo() {
     const contadoresPorStatus = await this._documentosRepository.contarPorStatus({});
-    const ultimoNsu = await this._nsuRepository.obterUltimaSincronizacao();
+    let ultimoNsu = null;
+    try {
+      const cfg = new (require('./CentralConfiguracaoService'))();
+      const ctx = await cfg.obterContextoOperacional();
+      if (ctx.ok) {
+        ultimoNsu = await this._nsuRepository.buscarPorCnpjAmbiente(
+          String(ctx.contexto.cnpj || '').replace(/\D/g, ''),
+          Number(ctx.contexto.ambiente) === 1 ? 1 : 2
+        );
+      }
+    } catch { /* fallback */ }
+    if (!ultimoNsu) {
+      ultimoNsu = await this._nsuRepository.obterUltimaSincronizacao();
+    }
     const estatisticas = await this._documentosRepository.obterEstatisticas();
 
     const contadores = {};
@@ -52,6 +65,85 @@ class CentralDashboardService {
     } catch {
       saude = null;
     }
+
+    let reconcilicao = null;
+    try {
+      if (ultimoNsu?.cnpj) {
+        const { MotorReconcilicaoDfe } = require('../../../services/fiscal/descoberta-nsu');
+        const motor = new MotorReconcilicaoDfe({
+          nsuRepository: this._nsuRepository,
+          documentosRepository: this._documentosRepository
+        });
+        const snap = motor.obterUltimoSnapshot(ultimoNsu.cnpj, ultimoNsu.ambiente);
+        if (snap) {
+          reconcilicao = {
+            titulo: 'RECONCILIAÇÃO DA CENTRAL',
+            origem: 'snapshot',
+            executadoEm: snap.executadoEm || snap.snapshotEm,
+            status: snap.status,
+            statusLabel: snap.statusLabel,
+            indicadores: snap.indicadoresDashboard,
+            somenteDiagnostico: true
+          };
+        } else {
+          const resumo = await motor.obterResumo(ultimoNsu.cnpj, ultimoNsu.ambiente, {
+            cursor: ultimoNsu,
+            periodo: 'ultima_sincronizacao'
+          });
+          reconcilicao = {
+            titulo: 'RECONCILIAÇÃO DA CENTRAL',
+            origem: 'resumo',
+            executadoEm: resumo.executadoEm,
+            reconciliationId: resumo.reconciliationId,
+            status: resumo.status,
+            statusLabel: resumo.statusLabel,
+            indicadores: resumo.indicadoresDashboard,
+            cursor: resumo.cursor,
+            resumo: resumo.resumo,
+            somenteDiagnostico: true
+          };
+        }
+      }
+    } catch {
+      reconcilicao = null;
+    }
+
+    let operacao = {
+      modo: 'ASSISTIDO',
+      modoLabel: 'Assistido',
+      modoVisual: 'amarelo',
+      acoesAguardandoConfirmacao: 0,
+      pendentes: [],
+      resumo: {
+        ultNsu: ultimoNsu?.ultNsu || null,
+        maxNsu: ultimoNsu?.maxNsu || null,
+        xmlPendentes: reconcilicao?.indicadores?.xmlPendentes ?? null,
+        documentosPosteriores: reconcilicao?.indicadores?.documentosPosteriores ?? null,
+        possiveisLacunas: reconcilicao?.indicadores?.possiveisLacunas ?? null,
+        inconsistencias: reconcilicao?.indicadores?.inconsistencias ?? null,
+        acoesAguardandoConfirmacao: 0
+      }
+    };
+    try {
+      const { obterOrchestratorOperacao } = require('../../../services/fiscal/central');
+      const orch = obterOrchestratorOperacao();
+      const painel = await orch.obterPainelDashboard(
+        ultimoNsu?.cnpj || null,
+        ultimoNsu?.ambiente != null ? Number(ultimoNsu.ambiente) : null
+      );
+      operacao = {
+        ...painel,
+        resumo: {
+          ultNsu: ultimoNsu?.ultNsu || null,
+          maxNsu: ultimoNsu?.maxNsu || null,
+          xmlPendentes: reconcilicao?.indicadores?.xmlPendentes ?? null,
+          documentosPosteriores: reconcilicao?.indicadores?.documentosPosteriores ?? null,
+          possiveisLacunas: reconcilicao?.indicadores?.possiveisLacunas ?? null,
+          inconsistencias: reconcilicao?.indicadores?.inconsistencias ?? null,
+          acoesAguardandoConfirmacao: painel.acoesAguardandoConfirmacao || 0
+        }
+      };
+    } catch { /* defaults acima */ }
 
     return CentralDashboardDTO.create({
       contadores: {
@@ -105,7 +197,9 @@ class CentralDashboardService {
           return null;
         }
       })(),
-      saude
+      saude,
+      reconcilicao,
+      operacao
     }).toJSON();
   }
 }

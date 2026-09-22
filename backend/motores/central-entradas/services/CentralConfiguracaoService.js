@@ -45,7 +45,12 @@ const CHAVES = Object.freeze({
   RECUP_XML_INTERVALO: 'recuperacao_xml_intervalo_minutos',
   RECUP_XML_MAX_TENT: 'recuperacao_xml_max_tentativas',
   RECUP_XML_MAX_DIAS: 'recuperacao_xml_max_dias_monitoramento',
-  RECUP_XML_LOTE: 'recuperacao_xml_lote_por_ciclo'
+  RECUP_XML_LOTE: 'recuperacao_xml_lote_por_ciclo',
+  MODO_OPERACAO: 'central_modo_operacao',
+  AUTO_SYNC: 'central_auto_sincronizacao',
+  AUTO_XML: 'central_auto_recuperacao_xml',
+  AUTO_RETRY: 'central_auto_retry',
+  AUTO_RECON: 'central_auto_reconcilicao'
 });
 
 const POLITICAS_MANIFESTACAO = Object.freeze([
@@ -192,6 +197,29 @@ class CentralConfiguracaoService {
         lotePorCiclo: Number(mapa[CHAVES.RECUP_XML_LOTE]) || 5,
         intervalosPermitidos: [30, 60, 120, 360, 1440]
       },
+      operacao: (() => {
+        const { normalizarModo, ModoOperacao } = require('../../../services/fiscal/central/CentralOperationModes');
+        const modo = normalizarModo(mapa[CHAVES.MODO_OPERACAO]);
+        return {
+          modo,
+          modoLabel: modo === ModoOperacao.AUTOMATICO ? 'Automático — ações seguras' : 'Assistido',
+          acoesAutomaticas: {
+            sincronizacao: mapa[CHAVES.AUTO_SYNC] !== false,
+            recuperacaoXml: mapa[CHAVES.AUTO_XML] !== false,
+            retry: mapa[CHAVES.AUTO_RETRY] !== false,
+            reconcilicao: mapa[CHAVES.AUTO_RECON] !== false
+          },
+          protecoesSempreAtivas: [
+            'SEFAZQueryGate',
+            'RateLimiter',
+            'Cooldown',
+            'CircuitBreaker',
+            'Lock'
+          ],
+          explicacaoAssistido: 'A Central identifica situações e solicita confirmação antes de executar ações operacionais.',
+          explicacaoAutomatico: 'A Central executa automaticamente ações classificadas como seguras, sempre respeitando as proteções da SEFAZ e as regras do sistema.'
+        };
+      })(),
       diagnostico: await this._obterResumoDiagnostico(),
       avancado: {
         httpTimeoutMs: Number(mapa[CHAVES.HTTP_TIMEOUT]) || 90000,
@@ -342,7 +370,12 @@ class CentralConfiguracaoService {
       recuperacaoXmlIntervaloMinutos: [CHAVES.RECUP_XML_INTERVALO, 'number'],
       recuperacaoXmlMaxTentativas: [CHAVES.RECUP_XML_MAX_TENT, 'number'],
       recuperacaoXmlMaxDias: [CHAVES.RECUP_XML_MAX_DIAS, 'number'],
-      recuperacaoXmlLotePorCiclo: [CHAVES.RECUP_XML_LOTE, 'number']
+      recuperacaoXmlLotePorCiclo: [CHAVES.RECUP_XML_LOTE, 'number'],
+      centralModoOperacao: [CHAVES.MODO_OPERACAO, 'string'],
+      centralAutoSincronizacao: [CHAVES.AUTO_SYNC, 'boolean'],
+      centralAutoRecuperacaoXml: [CHAVES.AUTO_XML, 'boolean'],
+      centralAutoRetry: [CHAVES.AUTO_RETRY, 'boolean'],
+      centralAutoReconcilicao: [CHAVES.AUTO_RECON, 'boolean']
     };
 
     const flat = {
@@ -357,6 +390,19 @@ class CentralConfiguracaoService {
           recuperacaoXmlMaxTentativas: alteracoes.recuperacaoXml.maxTentativas,
           recuperacaoXmlMaxDias: alteracoes.recuperacaoXml.maxDiasMonitoramento,
           recuperacaoXmlLotePorCiclo: alteracoes.recuperacaoXml.lotePorCiclo
+        }
+        : {}),
+      ...(alteracoes.operacao
+        ? {
+          centralModoOperacao: alteracoes.operacao.modo || alteracoes.operacao.modoOperacao,
+          centralAutoSincronizacao: alteracoes.operacao.acoesAutomaticas?.sincronizacao
+            ?? alteracoes.operacao.flags?.sincronizacao,
+          centralAutoRecuperacaoXml: alteracoes.operacao.acoesAutomaticas?.recuperacaoXml
+            ?? alteracoes.operacao.flags?.recuperacaoXml,
+          centralAutoRetry: alteracoes.operacao.acoesAutomaticas?.retry
+            ?? alteracoes.operacao.flags?.retry,
+          centralAutoReconcilicao: alteracoes.operacao.acoesAutomaticas?.reconcilicao
+            ?? alteracoes.operacao.flags?.reconcilicao
         }
         : {})
     };
@@ -377,6 +423,11 @@ class CentralConfiguracaoService {
       throw new Error('Política de manifestação inválida.');
     }
 
+    if (flat.centralModoOperacao !== undefined) {
+      const { normalizarModo } = require('../../../services/fiscal/central/CentralOperationModes');
+      flat.centralModoOperacao = normalizarModo(flat.centralModoOperacao);
+    }
+
     for (const campoIgnorado of CAMPOS_ENDPOINT_SOAP_IGNORADOS) {
       delete flat[campoIgnorado];
     }
@@ -392,6 +443,13 @@ class CentralConfiguracaoService {
 
     await this._syncConfig.hidratarFlags();
     logCentral('CONFIG', { fase: 'atualizado', unificacaoFiscal: 'RC3.1' });
+
+    // Sprint 5 — invalidar cache em memória da política (não interrompe operações ativas)
+    try {
+      const { obterOrchestratorOperacao } = require('../../../services/fiscal/central');
+      const orch = obterOrchestratorOperacao();
+      orch._configStore?._porEmpresa?.clear?.();
+    } catch { /* ignore */ }
 
     // RC3.7.5 — reinicia motor se config de recuperação mudou
     try {

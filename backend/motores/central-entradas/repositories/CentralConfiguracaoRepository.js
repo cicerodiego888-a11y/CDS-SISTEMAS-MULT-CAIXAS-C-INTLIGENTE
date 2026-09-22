@@ -42,7 +42,13 @@ const DEFAULTS = Object.freeze([
   ['recuperacao_xml_intervalo_minutos', '60', 'number', 'RC3.7.5 — Intervalo do scheduler (min): 30|60|120|360|1440'],
   ['recuperacao_xml_max_tentativas', '48', 'number', 'RC3.7.5 — Máximo de tentativas consChNFe por documento'],
   ['recuperacao_xml_max_dias_monitoramento', '30', 'number', 'RC3.7.5 — Dias máximos em monitoramento'],
-  ['recuperacao_xml_lote_por_ciclo', '5', 'number', 'RC3.7.5 — Documentos consultados por ciclo']
+  ['recuperacao_xml_lote_por_ciclo', '5', 'number', 'RC3.7.5 — Documentos consultados por ciclo'],
+  ['recuperacao_xml_janela_dias', '90', 'number', 'Sprint 2 — Janela DistDFe (dias) para recuperação'],
+  ['central_modo_operacao', 'ASSISTIDO', 'string', 'Sprint 5 — Modo ASSISTIDO|AUTOMATICO'],
+  ['central_auto_sincronizacao', 'true', 'boolean', 'Sprint 5 — Sincronização automática (SAFE)'],
+  ['central_auto_recuperacao_xml', 'true', 'boolean', 'Sprint 5 — Recuperação XML automática (SAFE)'],
+  ['central_auto_retry', 'true', 'boolean', 'Sprint 5 — Retry recuperável automático'],
+  ['central_auto_reconcilicao', 'true', 'boolean', 'Sprint 5 — Reconciliação automática']
 ]);
 
 /** Chaves legadas — não semear; serviço ignora leitura/gravação. */

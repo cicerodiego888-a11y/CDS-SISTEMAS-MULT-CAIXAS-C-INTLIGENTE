@@ -10,7 +10,8 @@
     { id: 'empresa', icon: 'fa-building', label: 'Empresa', keywords: 'implantação tipo erp cfop csosn origem cest padrão fiscal empresa validade controlar lote fefo' },
     { id: 'plataformaFiscal', icon: 'fa-university', label: 'Plataforma Fiscal', keywords: 'ambiente produção homologação certificado csc uf sefaz urls qrcode nfc-e nf-e contingência webservices diagnóstico fiscal', fiscal: true },
     { id: 'modulosLicenciados', icon: 'fa-puzzle-piece', label: 'Módulos Licenciados', keywords: 'pdv pedidos expedição faturamento entregas nfe nfce compra fácil marketplace crm invisibilidade' },
-    { id: 'motores', icon: 'fa-brain', label: 'Motores Inteligentes', keywords: 'midp miip mib motor busca distribuição pagamentos ativar transferência estoque não fiscal fiscal pdv' },
+    { id: 'configuracoesPdv', icon: 'fa-shopping-cart', label: 'Configurações do PDV', keywords: 'pdv composição unificar separar automático preço desconto estoque ncm impressão cupom transferência fiscal operacional caixa' },
+    { id: 'motores', icon: 'fa-brain', label: 'Motores Inteligentes', keywords: 'midp miip mib motor busca distribuição pagamentos ativar central entradas assistido automático' },
     { id: 'equipamentos', icon: 'fa-cash-register', label: 'Equipamentos', keywords: 'tef pinpad equipamento' },
     { id: 'integracoes', icon: 'fa-plug', label: 'Integrações', keywords: 'pix tef pinpad automação bancária' },
     { id: 'licenciamentoCds', icon: 'fa-id-card', label: 'Licenciamento CDS', keywords: 'assinatura pix whatsapp renovação aviso dias mensagem qr code' },
@@ -207,27 +208,6 @@
             </button>
           </div>
         `, 'validade controlar lote fefo empresa')}
-        ${card('<i class="fas fa-boxes"></i> Venda sem estoque', `
-          <p class="cds-cfg-hint mb-3">
-            Somente <strong>Super Usuário</strong>.
-            <strong>DESATIVADO</strong> (padrão): bloqueia venda com saldo insuficiente.
-            <strong>ATIVADO</strong>: permite vender mesmo zerado — a baixa e a entrada continuam iguais; o saldo pode ficar negativo.
-            Não desliga o controle de estoque do cadastro.
-          </p>
-          <label class="form-label" for="cfgEmpresaPermiteVendaSemEstoque">Permitir venda sem estoque</label>
-          <select class="form-select mb-2" id="cfgEmpresaPermiteVendaSemEstoque" data-cfg-search="venda sem estoque negativo saldo insuficiente permitir">
-            <option value="DESATIVADO">DESATIVADO — bloquear saldo insuficiente</option>
-            <option value="ATIVADO">ATIVADO — permitir venda sem estoque</option>
-          </select>
-          <div class="cds-cfg-actions">
-            <button type="button" class="btn btn-warning btn-sm" id="btnPermitirVendaSemEstoque">
-              <i class="fas fa-unlock"></i> Permitir venda sem estoque
-            </button>
-            <button type="button" class="btn btn-primary btn-sm" id="btnSalvarEmpresaPermiteVendaSemEstoque">
-              <i class="fas fa-save"></i> Salvar
-            </button>
-          </div>
-        `, 'venda sem estoque negativo saldo insuficiente permitir')}
         ${fiscalUi ? `<div class="cds-cfg-note">Razão social, CNPJ, IE e certificado são editados em <strong>Plataforma Fiscal</strong> (Super Usuário).</div>
         <div id="secaoPadraoFiscalEmpresa">
           ${card('<i class="fas fa-file-invoice"></i> Padrão Fiscal da Empresa', `
@@ -732,7 +712,135 @@
             </button>
           </div>
         `, 'mib motor busca produtos cache ranking fuzzy aprendizado')}
-        ${card('<i class="fas fa-exchange-alt"></i> PDV — Transferência não fiscal → fiscal', `
+        ${card('<i class="fas fa-inbox"></i> CENTRAL DE ENTRADAS', `
+          <p class="cds-cfg-hint mb-2">
+            <strong>Modo Assistido:</strong>
+            a Central identifica situações e solicita confirmação antes de executar ações operacionais.
+          </p>
+          <p class="cds-cfg-hint mb-3">
+            <strong>Modo Automático:</strong>
+            a Central executa automaticamente ações classificadas como seguras,
+            sempre respeitando as proteções da SEFAZ e as regras do sistema.
+          </p>
+          <label class="form-label fw-semibold">Modo de operação</label>
+          <div class="form-check mb-1" data-cfg-search="assistido central entradas modo">
+            <input class="form-check-input" type="radio" name="cfgCentralModoOperacao" id="cfgCentralModoAssistido" value="ASSISTIDO" checked>
+            <label class="form-check-label" for="cfgCentralModoAssistido">Assistido</label>
+          </div>
+          <div class="form-check mb-3" data-cfg-search="automático ações seguras central entradas">
+            <input class="form-check-input" type="radio" name="cfgCentralModoOperacao" id="cfgCentralModoAutomatico" value="AUTOMATICO">
+            <label class="form-check-label" for="cfgCentralModoAutomatico">Automático — ações seguras</label>
+          </div>
+          <div class="cds-cfg-actions mb-3">
+            <button type="button" class="btn btn-primary btn-sm" id="btnSalvarCentralModoOperacao">
+              <i class="fas fa-save"></i> Salvar configuração
+            </button>
+            <span class="cds-cfg-hint ms-2" id="cfgCentralModoFeedback"></span>
+          </div>
+          <div class="mb-2 fw-semibold small">Ações automáticas seguras</div>
+          <div class="form-check" data-cfg-search="sincronização automática distnsu">
+            <input class="form-check-input" type="checkbox" id="cfgCentralAutoSync" checked>
+            <label class="form-check-label" for="cfgCentralAutoSync">Sincronização</label>
+          </div>
+          <div class="form-check" data-cfg-search="recuperação xml automática">
+            <input class="form-check-input" type="checkbox" id="cfgCentralAutoXml" checked>
+            <label class="form-check-label" for="cfgCentralAutoXml">Recuperação XML</label>
+          </div>
+          <div class="form-check" data-cfg-search="retry recuperável automático">
+            <input class="form-check-input" type="checkbox" id="cfgCentralAutoRetry" checked>
+            <label class="form-check-label" for="cfgCentralAutoRetry">Retry recuperável</label>
+          </div>
+          <div class="form-check mb-3" data-cfg-search="reconciliação automática">
+            <input class="form-check-input" type="checkbox" id="cfgCentralAutoRecon" checked>
+            <label class="form-check-label" for="cfgCentralAutoRecon">Reconciliação</label>
+          </div>
+          <div class="small text-muted">
+            <div class="fw-semibold mb-1">Proteções sempre ativas</div>
+            <div>🔒 Gate SEFAZ · 🔒 RateLimiter · 🔒 Cooldown · 🔒 Circuit Breaker · 🔒 Lock</div>
+          </div>
+        `, 'central entradas assistido automático modo operação sincronização xml retry reconciliação gate sefaz')}
+      </div>
+
+      <div class="cds-cfg-pane" data-cfg-pane="configuracoesPdv">
+        <h2 class="cds-cfg-pane__title"><i class="fas fa-shopping-cart"></i> Configurações do PDV</h2>
+        <p class="cds-cfg-pane__sub">Configure o comportamento operacional do PDV. Essas configurações são administrativas e não aparecem para o operador do caixa.</p>
+
+        <h3 class="cds-cfg-pane__section mt-3 mb-2">Composição da Venda</h3>
+        ${card('<i class="fas fa-layer-group"></i> Composição dos itens', `
+          <p class="cds-cfg-hint mb-3">
+            Somente <strong>Super Usuário</strong>. Define como produtos iguais entram no carrinho.
+            Padrão: <strong>UNIFICAR</strong> (comportamento atual).
+          </p>
+          <div class="form-check mb-2" data-cfg-search="unificar produtos composição carrinho">
+            <input class="form-check-input" type="radio" name="cfgPdvComposicaoItens" id="cfgPdvComposicaoUnificar" value="UNIFICAR">
+            <label class="form-check-label" for="cfgPdvComposicaoUnificar">
+              <strong>Unificar produtos</strong>
+              <span class="d-block cds-cfg-hint">Produtos iguais adicionados ao carrinho são agrupados em uma única linha.</span>
+            </label>
+          </div>
+          <div class="form-check mb-2" data-cfg-search="separar produtos composição carrinho">
+            <input class="form-check-input" type="radio" name="cfgPdvComposicaoItens" id="cfgPdvComposicaoSeparar" value="SEPARAR">
+            <label class="form-check-label" for="cfgPdvComposicaoSeparar">
+              <strong>Separar produtos</strong>
+              <span class="d-block cds-cfg-hint">Cada lançamento do produto permanece em uma linha independente.</span>
+            </label>
+          </div>
+          <div class="form-check mb-3" data-cfg-search="automático composição condições comerciais">
+            <input class="form-check-input" type="radio" name="cfgPdvComposicaoItens" id="cfgPdvComposicaoAutomatico" value="AUTOMATICO">
+            <label class="form-check-label" for="cfgPdvComposicaoAutomatico">
+              <strong>Automático</strong>
+              <span class="d-block cds-cfg-hint">O sistema decide quando linhas podem ser agrupadas conforme as condições comerciais.</span>
+            </label>
+          </div>
+          <div class="cds-cfg-actions">
+            <button type="button" class="btn btn-primary btn-sm" id="btnSalvarPdvComposicaoItens">
+              <i class="fas fa-save"></i> Salvar
+            </button>
+          </div>
+        `, 'composição unificar separar automático itens carrinho pdv')}
+
+        <h3 class="cds-cfg-pane__section mt-4 mb-2">Preços e Descontos</h3>
+        ${card('<i class="fas fa-edit"></i> Editar preço unitário', `
+          <p class="cds-cfg-hint mb-3">
+            Somente <strong>Super Usuário</strong> controla esta opção.
+            Quando <strong>DESATIVADO</strong> (padrão), o campo <strong>Unitário</strong> no carrinho do PDV permanece somente leitura.
+            Quando <strong>ATIVADO</strong>, o operador pode editar o unitário na venda e o sistema atualiza automaticamente o preço no cadastro do produto (estoque).
+          </p>
+          <label class="form-label" for="cfgPdvEditarPrecoUnitario">Permitir editar unitário no PDV e atualizar cadastro</label>
+          <select class="form-select" id="cfgPdvEditarPrecoUnitario" data-cfg-search="editar preço unitário pdv cadastro produto estoque">
+            <option value="DESATIVADO">DESATIVADO</option>
+            <option value="ATIVADO">ATIVADO</option>
+          </select>
+          <div class="cds-cfg-actions mt-2">
+            <button type="button" class="btn btn-primary btn-sm" id="btnSalvarPdvEditarPrecoUnitario">
+              <i class="fas fa-save"></i> Salvar
+            </button>
+          </div>
+        `, 'editar preço unitário pdv cadastro produto estoque super usuário')}
+
+        <h3 class="cds-cfg-pane__section mt-4 mb-2">Estoque</h3>
+        ${card('<i class="fas fa-boxes"></i> Venda sem estoque', `
+          <p class="cds-cfg-hint mb-3">
+            Somente <strong>Super Usuário</strong>.
+            <strong>DESATIVADO</strong> (padrão): bloqueia venda com saldo insuficiente.
+            <strong>ATIVADO</strong>: permite vender mesmo zerado — a baixa e a entrada continuam iguais; o saldo pode ficar negativo.
+            Não desliga o controle de estoque do cadastro.
+          </p>
+          <label class="form-label" for="cfgEmpresaPermiteVendaSemEstoque">Permitir venda sem estoque</label>
+          <select class="form-select mb-2" id="cfgEmpresaPermiteVendaSemEstoque" data-cfg-search="venda sem estoque negativo saldo insuficiente permitir">
+            <option value="DESATIVADO">DESATIVADO — bloquear saldo insuficiente</option>
+            <option value="ATIVADO">ATIVADO — permitir venda sem estoque</option>
+          </select>
+          <div class="cds-cfg-actions">
+            <button type="button" class="btn btn-warning btn-sm" id="btnPermitirVendaSemEstoque">
+              <i class="fas fa-unlock"></i> Permitir venda sem estoque
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" id="btnSalvarEmpresaPermiteVendaSemEstoque">
+              <i class="fas fa-save"></i> Salvar
+            </button>
+          </div>
+        `, 'venda sem estoque negativo saldo insuficiente permitir')}
+        ${card('<i class="fas fa-exchange-alt"></i> Transferência não fiscal → fiscal', `
           <p class="cds-cfg-hint mb-3">
             Somente <strong>Super Usuário</strong> controla esta opção.
             Quando <strong>DESATIVADO</strong> (padrão), o PDV não pergunta “Transferir estoque?”
@@ -750,24 +858,9 @@
             </button>
           </div>
         `, 'transferência estoque não fiscal fiscal pdv super usuário')}
-        ${card('<i class="fas fa-edit"></i> PDV — Editar preço unitário', `
-          <p class="cds-cfg-hint mb-3">
-            Somente <strong>Super Usuário</strong> controla esta opção.
-            Quando <strong>DESATIVADO</strong> (padrão), o campo <strong>Unitário</strong> no carrinho do PDV permanece somente leitura.
-            Quando <strong>ATIVADO</strong>, o operador pode editar o unitário na venda e o sistema atualiza automaticamente o preço no cadastro do produto (estoque).
-          </p>
-          <label class="form-label" for="cfgPdvEditarPrecoUnitario">Permitir editar unitário no PDV e atualizar cadastro</label>
-          <select class="form-select" id="cfgPdvEditarPrecoUnitario" data-cfg-search="editar preço unitário pdv cadastro produto estoque">
-            <option value="DESATIVADO">DESATIVADO</option>
-            <option value="ATIVADO">ATIVADO</option>
-          </select>
-          <div class="cds-cfg-actions mt-2">
-            <button type="button" class="btn btn-primary btn-sm" id="btnSalvarPdvEditarPrecoUnitario">
-              <i class="fas fa-save"></i> Salvar
-            </button>
-          </div>
-        `, 'editar preço unitário pdv cadastro produto estoque super usuário')}
-        ${card('<i class="fas fa-barcode"></i> PDV — NCM no cadastro', `
+
+        <h3 class="cds-cfg-pane__section mt-4 mb-2">Cadastro durante a Venda</h3>
+        ${card('<i class="fas fa-barcode"></i> NCM no cadastro', `
           <p class="cds-cfg-hint mb-3">
             Somente <strong>Super Usuário</strong>.
             Quando <strong>DESATIVADO</strong> (padrão), o PDV não pede NCM na inclusão.
@@ -785,7 +878,9 @@
             </button>
           </div>
         `, 'ncm pdv cadastro produto fiscal super usuário')}
-        ${card('<i class="fas fa-print"></i> PDV — Impressão de cupom', `
+
+        <h3 class="cds-cfg-pane__section mt-4 mb-2">Impressão</h3>
+        ${card('<i class="fas fa-print"></i> Impressão de cupom', `
           <p class="cds-cfg-hint mb-3">
             Somente <strong>Super Usuário</strong>.
             Quando <strong>ATIVADO</strong> (padrão), o PDV imprime o cupom ao finalizar a venda (NFC-e ou não fiscal).
@@ -802,6 +897,15 @@
             </button>
           </div>
         `, 'cupom impressão imprimir pdv fiscal super usuário')}
+
+        <h3 class="cds-cfg-pane__section mt-4 mb-2">Comportamento Fiscal</h3>
+        ${card('<i class="fas fa-file-invoice-dollar"></i> Operação fiscal no PDV', `
+          <p class="cds-cfg-hint mb-0">
+            Configurações operacionais do PDV relacionadas ao processo fiscal ficam nesta seção.
+            Certificado, CSC, ambiente SEFAZ, série, numeração e regras tributárias permanecem em
+            <strong>Plataforma Fiscal</strong> — não são movidos para cá.
+          </p>
+        `, 'comportamento fiscal operacional pdv plataforma')}
       </div>
     `;
   }
@@ -1038,6 +1142,59 @@
     }
   }
 
+  function hidratarComposicaoItensPdv() {
+    const radios = document.querySelectorAll('input[name="cfgPdvComposicaoItens"]');
+    if (!radios.length) return;
+    const api = typeof API_URL !== 'undefined' ? API_URL : '/api';
+    fetch(`${api}/configuracoes/pdv_composicao_itens`, {
+      headers: headersCfgApi()
+    }).then((r) => r.ok ? r.json() : { valor: 'UNIFICAR' }).then((data) => {
+      const valor = data && (data.valor === 'SEPARAR' || data.valor === 'AUTOMATICO')
+        ? data.valor
+        : 'UNIFICAR';
+      radios.forEach((radio) => {
+        radio.checked = radio.value === valor;
+      });
+    }).catch(() => {
+      radios.forEach((radio) => {
+        radio.checked = radio.value === 'UNIFICAR';
+      });
+    });
+  }
+
+  async function salvarComposicaoItensPdv() {
+    const sel = document.querySelector('input[name="cfgPdvComposicaoItens"]:checked');
+    const valor = sel && sel.value ? sel.value : 'UNIFICAR';
+    const api = typeof API_URL !== 'undefined' ? API_URL : '/api';
+    try {
+      const resp = await fetch(`${api}/configuracoes/pdv_composicao_itens`, {
+        method: 'PUT',
+        headers: headersCfgApi(),
+        body: JSON.stringify({ valor })
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error(data.error || data.erro || 'Não foi possível salvar.');
+      }
+      const normalizado = data.valor === 'SEPARAR' || data.valor === 'AUTOMATICO'
+        ? data.valor
+        : 'UNIFICAR';
+      document.querySelectorAll('input[name="cfgPdvComposicaoItens"]').forEach((radio) => {
+        radio.checked = radio.value === normalizado;
+      });
+      if (typeof global.showNotification === 'function') {
+        const label = normalizado === 'SEPARAR'
+          ? 'Separar produtos'
+          : (normalizado === 'AUTOMATICO' ? 'Automático' : 'Unificar produtos');
+        global.showNotification(`Composição do PDV: ${label}.`, 'success');
+      }
+    } catch (err) {
+      if (typeof global.showNotification === 'function') {
+        global.showNotification(err.message || 'Erro ao salvar configuração.', 'danger');
+      }
+    }
+  }
+
   function hidratarEmpresaPermiteVendaSemEstoque() {
     const sel = document.getElementById('cfgEmpresaPermiteVendaSemEstoque');
     if (!sel) return;
@@ -1152,6 +1309,65 @@
     document.querySelectorAll('input[name="cdsPoliticaManifestacao"]').forEach((el) => {
       el.checked = el.value === valor;
     });
+  }
+
+  function hidratarCentralModoOperacaoUi(operacao) {
+    const modo = String(operacao?.modo || 'ASSISTIDO').toUpperCase() === 'AUTOMATICO'
+      ? 'AUTOMATICO'
+      : 'ASSISTIDO';
+    document.querySelectorAll('input[name="cfgCentralModoOperacao"]').forEach((el) => {
+      el.checked = el.value === modo;
+    });
+    const flags = operacao?.acoesAutomaticas || operacao?.flags || {};
+    const setChk = (id, v) => {
+      const el = document.getElementById(id);
+      if (el) el.checked = v !== false;
+    };
+    setChk('cfgCentralAutoSync', flags.sincronizacao);
+    setChk('cfgCentralAutoXml', flags.recuperacaoXml);
+    setChk('cfgCentralAutoRetry', flags.retry);
+    setChk('cfgCentralAutoRecon', flags.reconcilicao);
+  }
+
+  async function salvarCentralModoOperacao() {
+    const selecionado = document.querySelector('input[name="cfgCentralModoOperacao"]:checked');
+    const modo = selecionado?.value || 'ASSISTIDO';
+    const feedback = document.getElementById('cfgCentralModoFeedback');
+    if (feedback) feedback.textContent = 'Salvando…';
+    const payload = {
+      operacao: {
+        modo,
+        acoesAutomaticas: {
+          sincronizacao: document.getElementById('cfgCentralAutoSync')?.checked !== false,
+          recuperacaoXml: document.getElementById('cfgCentralAutoXml')?.checked !== false,
+          retry: document.getElementById('cfgCentralAutoRetry')?.checked !== false,
+          reconcilicao: document.getElementById('cfgCentralAutoRecon')?.checked !== false
+        }
+      }
+    };
+    try {
+      const token = localStorage.getItem('token');
+      const resp = await fetch(`${global.API_URL}/central-entradas/configuracao`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+      hidratarCentralModoOperacaoUi(data.operacao || payload.operacao);
+      if (feedback) feedback.textContent = '✔ Salvo';
+      if (typeof global.showNotification === 'function') {
+        global.showNotification('Modo operacional da Central atualizado.', 'success');
+      }
+    } catch (err) {
+      if (feedback) feedback.textContent = '';
+      if (typeof global.showNotification === 'function') {
+        global.showNotification(err.message || 'Falha ao salvar modo operacional', 'danger');
+      }
+    }
   }
 
   async function salvarPoliticaManifestacaoCentro() {
@@ -1329,6 +1545,7 @@
           }
 
           hidratarPoliticaManifestacaoUi(painel.sefaz?.politicaManifestacao || 'MANUAL');
+          hidratarCentralModoOperacaoUi(painel.operacao);
         }
       } catch { /* ignore */ }
     }
@@ -1586,6 +1803,10 @@
     document.getElementById('btnSalvarPdvImprimirCupom')?.addEventListener('click', () => {
       void salvarImprimirCupomPdv();
     });
+    hidratarComposicaoItensPdv();
+    document.getElementById('btnSalvarPdvComposicaoItens')?.addEventListener('click', () => {
+      void salvarComposicaoItensPdv();
+    });
     hidratarFechamentoFiscalDia();
     document.getElementById('btnSalvarFechamentoFiscalDia')?.addEventListener('click', () => {
       void salvarFechamentoFiscalDia();
@@ -1617,6 +1838,10 @@
 
     document.getElementById('btnSalvarPoliticaManifestacao')?.addEventListener('click', () => {
       void salvarPoliticaManifestacaoCentro();
+    });
+
+    document.getElementById('btnSalvarCentralModoOperacao')?.addEventListener('click', () => {
+      void salvarCentralModoOperacao();
     });
 
     document.getElementById('btnCdsCfgSalvar')?.addEventListener('click', () => {

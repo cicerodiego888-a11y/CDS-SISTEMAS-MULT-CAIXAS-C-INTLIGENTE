@@ -313,7 +313,12 @@ async function salvarTerminal() {
       return;
     }
 
-    showNotification('Dispositivo atualizado com sucesso', 'success');
+    showNotification(
+      caixaId
+        ? 'Dispositivo vinculado ao caixa. Se outro terminal estava no mesmo caixa, ele foi desvinculado automaticamente.'
+        : 'Dispositivo atualizado (sem caixa vinculado).',
+      'success'
+    );
     const modal = bootstrap.Modal.getInstance(document.getElementById('modalEditarTerminal'));
     if (modal) modal.hide();
 

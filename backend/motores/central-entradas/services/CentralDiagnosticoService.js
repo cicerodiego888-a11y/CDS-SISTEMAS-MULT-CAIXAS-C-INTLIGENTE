@@ -10,8 +10,9 @@ const fs = require('fs');
 const path = require('path');
 const db = require('../../../database');
 const { carregarCertificadoPfx } = require('../../../services/fiscal/certificateService');
-const { enviarDistribuicaoDfe } = require('../../../services/fiscal/distribuicaoDfeRuntime');
+const { executarEnvioConsultaDfe } = require('../../../services/fiscal/distribuicaoDFe');
 const { extrairMetadadosRetorno } = require('../../../services/fiscal/dfeRetornoParser');
+const { ORIGENS } = require('../../../services/fiscal/sefaz/sefazGateConstants');
 const { DocumentoFiscalStatus } = require('../core/DocumentoFiscalStatus');
 const { validarTransicao } = require('../core/MaquinaEstadosDocumento');
 const { TIPOS_EVENTO } = require('../config/centralEventosTipos');
@@ -72,7 +73,8 @@ class CentralDiagnosticoService {
       logs,
       healthCheck,
       sistema,
-      comunicacao
+      comunicacao,
+      reconcilicao
     ] = await Promise.all([
       this._obterStatusGeral(),
       this._obterSefaz(),
@@ -86,7 +88,8 @@ class CentralDiagnosticoService {
       this._obterLogs(),
       this.executarHealthCheck({ silencioso: true }),
       this._obterSistema(),
-      this._obterComunicacaoSoap()
+      this._obterComunicacaoSoap(),
+      this._obterReconcilicao()
     ]);
 
     const painel = {
@@ -104,7 +107,8 @@ class CentralDiagnosticoService {
       logs,
       healthCheck,
       sistema,
-      comunicacao
+      comunicacao,
+      reconcilicao
     };
 
     this._cache.set(cacheKey, painel);
@@ -216,8 +220,12 @@ class CentralDiagnosticoService {
     const ambiente = ctx.ambiente;
     const codigoUf = ctx.codigoUf;
     const cnpj = ctx.cnpj;
-    const ultimoNsu = await this._nsuRepository.obterUltimaSincronizacao();
-    const ultNsu = String(ultimoNsu?.ultNsu || '000000000000000').padStart(15, '0');
+    // Sprint 3 — cursor do CNPJ/ambiente do contexto (não global)
+    const controleNsu = await this._nsuRepository.buscarPorCnpjAmbiente(
+      String(cnpj || '').replace(/\D/g, ''),
+      Number(ambiente) === 1 ? 1 : 2
+    );
+    const ultNsu = String(controleNsu?.ultNsu || '000000000000000').padStart(15, '0');
 
     const xmlConsulta = `
 <distDFeInt xmlns="http://www.portalfiscal.inf.br/nfe" versao="${ctx.versaoServico || '1.01'}">
@@ -230,14 +238,22 @@ class CentralDiagnosticoService {
 </distDFeInt>`;
 
     try {
-      const executarProbe = async () => enviarDistribuicaoDfe({
+      const executarProbe = async () => executarEnvioConsultaDfe(
         xmlConsulta,
+        {
+          cnpj,
+          certificadoPath: ctx.certificadoPath,
+          certificadoSenha: ctx.certificadoSenha,
+          fiscal_codigo_uf: codigoUf,
+          codigo_uf: codigoUf
+        },
         ambiente,
-        cUF: codigoUf,
-        certificadoPath: ctx.certificadoPath,
-        certificadoSenha: ctx.certificadoSenha,
-        versao: ctx.versaoServico || '1.01'
-      });
+        {
+          diagnostico: true,
+          origemSefazGate: ORIGENS.DIAGNOSTICO,
+          nsuRepository: this._nsuRepository
+        }
+      );
 
       // RC3.3.3 — probe DistNSU sob o mesmo mutex da sync (não altera NSU).
       let runtimeResult;
@@ -263,7 +279,7 @@ class CentralDiagnosticoService {
           xMotivo: runtimeResult.error || null
         };
       const tempoMs = Date.now() - inicio;
-      const sucesso = Boolean(runtimeResult.success)
+      const sucesso = Boolean(body)
         || meta.cStat === '138'
         || meta.cStat === '137';
 
@@ -350,10 +366,10 @@ class CentralDiagnosticoService {
   async _obterSefaz() {
     const CentralConfiguracaoService = require('./CentralConfiguracaoService');
     const NsuRecoveryService = require('./NsuRecoveryService');
+    const { CentralDistNsuDiagnosticoService } = require('../descoberta-nsu');
     const cfgSvc = new CentralConfiguracaoService();
-    const [ctxResult, ultimoNsu, ultimaSync, ultimoErro, tempoMedioMs, statusServico, ultimoAutoSync] = await Promise.all([
+    const [ctxResult, ultimaSync, ultimoErro, tempoMedioMs, statusServico, ultimoAutoSync] = await Promise.all([
       cfgSvc.obterContextoOperacional().catch(() => ({ ok: false })),
-      this._nsuRepository.obterUltimaSincronizacao(),
       this._eventosService.obterUltimaSyncConcluida(),
       this._eventosService.obterUltimoErroSync(),
       this._eventosService.obterTempoMedioSyncMs(),
@@ -362,6 +378,27 @@ class CentralDiagnosticoService {
     ]);
 
     const ambienteNum = ctxResult.ok ? Number(ctxResult.contexto.ambiente) : 2;
+    const cnpjCtx = ctxResult.ok ? String(ctxResult.contexto.cnpj || '').replace(/\D/g, '') : null;
+
+    // Sprint 3 — cursor do CNPJ/ambiente operacional (não o último global)
+    let ultimoNsu = null;
+    if (cnpjCtx) {
+      ultimoNsu = await this._nsuRepository.buscarPorCnpjAmbiente(cnpjCtx, ambienteNum === 1 ? 1 : 2);
+    }
+    if (!ultimoNsu) {
+      ultimoNsu = await this._nsuRepository.obterUltimaSincronizacao();
+    }
+
+    let painelDist = null;
+    try {
+      if (cnpjCtx) {
+        painelDist = await new CentralDistNsuDiagnosticoService({
+          nsuService: new (require('./CentralNsuService'))({ nsuRepository: this._nsuRepository }),
+          documentosRepository: this._documentosRepository
+        }).obterPainel(cnpjCtx, ambienteNum === 1 ? 1 : 2);
+      }
+    } catch { /* ignore */ }
+
     const detalheErro = ultimoErro?.detalhe || {};
     const detalheAuto = ultimoAutoSync?.detalhe || {};
     const recovery = new NsuRecoveryService({ nsuRepository: this._nsuRepository });
@@ -381,12 +418,25 @@ class CentralDiagnosticoService {
       tempoUltimaConsultaMs: ultimaSync?.duracaoMs ?? statusServico.ultimoResultado?.duracaoMs ?? null,
       documentosEncontrados: ultimaSync?.notasNovas ?? statusServico.ultimoResultado?.notasNovas ?? 0,
       ultimoNsuRecebido: ultimoNsu?.maxNsu || null,
-      ultimoNsuProcessado: ultimaSync?.detalhe?.ultNsu || ultimoNsu?.ultNsu || null,
+      ultimoNsuProcessado: painelDist?.ultimoNsuProcessado || ultimaSync?.detalhe?.ultNsu || ultimoNsu?.ultNsu || null,
       ultimoNsuSalvo: ultimoNsu?.ultNsu || null,
+      ultimoMaxNsuConhecido: painelDist?.ultimoMaxNsuConhecido || ultimoNsu?.maxNsu || null,
+      ultimoRequestId: painelDist?.ultimoRequestId || ultimoNsu?.ultimoRequestId || null,
+      quantidadeDocumentosUltimoLote: painelDist?.quantidadeDocumentosUltimoLote
+        ?? ultimoNsu?.ultimoLoteQtd
+        ?? 0,
+      ultimoXmotivo: painelDist?.ultimoXmotivo || ultimoNsu?.ultimoXmotivo || null,
+      statusSync: painelDist?.status || null,
+      statusSyncLabel: painelDist?.statusLabel || null,
+      documentosPosterioresDisponiveis: painelDist?.documentosPosterioresDisponiveis || false,
+      mensagemPosteriores: painelDist?.mensagemPosteriores || null,
+      lacunas: painelDist?.lacunas || [],
+      documentosAguardandoXmlCompleto: painelDist?.documentosAguardandoXmlCompleto || 0,
+      reconciliacao: painelDist?.reconciliacao || null,
       /** RC3.7.5.1 — painel NSU */
       nsuLocal: statusNsu.nsuLocal,
       nsuSefaz: statusNsu.nsuSefaz || detalheAuto.nsuRemoto || ultimoNsu?.maxNsu || null,
-      ultimoCstat: statusNsu.ultimoCstat || detalheErro.cStat || null,
+      ultimoCstat: painelDist?.ultimoCstat || statusNsu.ultimoCstat || detalheErro.cStat || null,
       statusNsu: statusNsu.status,
       cooldownNsuAte: statusNsu.cooldownAte,
       recuperadoAutomaticamente: statusNsu.recuperadoAutomaticamente,
@@ -656,8 +706,84 @@ class CentralDiagnosticoService {
           return null;
         }
       })(),
+      sefazQueryGate: (() => {
+        try {
+          const gate = require('../../../services/fiscal/sefaz/SEFAZQueryGate');
+          return {
+            titulo: 'SEFAZ QUERY GATE',
+            ultima_consulta: gate._audit?.ultima?.() || null,
+            consultas_recentes: gate._audit?.listarRecentes?.(15) || []
+          };
+        } catch {
+          return null;
+        }
+      })(),
+      recuperacaoXml: await (async () => {
+        try {
+          const { obterMotorRecuperacaoXml, labelStatusRecuperacao } = require('../recuperacao-xml');
+          const motor = obterMotorRecuperacaoXml();
+          const st = await motor.obterStatus();
+          const amostra = (st.fila || []).slice(0, 15).map((d) => ({
+            id: d.id,
+            chave: d.chave,
+            status: d.statusRecuperacao || d.status,
+            statusLabel: labelStatusRecuperacao(d.statusRecuperacao || d.status),
+            tentativas: d.tentativas,
+            ultimaTentativa: d.ultimaConsulta,
+            proximaTentativa: d.proximaTentativa,
+            ultimoCstat: d.ultimoCstat,
+            ultimoXmotivo: d.ultimoXmotivo,
+            requestId: d.ultimoRequestId
+          }));
+          return {
+            titulo: 'RECUPERAÇÃO XML (Sprint 2)',
+            ativo: motor.estaAtivo(),
+            documentosMonitorados: st.documentosMonitorados,
+            ultimaExecucao: st.ultimaExecucao,
+            proximaExecucao: st.proximaExecucao,
+            metricas: st.metricas,
+            amostra
+          };
+        } catch {
+          return null;
+        }
+      })(),
       repositories: repositorios
     };
+  }
+
+  /**
+   * Sprint 4 — reconciliação somente diagnóstico (resumo; profunda sob demanda).
+   * @private
+   */
+  async _obterReconcilicao(opcoes = {}) {
+    try {
+      const CentralConfiguracaoService = require('./CentralConfiguracaoService');
+      const { MotorReconcilicaoDfe } = require('../../../services/fiscal/descoberta-nsu');
+      const cfg = new CentralConfiguracaoService();
+      const ctx = await cfg.obterContextoOperacional().catch(() => ({ ok: false }));
+      if (!ctx.ok) return null;
+      const cnpj = String(ctx.contexto.cnpj || '').replace(/\D/g, '');
+      const ambiente = Number(ctx.contexto.ambiente) === 1 ? 1 : 2;
+      const motor = new MotorReconcilicaoDfe({
+        nsuRepository: this._nsuRepository,
+        documentosRepository: this._documentosRepository,
+        auditoriaService: new (require('../../../services/fiscal/DfeAuditoriaService').DfeAuditoriaService)()
+      });
+      if (opcoes.profunda) {
+        return motor.analisarProfundo(cnpj, ambiente, { periodo: opcoes.periodo || '7d' });
+      }
+      return motor.obterResumo(cnpj, ambiente, { periodo: opcoes.periodo || 'ultima_sincronizacao' });
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Análise profunda sob demanda (API/diagnóstico).
+   */
+  async obterReconcilicaoProfunda(opcoes = {}) {
+    return this._obterReconcilicao({ ...opcoes, profunda: true });
   }
 
   /** @private */

@@ -10,6 +10,7 @@ const EntregaAuditoriaEventos = Object.freeze({
   ENTREGA_CANCELADA: 'entrega_cancelada',
   ENTREGA_AGRUPADA: 'entrega_agrupada',
   ENTREGA_REABERTA: 'entrega_reaberta',
+  ENTREGA_EDITADA: 'entrega_editada',
   MUDANCA_STATUS: 'mudanca_status',
   TROCO_INFORMADO: 'troco_informado',
   MAQUINETA_INFORMADA: 'maquineta_informada',
@@ -65,7 +66,8 @@ const TIMELINE_LABELS = Object.freeze({
   [EntregaAuditoriaEventos.ENTREGA_CANCELADA]: 'Entrega cancelada',
   [EntregaAuditoriaEventos.MUDANCA_STATUS]: 'Mudança de status',
   [EntregaAuditoriaEventos.TROCO_INFORMADO]: 'Troco informado',
-  [EntregaAuditoriaEventos.MAQUINETA_INFORMADA]: 'Maquineta informada'
+  [EntregaAuditoriaEventos.MAQUINETA_INFORMADA]: 'Maquineta informada',
+  [EntregaAuditoriaEventos.ENTREGA_EDITADA]: 'Entrega editada'
 });
 
 const MODULO_AUDITORIA_ENTREGA = 'vendas_entrega';

@@ -330,6 +330,28 @@ class CentralEntradasOrchestrator {
       });
     } catch { /* ignore */ }
 
+    // Sprint 2 — diagnóstico real do ciclo de recuperação XML
+    try {
+      const {
+        obterMotorRecuperacaoXml,
+        labelStatusRecuperacao
+      } = require('./recuperacao-xml');
+      const diag = await obterMotorRecuperacaoXml().obterDiagnosticoRecuperacao(id);
+      if (diag) {
+        detalhe.recuperacaoXml = {
+          ...diag,
+          statusLabel: labelStatusRecuperacao(diag.statusRecuperacao || diag.statusDocumento)
+        };
+        if (detalhe.documento) {
+          detalhe.documento.recuperacaoXml = detalhe.recuperacaoXml;
+          if (diag.statusRecuperacao) {
+            detalhe.documento.statusRecuperacao = diag.statusRecuperacao;
+            detalhe.documento.statusRecuperacaoLabel = detalhe.recuperacaoXml.statusLabel;
+          }
+        }
+      }
+    } catch { /* ignore */ }
+
     // RC3.4.3 — eventos + auditoria documental (somente leitura; sem SEFAZ).
     try {
       const {

@@ -24,12 +24,16 @@ const DocumentoFiscalStatus = Object.freeze({
   DENEGADA: 'DENEGADA',
   INUTILIZADA: 'INUTILIZADA',
   ERRO: 'ERRO',
+  RECUPERACAO_ESGOTADA: 'RECUPERACAO_ESGOTADA',
+  FORA_JANELA_RECUPERACAO: 'FORA_JANELA_RECUPERACAO',
+  ERRO_RECUPERACAO: 'ERRO_RECUPERACAO',
 
   // —— Aliases legados (mesmo valor canônico) ——
   RECEBIDA: 'NOVA',
   SINCRONIZADA: 'XML_COMPLETO',
   EM_PROCESSAMENTO: 'XML_COMPLETO',
   AGUARDANDO_REVISAO: 'EM_REVISAO',
+  /** Alias legado: no banco/UI ainda pode aparecer; canônico = RESUMO_RECEBIDO */
   AGUARDANDO_XML_COMPLETO: 'RESUMO_RECEBIDO',
   XML_IMPORTADO_MANUALMENTE: 'XML_COMPLETO',
   REVISADA: 'PRONTA_IMPORTACAO',
@@ -54,7 +58,10 @@ const TODOS = Object.freeze([
   DocumentoFiscalStatus.CANCELADA,
   DocumentoFiscalStatus.DENEGADA,
   DocumentoFiscalStatus.INUTILIZADA,
-  DocumentoFiscalStatus.ERRO
+  DocumentoFiscalStatus.ERRO,
+  DocumentoFiscalStatus.RECUPERACAO_ESGOTADA,
+  DocumentoFiscalStatus.FORA_JANELA_RECUPERACAO,
+  DocumentoFiscalStatus.ERRO_RECUPERACAO
 ]);
 
 const ESTADOS_TERMINAIS = Object.freeze([
@@ -62,12 +69,14 @@ const ESTADOS_TERMINAIS = Object.freeze([
   DocumentoFiscalStatus.CANCELADA,
   DocumentoFiscalStatus.DENEGADA,
   DocumentoFiscalStatus.INUTILIZADA,
-  DocumentoFiscalStatus.XML_INDISPONIVEL
+  DocumentoFiscalStatus.XML_INDISPONIVEL,
+  DocumentoFiscalStatus.RECUPERACAO_ESGOTADA,
+  DocumentoFiscalStatus.FORA_JANELA_RECUPERACAO
 ]);
 
 const LABELS_UI = Object.freeze({
   [DocumentoFiscalStatus.NOVA]: 'Nova',
-  [DocumentoFiscalStatus.RESUMO_RECEBIDO]: 'Resumo recebido',
+  [DocumentoFiscalStatus.RESUMO_RECEBIDO]: 'Aguardando XML completo',
   [DocumentoFiscalStatus.XML_INDISPONIVEL]: 'XML Indisponível',
   [DocumentoFiscalStatus.XML_COMPLETO]: 'XML completo',
   [DocumentoFiscalStatus.EM_REVISAO]: 'Em revisão',
@@ -78,7 +87,10 @@ const LABELS_UI = Object.freeze({
   [DocumentoFiscalStatus.CANCELADA]: 'Cancelada',
   [DocumentoFiscalStatus.DENEGADA]: 'Denegada',
   [DocumentoFiscalStatus.INUTILIZADA]: 'Inutilizada',
-  [DocumentoFiscalStatus.ERRO]: 'Erro'
+  [DocumentoFiscalStatus.ERRO]: 'Erro',
+  [DocumentoFiscalStatus.RECUPERACAO_ESGOTADA]: 'Recuperação esgotada',
+  [DocumentoFiscalStatus.FORA_JANELA_RECUPERACAO]: 'Fora da janela de recuperação',
+  [DocumentoFiscalStatus.ERRO_RECUPERACAO]: 'Erro de recuperação'
 });
 
 /** Legado literal no banco → canônico. */
@@ -96,7 +108,10 @@ const MAPA_MIGRACAO_STATUS = Object.freeze({
   DESCARTADA: DocumentoFiscalStatus.FINALIZADA,
   DUPLICADA: DocumentoFiscalStatus.IMPORTADA,
   XML_INDISPONIVEL: DocumentoFiscalStatus.XML_INDISPONIVEL,
-  ERRO: DocumentoFiscalStatus.ERRO
+  ERRO: DocumentoFiscalStatus.ERRO,
+  RECUPERACAO_ESGOTADA: DocumentoFiscalStatus.RECUPERACAO_ESGOTADA,
+  FORA_JANELA_RECUPERACAO: DocumentoFiscalStatus.FORA_JANELA_RECUPERACAO,
+  ERRO_RECUPERACAO: DocumentoFiscalStatus.ERRO_RECUPERACAO
 });
 
 /**

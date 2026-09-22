@@ -85,6 +85,7 @@ function renderConfiguracoes(configuracoes) {
         config.chave !== 'pdv_exigir_ncm_cadastro' &&
         config.chave !== 'pdv_permitir_editar_preco_unitario' &&
         config.chave !== 'pdv_permitir_transferencia_nao_fiscal_fiscal' &&
+        config.chave !== 'pdv_composicao_itens' &&
         config.chave !== 'empresa_permite_venda_sem_estoque' &&
         config.chave !== 'empresa_controla_validade'
     );
@@ -606,6 +607,7 @@ async function saveConfiguracoes() {
             || chave === 'pdv_exigir_ncm_cadastro'
             || chave === 'pdv_permitir_editar_preco_unitario'
             || chave === 'pdv_permitir_transferencia_nao_fiscal_fiscal'
+            || chave === 'pdv_composicao_itens'
             || chave === 'empresa_permite_venda_sem_estoque'
             || chave === 'empresa_controla_validade'
         ) return;

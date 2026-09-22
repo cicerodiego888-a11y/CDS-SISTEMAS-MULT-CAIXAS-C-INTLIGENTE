@@ -137,15 +137,133 @@
     });
   }
 
-  function preencherEnderecoClienteEntrega(cli) {
+  function preencherCadastroCompletoEntrega(cli) {
     if (!cli) return;
+    if (cli.nome) $('#entregaNomeCliente').val(cli.nome);
+    if (cli.cpf_cnpj) $('#entregaCpfCnpj').val(cli.cpf_cnpj);
     if (cli.telefone) $('#entregaTelefone').val(cli.telefone);
+    if (cli.email) $('#entregaEmail').val(cli.email);
     if (cli.cep) $('#entregaCep').val(formatarCepEntrega(cli.cep));
     if (cli.rua || cli.endereco) $('#entregaEndereco').val(cli.rua || cli.endereco);
     if (cli.numero) $('#entregaNumero').val(cli.numero);
+    if (cli.complemento) $('#entregaComplemento').val(cli.complemento);
     if (cli.bairro) $('#entregaBairro').val(cli.bairro);
     if (cli.cidade) $('#entregaCidade').val(cli.cidade);
     if (cli.uf) $('#entregaUf').val(cli.uf);
+  }
+
+  function limparCamposClienteEntrega() {
+    $('#entregaClienteId').val('');
+    $('#entregaClienteBusca').val('');
+    $('#entregaNomeCliente').val('');
+    $('#entregaCpfCnpj').val('');
+    $('#entregaTelefone').val('');
+    $('#entregaEmail').val('');
+    $('#entregaClienteResultados').empty().hide();
+    $('#entregaClienteSelecionado').hide();
+    $('#entregaClienteSelecionadoNome').text('');
+  }
+
+  function ativarModoConsumidorAvulso() {
+    limparCamposClienteEntrega();
+    $('#entregaModoCliente').val('avulso');
+    $('#boxBuscaClienteEntrega').hide();
+    $('#boxConsumidorAvulsoHint').show();
+    $('#entregaNomeCliente').prop('readonly', false).trigger('focus');
+    $('#entregaCpfCnpj').prop('readonly', false);
+    $('#entregaEmail').prop('readonly', false);
+  }
+
+  function ativarModoBuscaCliente() {
+    $('#entregaModoCliente').val('busca');
+    $('#boxBuscaClienteEntrega').show();
+    $('#boxConsumidorAvulsoHint').hide();
+    limparCamposClienteEntrega();
+    $('#entregaNomeCliente').prop('readonly', false);
+    $('#entregaCpfCnpj').prop('readonly', false);
+    $('#entregaEmail').prop('readonly', false);
+    setTimeout(() => $('#entregaClienteBusca').trigger('focus'), 50);
+  }
+
+  async function carregarClienteCompletoEntrega(clienteId) {
+    const resp = await fetch(`${API_URL}/clientes/${clienteId}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    });
+    if (!resp.ok) throw new Error('Não foi possível carregar o cadastro do cliente.');
+    return resp.json();
+  }
+
+  function renderizarResultadosBuscaCliente(lista) {
+    const $box = $('#entregaClienteResultados');
+    if (!lista.length) {
+      $box.html('<div class="list-group-item text-muted small">Nenhum cliente encontrado</div>').show();
+      return;
+    }
+    const html = lista.map((c) => {
+      const nome = String(c.nome || '').replace(/</g, '&lt;');
+      const tel = String(c.telefone || '').replace(/</g, '&lt;');
+      return `<button type="button" class="list-group-item list-group-item-action entrega-cliente-item py-2"
+        data-id="${c.id}">
+        <div class="fw-semibold">${nome}</div>
+        <div class="small text-muted">${tel || 'Sem telefone'}</div>
+      </button>`;
+    }).join('');
+    $box.html(html).show();
+  }
+
+  let _buscaClienteTimer = null;
+  function vincularBuscaClienteEntrega() {
+    $('#entregaClienteBusca').off('input.entregaCli').on('input.entregaCli', function () {
+      const termo = String($(this).val() || '').trim();
+      clearTimeout(_buscaClienteTimer);
+      if (termo.length < 2) {
+        $('#entregaClienteResultados').empty().hide();
+        return;
+      }
+      _buscaClienteTimer = setTimeout(async () => {
+        try {
+          const resp = await fetch(
+            `${API_URL}/clientes/buscar?termo=${encodeURIComponent(termo)}`,
+            { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+          );
+          if (!resp.ok) return;
+          const data = await resp.json();
+          renderizarResultadosBuscaCliente(Array.isArray(data) ? data : []);
+        } catch (_) { /* ignore */ }
+      }, 280);
+    });
+
+    $('#entregaClienteResultados').off('click.entregaCli').on('click.entregaCli', '.entrega-cliente-item', async function () {
+      const id = Number($(this).data('id'));
+      if (!id) return;
+      try {
+        const cli = await carregarClienteCompletoEntrega(id);
+        if (!cli || !cli.id) throw new Error('Cliente inválido.');
+        $('#entregaClienteId').val(cli.id);
+        $('#entregaClienteBusca').val(cli.nome || '');
+        $('#entregaClienteResultados').empty().hide();
+        $('#entregaClienteSelecionado').show();
+        $('#entregaClienteSelecionadoNome').text(cli.nome || `Cliente #${cli.id}`);
+        $('#entregaModoCliente').val('cadastrado');
+        preencherCadastroCompletoEntrega(cli);
+      } catch (err) {
+        if (typeof showNotification === 'function') {
+          showNotification(err.message || 'Erro ao carregar cliente.', 'danger');
+        }
+      }
+    });
+
+    $('#btnRemoverClienteEntrega').off('click.entregaCli').on('click.entregaCli', function () {
+      ativarModoBuscaCliente();
+    });
+
+    $('#btnConsumidorAvulsoEntrega').off('click.entregaCli').on('click.entregaCli', function () {
+      ativarModoConsumidorAvulso();
+    });
+
+    $('#btnVoltarBuscaClienteEntrega').off('click.entregaCli').on('click.entregaCli', function () {
+      ativarModoBuscaCliente();
+    });
   }
 
   function montarItensPayload() {
@@ -313,14 +431,52 @@
                 — estoque será <strong>reservado</strong> (sem baixa definitiva).
               </div>
               <div class="row g-3">
-                <div class="col-md-8">
-                  <label class="form-label">Cliente (opcional)</label>
-                  <select class="form-select" id="entregaClienteId"><option value="">Consumidor</option></select>
+                <input type="hidden" id="entregaClienteId" value="">
+                <input type="hidden" id="entregaModoCliente" value="busca">
+                <div class="col-12">
+                  <label class="form-label">Cliente / Consumidor</label>
+                  <div id="boxBuscaClienteEntrega">
+                    <div class="input-group">
+                      <span class="input-group-text"><i class="fas fa-search"></i></span>
+                      <input type="text" class="form-control" id="entregaClienteBusca"
+                        placeholder="Digite nome ou telefone..." autocomplete="off">
+                    </div>
+                    <div id="entregaClienteResultados" class="list-group mt-1 shadow-sm"
+                      style="display:none;max-height:180px;overflow:auto;position:relative;z-index:5;"></div>
+                    <div id="entregaClienteSelecionado" class="alert alert-success py-2 mt-2 mb-0" style="display:none;">
+                      <div class="d-flex justify-content-between align-items-center gap-2">
+                        <span><i class="fas fa-user-check me-1"></i> <strong id="entregaClienteSelecionadoNome"></strong></span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRemoverClienteEntrega">Trocar</button>
+                      </div>
+                    </div>
+                    <div class="mt-2">
+                      <button type="button" class="btn btn-sm btn-outline-primary" id="btnConsumidorAvulsoEntrega">
+                        + Consumidor avulso
+                      </button>
+                    </div>
+                  </div>
+                  <div id="boxConsumidorAvulsoHint" class="alert alert-secondary py-2 mt-1 mb-0" style="display:none;">
+                    Consumidor avulso — dados só desta entrega (não cria cadastro).
+                    <button type="button" class="btn btn-sm btn-link p-0 ms-1" id="btnVoltarBuscaClienteEntrega">Buscar cliente</button>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Nome</label>
+                  <input type="text" class="form-control" id="entregaNomeCliente" placeholder="Consumidor">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">CPF/CNPJ</label>
+                  <input type="text" class="form-control" id="entregaCpfCnpj" placeholder="Opcional">
                 </div>
                 <div class="col-md-4">
                   <label class="form-label">Telefone</label>
                   <input type="text" class="form-control" id="entregaTelefone" placeholder="(00) 00000-0000">
                 </div>
+                <div class="col-md-8">
+                  <label class="form-label">E-mail</label>
+                  <input type="email" class="form-control" id="entregaEmail" placeholder="Opcional">
+                </div>
+                <div class="col-12"><hr class="my-1"><small class="text-muted text-uppercase fw-semibold">Endereço da entrega</small></div>
                 <div class="col-md-3">
                   <label class="form-label">CEP</label>
                   <div class="input-group">
@@ -442,31 +598,12 @@
     });
 
     vincularBuscaCepEntrega();
-    carregarClientesEntrega();
+    vincularBuscaClienteEntrega();
+    ativarModoBuscaCliente();
 
     $('#btnConfirmarEntregaPdv').off('click').on('click', async () => {
       await confirmarVendaEntrega(modal);
     });
-  }
-
-  async function carregarClientesEntrega() {
-    try {
-      const resp = await fetch(`${API_URL}/clientes?limit=200`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      if (!resp.ok) return;
-      const data = await resp.json();
-      const lista = Array.isArray(data) ? data : (data.clientes || data.items || []);
-      const $sel = $('#entregaClienteId');
-      lista.forEach((c) => {
-        $sel.append(`<option value="${c.id}">${String(c.nome || '').replace(/</g, '')}</option>`);
-      });
-      $sel.off('change').on('change', function () {
-        const id = $(this).val();
-        const cli = lista.find((c) => String(c.id) === String(id));
-        if (cli) preencherEnderecoClienteEntrega(cli);
-      });
-    } catch (_) { /* ignore */ }
   }
 
   async function confirmarVendaEntrega(modal) {
@@ -480,11 +617,17 @@
     const totalItens = obterTotalCarrinho();
     const total = Number((totalItens + taxa).toFixed(2));
     const levaTroco = $('input[name="entregaTroco"]:checked').val() === '1';
+    const clienteIdRaw = String($('#entregaClienteId').val() || '').trim();
+    const clienteId = clienteIdRaw ? Number(clienteIdRaw) : null;
+    const nomeInformado = String($('#entregaNomeCliente').val() || '').trim();
 
     const payload = montarPayloadComTerminal({
       tipo_venda: 'ENTREGA',
       emitir_fiscal: false,
-      cliente_id: $('#entregaClienteId').val() || null,
+      cliente_id: Number.isFinite(clienteId) && clienteId > 0 ? clienteId : null,
+      nome_cliente_entrega: nomeInformado || null,
+      cpf_cnpj_cliente_entrega: String($('#entregaCpfCnpj').val() || '').trim() || null,
+      email_cliente_entrega: String($('#entregaEmail').val() || '').trim() || null,
       total,
       desconto: Number($('#descontoPdv').val() || 0) || 0,
       itens: montarItensPayload(),

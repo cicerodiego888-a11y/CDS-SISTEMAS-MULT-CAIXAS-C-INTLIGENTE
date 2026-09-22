@@ -190,7 +190,11 @@ async function main() {
       configRepository: mem.configRepository,
       transitionService: mem.transitionService,
       gate: { autorizarConsultaDistDfe: async () => ({ permitido: true }) },
-      obterContextoOperacional: async () => ({ ok: true, contexto: {} }),
+      sefazQueryGate: { autorizar: async () => ({ permitido: true }) },
+      obterContextoOperacional: async () => ({
+        ok: true,
+        contexto: { cnpj: '35065903000640', ambiente: 1 }
+      }),
       consultarNotaPorChave: async () => ({ cStat: '137', notasNovas: 0 }),
       processarDocumento: async () => null,
       agora: () => new Date('2026-07-29T12:00:00Z')
@@ -238,7 +242,11 @@ async function main() {
       configRepository: mem.configRepository,
       transitionService: mem.transitionService,
       gate: { autorizarConsultaDistDfe: async () => ({ permitido: true }) },
-      obterContextoOperacional: async () => ({ ok: true, contexto: {} }),
+      sefazQueryGate: { autorizar: async () => ({ permitido: true }) },
+      obterContextoOperacional: async () => ({
+        ok: true,
+        contexto: { cnpj: '35065903000640', ambiente: 1 }
+      }),
       consultarNotaPorChave: async () => {
         await atualizacao.atualizarComXmlCompleto({
           documento: await mem.documentosRepository.buscarPorId(27),
@@ -318,7 +326,11 @@ async function main() {
       configRepository: mem.configRepository,
       transitionService: mem.transitionService,
       gate: { autorizarConsultaDistDfe: async () => ({ permitido: true }) },
-      obterContextoOperacional: async () => ({ ok: true, contexto: {} }),
+      sefazQueryGate: { autorizar: async () => ({ permitido: true }) },
+      obterContextoOperacional: async () => ({
+        ok: true,
+        contexto: { cnpj: '35065903000640', ambiente: 1 }
+      }),
       consultarNotaPorChave: async () => {
         throw new Error('não deveria consultar');
       },

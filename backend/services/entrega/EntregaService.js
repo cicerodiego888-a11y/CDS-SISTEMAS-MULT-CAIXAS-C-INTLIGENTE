@@ -15,7 +15,73 @@ const {
   TIMELINE_ORDEM
 } = require('./EntregaAuditoria');
 const { montarHtmlComprovantePrestacao } = require('./ComprovantePrestacao');
+const { montarSnapshotEntrega } = require('./EntregaClienteSnapshot');
 const { gravarAuditoria } = require('../auditoria');
+const db = require('../../database');
+
+const MSG_ENTREGA_JA_INICIADA = 'Esta entrega já foi iniciada e não pode mais ser editada.';
+
+const CAMPOS_EDITAVEIS_ANTES_INICIO = Object.freeze([
+  'cliente_id',
+  'nome_cliente_entrega',
+  'cpf_cnpj_cliente_entrega',
+  'email_cliente_entrega',
+  'telefone_entrega',
+  'cep_entrega',
+  'endereco_entrega',
+  'numero_entrega',
+  'complemento_entrega',
+  'bairro_entrega',
+  'cidade_entrega',
+  'uf_entrega',
+  'referencia_entrega',
+  'entregador',
+  'taxa_entrega',
+  'pagamento_previsto',
+  'leva_maquineta',
+  'troco_para',
+  'observacao_entrega'
+]);
+
+function buscarClientePorId(clienteId) {
+  return new Promise((resolve, reject) => {
+    if (!clienteId) return resolve(null);
+    db.get(
+      `SELECT id, nome, cpf_cnpj, telefone, email, cep, rua, numero, bairro, cidade, uf, endereco
+       FROM clientes WHERE id = ?`,
+      [clienteId],
+      (err, row) => (err ? reject(err) : resolve(row || null))
+    );
+  });
+}
+
+function valorComparavel(campo, valor) {
+  if (campo === 'leva_maquineta') {
+    return valor === true || valor === 1 || valor === '1' ? 1 : 0;
+  }
+  if (campo === 'taxa_entrega' || campo === 'troco_para') {
+    return Number(valor || 0);
+  }
+  if (campo === 'cliente_id') {
+    const n = Number(valor);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+  if (valor == null) return null;
+  const s = String(valor).trim();
+  return s === '' ? null : s;
+}
+
+function diffCamposEntrega(anterior, proximo) {
+  const alterados = [];
+  for (const campo of CAMPOS_EDITAVEIS_ANTES_INICIO) {
+    const de = valorComparavel(campo, anterior[campo]);
+    const para = valorComparavel(campo, proximo[campo]);
+    if (de !== para && String(de) !== String(para)) {
+      alterados.push({ campo, de, para });
+    }
+  }
+  return alterados;
+}
 
 function moduloHabilitado() {
   try {
@@ -29,6 +95,7 @@ class EntregaService {
   constructor(deps = {}) {
     this.repository = deps.repository || entregaRepository;
     this.validator = deps.validator || entregaValidator;
+    this._buscarCliente = deps.buscarCliente || buscarClientePorId;
   }
 
   estaHabilitado() {
@@ -123,6 +190,198 @@ class EntregaService {
     return { success: true, item };
   }
 
+  /**
+   * Edição operacional antes do início (Sprint 3).
+   * Somente AGUARDANDO_ENTREGA. Atualiza snapshot sem alterar cadastro mestre.
+   */
+  async editarEntrega(vendaId, payload = {}) {
+    const atual = await this.repository.buscarPorVendaId(vendaId);
+    if (!atual) {
+      const err = new Error('Venda para entrega não encontrada.');
+      err.status = 404;
+      throw err;
+    }
+
+    if (atual.status_venda === StatusVenda.CANCELADA || Number(atual.cancelada || 0) === 1
+      || atual.status_entrega === StatusEntrega.CANCELADA) {
+      const err = new Error('Não é permitido editar uma entrega cancelada.');
+      err.status = 400;
+      err.codigo = 'ENTREGA_CANCELADA';
+      throw err;
+    }
+
+    if (atual.status_entrega !== StatusEntrega.AGUARDANDO_ENTREGA) {
+      const err = new Error(MSG_ENTREGA_JA_INICIADA);
+      err.status = 409;
+      err.codigo = 'ENTREGA_JA_INICIADA';
+      throw err;
+    }
+
+    const ctx = payload._auditoria || {};
+    const body = { ...payload };
+    delete body._auditoria;
+    delete body.status_entrega;
+    delete body.status_venda;
+
+    if (Object.prototype.hasOwnProperty.call(body, 'pagamento_previsto')
+      && body.pagamento_previsto
+      && !this.validator.validarPagamentoPrevisto(body.pagamento_previsto)) {
+      const err = new Error('Pagamento previsto inválido.');
+      err.status = 400;
+      throw err;
+    }
+
+    let clienteId = Object.prototype.hasOwnProperty.call(body, 'cliente_id')
+      ? body.cliente_id
+      : atual.cliente_id;
+    const clienteIdNum = clienteId != null && String(clienteId).trim() !== ''
+      ? Number(clienteId)
+      : null;
+    const cliente = (Number.isFinite(clienteIdNum) && clienteIdNum > 0)
+      ? await this._buscarCliente(clienteIdNum)
+      : null;
+
+    if (Number.isFinite(clienteIdNum) && clienteIdNum > 0 && !cliente) {
+      const err = new Error('Cliente informado não encontrado.');
+      err.status = 400;
+      throw err;
+    }
+
+    const snapshotInput = {
+      cliente_id: Number.isFinite(clienteIdNum) && clienteIdNum > 0 ? clienteIdNum : null,
+      nome_cliente_entrega: Object.prototype.hasOwnProperty.call(body, 'nome_cliente_entrega')
+        ? body.nome_cliente_entrega
+        : (Object.prototype.hasOwnProperty.call(body, 'cliente_nome')
+          ? body.cliente_nome
+          : atual.nome_cliente_entrega),
+      cpf_cnpj_cliente_entrega: Object.prototype.hasOwnProperty.call(body, 'cpf_cnpj_cliente_entrega')
+        ? body.cpf_cnpj_cliente_entrega
+        : (Object.prototype.hasOwnProperty.call(body, 'cpf_cnpj')
+          ? body.cpf_cnpj
+          : atual.cpf_cnpj_cliente_entrega),
+      email_cliente_entrega: Object.prototype.hasOwnProperty.call(body, 'email_cliente_entrega')
+        ? body.email_cliente_entrega
+        : (Object.prototype.hasOwnProperty.call(body, 'email')
+          ? body.email
+          : atual.email_cliente_entrega),
+      telefone_entrega: Object.prototype.hasOwnProperty.call(body, 'telefone_entrega')
+        ? body.telefone_entrega
+        : (Object.prototype.hasOwnProperty.call(body, 'telefone')
+          ? body.telefone
+          : atual.telefone_entrega),
+      cep_entrega: Object.prototype.hasOwnProperty.call(body, 'cep_entrega')
+        ? body.cep_entrega
+        : atual.cep_entrega,
+      endereco_entrega: Object.prototype.hasOwnProperty.call(body, 'endereco_entrega')
+        ? body.endereco_entrega
+        : atual.endereco_entrega,
+      numero_entrega: Object.prototype.hasOwnProperty.call(body, 'numero_entrega')
+        ? body.numero_entrega
+        : atual.numero_entrega,
+      complemento_entrega: Object.prototype.hasOwnProperty.call(body, 'complemento_entrega')
+        ? body.complemento_entrega
+        : atual.complemento_entrega,
+      bairro_entrega: Object.prototype.hasOwnProperty.call(body, 'bairro_entrega')
+        ? body.bairro_entrega
+        : atual.bairro_entrega,
+      cidade_entrega: Object.prototype.hasOwnProperty.call(body, 'cidade_entrega')
+        ? body.cidade_entrega
+        : atual.cidade_entrega,
+      uf_entrega: Object.prototype.hasOwnProperty.call(body, 'uf_entrega')
+        ? body.uf_entrega
+        : atual.uf_entrega,
+      referencia_entrega: Object.prototype.hasOwnProperty.call(body, 'referencia_entrega')
+        ? body.referencia_entrega
+        : atual.referencia_entrega
+    };
+
+    const snapshot = montarSnapshotEntrega(snapshotInput, cliente);
+
+    const levaMaquineta = Object.prototype.hasOwnProperty.call(body, 'leva_maquineta')
+      ? (body.leva_maquineta === true || body.leva_maquineta === 1 || body.leva_maquineta === '1' ? 1 : 0)
+      : Number(atual.leva_maquineta || 0);
+
+    let trocoPara = Object.prototype.hasOwnProperty.call(body, 'troco_para')
+      ? Number(body.troco_para || 0)
+      : Number(atual.troco_para || 0);
+    if (Object.prototype.hasOwnProperty.call(body, 'levar_troco') && !body.levar_troco) {
+      trocoPara = 0;
+    }
+
+    const patch = {
+      cliente_id: snapshot.cliente_id,
+      nome_cliente_entrega: snapshot.nome_cliente_entrega,
+      cpf_cnpj_cliente_entrega: snapshot.cpf_cnpj_cliente_entrega,
+      email_cliente_entrega: snapshot.email_cliente_entrega,
+      telefone_entrega: snapshot.telefone_entrega,
+      cep_entrega: snapshot.cep_entrega,
+      endereco_entrega: snapshot.endereco_entrega || snapshot.endereco_entrega_formatado,
+      numero_entrega: snapshot.numero_entrega,
+      complemento_entrega: snapshot.complemento_entrega,
+      bairro_entrega: snapshot.bairro_entrega,
+      cidade_entrega: snapshot.cidade_entrega,
+      uf_entrega: snapshot.uf_entrega,
+      referencia_entrega: snapshot.referencia_entrega,
+      entregador: Object.prototype.hasOwnProperty.call(body, 'entregador')
+        ? (String(body.entregador || '').trim() || null)
+        : atual.entregador,
+      taxa_entrega: Object.prototype.hasOwnProperty.call(body, 'taxa_entrega')
+        ? Number(body.taxa_entrega || 0)
+        : Number(atual.taxa_entrega || 0),
+      pagamento_previsto: Object.prototype.hasOwnProperty.call(body, 'pagamento_previsto')
+        ? String(body.pagamento_previsto || '').toUpperCase()
+        : atual.pagamento_previsto,
+      leva_maquineta: levaMaquineta,
+      troco_para: trocoPara,
+      observacao_entrega: Object.prototype.hasOwnProperty.call(body, 'observacao_entrega')
+        ? (String(body.observacao_entrega || '').trim() || null)
+        : atual.observacao_entrega,
+      _somenteAguardandoEntrega: true
+    };
+
+    const alterados = diffCamposEntrega(atual, patch);
+
+    // Revalidação de concorrência no UPDATE (status ainda AGUARDANDO_ENTREGA)
+    const resultado = await this.repository.atualizarEntrega(vendaId, patch);
+    if (!resultado.changes) {
+      const recheck = await this.repository.buscarPorVendaId(vendaId);
+      if (!recheck) {
+        const err = new Error('Venda para entrega não encontrada.');
+        err.status = 404;
+        throw err;
+      }
+      if (recheck.status_entrega !== StatusEntrega.AGUARDANDO_ENTREGA) {
+        const err = new Error(MSG_ENTREGA_JA_INICIADA);
+        err.status = 409;
+        err.codigo = 'ENTREGA_JA_INICIADA';
+        throw err;
+      }
+      // Sem mudanças efetivas — ok idempotente
+    }
+
+    if (alterados.length) {
+      await gravarAuditoria(
+        montarPayloadAuditoriaEntrega({
+          acao: EntregaAuditoriaEventos.ENTREGA_EDITADA,
+          vendaId,
+          detalhes: {
+            campos_alterados: alterados,
+            status_entrega: StatusEntrega.AGUARDANDO_ENTREGA
+          },
+          ...ctx
+        })
+      ).catch((e) => console.error(e));
+    }
+
+    const item = await this.repository.buscarPorVendaId(vendaId);
+    return {
+      success: true,
+      mensagem: 'Alterações salvas.',
+      item,
+      campos_alterados: alterados
+    };
+  }
+
   async atualizarEntrega(vendaId, payload = {}) {
     const atual = await this.repository.buscarPorVendaId(vendaId);
     if (!atual) {
@@ -153,6 +412,19 @@ class EntregaService {
       if (atual.status_entrega === StatusEntrega.AGUARDANDO_ENTREGA) {
         return this.iniciarEntrega(vendaId, payload._auditoria || {});
       }
+    }
+
+    // Edição de dados operacionais/snapshot: só antes do início
+    const temCampoEditavel = CAMPOS_EDITAVEIS_ANTES_INICIO.some(
+      (c) => Object.prototype.hasOwnProperty.call(payload, c)
+        || Object.prototype.hasOwnProperty.call(payload, 'cliente_nome')
+        || Object.prototype.hasOwnProperty.call(payload, 'cpf_cnpj')
+        || Object.prototype.hasOwnProperty.call(payload, 'email')
+        || Object.prototype.hasOwnProperty.call(payload, 'telefone')
+        || Object.prototype.hasOwnProperty.call(payload, 'levar_troco')
+    );
+    if (temCampoEditavel) {
+      return this.editarEntrega(vendaId, payload);
     }
 
     const ctx = payload._auditoria || {};

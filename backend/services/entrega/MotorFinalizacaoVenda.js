@@ -137,7 +137,9 @@ async function _finalizarPrestacaoInterno({ vendaId, body = {}, req = {}, contex
 
   const venda = await get(
     `
-      SELECT v.*, c.nome AS cliente_nome, c.cpf_cnpj AS cliente_cpf
+      SELECT v.*,
+             COALESCE(v.nome_cliente_entrega, c.nome) AS cliente_nome,
+             COALESCE(v.cpf_cnpj_cliente_entrega, c.cpf_cnpj) AS cliente_cpf
       FROM vendas v
       LEFT JOIN clientes c ON c.id = v.cliente_id
       WHERE v.id = ? AND v.tipo_venda = ?
@@ -555,7 +557,20 @@ async function _finalizarPrestacaoInterno({ vendaId, body = {}, req = {}, contex
     cnpj: body.empresa_cnpj || body.empresa?.cnpj,
     pedido: vendaId,
     codigo: venda.codigo,
-    cliente: venda.cliente_nome || 'Consumidor',
+    cliente: venda.nome_cliente_entrega || venda.cliente_nome || 'Consumidor',
+    nome_cliente_entrega: venda.nome_cliente_entrega || venda.cliente_nome,
+    cpf_cnpj_cliente_entrega: venda.cpf_cnpj_cliente_entrega || venda.cliente_cpf,
+    telefone_entrega: venda.telefone_entrega,
+    email_cliente_entrega: venda.email_cliente_entrega,
+    cep_entrega: venda.cep_entrega,
+    endereco_entrega: venda.endereco_entrega,
+    numero_entrega: venda.numero_entrega,
+    complemento_entrega: venda.complemento_entrega,
+    bairro_entrega: venda.bairro_entrega,
+    cidade_entrega: venda.cidade_entrega,
+    uf_entrega: venda.uf_entrega,
+    referencia_entrega: venda.referencia_entrega,
+    observacao_entrega: venda.observacao_entrega,
     valor: totalNum,
     pagamento_previsto: venda.pagamento_previsto,
     pagamento_recebido: pagamentoRecebidoLabel,
@@ -567,8 +582,7 @@ async function _finalizarPrestacaoInterno({ vendaId, body = {}, req = {}, contex
     maquineta_confirmada: maquinetaConfirmada,
     troco_confirmado: trocoConfirmado,
     entregador: venda.entregador,
-    operador: req.user?.nome || req.user?.username || operadorId,
-    endereco: venda.endereco_entrega
+    operador: req.user?.nome || req.user?.username || operadorId
   });
 
   await audit(EntregaAuditoriaEventos.COMPROVANTE_PRESTACAO_IMPRESSO, vendaId, {

@@ -1,5 +1,5 @@
 /**
- * Configuração do Motor de Recuperação Automática de XML (RC3.7.5).
+ * Configuração do Motor de Recuperação Automática de XML (RC3.7.5 + Sprint 2).
  *
  * @module motores/central-entradas/recuperacao-xml/MotorRecuperacaoXmlConfig
  */
@@ -12,6 +12,7 @@ const CHAVES = Object.freeze({
   MAX_TENTATIVAS: 'recuperacao_xml_max_tentativas',
   MAX_DIAS: 'recuperacao_xml_max_dias_monitoramento',
   LOTE: 'recuperacao_xml_lote_por_ciclo',
+  JANELA_DIAS: 'recuperacao_xml_janela_dias',
   ESTADO: 'recuperacao_xml_scheduler_state'
 });
 
@@ -22,7 +23,8 @@ const DEFAULTS = Object.freeze({
   intervaloMinutos: 60,
   maxTentativas: 48,
   maxDiasMonitoramento: 30,
-  lotePorCiclo: 5
+  lotePorCiclo: 5,
+  janelaRecuperacaoDias: 90
 });
 
 /**
@@ -35,7 +37,6 @@ function lerConfigDeMapa(mapa = {}) {
     ? intervaloRaw
     : DEFAULTS.intervaloMinutos;
   if (!INTERVALOS_PERMITIDOS.includes(intervaloMinutos)) {
-    // Aceita valor custom próximo; clamp aos permitidos se muito fora
     const maisProximo = INTERVALOS_PERMITIDOS.reduce((best, n) => (
       Math.abs(n - intervaloMinutos) < Math.abs(best - intervaloMinutos) ? n : best
     ), INTERVALOS_PERMITIDOS[1]);
@@ -45,6 +46,10 @@ function lerConfigDeMapa(mapa = {}) {
   const maxTentativas = Math.max(1, Number(mapa[CHAVES.MAX_TENTATIVAS]) || DEFAULTS.maxTentativas);
   const maxDias = Math.max(1, Number(mapa[CHAVES.MAX_DIAS]) || DEFAULTS.maxDiasMonitoramento);
   const lote = Math.min(20, Math.max(1, Number(mapa[CHAVES.LOTE]) || DEFAULTS.lotePorCiclo));
+  const janelaRecuperacaoDias = Math.max(
+    1,
+    Number(mapa[CHAVES.JANELA_DIAS]) || DEFAULTS.janelaRecuperacaoDias
+  );
   const ativa = mapa[CHAVES.ATIVA] !== false && mapa[CHAVES.ATIVA] !== 'false';
 
   return {
@@ -52,7 +57,8 @@ function lerConfigDeMapa(mapa = {}) {
     intervaloMinutos,
     maxTentativas,
     maxDiasMonitoramento: maxDias,
-    lotePorCiclo: lote
+    lotePorCiclo: lote,
+    janelaRecuperacaoDias
   };
 }
 
@@ -66,7 +72,8 @@ function defaultsKv() {
     [CHAVES.INTERVALO_MIN, String(DEFAULTS.intervaloMinutos), 'number', 'Intervalo do scheduler (min): 30|60|120|360|1440'],
     [CHAVES.MAX_TENTATIVAS, String(DEFAULTS.maxTentativas), 'number', 'Máximo de tentativas consChNFe por documento'],
     [CHAVES.MAX_DIAS, String(DEFAULTS.maxDiasMonitoramento), 'number', 'Dias máximos em monitoramento'],
-    [CHAVES.LOTE, String(DEFAULTS.lotePorCiclo), 'number', 'Documentos consultados por ciclo']
+    [CHAVES.LOTE, String(DEFAULTS.lotePorCiclo), 'number', 'Documentos consultados por ciclo'],
+    [CHAVES.JANELA_DIAS, String(DEFAULTS.janelaRecuperacaoDias), 'number', 'Sprint 2 — Janela DistDFe (dias) para recuperação']
   ]);
 }
 

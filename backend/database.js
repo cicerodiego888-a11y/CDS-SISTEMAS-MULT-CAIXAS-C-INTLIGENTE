@@ -453,6 +453,17 @@ function aplicarAlteracoesPosCriacao() {
   // Sprint 2.1 — status da venda independente do status da entrega
   aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN status_venda TEXT DEFAULT 'ABERTA'`);
 
+  // Sprint Entrega — snapshot imutável cliente/endereço (comprovantes)
+  aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN nome_cliente_entrega TEXT`);
+  aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN cpf_cnpj_cliente_entrega TEXT`);
+  aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN email_cliente_entrega TEXT`);
+  aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN cep_entrega TEXT`);
+  aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN numero_entrega TEXT`);
+  aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN complemento_entrega TEXT`);
+  aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN bairro_entrega TEXT`);
+  aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN cidade_entrega TEXT`);
+  aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN uf_entrega TEXT`);
+
   // Sprint 3.1 — Faturamento / Pedido → Venda
   aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN origem TEXT DEFAULT 'PDV'`);
   aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN pedido_id INTEGER`);
@@ -517,6 +528,14 @@ function aplicarAlteracoesPosCriacao() {
   aplicarAlteracaoSegura('central_entradas_nsu', `ALTER TABLE central_entradas_nsu ADD COLUMN data_sincronizacao DATETIME`);
   aplicarAlteracaoSegura('central_entradas_nsu', `ALTER TABLE central_entradas_nsu ADD COLUMN cooldown_ate DATETIME`);
   aplicarAlteracaoSegura('central_entradas_nsu', `ALTER TABLE central_entradas_nsu ADD COLUMN ultimo_cstat TEXT`);
+  // Sprint 3 — metadados de auditoria do cursor distNSU
+  aplicarAlteracaoSegura('central_entradas_nsu', `ALTER TABLE central_entradas_nsu ADD COLUMN ultimo_request_id TEXT`);
+  aplicarAlteracaoSegura('central_entradas_nsu', `ALTER TABLE central_entradas_nsu ADD COLUMN ultimo_lote_qtd INTEGER DEFAULT 0`);
+  aplicarAlteracaoSegura('central_entradas_nsu', `ALTER TABLE central_entradas_nsu ADD COLUMN ultimo_xmotivo TEXT`);
+  aplicarAlteracaoSegura('central_entradas_nsu', `ALTER TABLE central_entradas_nsu ADD COLUMN ultimo_status_sync TEXT`);
+  aplicarAlteracaoSegura('central_entradas_nsu', `ALTER TABLE central_entradas_nsu ADD COLUMN lacunas_json TEXT`);
+  aplicarAlteracaoSegura('central_entradas_nsu', `ALTER TABLE central_entradas_nsu ADD COLUMN cursor_anterior TEXT`);
+  aplicarAlteracaoSegura('central_entradas_nsu', `ALTER TABLE central_entradas_nsu ADD COLUMN motivo_avanco TEXT`);
   aplicarAlteracaoSegura(
     'central_entradas_eventos',
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_central_eventos_manif_aceita
@@ -2224,6 +2243,44 @@ function criarTabelas() {
       'ALTER TABLE central_entradas_documentos ADD COLUMN tipo_documento TEXT'
     );
 
+    // Sprint 2 — metadados do ciclo de recuperação XML
+    aplicarAlteracaoSegura(
+      'central_entradas_documentos',
+      'ALTER TABLE central_entradas_documentos ADD COLUMN status_recuperacao TEXT'
+    );
+    aplicarAlteracaoSegura(
+      'central_entradas_documentos',
+      'ALTER TABLE central_entradas_documentos ADD COLUMN recuperacao_tentativas INTEGER DEFAULT 0'
+    );
+    aplicarAlteracaoSegura(
+      'central_entradas_documentos',
+      'ALTER TABLE central_entradas_documentos ADD COLUMN recuperacao_ultima_tentativa TEXT'
+    );
+    aplicarAlteracaoSegura(
+      'central_entradas_documentos',
+      'ALTER TABLE central_entradas_documentos ADD COLUMN recuperacao_proxima_tentativa TEXT'
+    );
+    aplicarAlteracaoSegura(
+      'central_entradas_documentos',
+      'ALTER TABLE central_entradas_documentos ADD COLUMN recuperacao_ultimo_cstat TEXT'
+    );
+    aplicarAlteracaoSegura(
+      'central_entradas_documentos',
+      'ALTER TABLE central_entradas_documentos ADD COLUMN recuperacao_ultimo_xmotivo TEXT'
+    );
+    aplicarAlteracaoSegura(
+      'central_entradas_documentos',
+      'ALTER TABLE central_entradas_documentos ADD COLUMN recuperacao_ultimo_request_id TEXT'
+    );
+    aplicarAlteracaoSegura(
+      'central_entradas_documentos',
+      'ALTER TABLE central_entradas_documentos ADD COLUMN recuperacao_primeira_tentativa TEXT'
+    );
+    aplicarAlteracaoSegura(
+      'central_entradas_documentos',
+      'ALTER TABLE central_entradas_documentos ADD COLUMN recuperacao_prioridade TEXT'
+    );
+
     db.run(`
       CREATE TABLE IF NOT EXISTS central_entradas_historico (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2992,6 +3049,7 @@ function inserirConfiguracoesPadrao() {
     ,['pdv_permitir_editar_preco_unitario', 'DESATIVADO', 'string', 'Permitir editar preço unitário no PDV e atualizar cadastro do produto']
     ,['pdv_exigir_ncm_cadastro', 'DESATIVADO', 'string', 'No PDV, se o produto não tiver NCM, pedir o código e atualizar o cadastro']
     ,['pdv_imprimir_cupom', 'ATIVADO', 'string', 'Imprimir cupom automaticamente ao finalizar a venda no PDV']
+    ,['pdv_composicao_itens', 'UNIFICAR', 'string', 'Composição de itens no carrinho do PDV: UNIFICAR, SEPARAR ou AUTOMATICO']
     ,['empresa_controla_validade', 'ATIVADO', 'string', 'Empresa controla validade de produtos (lotes/FEFO/alertas)']
     ,['empresa_permite_venda_sem_estoque', 'DESATIVADO', 'string', 'Permitir venda sem estoque (baixa continua; saldo pode ficar negativo)']
   ];
@@ -3031,6 +3089,12 @@ function inserirConfiguracoesPadrao() {
     cfgImprimirCupomPdv.hidratar(db);
   } catch (hidrCupomErr) {
     console.warn('[PDV] Falha ao hidratar flag imprimir cupom:', hidrCupomErr && hidrCupomErr.message);
+  }
+  try {
+    const cfgComposicaoItensPdv = require('./services/estoque/pdvComposicaoItensConfig');
+    cfgComposicaoItensPdv.hidratar(db);
+  } catch (hidrCompErr) {
+    console.warn('[PDV] Falha ao hidratar flag composição de itens:', hidrCompErr && hidrCompErr.message);
   }
   try {
     const cfgValidadeEmpresa = require('./services/estoque/empresaControlaValidadeConfig');

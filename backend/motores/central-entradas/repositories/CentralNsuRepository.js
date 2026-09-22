@@ -20,7 +20,14 @@ const MAPA_CAMPOS = {
   maxNsu: 'max_nsu',
   dataSincronizacao: 'data_sincronizacao',
   cooldownAte: 'cooldown_ate',
-  ultimoCstat: 'ultimo_cstat'
+  ultimoCstat: 'ultimo_cstat',
+  ultimoRequestId: 'ultimo_request_id',
+  ultimoLoteQtd: 'ultimo_lote_qtd',
+  ultimoXmotivo: 'ultimo_xmotivo',
+  ultimoStatusSync: 'ultimo_status_sync',
+  lacunasJson: 'lacunas_json',
+  cursorAnterior: 'cursor_anterior',
+  motivoAvanco: 'motivo_avanco'
 };
 
 class CentralNsuRepository extends IRepository {
@@ -74,6 +81,13 @@ class CentralNsuRepository extends IRepository {
       dataSincronizacao: row.data_sincronizacao,
       cooldownAte: row.cooldown_ate || null,
       ultimoCstat: row.ultimo_cstat || null,
+      ultimoRequestId: row.ultimo_request_id || null,
+      ultimoLoteQtd: row.ultimo_lote_qtd != null ? Number(row.ultimo_lote_qtd) : 0,
+      ultimoXmotivo: row.ultimo_xmotivo || null,
+      ultimoStatusSync: row.ultimo_status_sync || null,
+      lacunasJson: row.lacunas_json || null,
+      cursorAnterior: row.cursor_anterior || null,
+      motivoAvanco: row.motivo_avanco || null,
       updatedAt: row.updated_at
     };
   }
@@ -255,6 +269,21 @@ class CentralNsuRepository extends IRepository {
         sets.push('cooldown_ate = ?');
         params.push(cooldownAte);
       }
+      const metaKeys = [
+        ['ultimoRequestId', 'ultimo_request_id'],
+        ['ultimoLoteQtd', 'ultimo_lote_qtd'],
+        ['ultimoXmotivo', 'ultimo_xmotivo'],
+        ['ultimoStatusSync', 'ultimo_status_sync'],
+        ['lacunasJson', 'lacunas_json'],
+        ['cursorAnterior', 'cursor_anterior'],
+        ['motivoAvanco', 'motivo_avanco']
+      ];
+      for (const [camel, col] of metaKeys) {
+        if (dados[camel] !== undefined) {
+          sets.push(`${col} = ?`);
+          params.push(dados[camel]);
+        }
+      }
       params.push(id);
       await sql.run(
         `UPDATE ${CentralNsuRepository.TABELA} SET ${sets.join(', ')} WHERE id = ?`,
@@ -285,6 +314,22 @@ class CentralNsuRepository extends IRepository {
     if (cooldownAte !== undefined) {
       sets.push('cooldown_ate = ?');
       params.push(cooldownAte);
+    }
+
+    const metaKeys = [
+      ['ultimoRequestId', 'ultimo_request_id'],
+      ['ultimoLoteQtd', 'ultimo_lote_qtd'],
+      ['ultimoXmotivo', 'ultimo_xmotivo'],
+      ['ultimoStatusSync', 'ultimo_status_sync'],
+      ['lacunasJson', 'lacunas_json'],
+      ['cursorAnterior', 'cursor_anterior'],
+      ['motivoAvanco', 'motivo_avanco']
+    ];
+    for (const [camel, col] of metaKeys) {
+      if (dados[camel] !== undefined) {
+        sets.push(`${col} = ?`);
+        params.push(dados[camel]);
+      }
     }
 
     params.push(id);

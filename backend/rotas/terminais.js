@@ -95,29 +95,49 @@ function registrarTerminalAuto(req, res) {
     }
 
     const nomeTerminal = hostname;
-    db.run(
-      `INSERT INTO terminais (nome, hostname, usuario_id, usuario_nome, ativo, ultima_conexao, created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?, ?)`,
-      [hostname, hostname, usuarioId, usuarioNome, agora, agora, agora],
-      function(insertErr) {
-        if (insertErr) return res.status(500).json({ error: insertErr.message });
+    // Se só existe um caixa ativo, já vincula (evita PDV novo sem caixa após reabrir no navegador).
+    db.all(
+      `SELECT id FROM caixas WHERE COALESCE(ativo, 1) = 1 ORDER BY id ASC LIMIT 2`,
+      [],
+      (errList, caixasAtivos) => {
+        if (errList) {
+          console.error('Erro ao resolver caixa único para terminal novo:', errList);
+        }
+        const unicoCaixaId = (caixasAtivos && caixasAtivos.length === 1)
+          ? caixasAtivos[0].id
+          : null;
 
-        const novoId = this.lastID;
-        db.get(`SELECT * FROM terminais WHERE id = ?`, [novoId], (getErr, novoTerminal) => {
-          if (getErr) return res.status(500).json({ error: getErr.message });
+        db.run(
+          `INSERT INTO terminais (nome, hostname, caixa_id, usuario_id, usuario_nome, ativo, ultima_conexao, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+          [hostname, hostname, unicoCaixaId, usuarioId, usuarioNome, agora, agora, agora],
+          function(insertErr) {
+            if (insertErr) return res.status(500).json({ error: insertErr.message });
 
-          gravarAuditoria({
-            usuario_id: req.user?.id || null,
-            usuario_nome: req.user?.nome || req.user?.username || null,
-            modulo: 'terminais',
-            acao: 'criar_terminal',
-            referencia_tipo: 'terminal',
-            referencia_id: novoId,
-            detalhes: { nome: nomeTerminal, hostname, origem: 'pdv' },
-            ip_requisicao: req.ip || null
-          }).catch((auditErr) => console.error('Erro ao gravar auditoria de terminal:', auditErr));
+            const novoId = this.lastID;
+            db.get(`SELECT * FROM terminais WHERE id = ?`, [novoId], (getErr, novoTerminal) => {
+              if (getErr) return res.status(500).json({ error: getErr.message });
 
-          res.json({ ...novoTerminal, online: true });
-        });
+              gravarAuditoria({
+                usuario_id: req.user?.id || null,
+                usuario_nome: req.user?.nome || req.user?.username || null,
+                modulo: 'terminais',
+                acao: 'criar_terminal',
+                referencia_tipo: 'terminal',
+                referencia_id: novoId,
+                detalhes: {
+                  nome: nomeTerminal,
+                  hostname,
+                  origem: 'pdv',
+                  caixa_id_auto: unicoCaixaId
+                },
+                ip_requisicao: req.ip || null
+              }).catch((auditErr) => console.error('Erro ao gravar auditoria de terminal:', auditErr));
+
+              res.json({ ...novoTerminal, online: true });
+            });
+          }
+        );
       }
     );
   });
@@ -319,8 +339,28 @@ router.put('/:id', (req, res) => {
         db.run(
           `UPDATE terminais SET caixa_id = NULL WHERE caixa_id = ? AND id != ?`,
           [updatedCaixaId, id],
-          (errDetach) => {
+          function onDetach(errDetach) {
             if (errDetach) return res.status(500).json({ error: errDetach.message });
+            if (this.changes > 0) {
+              console.warn(
+                `[TERMINAIS] Ao vincular terminal #${id} ao caixa #${updatedCaixaId}, `
+                + `${this.changes} outro(s) terminal(is) foram desvinculados (regra 1 caixa = 1 vínculo exclusivo na edição).`
+              );
+              gravarAuditoria({
+                usuario_id: req.user?.id || null,
+                usuario_nome: req.user?.nome || req.user?.username || null,
+                modulo: 'terminais',
+                acao: 'desvincular_exclusividade',
+                referencia_tipo: 'caixa',
+                referencia_id: updatedCaixaId,
+                detalhes: {
+                  terminal_vinculado: id,
+                  terminais_desvinculados: this.changes,
+                  motivo: 'exclusividade_ao_vincular'
+                },
+                ip_requisicao: req.ip || null
+              }).catch(() => {});
+            }
             aplicarAtualizacao();
           }
         );

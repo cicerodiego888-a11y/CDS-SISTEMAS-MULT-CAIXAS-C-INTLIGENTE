@@ -16,6 +16,8 @@ class CentralDashboardDTO {
     this.xmlWait = dados.xmlWait ?? null;
     this.sefazOperacional = dados.sefazOperacional ?? null;
     this.saude = dados.saude ?? null;
+    this.reconcilicao = dados.reconcilicao ?? null;
+    this.operacao = dados.operacao ?? null;
   }
 
   /**
@@ -37,7 +39,9 @@ class CentralDashboardDTO {
       sincronizacao: this.sincronizacao,
       xmlWait: this.xmlWait,
       sefazOperacional: this.sefazOperacional,
-      saude: this.saude
+      saude: this.saude,
+      reconcilicao: this.reconcilicao,
+      operacao: this.operacao
     };
   }
 }

@@ -38,7 +38,10 @@ const SELECT_BASE = `
     v.total,
     v.desconto,
     v.cliente_id,
-    c.nome AS cliente_nome,
+    COALESCE(v.nome_cliente_entrega, c.nome) AS cliente_nome,
+    v.nome_cliente_entrega,
+    v.cpf_cnpj_cliente_entrega,
+    v.email_cliente_entrega,
     v.entregador,
     v.pagamento_previsto,
     v.status_entrega,
@@ -50,6 +53,12 @@ const SELECT_BASE = `
     v.tipo_venda,
     v.status,
     v.endereco_entrega,
+    v.cep_entrega,
+    v.numero_entrega,
+    v.complemento_entrega,
+    v.bairro_entrega,
+    v.cidade_entrega,
+    v.uf_entrega,
     v.referencia_entrega,
     v.observacao_entrega,
     v.telefone_entrega,
@@ -82,9 +91,28 @@ function enriquecerItem(row) {
   const trocoPara = Number(row.troco_para || 0);
   const levaTroco = trocoPara > 0;
   const trocoNecessario = levaTroco ? Math.max(0, Number((trocoPara - total).toFixed(2))) : 0;
+  const {
+    formatarEnderecoLinha,
+    resolverDadosClienteEntrega
+  } = require('./EntregaClienteSnapshot');
+  const snap = resolverDadosClienteEntrega(row);
+  const enderecoExibicao = snap.endereco_linha
+    || formatarEnderecoLinha({
+      endereco: row.endereco_entrega,
+      numero: row.numero_entrega,
+      complemento: row.complemento_entrega,
+      bairro: row.bairro_entrega,
+      cidade: row.cidade_entrega,
+      uf: row.uf_entrega,
+      cep: row.cep_entrega
+    })
+    || row.endereco_entrega
+    || null;
 
   return {
     ...row,
+    cliente_nome: snap.nome,
+    endereco_entrega_exibicao: enderecoExibicao,
     status_entrega: statusEntrega,
     status_venda: row.status_venda || StatusVenda.ABERTA,
     leva_maquineta: Number(row.leva_maquineta || 0) === 1,
@@ -165,6 +193,7 @@ class EntregaRepository {
     const campos = [];
     const params = [];
     const map = {
+      cliente_id: 'cliente_id',
       entregador: 'entregador',
       endereco_entrega: 'endereco_entrega',
       referencia_entrega: 'referencia_entrega',
@@ -175,7 +204,16 @@ class EntregaRepository {
       leva_maquineta: 'leva_maquineta',
       troco_para: 'troco_para',
       status_entrega: 'status_entrega',
-      status_venda: 'status_venda'
+      status_venda: 'status_venda',
+      nome_cliente_entrega: 'nome_cliente_entrega',
+      cpf_cnpj_cliente_entrega: 'cpf_cnpj_cliente_entrega',
+      email_cliente_entrega: 'email_cliente_entrega',
+      cep_entrega: 'cep_entrega',
+      numero_entrega: 'numero_entrega',
+      complemento_entrega: 'complemento_entrega',
+      bairro_entrega: 'bairro_entrega',
+      cidade_entrega: 'cidade_entrega',
+      uf_entrega: 'uf_entrega'
     };
 
     Object.keys(map).forEach((key) => {
@@ -187,6 +225,10 @@ class EntregaRepository {
         if (key === 'leva_maquineta') {
           val = val === true || val === 1 || val === '1' ? 1 : 0;
         }
+        if (key === 'cliente_id') {
+          const n = Number(val);
+          val = Number.isFinite(n) && n > 0 ? n : null;
+        }
         campos.push(`${map[key]} = ?`);
         params.push(val);
       }
@@ -196,11 +238,14 @@ class EntregaRepository {
       return { changes: 0 };
     }
 
+    const somenteSeAguardando = dados._somenteAguardandoEntrega === true;
     params.push(vendaId, TipoVenda.ENTREGA);
-    return run(
-      `UPDATE vendas SET ${campos.join(', ')} WHERE id = ? AND tipo_venda = ?`,
-      params
-    );
+    let sql = `UPDATE vendas SET ${campos.join(', ')} WHERE id = ? AND tipo_venda = ?`;
+    if (somenteSeAguardando) {
+      sql += ` AND UPPER(COALESCE(status_entrega, '')) = ?`;
+      params.push(StatusEntrega.AGUARDANDO_ENTREGA);
+    }
+    return run(sql, params);
   }
 
   /**

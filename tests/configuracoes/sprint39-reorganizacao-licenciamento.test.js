@@ -32,6 +32,8 @@ describe('Sprint 3.9 — estrutura Configurações Avançadas', () => {
       assert.match(src, new RegExp(`id:\\s*'${id}'`));
       assert.match(src, new RegExp(`data-cfg-pane="${id}"`));
     });
+    assert.match(src, /id:\s*'configuracoesPdv'/);
+    assert.match(src, /data-cfg-pane="configuracoesPdv"/);
     assert.doesNotMatch(src, /id:\s*'fiscal'/);
     assert.doesNotMatch(src, /id:\s*'aparencia'/);
   });

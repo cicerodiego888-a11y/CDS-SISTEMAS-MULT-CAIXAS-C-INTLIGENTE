@@ -42,9 +42,11 @@ router.get('/entregas', EntregaController.listar);
 router.get('/entregas/:id/timeline', EntregaController.timeline);
 router.get('/entregas/:id', EntregaController.buscarPorId);
 router.post('/entregas/:id/iniciar', EntregaController.iniciarEntrega);
+router.patch('/entregas/:id', EntregaController.editarEntrega);
 
 router.post('/:id/prestacao', exigirModuloVendasEntrega, EntregaController.prestacao);
 router.put('/:id/entrega', exigirModuloVendasEntrega, EntregaController.atualizarEntrega);
+router.patch('/:id/entrega', exigirModuloVendasEntrega, EntregaController.editarEntrega);
 router.delete('/:id/entrega', exigirModuloVendasEntrega, EntregaController.cancelarEntrega);
 
 module.exports = router;

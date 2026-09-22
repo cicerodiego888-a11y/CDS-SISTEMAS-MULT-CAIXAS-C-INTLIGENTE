@@ -160,7 +160,25 @@ async function atualizarEntrega(req, res) {
     const data = await entregaService.atualizarEntrega(req.params.id, payload);
     res.json(data);
   } catch (err) {
-    res.status(err.status || 500).json({ error: err.message || 'Erro ao atualizar entrega.' });
+    res.status(err.status || 500).json({
+      error: err.message || 'Erro ao atualizar entrega.',
+      codigo: err.codigo || undefined
+    });
+  }
+}
+
+async function editarEntrega(req, res) {
+  try {
+    const payload = Object.assign({}, req.body || {}, {
+      _auditoria: contextoAuditoriaRequisicao(req)
+    });
+    const data = await entregaService.editarEntrega(req.params.id, payload);
+    res.json(data);
+  } catch (err) {
+    res.status(err.status || 500).json({
+      error: err.message || 'Erro ao editar entrega.',
+      codigo: err.codigo || undefined
+    });
   }
 }
 
@@ -191,6 +209,7 @@ module.exports = {
   timeline,
   prestacao,
   atualizarEntrega,
+  editarEntrega,
   cancelarEntrega,
   iniciarEntrega
 };

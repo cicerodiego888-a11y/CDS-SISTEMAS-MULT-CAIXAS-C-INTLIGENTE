@@ -72,7 +72,9 @@ class BaseSqlProvider extends ISearchProvider {
     }
     if (digitos.length >= 3) {
       for (const c of this.camposNumero) {
-        clauses.push(`REPLACE(REPLACE(REPLACE(COALESCE(${c}, ''), '.', ''), '-', ''), '/', '') LIKE ?`);
+        clauses.push(
+          `REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(${c}, ''), '.', ''), '-', ''), '/', ''), '(', ''), ')', ''), ' ', '') LIKE ?`
+        );
         params.push(`%${digitos}%`);
       }
     }

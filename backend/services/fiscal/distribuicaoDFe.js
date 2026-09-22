@@ -34,8 +34,49 @@ const {
   DfeAuditoriaEtapa,
   criarCorrelationIdDfeSync
 } = require('./DfeAuditoriaService');
+const sefazQueryGate = require('./sefaz/SEFAZQueryGate');
+const {
+  TIPOS_CONSULTA,
+  ORIGENS,
+  inferirTipoDoXml,
+  extrairUltNsuDoXml,
+  normalizarCnpj,
+  normalizarAmbiente
+} = require('./sefaz/sefazGateConstants');
+const {
+  avaliarAvancoCursor,
+  existemDocumentosPosteriores,
+  detectarLacunasNsu,
+  DistNsuStatus
+} = require('../../motores/central-entradas/descoberta-nsu');
 
 const MAX_ITERACOES_SYNC = 50;
+
+function obterOrigemSefazGate(deps = {}) {
+  const o = String(deps.origemSefazGate || deps.origem || '').toUpperCase();
+  if (Object.values(ORIGENS).includes(o)) return o;
+  if (deps.diagnostico) return ORIGENS.DIAGNOSTICO;
+  if (deps.recuperacaoXml) return ORIGENS.RECUPERACAO_XML;
+  if (deps.manifestacao) return ORIGENS.MANIFESTACAO;
+  if (deps.consultaManual) return ORIGENS.CONSULTA_MANUAL;
+  return ORIGENS.CENTRAL_SYNC;
+}
+
+/**
+ * Garante CentralNsuService no Gate (cursor oficial).
+ */
+function garantirNsuNoGate(deps = {}) {
+  if (typeof sefazQueryGate.setNsuService !== 'function') return;
+  if (deps.nsuService) {
+    sefazQueryGate.setNsuService(deps.nsuService);
+    return;
+  }
+  try {
+    sefazQueryGate.setNsuService(new CentralNsuService({
+      nsuRepository: deps.nsuRepository
+    }));
+  } catch { /* ignore */ }
+}
 
 /**
  * @param {Object} config
@@ -93,28 +134,46 @@ function montarXmlConsChave({ ambiente, codigoUf, cnpj, chave }) {
 }
 
 /**
- * Envia consulta DF-e via Plataforma Fiscal (F6) com fallback legado.
- * Retorna body + metadados de telemetria (RC6.6) sem alterar o SOAP.
+ * Envia consulta DF-e via SEFAZ Query Gate → Plataforma Fiscal (F6) / legado.
+ * Única porta SOAP DistDFe para sync e consChNFe.
  *
  * @param {string} xmlConsulta
  * @param {Object} config
  * @param {number} ambiente
  * @param {Object} [deps]
- * @returns {Promise<{ body: string, requestId: string|null, correlationId: string|null, tempoResolverMs: number, tempoXmlMs: number, tempoTransporteMs: number, tempoTotalMs: number, endpoint: string|null, fallbackUtilizado: boolean, httpStatus: number|null }>}
+ * @returns {Promise<{ body: string, requestId: string|null, correlationId: string|null, tempoResolverMs: number, tempoXmlMs: number, tempoTransporteMs: number, tempoTotalMs: number, endpoint: string|null, fallbackUtilizado: boolean, httpStatus: number|null, sefazGateRequestId?: string }>}
  */
 async function executarEnvioConsultaDfe(xmlConsulta, config, ambiente, deps = {}) {
   const runtimeSend = deps.enviarDistribuicaoDfe || enviarDistribuicaoDfe;
-  const resultado = await runtimeSend({
+  const cnpj = normalizarCnpj(config.cnpj);
+  const amb = normalizarAmbiente(ambiente);
+  const tipo = deps.tipoConsulta || inferirTipoDoXml(xmlConsulta);
+  const origem = obterOrigemSefazGate(deps);
+  garantirNsuNoGate(deps);
+
+  const gateResult = await sefazQueryGate.request({
+    cnpj,
+    ambiente: amb,
+    tipo,
+    origem,
     xmlConsulta,
-    ambiente,
-    cUF: obterCodigoUf(config),
-    certificadoPath: config.certificadoPath,
-    certificadoSenha: config.certificadoSenha,
-    versao: '1.01',
-    legadoHttpClient: deps.legadoHttpClient || null,
-    correlationId: deps.correlationId || null
+    nsu_solicitado: tipo === TIPOS_CONSULTA.DIST_NSU || tipo === TIPOS_CONSULTA.CONS_NSU
+      ? extrairUltNsuDoXml(xmlConsulta)
+      : null,
+    correlationId: deps.correlationId || null,
+    execute: async () => runtimeSend({
+      xmlConsulta,
+      ambiente: amb,
+      cUF: obterCodigoUf(config),
+      certificadoPath: config.certificadoPath,
+      certificadoSenha: config.certificadoSenha,
+      versao: '1.01',
+      legadoHttpClient: deps.legadoHttpClient || null,
+      correlationId: deps.correlationId || null
+    })
   });
 
+  const resultado = gateResult.resultado;
   const requestId = resultado.telemetryRequestId || null;
 
   if (!resultado.success || resultado.body == null) {
@@ -143,7 +202,9 @@ async function executarEnvioConsultaDfe(xmlConsulta, config, ambiente, deps = {}
     tempoTotalMs: resultado.tempoTotalMs,
     endpoint: resultado.endpoint || null,
     fallbackUtilizado: Boolean(resultado.fallbackUtilizado),
-    httpStatus: resultado.statusCode != null ? resultado.statusCode : null
+    httpStatus: resultado.statusCode != null ? resultado.statusCode : null,
+    sefazGateRequestId: gateResult.request_id || null,
+    sefazGateCstat: gateResult.cstat || null
   };
 }
 
@@ -217,8 +278,11 @@ async function persistirDocumentosRetorno(xmlRetorno, persistencia, origem, ctxA
   let eventos = 0;
   let errosZip = 0;
   let errosSchema = 0;
+  let errosPersistencia = 0;
   let recebidosZip = 0;
   const descartes = [];
+  const nsusRecebidos = [];
+  const chavesDuplicadas = [];
 
   const documentos = extrairDocumentosZip(xmlRetorno, {
     onDescarte: (evt) => {
@@ -228,6 +292,7 @@ async function persistirDocumentosRetorno(xmlRetorno, persistencia, origem, ctxA
 
   for (const evt of descartes) {
     recebidosZip += 1;
+    if (evt.nsu) nsusRecebidos.push(evt.nsu);
     if (evt.resultado === 'EVENTO') eventos += 1;
     else if (evt.resultado === 'ERRO_ZIP') errosZip += 1;
     else errosSchema += 1;
@@ -284,6 +349,7 @@ async function persistirDocumentosRetorno(xmlRetorno, persistencia, origem, ctxA
 
   for (const doc of documentos) {
     recebidosZip += 1;
+    if (doc.nsu) nsusRecebidos.push(doc.nsu);
     const tParser = Date.now();
 
     if (auditoria) {
@@ -322,6 +388,7 @@ async function persistirDocumentosRetorno(xmlRetorno, persistencia, origem, ctxA
         origem
       });
     } catch (err) {
+      errosPersistencia += 1;
       ignorados += 1;
       if (auditoria) {
         await auditoria.registrar({
@@ -340,8 +407,14 @@ async function persistirDocumentosRetorno(xmlRetorno, persistencia, origem, ctxA
     }
 
     if (resultado.novo) notasNovas += 1;
-    else if (resultado.duplicado) notasDuplicadas += 1;
-    else if (resultado.atualizado) atualizados += 1;
+    else if (resultado.duplicado) {
+      notasDuplicadas += 1;
+      chavesDuplicadas.push({
+        nsu: doc.nsu,
+        chave: resultado.documento?.chave || null,
+        codigo: 'DOCUMENTO_DUPLICADO_RECEBIDO'
+      });
+    } else if (resultado.atualizado) atualizados += 1;
     else if (resultado.ignorado) ignorados += 1;
 
     if (auditoria) {
@@ -387,7 +460,11 @@ async function persistirDocumentosRetorno(xmlRetorno, persistencia, origem, ctxA
     eventos,
     errosZip,
     errosSchema,
-    recebidosZip
+    errosPersistencia,
+    recebidosZip,
+    nsusRecebidos,
+    duplicadosDetalhe: chavesDuplicadas,
+    loteOk: errosPersistencia === 0 && errosZip === 0 && errosSchema === 0
   };
 }
 
@@ -458,7 +535,11 @@ async function sincronizarDistribuicaoDFe(deps = {}) {
     });
 
     const tConsulta = Date.now();
-    const envio = await executarEnvioConsultaDfe(xmlConsulta, config, ambiente, deps);
+    const envio = await executarEnvioConsultaDfe(xmlConsulta, config, ambiente, {
+      ...deps,
+      tipoConsulta: TIPOS_CONSULTA.DIST_NSU,
+      origemSefazGate: deps.origemSefazGate || ORIGENS.CENTRAL_SYNC
+    });
     let ultimoRetornoIter = null;
     try {
       ultimoRetornoIter = extrairMetadadosRetorno(envio.body);
@@ -603,8 +684,19 @@ async function sincronizarDistribuicaoDFe(deps = {}) {
       errosSchemaTotal += persistidos.errosSchema || 0;
       recebidosZipTotal += persistidos.recebidosZip || 0;
 
+      const lacunaInfo = detectarLacunasNsu(persistidos.nsusRecebidos || [], {
+        cnpj,
+        ambiente,
+        data: new Date().toISOString()
+      });
+
+      const politica = avaliarAvancoCursor({
+        cStat: ultimoRetorno.cStat,
+        persistidos
+      });
+
       finalizarTelemetriaEnvio(envio, {
-        sucesso: true,
+        sucesso: politica.avancar,
         cStat: ultimoRetorno.cStat,
         xMotivo: ultimoRetorno.xMotivo,
         ultNSU: ultimoRetorno.ultNSU,
@@ -612,36 +704,108 @@ async function sincronizarDistribuicaoDFe(deps = {}) {
         persistidos: persistidos.notasNovas,
         duplicados: persistidos.notasDuplicadas,
         descartados: persistidos.ignorados,
-        resultado: 'OK'
+        resultado: politica.avancar ? 'OK' : 'CURSOR_PRESERVADO'
       });
 
+      const requestIdGate = envio.sefazGateRequestId || envio.requestId || null;
       const ultAntes = ultNsuAtual;
-      const aplicado = await nsuService.aplicarRetornoDistDfe({
-        controle: controleNsu,
-        cStat: ultimoRetorno.cStat,
-        xmlRetorno: envio.body,
-        ultNsu: ultimoRetorno.ultNSU,
-        maxNsu: ultimoRetorno.maxNSU,
-        correlationId
-      });
-      controleNsu = aplicado.controle;
-      ultNsuAtual = normalizarNsuOuZero(aplicado.ultNsu);
-      maxNsuAtual = normalizarNsuOuZero(aplicado.maxNsu);
+
+      let aplicado;
+      if (politica.avancar) {
+        aplicado = await nsuService.aplicarRetornoDistDfe({
+          controle: controleNsu,
+          cStat: ultimoRetorno.cStat,
+          xmlRetorno: envio.body,
+          ultNsu: ultimoRetorno.ultNSU,
+          maxNsu: ultimoRetorno.maxNSU,
+          correlationId,
+          requestId: requestIdGate,
+          loteQtd: persistidos.recebidosZip || 0,
+          xMotivo: ultimoRetorno.xMotivo,
+          statusSync: politica.status,
+          lacunasJson: lacunaInfo.lacunas,
+          motivoAvanco: politica.motivo
+        });
+      } else {
+        // Sprint 3 — falha de lote: NÃO avança cursor
+        aplicado = await nsuService.aplicarRetornoDistDfe({
+          controle: controleNsu,
+          cStat: ultimoRetorno.cStat,
+          xmlRetorno: '', // força preservar (sem ult/max válidos no path de avanço)
+          ultNsu: null,
+          maxNsu: null,
+          correlationId,
+          requestId: requestIdGate,
+          loteQtd: persistidos.recebidosZip || 0,
+          xMotivo: ultimoRetorno.xMotivo,
+          statusSync: politica.status,
+          lacunasJson: lacunaInfo.lacunas,
+          motivoAvanco: politica.motivo
+        });
+        // Garantir metadados mesmo no path preservar incompleto
+        if (controleNsu?.id && typeof nsuRepository.atualizarSincronizacaoSegura === 'function') {
+          await nsuRepository.atualizarSincronizacaoSegura(controleNsu.id, {
+            preservarNsu: true,
+            ultimoCstat: ultimoRetorno.cStat,
+            dataSincronizacao: new Date().toISOString(),
+            ultimoRequestId: requestIdGate,
+            ultimoLoteQtd: persistidos.recebidosZip || 0,
+            ultimoXmotivo: ultimoRetorno.xMotivo || politica.motivo,
+            ultimoStatusSync: politica.status,
+            lacunasJson: lacunaInfo.lacunas.length
+              ? JSON.stringify(lacunaInfo.lacunas)
+              : null,
+            motivoAvanco: politica.motivo,
+            cursorAnterior: ultAntes
+          }).catch(() => {});
+        }
+      }
+
+      controleNsu = aplicado.controle || controleNsu;
+      if (politica.avancar) {
+        ultNsuAtual = normalizarNsuOuZero(aplicado.ultNsu);
+        maxNsuAtual = normalizarNsuOuZero(aplicado.maxNsu);
+      }
 
       await auditoria.registrarNsuAvanco({
         correlation_id: correlationId,
         cnpj,
         ambiente,
         nsu: ultNsuAtual,
-        avancou: !!aplicado.atualizouNsu,
-        motivo: aplicado.atualizouNsu
-          ? `Cursor atualizado=TRUE (${ultAntes} → ${ultNsuAtual})`
-          : `Cursor atualizado=FALSE (${aplicado.preservado ? 'preservado' : 'sem avanço'})`,
+        avancou: Boolean(politica.avancar && aplicado.atualizouNsu),
+        motivo: politica.avancar
+          ? (aplicado.atualizouNsu
+            ? `Cursor atualizado=TRUE (${ultAntes} → ${ultNsuAtual}) · ${politica.motivo}`
+            : `Cursor atualizado=FALSE (${aplicado.preservado ? 'preservado' : 'sem avanço'})`)
+          : `Cursor NÃO avançou — ${politica.motivo}`,
         cStat: ultimoRetorno.cStat,
         ultNsuAnterior: ultAntes,
         ultNsuNovo: ultNsuAtual,
-        maxNsu: maxNsuAtual
+        maxNsu: maxNsuAtual,
+        request_id: requestIdGate,
+        loteQtd: persistidos.recebidosZip || 0,
+        lacunas: lacunaInfo.lacunas.length || 0
       });
+
+      if (persistidos.duplicadosDetalhe?.length && auditoria.registrar) {
+        for (const dup of persistidos.duplicadosDetalhe) {
+          await auditoria.registrar({
+            correlation_id: correlationId,
+            cnpj,
+            ambiente,
+            nsu: dup.nsu,
+            chave: dup.chave,
+            tipo: DfeAuditoriaEtapa.PERSISTENCIA,
+            resultado: DistNsuStatus.DOCUMENTO_DUPLICADO_RECEBIDO,
+            motivo: 'Documento duplicado recebido — NSU rastreado, sem novo registro'
+          }).catch(() => {});
+        }
+      }
+
+      if (!politica.avancar) {
+        // Interrompe o loop: reprocessar mesmo lote na próxima sync segura
+        break;
+      }
 
       if (!nsuMenorQue(ultNsuAtual, maxNsuAtual)) {
         break;
@@ -702,9 +866,19 @@ async function sincronizarDistribuicaoDFe(deps = {}) {
     iteracoes,
     cStat: ultimoRetorno?.cStat || '138',
     correlationId,
+    requestId: controleNsu?.ultimoRequestId || null,
+    statusSync: String(ultimoRetorno?.cStat) === '137'
+      ? DistNsuStatus.SEM_NOVOS_DOCUMENTOS
+      : (notasNovasTotal > 0 ? DistNsuStatus.LOTE_PROCESSADO : DistNsuStatus.SEM_NOVOS_DOCUMENTOS),
+    documentosPosterioresDisponiveis: existemDocumentosPosteriores(ultNsuAtual, maxNsuAtual),
+    mensagemPosteriores: existemDocumentosPosteriores(ultNsuAtual, maxNsuAtual)
+      ? 'Existem documentos posteriores disponíveis para processamento.'
+      : null,
     mensagem: notasNovasTotal > 0
       ? `${notasNovasTotal} nova(s) nota(s) sincronizada(s)`
-      : 'Sincronização concluída — nenhuma nota nova',
+      : (String(ultimoRetorno?.cStat) === '137'
+        ? 'SEM_NOVOS_DOCUMENTOS — sincronização concluída sem novos documentos'
+        : 'Sincronização concluída — nenhuma nota nova'),
     ultimaSincronizacao: controleNsu.dataSincronizacao || controleNsu.updatedAt
   };
 }
@@ -716,14 +890,33 @@ async function sincronizarDistribuicaoDFe(deps = {}) {
  * @returns {Promise<Object>}
  */
 async function distribuirDocumentosRecebidos() {
-  const resultado = await sincronizarDistribuicaoDFe();
-  return {
-    sucesso: resultado.sucesso,
-    notasNovas: resultado.notasNovas,
-    mensagem: resultado.mensagem,
-    ultNsu: resultado.ultNsu,
-    maxNsu: resultado.maxNsu
-  };
+  // Sprint 3 — legado também passa pelo mutex por CNPJ+ambiente
+  try {
+    const syncExec = require('../../motores/central-entradas/services/CentralSyncExecucaoService');
+    const r = await syncExec.executar({
+      origem: 'LEGADO_DISTRIBUIR',
+      ignorarHorario: true,
+      forcar: true
+    });
+    return {
+      sucesso: r.sucesso,
+      notasNovas: r.notasNovas,
+      mensagem: r.mensagem || r.erros?.[0],
+      ultNsu: r.ultNsu,
+      maxNsu: r.maxNsu,
+      ignorado: r.ignorado,
+      codigo: r.codigo
+    };
+  } catch {
+    const resultado = await sincronizarDistribuicaoDFe();
+    return {
+      sucesso: resultado.sucesso,
+      notasNovas: resultado.notasNovas,
+      mensagem: resultado.mensagem,
+      ultNsu: resultado.ultNsu,
+      maxNsu: resultado.maxNsu
+    };
+  }
 }
 
 /**
@@ -770,7 +963,12 @@ async function consultarNotaPorChave(chave, deps = {}) {
     chave: chaveLimpa
   });
 
-  const envio = await executarEnvioConsultaDfe(xmlConsulta, config, ambiente, deps);
+  const envio = await executarEnvioConsultaDfe(xmlConsulta, config, ambiente, {
+    ...deps,
+    tipoConsulta: TIPOS_CONSULTA.CONS_CH_NFE,
+    origemSefazGate: deps.origemSefazGate
+      || (deps.recuperacaoXml ? ORIGENS.RECUPERACAO_XML : ORIGENS.CONSULTA_MANUAL)
+  });
   try {
     const metadados = extrairMetadadosRetorno(envio.body);
 
@@ -856,5 +1054,6 @@ module.exports = {
   extrairMetadadosRetorno,
   extrairDocumentosZip,
   persistirDocumentosRetorno,
-  enviarConsultaDfe
+  enviarConsultaDfe,
+  executarEnvioConsultaDfe
 };

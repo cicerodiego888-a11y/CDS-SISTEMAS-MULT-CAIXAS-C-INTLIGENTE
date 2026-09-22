@@ -27,7 +27,8 @@ const {
   STATUS_MONITORADOS,
   ehElegivelRecuperacaoXml,
   filtrarCandidatosFila,
-  ordenarFila
+  ordenarFila,
+  deduplicarPorChave
 } = require('./FilaRecuperacaoXml');
 const {
   CHAVES,
@@ -35,6 +36,24 @@ const {
   DEFAULTS,
   lerConfigDeMapa
 } = require('./MotorRecuperacaoXmlConfig');
+const {
+  StatusRecuperacaoXml,
+  PRIORIDADE,
+  logXmlRecovery
+} = require('./StatusRecuperacaoXml');
+const {
+  calcularProximaTentativa,
+  avaliarJanelaRecuperacao,
+  erroRecuperavel,
+  prioridadeDeOrigem,
+  JANELA_RECUPERACAO_DIAS
+} = require('./RecuperacaoXmlPolitica');
+const {
+  classificarResultadoRecuperacao,
+  extrairChaveDoXml,
+  extrairCnpjDestinatarioXml
+} = require('./RecuperacaoXmlClassificador');
+const { ORIGENS: ORIGENS_SEFAZ } = require('../../../services/fiscal/sefaz/sefazGateConstants');
 
 const ORIGEM_MOTOR = 'recuperacao_xml_automatica';
 
@@ -55,7 +74,12 @@ class MotorRecuperacaoXmlService {
     this._gate = deps.gate || null;
     this._consultarNotaPorChave = deps.consultarNotaPorChave
       || ((chave, opts) => require('../../../services/fiscal/distribuicaoDFe')
-        .consultarNotaPorChave(chave, opts));
+        .consultarNotaPorChave(chave, {
+          ...opts,
+          recuperacaoXml: true,
+          origemSefazGate: ORIGENS_SEFAZ.RECUPERACAO_XML
+        }));
+    this._sefazQueryGate = deps.sefazQueryGate || null;
     this._obterContexto = deps.obterContextoOperacional
       || (async () => {
         const cfg = new (require('../services/CentralConfiguracaoService'))();
@@ -77,6 +101,8 @@ class MotorRecuperacaoXmlService {
     this._ativo = false;
     /** @private */
     this._cicloEmExecucao = false;
+    /** @private chaves em execução (CNPJ|amb|chave) */
+    this._emExecucao = new Set();
     /** @private */
     this._estado = this._estadoVazio();
   }
@@ -100,14 +126,22 @@ class MotorRecuperacaoXmlService {
   }
 
   /** @private */
-  _obterGate() {
-    if (this._gate) return this._gate;
+  _obterSefazQueryGate() {
+    if (this._sefazQueryGate) return this._sefazQueryGate;
     try {
-      this._gate = require('../services/CentralSefazOperationalGate');
+      this._sefazQueryGate = require('../../../services/fiscal/sefaz/SEFAZQueryGate');
     } catch {
-      this._gate = null;
+      this._sefazQueryGate = null;
     }
-    return this._gate;
+    return this._sefazQueryGate;
+  }
+
+  /** @private */
+  _obterGate() {
+    // Sprint 2: não usa mais OperationalGate paralelo para retry DistDFe.
+    // Acesso SEFAZ = SEFAZQueryGate (Sprint 1). Mantido só se injetado em testes legados.
+    if (this._gate) return this._gate;
+    return null;
   }
 
   estaAtivo() {
@@ -198,13 +232,24 @@ class MotorRecuperacaoXmlService {
         nsu: doc.nsu,
         numero: doc.numero,
         fornecedor: doc.fornecedor,
+        dataEmissao: doc.dataEmissao || doc.data_emissao || null,
         createdAt: doc.createdAt || doc.created_at,
-        tentativas: Number(st.tentativas) || 0,
-        ultimaConsulta: st.ultimaConsulta || null,
+        statusRecuperacao: doc.statusRecuperacao
+          || st.statusRecuperacao
+          || StatusRecuperacaoXml.AGUARDANDO_XML_COMPLETO,
+        tentativas: Number(doc.recuperacaoTentativas != null
+          ? doc.recuperacaoTentativas
+          : st.tentativas) || 0,
+        ultimaConsulta: doc.recuperacaoUltimaTentativa || st.ultimaConsulta || null,
+        proximaTentativa: doc.recuperacaoProximaTentativa || st.proximaTentativa || null,
         ultimoRetorno: st.ultimoRetorno || null,
+        ultimoCstat: doc.recuperacaoUltimoCstat || st.ultimoCstat || null,
+        ultimoXmotivo: doc.recuperacaoUltimoXmotivo || st.ultimoXmotivo || null,
+        ultimoRequestId: doc.recuperacaoUltimoRequestId || st.ultimoRequestId || null,
+        recuperacaoPrioridade: doc.recuperacaoPrioridade || st.prioridade || PRIORIDADE.NORMAL,
         motivo: st.motivo || null,
         correlationId: st.correlationId || null,
-        desde: st.desde || doc.createdAt || doc.created_at || null
+        desde: st.desde || doc.recuperacaoPrimeiraTentativa || doc.createdAt || doc.created_at || null
       };
     });
   }
@@ -310,11 +355,25 @@ class MotorRecuperacaoXmlService {
             correlationId,
             detalhe: { chave: item.chave, status: item.status }
           });
+          logXmlRecovery({
+            chave: item.chave,
+            status: StatusRecuperacaoXml.AGUARDANDO_XML_COMPLETO,
+            attempt: 0,
+            motivo: 'entrou_fila'
+          });
         }
 
         const decisao = this._avaliarLimites(item, config);
+        if (decisao.foraJanela) {
+          await this._finalizarForaJanela(item, decisao, correlationId);
+          relatorio.removidos += 1;
+          continue;
+        }
         if (decisao.remover) {
-          await this._removerDaFila(item, decisao.motivo, correlationId, decisao.timeout);
+          await this._removerDaFila(item, decisao.motivo, correlationId, decisao.timeout, {
+            statusDocumento: DocumentoFiscalStatus.RECUPERACAO_ESGOTADA,
+            statusRecuperacao: StatusRecuperacaoXml.RECUPERACAO_ESGOTADA
+          });
           relatorio.removidos += 1;
           if (decisao.timeout) relatorio.timeouts += 1;
           continue;
@@ -323,7 +382,7 @@ class MotorRecuperacaoXmlService {
         elegiveis.push(item);
       }
 
-      const lote = elegiveis.slice(0, config.lotePorCiclo);
+      const lote = deduplicarPorChave(ordenarFila(elegiveis)).slice(0, config.lotePorCiclo);
 
       for (const item of lote) {
         const resultado = await this._consultarDocumento(item, config, correlationId);
@@ -381,9 +440,12 @@ class MotorRecuperacaoXmlService {
       return { entrou: false };
     }
     this._estado.docs[key] = {
-      tentativas: 0,
-      ultimaConsulta: null,
+      tentativas: Number(item.tentativas) || 0,
+      ultimaConsulta: item.ultimaConsulta || null,
+      proximaTentativa: item.proximaTentativa || null,
       ultimoRetorno: null,
+      statusRecuperacao: StatusRecuperacaoXml.AGUARDANDO_XML_COMPLETO,
+      prioridade: item.recuperacaoPrioridade || PRIORIDADE.NORMAL,
       motivo: 'monitoramento_ativo',
       correlationId,
       desde: this._agora().toISOString(),
@@ -397,7 +459,23 @@ class MotorRecuperacaoXmlService {
    */
   _avaliarLimites(item, config) {
     const st = this._estado.docs[String(item.id)] || {};
-    const tentativas = Number(st.tentativas) || 0;
+    const tentativas = Number(item.tentativas != null ? item.tentativas : st.tentativas) || 0;
+
+    const janela = avaliarJanelaRecuperacao(
+      item.dataEmissao || item.data_emissao,
+      this._agora(),
+      config.janelaRecuperacaoDias || JANELA_RECUPERACAO_DIAS
+    );
+    if (janela.fora) {
+      return {
+        remover: true,
+        foraJanela: true,
+        timeout: false,
+        motivo: `Documento localizado, mas fora da janela disponível para recuperação pela distribuição SEFAZ (${janela.dias} dias > ${config.janelaRecuperacaoDias || JANELA_RECUPERACAO_DIAS}).`,
+        janela
+      };
+    }
+
     if (tentativas >= config.maxTentativas) {
       return {
         remover: true,
@@ -406,7 +484,7 @@ class MotorRecuperacaoXmlService {
       };
     }
 
-    const desde = st.desde || item.createdAt || item.created_at;
+    const desde = st.desde || item.desde || item.createdAt || item.created_at;
     if (desde) {
       const dias = (this._agora().getTime() - new Date(desde).getTime()) / (24 * 60 * 60 * 1000);
       if (Number.isFinite(dias) && dias > config.maxDiasMonitoramento) {
@@ -415,6 +493,14 @@ class MotorRecuperacaoXmlService {
           timeout: true,
           motivo: `Tempo máximo de monitoramento (${config.maxDiasMonitoramento} dias) excedido`
         };
+      }
+    }
+
+    const proxima = item.proximaTentativa || st.proximaTentativa;
+    if (proxima) {
+      const t = Date.parse(proxima);
+      if (Number.isFinite(t) && t > this._agora().getTime()) {
+        return { remover: false, adiar: true, motivo: 'next_attempt_at' };
       }
     }
 
@@ -427,6 +513,8 @@ class MotorRecuperacaoXmlService {
   async _consultarDocumento(item, config, correlationIdCiclo) {
     const id = Number(item.id);
     const correlationId = criarCorrelationId();
+    const chaveLimpa = String(item.chave || '').replace(/\D/g, '');
+    const lockKey = `chave:${chaveLimpa}`;
     const base = {
       documentoId: id,
       chave: item.chave,
@@ -436,258 +524,586 @@ class MotorRecuperacaoXmlService {
       mensagem: null
     };
 
-    const doc = await this._documentosRepository.buscarPorId(id);
-    if (!doc || !ehElegivelRecuperacaoXml(doc.status)) {
-      await this._removerDaFila(item, 'status_nao_elegivel', correlationId, false);
-      return { ...base, mensagem: 'Documento saiu da fila (status alterado)' };
+    if (chaveLimpa && this._emExecucao.has(lockKey)) {
+      return { ...base, mensagem: 'Recuperação já em andamento para esta chave' };
     }
+    if (chaveLimpa) this._emExecucao.add(lockKey);
 
-    if (!doc.chave || String(doc.chave).replace(/\D/g, '').length !== 44) {
-      this._atualizarEstadoDoc(id, {
-        tentativas: (this._estado.docs[String(id)]?.tentativas || 0) + 1,
-        ultimaConsulta: this._agora().toISOString(),
-        ultimoRetorno: 'SEM_CHAVE',
-        motivo: 'Chave inválida',
-        correlationId
-      });
-      return { ...base, falha: true, mensagem: 'Chave inválida' };
-    }
+    try {
+      const doc = await this._documentosRepository.buscarPorId(id);
+      if (!doc) {
+        await this._removerDaFila(item, 'documento_inexistente', correlationId, false);
+        return { ...base, mensagem: 'Documento não encontrado' };
+      }
 
-    const gate = this._obterGate();
-    if (gate?.autorizarConsultaDistDfe) {
-      const auth = await gate.autorizarConsultaDistDfe({
-        correlationId,
-        documentoId: id,
-        chave: doc.chave,
-        nsu: doc.nsu,
-        origem: ORIGEM_MOTOR,
-        motivo: 'recuperacao_xml_automatica_consChNFe',
-        forcar: false
-      });
-      if (!auth.permitido) {
+      // Idempotência: XML já completo → não consulta SEFAZ
+      const stAtual = normalizarStatus(doc.status);
+      const tipoAtual = doc.tipoDocumento || doc.tipo_documento;
+      if (
+        stAtual === DocumentoFiscalStatus.XML_COMPLETO
+        || tipoAtual === DocumentoDfeTipo.PROC_NFE
+        || tipoAtual === DocumentoDfeTipo.NFE
+      ) {
+        delete this._estado.docs[String(id)];
+        await this._persistirMetadadosDoc(id, {
+          statusRecuperacao: StatusRecuperacaoXml.XML_COMPLETO,
+          recuperacaoProximaTentativa: null
+        });
+        logXmlRecovery({
+          chave: chaveLimpa,
+          status: StatusRecuperacaoXml.XML_COMPLETO,
+          motivo: 'idempotente_xml_existente'
+        });
+        return { ...base, recuperado: true, mensagem: 'XML já existente — SEFAZ não consultada' };
+      }
+
+      if (!ehElegivelRecuperacaoXml(doc.status)) {
+        await this._removerDaFila(item, 'status_nao_elegivel', correlationId, false);
+        return { ...base, mensagem: 'Documento saiu da fila (status alterado)' };
+      }
+
+      if (chaveLimpa.length !== 44) {
         this._atualizarEstadoDoc(id, {
+          tentativas: (this._estado.docs[String(id)]?.tentativas || 0) + 1,
           ultimaConsulta: this._agora().toISOString(),
-          ultimoRetorno: auth.codigo || 'GATE_BLOQUEADO',
-          motivo: auth.mensagem || 'Gate SEFAZ bloqueou consulta',
+          ultimoRetorno: 'SEM_CHAVE',
+          statusRecuperacao: StatusRecuperacaoXml.ERRO_RECUPERACAO,
+          motivo: 'Chave inválida',
           correlationId
         });
-        await this._emitirEvento({
-          tipo: TIPOS_EVENTO.RECUPERACAO_XML_FALHA,
-          documentoId: id,
-          descricao: `Consulta bloqueada pelo Gate: ${auth.codigo || 'GATE'}`,
-          sucesso: false,
-          correlationId,
-          detalhe: { codigo: auth.codigo, cStat: auth.cStat }
-        });
-        return {
-          ...base,
-          gateBloqueado: true,
-          mensagem: auth.mensagem || 'Gate bloqueado'
-        };
+        return { ...base, falha: true, mensagem: 'Chave inválida' };
       }
-    }
 
-    await this._emitirEvento({
-      tipo: TIPOS_EVENTO.RECUPERACAO_XML_CONSULTA,
-      documentoId: id,
-      descricao: `Consulta automática consChNFe — documento #${id}`,
-      sucesso: true,
-      correlationId,
-      detalhe: {
-        chave: doc.chave,
-        nsu: doc.nsu,
-        status: doc.status,
-        ciclo: correlationIdCiclo
-      }
-    });
-
-    let resultadoConsulta = null;
-    try {
-      const ctxResult = await this._obterContexto();
-      if (!ctxResult?.ok) {
-        throw new Error(ctxResult?.mensagem || 'Contexto operacional indisponível');
-      }
-      resultadoConsulta = await this._consultarNotaPorChave(
-        String(doc.chave).replace(/\D/g, ''),
-        { contextoCentral: ctxResult.contexto }
-      );
-
+      // Pré-check SEFAZ Query Gate (sem retry no motor)
+      let ctxResult = null;
       try {
-        if (resultadoConsulta?.cStat && gate?.processarRespostaSefaz) {
-          await gate.processarRespostaSefaz(resultadoConsulta, {
-            chave: doc.chave,
-            documentoId: id,
+        ctxResult = await this._obterContexto();
+      } catch (e) {
+        ctxResult = { ok: false, mensagem: e.message };
+      }
+      if (!ctxResult?.ok) {
+        const msg = ctxResult?.mensagem || 'Contexto operacional indisponível';
+        this._agendarProxima(id, item, config, null, msg);
+        return { ...base, falha: true, mensagem: msg };
+      }
+
+      const cnpj = String(ctxResult.contexto?.cnpj || '').replace(/\D/g, '');
+      const ambiente = Number(ctxResult.contexto?.ambiente) === 1 ? 1 : 2;
+      const sefazGate = this._obterSefazQueryGate();
+      if (sefazGate?.autorizar) {
+        const auth = await sefazGate.autorizar({
+          cnpj,
+          ambiente,
+          tipo: 'CONS_CH_NFE',
+          origem: ORIGENS_SEFAZ.RECUPERACAO_XML
+        });
+        if (!auth.permitido) {
+          const next = calcularProximaTentativa(
+            this._estado.docs[String(id)]?.tentativas || 0,
+            this._agora(),
+            auth.retry_at
+          );
+          this._atualizarEstadoDoc(id, {
+            statusRecuperacao: StatusRecuperacaoXml.AGUARDANDO_XML_COMPLETO,
+            proximaTentativa: next,
+            ultimoRetorno: auth.motivo || auth.erro || 'GATE',
+            ultimoCstat: auth.cstat || null,
+            ultimoRequestId: auth.request_id || null,
+            motivo: auth.motivo || 'Gate SEFAZ bloqueou consulta',
             correlationId
           });
+          await this._persistirMetadadosDoc(id, {
+            statusRecuperacao: StatusRecuperacaoXml.AGUARDANDO_XML_COMPLETO,
+            recuperacaoProximaTentativa: next,
+            recuperacaoUltimoCstat: auth.cstat || null,
+            recuperacaoUltimoRequestId: auth.request_id || null,
+            recuperacaoUltimoXmotivo: auth.motivo || null
+          });
+          logXmlRecovery({
+            chave: chaveLimpa,
+            status: StatusRecuperacaoXml.AGUARDANDO_XML_COMPLETO,
+            next_attempt: next,
+            request: auth.request_id,
+            cStat: auth.cstat,
+            motivo: auth.motivo || auth.erro
+          });
+          return {
+            ...base,
+            gateBloqueado: true,
+            mensagem: auth.motivo || auth.erro || 'Gate bloqueado'
+          };
         }
-      } catch { /* ignore */ }
-    } catch (error) {
+      }
+
+      const tentativasAntes = Number(this._estado.docs[String(id)]?.tentativas) || 0;
       this._atualizarEstadoDoc(id, {
-        tentativas: (this._estado.docs[String(id)]?.tentativas || 0) + 1,
-        ultimaConsulta: this._agora().toISOString(),
-        ultimoRetorno: 'ERRO',
-        motivo: error.message,
+        statusRecuperacao: StatusRecuperacaoXml.RECUPERANDO_XML,
         correlationId
       });
+      await this._persistirMetadadosDoc(id, {
+        statusRecuperacao: StatusRecuperacaoXml.RECUPERANDO_XML
+      });
+
+      await this._emitirEvento({
+        tipo: TIPOS_EVENTO.RECUPERACAO_XML_CONSULTA,
+        documentoId: id,
+        descricao: `Consulta automática consChNFe — documento #${id}`,
+        sucesso: true,
+        correlationId,
+        detalhe: {
+          chave: doc.chave,
+          nsu: doc.nsu,
+          status: doc.status,
+          ciclo: correlationIdCiclo
+        }
+      });
+
+      let resultadoConsulta = null;
+      let erroConsulta = null;
+      try {
+        resultadoConsulta = await this._consultarNotaPorChave(chaveLimpa, {
+          contextoCentral: ctxResult.contexto,
+          recuperacaoXml: true,
+          origemSefazGate: ORIGENS_SEFAZ.RECUPERACAO_XML
+        });
+      } catch (error) {
+        erroConsulta = error;
+      }
+
+      const atualizado = await this._documentosRepository.buscarPorId(id);
+      const classif = classificarResultadoRecuperacao({
+        resultadoConsulta,
+        documentoAtualizado: atualizado,
+        erro: erroConsulta
+      });
+
+      const tentativas = tentativasAntes + 1;
+      const requestId = erroConsulta?.request_id
+        || resultadoConsulta?.sefazGateRequestId
+        || null;
+
+      // Validação chave/CNPJ quando XML completo
+      if (classif.xmlCompleto && atualizado?.xml) {
+        const chaveXml = extrairChaveDoXml(atualizado.xml);
+        if (chaveXml && chaveXml !== chaveLimpa) {
+          classif.caso = 'ERRO_CHAVE';
+          classif.xmlCompleto = false;
+          classif.statusRecuperacao = StatusRecuperacaoXml.ERRO_RECUPERACAO;
+          classif.codigoErro = 'ERRO_XML';
+          classif.mensagem = 'Chave retornada diferente da chave solicitada.';
+          classif.aguardando = false;
+        } else if (cnpj) {
+          const cnpjDest = extrairCnpjDestinatarioXml(atualizado.xml);
+          if (cnpjDest && cnpjDest !== cnpj) {
+            classif.caso = 'ERRO_CNPJ';
+            classif.xmlCompleto = false;
+            classif.statusRecuperacao = StatusRecuperacaoXml.ERRO_RECUPERACAO;
+            classif.codigoErro = 'ERRO_XML';
+            classif.mensagem = 'CNPJ destinatário do XML diverge do CNPJ da empresa.';
+            classif.aguardando = false;
+          }
+        }
+      }
+
+      if (classif.xmlCompleto) {
+        this._atualizarEstadoDoc(id, {
+          tentativas,
+          ultimaConsulta: this._agora().toISOString(),
+          proximaTentativa: null,
+          statusRecuperacao: StatusRecuperacaoXml.XML_COMPLETO,
+          ultimoRetorno: 'PROC_NFE',
+          ultimoCstat: classif.cStat,
+          ultimoRequestId: requestId,
+          motivo: 'XML recuperado automaticamente',
+          correlationId
+        });
+        await this._persistirMetadadosDoc(id, {
+          statusRecuperacao: StatusRecuperacaoXml.XML_COMPLETO,
+          recuperacaoTentativas: tentativas,
+          recuperacaoUltimaTentativa: this._agora().toISOString(),
+          recuperacaoProximaTentativa: null,
+          recuperacaoUltimoCstat: classif.cStat,
+          recuperacaoUltimoRequestId: requestId,
+          recuperacaoPrimeiraTentativa: this._estado.docs[String(id)]?.desde || this._agora().toISOString()
+        });
+
+        logXmlRecovery({
+          chave: chaveLimpa,
+          status: StatusRecuperacaoXml.XML_COMPLETO,
+          attempt: tentativas,
+          request: requestId,
+          cStat: classif.cStat
+        });
+
+        await this._historicoRepository.inserir({
+          documentoId: id,
+          statusAnterior: doc.status,
+          statusNovo: DocumentoFiscalStatus.XML_COMPLETO,
+          detalhe: [
+            'XML recuperado automaticamente.',
+            'Origem: DistDFe (consChNFe) via SEFAZQueryGate',
+            `Data/Hora: ${this._agora().toISOString()}`,
+            `Correlation ID: ${correlationId}`,
+            `request_id: ${requestId || '—'}`,
+            `cStat: ${classif.cStat || '—'}`
+          ].join('\n')
+        });
+
+        await this._emitirEvento({
+          tipo: TIPOS_EVENTO.RECUPERACAO_XML_RECUPERADO,
+          documentoId: id,
+          descricao: `procNFe encontrado — documento #${id}`,
+          sucesso: true,
+          resultado: 'XML_COMPLETO',
+          correlationId,
+          detalhe: { chave: doc.chave, request_id: requestId }
+        });
+
+        let statusFinal = DocumentoFiscalStatus.XML_COMPLETO;
+        try {
+          await this._processarDocumento(id, {
+            usuarioId: null,
+            origem: ORIGEM_MOTOR,
+            correlationId
+          });
+          const docPos = await this._documentosRepository.buscarPorId(id);
+          statusFinal = normalizarStatus(docPos?.status) || statusFinal;
+          if (statusFinal === DocumentoFiscalStatus.XML_COMPLETO) {
+            await this._transitionService.transicionar(
+              id,
+              DocumentoFiscalStatus.XML_COMPLETO,
+              DocumentoFiscalStatus.EM_REVISAO,
+              {
+                detalhe: 'Sprint 2 — Liberado para revisão após recuperação do XML.',
+                origem: ORIGEM_MOTOR
+              }
+            );
+            statusFinal = DocumentoFiscalStatus.EM_REVISAO;
+          }
+        } catch { /* ignore — XML já persistido */ }
+
+        delete this._estado.docs[String(id)];
+        this._estado.metricas.removidos += 1;
+        return {
+          ...base,
+          recuperado: true,
+          statusFinal,
+          mensagem: 'XML recuperado e documento atualizado',
+          cStat: classif.cStat,
+          request_id: requestId
+        };
+      }
+
+      // resNFe / indisponível / 656 / 137 / erro técnico
+      const next = calcularProximaTentativa(
+        tentativas,
+        this._agora(),
+        erroConsulta?.retry_at || null
+      );
+      const statusRec = classif.aguardando
+        ? StatusRecuperacaoXml.AGUARDANDO_XML_COMPLETO
+        : (classif.recuperavel
+          ? StatusRecuperacaoXml.AGUARDANDO_XML_COMPLETO
+          : StatusRecuperacaoXml.ERRO_RECUPERACAO);
+
+      this._atualizarEstadoDoc(id, {
+        tentativas,
+        ultimaConsulta: this._agora().toISOString(),
+        proximaTentativa: classif.recuperavel || classif.aguardando ? next : null,
+        statusRecuperacao: statusRec,
+        ultimoRetorno: classif.caso,
+        ultimoCstat: classif.cStat,
+        ultimoXmotivo: classif.xMotivo || classif.mensagem,
+        ultimoRequestId: requestId,
+        motivo: classif.mensagem,
+        correlationId
+      });
+      await this._persistirMetadadosDoc(id, {
+        statusRecuperacao: statusRec,
+        recuperacaoTentativas: tentativas,
+        recuperacaoUltimaTentativa: this._agora().toISOString(),
+        recuperacaoProximaTentativa: classif.recuperavel || classif.aguardando ? next : null,
+        recuperacaoUltimoCstat: classif.cStat,
+        recuperacaoUltimoXmotivo: classif.xMotivo || classif.mensagem,
+        recuperacaoUltimoRequestId: requestId,
+        recuperacaoPrimeiraTentativa: this._estado.docs[String(id)]?.desde || this._agora().toISOString()
+      });
+
+      logXmlRecovery({
+        chave: chaveLimpa,
+        status: statusRec,
+        attempt: tentativas,
+        next_attempt: next,
+        request: requestId,
+        cStat: classif.cStat,
+        motivo: classif.mensagem
+      });
+
+      // resNFe NÃO é falha definitiva
+      if (classif.caso === 'RESUMO' || classif.aguardando) {
+        await this._historicoRepository.inserir({
+          documentoId: id,
+          statusAnterior: doc.status,
+          statusNovo: doc.status,
+          detalhe: [
+            'Sprint 2 — Aguardando XML completo (não é erro).',
+            classif.mensagem,
+            `cStat: ${classif.cStat || '—'}`,
+            `Próxima tentativa: ${next}`,
+            `request_id: ${requestId || '—'}`
+          ].join('\n')
+        }).catch(() => {});
+        return {
+          ...base,
+          gateBloqueado: Boolean(classif.gateBloqueado),
+          mensagem: classif.mensagem,
+          cStat: classif.cStat,
+          request_id: requestId
+        };
+      }
+
       await this._emitirEvento({
         tipo: TIPOS_EVENTO.RECUPERACAO_XML_FALHA,
         documentoId: id,
-        descricao: `Falha na consulta automática: ${error.message}`,
+        descricao: classif.mensagem,
         sucesso: false,
         correlationId,
-        detalhe: { erro: error.message }
+        detalhe: {
+          caso: classif.caso,
+          codigo: classif.codigoErro,
+          cStat: classif.cStat,
+          request_id: requestId
+        }
       });
-      return { ...base, falha: true, mensagem: error.message };
-    }
 
-    const atualizado = await this._documentosRepository.buscarPorId(id);
-    const statusNovo = normalizarStatus(atualizado?.status);
-    const tipo = atualizado?.tipoDocumento || atualizado?.tipo_documento;
-    const xmlCompleto = statusNovo === DocumentoFiscalStatus.XML_COMPLETO
-      || tipo === DocumentoDfeTipo.PROC_NFE
-      || tipo === DocumentoDfeTipo.NFE;
-
-    this._atualizarEstadoDoc(id, {
-      tentativas: (this._estado.docs[String(id)]?.tentativas || 0) + 1,
-      ultimaConsulta: this._agora().toISOString(),
-      ultimoRetorno: xmlCompleto
-        ? 'PROC_NFE'
-        : (resultadoConsulta?.cStat || resultadoConsulta?.mensagem || 'SEM_PROC'),
-      motivo: xmlCompleto ? 'XML recuperado automaticamente' : 'procNFe ainda indisponível',
-      correlationId
-    });
-
-    if (!xmlCompleto) {
-      await this._historicoRepository.inserir({
-        documentoId: id,
-        statusAnterior: doc.status,
-        statusNovo: doc.status,
-        detalhe: [
-          'RC3.7.5 — Consulta automática sem procNFe.',
-          `Origem: DistDFe consChNFe`,
-          `Correlation: ${correlationId}`,
-          `cStat: ${resultadoConsulta?.cStat || '—'}`,
-          `NSU doc: ${doc.nsu || '—'}`
-        ].join('\n')
-      });
       return {
         ...base,
-        mensagem: 'procNFe ainda indisponível na SEFAZ',
-        cStat: resultadoConsulta?.cStat || null
+        falha: !classif.recuperavel,
+        gateBloqueado: Boolean(classif.gateBloqueado),
+        mensagem: classif.mensagem,
+        cStat: classif.cStat,
+        request_id: requestId
+      };
+    } finally {
+      if (chaveLimpa) this._emExecucao.delete(lockKey);
+    }
+  }
+
+  /** @private */
+  _agendarProxima(id, item, config, retryAtGate, motivo) {
+    const tentativas = Number(this._estado.docs[String(id)]?.tentativas) || 0;
+    const next = calcularProximaTentativa(tentativas, this._agora(), retryAtGate);
+    this._atualizarEstadoDoc(id, {
+      proximaTentativa: next,
+      statusRecuperacao: StatusRecuperacaoXml.AGUARDANDO_XML_COMPLETO,
+      motivo: motivo || 'adiado'
+    });
+    return next;
+  }
+
+  /** @private */
+  async _persistirMetadadosDoc(id, patch) {
+    try {
+      await this._documentosRepository.atualizar(id, patch);
+    } catch { /* colunas podem não existir em DB legado — estado KV cobre */ }
+  }
+
+  /** @private */
+  async _finalizarForaJanela(item, decisao, correlationId) {
+    const id = Number(item.id);
+    logXmlRecovery({
+      chave: item.chave,
+      status: StatusRecuperacaoXml.FORA_JANELA_RECUPERACAO,
+      motivo: decisao.motivo
+    });
+    try {
+      await this._transitionService.transicionar(
+        id,
+        item.status,
+        DocumentoFiscalStatus.FORA_JANELA_RECUPERACAO,
+        {
+          detalhe: decisao.motivo,
+          origem: ORIGEM_MOTOR
+        }
+      );
+    } catch {
+      await this._persistirMetadadosDoc(id, {
+        status: DocumentoFiscalStatus.FORA_JANELA_RECUPERACAO,
+        statusDetalhe: decisao.motivo
+      }).catch(() => {});
+    }
+    await this._persistirMetadadosDoc(id, {
+      statusRecuperacao: StatusRecuperacaoXml.FORA_JANELA_RECUPERACAO,
+      recuperacaoProximaTentativa: null,
+      recuperacaoUltimoXmotivo: decisao.motivo
+    });
+    delete this._estado.docs[String(id)];
+    await this._emitirEvento({
+      tipo: TIPOS_EVENTO.RECUPERACAO_XML_TIMEOUT,
+      documentoId: id,
+      descricao: decisao.motivo,
+      sucesso: false,
+      correlationId,
+      detalhe: { janela: decisao.janela, chave: item.chave }
+    });
+  }
+
+  /**
+   * Solicita recuperação com prioridade (consulta manual).
+   * Não cria chamada paralela — entra na mesma fila/Gate.
+   */
+  async solicitarRecuperacaoManual(documentoIdOuChave, opcoes = {}) {
+    await this._carregarEstado();
+    let doc = null;
+    if (typeof documentoIdOuChave === 'number' || /^\d+$/.test(String(documentoIdOuChave))) {
+      doc = await this._documentosRepository.buscarPorId(documentoIdOuChave);
+    } else {
+      const chave = String(documentoIdOuChave || '').replace(/\D/g, '');
+      if (typeof this._documentosRepository.buscarPorChave === 'function') {
+        doc = await this._documentosRepository.buscarPorChave(chave);
+      }
+    }
+    if (!doc) {
+      const err = new Error('Documento não encontrado para recuperação.');
+      err.status = 404;
+      throw err;
+    }
+
+    const st = normalizarStatus(doc.status);
+    if (st === DocumentoFiscalStatus.XML_COMPLETO) {
+      return {
+        sucesso: true,
+        idempotente: true,
+        mensagem: 'XML completo já disponível — SEFAZ não será consultada.',
+        documentoId: doc.id,
+        status: st
       };
     }
 
-    await this._historicoRepository.inserir({
-      documentoId: id,
-      statusAnterior: doc.status,
-      statusNovo: DocumentoFiscalStatus.XML_COMPLETO,
-      detalhe: [
-        'XML recuperado automaticamente.',
-        'Origem: DistDFe (consChNFe)',
-        `Data/Hora: ${this._agora().toISOString()}`,
-        `Correlation ID: ${correlationId}`,
-        `NSU: ${atualizado.nsu || doc.nsu || '—'}`,
-        `cStat consulta: ${resultadoConsulta?.cStat || '—'}`
-      ].join('\n')
-    });
-
-    await this._emitirEvento({
-      tipo: TIPOS_EVENTO.RECUPERACAO_XML_RECUPERADO,
-      documentoId: id,
-      descricao: `procNFe encontrado — documento #${id} atualizado automaticamente`,
-      sucesso: true,
-      resultado: 'XML_COMPLETO',
-      correlationId,
-      detalhe: {
-        chave: doc.chave,
-        nsu: atualizado.nsu || doc.nsu,
-        origem: 'DistDFe',
-        statusAnterior: doc.status,
-        statusNovo: DocumentoFiscalStatus.XML_COMPLETO
-      }
-    });
-
-    // Parser + revisão (XML_COMPLETO → EM_REVISAO / PRONTA)
-    let statusFinal = DocumentoFiscalStatus.XML_COMPLETO;
-    try {
-      const proc = await this._processarDocumento(id, {
-        usuarioId: null,
-        origem: ORIGEM_MOTOR,
-        correlationId
-      });
-      const docPos = await this._documentosRepository.buscarPorId(id);
-      statusFinal = normalizarStatus(docPos?.status) || statusFinal;
-      if (statusFinal === DocumentoFiscalStatus.XML_COMPLETO) {
-        // Fallback: garante EM_REVISAO se pipeline não avançou
-        await this._transitionService.transicionar(
-          id,
-          DocumentoFiscalStatus.XML_COMPLETO,
-          DocumentoFiscalStatus.EM_REVISAO,
-          {
-            detalhe: 'RC3.7.5 — Liberado automaticamente para revisão após recuperação do XML.',
-            origem: ORIGEM_MOTOR
-          }
-        );
-        statusFinal = DocumentoFiscalStatus.EM_REVISAO;
-      }
-      void proc;
-    } catch (procErr) {
-      try {
-        const docPos = await this._documentosRepository.buscarPorId(id);
-        const st = normalizarStatus(docPos?.status);
-        if (st === DocumentoFiscalStatus.XML_COMPLETO) {
-          await this._transitionService.transicionar(
-            id,
-            DocumentoFiscalStatus.XML_COMPLETO,
-            DocumentoFiscalStatus.EM_REVISAO,
-            {
-              detalhe: `RC3.7.5 — Liberado para revisão (parser: ${procErr.message}).`,
-              origem: ORIGEM_MOTOR
-            }
-          );
-          statusFinal = DocumentoFiscalStatus.EM_REVISAO;
-        }
-      } catch { /* ignore */ }
+    if (!ehElegivelRecuperacaoXml(doc.status)
+      && st !== DocumentoFiscalStatus.ERRO_RECUPERACAO
+      && st !== DocumentoFiscalStatus.RECUPERACAO_ESGOTADA) {
+      const err = new Error(`Documento em status ${doc.status} não elegível para recuperação.`);
+      err.status = 400;
+      throw err;
     }
 
-    delete this._estado.docs[String(id)];
-    this._estado.metricas.removidos += 1;
-
-    await this._emitirEvento({
-      tipo: TIPOS_EVENTO.RECUPERACAO_XML_REMOVIDO,
-      documentoId: id,
-      descricao: `Documento #${id} removido da fila — XML recuperado`,
-      sucesso: true,
-      correlationId,
-      detalhe: { motivo: 'recuperado', statusFinal }
+    const prioridade = opcoes.prioridade || prioridadeDeOrigem(opcoes.origem || 'CONSULTA_MANUAL');
+    this._estado.docs[String(doc.id)] = {
+      ...(this._estado.docs[String(doc.id)] || {}),
+      tentativas: Number(this._estado.docs[String(doc.id)]?.tentativas) || 0,
+      proximaTentativa: this._agora().toISOString(),
+      statusRecuperacao: StatusRecuperacaoXml.AGUARDANDO_XML_COMPLETO,
+      prioridade,
+      desde: this._estado.docs[String(doc.id)]?.desde || this._agora().toISOString(),
+      chave: doc.chave,
+      motivo: 'solicitacao_manual'
+    };
+    await this._persistirMetadadosDoc(doc.id, {
+      statusRecuperacao: StatusRecuperacaoXml.AGUARDANDO_XML_COMPLETO,
+      recuperacaoPrioridade: prioridade,
+      recuperacaoProximaTentativa: this._agora().toISOString()
     });
+    await this._persistirEstado();
+
+    if (opcoes.executarImediato !== false) {
+      const config = await this.obterConfig();
+      const item = {
+        id: doc.id,
+        chave: doc.chave,
+        status: doc.status,
+        tentativas: this._estado.docs[String(doc.id)].tentativas,
+        dataEmissao: doc.dataEmissao,
+        recuperacaoPrioridade: prioridade
+      };
+      const resultado = await this._consultarDocumento(item, config, criarCorrelationId());
+      await this._persistirEstado();
+      return { sucesso: true, prioridade, resultado, documentoId: doc.id };
+    }
 
     return {
-      ...base,
-      recuperado: true,
-      statusFinal,
-      mensagem: 'XML recuperado e documento atualizado',
-      cStat: resultadoConsulta?.cStat || null
+      sucesso: true,
+      enfileirado: true,
+      prioridade,
+      documentoId: doc.id,
+      mensagem: 'Solicitação enfileirada com prioridade alta. Passará pelo SEFAZQueryGate.'
+    };
+  }
+
+  /**
+   * Diagnóstico operacional de uma chave/documento.
+   */
+  async obterDiagnosticoRecuperacao(documentoIdOuChave) {
+    await this._carregarEstado();
+    let doc = null;
+    if (typeof documentoIdOuChave === 'number' || /^\d+$/.test(String(documentoIdOuChave))) {
+      doc = await this._documentosRepository.buscarPorId(documentoIdOuChave);
+    } else {
+      const chave = String(documentoIdOuChave || '').replace(/\D/g, '');
+      if (typeof this._documentosRepository.buscarPorChave === 'function') {
+        doc = await this._documentosRepository.buscarPorChave(chave);
+      }
+    }
+    if (!doc) return null;
+    const st = this._estado.docs[String(doc.id)] || {};
+    return {
+      documentoId: doc.id,
+      chave: doc.chave,
+      cnpj: doc.cnpjFornecedor || null,
+      ambiente: null,
+      statusDocumento: doc.status,
+      statusRecuperacao: doc.statusRecuperacao || st.statusRecuperacao || null,
+      tentativas: Number(doc.recuperacaoTentativas != null ? doc.recuperacaoTentativas : st.tentativas) || 0,
+      ultimaTentativa: doc.recuperacaoUltimaTentativa || st.ultimaConsulta || null,
+      proximaTentativa: doc.recuperacaoProximaTentativa || st.proximaTentativa || null,
+      ultimoCstat: doc.recuperacaoUltimoCstat || st.ultimoCstat || null,
+      ultimoXmotivo: doc.recuperacaoUltimoXmotivo || st.ultimoXmotivo || null,
+      requestId: doc.recuperacaoUltimoRequestId || st.ultimoRequestId || null,
+      prioridade: doc.recuperacaoPrioridade || st.prioridade || null,
+      emExecucao: this._emExecucao.has(`chave:${String(doc.chave || '').replace(/\D/g, '')}`)
     };
   }
 
   /**
    * @private
    */
-  async _removerDaFila(item, motivo, correlationId, timeout) {
+  async _removerDaFila(item, motivo, correlationId, timeout, opcoes = {}) {
     const id = Number(item.id);
     delete this._estado.docs[String(id)];
     this._estado.metricas.removidos += 1;
     if (timeout) this._estado.metricas.timeouts += 1;
 
+    if (opcoes.statusRecuperacao) {
+      await this._persistirMetadadosDoc(id, {
+        statusRecuperacao: opcoes.statusRecuperacao,
+        recuperacaoProximaTentativa: null,
+        recuperacaoUltimoXmotivo: motivo
+      });
+    }
+    if (opcoes.statusDocumento && timeout) {
+      try {
+        await this._transitionService.transicionar(
+          id,
+          item.status,
+          opcoes.statusDocumento,
+          { detalhe: motivo, origem: ORIGEM_MOTOR }
+        );
+      } catch { /* ignore */ }
+      logXmlRecovery({
+        chave: item.chave,
+        status: opcoes.statusRecuperacao || StatusRecuperacaoXml.RECUPERACAO_ESGOTADA,
+        motivo
+      });
+    }
+
     await this._historicoRepository.inserir({
       documentoId: id,
       statusAnterior: item.status,
-      statusNovo: item.status,
+      statusNovo: opcoes.statusDocumento || item.status,
       detalhe: [
         timeout
-          ? 'RC3.7.5 — Documento removido da fila (timeout/limite).'
-          : 'RC3.7.5 — Documento removido da fila de recuperação.',
+          ? 'Sprint 2 — Documento removido da fila (timeout/limite).'
+          : 'Sprint 2 — Documento removido da fila de recuperação.',
         `Motivo: ${motivo}`,
         `Correlation: ${correlationId}`
       ].join('\n')

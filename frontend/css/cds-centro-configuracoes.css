@@ -296,6 +296,14 @@
   margin: 0 0 1rem;
 }
 
+.cds-cfg-pane__section {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--cds-cfg-ink);
+  border-bottom: 1px solid var(--cds-cfg-border);
+  padding-bottom: 0.35rem;
+}
+
 .cds-cfg-card {
   background: var(--cds-cfg-surface);
   border: 1px solid var(--cds-cfg-border);

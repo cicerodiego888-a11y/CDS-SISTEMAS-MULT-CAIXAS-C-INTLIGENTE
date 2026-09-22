@@ -27,9 +27,21 @@
   }
 
   function badgeStatusEntrega(st) {
+    if (st === 'AGUARDANDO_ENTREGA') {
+      return `
+        <div class="d-flex flex-column">
+          <span class="badge bg-warning text-dark align-self-start">🟡 NÃO INICIADA</span>
+          <small class="text-muted mt-1">Aguardando saída do entregador</small>
+        </div>`;
+    }
+    if (st === 'EM_ENTREGA') {
+      return `
+        <div class="d-flex flex-column">
+          <span class="badge bg-success align-self-start">🟢 EM ENTREGA</span>
+          <small class="text-muted mt-1">Entregador em rota</small>
+        </div>`;
+    }
     const map = {
-      AGUARDANDO_ENTREGA: 'bg-warning text-dark',
-      EM_ENTREGA: 'bg-primary',
       AGUARDANDO_PRESTACAO: 'bg-info text-dark',
       CONCLUIDA: 'bg-success',
       FINALIZADA: 'bg-success',
@@ -37,8 +49,6 @@
     };
     const cls = map[st] || 'bg-secondary';
     const label = {
-      AGUARDANDO_ENTREGA: 'Aguardando Entrega',
-      EM_ENTREGA: 'Em Entrega',
       AGUARDANDO_PRESTACAO: 'Aguardando Prestação',
       CONCLUIDA: 'Concluída',
       FINALIZADA: 'Concluída',
@@ -134,7 +144,7 @@
 
         <div class="d-flex flex-wrap gap-2 mb-3" id="filtrosStatusEntrega">
           <button type="button" class="btn btn-sm btn-primary active" data-status="">Todos</button>
-          <button type="button" class="btn btn-sm btn-outline-primary" data-status="AGUARDANDO_ENTREGA">Aguardando Entrega</button>
+          <button type="button" class="btn btn-sm btn-outline-primary" data-status="AGUARDANDO_ENTREGA">Não Iniciada</button>
           <button type="button" class="btn btn-sm btn-outline-primary" data-status="EM_ENTREGA">Em Entrega</button>
           <button type="button" class="btn btn-sm btn-outline-primary" data-status="AGUARDANDO_PRESTACAO">Aguardando Prestação</button>
           <button type="button" class="btn btn-sm btn-outline-primary" data-status="CONCLUIDA">Concluídas</button>
@@ -311,6 +321,7 @@
     const dataPart = criado.slice(0, 10);
     const horaPart = criado.includes('T') ? criado.slice(11, 19) : (criado.slice(11, 19) || '—');
     const podeIniciar = v.status_entrega === 'AGUARDANDO_ENTREGA';
+    const podeEditar = v.status_entrega === 'AGUARDANDO_ENTREGA';
     return `
       <tr>
         <td><a href="#" class="btn-detalhe-entrega" data-id="${v.id}">#${v.id}</a></td>
@@ -328,11 +339,18 @@
         <td>${dataPart}</td>
         <td>${horaPart}</td>
         <td class="text-nowrap">
+          ${podeEditar
+            ? `<button type="button" class="btn btn-sm btn-outline-warning btn-editar-entrega" data-id="${v.id}" title="Editar entrega">
+                <i class="fas fa-pen"></i> Editar
+              </button>`
+            : ''}
           <button type="button" class="btn btn-sm btn-outline-secondary btn-detalhe-entrega" data-id="${v.id}" title="Timeline">
             <i class="fas fa-history"></i>
           </button>
           ${podeIniciar
-            ? `<button type="button" class="btn btn-sm btn-outline-primary btn-iniciar-entrega" data-id="${v.id}">Iniciar</button>`
+            ? `<button type="button" class="btn btn-sm btn-outline-primary btn-iniciar-entrega" data-id="${v.id}">
+                <i class="fas fa-play"></i> Iniciar Entrega
+              </button>`
             : ''}
         </td>
       </tr>`;
@@ -359,10 +377,368 @@
       }
     });
 
+    $('.btn-editar-entrega').off('click').on('click', function () {
+      abrirModalEditarEntrega($(this).data('id'));
+    });
+
     $('.btn-detalhe-entrega').off('click').on('click', function (e) {
       e.preventDefault();
       abrirDetalheTimeline($(this).data('id'));
     });
+  }
+
+  function authHeadersJson() {
+    return {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${localStorage.getItem('token')}`
+    };
+  }
+
+  async function abrirModalEditarEntrega(vendaId) {
+    try {
+      const resp = await fetch(`${API_URL}/vendas/entregas/${vendaId}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.error || 'Falha ao carregar entrega.');
+      const item = data.item || {};
+      if (item.status_entrega !== 'AGUARDANDO_ENTREGA') {
+        showNotification('Esta entrega já foi iniciada e não pode mais ser editada.', 'warning');
+        return;
+      }
+
+      const levaMaq = item.leva_maquineta === true || Number(item.leva_maquineta) === 1;
+      const levaTroco = Number(item.troco_para || 0) > 0;
+      const temCliente = item.cliente_id != null && Number(item.cliente_id) > 0;
+
+      $('#modal-container').html(`
+        <div class="modal fade" id="modalEditarEntrega" tabindex="-1">
+          <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-lg" style="border-radius:20px;">
+              <div class="modal-header border-0" style="background:#ea580c;color:#fff;">
+                <h5 class="modal-title">✏ Editar Entrega #${item.id}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body p-4">
+                <div class="alert alert-warning py-2">
+                  Esta entrega ainda <strong>não foi iniciada</strong>.
+                  <div class="small mt-1">Aguardando saída do entregador — alterações atualizam o snapshot da entrega.</div>
+                </div>
+                <div class="row g-3">
+                  <input type="hidden" id="editEntregaId" value="${item.id}">
+                  <input type="hidden" id="entregaClienteId" value="${temCliente ? item.cliente_id : ''}">
+                  <input type="hidden" id="entregaModoCliente" value="${temCliente ? 'busca' : 'avulso'}">
+                  <div class="col-12">
+                    <label class="form-label">Cliente / Consumidor</label>
+                    <div id="boxBuscaClienteEntrega" style="${temCliente ? '' : 'display:none;'}">
+                      <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control" id="entregaClienteBusca"
+                          placeholder="Digite nome ou telefone..." autocomplete="off"
+                          value="${escapeHtml(temCliente ? (item.cliente_nome || '') : '')}">
+                      </div>
+                      <div id="entregaClienteResultados" class="list-group mt-1 shadow-sm"
+                        style="display:none;max-height:180px;overflow:auto;position:relative;z-index:5;"></div>
+                      <div id="entregaClienteSelecionado" class="alert alert-success py-2 mt-2 mb-0" style="${temCliente ? '' : 'display:none;'}">
+                        <div class="d-flex justify-content-between align-items-center gap-2">
+                          <span><i class="fas fa-user-check me-1"></i> <strong id="entregaClienteSelecionadoNome">${escapeHtml(item.cliente_nome || '')}</strong></span>
+                          <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRemoverClienteEntrega">Trocar</button>
+                        </div>
+                      </div>
+                      <div class="mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnConsumidorAvulsoEntrega">+ Consumidor avulso</button>
+                      </div>
+                    </div>
+                    <div id="boxConsumidorAvulsoHint" class="alert alert-secondary py-2 mt-1 mb-0" style="${temCliente ? 'display:none;' : ''}">
+                      Consumidor avulso — dados só desta entrega (não cria cadastro).
+                      <button type="button" class="btn btn-sm btn-link p-0 ms-1" id="btnVoltarBuscaClienteEntrega">Buscar cliente</button>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Nome</label>
+                    <input type="text" class="form-control" id="entregaNomeCliente" value="${escapeHtml(item.nome_cliente_entrega || item.cliente_nome || '')}">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">CPF/CNPJ</label>
+                    <input type="text" class="form-control" id="entregaCpfCnpj" value="${escapeHtml(item.cpf_cnpj_cliente_entrega || '')}">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Telefone</label>
+                    <input type="text" class="form-control" id="entregaTelefone" value="${escapeHtml(item.telefone_entrega || '')}">
+                  </div>
+                  <div class="col-md-8">
+                    <label class="form-label">E-mail</label>
+                    <input type="email" class="form-control" id="entregaEmail" value="${escapeHtml(item.email_cliente_entrega || '')}">
+                  </div>
+                  <div class="col-12"><hr class="my-1"><small class="text-muted text-uppercase fw-semibold">Endereço da entrega</small></div>
+                  <div class="col-md-3">
+                    <label class="form-label">CEP</label>
+                    <div class="input-group">
+                      <input type="text" class="form-control" id="entregaCep" value="${escapeHtml(item.cep_entrega || '')}" maxlength="9">
+                      <button type="button" class="btn btn-outline-secondary" id="btnBuscarCepEntrega"><i class="fas fa-search"></i></button>
+                    </div>
+                  </div>
+                  <div class="col-md-5">
+                    <label class="form-label">Endereço</label>
+                    <input type="text" class="form-control" id="entregaEndereco" value="${escapeHtml(item.endereco_entrega || '')}">
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">Número</label>
+                    <input type="text" class="form-control" id="entregaNumero" value="${escapeHtml(item.numero_entrega || '')}">
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">Compl.</label>
+                    <input type="text" class="form-control" id="entregaComplemento" value="${escapeHtml(item.complemento_entrega || '')}">
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Bairro</label>
+                    <input type="text" class="form-control" id="entregaBairro" value="${escapeHtml(item.bairro_entrega || '')}">
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Cidade</label>
+                    <input type="text" class="form-control" id="entregaCidade" value="${escapeHtml(item.cidade_entrega || '')}">
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">UF</label>
+                    <input type="text" class="form-control" id="entregaUf" maxlength="2" value="${escapeHtml(item.uf_entrega || '')}">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Referência</label>
+                    <input type="text" class="form-control" id="entregaReferencia" value="${escapeHtml(item.referencia_entrega || '')}">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Entregador</label>
+                    <input type="text" class="form-control" id="entregaEntregador" value="${escapeHtml(item.entregador || '')}">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Pagamento previsto</label>
+                    <select class="form-select" id="entregaPagamentoPrevisto">
+                      ${['NAO_INFORMADO', 'PIX', 'DINHEIRO', 'DEBITO', 'CREDITO', 'MISTO', 'FIADO'].map((p) =>
+                        `<option value="${p}" ${String(item.pagamento_previsto || '').toUpperCase() === p ? 'selected' : ''}>${p === 'NAO_INFORMADO' ? 'Não informado' : p}</option>`
+                      ).join('')}
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Taxa de entrega (R$)</label>
+                    <input type="number" min="0" step="0.01" class="form-control" id="entregaTaxa" value="${Number(item.taxa_entrega || 0)}">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label d-block">Levar maquineta</label>
+                    <div class="form-check form-check-inline">
+                      <input class="form-check-input" type="radio" name="entregaMaquineta" id="maqSim" value="1" ${levaMaq ? 'checked' : ''}>
+                      <label class="form-check-label" for="maqSim">Sim</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                      <input class="form-check-input" type="radio" name="entregaMaquineta" id="maqNao" value="0" ${!levaMaq ? 'checked' : ''}>
+                      <label class="form-check-label" for="maqNao">Não</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label d-block">Levar troco</label>
+                    <div class="form-check form-check-inline">
+                      <input class="form-check-input" type="radio" name="entregaTroco" id="trocoSim" value="1" ${levaTroco ? 'checked' : ''}>
+                      <label class="form-check-label" for="trocoSim">Sim</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                      <input class="form-check-input" type="radio" name="entregaTroco" id="trocoNao" value="0" ${!levaTroco ? 'checked' : ''}>
+                      <label class="form-check-label" for="trocoNao">Não</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4" id="boxTrocoPara" style="${levaTroco ? '' : 'display:none;'}">
+                    <label class="form-label">Troco para (R$)</label>
+                    <input type="number" min="0" step="0.01" class="form-control" id="entregaTrocoPara" value="${Number(item.troco_para || 0)}">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Observações</label>
+                    <textarea class="form-control" id="entregaObservacoes" rows="2">${escapeHtml(item.observacao_entrega || '')}</textarea>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSalvarEdicaoEntrega" style="background:#ea580c;border-color:#ea580c;">
+                  Salvar Alterações
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `);
+
+      const modalEl = document.getElementById('modalEditarEntrega');
+      const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+      modal.show();
+
+      $('input[name="entregaTroco"]').off('change.editEnt').on('change.editEnt', function () {
+        $('#boxTrocoPara').toggle($(this).val() === '1');
+      });
+
+      vincularBuscaClienteEdicao();
+      vincularCepEdicao();
+
+      $('#btnSalvarEdicaoEntrega').off('click').on('click', async () => {
+        await salvarEdicaoEntrega(modal);
+      });
+    } catch (err) {
+      showNotification(err.message || 'Erro', 'danger');
+    }
+  }
+
+  function vincularBuscaClienteEdicao() {
+    let timer = null;
+    const ativarAvulso = () => {
+      $('#entregaModoCliente').val('avulso');
+      $('#entregaClienteId').val('');
+      $('#boxBuscaClienteEntrega').hide();
+      $('#boxConsumidorAvulsoHint').show();
+      $('#entregaClienteResultados').empty().hide();
+    };
+    const ativarBusca = () => {
+      $('#entregaModoCliente').val('busca');
+      $('#boxConsumidorAvulsoHint').hide();
+      $('#boxBuscaClienteEntrega').show();
+    };
+
+    $('#btnConsumidorAvulsoEntrega').off('click.editEnt').on('click.editEnt', ativarAvulso);
+    $('#btnVoltarBuscaClienteEntrega').off('click.editEnt').on('click.editEnt', ativarBusca);
+    $('#btnRemoverClienteEntrega').off('click.editEnt').on('click.editEnt', () => {
+      $('#entregaClienteId').val('');
+      $('#entregaClienteBusca').val('');
+      $('#entregaClienteSelecionado').hide();
+      $('#entregaClienteSelecionadoNome').text('');
+    });
+
+    $('#entregaClienteBusca').off('input.editEnt').on('input.editEnt', function () {
+      const q = String($(this).val() || '').trim();
+      clearTimeout(timer);
+      if (q.length < 2) {
+        $('#entregaClienteResultados').empty().hide();
+        return;
+      }
+      timer = setTimeout(async () => {
+        try {
+          const resp = await fetch(`${API_URL}/clientes/buscar?q=${encodeURIComponent(q)}&limit=8`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          });
+          const lista = await resp.json().catch(() => []);
+          const items = Array.isArray(lista) ? lista : (lista.items || lista.clientes || []);
+          const $box = $('#entregaClienteResultados');
+          if (!items.length) {
+            $box.html('<div class="list-group-item small text-muted">Nenhum cliente</div>').show();
+            return;
+          }
+          $box.html(items.map((c) => `
+            <button type="button" class="list-group-item list-group-item-action entrega-cliente-item"
+              data-id="${c.id}" data-nome="${escapeHtml(c.nome || '')}">
+              <strong>${escapeHtml(c.nome || '')}</strong>
+              <span class="small text-muted ms-2">${escapeHtml(c.telefone || '')}</span>
+            </button>`).join('')).show();
+        } catch (_) {
+          $('#entregaClienteResultados').empty().hide();
+        }
+      }, 280);
+    });
+
+    $('#entregaClienteResultados').off('click.editEnt').on('click.editEnt', '.entrega-cliente-item', async function () {
+      const id = $(this).data('id');
+      try {
+        const resp = await fetch(`${API_URL}/clientes/${id}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        const cli = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(cli.error || 'Cliente não encontrado.');
+        $('#entregaClienteId').val(cli.id);
+        $('#entregaClienteBusca').val(cli.nome || '');
+        $('#entregaClienteResultados').empty().hide();
+        $('#entregaClienteSelecionado').show();
+        $('#entregaClienteSelecionadoNome').text(cli.nome || `Cliente #${cli.id}`);
+        $('#entregaNomeCliente').val(cli.nome || '');
+        $('#entregaCpfCnpj').val(cli.cpf_cnpj || '');
+        $('#entregaTelefone').val(cli.telefone || '');
+        $('#entregaEmail').val(cli.email || '');
+        if (cli.cep) $('#entregaCep').val(cli.cep);
+        if (cli.rua || cli.endereco) $('#entregaEndereco').val(cli.rua || cli.endereco || '');
+        if (cli.numero) $('#entregaNumero').val(cli.numero);
+        if (cli.bairro) $('#entregaBairro').val(cli.bairro);
+        if (cli.cidade) $('#entregaCidade').val(cli.cidade);
+        if (cli.uf) $('#entregaUf').val(cli.uf);
+      } catch (err) {
+        showNotification(err.message || 'Erro ao carregar cliente', 'danger');
+      }
+    });
+  }
+
+  function vincularCepEdicao() {
+    const formatar = (v) => {
+      const d = String(v || '').replace(/\D/g, '').slice(0, 8);
+      return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d;
+    };
+    $('#entregaCep').off('input.editCep').on('input.editCep', function () {
+      $(this).val(formatar($(this).val()));
+    });
+    const buscar = async () => {
+      const cep = String($('#entregaCep').val() || '').replace(/\D/g, '');
+      if (cep.length !== 8) return;
+      try {
+        const resp = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+        const data = await resp.json();
+        if (data.erro) return;
+        if (data.logradouro) $('#entregaEndereco').val(data.logradouro);
+        if (data.bairro) $('#entregaBairro').val(data.bairro);
+        if (data.localidade) $('#entregaCidade').val(data.localidade);
+        if (data.uf) $('#entregaUf').val(data.uf);
+      } catch (_) { /* ignore */ }
+    };
+    $('#btnBuscarCepEntrega').off('click.editCep').on('click.editCep', (e) => {
+      e.preventDefault();
+      buscar();
+    });
+    $('#entregaCep').off('blur.editCep').on('blur.editCep', buscar);
+  }
+
+  async function salvarEdicaoEntrega(modal) {
+    const id = $('#editEntregaId').val();
+    const levarTroco = $('input[name="entregaTroco"]:checked').val() === '1';
+    const clienteIdRaw = String($('#entregaClienteId').val() || '').trim();
+    const payload = {
+      cliente_id: clienteIdRaw ? Number(clienteIdRaw) : null,
+      nome_cliente_entrega: $('#entregaNomeCliente').val() || '',
+      cpf_cnpj_cliente_entrega: $('#entregaCpfCnpj').val() || '',
+      email_cliente_entrega: $('#entregaEmail').val() || '',
+      telefone_entrega: $('#entregaTelefone').val() || '',
+      cep_entrega: $('#entregaCep').val() || '',
+      endereco_entrega: $('#entregaEndereco').val() || '',
+      numero_entrega: $('#entregaNumero').val() || '',
+      complemento_entrega: $('#entregaComplemento').val() || '',
+      bairro_entrega: $('#entregaBairro').val() || '',
+      cidade_entrega: $('#entregaCidade').val() || '',
+      uf_entrega: $('#entregaUf').val() || '',
+      referencia_entrega: $('#entregaReferencia').val() || '',
+      entregador: $('#entregaEntregador').val() || '',
+      pagamento_previsto: $('#entregaPagamentoPrevisto').val() || 'NAO_INFORMADO',
+      taxa_entrega: Number($('#entregaTaxa').val() || 0),
+      leva_maquineta: $('input[name="entregaMaquineta"]:checked').val() === '1',
+      levar_troco: levarTroco,
+      troco_para: levarTroco ? Number($('#entregaTrocoPara').val() || 0) : 0,
+      observacao_entrega: $('#entregaObservacoes').val() || ''
+    };
+
+    try {
+      const resp = await fetch(`${API_URL}/vendas/${id}/entrega`, {
+        method: 'PATCH',
+        headers: authHeadersJson(),
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error(data.error || 'Falha ao salvar alterações.');
+      }
+      if (modal) modal.hide();
+      showNotification(data.mensagem || 'Alterações salvas.', 'success');
+      atualizarTela();
+    } catch (err) {
+      showNotification(err.message || 'Erro', 'danger');
+    }
   }
 
   async function abrirDetalheTimeline(vendaId) {

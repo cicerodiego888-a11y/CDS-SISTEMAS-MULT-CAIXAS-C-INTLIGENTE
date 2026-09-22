@@ -40,6 +40,8 @@ const centralEntradasState = {
     sefazOperacional: null,
     saudeCentral: null,
     saudeFiltroNivel: null,
+    operacaoCentral: null,
+    reconcilicaoCentral: null,
     alertas: null,
     pendencias: null,
     atencao: null,
@@ -944,6 +946,96 @@ function renderSefazOperacionalChipCentral(painel) {
     </span>`;
 }
 
+function renderChipModoOperacaoCentral(operacao) {
+    const op = operacao || centralEntradasState.operacaoCentral;
+    if (!op) return '';
+    const automatico = String(op.modo || '').toUpperCase() === 'AUTOMATICO';
+    const indicador = automatico ? '🟢' : '🟡';
+    const label = automatico ? 'AUTOMÁTICO' : 'ASSISTIDO';
+    return `<span class="central-ux1-sync-info" title="${escapeHtmlCentralEntradas(op.modoLabel || label)}">
+        <span aria-hidden="true">${indicador}</span>
+        Modo: ${escapeHtmlCentralEntradas(label)}
+    </span>`;
+}
+
+function renderPainelOperacaoCentral(operacao, reconcilicao) {
+    let wrap = document.getElementById('centralOperacaoWrap');
+    if (!wrap) {
+        const host = document.getElementById('centralUx1Header')
+            || document.getElementById('centralEntradasCards')
+            || document.querySelector('.central-rc40-header');
+        if (!host || !host.parentElement) return;
+        wrap = document.createElement('div');
+        wrap.id = 'centralOperacaoWrap';
+        wrap.className = 'central-operacao-wrap mb-3';
+        host.parentElement.insertBefore(wrap, host.nextSibling);
+    }
+    const op = operacao || {};
+    const resumo = op.resumo || {};
+    const ind = (reconcilicao && reconcilicao.indicadores) || {};
+    const automatico = String(op.modo || '').toUpperCase() === 'AUTOMATICO';
+    const pendentes = Array.isArray(op.pendentes) ? op.pendentes : [];
+    const xmlPend = resumo.xmlPendentes ?? ind.xmlPendentes ?? '—';
+    const lacunas = resumo.possiveisLacunas ?? ind.possiveisLacunas ?? '—';
+    const inconsist = resumo.inconsistencias ?? ind.inconsistencias ?? '—';
+
+    wrap.innerHTML = `
+        <div class="card border-0 shadow-sm">
+            <div class="card-body py-3">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                    <strong>CENTRAL DE ENTRADAS</strong>
+                    <span>${automatico ? '🟢 AUTOMÁTICO' : '🟡 ASSISTIDO'}
+                        <small class="text-muted ms-1">${escapeHtmlCentralEntradas(op.modoLabel || '')}</small>
+                    </span>
+                </div>
+                <div class="row g-2 small mb-2">
+                    <div class="col-6 col-md-2"><span class="text-muted">Último NSU</span><div class="fw-semibold">${escapeHtmlCentralEntradas(resumo.ultNsu ?? '—')}</div></div>
+                    <div class="col-6 col-md-2"><span class="text-muted">MAX NSU</span><div class="fw-semibold">${escapeHtmlCentralEntradas(resumo.maxNsu ?? '—')}</div></div>
+                    <div class="col-6 col-md-2"><span class="text-muted">XML pendentes</span><div class="fw-semibold">${escapeHtmlCentralEntradas(xmlPend)}</div></div>
+                    <div class="col-6 col-md-2"><span class="text-muted">Possíveis lacunas</span><div class="fw-semibold">${escapeHtmlCentralEntradas(lacunas)}</div></div>
+                    <div class="col-6 col-md-2"><span class="text-muted">Inconsistências</span><div class="fw-semibold">${escapeHtmlCentralEntradas(inconsist)}</div></div>
+                    <div class="col-6 col-md-2"><span class="text-muted">Ações aguardando</span><div class="fw-semibold">${escapeHtmlCentralEntradas(resumo.acoesAguardandoConfirmacao ?? pendentes.length)}</div></div>
+                </div>
+                ${!automatico && pendentes.length ? `
+                <div class="mt-2">
+                    <div class="fw-semibold small mb-2">AÇÕES PENDENTES</div>
+                    <div class="d-flex flex-column gap-2">
+                        ${pendentes.map((a) => `
+                            <div class="border rounded p-2 bg-light">
+                                <div class="fw-semibold">${escapeHtmlCentralEntradas(a.titulo || a.tipo || 'Ação')}</div>
+                                ${a.chave ? `<div class="small text-muted">NF-e: ${escapeHtmlCentralEntradas(String(a.chave).slice(0, 20))}…</div>` : ''}
+                                <div class="small mb-2">${escapeHtmlCentralEntradas(a.motivo || '')}</div>
+                                <button type="button" class="btn btn-sm btn-outline-primary central-btn-confirmar-acao"
+                                    data-action-id="${escapeHtmlCentralEntradas(a.action_id)}">
+                                    ${escapeHtmlCentralEntradas(a.labelAcao || 'EXECUTAR')}
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>` : ''}
+            </div>
+        </div>`;
+
+    wrap.querySelectorAll('.central-btn-confirmar-acao').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            const actionId = btn.getAttribute('data-action-id');
+            if (!actionId) return;
+            btn.disabled = true;
+            try {
+                await centralEntradasFetch(`/operacao/acoes/${encodeURIComponent(actionId)}/confirmar`, {
+                    method: 'POST',
+                    body: '{}'
+                });
+                showNotification('Ação confirmada e enviada para execução.', 'success');
+                await carregarDashboardCentral();
+            } catch (err) {
+                showNotification(err.message || 'Falha ao confirmar ação', 'danger');
+                btn.disabled = false;
+            }
+        });
+    });
+}
+
 function renderCabecalhoUx1Central() {
     const container = document.getElementById('centralUx1Header');
     if (!container) return;
@@ -970,6 +1062,7 @@ function renderCabecalhoUx1Central() {
                         ${online ? '🟢 ONLINE' : 'OFFLINE'}
                     </span>
                     ${renderSefazOperacionalChipCentral(centralEntradasState.sefazOperacional)}
+                    ${renderChipModoOperacaoCentral(centralEntradasState.operacaoCentral)}
                 </div>
                 ${cooldown.ativo ? `
                 <div class="central-ux1-cooldown-banner" role="status" aria-live="polite">
@@ -3894,6 +3987,8 @@ async function carregarDashboardCentral() {
             || dashboard.xmlWait?.painelOperacional
             || null;
         centralEntradasState.saudeCentral = dashboard.saude || null;
+        centralEntradasState.operacaoCentral = dashboard.operacao || null;
+        centralEntradasState.reconcilicaoCentral = dashboard.reconcilicao || null;
         centralEntradasState.featureFlags = {
             ...centralEntradasState.featureFlags,
             ...(dashboard.featureFlags || {})
@@ -3903,6 +3998,7 @@ async function carregarDashboardCentral() {
         renderCabecalhoUx1Central();
         renderPainelSaudeSefazUxCentral();
         renderPainelSaudeCentralUx();
+        renderPainelOperacaoCentral(dashboard.operacao, dashboard.reconcilicao);
 
         if (cardsContainer) {
             cardsContainer.className = 'central-rc40-kpis';

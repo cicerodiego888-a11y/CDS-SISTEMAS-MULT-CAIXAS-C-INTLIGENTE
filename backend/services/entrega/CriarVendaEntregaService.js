@@ -30,6 +30,11 @@ const { gravarAuditoria, contextoAuditoriaRequisicao } = require('../auditoria')
 const { normalizarTipoVendaItem } = require('../vendaUnidadeHelpers');
 const VendaFinanceiroService = require('../vendas/VendaFinanceiroService');
 const { obterCaixaTurnoId } = require('../../utils/caixaSessaoHelpers');
+const {
+  montarSnapshotEntrega,
+  resolverDadosClienteEntrega,
+  linhaOpcional
+} = require('./EntregaClienteSnapshot');
 
 const { agoraLocalBrasil } = VendaFinanceiroService;
 
@@ -40,6 +45,12 @@ function montarHtmlComprovanteEntrega(venda, itens, empresa = {}) {
     ? [agora.slice(0, 10), agora.slice(11, 19)]
     : [agora.slice(0, 10), agora.slice(11, 19) || ''];
 
+  const snap = resolverDadosClienteEntrega(venda);
+  const cepFmt = snap.cep && String(snap.cep).length === 8
+    ? `${String(snap.cep).slice(0, 5)}-${String(snap.cep).slice(5)}`
+    : (snap.cep || '');
+  const temEnderecoEstruturado = !!(snap.numero || snap.complemento || snap.bairro || snap.cidade || snap.uf || snap.cep);
+
   const linhasItens = (itens || []).map((item) => `
     <tr>
       <td>${String(item.nome || item.produto_nome || item.produto_id || '')}</td>
@@ -49,12 +60,27 @@ function montarHtmlComprovanteEntrega(venda, itens, empresa = {}) {
     </tr>
   `).join('');
 
+  const subtotalItens = (itens || []).reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
+  const taxa = Number(venda.taxa_entrega || 0);
+  const blocoEndereco = temEnderecoEstruturado
+    ? `${linhaOpcional('CEP', cepFmt)}
+  ${linhaOpcional('Endereço', snap.endereco)}
+  ${linhaOpcional('Número', snap.numero)}
+  ${linhaOpcional('Complemento', snap.complemento)}
+  ${linhaOpcional('Bairro', snap.bairro)}
+  ${linhaOpcional('Cidade', snap.cidade)}
+  ${linhaOpcional('UF', snap.uf)}
+  ${linhaOpcional('Referência', snap.referencia)}`
+    : `<div><strong>Endereço:</strong> ${snap.endereco_linha || '—'}</div>
+  ${linhaOpcional('Referência', snap.referencia)}`;
+
   return `<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="utf-8">
 <title>Comprovante de Entrega</title>
 <style>
   body{font-family:monospace;font-size:12px;width:280px;margin:0 auto;padding:8px;}
   h1{font-size:14px;text-align:center;margin:0 0 8px;}
+  h2{font-size:11px;margin:10px 0 4px;border-bottom:1px dashed #000;padding-bottom:2px;}
   .muted{color:#444;font-size:11px;text-align:center;}
   table{width:100%;border-collapse:collapse;margin:8px 0;}
   td{padding:2px 0;vertical-align:top;}
@@ -65,22 +91,31 @@ function montarHtmlComprovanteEntrega(venda, itens, empresa = {}) {
   <div class="muted">${empresa.nome || empresa.nome_empresa || 'CDS Sistemas'}</div>
   <div class="muted">${empresa.cnpj ? `CNPJ ${empresa.cnpj}` : ''}</div>
   <hr>
+  <h2>DADOS DO CLIENTE/CONSUMIDOR</h2>
+  <div><strong>Nome:</strong> ${snap.nome}</div>
+  ${linhaOpcional('CPF/CNPJ', snap.cpf_cnpj)}
+  ${linhaOpcional('Telefone', snap.telefone)}
+  ${linhaOpcional('E-mail', snap.email)}
+  <h2>ENDEREÇO DA ENTREGA</h2>
+  ${blocoEndereco}
+  <h2>DADOS DA ENTREGA</h2>
   <div><strong>Pedido:</strong> ${venda.id || '—'}</div>
-  <div><strong>Cliente:</strong> ${venda.cliente_nome || 'Consumidor'}</div>
-  <div><strong>Telefone:</strong> ${venda.telefone_entrega || '—'}</div>
   <div><strong>Data:</strong> ${data}</div>
   <div><strong>Hora:</strong> ${hora}</div>
+  <div><strong>Entregador:</strong> ${venda.entregador || '—'}</div>
+  <div><strong>Taxa de entrega:</strong> R$ ${fmt(taxa)}</div>
+  <div><strong>Pagamento previsto:</strong> ${venda.pagamento_previsto || 'NAO_INFORMADO'}</div>
+  <div><strong>Levar maquineta:</strong> ${Number(venda.leva_maquineta || 0) === 1 ? 'SIM' : 'NÃO'}</div>
+  ${Number(venda.troco_para || 0) > 0 ? `<div><strong>Troco para:</strong> R$ ${fmt(venda.troco_para)}</div>` : ''}
+  <div><strong>Observações:</strong> ${venda.observacao_entrega || '—'}</div>
+  <h2>ITENS</h2>
   <table>
     <thead><tr><td>Item</td><td style="text-align:right">Qtd</td><td style="text-align:right">Vlr</td><td style="text-align:right">Sub</td></tr></thead>
     <tbody>${linhasItens}</tbody>
   </table>
+  <div>Subtotal: R$ ${fmt(subtotalItens)}</div>
+  ${taxa > 0 ? `<div>Taxa: R$ ${fmt(taxa)}</div>` : ''}
   <div class="total">Total: R$ ${fmt(venda.total)}</div>
-  ${Number(venda.taxa_entrega || 0) > 0 ? `<div>Taxa entrega: R$ ${fmt(venda.taxa_entrega)}</div>` : ''}
-  <div><strong>Pagamento previsto:</strong> ${venda.pagamento_previsto || 'NAO_INFORMADO'}</div>
-  <div><strong>Entregador:</strong> ${venda.entregador || '—'}</div>
-  <div><strong>Endereço:</strong> ${venda.endereco_entrega || '—'}</div>
-  <div><strong>Referência:</strong> ${venda.referencia_entrega || '—'}</div>
-  <div><strong>Observações:</strong> ${venda.observacao_entrega || '—'}</div>
   <div class="aviso">
     <div>ESTE DOCUMENTO NÃO POSSUI VALOR FISCAL</div>
     <div>Venda sujeita à confirmação na prestação de contas.</div>
@@ -123,7 +158,7 @@ function criarVendaEntrega(req, res) {
     body.uf_entrega
   ].filter((p) => String(p || '').trim());
 
-  const enderecoEntrega = String(body.endereco_entrega_completo || enderecoParts.join(', ') || '').trim();
+  const enderecoEntregaLegado = String(body.endereco_entrega_completo || enderecoParts.join(', ') || '').trim();
 
   const produtoIds = Array.from(new Set(itens.map((i) => i.produto_id).filter((id) => id != null)));
   if (itens.some((i) => i.produto_id == null)) {
@@ -246,13 +281,24 @@ function criarVendaEntrega(req, res) {
 
       const buscarCliente = (cb) => {
         if (!body.cliente_id) return cb(null, null);
-        db.get('SELECT id, nome, telefone FROM clientes WHERE id = ?', [body.cliente_id], cb);
+        db.get(
+          `SELECT id, nome, cpf_cnpj, telefone, email, cep, rua, numero, bairro, cidade, uf, endereco
+           FROM clientes WHERE id = ?`,
+          [body.cliente_id],
+          cb
+        );
       };
 
       buscarCliente((errCli, cliente) => {
         if (errCli) {
           return res.status(500).json({ error: errCli.message });
         }
+
+        const snapshot = montarSnapshotEntrega(body, cliente);
+        // Compat: se veio só string concatenada antiga, preserva em endereco_entrega
+        const enderecoPersistido = snapshot.endereco_entrega
+          || enderecoEntregaLegado
+          || null;
 
         db.serialize(() => {
           db.run('BEGIN IMMEDIATE', (beginErr) => {
@@ -270,7 +316,10 @@ function criarVendaEntrega(req, res) {
                 tipo_venda, status_venda, status_entrega, pagamento_previsto,
                 entregador, endereco_entrega, referencia_entrega, observacao_entrega,
                 taxa_entrega, leva_maquineta, troco_para,
-                prestacao_realizada, telefone_entrega
+                prestacao_realizada, telefone_entrega,
+                nome_cliente_entrega, cpf_cnpj_cliente_entrega, email_cliente_entrega,
+                cep_entrega, numero_entrega, complemento_entrega,
+                bairro_entrega, cidade_entrega, uf_entrega
               ) VALUES (
                 ?, ?, ?, ?, ?,
                 ?, 'reserva_entrega', 0,
@@ -279,13 +328,16 @@ function criarVendaEntrega(req, res) {
                 ?, ?, ?, ?,
                 ?, ?, ?, ?,
                 ?, ?, ?,
-                0, ?
+                0, ?,
+                ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?
               )
             `,
             [
               codigo,
               dataVenda,
-              body.cliente_id || null,
+              snapshot.cliente_id,
               totalNum,
               desconto,
               String(pagamentoPrevisto).toLowerCase(),
@@ -300,13 +352,22 @@ function criarVendaEntrega(req, res) {
               StatusEntrega.AGUARDANDO_ENTREGA,
               pagamentoPrevisto,
               String(body.entregador || '').trim() || null,
-              enderecoEntrega || null,
-              String(body.referencia_entrega || '').trim() || null,
+              enderecoPersistido,
+              snapshot.referencia_entrega,
               String(body.observacao_entrega || '').trim() || null,
               taxaEntrega,
               levaMaquineta,
               levaTroco ? trocoPara : 0,
-              String(body.telefone_entrega || cliente?.telefone || '').trim() || null
+              snapshot.telefone_entrega,
+              snapshot.nome_cliente_entrega,
+              snapshot.cpf_cnpj_cliente_entrega,
+              snapshot.email_cliente_entrega,
+              snapshot.cep_entrega,
+              snapshot.numero_entrega,
+              snapshot.complemento_entrega,
+              snapshot.bairro_entrega,
+              snapshot.cidade_entrega,
+              snapshot.uf_entrega
             ],
             function onInsertVenda(errIns) {
               if (errIns) {
@@ -420,11 +481,23 @@ function criarVendaEntrega(req, res) {
                     taxa_entrega: taxaEntrega,
                     pagamento_previsto: pagamentoPrevisto,
                     entregador: String(body.entregador || '').trim() || null,
-                    endereco_entrega: enderecoEntrega,
-                    referencia_entrega: String(body.referencia_entrega || '').trim() || null,
+                    cliente_id: snapshot.cliente_id,
+                    nome_cliente_entrega: snapshot.nome_cliente_entrega,
+                    cpf_cnpj_cliente_entrega: snapshot.cpf_cnpj_cliente_entrega,
+                    email_cliente_entrega: snapshot.email_cliente_entrega,
+                    telefone_entrega: snapshot.telefone_entrega,
+                    cep_entrega: snapshot.cep_entrega,
+                    endereco_entrega: enderecoPersistido,
+                    numero_entrega: snapshot.numero_entrega,
+                    complemento_entrega: snapshot.complemento_entrega,
+                    bairro_entrega: snapshot.bairro_entrega,
+                    cidade_entrega: snapshot.cidade_entrega,
+                    uf_entrega: snapshot.uf_entrega,
+                    referencia_entrega: snapshot.referencia_entrega,
                     observacao_entrega: String(body.observacao_entrega || '').trim() || null,
-                    telefone_entrega: String(body.telefone_entrega || clienteRow?.telefone || '').trim() || null,
-                    cliente_nome: clienteRow?.nome || body.cliente_nome || 'Consumidor',
+                    leva_maquineta: levaMaquineta,
+                    troco_para: levaTroco ? trocoPara : 0,
+                    cliente_nome: snapshot.nome_cliente_entrega || 'Consumidor',
                     tipo_venda: TipoVenda.ENTREGA,
                     status_venda: StatusVenda.ABERTA,
                     status_entrega: StatusEntrega.AGUARDANDO_ENTREGA,

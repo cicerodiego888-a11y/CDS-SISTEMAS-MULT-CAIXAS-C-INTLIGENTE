@@ -46,7 +46,16 @@ const MAPA_CAMPOS = {
   miipResumoJson: 'miip_resumo_json',
   compraId: 'compra_id',
   usuarioId: 'usuario_id',
-  processadoEm: 'processado_em'
+  processadoEm: 'processado_em',
+  statusRecuperacao: 'status_recuperacao',
+  recuperacaoTentativas: 'recuperacao_tentativas',
+  recuperacaoUltimaTentativa: 'recuperacao_ultima_tentativa',
+  recuperacaoProximaTentativa: 'recuperacao_proxima_tentativa',
+  recuperacaoUltimoCstat: 'recuperacao_ultimo_cstat',
+  recuperacaoUltimoXmotivo: 'recuperacao_ultimo_xmotivo',
+  recuperacaoUltimoRequestId: 'recuperacao_ultimo_request_id',
+  recuperacaoPrimeiraTentativa: 'recuperacao_primeira_tentativa',
+  recuperacaoPrioridade: 'recuperacao_prioridade'
 };
 
 class CentralDocumentosRepository extends IRepository {
@@ -121,6 +130,15 @@ class CentralDocumentosRepository extends IRepository {
       compraTipoEntradaAlterado: Number(row.compra_tipo_entrada_alterado) === 1,
       usuarioId: row.usuario_id,
       processadoEm: row.processado_em,
+      statusRecuperacao: row.status_recuperacao || null,
+      recuperacaoTentativas: Number(row.recuperacao_tentativas || 0),
+      recuperacaoUltimaTentativa: row.recuperacao_ultima_tentativa || null,
+      recuperacaoProximaTentativa: row.recuperacao_proxima_tentativa || null,
+      recuperacaoUltimoCstat: row.recuperacao_ultimo_cstat || null,
+      recuperacaoUltimoXmotivo: row.recuperacao_ultimo_xmotivo || null,
+      recuperacaoUltimoRequestId: row.recuperacao_ultimo_request_id || null,
+      recuperacaoPrimeiraTentativa: row.recuperacao_primeira_tentativa || null,
+      recuperacaoPrioridade: row.recuperacao_prioridade || null,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };

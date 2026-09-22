@@ -905,7 +905,9 @@ class CentralManifestacaoDfeService {
     const inicio = opcoes.inicioMs || Date.now();
     try {
       await this._consultarNotaPorChave(documento.chave, {
-        contextoCentral: contexto
+        contextoCentral: contexto,
+        manifestacao: true,
+        origemSefazGate: 'MANIFESTACAO'
       });
     } catch (error) {
       const duracaoMs = Date.now() - inicio;

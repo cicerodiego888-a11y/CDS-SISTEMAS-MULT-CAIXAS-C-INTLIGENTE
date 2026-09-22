@@ -52,8 +52,13 @@ async function resolverHostnameEstacao() {
   if (!estaEmElectron()) {
     try {
       const key = 'cds_pdv_hostname_fallback';
+      // Prefere hostname real já conhecido (Electron anterior / vínculo manual).
+      const preferido = localStorage.getItem('cds_pdv_hostname_preferido');
       let fallback = localStorage.getItem(key);
-      if (!fallback) {
+      if (preferido && String(preferido).trim() && !String(preferido).startsWith('pdv-')) {
+        fallback = String(preferido).trim();
+        localStorage.setItem(key, fallback);
+      } else if (!fallback) {
         fallback = `pdv-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
         localStorage.setItem(key, fallback);
       }
