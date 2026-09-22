@@ -2,6 +2,11 @@
  * Serviço de retry automático com backoff exponencial
  * Para operações TEF que podem falhar temporariamente
  */
+const {
+  classificarErroFinanceiro,
+  montarLogDecisao
+} = require('./tefFinancialSafetyPolicy');
+
 class TefRetryService {
   
   constructor() {
@@ -86,12 +91,26 @@ class TefRetryService {
    * @returns {Promise} Resultado da autorização
    */
   async autorizarComRetry(fn, dados) {
-    return await this.executarComRetry(fn, {
-      maxRetries: dados.max_retries || this.maxRetries,
-      initialDelay: dados.initial_delay || this.initialDelay,
-      maxDelay: dados.max_delay || this.maxDelay,
-      retryableErrors: ['timeout', 'network', 'ECONNREFUSED', 'ETIMEDOUT', 'ECONNRESET']
-    });
+    try {
+      // Autorização financeira é sempre uma única tentativa. Timeout/rede pode
+      // ocorrer após processamento pelo adquirente; repetir pode cobrar duas vezes.
+      return await fn();
+    } catch (error) {
+      const decision = classificarErroFinanceiro(error);
+      const log = montarLogDecisao({
+        transactionId: dados?.transactionId || dados?.transacao_id || null,
+        provider: dados?.provider || dados?.provedor || null,
+        operation: dados?.operation || dados?.tipo || 'AUTORIZACAO',
+        decision
+      });
+
+      // O payload contém apenas metadados de decisão; nunca dados do cartão.
+      console.log('[TEF-RETRY-DECISION]', JSON.stringify(log));
+      error.tefFinancialDecision = decision;
+      error.retryAllowed = false;
+      error.retryReason = decision.retryReason;
+      throw error;
+    }
   }
   
   /**

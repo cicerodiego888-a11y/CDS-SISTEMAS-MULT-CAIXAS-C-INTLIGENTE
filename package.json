@@ -70,7 +70,14 @@
     "test:tef-fluxo-api": "node scripts/test-tef-fluxo-api.js",
     "test:tef-01": "node tests/tef/tef-01-configuracao.test.js",
     "test:tef-02": "node tests/tef/tef-02-deteccao-ppc930.test.js && node tests/tef/tef-02-deteccao-real-windows.test.js",
-    "test:tef": "node tests/tef/tef-01-configuracao.test.js && node tests/tef/tef-02-deteccao-ppc930.test.js && node tests/tef/tef-fluxo-pagamento.test.js && node scripts/test-tef-fluxo-api.js",
+    "test:tef-destaxa-01": "node tests/tef/tef-destaxa-01-fundacao.test.js",
+    "test:tef-destaxa-real": "node tests/tef/tef-destaxa-02-dll-real.test.js",
+    "test:tef-destaxa-02": "node tests/tef/tef-destaxa-02-dll-real.test.js",
+    "test:tef-destaxa-03": "node tests/tef/tef-destaxa-03-crt-protocolo.test.js",
+    "test:tef-destaxa-prep-04b": "node tests/tef/tef-destaxa-prep-04b.test.js",
+    "test:tef-destaxa-05": "node tests/tef/tef-destaxa-05-financial-safety.test.js",
+    "test:tef-destaxa-06a": "node tests/tef/tef-destaxa-06a-real-harness.test.js",
+    "test:tef": "node tests/tef/tef-01-configuracao.test.js && node tests/tef/tef-02-deteccao-ppc930.test.js && node tests/tef/tef-fluxo-pagamento.test.js && node tests/tef/tef-destaxa-01-fundacao.test.js && node tests/tef/tef-destaxa-03-crt-protocolo.test.js && node scripts/test-tef-fluxo-api.js",
     "test:equipamentos-drivers": "node tests/motor-equipamentos/drivers-framework.test.js",
     "test:equipamentos-toledo-prix4": "node tests/motor-equipamentos/toledo-prix4-driver.test.js",
     "test:equipamentos-toledo-tcp": "node tests/motor-equipamentos/toledo-prix4-tcp.test.js",
@@ -348,6 +355,7 @@
     "form-data": "^4.0.5",
     "googleapis": "^171.4.0",
     "jsonwebtoken": "^9.0.3",
+    "koffi": "^3.3.1",
     "moment": "^2.29.4",
     "multer": "^2.1.1",
     "node-cron": "^4.2.1",
@@ -394,7 +402,8 @@
     ],
     "asarUnpack": [
       "**/node_modules/sqlite3/**",
-      "**/node_modules/usb/**"
+      "**/node_modules/usb/**",
+      "**/resources/tef/destaxa/**"
     ],
     "win": {
       "target": "nsis",

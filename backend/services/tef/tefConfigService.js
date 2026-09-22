@@ -14,6 +14,36 @@ const DEFAULTS_CONFIG = Object.freeze({
   portaTef: ''
 });
 
+const CONFIG_PREPARACAO_DESTAXA = Object.freeze({
+  tefHabilitado: true,
+  tefProvedor: 'destaxa',
+  tefAmbiente: 'homologacao',
+  tipoIntegracao: 'dll',
+  tefTimeout: 60,
+  tefTentativas: 1,
+  sdkPath: '',
+  exePath: '',
+  ipTef: '',
+  portaTef: '',
+  pinpadHabilitado: false,
+  pinpadModelo: 'GERTEC_PPC930',
+  pinpadCodigo: 'GERTEC_PPC930',
+  fabricante: 'Gertec',
+  modelo: 'PPC930',
+  tipoConexao: '',
+  portaCom: '',
+  pinpadIp: '',
+  pinpadPorta: '',
+  serial: ''
+});
+
+function criarConfiguracaoPreparacaoDestaxa(configExistente = {}) {
+  return {
+    ...configExistente,
+    ...CONFIG_PREPARACAO_DESTAXA
+  };
+}
+
 const CAMPOS_SECRETOS = new Set([
   'clientSecret',
   'accessToken',
@@ -458,6 +488,7 @@ function validarConfiguracao(config = {}, opcoes = {}) {
   const ambiente = String(config.tefAmbiente || '').toLowerCase() || 'simulacao';
   const modoAdapter = opcoes.modoAdapter || resolverModoAdapter(ambiente);
   const tefHabilitado = normalizarBoolean(config.tefHabilitado);
+  const provedor = String(config.tefProvedor || '').toLowerCase();
 
   if (!tefHabilitado) {
     pendencias.push('TEF desabilitado na configuração');
@@ -471,16 +502,19 @@ function validarConfiguracao(config = {}, opcoes = {}) {
     pendencias.push('Ambiente TEF não informado');
   }
 
-  if (!normalizarTexto(config.empresaCodigo).trim()) {
-    pendencias.push('Código da empresa não configurado');
-  }
+  // Destaxa 1.83: estabelecimento, loja e terminal são opcionais no iniciaClient.
+  if (provedor !== 'destaxa') {
+    if (!normalizarTexto(config.empresaCodigo).trim()) {
+      pendencias.push('Código da empresa não configurado');
+    }
 
-  if (!normalizarTexto(config.lojaCodigo).trim()) {
-    pendencias.push('Código da loja não configurado');
-  }
+    if (!normalizarTexto(config.lojaCodigo).trim()) {
+      pendencias.push('Código da loja não configurado');
+    }
 
-  if (!normalizarTexto(config.terminalCodigo).trim()) {
-    pendencias.push('Código do terminal não configurado');
+    if (!normalizarTexto(config.terminalCodigo).trim()) {
+      pendencias.push('Código do terminal não configurado');
+    }
   }
 
   const pinpadHabilitado = normalizarBoolean(config.pinpadHabilitado);
@@ -510,7 +544,6 @@ function validarConfiguracao(config = {}, opcoes = {}) {
 
   // Modo simulação: não exige SDK/DLL/credenciais reais
   if (modoAdapter !== 'simulacao' && ambiente !== 'simulacao') {
-    const provedor = String(config.tefProvedor || '').toLowerCase();
     if (['sitef', 'paygo'].includes(provedor)) {
       if (!normalizarTexto(config.sdkPath).trim() && !normalizarTexto(config.exePath).trim()) {
         pendencias.push('Caminho do SDK/EXE não configurado para modo real');
@@ -754,5 +787,7 @@ module.exports = {
   getPinPadConfig,
   getServerConfig,
   resolverModoAdapter,
-  DEFAULTS_CONFIG
+  DEFAULTS_CONFIG,
+  CONFIG_PREPARACAO_DESTAXA,
+  criarConfiguracaoPreparacaoDestaxa
 };

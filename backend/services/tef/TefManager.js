@@ -1,4 +1,4 @@
-const { obterAdapter } = require('./tefFactory');
+const { obterAdapter, criarAdapter } = require('./tefFactory');
 const repository = require('./tefRepository');
 const tefEvents = require('./tefEvents');
 const tefContrato = require('./tefContrato');
@@ -10,6 +10,11 @@ const tefRetryService = require('./tefRetryService');
 const tefCircuitBreakerService = require('./tefCircuitBreakerService');
 const tefFailureNotificationService = require('./tefFailureNotificationService');
 const tefFluxoPagamento = require('./tefFluxoPagamento');
+const {
+  classificarErroFinanceiro,
+  classificarResultadoFinanceiro,
+  montarLogDecisao
+} = require('./tefFinancialSafetyPolicy');
 
 class TefManager {
 
@@ -20,6 +25,8 @@ class TefManager {
 
   async autorizar(dados, timeoutMs) {
     const operacaoTimeout = timeoutMs || this.timeout;
+    let transacaoEmCursoId = null;
+    let provedorEmCurso = null;
     const dadosNormalizados = {
       ...dados,
       tipo: tefFluxoPagamento.normalizarTipoTef(dados.tipo)
@@ -91,8 +98,10 @@ class TefManager {
       }
 
       const adapter = await obterAdapter();
+      provedorEmCurso = adapter.nome;
 
-      // Executar operação com circuit breaker e retry
+      // Circuit breaker permanece; autorização financeira, porém, tem uma
+      // única tentativa. O retry service aplica a política sem retry.
       return await tefCircuitBreakerService.executarComCircuitBreaker(
         'tef_autorizacao',
         async () => {
@@ -113,9 +122,8 @@ class TefManager {
                   provedor: adapter.nome,
                   idempotency_key: dadosNormalizados.idempotency_key || null
                 }, async (err, transacaoId) => {
-                  clearTimeout(timeoutId);
-                  
                   if (err) {
+                    clearTimeout(timeoutId);
                     // Se erro for de chave duplicada (idempotency_key), buscar transação existente
                     if (err.message && err.message.includes('UNIQUE constraint')) {
                       const transacaoExistente = await this._buscarPorIdempotencyKey(dadosNormalizados.idempotency_key);
@@ -133,6 +141,8 @@ class TefManager {
                     return reject(err);
                   }
 
+                  transacaoEmCursoId = transacaoId;
+
                   // Mascarar dados sensíveis nos logs
                   const dadosMascarados = DataMaskingService.mascararObjeto(dadosNormalizados);
                   repository.registrarLog(transacaoId, 'INICIO', 'Transação TEF iniciada', dadosMascarados);
@@ -141,6 +151,7 @@ class TefManager {
 
                   try {
                     const retornoBruto = await adapter.autorizarPagamento(dadosNormalizados);
+                    const decisaoFinanceira = classificarResultadoFinanceiro(retornoBruto);
                     const retorno = tefContrato.criarRespostaAutorizacao({
                       sucesso: retornoBruto.sucesso,
                       status: retornoBruto.status,
@@ -154,7 +165,11 @@ class TefManager {
                       codigo: retornoBruto.codigo,
                       mensagem: retornoBruto.mensagem,
                       payloadRetorno: retornoBruto.payloadRetorno || retornoBruto.payload_retorno,
-                      modo: retornoBruto.modo
+                      modo: retornoBruto.modo,
+                      financialState: retornoBruto.financialState || decisaoFinanceira.financialState,
+                      protocolState: retornoBruto.estado || decisaoFinanceira.state,
+                      retryAllowed: false,
+                      retryReason: retornoBruto.retryReason || decisaoFinanceira.retryReason
                     });
 
                     tefEvents.emitirEstado(tefEvents.estados.PROCESSANDO);
@@ -166,6 +181,7 @@ class TefManager {
                       ...persistencia
                     }, (updateErr) => {
                       if (updateErr) {
+                        clearTimeout(timeoutId);
                         return reject(updateErr);
                       }
 
@@ -178,10 +194,28 @@ class TefManager {
 
                       const retornoMascarado = DataMaskingService.mascararObjeto(retorno);
                       repository.registrarLog(transacaoId, 'RETORNO', retorno.mensagem, retornoMascarado);
+                      repository.registrarLog(
+                        transacaoId,
+                        'DECISAO_RETRY',
+                        retorno.retryReason,
+                        montarLogDecisao({
+                          transactionId: transacaoId,
+                          provider: adapter.nome,
+                          operation: dadosNormalizados.tipo,
+                          decision: {
+                            ...decisaoFinanceira,
+                            financialState: retorno.financialState,
+                            state: retorno.protocolState,
+                            retryReason: retorno.retryReason
+                          }
+                        })
+                      );
 
+                      clearTimeout(timeoutId);
                       resolve(tefContrato.paraRespostaApi(retorno, transacaoId));
                     });
                   } catch (error) {
+                    clearTimeout(timeoutId);
                     repository.registrarLog(transacaoId, 'ERRO', error.message, { error: error.message });
                     reject(error);
                   }
@@ -190,7 +224,11 @@ class TefManager {
 
               return await operacaoComTimeout;
             }, operacaoTimeout + 10000); // Lock com 10 segundos a mais que o timeout da operação
-          }, dados);
+          }, {
+            transactionId: transacaoEmCursoId,
+            provider: adapter.nome,
+            operation: dadosNormalizados.tipo
+          });
         },
         {
           limiteFalhas: 5,
@@ -198,18 +236,35 @@ class TefManager {
         }
       );
     } catch (error) {
+      const decisaoFinanceira = error.tefFinancialDecision || classificarErroFinanceiro(error);
+      const logDecisao = montarLogDecisao({
+        transactionId: transacaoEmCursoId,
+        provider: provedorEmCurso,
+        operation: dadosNormalizados.tipo,
+        decision: decisaoFinanceira
+      });
+
       // Tratamento específico para diferentes tipos de erro
-      if (error.message && error.message.includes('Timeout')) {
-        repository.registrarLog(null, 'ERRO_TIMEOUT', error.message, { error: error.message });
+      if (decisaoFinanceira.state === 'TIMEOUT') {
+        repository.registrarLog(transacaoEmCursoId, 'ERRO_TIMEOUT', error.message, logDecisao);
         await tefFailureNotificationService.notificarFalhaTimeout({
           mensagem: error.message,
-          dados
+          transactionId: transacaoEmCursoId,
+          provider: provedorEmCurso,
+          operation: dadosNormalizados.tipo
         });
         return {
           sucesso: false,
+          status: tefContrato.STATUS.PENDENTE,
           codigo: 'TIMEOUT',
           mensagem: error.message,
-          tipo_erro: 'timeout'
+          tipo_erro: 'timeout',
+          transacaoId: transacaoEmCursoId != null ? String(transacaoEmCursoId) : null,
+          transacao_id: transacaoEmCursoId,
+          financialState: decisaoFinanceira.financialState,
+          protocolState: decisaoFinanceira.state,
+          retryAllowed: false,
+          retryReason: decisaoFinanceira.retryReason
         };
       }
       if (error.message && error.message.includes('lock')) {
@@ -243,10 +298,38 @@ class TefManager {
           tipo_erro: 'seguranca'
         };
       }
+
+      // Depois que a linha pendente foi criada, qualquer erro de transporte ou
+      // resposta inconclusiva permanece UNKNOWN/PENDING com o mesmo ID.
+      if (transacaoEmCursoId != null || decisaoFinanceira.transportError) {
+        repository.registrarLog(
+          transacaoEmCursoId,
+          'ERRO_FINANCEIRO_INCONCLUSIVO',
+          error.message,
+          logDecisao
+        );
+        return {
+          sucesso: false,
+          status: tefContrato.STATUS.PENDENTE,
+          codigo: decisaoFinanceira.resultCode || 'TEF_UNKNOWN',
+          mensagem: error.message,
+          tipo_erro: decisaoFinanceira.transportError ? 'transporte' : 'desconhecido',
+          transacaoId: transacaoEmCursoId != null ? String(transacaoEmCursoId) : null,
+          transacao_id: transacaoEmCursoId,
+          financialState: decisaoFinanceira.financialState,
+          protocolState: decisaoFinanceira.state,
+          retryAllowed: false,
+          retryReason: decisaoFinanceira.retryReason
+        };
+      }
       
       // Erro genérico
       repository.registrarLog(null, 'ERRO_GENERICO', error.message, { error: error.message, stack: error.stack });
-      await tefFailureNotificationService.notificarFalhaGenerica(error, { dados });
+      await tefFailureNotificationService.notificarFalhaGenerica(error, {
+        transactionId: transacaoEmCursoId,
+        provider: provedorEmCurso,
+        operation: dadosNormalizados.tipo
+      });
       return Promise.reject(error);
     }
   }
@@ -402,6 +485,31 @@ class TefManager {
     } catch (error) {
       return Promise.reject(error);
     }
+  }
+
+  /**
+   * Ponto de diagnóstico exclusivo da Sprint 06A.
+   * Entrega ao harness o MESMO adapter criado pela Factory, evitando uma
+   * segunda carga da DLL no mesmo processo. Nunca autoriza transação.
+   */
+  async prepararHarnessDestaxaReal() {
+    if (String(process.env.DESTAXA_REAL_HARNESS || '').trim() !== '1') {
+      const error = new Error('Harness Destaxa real desabilitado');
+      error.code = 'DESTAXA_REAL_HARNESS_DISABLED';
+      throw error;
+    }
+    if (String(process.env.DESTAXA_REAL_TRANSACTION_ENABLED || '').trim() === '1') {
+      const error = new Error('Transação real deve permanecer desabilitada na Sprint 06A');
+      error.code = 'DESTAXA_REAL_TRANSACTION_FLAG_MUST_BE_DISABLED';
+      throw error;
+    }
+
+    const adapter = criarAdapter({
+      provedor: 'destaxa',
+      ambiente: 'homologacao'
+    });
+    const status = await adapter.status();
+    return { adapter, status };
   }
 
   async vincularNfce(transacaoId, nfceNumero, nfceChave) {

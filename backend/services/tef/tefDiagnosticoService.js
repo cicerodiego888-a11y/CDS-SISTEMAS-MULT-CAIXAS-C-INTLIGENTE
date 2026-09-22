@@ -3,6 +3,10 @@ const { obterAdapter } = require('./tefFactory');
 const tefConfigService = require('./tefConfigService');
 const pinpadCatalog = require('./pinpads/pinpadCatalog');
 const { obterPinpad, reconhecerAutomaticamente } = require('./pinpads/PinpadFactory');
+const {
+  ESTADOS,
+  ESTADOS_PREPARACAO
+} = require('./destaxa/destaxaConstantes');
 const db = require('../../database');
 
 function promisifyGet(sql, params = []) {
@@ -42,14 +46,26 @@ function validarConfiguracao(config, status) {
   return resultado;
 }
 
-function resolverStatusPinpad(provedor, middlewareInstalado, pinpadConfigurado, modoAdapter) {
+function resolverStatusPinpad(
+  provedor,
+  middlewareInstalado,
+  pinpadConfigurado,
+  modoAdapter,
+  opcoes = {}
+) {
+  if (opcoes.preConfigurado && opcoes.detectado !== true) {
+    return 'AGUARDANDO_CONEXAO';
+  }
+  if (opcoes.detectado === true) {
+    return ESTADOS_PREPARACAO.PINPAD_DETECTED;
+  }
   if (!pinpadConfigurado) {
     return 'Não configurado';
   }
   if (modoAdapter === 'simulacao') {
     return 'Configurado (simulação)';
   }
-  if (['sitef', 'paygo'].includes(provedor)) {
+  if (['sitef', 'paygo', 'destaxa'].includes(provedor)) {
     return middlewareInstalado ? 'Pronto para homologação' : 'Aguardando Middleware';
   }
   return 'Configurado (adapter provedor)';
@@ -72,9 +88,12 @@ function montarDiagnosticoPinpad(config, statusConfig, sdk, provedor, middleware
     ? 'CliSiTef'
     : provedor === 'paygo'
       ? 'PayGo'
-      : null;
+      : provedor === 'destaxa'
+        ? 'Destaxa'
+        : null;
 
   const pinpadHabilitado = config.pinpadHabilitado === 'true' || config.pinpadHabilitado === true;
+  const preConfigurado = Boolean(meta || codigo);
   const pinpadConfigurado = pinpadHabilitado && Boolean(
     meta || codigo || config.portaCom || config.pinpadIp
   );
@@ -110,6 +129,7 @@ function montarDiagnosticoPinpad(config, statusConfig, sdk, provedor, middleware
 
   return {
     configurado: Boolean(pinpadConfigurado),
+    preConfigurado,
     nomeConfigurado: meta?.nomeExibicao || meta?.nome || statusConfig?.pinpad?.nomeExibicao || null,
     // compat: alguns consumidores antigos usavam `configurado` como rótulo
     rotulo: meta?.nomeExibicao || meta?.nome || statusConfig?.pinpad?.nomeExibicao || null,
@@ -117,14 +137,103 @@ function montarDiagnosticoPinpad(config, statusConfig, sdk, provedor, middleware
     fabricante: meta?.fabricante || config.fabricante || null,
     modelo: meta?.modelo || config.modelo || null,
     tipoConexao: config.tipoConexao || statusConfig?.pinpad?.tipoConexao || null,
+    interfaceEsperada: meta?.interfaceEsperada || null,
+    descricaoConexao: meta?.descricaoConexao || null,
     portaCom: portaConfigurada,
     middleware: middlewareNome,
-    status: resolverStatusPinpad(provedor, middlewareInstalado, pinpadConfigurado, modoAdapter),
+    status: resolverStatusPinpad(
+      provedor,
+      middlewareInstalado,
+      pinpadConfigurado,
+      modoAdapter,
+      {
+        preConfigurado,
+        detectado: hardware?.detectado === true
+      }
+    ),
+    estado: hardware?.detectado
+      ? ESTADOS_PREPARACAO.PINPAD_DETECTED
+      : ESTADOS_PREPARACAO.PINPAD_NOT_DETECTED,
     habilitado: pinpadHabilitado,
     reconhecimentoAutomatico: reconhecimento,
     deteccaoFisica,
     hardware,
-    observacao: 'PinPad é registrado no CDS; a comunicação física depende do adapter do provedor configurado (arquitetura agnóstica).'
+    observacao: ehPpc930
+      ? 'PPC930 usa USB CDC: USB físico → driver Gertec → COM virtual → V$Pague. A porta COM nunca deve ser presumida; deve ser descoberta pelo Windows após a conexão.'
+      : 'PinPad é registrado no CDS; a comunicação física depende do adapter do provedor configurado (arquitetura agnóstica).'
+  };
+}
+
+function montarEstadoPreparacaoDestaxa({
+  adapterDiag,
+  adapterTeste,
+  middlewareDestaxa,
+  vspague,
+  pinpad
+} = {}) {
+  const detalhesClient = adapterTeste?.detalhes || {};
+  const detalhesDll = adapterDiag?.detalhes || detalhesClient || {};
+  const dllEncontrada = detalhesDll.dllExists === true
+    || middlewareDestaxa?.dllEncontrada === true;
+  const dllCarregada = detalhesDll.dllLoaded === true;
+  const clientInicializado = detalhesClient.clientInitialized === true
+    || detalhesClient.estado === ESTADOS.CLIENT_INITIALIZED;
+  const pinpadDetectado = pinpad?.hardware?.detectado === true;
+
+  return {
+    mensagem: pinpadDetectado
+      ? 'PinPad detectado; transação continua bloqueada nesta fase.'
+      : 'Ambiente preparado até o ponto de conexão do PinPad.',
+    estado: pinpadDetectado
+      ? ESTADOS_PREPARACAO.PINPAD_DETECTED
+      : ESTADOS_PREPARACAO.AMBIENTE_PREPARADO_AGUARDANDO_PINPAD,
+    dll: {
+      estado: dllCarregada ? ESTADOS.DLL_LOADED : (dllEncontrada ? ESTADOS.DLL_FOUND : ESTADOS.DLL_NOT_FOUND),
+      encontrado: dllEncontrada,
+      carregado: dllCarregada,
+      caminho: detalhesDll.dllPath || middlewareDestaxa?.caminho || null,
+      arquitetura: detalhesDll.dllArch || middlewareDestaxa?.dllArch || null
+    },
+    client: {
+      estado: clientInicializado ? ESTADOS.CLIENT_INITIALIZED : ESTADOS.CLIENT_NOT_INITIALIZED,
+      inicializado: clientInicializado,
+      codigo: detalhesClient.clientResultCode
+        || detalhesClient.codigoDestaxa
+        || adapterTeste?.detalhes?.codigoDestaxa
+        || null
+    },
+    vspague: {
+      detectado: vspague?.detectado === true,
+      executando: vspague?.executando === true,
+      pid: vspague?.pid || null,
+      caminho: vspague?.caminho || null,
+      responding: vspague?.responding ?? null
+    },
+    pinpad: {
+      estado: pinpadDetectado
+        ? ESTADOS_PREPARACAO.PINPAD_DETECTED
+        : ESTADOS_PREPARACAO.PINPAD_NOT_DETECTED,
+      modeloConfigurado: pinpad?.codigo || null,
+      habilitado: pinpad?.habilitado === true,
+      hardwareDetectado: pinpadDetectado,
+      portaCom: pinpad?.hardware?.porta || pinpad?.portaCom || null,
+      driver: pinpad?.hardware?.driver ?? null,
+      usb: pinpad?.hardware?.usb ?? null,
+      interfaceEsperada: pinpad?.interfaceEsperada || null
+    },
+    transacao: {
+      estado: ESTADOS_PREPARACAO.TRANSACTION_BLOCKED,
+      bloqueada: true,
+      codigo: 'DESTAXA_TRANSACAO_NAO_IMPLEMENTADA',
+      motivo: 'Preparação de ambiente; autorização financeira real não liberada.'
+    },
+    readyForTransaction: false,
+    pendenciasObrigatoriasAntesPrimeiroPagamento: [
+      'Revisar retry automático em timeout/network no TefManager.',
+      'Timeout TEF não autoriza nova tentativa automática.',
+      'Manter A0, A1 e 08 sem retry automático.',
+      ...(pinpadDetectado ? [] : ['Conectar e detectar fisicamente o PinPad PPC930.'])
+    ]
   };
 }
 
@@ -171,19 +280,23 @@ async function executarDiagnosticoCompleto() {
   // Middleware real ≠ adapter Node ≠ provedor configurado
   const middlewareSitef = sdk.sitef;
   const middlewarePaygo = sdk.paygo;
+  const middlewareDestaxa = sdk.destaxa;
   const middlewareInstalado = (
     (provedor === 'sitef' && Boolean(middlewareSitef?.sitefInstalado)) ||
-    (provedor === 'paygo' && Boolean(middlewarePaygo?.paygoInstalado))
+    (provedor === 'paygo' && Boolean(middlewarePaygo?.paygoInstalado)) ||
+    (provedor === 'destaxa' && Boolean(middlewareDestaxa?.destaxaInstalado))
   );
 
   const sdkEncontrado = Boolean(
     (provedor === 'sitef' && middlewareSitef?.sitefInstalado) ||
     (provedor === 'paygo' && middlewarePaygo?.paygoInstalado) ||
+    (provedor === 'destaxa' && middlewareDestaxa?.destaxaInstalado) ||
     (config.sdkPath && String(config.sdkPath).trim())
   );
 
   const dllEncontrada = Boolean(
-    sdk.dllEncontrada && ['sitef', 'paygo'].includes(provedor)
+    (sdk.dllEncontrada && ['sitef', 'paygo'].includes(provedor)) ||
+    (provedor === 'destaxa' && middlewareDestaxa?.dllEncontrada)
   );
 
   const adapterCarregado = Boolean(adapter) && !erroAdapter;
@@ -203,8 +316,18 @@ async function executarDiagnosticoCompleto() {
     modoAdapterFinal
   );
 
+  const preparacaoDestaxa = provedor === 'destaxa'
+    ? montarEstadoPreparacaoDestaxa({
+      adapterDiag,
+      adapterTeste,
+      middlewareDestaxa,
+      vspague: sdk.vspague,
+      pinpad: pinpadDiagnostico
+    })
+    : null;
+
   let pinpadInstancia = null;
-  if (pinpadDiagnostico.codigo) {
+  if (pinpadDiagnostico.codigo && pinpadDiagnostico.habilitado) {
     try {
       pinpadInstancia = await obterPinpad({
         codigo: pinpadDiagnostico.codigo,
@@ -252,7 +375,9 @@ async function executarDiagnosticoCompleto() {
         ? (middlewareSitef.sitefInstalado ? middlewareSitef.caminho : 'CliSiTef não detectado')
         : provedor === 'paygo'
           ? (middlewarePaygo.paygoInstalado ? middlewarePaygo.caminho : 'PayGo não detectado')
-          : 'Não aplicável ao provedor (adapter ≠ middleware)'
+          : provedor === 'destaxa'
+            ? (middlewareDestaxa?.destaxaInstalado ? middlewareDestaxa.caminho : 'DLL Destaxa não detectada')
+            : 'Não aplicável ao provedor (adapter ≠ middleware)'
     },
     {
       chave: 'sdk_encontrado',
@@ -349,6 +474,7 @@ async function executarDiagnosticoCompleto() {
     },
     conceitos,
     pinpad: pinpadDiagnostico,
+    preparacaoDestaxa,
     pinpadAbstracao: pinpadInstancia
       ? await pinpadInstancia.obterInformacoes().catch(() => null)
       : null,
@@ -369,7 +495,7 @@ async function executarDiagnosticoCompleto() {
     pendencias: [
       ...configVal.pendencias,
       ...(erroAdapter ? [erroAdapter] : []),
-      ...(!middlewareInstalado && ['sitef', 'paygo'].includes(provedor) && modoAdapterFinal !== 'simulacao'
+      ...(!middlewareInstalado && ['sitef', 'paygo', 'destaxa'].includes(provedor) && modoAdapterFinal !== 'simulacao'
         ? ['Middleware do cliente não instalado nesta máquina']
         : []),
       ...(adapter?.modo === 'real_pendente_sdk'
@@ -382,5 +508,8 @@ async function executarDiagnosticoCompleto() {
 module.exports = {
   executarDiagnosticoCompleto,
   verificarBanco,
-  validarConfiguracao
+  validarConfiguracao,
+  montarDiagnosticoPinpad,
+  montarEstadoPreparacaoDestaxa,
+  resolverStatusPinpad
 };

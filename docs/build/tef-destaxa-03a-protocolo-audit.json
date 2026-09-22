@@ -1,0 +1,68 @@
+{
+  "sprint": "TEF-DESTAXA-03A",
+  "titulo": "Auditoria protocolo Destaxa 1.83 vs implementação TEF-DESTAXA-03",
+  "data": "2026-09-21",
+  "fonteVerdade": "PARCERIA-DESTAXA / 1_83 docs",
+  "documentos": [
+    {
+      "arquivo": "04-interface-dll-ac.md",
+      "caminhoPacote": "1_83-20260831T165940Z-1-001/1_83/docs/04-interface-dll-ac.md",
+      "caminhoLocal": "C:/Users/cicer/Desktop/DLL DESTAXA/1_83-20260831T165940Z-1-001/1_83/docs/04-interface-dll-ac.md",
+      "secoes": ["assinaturas", "buffers", "formato chave=valor", "confirmacao", "encoding ASCII bytes"]
+    },
+    {
+      "arquivo": "05-api-iniciaclientdestaxa.md",
+      "caminhoPacote": "1_83/docs/05-api-iniciaclientdestaxa.md",
+      "secoes": ["estabelecimento", "loja", "terminal", "versao", "aplicacao"]
+    },
+    {
+      "arquivo": "06-api-iniciatransacaodestaxa.md",
+      "caminhoPacote": "1_83/docs/06-api-iniciatransacaodestaxa.md",
+      "secoes": ["CRT", "entrada opcional", "saida 00", "saida 99"]
+    },
+    {
+      "arquivo": "07-api-continuatransacaodestaxa.md",
+      "caminhoPacote": "1_83/docs/07-api-continuatransacaodestaxa.md",
+      "secoes": ["Display", "Coleta", "Opção", "informacao=", "ciclo 99"]
+    },
+    {
+      "arquivo": "08-api-finalizatransacaodestaxa.md",
+      "caminhoPacote": "1_83/docs/08-api-finalizatransacaodestaxa.md",
+      "secoes": ["confirmacao 0", "confirmacao 9"]
+    },
+    {
+      "arquivo": "09-tabela-codigos-de-retorno.md",
+      "caminhoPacote": "1_83/docs/09-tabela-codigos-de-retorno.md",
+      "secoes": ["00", "03-09", "99", "FF-FE", "A0", "A1"]
+    },
+    {
+      "arquivo": "10-acoes-de-coleta.md",
+      "caminhoPacote": "1_83/docs/10-acoes-de-coleta.md",
+      "secoes": ["tipo", "opcao", "chave", "timeout", "informacao", "mascara"]
+    }
+  ],
+  "versaoPacote": "1_83 (pasta 1_83-20260831T165940Z-1-001)",
+  "crtRealExecutado": false,
+  "iniciaTransacaoDllReal": false,
+  "divergenciasCorrigidas": [
+    "Parser 99 deixou de usar acao=DISPLAY|COLETA|OPCAO (não documentado)",
+    "DISPLAY = mensagem sem tipo/opcao",
+    "COLETA = campo tipo presente",
+    "OPÇÃO = campo opcao com lista separada por |",
+    "Continua coleta usa informacao=",
+    "Continua display usa entrada vazia",
+    "buildTransactionInput remove operacao da string entrada",
+    "Campos CRT de teste usam transacao_valor (não valor inventado)",
+    "confirmacao 0/9 confirmado na doc 08 (já estava correto)",
+    "Buffers documentados: resultado=2, saida sugerida=99000",
+    "Encoding documentado: bytes ASCII 0-255 / latin1"
+  ],
+  "naoConfirmadoNaDocumentacao": [
+    "Lista exaustiva de todos os campos possíveis de entrada CRT além dos exemplos em docs/06",
+    "Campo exato de resposta para seleção de OPÇÃO (doc exemplifica informacao= para coleta; seleção de opção não tem exemplo explícito separado — testes usam informacao=valor_escolhido com ressalva)",
+    "Ordem obrigatória das chaves em entrada/saida",
+    "Terminador final com ; após último par",
+    "Máquina de estados interna CDS (IDLE/DISPLAY/...) — é abstração própria, não da DLL"
+  ],
+  "protecaoRealMantida": "DESTAXA_TRANSACAO_REAL_BLOQUEADA"
+}

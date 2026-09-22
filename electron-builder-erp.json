@@ -24,7 +24,8 @@
   ],
   "asarUnpack": [
     "**/node_modules/sqlite3/**",
-    "**/node_modules/usb/**"
+    "**/node_modules/usb/**",
+    "**/resources/tef/destaxa/**"
   ],
   "afterPack": "./build/electron/afterPack.js",
   "extraMetadata": {

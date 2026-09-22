@@ -1,0 +1,211 @@
+{
+  "sprint": "TEF-DESTAXA-06A",
+  "timestamp": "2026-09-22T11:48:37.808Z",
+  "harnessRunId": "harness-0202cf2472a18ad7",
+  "financialTransactionId": null,
+  "gates": {
+    "harness": true,
+    "realTransactionEnabled": false,
+    "transactionBlockCode": "DESTAXA_REAL_TRANSACTION_BLOCKED_BY_HARNESS"
+  },
+  "environment": {
+    "platform": "win32",
+    "arch": "x64",
+    "electron": "22.3.27",
+    "node": "16.17.1",
+    "abi": "110",
+    "koffi": "3.3.1"
+  },
+  "architectureChain": {
+    "harness": "DestaxaRealHarnessService",
+    "manager": "TefManager",
+    "factory": "TefFactory",
+    "adapter": "DestaxaRealAdapter",
+    "orchestrator": "DestaxaTransacaoOrquestrador",
+    "bridge": "DestaxaNativeBridge",
+    "loader": "destaxaKoffiLoader",
+    "dll": "libdll-integracao-tef.dll"
+  },
+  "manager": {
+    "provider": "Destaxa",
+    "mode": "real",
+    "state": "EXPORTS_VALID"
+  },
+  "dll": {
+    "path": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+    "expectedPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+    "exists": true,
+    "loaded": true,
+    "architecture": "x64",
+    "packageVersion": "1.83",
+    "size": 136782,
+    "sha256": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+    "exports": 4,
+    "exportNames": [
+      "iniciaClientDestaxa",
+      "iniciaTransacaoDestaxa",
+      "continuaTransacaoDestaxa",
+      "finalizaTransacaoDestaxa"
+    ]
+  },
+  "client": {
+    "initialized": true,
+    "code": "00",
+    "state": "CLIENT_INITIALIZED",
+    "input": "versao=1.0.3;aplicacao=CDS Sistemas"
+  },
+  "vspague": {
+    "found": true,
+    "running": true,
+    "responding": true,
+    "pid": "8508",
+    "path": "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
+    "startedByHarness": false
+  },
+  "pinpad": {
+    "status": "NOT_DETECTED",
+    "detected": false,
+    "detectionState": "NAO_DETECTADO",
+    "port": null
+  },
+  "transaction": {
+    "attempted": false,
+    "blockedAttemptTested": true,
+    "blockedCode": "DESTAXA_REAL_TRANSACTION_BLOCKED_BY_HARNESS",
+    "iniciaCalls": 0,
+    "continuaCalls": 0,
+    "finalizaCalls": 0,
+    "transactionCalls": {
+      "inicia": 0,
+      "continua": 0,
+      "finaliza": 0
+    }
+  },
+  "result": "READY_FOR_REAL_PINPAD",
+  "runs": {
+    "node": {
+      "timestamp": "2026-09-22T11:48:35.278Z",
+      "environment": {
+        "platform": "win32",
+        "arch": "x64",
+        "electron": null,
+        "node": "24.19.0",
+        "abi": "137",
+        "koffi": "3.3.1"
+      },
+      "dll": {
+        "path": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+        "expectedPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+        "exists": true,
+        "loaded": true,
+        "architecture": "x64",
+        "packageVersion": "1.83",
+        "size": 136782,
+        "sha256": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+        "exports": 4,
+        "exportNames": [
+          "iniciaClientDestaxa",
+          "iniciaTransacaoDestaxa",
+          "continuaTransacaoDestaxa",
+          "finalizaTransacaoDestaxa"
+        ]
+      },
+      "client": {
+        "initialized": true,
+        "code": "00",
+        "state": "CLIENT_INITIALIZED",
+        "input": "versao=1.0.3;aplicacao=CDS Sistemas"
+      },
+      "vspague": {
+        "found": true,
+        "running": true,
+        "responding": true,
+        "pid": "8508",
+        "path": "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
+        "startedByHarness": false
+      },
+      "pinpad": {
+        "status": "NOT_DETECTED",
+        "detected": false,
+        "detectionState": "NAO_DETECTADO",
+        "port": null
+      },
+      "transaction": {
+        "attempted": false,
+        "blockedAttemptTested": true,
+        "blockedCode": "DESTAXA_REAL_TRANSACTION_BLOCKED_BY_HARNESS",
+        "iniciaCalls": 0,
+        "continuaCalls": 0,
+        "finalizaCalls": 0,
+        "transactionCalls": {
+          "inicia": 0,
+          "continua": 0,
+          "finaliza": 0
+        }
+      },
+      "result": "READY_FOR_REAL_PINPAD"
+    },
+    "electron": {
+      "timestamp": "2026-09-22T11:48:37.808Z",
+      "environment": {
+        "platform": "win32",
+        "arch": "x64",
+        "electron": "22.3.27",
+        "node": "16.17.1",
+        "abi": "110",
+        "koffi": "3.3.1"
+      },
+      "dll": {
+        "path": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+        "expectedPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+        "exists": true,
+        "loaded": true,
+        "architecture": "x64",
+        "packageVersion": "1.83",
+        "size": 136782,
+        "sha256": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+        "exports": 4,
+        "exportNames": [
+          "iniciaClientDestaxa",
+          "iniciaTransacaoDestaxa",
+          "continuaTransacaoDestaxa",
+          "finalizaTransacaoDestaxa"
+        ]
+      },
+      "client": {
+        "initialized": true,
+        "code": "00",
+        "state": "CLIENT_INITIALIZED",
+        "input": "versao=1.0.3;aplicacao=CDS Sistemas"
+      },
+      "vspague": {
+        "found": true,
+        "running": true,
+        "responding": true,
+        "pid": "8508",
+        "path": "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
+        "startedByHarness": false
+      },
+      "pinpad": {
+        "status": "NOT_DETECTED",
+        "detected": false,
+        "detectionState": "NAO_DETECTADO",
+        "port": null
+      },
+      "transaction": {
+        "attempted": false,
+        "blockedAttemptTested": true,
+        "blockedCode": "DESTAXA_REAL_TRANSACTION_BLOCKED_BY_HARNESS",
+        "iniciaCalls": 0,
+        "continuaCalls": 0,
+        "finalizaCalls": 0,
+        "transactionCalls": {
+          "inicia": 0,
+          "continua": 0,
+          "finaliza": 0
+        }
+      },
+      "result": "READY_FOR_REAL_PINPAD"
+    }
+  }
+}

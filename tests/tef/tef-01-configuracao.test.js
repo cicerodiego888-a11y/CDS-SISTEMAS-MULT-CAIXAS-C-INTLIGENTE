@@ -373,6 +373,37 @@ async function main() {
     assert.ok(/rede/i.test(adapter.nome || adapter.adquirente || 'Rede'));
   });
 
+  await test('Preparação Destaxa homologação persiste PPC930 desabilitado sem inventar COM', async () => {
+    const atual = await tefConfigService.obterConfiguracao();
+    const preparacao = tefConfigService.criarConfiguracaoPreparacaoDestaxa(atual);
+
+    const validacao = tefConfigService.validarConfiguracao(preparacao);
+    assert.strictEqual(validacao.valida, true, validacao.pendencias.join('; '));
+    assert.strictEqual(validacao.modoAdapter, 'real');
+
+    await tefConfigService.salvarConfiguracao(preparacao);
+    const carregada = await tefConfigService.obterConfiguracao();
+
+    assert.strictEqual(carregada.tefHabilitado, 'true');
+    assert.strictEqual(carregada.tefProvedor, 'destaxa');
+    assert.strictEqual(carregada.tefAmbiente, 'homologacao');
+    assert.strictEqual(carregada.tipoIntegracao, 'dll');
+    assert.strictEqual(Number(carregada.tefTimeout), 60);
+    assert.strictEqual(Number(carregada.tefTentativas), 1);
+    assert.strictEqual(carregada.sdkPath, '');
+    assert.strictEqual(carregada.exePath, '');
+    assert.strictEqual(carregada.ipTef, '');
+    assert.strictEqual(carregada.portaTef, '');
+    assert.strictEqual(carregada.pinpadHabilitado, 'false');
+    assert.strictEqual(carregada.pinpadModelo, 'GERTEC_PPC930');
+    assert.strictEqual(carregada.fabricante, 'Gertec');
+    assert.strictEqual(carregada.modelo, 'PPC930');
+    assert.strictEqual(carregada.portaCom, '');
+    assert.strictEqual(carregada.pinpadIp, '');
+    assert.strictEqual(carregada.pinpadPorta, '');
+    assert.strictEqual(carregada.serial, '');
+  });
+
   await test('Defaults não sobrescrevem configuração existente', async () => {
     await tefConfigService.salvarConfiguracao({
       tefHabilitado: false,

@@ -568,7 +568,54 @@ function createWindowRemote(remoteUrl, configServidor = {}) {
 }
 
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  if (
+    String(process.env.DESTAXA_REAL_HARNESS || '').trim() === '1'
+    && String(process.env.DESTAXA_REAL_HARNESS_ELECTRON || '').trim() === '1'
+  ) {
+    try {
+      const {
+        DestaxaRealHarnessService
+      } = require('./backend/services/tef/destaxa/destaxaRealHarnessService');
+      const execucao = await new DestaxaRealHarnessService().executar();
+      console.log('[TEF-DESTAXA-06A-ELECTRON]', JSON.stringify({
+        result: execucao.relatorio.result,
+        environment: execucao.relatorio.environment,
+        transaction: execucao.relatorio.transaction,
+        report: execucao.arquivo
+      }));
+      // TefManager carrega o banco para resolver a configuração pela Factory.
+      // Aguarda prontidão e timers de migração antes de fechar o handle; sem
+      // isso, callbacks N-API podem sobreviver ao teardown do Electron.
+      const dbHarness = require('./backend/database');
+      await new Promise((resolve, reject) => {
+        dbHarness.whenReady((readyError) => {
+          if (readyError) return reject(readyError);
+          resolve();
+        });
+      });
+      await new Promise((resolve) => setTimeout(resolve, 750));
+      await new Promise((resolve, reject) => {
+        dbHarness.close((dbError) => {
+          if (dbError) return reject(dbError);
+          resolve();
+        });
+      });
+      app.exit(execucao.relatorio.result === 'READY_FOR_REAL_PINPAD' ? 0 : 1);
+    } catch (error) {
+      console.error('[TEF-DESTAXA-06A-ELECTRON] FALHA', error.code || 'ERROR', error.message);
+      app.exit(1);
+    }
+    return;
+  }
+
+  if (String(process.env.TEF_DESTAXA_REAL_TEST || '').trim() === '1') {
+    const testeDestaxa = require('./backend/services/tef/destaxa/destaxaElectronRealTest');
+    const codigoSaida = await testeDestaxa.executarNoProcessoElectron();
+    app.exit(codigoSaida);
+    return;
+  }
+
   try {
     // Garante que os diretórios existam
     if (!fs.existsSync(process.env.DB_DIR)) {

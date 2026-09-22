@@ -1,0 +1,61 @@
+{
+  "modo": "TEF_DESTAXA_REAL_TEST",
+  "runtime": {
+    "arch": "x64",
+    "electron": "22.3.27",
+    "node": "16.17.1",
+    "modules": "110",
+    "platform": "win32",
+    "execPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe",
+    "cwd": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE"
+  },
+  "vspague": {
+    "encontrado": true,
+    "jaEstavaExecutando": true,
+    "caminho": "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
+    "detalheTasklist": "\"VSPagueClient.exe\",\"12864\",\"Console\",\"3\",\"14.824 K\""
+  },
+  "adapter": "Destaxa",
+  "dllPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+  "dllExists": true,
+  "dllLoaded": true,
+  "exports": {
+    "iniciaClientDestaxa": true,
+    "iniciaTransacaoDestaxa": true,
+    "continuaTransacaoDestaxa": true,
+    "finalizaTransacaoDestaxa": true
+  },
+  "exportsOk": true,
+  "iniciaClientExecutado": true,
+  "entrada": "versao=1.0.3;aplicacao=CDS Sistemas",
+  "tamanhoEntrada": 35,
+  "codigoDestaxa": "00",
+  "descricaoCodigo": "API executada com sucesso.",
+  "duracaoMs": 0.0862,
+  "estado": "CLIENT_INITIALIZED",
+  "diagnostico": {
+    "provider": "DESTAXA",
+    "mode": "REAL",
+    "processArch": "x64",
+    "dllArch": "x64",
+    "dllPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+    "dllExists": true,
+    "dllLoaded": true,
+    "exportsValid": true,
+    "exports": {
+      "iniciaClientDestaxa": true,
+      "iniciaTransacaoDestaxa": true,
+      "continuaTransacaoDestaxa": true,
+      "finalizaTransacaoDestaxa": true
+    },
+    "clientInitialized": true,
+    "clientResultCode": "00",
+    "estado": "CLIENT_INITIALIZED",
+    "tefDisponivel": true,
+    "ultimoCodigoClient": "00",
+    "ultimoErro": null
+  },
+  "transacaoFinanceira": false,
+  "crtPixEst": false,
+  "funcoesTransacionaisChamadas": []
+}

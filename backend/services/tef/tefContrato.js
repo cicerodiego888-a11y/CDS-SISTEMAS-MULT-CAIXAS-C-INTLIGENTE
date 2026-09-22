@@ -43,7 +43,11 @@ function criarRespostaAutorizacao({
   codigo = null,
   mensagem = '',
   payloadRetorno = null,
-  modo = 'simulacao'
+  modo = 'simulacao',
+  financialState = null,
+  protocolState = null,
+  retryAllowed = false,
+  retryReason = null
 } = {}) {
   const statusNorm = normalizarStatus(status);
   return {
@@ -59,7 +63,11 @@ function criarRespostaAutorizacao({
     codigo: codigo || null,
     mensagem: mensagem || '',
     payloadRetorno: payloadRetorno || null,
-    modo
+    modo,
+    financialState,
+    protocolState,
+    retryAllowed: retryAllowed === true,
+    retryReason
   };
 }
 
@@ -178,6 +186,10 @@ function paraRespostaApi(retorno, transacaoId = null) {
     codigo: retorno.codigo,
     mensagem: retorno.mensagem || '',
     modo: retorno.modo || null,
+    financialState: retorno.financialState || null,
+    protocolState: retorno.protocolState || null,
+    retryAllowed: retorno.retryAllowed === true,
+    retryReason: retorno.retryReason || null,
     payloadRetorno: retorno.payloadRetorno || retorno.payload_retorno || null,
     pix_copia_cola: retorno.pixCopiaCola
       || retorno.pix_copia_cola

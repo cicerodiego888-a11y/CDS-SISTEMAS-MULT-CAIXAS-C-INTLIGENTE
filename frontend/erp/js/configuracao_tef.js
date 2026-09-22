@@ -287,6 +287,7 @@ function renderizarAbaGeralTEF(conteudo) {
                                 <option value="stone">Stone</option>
                                 <option value="getnet">Getnet</option>
                                 <option value="cielo">Cielo</option>
+                                <option value="destaxa">Destaxa</option>
                             </select>
                         </div>
 

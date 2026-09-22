@@ -10,6 +10,8 @@ const MODELOS = {
     nomeExibicao: 'Gertec PPC930 (Rede/Itaú)',
     fabricante: 'Gertec',
     modelo: 'PPC930',
+    interfaceEsperada: 'USB_CDC_SERIAL',
+    descricaoConexao: 'USB físico → driver Gertec → COM virtual → V$Pague',
     adquirenteSugerido: 'Rede',
     ativo: true,
     aliases: ['PPC930', 'GERTEC PPC930', 'Gertec PPC930', 'Gertec PPC930 (Rede/Itaú)']

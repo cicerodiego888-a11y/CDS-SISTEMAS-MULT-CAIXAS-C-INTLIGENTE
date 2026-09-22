@@ -6,21 +6,38 @@ const StoneAdapter = require('./adapters/stoneAdapter');
 const CieloAdapter = require('./adapters/cieloAdapter');
 const RedeAdapter = require('./adapters/redeAdapter');
 const GetnetAdapter = require('./adapters/getnetAdapter');
-const tefConfigRepository = require('../../repositories/tefConfigRepository');
+const DestaxaAdapter = require('./adapters/destaxaAdapter');
+const DestaxaRealAdapter = require('./adapters/DestaxaRealAdapter');
+
+const PROVEDORES = Object.freeze([
+  'sitef',
+  'paygo',
+  'cielo',
+  'stone',
+  'rede',
+  'getnet',
+  'destaxa'
+]);
 
 function ambienteUsaMiddlewareReal(ambiente) {
   const a = String(ambiente || 'simulacao').toLowerCase();
   return a === 'homologacao' || a === 'producao' || a === 'produção';
 }
 
-async function obterAdapter() {
-  const registro = await tefConfigRepository.buscarConfiguracaoPrincipal();
+function normalizarProvedor(provedor) {
+  return String(provedor || '').toLowerCase();
+}
 
+function provedorReconhecido(provedor) {
+  return PROVEDORES.includes(normalizarProvedor(provedor));
+}
+
+function criarAdapter(registro) {
   if (!registro) {
     throw new Error('TEF não configurado');
   }
 
-  const provedor = String(registro.provedor || '').toLowerCase();
+  const provedor = normalizarProvedor(registro.provedor);
   const usarReal = ambienteUsaMiddlewareReal(registro.ambiente);
 
   if (provedor === 'sitef') {
@@ -35,6 +52,13 @@ async function obterAdapter() {
       return new PaygoRealAdapter(registro);
     }
     return new PaygoAdapter(registro);
+  }
+
+  if (provedor === 'destaxa') {
+    if (usarReal) {
+      return new DestaxaRealAdapter(registro);
+    }
+    return DestaxaAdapter(registro);
   }
 
   const gateways = {
@@ -52,7 +76,16 @@ async function obterAdapter() {
   return new Gateway(registro);
 }
 
+async function obterAdapter() {
+  const tefConfigRepository = require('../../repositories/tefConfigRepository');
+  const registro = await tefConfigRepository.buscarConfiguracaoPrincipal();
+  return criarAdapter(registro);
+}
+
 module.exports = {
   obterAdapter,
-  ambienteUsaMiddlewareReal
+  criarAdapter,
+  ambienteUsaMiddlewareReal,
+  provedorReconhecido,
+  PROVEDORES
 };

@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFileSync, execSync } = require('child_process');
 const {
   textoIndicaPpc930,
   extrairPortaCom,
@@ -54,6 +54,7 @@ const GERTEC_DRIVER_FILES = [
 
 const SITEF_SERVICO_NOMES = ['CliSiTef', 'SiTef', 'TEF'];
 const PAYGO_SERVICO_NOMES = ['PayGo', 'PayGoTEF'];
+const destaxaDllResolver = require('./destaxa/destaxaDllResolver');
 
 class SDKDetector {
   localizarSDKs() {
@@ -165,19 +166,89 @@ class SDKDetector {
     };
   }
 
+  detectarDestaxa(config = {}) {
+    const resolucao = destaxaDllResolver.resolverDll(config, {
+      arch: config.processArch || process.arch
+    });
+    return {
+      destaxaInstalado: resolucao.dllExists === true,
+      dllEncontrada: resolucao.dllExists === true,
+      caminho: resolucao.dllPath || null,
+      pasta: resolucao.dllPath ? path.dirname(resolucao.dllPath) : null,
+      processArch: resolucao.processArch,
+      dllArch: resolucao.dllArch || null,
+      origem: resolucao.origem || null,
+      codigo: resolucao.codigo || null
+    };
+  }
+
+  detectarVsPagueClient() {
+    if (process.platform !== 'win32') {
+      return {
+        detectado: false,
+        executando: false,
+        pid: null,
+        caminho: null,
+        responding: null
+      };
+    }
+
+    try {
+      const script = [
+        "$proc = Get-CimInstance Win32_Process -Filter \"Name='VSPagueClient.exe'\" -ErrorAction SilentlyContinue | Select-Object -First 1;",
+        'if (-not $proc) { return };',
+        '$runtime = Get-Process -Id $proc.ProcessId -ErrorAction SilentlyContinue;',
+        '[pscustomobject]@{',
+        'pid=$proc.ProcessId;',
+        'caminho=$proc.ExecutablePath;',
+        'commandLine=$proc.CommandLine;',
+        'responding=if($runtime){$runtime.Responding}else{$null}',
+        '} | ConvertTo-Json -Compress'
+      ].join(' ');
+      const saida = execFileSync('powershell', ['-NoProfile', '-Command', script], {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 15000
+      }).trim();
+      const processo = saida ? JSON.parse(saida) : null;
+      return {
+        detectado: Boolean(processo),
+        executando: Boolean(processo),
+        pid: processo?.pid || null,
+        caminho: processo?.caminho || null,
+        responding: processo?.responding ?? null,
+        commandLine: processo?.commandLine || null
+      };
+    } catch (error) {
+      return {
+        detectado: false,
+        executando: false,
+        pid: null,
+        caminho: null,
+        responding: null,
+        erro: error.message
+      };
+    }
+  }
+
   diagnosticarCompleto() {
     const sitef = this.detectarSitef();
     const paygo = this.detectarPaygo();
+    const destaxa = this.detectarDestaxa();
+    const vspague = this.detectarVsPagueClient();
     const gertecPPC930 = this.detectarGertecPPC930();
 
     return {
       sitefInstalado: sitef.sitefInstalado,
       paygoInstalado: paygo.paygoInstalado,
-      dllEncontrada: sitef.dllEncontrada || paygo.dllEncontrada,
-      caminho: sitef.caminho || paygo.caminho || null,
+      destaxaInstalado: destaxa.destaxaInstalado,
+      dllEncontrada: sitef.dllEncontrada || paygo.dllEncontrada || destaxa.dllEncontrada,
+      caminho: sitef.caminho || paygo.caminho || destaxa.caminho || null,
       configuracaoValida: sitef.configuracaoValida || paygo.configuracaoValida,
       sitef,
       paygo,
+      destaxa,
+      vspague,
       gertecPPC930,
       plataforma: process.platform,
       timestamp: new Date().toISOString()
