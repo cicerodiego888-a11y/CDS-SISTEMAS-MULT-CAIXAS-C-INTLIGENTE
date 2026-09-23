@@ -119,7 +119,11 @@ class CentralDashboardService {
         maxNsu: ultimoNsu?.maxNsu || null,
         xmlPendentes: reconcilicao?.indicadores?.xmlPendentes ?? null,
         documentosPosteriores: reconcilicao?.indicadores?.documentosPosteriores ?? null,
-        possiveisLacunas: reconcilicao?.indicadores?.possiveisLacunas ?? null,
+        possiveisLacunas: reconcilicao?.indicadores?.possiveisIntervalosNsu
+          ?? reconcilicao?.indicadores?.possiveisLacunas ?? null,
+        possiveisIntervalosNsu: reconcilicao?.indicadores?.possiveisIntervalosNsu
+          ?? reconcilicao?.indicadores?.possiveisLacunas ?? null,
+        posicoesNaoObservadas: reconcilicao?.indicadores?.posicoesNaoObservadas ?? null,
         inconsistencias: reconcilicao?.indicadores?.inconsistencias ?? null,
         acoesAguardandoConfirmacao: 0
       }
@@ -138,7 +142,11 @@ class CentralDashboardService {
           maxNsu: ultimoNsu?.maxNsu || null,
           xmlPendentes: reconcilicao?.indicadores?.xmlPendentes ?? null,
           documentosPosteriores: reconcilicao?.indicadores?.documentosPosteriores ?? null,
-          possiveisLacunas: reconcilicao?.indicadores?.possiveisLacunas ?? null,
+          possiveisLacunas: reconcilicao?.indicadores?.possiveisIntervalosNsu
+            ?? reconcilicao?.indicadores?.possiveisLacunas ?? null,
+          possiveisIntervalosNsu: reconcilicao?.indicadores?.possiveisIntervalosNsu
+            ?? reconcilicao?.indicadores?.possiveisLacunas ?? null,
+          posicoesNaoObservadas: reconcilicao?.indicadores?.posicoesNaoObservadas ?? null,
           inconsistencias: reconcilicao?.indicadores?.inconsistencias ?? null,
           acoesAguardandoConfirmacao: painel.acoesAguardandoConfirmacao || 0
         }

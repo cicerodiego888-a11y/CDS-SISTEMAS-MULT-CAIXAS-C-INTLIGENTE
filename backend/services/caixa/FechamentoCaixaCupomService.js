@@ -150,7 +150,9 @@ function gerarHtmlCupomFechamento(consolidacao, extras = {}) {
   ${linha('Total bruto:', dinheiro(v.bruto))}
   ${linha('Descontos:', dinheiro(v.descontos))}
   ${linha('Acréscimos:', dinheiro(v.acrescimos))}
+  ${linha('Total vendido:', dinheiro(c.totais?.vendido != null ? c.totais.vendido : v.total_vendido || v.liquido))}
   ${linha('Total recebido:', dinheiro(c.totais?.recebido), { strong: true })}
+  ${linha('Total pendente:', dinheiro(c.totais?.pendente != null ? c.totais.pendente : 0))}
 
   <h3>FORMAS DE PAGAMENTO</h3>
   ${secoesFormas || '<div class="muted">Sem recebimentos.</div>'}
@@ -179,8 +181,17 @@ function gerarHtmlCupomFechamento(consolidacao, extras = {}) {
   ${linha('Sangrias:', dinheiro(d.sangrias))}
   <div class="sep"></div>
   ${linha('Dinheiro esperado:', dinheiro(d.esperado), { strong: true })}
-  ${linha('Dinheiro informado:', dinheiro(d.informado))}
+  ${linha('Dinheiro conferido:', dinheiro(c.caixa_fisico?.dinheiro_conferido != null ? c.caixa_fisico.dinheiro_conferido : d.informado))}
   <div class="linha ${diffClass}"><span>Diferença:</span><span>${dinheiro(diferenca)}</span></div>
+  ${linha('Retirada fechamento:', dinheiro(c.caixa_fisico?.retirada_fechamento || c.fechamento?.retirada_fechamento || 0))}
+  ${linha('Saldo final:', dinheiro(c.caixa_fisico?.saldo_final != null ? c.caixa_fisico.saldo_final : c.fechamento?.saldo_final), { strong: true })}
+  ${(c.reconciliacao) ? `
+    <h3>RECONCILIAÇÃO</h3>
+    ${linha('Vendas OK:', String(c.reconciliacao.vendas_ok || 0))}
+    ${linha('Parciais:', String(c.reconciliacao.vendas_parciais || 0))}
+    ${linha('Pendentes:', String(c.reconciliacao.vendas_pendentes || 0))}
+    ${linha('Inconsistentes:', String(c.reconciliacao.vendas_inconsistentes || 0))}
+  ` : ''}
 
   ${temCancelamentos ? `
     <h3>CANCELAMENTOS</h3>

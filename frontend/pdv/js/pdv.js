@@ -267,10 +267,23 @@ function obterTerminalIdPdv() {
 }
 
 function parseValorMonetarioPdv(valor) {
+    if (typeof window.CdsPoliticaMonetaria?.parseMoedaBr === 'function') {
+        return window.CdsPoliticaMonetaria.parseMoedaBr(valor);
+    }
     if (valor == null || valor === '') return 0;
     if (typeof valor === 'number') return Number.isFinite(valor) ? valor : 0;
-    const texto = String(valor).trim().replace(/\s/g, '').replace(',', '.');
-    const n = Number(texto);
+    const texto = String(valor).trim().replace(/\s/g, '');
+    const temVirgula = texto.includes(',');
+    const temPonto = texto.includes('.');
+    let normalizado = texto;
+    if (temVirgula && temPonto) {
+        normalizado = texto.lastIndexOf(',') > texto.lastIndexOf('.')
+            ? texto.replace(/\./g, '').replace(',', '.')
+            : texto.replace(/,/g, '');
+    } else if (temVirgula) {
+        normalizado = texto.replace(',', '.');
+    }
+    const n = Number(normalizado);
     return Number.isFinite(n) ? n : 0;
 }
 
@@ -1402,6 +1415,8 @@ function abrirModalPagamentoNaoFiscal(valor, onConfirm, onCancel, formaPredefini
 
     modalEl.addEventListener('hidden.bs.modal', function handler() {
         modalEl.removeEventListener('hidden.bs.modal', handler);
+        $(document).off('keydown.recebimentoBModal');
+        $('#nao-fiscal-valor-recebido').off('keydown.recebimentoB');
         if (!confirmado && typeof onCancel === 'function') {
             onCancel();
         }
@@ -1415,7 +1430,8 @@ function abrirModalPagamentoNaoFiscal(valor, onConfirm, onCancel, formaPredefini
 
     $('#nao-fiscal-valor-recebido').off('input').on('input', atualizarTrocoNaoFiscal);
 
-    $('#confirmar-pagamento-nao-fiscal').off('click').on('click', function () {
+    function confirmarPagamentoNaoFiscal() {
+        if (confirmado) return;
         if (isFormaDinheiroNaoFiscal(formaSelecionada)) {
             const $recebido = $('#nao-fiscal-valor-recebido');
             if ($recebido.length) {
@@ -1428,6 +1444,8 @@ function abrirModalPagamentoNaoFiscal(valor, onConfirm, onCancel, formaPredefini
         }
 
         confirmado = true;
+        $(document).off('keydown.recebimentoBModal');
+        $('#nao-fiscal-valor-recebido').off('keydown.recebimentoB');
         modal.hide();
         if (typeof onConfirm === 'function') {
             onConfirm({
@@ -1438,6 +1456,22 @@ function abrirModalPagamentoNaoFiscal(valor, onConfirm, onCancel, formaPredefini
                     : undefined
             });
         }
+    }
+
+    $('#confirmar-pagamento-nao-fiscal').off('click').on('click', confirmarPagamentoNaoFiscal);
+    $('#nao-fiscal-valor-recebido').off('keydown.recebimentoB').on('keydown.recebimentoB', function (e) {
+        if (e.key === 'Enter' || e.which === 13) {
+            e.preventDefault();
+            confirmarPagamentoNaoFiscal();
+        }
+    });
+    $(document).off('keydown.recebimentoBModal').on('keydown.recebimentoBModal', function (e) {
+        if ((e.key !== 'Enter' && e.which !== 13) || !$('#pagamentoNaoFiscalModal').hasClass('show')) {
+            return;
+        }
+        if ($(e.target).is('textarea')) return;
+        e.preventDefault();
+        confirmarPagamentoNaoFiscal();
     });
 
     modal.show();
@@ -1498,13 +1532,30 @@ function abrirModalConfirmacaoFiscalManual(valor, onConfirm, onCancel) {
         }
     }, { once: true });
 
-    $('#confirmar-recebimento-fiscal-manual').off('click').on('click', function() {
+    function confirmarRecebimentoFiscalManual() {
+        if (confirmado) return;
         confirmado = true;
+        $(document).off('keydown.recebimentoA');
         modal.hide();
         if (typeof onConfirm === 'function') {
             onConfirm();
         }
+    }
+
+    $('#confirmar-recebimento-fiscal-manual').off('click').on('click', confirmarRecebimentoFiscalManual);
+    $(document).off('keydown.recebimentoA').on('keydown.recebimentoA', function (e) {
+        if ((e.key !== 'Enter' && e.which !== 13) || !$('#confirmacaoFiscalManualModal').hasClass('show')) {
+            return;
+        }
+        if ($(e.target).is('textarea')) return;
+        e.preventDefault();
+        confirmarRecebimentoFiscalManual();
     });
+
+    modalEl.addEventListener('hidden.bs.modal', function limparAtalho() {
+        modalEl.removeEventListener('hidden.bs.modal', limparAtalho);
+        $(document).off('keydown.recebimentoA');
+    }, { once: true });
 
     modal.show();
 }
@@ -2973,6 +3024,18 @@ function produtoControlaEstoquePdv(produto) {
     return Number(produto.controla_estoque) !== 0;
 }
 
+function pdvProdutoSemSaldoControlado(produto) {
+    if (!produtoControlaEstoquePdv(produto)) return false;
+    const saldos = pdvResolverSaldosProduto(produto);
+    return Number(saldos.saldo_fiscal || 0) <= 1e-9
+        && Number(saldos.saldo_nao_fiscal || 0) <= 1e-9;
+}
+
+function pdvMensagemProdutoSemSaldo(produto) {
+    const nome = produto && produto.nome ? String(produto.nome) : 'Este produto';
+    return `${nome} não tem saldo (fiscal e não fiscal zerados). Não é possível inserir na venda.`;
+}
+
 function formatarSaldoPdvMensagem(valor) {
     const n = Number(valor || 0);
     if (typeof formatarQuantidadePdv === 'function') {
@@ -3061,7 +3124,19 @@ function validarEstoqueVenda(produto, quantidade, modoFiscal) {
     }
 
     const saldos = pdvResolverSaldosProduto(produto);
+    const saldoFiscal = Number(saldos.saldo_fiscal || 0);
+    const saldoNaoFiscal = Number(saldos.saldo_nao_fiscal || 0);
     const saldoTotal = Number(saldos.estoque_atual || 0);
+
+    // F=0 e NF=0 + controla estoque: bloqueio duro na inclusão, sem modal de continuar.
+    if (saldoFiscal <= 1e-9 && saldoNaoFiscal <= 1e-9) {
+        return {
+            sucesso: false,
+            semSaldoTotal: true,
+            disponivel: 0,
+            mensagem: pdvMensagemProdutoSemSaldo(produto)
+        };
+    }
 
     // Inclusão usa o motor F+NF. F12 não bloqueia produto só com saldo NF.
     if (quantidade > saldoTotal + 1e-9) {
@@ -3090,6 +3165,14 @@ function pdvPodeIniciarInclusaoProduto(produto) {
     if (!produtoControlaEstoquePdv(produto)) {
         return { sucesso: true };
     }
+    if (pdvProdutoSemSaldoControlado(produto)) {
+        return {
+            sucesso: false,
+            semSaldoTotal: true,
+            disponivel: 0,
+            mensagem: pdvMensagemProdutoSemSaldo(produto)
+        };
+    }
     const saldos = pdvResolverSaldosProduto(produto);
     if (Number(saldos.estoque_atual || 0) > 1e-9) {
         return { sucesso: true };
@@ -3104,9 +3187,11 @@ function pdvPodeIniciarInclusaoProduto(produto) {
 function pdvNotificarBloqueioInclusaoProduto(produto) {
     const resultado = pdvPodeIniciarInclusaoProduto(produto);
     if (!resultado.sucesso) {
-        const mensagem = produto?.nome && resultado.mensagem
-            ? resultado.mensagem.replace('Saldo insuficiente.', `Saldo insuficiente para ${produto.nome}.`)
-            : (resultado.mensagem || 'Saldo insuficiente.');
+        const mensagem = resultado.semSaldoTotal
+            ? (resultado.mensagem || pdvMensagemProdutoSemSaldo(produto))
+            : (produto?.nome && resultado.mensagem
+                ? resultado.mensagem.replace('Saldo insuficiente.', `Saldo insuficiente para ${produto.nome}.`)
+                : (resultado.mensagem || 'Saldo insuficiente.'));
         showNotification(mensagem, 'danger');
         return false;
     }
@@ -3118,9 +3203,11 @@ function pdvNotificarEstoqueInsuficiente(produto, quantidade) {
     if (resultado.sucesso || resultado.confirmarSemEstoque) {
         return true;
     }
-    const mensagem = produto?.nome
-        ? resultado.mensagem.replace('Saldo insuficiente.', `Saldo insuficiente para ${produto.nome}.`)
-        : resultado.mensagem;
+    const mensagem = resultado.semSaldoTotal
+        ? (resultado.mensagem || pdvMensagemProdutoSemSaldo(produto))
+        : (produto?.nome
+            ? resultado.mensagem.replace('Saldo insuficiente.', `Saldo insuficiente para ${produto.nome}.`)
+            : resultado.mensagem);
     showNotification(mensagem, 'danger');
     return false;
 }
@@ -4308,7 +4395,11 @@ function adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExt
 
     const qtdEstoqueChecagem = quantidadeEstoqueValidacao;
     const validacaoEstoque = pdvValidarEstoqueVenda(produtoParaValidar, qtdEstoqueChecagem);
-    if (validacaoEstoque.confirmarSemEstoque && opcoes.vendaSemEstoqueConfirmada !== true) {
+    if (validacaoEstoque.semSaldoTotal) {
+        pdvNotificarEstoqueInsuficiente(produtoParaValidar, qtdEstoqueChecagem);
+        return;
+    }
+    if (validacaoEstoque.confirmarSemEstoque && !validacaoEstoque.semSaldoTotal && opcoes.vendaSemEstoqueConfirmada !== true) {
         abrirModalVendaSemEstoquePdv(produto, validacaoEstoque, function (sim) {
             if (!sim) {
                 focarCampoCodigo({ limpar: true });
@@ -4688,21 +4779,24 @@ function adicionarProdutoPorCodigoLegado(codigoDigitado) {
         return;
     }
 
-    const produto = encontrarProdutoPorCodigoExato(codigoDigitado);
+    const produtoEncontrado = encontrarProdutoPorCodigoExato(codigoDigitado);
 
-    if (!produto) {
+    if (!produtoEncontrado) {
         showNotification(`Produto não encontrado: ${codigoDigitado}`, 'danger');
         return;
     }
 
-    const validacaoMinima = pdvPodeIniciarInclusaoProduto(produto);
-    if (!validacaoMinima.sucesso) {
-        showNotification(validacaoMinima.mensagem, 'danger');
-        return;
-    }
+    Promise.resolve(garantirProdutoNoCatalogoPdv(produtoEncontrado)).then(function (hidratado) {
+        const produto = hidratado || produtoEncontrado;
+        const validacaoMinima = pdvPodeIniciarInclusaoProduto(produto);
+        if (!validacaoMinima.sucesso) {
+            showNotification(validacaoMinima.mensagem, 'danger');
+            return;
+        }
 
-    buscarPromocaoAtivaProduto(produto.id).then(promocao => {
-        iniciarFluxoAdicionarProdutoPdv(produto, promocao);
+        buscarPromocaoAtivaProduto(produto.id).then(promocao => {
+            iniciarFluxoAdicionarProdutoPdv(produto, promocao);
+        });
     });
 }
 
@@ -4994,6 +5088,12 @@ async function adicionarProdutoPorCodigoViaMip(codigoDigitado) {
         });
 
         // Sem promoção/atacado: total da etiqueta (VALOR) ou peso × preço (PESO)
+        const validacaoEtiqueta = pdvPodeIniciarInclusaoProduto(produtoCarrinho);
+        if (!validacaoEtiqueta.sucesso) {
+            showNotification(validacaoEtiqueta.mensagem, 'danger');
+            return;
+        }
+
         adicionarItemNoCarrinho(
             produtoCarrinho,
             calc.quantidade,
@@ -5064,7 +5164,12 @@ function atualizarQuantidade(index, quantidade, opcoes = {}) {
     }
 
     const validacaoEstoque = pdvValidarEstoqueVenda(produto, quantidadeEstoque);
-    if (validacaoEstoque.confirmarSemEstoque && opcoes.vendaSemEstoqueConfirmada !== true) {
+    if (validacaoEstoque.semSaldoTotal) {
+        pdvNotificarEstoqueInsuficiente(produto, quantidadeEstoque);
+        atualizarCarrinho();
+        return;
+    }
+    if (validacaoEstoque.confirmarSemEstoque && !validacaoEstoque.semSaldoTotal && opcoes.vendaSemEstoqueConfirmada !== true) {
         abrirModalVendaSemEstoquePdv(produto, validacaoEstoque, function (sim) {
             if (!sim) {
                 atualizarCarrinho();
@@ -5209,7 +5314,9 @@ function atualizarPrecoUnitario(index, valor) {
     if (!item) return;
 
     const produto = produtosDisponiveis.find(p => Number(p.id) === Number(item.id));
-    const precoUnitario = Number(valor || 0);
+    const precoUnitario = typeof parseValorMonetarioPdv === 'function'
+        ? parseValorMonetarioPdv(valor)
+        : Number(valor || 0);
     if (precoUnitario <= 0) return;
 
     // Flag SUPER_ADMIN: unitário vira novo preço de tabela (não desconto).
@@ -8196,7 +8303,7 @@ function adicionarProdutoConsultaPDV(produtoId) {
 
     const validacaoMinima = pdvPodeIniciarInclusaoProduto(produto);
     if (!validacaoMinima.sucesso) {
-        showNotification(validacaoMinima.mensagem, 'warning');
+        showNotification(validacaoMinima.mensagem, validacaoMinima.semSaldoTotal ? 'danger' : 'warning');
         return;
     }
 

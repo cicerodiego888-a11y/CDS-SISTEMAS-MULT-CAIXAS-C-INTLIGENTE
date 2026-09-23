@@ -12,6 +12,7 @@ const { enrichSummaryForDashboard } = require('../observabilidade/dashboardView'
 const { ingestRumBatch } = require('../observabilidade/rumIngest');
 const alertEngine = require('../observabilidade/alertEngine');
 const historyService = require('../observabilidade/historyService');
+const PerformanceMonitor = require('../observabilidade/performance/PerformanceMonitor');
 
 const router = express.Router();
 
@@ -208,6 +209,25 @@ router.get('/alerts', exigirSuperAdminObs, (req, res) => {
     return res.status(500).json({
       ok: false,
       erro: err && err.message ? err.message : 'alerts_error'
+    });
+  }
+});
+
+/**
+ * GET /api/observabilidade/performance-diagnostics
+ * Sprint 7.0 — somente metadados técnicos; vazio quando diagnóstico OFF.
+ */
+router.get('/performance-diagnostics', exigirSuperAdminObs, (req, res) => {
+  try {
+    return res.json({
+      ok: true,
+      enabled: PerformanceMonitor.isEnabled(),
+      snapshot: PerformanceMonitor.getSnapshot()
+    });
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      erro: err && err.message ? err.message : 'performance_diagnostics_error'
     });
   }
 });

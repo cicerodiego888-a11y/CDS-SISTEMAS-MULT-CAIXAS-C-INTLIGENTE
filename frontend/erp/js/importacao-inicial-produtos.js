@@ -1303,7 +1303,7 @@ async function executarImportacaoInicialProdutos() {
 
     // V1.0.13 — após sucesso, atualiza snapshot da Lista de Produtos (GET /produtos).
     if (typeof loadProdutos === 'function') {
-      const refresh = loadProdutos();
+      const refresh = loadProdutos({ forcar: true, motivo: 'importacao-inicial' });
       if (refresh && typeof refresh.then === 'function') {
         await refresh;
       }

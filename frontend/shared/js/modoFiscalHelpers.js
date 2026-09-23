@@ -150,9 +150,9 @@ function recarregarModulosModoFiscal() {
         // Com PDV aberto, o sync de modo fiscal dispara com frequência.
         // Nunca remontar o shell; se o usuário está digitando/editando, só atualiza o cache.
         if (modalProdutoAberto || buscaProdutoEmFoco) {
-            loadProdutos({ suave: true, somenteCache: true });
+            loadProdutos({ suave: true, somenteCache: true, forcar: true, motivo: 'modo-fiscal' });
         } else {
-            loadProdutos({ suave: true });
+            loadProdutos({ suave: true, forcar: true, motivo: 'modo-fiscal' });
         }
     } else if (page === 'pdv' && typeof loadPDV === 'function') {
         loadPDV();

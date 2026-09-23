@@ -313,6 +313,7 @@
     "test:compras-rc43128": "node tests/compras/rc43128-preco-unitario-muc.test.js",
     "test:compras-rc43129": "node tests/compras/rc43129-preco-unitario-compra-formulario.test.js",
     "test:caixa-fechamento": "node tests/caixa/rc-fechamento-caixa-conciliacao.test.js",
+    "test:caixa-fechamento-v2": "node --test --test-force-exit tests/caixa/fechamento-caixa-v2.test.js tests/caixa/rc-fechamento-caixa-conciliacao.test.js",
     "test:sql-insert-alignment": "node tests/sql/rc4315-insert-alignment.test.js",
     "test:sql-universal-certification": "node tests/sql/rc4316-universal-sql-certification.test.js",
     "test:erp-integrity-rc4317": "node tests/electron/rc4317-app-integrity.test.js",

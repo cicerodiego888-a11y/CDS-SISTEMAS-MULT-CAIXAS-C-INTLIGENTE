@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../database');
 const { listarHistoricoBackups } = require('../services/backupManual');
 const { verificarPermissaoEspecifica } = require('../middleware/auth');
+const PerformanceMonitor = require('../observabilidade/performance/PerformanceMonitor');
 const {
   FILTRO_VENDA_VALIDA,
   isModoFiscalRelatorio,
@@ -317,7 +318,11 @@ router.get('/resumo', verificarPermissaoEspecifica('relatorios'), async (req, re
 
     let historicoBackups = [];
     try {
-      historicoBackups = listarHistoricoBackups(null, 1000);
+      historicoBackups = PerformanceMonitor.measureSync(
+        'dashboard:backup-sync-io',
+        () => listarHistoricoBackups(null, 1000),
+        { limit: 1000, source: 'dashboard-resumo' }
+      );
     } catch (e) {
       console.error('Erro ao listar backups no dashboard:', e);
       historicoBackups = [];

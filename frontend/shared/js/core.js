@@ -743,6 +743,8 @@ async function sincronizarModoFiscalServidor(opcoes = {}) {
             && document.activeElement.id === 'buscaProduto';
         loadProdutos({
             suave: true,
+            forcar: true,
+            motivo: 'f12-sync',
             somenteCache: !!(modalAberto || buscaEmFoco)
         });
     }
@@ -908,10 +910,40 @@ if (typeof window !== 'undefined' && !window.__cdsF12TerminalListener) {
     });
 }
 
+function urlLoginAposSaida(motivo) {
+    try {
+        const u = new URL('/login', window.location.origin);
+        const atual = new URLSearchParams(window.location.search);
+        const modulo = atual.get('modulo')
+            || (typeof localStorage !== 'undefined' && localStorage.getItem('cds_app_modulo'))
+            || window.CDS_APP_MODULO
+            || '';
+        if (modulo) u.searchParams.set('modulo', String(modulo));
+        const host = atual.get('estacao_hostname');
+        if (host) u.searchParams.set('estacao_hostname', host);
+        u.searchParams.set('from', motivo || 'logout');
+        return `${u.pathname}${u.search}`;
+    } catch (_) {
+        return `/login?from=${encodeURIComponent(motivo || 'logout')}`;
+    }
+}
+
+function irParaLoginAposSaida(motivo) {
+    const destino = urlLoginAposSaida(motivo);
+    const ir = () => {
+        window.location.replace(destino);
+    };
+    if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => requestAnimationFrame(ir));
+        return;
+    }
+    ir();
+}
+
 function handleUnauthorized() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    window.location.href = '/login';
+    irParaLoginAposSaida('sessao');
 }
 
 function isErroSessaoExpirada(xhr) {
@@ -1068,15 +1100,32 @@ function resolveModulePageUrl(url) {
 function carregarPaginaHtml(url, callback) {
     limparModaisTravados();
     const resolvedUrl = resolveModulePageUrl(url);
+    const Perf = window.PerformanceMonitor;
+    const totalOp = Perf?.start?.('navigation:html', {
+        endpoint: Perf?.safeEndpoint?.(resolvedUrl) || resolvedUrl
+    });
+    if (Perf?.isEnabled?.()) Perf.navigationPhase('request:start', { kind: 'page-html' });
 
     $.get(resolvedUrl, function (html) {
+        if (Perf?.isEnabled?.()) {
+            Perf.navigationPhase('request:end', {
+                kind: 'page-html',
+                responseBytes: Perf.approximateBytes?.(html) ?? null
+            });
+            Perf.navigationPhase('response:start', { kind: 'page-html' });
+        }
+        const processingOp = Perf?.start?.('navigation:processing', { kind: 'parse-html' });
         const $page = $('#page-content');
         const nodes = $.parseHTML(html, document, true);
+        if (processingOp) Perf.end(processingOp, { nodes: nodes?.length || 0 });
 
+        const renderOp = Perf?.start?.('navigation:render', { operation: 'empty-append' });
         $page.empty();
 
         if (!nodes) {
             if (typeof callback === 'function') callback();
+            if (renderOp) Perf.end(renderOp, { nodes: 0 });
+            if (totalOp) Perf.end(totalOp, { outcome: 'empty' });
             return;
         }
 
@@ -1111,12 +1160,23 @@ function carregarPaginaHtml(url, callback) {
         });
 
         const executarCallback = () => {
+            const callbackOp = Perf?.start?.('navigation:processing', { kind: 'page-callback' });
             if (typeof aplicarRecursosImplantacao === 'function') {
                 aplicarRecursosImplantacao();
             }
             aplicarModoFiscalGlobal();
             if (typeof callback === 'function') callback();
             aplicarModoFiscalGlobal();
+            if (callbackOp) Perf.end(callbackOp);
+            if (renderOp) {
+                Perf.end(renderOp, {
+                    nodes: document.getElementById('page-content')?.querySelectorAll('*').length || 0,
+                    externalScripts: pendingScripts.length,
+                    inlineScripts: inlineScripts.length
+                });
+            }
+            if (Perf?.isEnabled?.()) Perf.navigationPhase('response:end', { kind: 'page-html' });
+            if (totalOp) Perf.end(totalOp, { outcome: 'success' });
         };
 
         if (pendingScripts.length === 0) {
@@ -1126,6 +1186,8 @@ function carregarPaginaHtml(url, callback) {
         }
     }).fail(function () {
         $('#page-content').html('<div class="alert alert-danger">Erro ao carregar a página solicitada.</div>');
+        if (Perf?.isEnabled?.()) Perf.navigationPhase('request:end', { kind: 'page-html', outcome: 'error' });
+        if (totalOp) Perf.end(totalOp, { outcome: 'error' });
     });
 }
 
@@ -1370,12 +1432,15 @@ function fecharNotificacao(id) {
 }
 
 function logout() {
-    if (confirm('Tem certeza que deseja sair?')) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
+    if (!confirm('Tem certeza que deseja sair?')) {
+        return;
     }
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    irParaLoginAposSaida('logout');
 }
+window.logout = logout;
+window.urlLoginAposSaida = urlLoginAposSaida;
 
 /** Aplica identidade visual oficial (Branding 1.0) nos elementos data-brand. */
 function aplicarIdentidadeVisualCds() {
@@ -1409,7 +1474,7 @@ function inicializarShellModulo(options = {}) {
     } catch (e) { /* ignore */ }
 
     if (!localStorage.getItem('token')) {
-        window.location.href = '/login';
+        irParaLoginAposSaida('sessao');
         return;
     }
 

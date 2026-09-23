@@ -14,6 +14,7 @@ const { AchadoCodigo, criarAchado } = require('./ReconcilicaoDfeAchados');
 const { criarReconciliationId } = require('./ReconcilicaoDfeId');
 const { obterSnapshotStore } = require('./ReconcilicaoDfeSnapshotStore');
 const { detectarLacunasNsu } = require('../../../motores/central-entradas/descoberta-nsu/NsuLacunaDetector');
+const { classificarNsus, NsuFonte } = require('./NsuFonteClassificacao');
 const { normalizarNsuOuZero } = require('../dfeRetornoParser');
 const { DocumentoFiscalStatus, normalizarStatus } = require('../../../motores/central-entradas/core/DocumentoFiscalStatus');
 const { StatusRecuperacaoXml } = require('../../../motores/central-entradas/recuperacao-xml/StatusRecuperacaoXml');
@@ -420,15 +421,17 @@ class MotorReconcilicaoDfe {
 
     // —— Histórico de lotes / NSUs da auditoria ——
     const lotes = this._reconstruirLotes(auditoria || []);
-    const nsusRecebidosAudit = [];
-    const nsusVistos = new Set();
+    const nsusClassificados = classificarNsus(docs, auditoria || [], padNsu);
+    const documentNsus = nsusClassificados.documentNsus;
+    const nsusRecebidosAudit = [
+      ...nsusClassificados.documentNsus.filter((n) => !docs.some((d) => padNsu(d.nsu) === n)),
+    ];
+    const nsusVistos = new Set([
+      ...nsusClassificados.documentNsus,
+      ...nsusRecebidosAudit
+    ]);
 
     for (const ev of auditoria || []) {
-      if (ev.nsu) {
-        const n = padNsu(ev.nsu);
-        nsusRecebidosAudit.push(n);
-        nsusVistos.add(n);
-      }
       const det = parseDetalhe(ev);
       const cStat = String(det.cStat || '').trim();
       if (cStat === '137' || cStat === '656') {
@@ -450,17 +453,21 @@ class MotorReconcilicaoDfe {
       }
     }
 
-    // Lacunas nos NSUs observados (docs + auditoria)
-    const nsusObservados = [
-      ...docs.filter((d) => d.nsu).map((d) => padNsu(d.nsu)),
-      ...nsusRecebidosAudit
-    ];
-    const lacuna = detectarLacunasNsu(nsusObservados, { cnpj, ambiente, data: this._agora().toISOString() });
+    // Lacunas: SOMENTE DOCUMENT_NSUS (nunca misturar cursor/query)
+    const lacuna = detectarLacunasNsu(documentNsus, {
+      cnpj,
+      ambiente,
+      data: this._agora().toISOString(),
+      fonte: NsuFonte.DOCUMENT
+    });
+    let posicoesNaoObservadas = 0;
     for (const l of lacuna.lacunas) {
+      posicoesNaoObservadas += Number(l.intervalo) || 0;
       achados.push(criarAchado(AchadoCodigo.POSSIVEL_LACUNA_NSU, {
         ...l,
-        classificacao: 'POSSIVEL_LACUNA',
-        observacao: 'Lacuna aparente — não confirma perda de documento.'
+        classificacao: 'POSSIVEL_INTERVALO_NSU',
+        fonte: NsuFonte.DOCUMENT,
+        observacao: 'Intervalo entre NSUs de documentos observados. Não representa quantidade de NF-e perdidas.'
       }));
     }
 
@@ -490,18 +497,19 @@ class MotorReconcilicaoDfe {
         }));
       } else if (nsuBig(a.novo) > nsuBig(a.anterior) + 1n) {
         const salto = Number(nsuBig(a.novo) - nsuBig(a.anterior));
-        // Salto só é alertado se posições intermediárias não foram observadas nos docs/auditoria
+        // Salto de cursor NÃO gera lacunas de documento automaticamente
         let intermediariosObservados = 0;
         for (let x = nsuBig(a.anterior) + 1n; x < nsuBig(a.novo); x += 1n) {
-          if (nsusObservados.includes(formatNsu(x))) intermediariosObservados += 1;
+          if (documentNsus.includes(formatNsu(x))) intermediariosObservados += 1;
         }
         if (intermediariosObservados === 0 && salto > 1) {
           achados.push(criarAchado(AchadoCodigo.SALTO_NSU_OBSERVADO, {
             cursorAnterior: a.anterior,
             cursorNovo: a.novo,
             posicoes: salto,
+            fonte: NsuFonte.CURSOR,
             requestId: a.requestId,
-            observacao: 'Salto observado no histórico — não assume perda automática.'
+            observacao: 'Salto observado no cursor — não assume documentos ausentes nem NF-e perdidas.'
           }));
         }
       }
@@ -567,7 +575,7 @@ class MotorReconcilicaoDfe {
         ultimaSincronizacao: cursor?.dataSincronizacao || cursor?.updatedAt || null
       },
       resumo: {
-        nsusAnalisados: new Set(nsusObservados).size,
+        nsusAnalisados: new Set(documentNsus).size,
         documentos: docs.length,
         documentosRecebidos: docs.length,
         documentosPersistidos: docs.length,
@@ -576,8 +584,15 @@ class MotorReconcilicaoDfe {
         xmlErro,
         duplicidades,
         lacunasSuspeitas: lacunasQtd,
+        intervalosNsu: lacunasQtd,
+        posicoesNaoObservadas,
         erros,
-        lotesAnalisados: lotes.length
+        lotesAnalisados: lotes.length,
+        fontesNsu: {
+          document: documentNsus.length,
+          cursor: nsusClassificados.cursorNsus.length,
+          query: nsusClassificados.queryNsus.length
+        }
       },
       lotes,
       achados: achadosFinais,
@@ -589,7 +604,16 @@ class MotorReconcilicaoDfe {
         maxNsu,
         xmlPendentes: xmlPendente,
         possiveisLacunas: lacunasQtd,
-        duplicidades
+        possiveisIntervalosNsu: lacunasQtd,
+        posicoesNaoObservadas,
+        duplicidades,
+        labelIntervalos: 'Possíveis intervalos de NSU',
+        tooltipIntervalos: 'Indica intervalos entre NSUs de documentos observados. Não representa quantidade de NF-e perdidas.'
+      },
+      nsuFontes: {
+        DOCUMENT_NSUS: documentNsus,
+        CURSOR_NSUS: nsusClassificados.cursorNsus,
+        QUERY_NSUS: nsusClassificados.queryNsus
       },
       // Garantia explícita da Sprint
       acoesAutomaticas: [],

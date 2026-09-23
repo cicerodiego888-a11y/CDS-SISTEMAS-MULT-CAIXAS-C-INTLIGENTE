@@ -38,9 +38,34 @@
     _doneCallbacks.push(cb);
   }
 
+  function motivoEntradaLogin() {
+    try {
+      return String(new URLSearchParams(global.location && global.location.search || '').get('from') || '');
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function devePularIntro() {
+    var from = motivoEntradaLogin();
+    if (from === 'logout' || from === 'sessao') return true;
+    try {
+      if (global.localStorage && localStorage.getItem('token')) return true;
+    } catch (e) { /* ignore */ }
+    return false;
+  }
+
+  function removerOverlayIntro() {
+    var root = document.getElementById('cdsIntroRoot');
+    if (root && root.parentNode) {
+      root.parentNode.removeChild(root);
+    }
+  }
+
   function fireDone() {
     document.body.classList.remove('intro-active');
     document.body.classList.add('intro-done');
+    removerOverlayIntro();
     var list = _doneCallbacks.slice();
     _doneCallbacks = [];
     list.forEach(function (cb) {
@@ -190,13 +215,10 @@
     if (_started) return;
     _started = true;
 
-    /* Sessão já autenticada: não atrasa o redirect do login.js */
-    try {
-      if (global.localStorage && localStorage.getItem('token')) {
-        fireDone();
-        return;
-      }
-    } catch (e) { /* ignore */ }
+    if (devePularIntro()) {
+      fireDone();
+      return;
+    }
 
     fetchAndMount(function (root) {
       run(root);

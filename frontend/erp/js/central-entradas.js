@@ -323,21 +323,50 @@ function renderBadgeStatusCentral(status, label) {
 }
 
 async function centralEntradasFetch(path, options = {}) {
-    const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/central-entradas${path}`, {
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-            ...(options.headers || {})
-        }
+    const Perf = window.PerformanceMonitor;
+    const pageToken = typeof UINavigation !== 'undefined' ? UINavigation.getToken?.() : null;
+    const requestId = Perf?.start?.('central:request', {
+        method: options.method || 'GET',
+        endpoint: Perf?.safeEndpoint?.(`/api/central-entradas${path}`) || '/api/central-entradas',
+        pageToken
     });
+    const token = localStorage.getItem('token');
+    try {
+        const response = await fetch(`${API_URL}/central-entradas${path}`, {
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+                ...(options.headers || {})
+            }
+        });
 
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        throw new Error(data.error || `Erro HTTP ${response.status}`);
+        const processingOp = Perf?.start?.('central:response-processing', {
+            endpoint: Perf?.safeEndpoint?.(`/api/central-entradas${path}`) || '/api/central-entradas'
+        });
+        const data = await response.json().catch(() => ({}));
+        if (processingOp) {
+            Perf.end(processingOp, {
+                responseBytesApprox: Perf.approximateBytes?.(data) ?? null
+            });
+        }
+        const stillActive = typeof UINavigation === 'undefined'
+            || (UINavigation.isActivePage?.('central-entradas')
+                && (!pageToken || UINavigation.isActiveToken?.(pageToken)));
+        if (requestId) {
+            Perf.end(requestId, {
+                status: response.status,
+                validity: stillActive ? 'VALID' : 'STALE'
+            });
+        }
+        if (!response.ok) {
+            throw new Error(data.error || `Erro HTTP ${response.status}`);
+        }
+        return data;
+    } catch (error) {
+        if (requestId) Perf.end(requestId, { outcome: 'error', error: String(error?.message || error).slice(0, 160) });
+        throw error;
     }
-    return data;
 }
 
 async function centralEntradasUpload(arquivos) {
@@ -976,7 +1005,8 @@ function renderPainelOperacaoCentral(operacao, reconcilicao) {
     const automatico = String(op.modo || '').toUpperCase() === 'AUTOMATICO';
     const pendentes = Array.isArray(op.pendentes) ? op.pendentes : [];
     const xmlPend = resumo.xmlPendentes ?? ind.xmlPendentes ?? '—';
-    const lacunas = resumo.possiveisLacunas ?? ind.possiveisLacunas ?? '—';
+    const lacunas = resumo.possiveisIntervalosNsu ?? resumo.possiveisLacunas ?? ind.possiveisIntervalosNsu ?? ind.possiveisLacunas ?? '—';
+    const posNaoObs = resumo.posicoesNaoObservadas ?? ind.posicoesNaoObservadas ?? '—';
     const inconsist = resumo.inconsistencias ?? ind.inconsistencias ?? '—';
 
     wrap.innerHTML = `
@@ -992,7 +1022,11 @@ function renderPainelOperacaoCentral(operacao, reconcilicao) {
                     <div class="col-6 col-md-2"><span class="text-muted">Último NSU</span><div class="fw-semibold">${escapeHtmlCentralEntradas(resumo.ultNsu ?? '—')}</div></div>
                     <div class="col-6 col-md-2"><span class="text-muted">MAX NSU</span><div class="fw-semibold">${escapeHtmlCentralEntradas(resumo.maxNsu ?? '—')}</div></div>
                     <div class="col-6 col-md-2"><span class="text-muted">XML pendentes</span><div class="fw-semibold">${escapeHtmlCentralEntradas(xmlPend)}</div></div>
-                    <div class="col-6 col-md-2"><span class="text-muted">Possíveis lacunas</span><div class="fw-semibold">${escapeHtmlCentralEntradas(lacunas)}</div></div>
+                    <div class="col-6 col-md-2" title="Indica intervalos entre NSUs de documentos observados. Não representa quantidade de NF-e perdidas.">
+                        <span class="text-muted">Possíveis intervalos de NSU</span>
+                        <div class="fw-semibold">${escapeHtmlCentralEntradas(lacunas)}</div>
+                        <div class="text-muted" style="font-size:.7rem">Posições não observadas: ${escapeHtmlCentralEntradas(posNaoObs)}</div>
+                    </div>
                     <div class="col-6 col-md-2"><span class="text-muted">Inconsistências</span><div class="fw-semibold">${escapeHtmlCentralEntradas(inconsist)}</div></div>
                     <div class="col-6 col-md-2"><span class="text-muted">Ações aguardando</span><div class="fw-semibold">${escapeHtmlCentralEntradas(resumo.acoesAguardandoConfirmacao ?? pendentes.length)}</div></div>
                 </div>
@@ -1039,6 +1073,11 @@ function renderPainelOperacaoCentral(operacao, reconcilicao) {
 function renderCabecalhoUx1Central() {
     const container = document.getElementById('centralUx1Header');
     if (!container) return;
+    const Perf = window.PerformanceMonitor;
+    const renderOp = Perf?.start?.('central:render-header', {
+        nodesBefore: container.querySelectorAll('*').length,
+        focusedInside: container.contains(document.activeElement)
+    });
 
     const UX = centralUx();
     const estado = UX.resolverEstadoServicoCentral?.(centralEntradasState) || { label: 'Online', codigo: 'monitorando' };
@@ -1052,7 +1091,38 @@ function renderCabecalhoUx1Central() {
         ? cooldown.tooltipSync
         : 'Sincronizar agora com a SEFAZ';
 
-    container.innerHTML = `
+    // Soft update: se cabeçalho já montado e usuário interage, só patch badges/status
+    const jaMontado = container.querySelector('.central-rc40-header');
+    const Focus = typeof UIFocusManager !== 'undefined' ? UIFocusManager : null;
+    if (jaMontado && Focus && Focus.isInside(container)) {
+        const notifBtn = container.querySelector('#centralBtnNotificacoes');
+        if (notifBtn) {
+            notifBtn.innerHTML = `<i class="fas fa-bell me-2"></i>Notificações${notifQtd > 0 ? ` (${notifQtd})` : ''}`;
+        }
+        const onlineEl = container.querySelector('.central-ux1-online');
+        if (onlineEl) {
+            onlineEl.classList.toggle('central-ux1-online--off', !online);
+            onlineEl.title = online ? 'Sistema conectado' : 'Sem conexão';
+            const txt = onlineEl.childNodes[onlineEl.childNodes.length - 1];
+            if (txt && txt.nodeType === 3) txt.textContent = online ? '🟢 ONLINE' : 'OFFLINE';
+        }
+        const syncBtn = container.querySelector('#centralBtnSincronizar');
+        if (syncBtn) {
+            syncBtn.disabled = syncDesabilitado;
+            syncBtn.setAttribute('aria-disabled', syncDesabilitado ? 'true' : 'false');
+            syncBtn.title = syncTitle;
+        }
+        if (renderOp) {
+            Perf.end(renderOp, {
+                updateType: 'incremental',
+                nodesAfter: container.querySelectorAll('*').length
+            });
+        }
+        return;
+    }
+
+    const Soft = typeof UISoftRefresh !== 'undefined' ? UISoftRefresh : null;
+    const html = `
         <div class="central-rc40-header">
             <div>
                 <h1 class="central-rc40-header-titulo">Central Inteligente de Entradas</h1>
@@ -1098,6 +1168,15 @@ function renderCabecalhoUx1Central() {
                 </div>
             </div>
         </div>`;
+    if (Soft) Soft.replaceHtml(container, html);
+    else container.innerHTML = html;
+    if (renderOp) {
+        Perf.end(renderOp, {
+            updateType: 'full-replace',
+            nodesAfter: container.querySelectorAll('*').length,
+            htmlBytesApprox: Perf.approximateBytes?.(html) ?? null
+        });
+    }
 }
 
 function renderCardsUx1Central(contadores = {}, indicadores = {}) {
@@ -2979,50 +3058,126 @@ function iniciarAutomacaoCentral() {
     if (centralEntradasState.tickerNotificacoes) clearInterval(centralEntradasState.tickerNotificacoes);
     if (centralEntradasState.tickerLiveUx) clearInterval(centralEntradasState.tickerLiveUx);
     if (centralEntradasState.tickerSoftDoc) clearInterval(centralEntradasState.tickerSoftDoc);
+    centralEntradasState.tickerServico = null;
+    centralEntradasState.tickerNotificacoes = null;
+    centralEntradasState.tickerLiveUx = null;
+    centralEntradasState.tickerSoftDoc = null;
+
+    if (typeof UIPollingManager !== 'undefined') {
+        UIPollingManager.stopByPage('central-entradas');
+    }
 
     carregarStatusServicoCentral();
     pollNotificacoesCentral();
     carregarContagemNotificacoesCentral();
 
-    centralEntradasState.tickerServico = setInterval(() => {
-        if (document.getElementById('centralUx1Header')) {
-            carregarStatusServicoCentral();
-            const srv = document.getElementById('centralUx1Servicos');
-            if (srv) srv.innerHTML = renderStatusServicosRodapeUx1();
-        } else {
-            clearInterval(centralEntradasState.tickerServico);
-            centralEntradasState.tickerServico = null;
-        }
-    }, 30000);
+    const Poll = typeof UIPollingManager !== 'undefined' ? UIPollingManager : null;
+    if (Poll) {
+        Poll.start({
+            id: 'central-servico',
+            page: 'central-entradas',
+            component: 'status-servico',
+            interval: 30000,
+            fn: () => {
+                if (!document.getElementById('centralUx1Header')) return;
+                carregarStatusServicoCentral();
+                const srv = document.getElementById('centralUx1Servicos');
+                if (srv) srv.innerHTML = renderStatusServicosRodapeUx1();
+            }
+        });
+        Poll.start({
+            id: 'central-notif',
+            page: 'central-entradas',
+            component: 'notificacoes',
+            interval: 45000,
+            fn: () => {
+                if (!document.getElementById('centralUx1Header')) return;
+                pollNotificacoesCentral();
+                carregarEventosRodapeCentral();
+            }
+        });
+        Poll.start({
+            id: 'central-live-ux',
+            page: 'central-entradas',
+            component: 'live-countdown',
+            interval: 1000,
+            fn: () => {
+                if (!document.getElementById('centralUx1Header')) return;
+                tickLiveUxCentral();
+            }
+        });
+        Poll.start({
+            id: 'central-soft-doc',
+            page: 'central-entradas',
+            component: 'documento-detalhe',
+            interval: 20000,
+            fn: () => softRefreshDocumentoSelecionadoCentral()
+        });
+    } else {
+        centralEntradasState.tickerServico = setInterval(() => {
+            if (document.getElementById('centralUx1Header')) {
+                carregarStatusServicoCentral();
+                const srv = document.getElementById('centralUx1Servicos');
+                if (srv) srv.innerHTML = renderStatusServicosRodapeUx1();
+            } else {
+                clearInterval(centralEntradasState.tickerServico);
+                centralEntradasState.tickerServico = null;
+            }
+        }, 30000);
 
-    centralEntradasState.tickerNotificacoes = setInterval(() => {
-        if (document.getElementById('centralUx1Header')) {
-            pollNotificacoesCentral();
-            carregarEventosRodapeCentral();
-        } else {
-            clearInterval(centralEntradasState.tickerNotificacoes);
-            centralEntradasState.tickerNotificacoes = null;
-        }
-    }, 45000);
+        centralEntradasState.tickerNotificacoes = setInterval(() => {
+            if (document.getElementById('centralUx1Header')) {
+                pollNotificacoesCentral();
+                carregarEventosRodapeCentral();
+            } else {
+                clearInterval(centralEntradasState.tickerNotificacoes);
+                centralEntradasState.tickerNotificacoes = null;
+            }
+        }, 45000);
 
-    // RC7.5 — countdown / tempo aguardando (sem reload da tabela)
-    centralEntradasState.tickerLiveUx = setInterval(() => {
-        if (!document.getElementById('centralUx1Header')) {
-            clearInterval(centralEntradasState.tickerLiveUx);
-            centralEntradasState.tickerLiveUx = null;
-            return;
-        }
-        tickLiveUxCentral();
-    }, 1000);
+        centralEntradasState.tickerLiveUx = setInterval(() => {
+            if (!document.getElementById('centralUx1Header')) {
+                clearInterval(centralEntradasState.tickerLiveUx);
+                centralEntradasState.tickerLiveUx = null;
+                return;
+            }
+            tickLiveUxCentral();
+        }, 1000);
 
-    centralEntradasState.tickerSoftDoc = setInterval(() => {
-        if (!document.getElementById('centralUx1Header')) {
-            clearInterval(centralEntradasState.tickerSoftDoc);
-            centralEntradasState.tickerSoftDoc = null;
-            return;
+        centralEntradasState.tickerSoftDoc = setInterval(() => {
+            if (!document.getElementById('centralUx1Header')) {
+                clearInterval(centralEntradasState.tickerSoftDoc);
+                centralEntradasState.tickerSoftDoc = null;
+                return;
+            }
+            softRefreshDocumentoSelecionadoCentral();
+        }, 20000);
+    }
+
+    if (typeof UINavigation !== 'undefined' && UINavigation.onPageLeave) {
+        if (centralEntradasState._offLeave) {
+            try { centralEntradasState._offLeave(); } catch { /* ignore */ }
         }
-        softRefreshDocumentoSelecionadoCentral();
-    }, 20000);
+        centralEntradasState._offLeave = UINavigation.onPageLeave('central-entradas', () => {
+            pararAutomacaoCentral();
+        });
+    }
+}
+
+function pararAutomacaoCentral() {
+    if (centralEntradasState.tickerServico) clearInterval(centralEntradasState.tickerServico);
+    if (centralEntradasState.tickerNotificacoes) clearInterval(centralEntradasState.tickerNotificacoes);
+    if (centralEntradasState.tickerLiveUx) clearInterval(centralEntradasState.tickerLiveUx);
+    if (centralEntradasState.tickerSoftDoc) clearInterval(centralEntradasState.tickerSoftDoc);
+    if (centralEntradasState.tickerSync) clearInterval(centralEntradasState.tickerSync);
+    centralEntradasState.tickerServico = null;
+    centralEntradasState.tickerNotificacoes = null;
+    centralEntradasState.tickerLiveUx = null;
+    centralEntradasState.tickerSoftDoc = null;
+    centralEntradasState.tickerSync = null;
+    if (typeof UIPollingManager !== 'undefined') {
+        UIPollingManager.stopByPage('central-entradas');
+    }
 }
 
 function iniciarTickerSincronizacao() {
@@ -3664,14 +3819,44 @@ function tickLiveUxCentral() {
 async function softRefreshDocumentoSelecionadoCentral() {
     const id = centralEntradasState.documentoSelecionadoId;
     if (!id || !document.getElementById('centralUx1Header')) return;
+    if (typeof UINavigation !== 'undefined' && !UINavigation.isActivePage('central-entradas')) return;
     const doc = centralEntradasState.detalheAtual?.documento;
     if (!doc || doc.status !== 'AGUARDANDO_XML_COMPLETO') return;
     if (centralEntradasState.softRefreshEmAndamento) return;
+
+    const painel = document.getElementById('centralEntradasAbaConteudo')
+        || document.querySelector('.central-ux1-painel-body')
+        || document.getElementById('centralRc75XmlCard');
+    if (typeof UIFocusManager !== 'undefined' && UIFocusManager.isEditing(painel)) {
+        return; // não destruir edição em andamento
+    }
+    if (document.querySelector('.modal.show')) return;
+
+    const Perf = window.PerformanceMonitor;
+    const refreshOp = Perf?.start?.('central:soft-refresh-document', {
+        component: 'documento-detalhe',
+        documentId: id,
+        focusedInside: !!painel?.contains(document.activeElement),
+        nodesBefore: painel?.querySelectorAll('*').length || 0,
+        polling: true
+    });
     centralEntradasState.softRefreshEmAndamento = true;
     const statusAnterior = doc.status;
+    const pageToken = typeof UINavigation !== 'undefined' ? UINavigation.getToken() : null;
+    const req = typeof UIRequestContext !== 'undefined'
+        ? UIRequestContext.begin({
+            page: 'central-entradas',
+            component: 'documento-detalhe',
+            page_token: pageToken,
+            render_version: UISoftRefresh?.bumpVersion?.(centralEntradasState) || null
+        })
+        : null;
+
     try {
         const detalhe = await centralEntradasFetch(`/${id}`);
+        if (req && !UIRequestContext.isFresh(req.request_id)) return;
         if (centralEntradasState.documentoSelecionadoId !== id) return;
+        if (typeof UINavigation !== 'undefined' && pageToken && !UINavigation.isActiveToken(pageToken)) return;
 
         const novoStatus = detalhe.documento?.status;
         // RC3.4.2 — XML recuperado automaticamente: atualiza Central completa.
@@ -3682,6 +3867,7 @@ async function softRefreshDocumentoSelecionadoCentral() {
                 carregarDocumentosCentral()
             ]);
             await selecionarDocumentoCentral(id);
+            if (req) UIRequestContext.markCompleted(req.request_id);
             return;
         }
 
@@ -3697,22 +3883,37 @@ async function softRefreshDocumentoSelecionadoCentral() {
             centralEntradasState.sefazOperacional = detalhe.sefazOperacional;
             renderPainelSaudeSefazUxCentral();
         }
-        // Atualização parcial: resumo / timeline / produtos
-        if (['resumo', 'timeline', 'produtos', 'itens'].includes(centralEntradasState.abaAtiva)) {
-            const corpo = document.getElementById('centralEntradasAbaConteudo')
-                || document.querySelector('.central-ux1-painel-body');
-            if (corpo && centralEntradasState.detalheAtual) {
-                renderPainelLateralCentral(centralEntradasState.detalheAtual);
+
+        const aplicarRender = () => {
+            if (['resumo', 'timeline', 'produtos', 'itens'].includes(centralEntradasState.abaAtiva)) {
+                const corpo = document.getElementById('centralEntradasAbaConteudo')
+                    || document.querySelector('.central-ux1-painel-body');
+                if (corpo && centralEntradasState.detalheAtual) {
+                    renderPainelLateralCentral(centralEntradasState.detalheAtual);
+                }
+            } else {
+                const card = document.getElementById('centralRc75XmlCard');
+                if (card && centralEntradasState.detalheAtual) {
+                    renderPainelLateralCentral(centralEntradasState.detalheAtual);
+                }
             }
+        };
+
+        if (typeof UIFocusManager !== 'undefined' && painel) {
+            UIFocusManager.withPreservedFocus(painel, aplicarRender);
         } else {
-            const card = document.getElementById('centralRc75XmlCard');
-            if (card && centralEntradasState.detalheAtual) {
-                renderPainelLateralCentral(centralEntradasState.detalheAtual);
-            }
+            aplicarRender();
         }
+        if (req) UIRequestContext.markCompleted(req.request_id);
     } catch { /* ignore soft refresh */ }
     finally {
         centralEntradasState.softRefreshEmAndamento = false;
+        if (refreshOp) {
+            Perf.end(refreshOp, {
+                nodesAfter: painel?.querySelectorAll('*').length || 0,
+                updateType: 'full-panel-render'
+            });
+        }
     }
 }
 
@@ -3893,6 +4094,13 @@ function renderCtaImportarCompraCentral(doc) {
 function renderPainelLateralCentral(detalhe) {
     const painel = document.getElementById('centralEntradasPainelLateral');
     if (!painel || !detalhe?.documento) return;
+    const Perf = window.PerformanceMonitor;
+    const renderOp = Perf?.start?.('central:render-side-panel', {
+        documentId: detalhe.documento.id,
+        activeTab: centralEntradasState.abaAtiva,
+        nodesBefore: painel.querySelectorAll('*').length,
+        focusedInside: painel.contains(document.activeElement)
+    });
 
     const doc = detalhe.documento;
     const UX = centralUx();
@@ -3953,6 +4161,12 @@ function renderPainelLateralCentral(detalhe) {
             </div>
         </div>
     `;
+    if (renderOp) {
+        Perf.end(renderOp, {
+            updateType: 'full-replace',
+            nodesAfter: painel.querySelectorAll('*').length
+        });
+    }
 }
 
 /* ============================================================
@@ -4878,7 +5092,12 @@ async function exportarXmlCentral(documentoId) {
  * ============================================================ */
 
 async function carregarDocumentosCentral(opcoes = {}) {
-    if (centralEntradasState.carregando) return;
+    const Perf = window.PerformanceMonitor;
+    if (centralEntradasState.carregando) {
+        Perf?.record?.('central:list-load-dropped', { reason: 'already-loading' });
+        return;
+    }
+    const loadOp = Perf?.start?.('central:list-load', { trigger: opcoes.pagina ? 'pagination' : 'refresh' });
     centralEntradasState.carregando = true;
     centralEntradasState.loadingFase = 'preparando';
     const lista = document.getElementById('centralEntradasLista');
@@ -4939,10 +5158,22 @@ async function carregarDocumentosCentral(opcoes = {}) {
         // RC7.3.1 / RC7.5 — sempre desliga loading e redesenha (evita skeleton infinito).
         centralEntradasState.carregando = false;
         renderGridCentralEntradas();
+        if (loadOp) {
+            Perf.end(loadOp, {
+                records: centralEntradasState.documentos.length,
+                total: centralEntradasState.total,
+                page: centralEntradasState.pagina
+            });
+        }
     }
 }
 
 async function selecionarDocumentoCentral(id) {
+    const Perf = window.PerformanceMonitor;
+    const selectionOp = Perf?.start?.('central:document-selection', {
+        documentId: id,
+        previousDocumentId: centralEntradasState.documentoSelecionadoId
+    });
     centralEntradasState.documentoSelecionadoId = id;
     centralEntradasState.abaAtiva = 'resumo';
     centralEntradasState.xmlAtual = null;
@@ -4959,6 +5190,12 @@ async function selecionarDocumentoCentral(id) {
         centralEntradasState.detalheAtual = detalhe;
         await carregarStatsFornecedorCentral(detalhe.documento?.cnpjFornecedor);
         renderPainelLateralCentral(detalhe);
+        if (selectionOp) {
+            Perf.end(selectionOp, {
+                validity: centralEntradasState.documentoSelecionadoId === id ? 'VALID' : 'STALE',
+                responseBytesApprox: Perf.approximateBytes?.(detalhe) ?? null
+            });
+        }
 
         if (detalhe.documento?.parseDisponivel) {
             centralEntradasFetch(`/${id}/parse`)
@@ -4972,6 +5209,7 @@ async function selecionarDocumentoCentral(id) {
                 .catch(() => {});
         }
     } catch (error) {
+        if (selectionOp) Perf.end(selectionOp, { outcome: 'error', error: String(error?.message || error).slice(0, 160) });
         showNotification('Erro ao carregar detalhe: ' + error.message, 'danger');
         renderPainelLateralPlaceholder();
     }
@@ -5554,6 +5792,9 @@ function bindEventosCentralEntradas() {
  * ============================================================ */
 
 function loadCentralEntradas() {
+    const Perf = window.PerformanceMonitor;
+    const loadOp = Perf?.start?.('central:initial-load');
+    const htmlOp = Perf?.start?.('central:initial-html-generation');
     centralEntradasState.pagina = 1;
     centralEntradasState.documentoSelecionadoId = null;
     centralEntradasState.documentos = [];
@@ -5814,7 +6055,14 @@ function loadCentralEntradas() {
         </div>
     `;
 
+    if (htmlOp) Perf.end(htmlOp, { htmlBytesApprox: Perf.approximateBytes?.(html) ?? null });
+    const domOp = Perf?.start?.('central:initial-dom', { target: 'page-content' });
     $('#page-content').html(html);
+    if (domOp) {
+        Perf.end(domOp, {
+            nodesAfter: document.getElementById('page-content')?.querySelectorAll('*').length || 0
+        });
+    }
     renderCabecalhoUx1Central();
     renderRodapeUx1Central();
     renderPainelLateralPlaceholder();
@@ -5866,6 +6114,12 @@ function loadCentralEntradas() {
             if (document.getElementById('centralEntradasLista')
                 || document.getElementById('centralEntradasTbody')) {
                 renderGridCentralEntradas();
+            }
+            if (loadOp) {
+                Perf.end(loadOp, {
+                    requestsCompleted: true,
+                    records: centralEntradasState.documentos.length
+                });
             }
         });
 }

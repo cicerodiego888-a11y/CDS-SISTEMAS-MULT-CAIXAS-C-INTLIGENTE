@@ -8,9 +8,11 @@ const { isMultiCaixaAtivo, exigirTerminalId, obterTerminalIdDaRequisicao } = req
 const { obterCaixaTurnoId } = require('../utils/caixaSessaoHelpers');
 const FechamentoCaixaResumoService = require('../services/caixa/FechamentoCaixaResumoService');
 const { gerarHtmlCupomFechamento } = require('../services/caixa/FechamentoCaixaCupomService');
+const { validarConferenciaERetirada } = require('../services/caixa/FechamentoCaixaPolitica');
+const { parseMoedaBr } = require('../services/financeiro/politicaMonetaria');
 
 function n(valor) {
-  return Number(valor || 0);
+  return parseMoedaBr(valor);
 }
 
 function obterConfigsEmpresa(callback) {
@@ -604,11 +606,19 @@ router.post('/suprimento', verificarToken, validarCaixaAberto, exigirPermissaoOu
 });
 
 router.post('/fechar', verificarToken, validarCaixaAberto, exigirPermissaoOuSenhaAdmin('fechar_caixa'), (req, res) => {
-  const valorInformado = n(req.body.valor_informado);
+  const dinheiroConferido = n(req.body.dinheiro_conferido != null ? req.body.dinheiro_conferido : req.body.valor_informado);
+  const valorInformado = dinheiroConferido;
+  const modoRetirada = req.body.modo_retirada || 'nenhuma';
+  const retiradaFechamento = n(req.body.retirada_fechamento);
+  const fecharComDivergencia = req.body.fechar_com_divergencia === true
+    || req.body.fechar_com_divergencia === 1
+    || req.body.fechar_com_divergencia === '1';
+  const justificativa = String(req.body.justificativa_divergencia || req.body.justificativa || '').trim();
   const observacao = req.body.observacao || '';
   const operadorId = req.user?.id || null;
   const operadorNome = req.user?.nome || req.user?.username || 'Desconhecido';
   const terminalId = obterTerminalId(req);
+  const senhaAdminInformada = Boolean(req.body && req.body.senha_admin);
   obterSessaoAberta(terminalId, (errSess, sessao) => {
       if (errSess) return res.status(500).json({ error: errSess.message });
       if (!sessao) return res.status(400).json({ error: terminalId ? 'Nenhuma sessão de caixa aberta para este terminal.' : 'Nenhuma sessão de caixa aberta.' });
@@ -628,18 +638,94 @@ router.post('/fechar', verificarToken, validarCaixaAberto, exigirPermissaoOuSenh
 
             calcularFechamentoDetalhado(caixa, {
               sessaoId: sessao.id,
-              valorInformado,
+              valorInformado: dinheiroConferido,
+              dinheiroConferido,
+              retiradaFechamento,
+              modoRetirada,
               meta,
               validar: true
             }, (calcErr, detalhes) => {
-              if (calcErr) return res.status(400).json({ error: calcErr.message });
+              if (calcErr) {
+                gravarAuditoria({
+                  usuario_id: operadorId,
+                  usuario_nome: operadorNome,
+                  modulo: 'caixa',
+                  acao: 'fechamento_bloqueado',
+                  referencia_tipo: 'caixa_sessao',
+                  referencia_id: sessao.id,
+                  detalhes: {
+                    motivo: calcErr.codigo || 'INCONSISTENCIA_FINANCEIRA',
+                    erro: calcErr.message,
+                    caixa_id: caixa.id,
+                    inconsistencias: calcErr.inconsistencias || [],
+                    divergencias: calcErr.divergencias || []
+                  },
+                  ip_requisicao: req.ip || null
+                }).catch(() => {});
+                return res.status(400).json({
+                  error: calcErr.message,
+                  codigo: calcErr.codigo || 'INCONSISTENCIA_FINANCEIRA',
+                  inconsistencias: calcErr.inconsistencias || [],
+                  divergencias: calcErr.divergencias || []
+                });
+              }
+
+              const fisico = detalhes.consolidacao && detalhes.consolidacao.caixa_fisico
+                ? detalhes.consolidacao.caixa_fisico
+                : null;
+              const conferencia = validarConferenciaERetirada(fisico || {
+                dinheiro_esperado: detalhes.total_esperado,
+                dinheiro_conferido: dinheiroConferido,
+                diferenca: detalhes.diferenca,
+                conferencia_ok: Math.abs(n(detalhes.diferenca)) <= 0.02,
+                retirada_fechamento: n(detalhes.retirada_fechamento || retiradaFechamento)
+              }, {
+                fecharComDivergencia,
+                justificativa,
+                user: req.user,
+                senhaAdminValidada: senhaAdminInformada
+              });
+              if (!conferencia.ok) {
+                gravarAuditoria({
+                  usuario_id: operadorId,
+                  usuario_nome: operadorNome,
+                  modulo: 'caixa',
+                  acao: 'fechamento_bloqueado',
+                  referencia_tipo: 'caixa_sessao',
+                  referencia_id: sessao.id,
+                  detalhes: {
+                    motivo: conferencia.bloqueio || 'CONFERENCIA_FISICA',
+                    erro: conferencia.erro,
+                    caixa_id: caixa.id,
+                    diferenca: conferencia.diferenca != null ? conferencia.diferenca : (fisico && fisico.diferenca)
+                  },
+                  ip_requisicao: req.ip || null
+                }).catch(() => {});
+                return res.status(400).json({
+                  error: conferencia.erro,
+                  codigo: conferencia.bloqueio || 'CONFERENCIA_FISICA',
+                  diferenca: conferencia.diferenca != null ? conferencia.diferenca : (fisico && fisico.diferenca),
+                  caixa_fisico: fisico
+                });
+              }
 
               const diferenca = n(detalhes.diferenca);
+              const retiradaFinal = n(fisico && fisico.retirada_fechamento != null
+                ? fisico.retirada_fechamento
+                : (modoRetirada === 'total' ? dinheiroConferido : retiradaFechamento));
+              const saldoFinal = n(fisico && fisico.saldo_final != null
+                ? fisico.saldo_final
+                : (dinheiroConferido - retiradaFinal));
               const consolidacao = detalhes.consolidacao || null;
               const fechadoEm = agoraLocalBrasil();
               if (consolidacao) {
                 consolidacao.fechamento = consolidacao.fechamento || {};
                 consolidacao.fechamento.em = fechadoEm;
+                consolidacao.fechamento.valor_informado = dinheiroConferido;
+                consolidacao.fechamento.dinheiro_conferido = dinheiroConferido;
+                consolidacao.fechamento.retirada_fechamento = retiradaFinal;
+                consolidacao.fechamento.saldo_final = saldoFinal;
+                consolidacao.fechamento.justificativa_divergencia = justificativa || null;
                 consolidacao.periodo = consolidacao.periodo || {};
                 consolidacao.periodo.fechado_em = fechadoEm;
                 consolidacao.operador = {
@@ -655,6 +741,12 @@ router.post('/fechar', verificarToken, validarCaixaAberto, exigirPermissaoOuSenh
                   id: meta.terminal_id,
                   nome: meta.terminal_nome
                 };
+                if (consolidacao.caixa_fisico) {
+                  consolidacao.caixa_fisico.dinheiro_conferido = dinheiroConferido;
+                  consolidacao.caixa_fisico.retirada_fechamento = retiradaFinal;
+                  consolidacao.caixa_fisico.saldo_final = saldoFinal;
+                  consolidacao.caixa_fisico.diferenca = diferenca;
+                }
               }
 
               const cupomHtml = gerarHtmlCupomFechamento(consolidacao, {
@@ -687,7 +779,7 @@ router.post('/fechar', verificarToken, validarCaixaAberto, exigirPermissaoOuSenh
                 `, [
                   fechadoEm,
                   operadorId,
-                  valorInformado,
+                  saldoFinal,
                   detalhes.total_sangrias,
                   detalhes.total_suprimentos,
                   detalhes.total_esperado,
@@ -722,8 +814,15 @@ router.post('/fechar', verificarToken, validarCaixaAberto, exigirPermissaoOuSenh
                       total_informado,
                       diferenca,
                       observacao,
-                      resumo_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                      resumo_json,
+                      dinheiro_conferido,
+                      retirada_fechamento,
+                      saldo_final,
+                      total_recebido,
+                      total_pendente,
+                      justificativa_divergencia,
+                      autorizado_por
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                   `, [
                     sessao.id,
                     caixa.id,
@@ -742,17 +841,29 @@ router.post('/fechar', verificarToken, validarCaixaAberto, exigirPermissaoOuSenh
                     detalhes.total_suprimentos,
                     detalhes.total_vendido,
                     detalhes.total_esperado,
-                    valorInformado,
+                    dinheiroConferido,
                     diferenca,
                     observacao,
-                    resumoJson
+                    resumoJson,
+                    dinheiroConferido,
+                    retiradaFinal,
+                    saldoFinal,
+                    detalhes.total_recebido != null ? detalhes.total_recebido : detalhes.total_vendido,
+                    detalhes.total_pendente || 0,
+                    justificativa || null,
+                    fecharComDivergencia ? operadorId : null
                   ], (insertErr) => {
                     if (insertErr) {
                       db.run('ROLLBACK');
+                      if (/UNIQUE constraint failed|idx_caixa_fechamentos_sessao/i.test(String(insertErr.message))) {
+                        return res.status(409).json({
+                          error: 'Esta sessão já está sendo fechada ou já foi fechada.'
+                        });
+                      }
                       return res.status(500).json({ error: insertErr.message });
                     }
 
-                    const paramsSessao = [valorInformado, sessao.id, caixa.id];
+                    const paramsSessao = [saldoFinal, sessao.id, caixa.id];
                     let sqlSessoes = `
                       UPDATE caixa_sessoes
                       SET status = 'fechado',
@@ -816,14 +927,16 @@ router.post('/fechar', verificarToken, validarCaixaAberto, exigirPermissaoOuSenh
                             valor,
                             motivo,
                             usuario_id,
-                            operador_nome
-                          ) VALUES (?, ?, 'fechamento', ?, 'Fechamento de caixa', ?, ?)
-                        `, [caixa.id, sessao.id, valorInformado, operadorId, operadorNome], (movErr) => {
+                            operador_nome,
+                            terminal_id
+                          ) VALUES (?, ?, 'fechamento', ?, 'Fechamento de caixa', ?, ?, ?)
+                        `, [caixa.id, sessao.id, dinheiroConferido, operadorId, operadorNome, sessao.terminal_id || terminalId], (movErr) => {
                           if (movErr) {
                             db.run('ROLLBACK');
                             return res.status(500).json({ error: movErr.message });
                           }
 
+                          const gravarRetiradaECommit = () => {
                           db.run('COMMIT', (commitErr) => {
                             if (commitErr) {
                               db.run('ROLLBACK');
@@ -834,15 +947,24 @@ router.post('/fechar', verificarToken, validarCaixaAberto, exigirPermissaoOuSenh
                               usuario_id: operadorId,
                               usuario_nome: operadorNome,
                               modulo: 'caixa',
-                              acao: 'fechar_caixa',
+                              acao: fecharComDivergencia && Math.abs(diferenca) > 0.02
+                                ? 'fechar_caixa_com_divergencia'
+                                : 'fechar_caixa',
                               referencia_tipo: 'caixa_sessao',
                               referencia_id: sessao.id,
                               detalhes: {
-                                valor_informado: valorInformado,
+                                valor_informado: dinheiroConferido,
+                                dinheiro_conferido: dinheiroConferido,
                                 diferenca,
+                                retirada_fechamento: retiradaFinal,
+                                saldo_final: saldoFinal,
+                                justificativa: justificativa || null,
                                 observacao,
                                 caixa_id: caixa.id,
-                                total_recebido: detalhes.total_vendido
+                                terminal_id: sessao.terminal_id || terminalId,
+                                total_vendido: detalhes.total_vendido,
+                                total_recebido: detalhes.total_recebido,
+                                total_pendente: detalhes.total_pendente
                               },
                               ip_requisicao: req.ip || null
                             }).catch((aErr) => console.error('Erro ao gravar auditoria de fechamento de caixa:', aErr));
@@ -860,6 +982,41 @@ router.post('/fechar', verificarToken, validarCaixaAberto, exigirPermissaoOuSenh
                               }
                             });
                           });
+                          };
+
+                          if (retiradaFinal > 0) {
+                            db.run(`
+                              INSERT INTO caixa_movimentacoes (
+                                caixa_id, sessao_id, tipo, valor, motivo, usuario_id, operador_nome, terminal_id
+                              ) VALUES (?, ?, 'retirada_fechamento', ?, ?, ?, ?, ?)
+                            `, [
+                              caixa.id,
+                              sessao.id,
+                              retiradaFinal,
+                              justificativa || observacao || 'Retirada no fechamento',
+                              operadorId,
+                              operadorNome,
+                              sessao.terminal_id || terminalId
+                            ], (retErr) => {
+                              if (retErr) {
+                                db.run('ROLLBACK');
+                                return res.status(500).json({ error: retErr.message });
+                              }
+                              gravarAuditoria({
+                                usuario_id: operadorId,
+                                usuario_nome: operadorNome,
+                                modulo: 'caixa',
+                                acao: 'retirada_fechamento',
+                                referencia_tipo: 'caixa_sessao',
+                                referencia_id: sessao.id,
+                                detalhes: { valor: retiradaFinal, saldo_final: saldoFinal, caixa_id: caixa.id },
+                                ip_requisicao: req.ip || null
+                              }).catch(() => {});
+                              gravarRetiradaECommit();
+                            });
+                          } else {
+                            gravarRetiradaECommit();
+                          }
                         });
                       });
                     });

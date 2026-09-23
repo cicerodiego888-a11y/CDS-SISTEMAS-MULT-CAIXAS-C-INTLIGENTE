@@ -29,6 +29,7 @@ const {
   creditarDisponibilidadeComReservaPedido,
   consumirReservasPedidoNaVendaCb
 } = require('../estoque/pedidoReservaPonteNucleo');
+const { validarIdentidadeFinanceiraVenda } = require('../caixa/ValidacaoIdentidadeVenda');
 
 function iniciarTransacaoVendaComTransferenciaPdv(dbConn, aplicacoes, usuarioId, next) {
   dbConn.run('BEGIN IMMEDIATE', (beginErr) => {
@@ -1073,13 +1074,27 @@ db.all(`
       resultadoMotor,
       distribuicaoItens
     );
-    const totalFiscal = totaisLiquidosPrazo.totalFiscal;
-    const totalNaoFiscal = totaisLiquidosPrazo.totalNaoFiscal;
+  const totalFiscal = totaisLiquidosPrazo.totalFiscal;
+  const totalNaoFiscal = totaisLiquidosPrazo.totalNaoFiscal;
 
-    const erroSomaPagamentosMotor = validarSomaPagamentosVenda(pagamentosVenda, total, {
-      valor_fiscal: totalFiscal,
-      valor_nao_fiscal: totalNaoFiscal
-    });
+  const erroIdentidadePrazo = validarIdentidadeFinanceiraVenda({
+    total: totalNum,
+    valorFiscal: totalFiscal,
+    valorNaoFiscal: totalNaoFiscal,
+    itens,
+    desconto,
+    acrescimo,
+    pagamentos: [],
+    formaPagamento: formaPagamentoFinal
+  });
+  if (!erroIdentidadePrazo.ok) {
+    return res.status(400).json({ error: erroIdentidadePrazo.erro });
+  }
+
+  const erroSomaPagamentosMotor = validarSomaPagamentosVenda(pagamentosVenda, total, {
+    valor_fiscal: totalFiscal,
+    valor_nao_fiscal: totalNaoFiscal
+  });
     if (erroSomaPagamentosMotor) {
       return res.status(400).json({ error: erroSomaPagamentosMotor });
     }
@@ -1384,6 +1399,20 @@ const executarVenda = async () => {
   );
   const totalFiscal = totaisLiquidos.totalFiscal;
   const totalNaoFiscal = totaisLiquidos.totalNaoFiscal;
+
+  const erroIdentidadeVista = validarIdentidadeFinanceiraVenda({
+    total: totalNum,
+    valorFiscal: totalFiscal,
+    valorNaoFiscal: totalNaoFiscal,
+    itens,
+    desconto,
+    acrescimo,
+    pagamentos: pagamentosVenda,
+    formaPagamento: formaPagamentoFinal
+  });
+  if (!erroIdentidadeVista.ok) {
+    return res.status(400).json({ error: erroIdentidadeVista.erro });
+  }
 
   const erroSomaPagamentosMotor = validarSomaPagamentosVenda(pagamentosVenda, total, {
     valor_fiscal: totalFiscal,

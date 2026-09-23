@@ -2817,7 +2817,14 @@ function garantirColunasCaixa() {
     ['total_sangrias', `ALTER TABLE caixa_fechamentos ADD COLUMN total_sangrias DECIMAL(10,2) DEFAULT 0`],
     ['total_suprimentos', `ALTER TABLE caixa_fechamentos ADD COLUMN total_suprimentos DECIMAL(10,2) DEFAULT 0`],
     ['resumo_json', `ALTER TABLE caixa_fechamentos ADD COLUMN resumo_json TEXT`],
-    ['vendas_outros', `ALTER TABLE caixa_fechamentos ADD COLUMN vendas_outros DECIMAL(10,2) DEFAULT 0`]
+    ['vendas_outros', `ALTER TABLE caixa_fechamentos ADD COLUMN vendas_outros DECIMAL(10,2) DEFAULT 0`],
+    ['dinheiro_conferido', `ALTER TABLE caixa_fechamentos ADD COLUMN dinheiro_conferido DECIMAL(10,2)`],
+    ['retirada_fechamento', `ALTER TABLE caixa_fechamentos ADD COLUMN retirada_fechamento DECIMAL(10,2) DEFAULT 0`],
+    ['saldo_final', `ALTER TABLE caixa_fechamentos ADD COLUMN saldo_final DECIMAL(10,2)`],
+    ['total_recebido', `ALTER TABLE caixa_fechamentos ADD COLUMN total_recebido DECIMAL(10,2)`],
+    ['total_pendente', `ALTER TABLE caixa_fechamentos ADD COLUMN total_pendente DECIMAL(10,2) DEFAULT 0`],
+    ['justificativa_divergencia', `ALTER TABLE caixa_fechamentos ADD COLUMN justificativa_divergencia TEXT`],
+    ['autorizado_por', `ALTER TABLE caixa_fechamentos ADD COLUMN autorizado_por INTEGER`]
   ];
 
   function aplicarFaltantes(tabela, definicoes) {
@@ -2843,6 +2850,24 @@ function garantirColunasCaixa() {
 
   aplicarFaltantes('caixa', colunasCaixa);
   aplicarFaltantes('caixa_fechamentos', colunasFechamentos);
+
+  setTimeout(() => {
+    try {
+      const migracao = require('./services/caixa/FechamentoCaixaMigracao');
+      migracao.aplicarIndiceUnicoSeSeguro(db).then((diag) => {
+        if (!diag.pode_criar_indice_unico) {
+          console.error('[FECHAMENTO V2] Diagnóstico de duplicidade:', JSON.stringify({
+            duplicados: diag.duplicados,
+            erros: diag.erros
+          }));
+        }
+      }).catch((err) => {
+        console.error('[FECHAMENTO V2] Diagnóstico de migração falhou:', err.message);
+      });
+    } catch (err) {
+      console.error('[FECHAMENTO V2] Não foi possível carregar migração:', err.message);
+    }
+  }, 800);
 }
 
 function garantirColunasFinanceiro() {
@@ -3757,3 +3782,10 @@ module.exports = db;
 
 // RC4.31.6 — Certificação universal SQL (INSERT, UPDATE, DELETE, SELECT, prepared statements)
 aplicarCertificacaoSql(db);
+
+// Sprint 7.0 — instrumentação observe-only, instalada somente com diagnóstico ON.
+try {
+  require('./observabilidade/performance/PerformanceMonitor').installSqlite(db);
+} catch (perfErr) {
+  console.warn('[PERFORMANCE] Instrumentação SQLite indisponível:', perfErr.message);
+}

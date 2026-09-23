@@ -274,6 +274,11 @@ window.minimizarModal = function minimizarModal(modalId, rotuloRestaurar) {
 };
 
 async function loadPage(page) {
+    const Perf = window.PerformanceMonitor;
+    if (Perf?.isEnabled?.()) Perf.navigationStart(page, { trigger: 'loadPage' });
+    if (typeof UINavigation !== 'undefined' && UINavigation.enterPage) {
+        UINavigation.enterPage(page);
+    }
     currentPage = page;
 
     if (!paginaPermitidaPorImplantacao(page)) {
@@ -324,8 +329,23 @@ async function loadPage(page) {
     }
 
     try {
+        if (Perf?.isEnabled?.()) {
+            Perf.navigationPhase('request:start', {
+                kind: 'lazy-scripts',
+                scripts: scriptsPagina.length,
+                newScripts: scriptsPagina.filter((src) => !cdsErpLazyScripts.has(src)).length
+            });
+        }
         await carregarScriptsPaginaErp(page);
+        if (Perf?.isEnabled?.()) Perf.navigationPhase('request:end', { kind: 'lazy-scripts' });
     } catch (error) {
+        if (Perf?.isEnabled?.()) {
+            Perf.navigationPhase('request:end', {
+                kind: 'lazy-scripts',
+                outcome: 'error',
+                error: String(error?.message || error).slice(0, 160)
+            });
+        }
         console.error('[ERP LAZY] MODULE ERROR', { page, error });
         cdsErpPublicarRum(
             window.CdsObsRum && window.CdsObsRum.EVENT.MODULE_LAZY_ERROR,
@@ -344,6 +364,12 @@ async function loadPage(page) {
     }
 
     if (currentPage !== page) return;
+    if (Perf?.isEnabled?.()) {
+        Perf.navigationPhase('dispatch', {
+            page,
+            pageToken: typeof UINavigation !== 'undefined' ? UINavigation.getToken?.() : null
+        });
+    }
 
     switch (page) {
         case 'dashboard':

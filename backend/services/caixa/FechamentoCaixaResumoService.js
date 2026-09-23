@@ -14,24 +14,20 @@ const {
   getExprValorVendaFiscal,
   getExprValorVendaNaoFiscal
 } = require('../reportFiscalHelpers');
+const { TOLERANCIA, arred2 } = require('../financeiro/politicaMonetaria');
+const {
+  STATUS,
+  n,
+  normalizarForma,
+  resolverLinhasRecebidasVenda,
+  reconciliarVenda,
+  bloqueiaFechamento,
+  totalOficialVenda
+} = require('./ReconciliacaoVendaCaixa');
+const { calcularConferenciaFisica } = require('./FechamentoCaixaPolitica');
 
 function obterDbPadrao() {
   return require('../../database');
-}
-
-const TOLERANCIA = 0.02;
-
-function n(valor) {
-  const v = Number(valor);
-  return Number.isFinite(v) ? v : 0;
-}
-
-function arred2(valor) {
-  return Math.round((n(valor) + Number.EPSILON) * 100) / 100;
-}
-
-function normalizarForma(forma) {
-  return String(forma || '').toLowerCase().trim();
 }
 
 /**
@@ -120,54 +116,7 @@ function isEntregaPendente(venda) {
 }
 
 function valorVendaLiquido(venda) {
-  const fiscal = n(venda.valor_fiscal);
-  const naoFiscal = n(venda.valor_nao_fiscal);
-  const soma = fiscal + naoFiscal;
-  if (soma > 0) return arred2(soma);
-  return arred2(venda.total);
-}
-
-/**
- * Fonte lógica do dinheiro recebido na venda.
- * Nunca soma venda_pagamentos + venda_recebimentos (evita dupla contagem fiscal).
- */
-function resolverLinhasRecebidasVenda(venda, pagamentosLinhas = [], recebimentosLinhas = []) {
-  const recebimentos = Array.isArray(recebimentosLinhas) ? recebimentosLinhas : [];
-  const pagamentos = Array.isArray(pagamentosLinhas) ? pagamentosLinhas : [];
-
-  if (recebimentos.length > 0) {
-    return recebimentos.map((r) => ({
-      forma_pagamento: r.forma_pagamento,
-      valor: n(r.valor),
-      tef_transacao_id: r.tef_transacao_id || null,
-      tef_nsu: r.tef_nsu || r.nsu || null,
-      tef_autorizacao: r.tef_autorizacao || r.autorizacao || null,
-      tipo_recebimento: r.tipo_recebimento || null,
-      fonte: 'venda_recebimentos'
-    }));
-  }
-
-  if (pagamentos.length > 0) {
-    return pagamentos.map((p) => ({
-      forma_pagamento: p.forma_pagamento,
-      valor: n(p.valor),
-      tef_transacao_id: p.tef_transacao_id || null,
-      tef_nsu: p.tef_nsu || null,
-      tef_autorizacao: p.tef_autorizacao || null,
-      tipo_recebimento: p.tipo_recebimento || null,
-      fonte: 'venda_pagamentos'
-    }));
-  }
-
-  return [{
-    forma_pagamento: venda.forma_pagamento || 'outros',
-    valor: valorVendaLiquido(venda),
-    tef_transacao_id: null,
-    tef_nsu: null,
-    tef_autorizacao: null,
-    tipo_recebimento: null,
-    fonte: 'fallback_venda'
-  }];
+  return totalOficialVenda(venda);
 }
 
 function filtrarVendasSessaoSql() {
@@ -214,31 +163,62 @@ async function consolidarSessaoCaixa(caixa, options = {}) {
     return montarResumoVazio(caixa, meta);
   }
 
-  const vendas = await promisifyAll(
-    database,
-    `
-      SELECT
-        v.id,
-        v.codigo,
-        v.total,
-        COALESCE(v.desconto, 0) AS desconto,
-        v.forma_pagamento,
-        v.status,
-        v.status_venda,
-        v.cancelada,
-        v.tipo_venda,
-        v.prestacao_realizada,
-        v.pagamento_previsto,
-        v.valor_fiscal,
-        v.valor_nao_fiscal,
-        v.caixa_sessao_id
-      FROM vendas v
-      WHERE v.caixa_sessao_id = ?
-        AND ${filtrarVendasSessaoSql()}
-      ORDER BY v.id ASC
-    `,
-    [sessaoId]
-  );
+  let vendas;
+  try {
+    vendas = await promisifyAll(
+      database,
+      `
+        SELECT
+          v.id,
+          v.codigo,
+          v.total,
+          COALESCE(v.desconto, 0) AS desconto,
+          v.forma_pagamento,
+          v.status,
+          v.status_venda,
+          v.cancelada,
+          v.tipo_venda,
+          v.prestacao_realizada,
+          v.pagamento_previsto,
+          v.valor_fiscal,
+          v.valor_nao_fiscal,
+          v.status_pagamento,
+          v.caixa_sessao_id
+        FROM vendas v
+        WHERE v.caixa_sessao_id = ?
+          AND ${filtrarVendasSessaoSql()}
+        ORDER BY v.id ASC
+      `,
+      [sessaoId]
+    );
+  } catch (errCol) {
+    if (!/no such column/i.test(String(errCol && errCol.message))) throw errCol;
+    vendas = await promisifyAll(
+      database,
+      `
+        SELECT
+          v.id,
+          v.codigo,
+          v.total,
+          COALESCE(v.desconto, 0) AS desconto,
+          v.forma_pagamento,
+          v.status,
+          v.status_venda,
+          v.cancelada,
+          v.tipo_venda,
+          v.prestacao_realizada,
+          v.pagamento_previsto,
+          v.valor_fiscal,
+          v.valor_nao_fiscal,
+          v.caixa_sessao_id
+        FROM vendas v
+        WHERE v.caixa_sessao_id = ?
+          AND ${filtrarVendasSessaoSql()}
+        ORDER BY v.id ASC
+      `,
+      [sessaoId]
+    );
+  }
 
   const canceladas = await promisifyAll(
     database,
@@ -347,24 +327,40 @@ async function consolidarSessaoCaixa(caixa, options = {}) {
   const pagamentos = bucketsVazios();
   const contagens = contadoresVazios();
   const divergencias = [];
+  const reconciliacoes = [];
 
   let qtdRecebidas = 0;
   let bruto = 0;
   let descontos = 0;
   let acrescimos = 0;
-  let liquidoRecebido = 0;
-  let fiscalRecebido = 0;
-  let naoFiscalRecebido = 0;
+  let totalVendido = 0;
+  let totalRecebido = 0;
+  let totalPendente = 0;
+  let fiscalVendido = 0;
+  let naoFiscalVendido = 0;
 
   let qtdEntregasTotal = 0;
   let valorEntregasTotal = 0;
   let qtdPrestadas = 0;
   let valorPrestado = 0;
   let qtdPendentes = 0;
-  let valorPendente = 0;
+  let valorPendenteEntrega = 0;
+
+  let vendasOk = 0;
+  let vendasParciais = 0;
+  let vendasPendentes = 0;
+  let vendasInconsistentes = 0;
+  let vendasExcedentes = 0;
 
   for (const venda of vendas) {
-    const valor = valorVendaLiquido(venda);
+    const rec = reconciliarVenda(
+      venda,
+      pagamentosPorVenda.get(venda.id) || [],
+      recebimentosPorVenda.get(venda.id) || []
+    );
+    reconciliacoes.push(rec);
+
+    const valor = rec.total_oficial;
     const tipoEntrega = String(venda.tipo_venda || '').toUpperCase() === 'ENTREGA'
       || normalizarForma(venda.status) === 'reserva_entrega';
 
@@ -375,7 +371,10 @@ async function consolidarSessaoCaixa(caixa, options = {}) {
 
     if (isEntregaPendente(venda)) {
       qtdPendentes += 1;
-      valorPendente = arred2(valorPendente + valor);
+      valorPendenteEntrega = arred2(valorPendenteEntrega + valor);
+      totalVendido = arred2(totalVendido + valor);
+      totalPendente = arred2(totalPendente + valor);
+      vendasPendentes += 1;
       continue;
     }
 
@@ -386,31 +385,38 @@ async function consolidarSessaoCaixa(caixa, options = {}) {
 
     qtdRecebidas += 1;
     descontos = arred2(descontos + n(venda.desconto));
-    // total gravado já é líquido; bruto aproximado = líquido + descontos
     bruto = arred2(bruto + valor + n(venda.desconto));
-    liquidoRecebido = arred2(liquidoRecebido + valor);
-    fiscalRecebido = arred2(fiscalRecebido + n(venda.valor_fiscal));
-    naoFiscalRecebido = arred2(naoFiscalRecebido + n(venda.valor_nao_fiscal));
+    totalVendido = arred2(totalVendido + valor);
+    totalRecebido = arred2(totalRecebido + rec.recebido_total);
+    totalPendente = arred2(totalPendente + rec.pendente_total);
+    fiscalVendido = arred2(fiscalVendido + rec.valor_fiscal);
+    naoFiscalVendido = arred2(naoFiscalVendido + rec.valor_nao_fiscal);
 
-    const linhasUsadas = resolverLinhasRecebidasVenda(
-      venda,
-      pagamentosPorVenda.get(venda.id) || [],
-      recebimentosPorVenda.get(venda.id) || []
-    );
+    if (rec.status_reconciliacao === STATUS.OK) vendasOk += 1;
+    else if (rec.status_reconciliacao === STATUS.PARCIALMENTE_RECEBIDA) vendasParciais += 1;
+    else if (rec.status_reconciliacao === STATUS.PENDENTE) vendasPendentes += 1;
+    else if (rec.status_reconciliacao === STATUS.EXCEDENTE) {
+      vendasExcedentes += 1;
+      vendasInconsistentes += 1;
+    } else if (rec.status_reconciliacao === STATUS.INCONSISTENTE) vendasInconsistentes += 1;
 
-    const somaLinhas = arred2(linhasUsadas.reduce((acc, p) => acc + n(p.valor), 0));
-    if (Math.abs(somaLinhas - valor) > TOLERANCIA) {
+    if (bloqueiaFechamento(rec)) {
       divergencias.push({
-        tipo: 'pagamento_vs_venda',
-        venda_id: venda.id,
-        valor_venda: valor,
-        soma_pagamentos: somaLinhas,
-        diferenca: arred2(somaLinhas - valor),
-        fonte_recebido: linhasUsadas[0]?.fonte || null
+        tipo: rec.tipo_inconsistencia || 'inconsistencia_financeira',
+        venda_id: rec.venda_id,
+        valor_venda: rec.total_oficial,
+        soma_pagamentos: rec.recebido_total,
+        recebido: rec.recebido_total,
+        pendente: rec.pendente_total,
+        diferenca: arred2(rec.recebido_total - rec.total_oficial),
+        status_pagamento: rec.status_pagamento,
+        status_reconciliacao: rec.status_reconciliacao,
+        mensagem: rec.mensagem,
+        fonte_recebido: rec.linhas[0]?.fonte || null
       });
     }
 
-    for (const linha of linhasUsadas) {
+    for (const linha of rec.linhas) {
       const bucket = resolverBucketPagamento(linha.forma_pagamento, linha);
       const valorLinha = arred2(linha.valor);
       pagamentos[bucket] = arred2(pagamentos[bucket] + valorLinha);
@@ -419,12 +425,12 @@ async function consolidarSessaoCaixa(caixa, options = {}) {
   }
 
   const totalRecebidoBuckets = somaBuckets(pagamentos);
-  if (Math.abs(totalRecebidoBuckets - liquidoRecebido) > TOLERANCIA) {
+  if (Math.abs(totalRecebidoBuckets - totalRecebido) > TOLERANCIA) {
     divergencias.push({
       tipo: 'total_recebido_vs_buckets',
-      liquido_recebido: liquidoRecebido,
+      liquido_recebido: totalRecebido,
       soma_buckets: totalRecebidoBuckets,
-      diferenca: arred2(totalRecebidoBuckets - liquidoRecebido)
+      diferenca: arred2(totalRecebidoBuckets - totalRecebido)
     });
   }
 
@@ -432,9 +438,18 @@ async function consolidarSessaoCaixa(caixa, options = {}) {
   const totalSangrias = arred2(movSangria?.total);
   const totalSuprimentos = arred2(movSuprimento?.total);
   const vendasDinheiro = arred2(pagamentos.dinheiro);
-  const dinheiroEsperado = arred2(valorInicial + vendasDinheiro + totalSuprimentos - totalSangrias);
-  const informado = valorInformado != null ? arred2(valorInformado) : null;
-  const diferenca = informado != null ? arred2(informado - dinheiroEsperado) : null;
+  const fisico = calcularConferenciaFisica({
+    saldoInicial: valorInicial,
+    recebimentosDinheiro: vendasDinheiro,
+    suprimentos: totalSuprimentos,
+    sangriasOperacionais: totalSangrias,
+    dinheiroConferido: valorInformado,
+    retiradaFechamento: options.retiradaFechamento,
+    modoRetirada: options.modoRetirada
+  });
+  const dinheiroEsperado = fisico.dinheiro_esperado;
+  const informado = fisico.dinheiro_conferido;
+  const diferenca = fisico.diferenca;
 
   const valorCancelado = arred2(
     canceladas.reduce((acc, v) => acc + valorVendaLiquido(v), 0)
@@ -478,9 +493,12 @@ async function consolidarSessaoCaixa(caixa, options = {}) {
       bruto: arred2(bruto),
       descontos,
       acrescimos,
-      liquido: liquidoRecebido,
-      fiscal: fiscalRecebido,
-      nao_fiscal: naoFiscalRecebido
+      liquido: totalVendido,
+      fiscal: fiscalVendido,
+      nao_fiscal: naoFiscalVendido,
+      total_vendido: totalVendido,
+      total_recebido: totalRecebido,
+      total_pendente: totalPendente
     },
     pagamentos: { ...pagamentos },
     pagamentos_contagem: { ...contagens },
@@ -490,7 +508,7 @@ async function consolidarSessaoCaixa(caixa, options = {}) {
       quantidade_prestada: qtdPrestadas,
       valor_prestado: valorPrestado,
       quantidade_pendente: qtdPendentes,
-      valor_pendente: valorPendente
+      valor_pendente: valorPendenteEntrega
     },
     movimentacoes: {
       suprimentos: totalSuprimentos,
@@ -510,15 +528,28 @@ async function consolidarSessaoCaixa(caixa, options = {}) {
       diferenca
     },
     totais: {
-      recebido: liquidoRecebido,
+      recebido: totalRecebido,
+      vendido: totalVendido,
+      pendente: totalPendente,
       recebido_por_pagamentos: totalRecebidoBuckets,
-      pendente_entregas: valorPendente,
-      vendido_sessao_bruto: arred2(liquidoRecebido + valorPendente)
+      pendente_entregas: valorPendenteEntrega,
+      vendido_sessao_bruto: arred2(totalVendido)
+    },
+    caixa_fisico: fisico,
+    reconciliacao: {
+      vendas_ok: vendasOk,
+      vendas_parciais: vendasParciais,
+      vendas_pendentes: vendasPendentes,
+      vendas_inconsistentes: vendasInconsistentes,
+      vendas_excedentes: vendasExcedentes,
+      divergencias,
+      vendas: reconciliacoes
     },
     validacao: {
       ok: divergencias.length === 0,
       tolerancia: TOLERANCIA,
-      divergencias
+      divergencias,
+      inconsistencias: vendasInconsistentes
     },
     sessao_id: sessaoId
   };
@@ -536,7 +567,10 @@ function montarResumoVazio(caixa, meta = {}) {
     abertura: { em: caixa?.aberto_em || null, valor_inicial: valorInicial },
     fechamento: { em: null, valor_informado: null },
     empresa: { nome: meta.empresa_nome || null, cnpj: meta.empresa_cnpj || null },
-    vendas: { quantidade: 0, bruto: 0, descontos: 0, acrescimos: 0, liquido: 0, fiscal: 0, nao_fiscal: 0 },
+    vendas: {
+      quantidade: 0, bruto: 0, descontos: 0, acrescimos: 0, liquido: 0, fiscal: 0, nao_fiscal: 0,
+      total_vendido: 0, total_recebido: 0, total_pendente: 0
+    },
     pagamentos: bucketsVazios(),
     pagamentos_contagem: contadoresVazios(),
     entregas: {
@@ -558,8 +592,28 @@ function montarResumoVazio(caixa, meta = {}) {
       informado: null,
       diferenca: null
     },
-    totais: { recebido: 0, recebido_por_pagamentos: 0, pendente_entregas: 0, vendido_sessao_bruto: 0 },
-    validacao: { ok: true, tolerancia: TOLERANCIA, divergencias: [] },
+    totais: { recebido: 0, vendido: 0, pendente: 0, recebido_por_pagamentos: 0, pendente_entregas: 0, vendido_sessao_bruto: 0 },
+    caixa_fisico: {
+      saldo_inicial: valorInicial,
+      recebimentos_dinheiro: 0,
+      suprimentos: 0,
+      sangrias_operacionais: 0,
+      dinheiro_esperado: valorInicial,
+      dinheiro_conferido: null,
+      diferenca: null,
+      retirada_fechamento: null,
+      saldo_final: null
+    },
+    reconciliacao: {
+      vendas_ok: 0,
+      vendas_parciais: 0,
+      vendas_pendentes: 0,
+      vendas_inconsistentes: 0,
+      vendas_excedentes: 0,
+      divergencias: [],
+      vendas: []
+    },
+    validacao: { ok: true, tolerancia: TOLERANCIA, divergencias: [], inconsistencias: 0 },
     sessao_id: null
   };
 }
@@ -573,7 +627,7 @@ function paraResumoLegado(caixa, consolidacao) {
   const outras = arred2(p.tef + p.outros);
   return {
     caixa,
-    total_vendido: consolidacao.totais.recebido,
+    total_vendido: consolidacao.totais.vendido != null ? consolidacao.totais.vendido : consolidacao.totais.recebido,
     total_recebido: consolidacao.totais.recebido,
     entregas_pendentes: consolidacao.entregas.valor_pendente,
     entregas: consolidacao.entregas,
@@ -599,6 +653,11 @@ function paraResumoLegado(caixa, consolidacao) {
       + consolidacao.dinheiro.suprimentos
       - consolidacao.dinheiro.sangrias
     ),
+    saldo_fisico: consolidacao.caixa_fisico
+      ? consolidacao.caixa_fisico.dinheiro_esperado
+      : consolidacao.dinheiro.esperado,
+    total_financeiro_sessao: consolidacao.totais.recebido,
+    total_pendente: consolidacao.totais.pendente || 0,
     fiscal: consolidacao.vendas.fiscal,
     nao_fiscal: consolidacao.vendas.nao_fiscal,
     consolidacao
@@ -625,9 +684,14 @@ function paraFechamentoLegado(consolidacao, valorInformado) {
     vendas_outros: p.outros,
     total_sangrias: consolidacao.movimentacoes.sangrias,
     total_suprimentos: consolidacao.movimentacoes.suprimentos,
-    total_vendido: consolidacao.totais.recebido,
+    total_vendido: consolidacao.totais.vendido != null ? consolidacao.totais.vendido : consolidacao.totais.recebido,
+    total_recebido: consolidacao.totais.recebido,
+    total_pendente: consolidacao.totais.pendente || 0,
     total_esperado: esperado,
     total_informado: informado,
+    dinheiro_conferido: informado,
+    retirada_fechamento: consolidacao.caixa_fisico ? consolidacao.caixa_fisico.retirada_fechamento : 0,
+    saldo_final: consolidacao.caixa_fisico ? consolidacao.caixa_fisico.saldo_final : null,
     diferenca,
     entregas_pendentes: consolidacao.entregas.valor_pendente,
     consolidacao: {
@@ -646,21 +710,42 @@ function paraFechamentoLegado(consolidacao, valorInformado) {
 }
 
 function validarConsolidacaoOuErro(consolidacao) {
-  if (!consolidacao?.validacao || consolidacao.validacao.ok) {
+  const inconsistentes = (consolidacao?.reconciliacao?.vendas || [])
+    .filter((v) => v.status_reconciliacao === STATUS.INCONSISTENTE || v.status_reconciliacao === STATUS.EXCEDENTE);
+  const divergencias = consolidacao?.validacao?.divergencias || [];
+  if (!inconsistentes.length && !divergencias.length) {
     return null;
   }
-  const msgs = (consolidacao.validacao.divergencias || []).map((d) => {
-    if (d.tipo === 'pagamento_vs_venda') {
-      return `Venda #${d.venda_id}: pagamentos (${d.soma_pagamentos}) ≠ valor (${d.valor_venda})`;
+  if (!inconsistentes.length && consolidacao?.validacao?.ok) {
+    return null;
+  }
+  const qtd = inconsistentes.length || divergencias.length;
+  const msgs = (divergencias.length ? divergencias : inconsistentes).map((d) => {
+    if (d.tipo === 'inconsistencia_venda' || d.tipo_inconsistencia === 'inconsistencia_venda') {
+      return d.mensagem || `Venda #${d.venda_id}: total oficial não confere com fiscal + não fiscal`;
+    }
+    if (d.tipo === 'inconsistencia_recebimento' || d.status_reconciliacao === STATUS.INCONSISTENTE) {
+      return d.mensagem
+        || `Venda #${d.venda_id}: valor da venda ${d.valor_venda ?? d.total_oficial} | recebido ${d.recebido ?? d.recebido_total} | status ${d.status_pagamento || d.status_reconciliacao}`;
+    }
+    if (d.tipo === 'recebimento_excedente' || d.status_reconciliacao === STATUS.EXCEDENTE) {
+      return d.mensagem || `Venda #${d.venda_id}: recebimento excedente`;
     }
     if (d.tipo === 'total_recebido_vs_buckets') {
       return `Total recebido (${d.liquido_recebido}) ≠ soma pagamentos (${d.soma_buckets})`;
     }
-    return JSON.stringify(d);
+    if (d.tipo === 'pagamento_vs_venda') {
+      return d.mensagem || `Venda #${d.venda_id}: ${d.mensagem || 'inconsistência financeira'}`;
+    }
+    return d.mensagem || JSON.stringify(d);
   });
-  return new Error(
-    `Divergência financeira no fechamento. Corrija antes de fechar: ${msgs.join('; ')}`
+  const err = new Error(
+    `Existem ${qtd} vendas com inconsistência financeira. ${msgs.join('; ')}`
   );
+  err.codigo = 'INCONSISTENCIA_FINANCEIRA';
+  err.inconsistencias = inconsistentes;
+  err.divergencias = divergencias;
+  return err;
 }
 
 /**
@@ -675,7 +760,9 @@ function calcularResumoCaixa(caixa, options = {}, callback) {
 function calcularFechamentoDetalhado(caixa, options = {}, callback) {
   consolidarSessaoCaixa(caixa, {
     ...options,
-    valorInformado: options.valorInformado
+    valorInformado: options.valorInformado != null ? options.valorInformado : options.dinheiroConferido,
+    retiradaFechamento: options.retiradaFechamento,
+    modoRetirada: options.modoRetirada
   })
     .then((consolidacao) => {
       const errVal = validarConsolidacaoOuErro(consolidacao);
@@ -698,6 +785,7 @@ module.exports = {
   isEntregaPendente,
   valorVendaLiquido,
   resolverLinhasRecebidasVenda,
+  reconciliarVenda,
   consolidarSessaoCaixa,
   paraResumoLegado,
   paraFechamentoLegado,

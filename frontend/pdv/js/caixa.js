@@ -1,7 +1,13 @@
 function loadCaixa() {
   $('#page-content').html(`
     <div class="container-fluid">
-      <h2 class="mb-3">Fechamento de Caixa</h2>
+      <header class="cds-ui-fc-header mb-3">
+        <div class="cds-ui-fc-header__text">
+          <div class="cds-ui-fc-brand">CDS SISTEMAS</div>
+          <h2 class="cds-ui-fc-title">Fechamento de Caixa</h2>
+          <p class="cds-ui-fc-sub">Confira os valores da sessão e finalize o caixa</p>
+        </div>
+      </header>
 
       <div id="status-caixa-area" class="mb-3"></div>
       <div id="caixa-area"></div>
@@ -129,6 +135,11 @@ function renderStatusCaixa(resumo) {
     return;
   }
 
+  if (window.FechamentoCaixaV2Ui) {
+    $('#status-caixa-area').empty();
+    return;
+  }
+
   $('#status-caixa-area').html(`
     <div class="alert alert-success d-flex align-items-center justify-content-between">
       <strong> Caixa Aberto</strong>
@@ -242,155 +253,45 @@ function carregarSaldoInicialSugerido() {
 }
 
 function pegarValorCampo(id) {
-  let valor = String($(id).val() || '')
-    .replace(/\./g, '')
-    .replace(',', '.');
-
+  if (window.CdsPoliticaMonetaria && typeof window.CdsPoliticaMonetaria.parseMoedaBr === 'function') {
+    return window.CdsPoliticaMonetaria.parseMoedaBr($(id).val());
+  }
+  if (window.FechamentoCaixaV2Ui && typeof window.FechamentoCaixaV2Ui.parseMoeda === 'function') {
+    return window.FechamentoCaixaV2Ui.parseMoeda($(id).val());
+  }
+  let valor = String($(id).val() || '').replace(',', '.');
   return Number(valor || 0);
 }
 
 function renderCaixaAberto(resumo) {
-  // Limpar qualquer modal remanescente e backdrop
   $('.modal-backdrop').remove();
   $('body').removeClass('modal-open').css('padding-right', '');
 
-  // Limpar modais travados via função global se disponível
   if (typeof limparModaisTravados === 'function') {
     limparModaisTravados();
   }
 
-  const d = resumo.dinheiro;
-  const digital = resumo.digital;
+  const area = document.getElementById('caixa-area');
+  const Ui = window.FechamentoCaixaV2Ui;
+  if (Ui && typeof Ui.atualizarValoresResumo === 'function' && document.getElementById('caixa-v2-tela')) {
+    if (Ui.atualizarValoresResumo(resumo)) return;
+  }
+  if (Ui && typeof Ui.aplicarTelaAberta === 'function') {
+    Ui.aplicarTelaAberta(area, resumo, { incluirTitulo: false });
+    return;
+  }
 
   $('#caixa-area').html(`
-    <div class="row">
-      <div class="col-md-4">
-        <div class="card mb-3">
-          <div class="card-header bg-dark text-white">
-            Dinheiro Físico
-          </div>
-          <div class="card-body">
-            <p>Valor Inicial: <strong>${dinheiro(d.valor_inicial)}</strong></p>
-            <p>Vendas em Dinheiro: <strong>${dinheiro(d.vendas_dinheiro)}</strong></p>
-            <p>Suprimentos: <strong>${dinheiro(d.suprimentos)}</strong></p>
-            <p>Sangrias: <strong>${dinheiro(d.sangrias)}</strong></p>
-            <hr>
-            <h4>Dinheiro Esperado: ${dinheiro(d.dinheiro_esperado)}</h4>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-4">
-        <div class="card mb-3">
-          <div class="card-header bg-primary text-white">
-            Recebimentos Digitais
-          </div>
-          <div class="card-body">
-            <p>PIX: <strong>${dinheiro(digital.pix)}</strong></p>
-            <p>Cartão Crédito: <strong>${dinheiro(digital.cartao_credito)}</strong></p>
-            <p>Cartão Débito: <strong>${dinheiro(digital.cartao_debito)}</strong></p>
-            <hr>
-            <h4>Total Digital: ${dinheiro(digital.total_digital)}</h4>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-4">
-        <div class="card mb-3">
-          <div class="card-header bg-success text-white">
-            Resumo Geral
-          </div>
-          <div class="card-body">
-            <p>Total Recebido: <strong>${dinheiro(resumo.total_recebido != null ? resumo.total_recebido : resumo.total_vendido)}</strong></p>
-            <p>Vendas a Prazo: <strong>${dinheiro(resumo.prazo)}</strong></p>
-            <p>TEF: <strong>${dinheiro(resumo.tef || 0)}</strong></p>
-            <p>Outras Formas: <strong>${dinheiro(resumo.outras_formas)}</strong></p>
-            <p>Entregas pendentes: <strong>${dinheiro(resumo.entregas_pendentes || 0)}</strong></p>
-            <hr>
-            <h4>Saldo Geral: ${dinheiro(resumo.saldo_geral)}</h4>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card mb-3">
-      <div class="card-header">
-        <strong>Movimentações do Caixa</strong>
-      </div>
-
-      <div class="card-body">
-        <div class="row">
-          <div class="col-md-4">
-            <label>Valor da Sangria</label>
-            <input type="text" inputmode="decimal" id="valor-sangria" class="form-control" placeholder="Ex: 50,00">
-          </div>
-
-          <div class="col-md-5">
-            <label>Motivo</label>
-            <input type="text" id="motivo-sangria" class="form-control" placeholder="Ex: retirada para pagamento">
-          </div>
-
-          <div class="col-md-3 d-flex align-items-end">
-            <button type="button" class="btn btn-warning w-100" onclick="registrarSangria()">
-              Registrar Sangria
-            </button>
-          </div>
-        </div>
-
-        <hr>
-
-        <div class="row">
-          <div class="col-md-4">
-            <label>Valor do Suprimento</label>
-            <input type="text" inputmode="decimal" id="valor-suprimento" class="form-control" placeholder="Ex: 100,00">
-          </div>
-
-          <div class="col-md-5">
-            <label>Motivo</label>
-            <input type="text" id="motivo-suprimento" class="form-control" placeholder="Ex: reforço de troco">
-          </div>
-
-          <div class="col-md-3 d-flex align-items-end">
-            <button type="button" class="btn btn-info w-100" onclick="registrarSuprimento()">
-              Registrar Suprimento
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <div class="card">
-      <div class="card-header bg-danger text-white">
-        <strong>Fechar Caixa</strong>
-      </div>
-
+      <div class="card-header bg-danger text-white"><strong>Fechar Caixa</strong></div>
       <div class="card-body">
-        <p>Informe abaixo o dinheiro físico contado na gaveta.</p>
-
         <label>Dinheiro contado no caixa</label>
         <input type="text" inputmode="decimal" id="valor-fechamento" class="form-control mb-3" placeholder="Ex: 100,00">
-
-        <label>Observação</label>
         <textarea id="observacao-fechamento" class="form-control mb-3"></textarea>
-
-        <button type="button" class="btn btn-danger" onclick="fecharCaixa()">
-          Fechar Caixa
-        </button>
+        <button type="button" class="btn btn-danger" onclick="fecharCaixa()">Fechar Caixa</button>
       </div>
     </div>
   `);
-
-  // Forçar foco no campo de fechamento após renderizar
-  setTimeout(() => {
-    const campoFechamento = $('#valor-fechamento');
-    if (campoFechamento.length > 0) {
-      campoFechamento.focus().select();
-    }
-    // Forçar reflow para garantir cliques no Electron
-    if (window.electronAPI && window.electronAPI.forcarReflow) {
-      window.electronAPI.forcarReflow();
-    }
-  }, 300);
 }
 
 function abrirCaixa() {
@@ -505,16 +406,25 @@ function imprimirCupomFechamentoCaixa(html) {
   }, 300);
 }
 
-function fecharCaixa() {
-  const valorFechamento = pegarValorCampo('#valor-fechamento');
-  const observacao = $('#observacao-fechamento').val();
+function fecharCaixaComDivergencia() {
+  fecharCaixa(true);
+}
 
-  if (!confirm('Tem certeza que deseja fechar o caixa?')) return;
+function fecharCaixa(fecharComDivergencia) {
+  const payload = window.FechamentoCaixaV2Ui
+    ? window.FechamentoCaixaV2Ui.coletarPayload(fecharComDivergencia === true)
+    : {
+      valor_informado: pegarValorCampo('#valor-fechamento'),
+      dinheiro_conferido: pegarValorCampo('#valor-fechamento'),
+      observacao: $('#observacao-fechamento').val(),
+      fechar_com_divergencia: fecharComDivergencia === true
+    };
 
-  enviarOperacaoCaixa(PERMISSOES_CAIXA.FECHAR, '/caixa/fechar', {
-    valor_informado: valorFechamento,
-    observacao
-  }, {
+  if (!confirm(fecharComDivergencia === true
+    ? 'Confirmar fechamento COM divergência de caixa?'
+    : 'Tem certeza que deseja fechar o caixa?')) return;
+
+  enviarOperacaoCaixa(PERMISSOES_CAIXA.FECHAR, '/caixa/fechar', payload, {
     global: false,
     senha: {
       titulo: 'Fechar caixa',
@@ -622,8 +532,8 @@ function renderizarCaixaDoDia(resposta) {
             <div class="col-md-3">
               <div class="card text-bg-dark">
                 <div class="card-body">
-                  <small>Saldo Geral</small>
-                  <h4>${dinheiro(resumo.saldo_geral)}</h4>
+                  <small>Saldo físico</small>
+                  <h4>${dinheiro(resumo.saldo_fisico != null ? resumo.saldo_fisico : resumo.dinheiro.dinheiro_esperado)}</h4>
                 </div>
               </div>
             </div>

@@ -118,12 +118,28 @@
 
   aplicarBranding();
 
-  /* Login só revela após a Intro Experience oficial (≤ 2s) */
-  if (global.IntroExperience && typeof IntroExperience.onComplete === 'function') {
+  function veioDeSaidaSessao() {
+    try {
+      var from = new URLSearchParams(global.location && global.location.search || '').get('from');
+      return from === 'logout' || from === 'sessao';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /* Logout/sessão: tela pronta na hora. Primeira abertura: espera a intro oficial. */
+  if (veioDeSaidaSessao()) {
+    document.body.classList.add('intro-done');
+    iniciarIntroLogin();
+  } else if (global.IntroExperience && typeof IntroExperience.onComplete === 'function') {
     IntroExperience.onComplete(iniciarIntroLogin);
     setTimeout(function () {
       if (!document.body.classList.contains('lx-ready')) {
         iniciarIntroLogin();
+        var leftover = document.getElementById('cdsIntroRoot');
+        if (leftover && leftover.parentNode) leftover.parentNode.removeChild(leftover);
+        document.body.classList.add('intro-done');
+        document.body.classList.remove('intro-active');
       }
     }, 2200);
   } else {

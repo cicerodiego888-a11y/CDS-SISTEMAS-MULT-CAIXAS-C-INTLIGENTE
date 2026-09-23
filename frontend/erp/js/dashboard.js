@@ -434,6 +434,8 @@ async function carregarModoDashboardFiscalPadrao(apiUrl) {
 async function carregarDashboard(inicio = null, fim = null) {
     const root = document.getElementById('page-content');
     if (root) root.dataset.dashboardLoading = '1';
+    const Perf = window.PerformanceMonitor;
+    let requestOp = null;
 
     try {
         const apiUrl = (typeof API_URL === 'string' && API_URL.trim() !== '')
@@ -447,24 +449,40 @@ async function carregarDashboard(inicio = null, fim = null) {
 
         const modoFiscalAtivo = modoDashboardFiscalAtivo();
 
+        requestOp = Perf?.start?.('dashboard:resumo-request');
         const response = await fetch(`${apiUrl}/dashboard/resumo?inicio=${dataInicio}&fim=${dataFim}&modo_fiscal=${modoFiscalAtivo ? '1' : '0'}`, {
             headers: {
                 Authorization: 'Bearer ' + (localStorage.getItem('token') || '')
             }
         });
 
+        const processingOp = Perf?.start?.('dashboard:resumo-processing');
         const data = await response.json();
+        if (processingOp) {
+            Perf.end(processingOp, {
+                responseBytesApprox: Perf.approximateBytes?.(data) ?? null
+            });
+        }
+        if (requestOp) {
+            Perf.end(requestOp, {
+                status: response.status,
+                ok: response.ok
+            });
+        }
 
         if (!response.ok) {
             throw new Error(data.error || 'Erro ao carregar dashboard.');
         }
 
+        const renderOp = Perf?.start?.('dashboard:render');
         preencherDashboard(data);
+        if (renderOp) Perf.end(renderOp);
 
         // Carregar dados de vencimentos usando o novo endpoint de lotes
         await carregarVencimentosDashboard(apiUrl);
         console.log('Dashboard carregado.');
     } catch (error) {
+        if (requestOp) Perf?.end?.(requestOp, { outcome: 'error' });
         console.error('Erro dashboard:', error);
         mostrarErroDashboard(error.message || 'Erro ao carregar dashboard.');
     } finally {

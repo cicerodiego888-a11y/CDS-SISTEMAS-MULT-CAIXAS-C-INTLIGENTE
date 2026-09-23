@@ -6,15 +6,44 @@ function normalizarTexto(texto) {
         .toLowerCase();
 }
 
-// Load clientes page
+// Load clientes page — protegido por navigation token (Sprint 6)
 function loadClientes() {
+    const pageToken = (typeof UINavigation !== 'undefined' && UINavigation.getToken)
+        ? UINavigation.getToken()
+        : null;
+    const ctx = (typeof UIRequestContext !== 'undefined' && UIRequestContext.begin)
+        ? UIRequestContext.begin({ page: 'clientes', component: 'lista', page_token: pageToken })
+        : { request_id: null, page_token: pageToken };
+
     $.ajax({
         url: `${API_URL}/clientes`,
         method: 'GET',
         success: function(clientes) {
+            if (typeof UIRequestContext !== 'undefined' && ctx.request_id) {
+                if (!UIRequestContext.isFresh(ctx.request_id)) {
+                    if (typeof CDS_UI_DEBUG !== 'undefined' && CDS_UI_DEBUG) {
+                        console.debug('[UI-STALE]', { page: 'clientes', request: ctx.request_id });
+                    }
+                    return;
+                }
+                UIRequestContext.markCompleted(ctx.request_id);
+            } else if (typeof UINavigation !== 'undefined' && pageToken
+                && !UINavigation.isActiveToken(pageToken)) {
+                return;
+            }
+            if (typeof currentPage !== 'undefined' && currentPage !== 'clientes') return;
             renderClientes(clientes);
         },
         error: function() {
+            if (typeof UIRequestContext !== 'undefined' && ctx.request_id
+                && !UIRequestContext.isFresh(ctx.request_id)) {
+                return;
+            }
+            if (typeof UINavigation !== 'undefined' && pageToken
+                && !UINavigation.isActiveToken(pageToken)) {
+                return;
+            }
+            if (typeof currentPage !== 'undefined' && currentPage !== 'clientes') return;
             $('#page-content').html('<div class="alert alert-danger">Erro ao carregar clientes!</div>');
         }
     });
@@ -22,6 +51,9 @@ function loadClientes() {
 
 // Render clientes
 function renderClientes(clientes) {
+    const Perf = window.PerformanceMonitor;
+    const totalOp = Perf?.start?.('clientes:render-total', { records: clientes.length });
+    const htmlOp = Perf?.start?.('clientes:html-generation', { records: clientes.length });
     const shell = (typeof CdsPageShell !== 'undefined' && CdsPageShell.renderHeader)
         ? CdsPageShell.renderHeader({ page: 'clientes' })
         : '';
@@ -89,14 +121,26 @@ function renderClientes(clientes) {
             </div>
         </div>
     `;
+    if (htmlOp) Perf.end(htmlOp, { htmlBytesApprox: Perf.approximateBytes?.(html) ?? null });
+    const domOp = Perf?.start?.('clientes:dom-update', { records: clientes.length, target: 'page-content' });
     $('#page-content').html(html);
+    if (domOp) {
+        Perf.end(domOp, {
+            nodesAfter: document.getElementById('page-content')?.querySelectorAll('*').length || 0
+        });
+    }
+    if (totalOp) Perf.end(totalOp);
     $('#buscaCliente').on('input', function() {
+        const inputTotalOp = Perf?.start?.('clientes:filter-total', { recordsAnalyzed: clientes.length });
         const termo = normalizarTexto($(this).val());
+        const filterOp = Perf?.start?.('clientes:filter-processing', { recordsAnalyzed: clientes.length });
         const filtrados = clientes.filter(c =>
             (c.nome && normalizarTexto(c.nome).includes(termo)) ||
             (c.cpf_cnpj && String(c.cpf_cnpj).toLowerCase().includes(termo))
         );
-        $('#clientes-tbody').html(filtrados.map(c => `
+        if (filterOp) Perf.end(filterOp, { matches: filtrados.length });
+        const rowsHtmlOp = Perf?.start?.('clientes:filter-html', { matches: filtrados.length });
+        const rowsHtml = filtrados.map(c => `
             <tr>
                 <td>${c.nome}</td>
                 <td>${c.cpf_cnpj || '-'}</td>
@@ -121,7 +165,21 @@ function renderClientes(clientes) {
                     </button>
                 </td>
             </tr>
-        `).join(''));
+        `).join('');
+        if (rowsHtmlOp) {
+            Perf.end(rowsHtmlOp, {
+                matches: filtrados.length,
+                htmlBytesApprox: Perf.approximateBytes?.(rowsHtml) ?? null
+            });
+        }
+        const filterDomOp = Perf?.start?.('clientes:filter-dom', { matches: filtrados.length });
+        $('#clientes-tbody').html(rowsHtml);
+        if (filterDomOp) {
+            Perf.end(filterDomOp, {
+                rowsAfter: document.querySelectorAll('#clientes-tbody tr').length
+            });
+        }
+        if (inputTotalOp) Perf.end(inputTotalOp, { matches: filtrados.length });
     });
     return;
     

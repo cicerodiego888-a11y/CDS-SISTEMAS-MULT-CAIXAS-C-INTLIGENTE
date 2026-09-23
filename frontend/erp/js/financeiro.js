@@ -290,6 +290,8 @@ if (document.readyState === 'loading') {
 }
 
 function renderFinanceiro(movimentacoes, resumo, filtros) {
+    const Perf = window.PerformanceMonitor;
+    const renderOp = Perf?.start?.('financeiro:render-total', { records: movimentacoes.length });
     const html = `
         <h3><i class="fas fa-wallet"></i> Financeiro</h3>
         <div class="alert alert-info">
@@ -397,6 +399,11 @@ function renderFinanceiro(movimentacoes, resumo, filtros) {
         </div>
     `;
     $('#page-content').html(html);
+    if (renderOp) {
+        Perf.end(renderOp, {
+            nodesAfter: document.getElementById('page-content')?.querySelectorAll('*').length || 0
+        });
+    }
 }
 
 function abrirReferenciaFinanceira(referenciaId, referenciaTipo) {

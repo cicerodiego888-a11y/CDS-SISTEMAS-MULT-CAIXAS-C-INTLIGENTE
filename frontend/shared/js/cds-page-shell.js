@@ -27,7 +27,7 @@
     entregas: { grupo: 'Comercial', titulo: 'Entregas', subtitulo: 'Vendas para entrega e prestação' },
     pedidos: { grupo: 'Comercial', titulo: 'Pedidos', subtitulo: 'Captura e gestão de pedidos' },
     faturamento: { grupo: 'Comercial', titulo: 'Expedição', subtitulo: 'Pedido → Separação → Expedição · operação comercial' },
-    caixa: { grupo: 'Comercial', titulo: 'Fechamento de Caixa', subtitulo: 'Sangria, reforço e fechamento' },
+    caixa: { grupo: 'Comercial', titulo: 'Fechamento de Caixa', subtitulo: 'Confira os valores da sessão e finalize o caixa' },
     configuracoes: { grupo: 'Administração', titulo: 'Configurações', subtitulo: 'Preferências operacionais da empresa' },
     usuarios: { grupo: 'Administração', titulo: 'Usuários', subtitulo: 'Acessos e permissões' },
     licenca: { grupo: 'Administração', titulo: 'Assinatura', subtitulo: 'Status e ativação da assinatura CDS' },

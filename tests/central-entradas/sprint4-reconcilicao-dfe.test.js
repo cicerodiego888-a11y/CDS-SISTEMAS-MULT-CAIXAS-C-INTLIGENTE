@@ -124,8 +124,9 @@ describe('Sprint 4 — resumo', () => {
     });
     const lac = r.achados.find((a) => a.codigo === AchadoCodigo.POSSIVEL_LACUNA_NSU);
     assert.ok(lac);
-    assert.equal(lac.classificacao, 'POSSIVEL_LACUNA');
+    assert.equal(lac.classificacao, 'POSSIVEL_INTERVALO_NSU');
     assert.deepEqual(lac.nsusFabricados || [], []);
+    assert.equal(lac.fonte, 'DOCUMENT_NSUS');
   });
 
   it('7. duplicidade NSU', async () => {

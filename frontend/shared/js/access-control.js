@@ -272,7 +272,11 @@ function redirecionarSeModuloNegado(moduloAtual) {
 
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    window.location.replace('/login');
+    if (typeof irParaLoginAposSaida === 'function') {
+        irParaLoginAposSaida('sessao');
+    } else {
+        window.location.replace('/login?from=sessao');
+    }
     return true;
 }
 

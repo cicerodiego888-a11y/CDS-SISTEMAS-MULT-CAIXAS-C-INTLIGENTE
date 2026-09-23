@@ -18,12 +18,21 @@ function loadVendas() {
         url += '?' + params.join('&');
     }
 
+    const Perf = window.PerformanceMonitor;
+    const loadOp = Perf?.start?.('vendas:list-load', { todas: !!verTodasVendas });
     $.ajax({ url, method: 'GET' })
         .done(function(vendas) {
             vendasList = vendas || [];
+            if (loadOp) {
+                Perf.end(loadOp, {
+                    records: vendasList.length,
+                    responseBytesApprox: Perf.approximateBytes?.(vendasList) ?? null
+                });
+            }
             renderVendas(vendasList);
         })
         .fail(function() {
+            if (loadOp) Perf.end(loadOp, { outcome: 'error' });
             $('#page-content').html('<div class="alert alert-danger">Erro ao carregar histórico de vendas.</div>');
         });
 }
@@ -45,6 +54,8 @@ function toggleVerTodasVendas() {
 }
 
 function renderVendas(vendas) {
+    const Perf = window.PerformanceMonitor;
+    const renderOp = Perf?.start?.('vendas:render-total', { records: vendas.length });
     const shell = (typeof CdsPageShell !== 'undefined' && CdsPageShell.renderHeader)
         ? CdsPageShell.renderHeader({
             page: 'vendas',
@@ -125,6 +136,11 @@ function renderVendas(vendas) {
     `;
 
     $('#page-content').html(html);
+    if (renderOp) {
+        Perf.end(renderOp, {
+            nodesAfter: document.getElementById('page-content')?.querySelectorAll('*').length || 0
+        });
+    }
 }
 
 function viewVenda(id) {

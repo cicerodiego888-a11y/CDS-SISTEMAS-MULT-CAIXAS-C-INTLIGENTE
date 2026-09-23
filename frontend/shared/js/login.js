@@ -294,13 +294,80 @@ function aplicarAutofillPrimeiroAcesso() {
   });
 }
 
-$(document).ready(function () {
-  $('.modal-backdrop').remove();
-  $('body').removeClass('modal-open').css('overflow', '').css('padding-right', '');
-  document.body.classList.remove('pdv-mode', 'menu-open');
-  $('*').css('pointer-events', '');
-  $('body, html').css('pointer-events', 'auto');
+function veioDeSaidaSessaoLogin() {
+  try {
+    const from = new URLSearchParams(window.location.search).get('from');
+    return from === 'logout' || from === 'sessao';
+  } catch (_) {
+    return false;
+  }
+}
 
+function removerOverlayResidualLogin() {
+  const intro = document.getElementById('cdsIntroRoot');
+  if (intro && intro.parentNode) intro.parentNode.removeChild(intro);
+
+  const splash = document.getElementById('loginBootSplash');
+  if (splash) {
+    splash.hidden = true;
+    splash.classList.remove('is-active');
+    splash.setAttribute('aria-hidden', 'true');
+  }
+
+  document.querySelectorAll('.modal-backdrop, .cds-ui-loader-overlay').forEach((el) => el.remove());
+  document.body.classList.remove('modal-open', 'pdv-mode', 'menu-open', 'intro-active');
+  document.body.classList.add('intro-done', 'lx-ready');
+  document.body.style.removeProperty('overflow');
+  document.body.style.removeProperty('padding-right');
+  document.body.style.removeProperty('pointer-events');
+  document.documentElement.style.removeProperty('pointer-events');
+
+  const shell = document.querySelector('.lx-shell');
+  if (shell) shell.style.removeProperty('pointer-events');
+
+  ['username', 'password', 'btn-entrar'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.removeAttribute('disabled');
+    el.removeAttribute('readonly');
+    el.removeAttribute('aria-disabled');
+    if (el.tabIndex < 0) el.tabIndex = id === 'username' ? 1 : id === 'password' ? 2 : 3;
+  });
+}
+
+function focarCampoLoginPronto() {
+  const ativo = document.activeElement;
+  if (ativo && (ativo.id === 'username' || ativo.id === 'password' || ativo.id === 'btn-entrar')) {
+    return;
+  }
+  const user = document.getElementById('username');
+  const pass = document.getElementById('password');
+  const btn = document.getElementById('btn-entrar');
+  if (user && !String(user.value || '').trim()) {
+    user.focus();
+  } else if (pass && !String(pass.value || '')) {
+    pass.focus();
+  } else if (btn) {
+    btn.focus();
+  }
+}
+
+function liberarTelaLogin() {
+  removerOverlayResidualLogin();
+  if (window.LoginExperience && typeof LoginExperience.setBotaoLoading === 'function') {
+    LoginExperience.setBotaoLoading(false);
+  }
+  if (window.electronAPI && typeof window.electronAPI.forcarReflow === 'function') {
+    window.electronAPI.forcarReflow();
+  }
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => requestAnimationFrame(focarCampoLoginPronto));
+  } else {
+    focarCampoLoginPronto();
+  }
+}
+
+$(document).ready(function () {
   carregarUltimoAcessoLogin();
   agendarRestauracaoUltimoAcessoLogin();
   aplicarAutofillPrimeiroAcesso();
@@ -308,22 +375,11 @@ $(document).ready(function () {
   $('#username, #password').on('input change blur', lembrarCamposDigitadosLogin);
   $(window).on('pagehide beforeunload', lembrarCamposDigitadosLogin);
 
-  setTimeout(() => {
-    if (!$('#username').val()) {
-      const campoUsername = $('#username');
-      if (campoUsername.length > 0) campoUsername[0].focus();
-    } else if (!$('#password').val()) {
-      const campoSenha = $('#password');
-      if (campoSenha.length > 0) campoSenha[0].focus();
-    } else {
-      const btn = document.getElementById('btn-entrar');
-      if (btn && typeof btn.focus === 'function') btn.focus();
-    }
-  }, 250);
-
-  setTimeout(() => {
-    if (window.electronAPI && window.electronAPI.forcarReflow) {
-      window.electronAPI.forcarReflow();
-    }
-  }, 100);
+  if (veioDeSaidaSessaoLogin() || document.body.classList.contains('intro-done')) {
+    liberarTelaLogin();
+  } else if (window.IntroExperience && typeof window.IntroExperience.onComplete === 'function') {
+    window.IntroExperience.onComplete(liberarTelaLogin);
+  } else {
+    liberarTelaLogin();
+  }
 });

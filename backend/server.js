@@ -9,6 +9,7 @@ const bodyParser = require('body-parser');
 const http = require('http');
 const { isCorsOriginAllowed } = require('./config/secrets');
 const { verificarToken } = require('./middleware/auth');
+const PerformanceMonitor = require('./observabilidade/performance/PerformanceMonitor');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -25,6 +26,7 @@ app.use((req, res, next) => {
     credentials: true
   })(req, res, next);
 });
+app.use(PerformanceMonitor.middleware);
 // NF-e / Compras enviam XML no JSON — limite padrão (100kb) causa 500 silencioso.
 const BODY_PARSER_LIMIT = process.env.BODY_PARSER_LIMIT || '10mb';
 app.use(bodyParser.json({ limit: BODY_PARSER_LIMIT }));

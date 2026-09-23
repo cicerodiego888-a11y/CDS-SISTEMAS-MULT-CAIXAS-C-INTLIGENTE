@@ -15,13 +15,20 @@ describe('Sprint 3.11UX — confirmação pagamento não fiscal', () => {
     assert.match(src, /function resolverFormaPagamentoNaoFiscalConhecida/);
     assert.match(src, /Forma de recebimento/);
     assert.match(src, /modoConfirmacao/);
-    assert.match(src, /Confirme o recebimento da parcela não fiscal/);
+    assert.match(src, /Confirme o Recebimento B/);
   });
 
   it('chamadas passam a forma já conhecida', () => {
     const src = fs.readFileSync(PDV, 'utf8');
-    assert.match(src, /abrirModalPagamentoNaoFiscal\(\s*totalNaoFiscal[\s\S]*?formaNaoFiscal\s*\)/);
+    assert.match(src, /abrirModalPagamentoNaoFiscal\(\s*valor,\s*resolve,[\s\S]*?formaNaoFiscal\s*\)/);
     assert.match(src, /resolverFormaPagamentoNaoFiscalConhecida\(\s*\{\s*pagamentosMistos/);
+  });
+
+  it('Enter confirma o Recebimento B', () => {
+    const src = fs.readFileSync(PDV, 'utf8');
+    assert.match(src, /function confirmarPagamentoNaoFiscal/);
+    assert.match(src, /keydown\.recebimentoB/);
+    assert.match(src, /e\.key === 'Enter'/);
   });
 
   it('Cancelar e Confirmar permanecem', () => {

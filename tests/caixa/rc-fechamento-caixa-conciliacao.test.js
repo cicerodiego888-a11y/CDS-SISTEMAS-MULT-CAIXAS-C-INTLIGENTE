@@ -259,9 +259,11 @@ console.log('✓ regras entrega pendente / cancelamento');
     quaseIgual(c.pagamentos.pix, 20);
     quaseIgual(c.pagamentos.debito, 30);
     quaseIgual(c.pagamentos.credito, 40);
-    quaseIgual(c.pagamentos.prazo, 50);
+    quaseIgual(c.pagamentos.prazo, 0);
     quaseIgual(c.pagamentos.tef, 60);
-    quaseIgual(c.totais.recebido, 210);
+    quaseIgual(c.totais.recebido, 160);
+    quaseIgual(c.totais.vendido, 210);
+    quaseIgual(c.totais.pendente, 50);
     db.close();
     console.log('✓ formas básicas + TEF débito');
   }
@@ -675,14 +677,16 @@ console.log('✓ regras entrega pendente / cancelamento');
       { tipo_recebimento: 'fiscal', forma_pagamento: 'pix', valor: 8 }
     ]);
     const c = await Svc.consolidarSessaoCaixa(caixa, { sessaoId, db });
-    quaseIgual(c.totais.recebido, 10);
+    quaseIgual(c.totais.vendido, 10);
+    quaseIgual(c.totais.recebido, 8);
+    quaseIgual(c.totais.pendente, 2);
     quaseIgual(c.pagamentos.pix, 8);
-    assert.ok(!c.validacao.ok);
-    const div = c.validacao.divergencias.find((d) => d.tipo === 'pagamento_vs_venda');
-    assert.ok(div);
-    quaseIgual(Math.abs(div.diferenca), 2);
+    assert.ok(c.validacao.ok, 'parcial legítimo não é inconsistência');
+    const rec = (c.reconciliacao.vendas || []).find((v) => v.recebido_total === 8 || v.pendente_total === 2);
+    assert.ok(rec);
+    assert.strictEqual(rec.status_reconciliacao, 'PARCIALMENTE_RECEBIDA');
     db.close();
-    console.log('✓ TESTE 6 incompleto diferença R$ 2');
+    console.log('✓ TESTE 6 parcial legítimo: recebido 8, pendente 2, sem bloqueio');
   }
 
   // TESTE 10 — várias fiscais / não fiscais / mistas
