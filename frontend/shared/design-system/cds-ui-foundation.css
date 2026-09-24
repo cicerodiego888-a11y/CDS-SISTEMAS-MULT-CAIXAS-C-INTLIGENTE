@@ -567,11 +567,43 @@
 
 /* —— Fechamento de Caixa (tokens oficiais cds-ui-*) —— */
 .cds-ui-fc {
+  --cds-ui-fc-chrome: 7.5rem;
+  --cds-ui-fc-actions-h: 4.5rem;
+  --cds-ui-fc-consulta-peek: 6.5rem; /* espaço para o card "Consultar Caixa por Dia" aparecer */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  color: var(--cds-ui-ink);
+  min-height: 0;
+  max-height: calc(100dvh - var(--cds-ui-fc-chrome) - var(--cds-ui-fc-consulta-peek));
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+body.cds-has-status-bar .cds-ui-fc {
+  --cds-ui-fc-chrome: 9.5rem;
+}
+
+body.pdv-mode .cds-ui-fc {
+  --cds-ui-fc-chrome: 5.5rem;
+  max-height: calc(100dvh - var(--cds-ui-fc-chrome) - var(--cds-ui-fc-consulta-peek));
+}
+
+.cds-ui-fc-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: calc(100dvh - var(--cds-ui-fc-chrome) - var(--cds-ui-fc-actions-h) - var(--cds-ui-fc-consulta-peek));
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* permite encadear o scroll até o card de caixas anteriores */
+  overscroll-behavior: auto;
+  touch-action: pan-y;
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
-  color: var(--cds-ui-ink);
-  padding-bottom: 0.5rem;
+  padding: 0 0.15rem 0.5rem;
 }
 
 .cds-ui-fc-header {
@@ -998,6 +1030,76 @@
   color: #92400e;
 }
 
+.cds-ui-fc-recon-block {
+  margin-top: 0.7rem;
+  padding: 0.7rem 0.8rem;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  border-radius: 8px;
+  color: #9a3412;
+  font-size: 0.86rem;
+}
+
+.cds-ui-fc-recon-block p {
+  margin: 0.45rem 0 0.6rem;
+}
+
+.cds-ui-fc-recon-block__fisico {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: #166534;
+  margin-bottom: 0.4rem;
+}
+
+.cds-ui-fc-dialog {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.18);
+}
+
+.cds-ui-fc-dialog__card {
+  width: min(420px, 100%);
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+  padding: 1.05rem 1.1rem 0.95rem;
+}
+
+.cds-ui-fc-dialog__card h3 {
+  margin: 0 0 0.7rem;
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.cds-ui-fc-dialog__card p {
+  margin: 0 0 0.55rem;
+  color: #334155;
+  font-size: 0.92rem;
+}
+
+.cds-ui-fc-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  margin-top: 0.95rem;
+}
+
+.cds-ui-fc-div-val.is-plus { color: #b45309; font-weight: 700; }
+.cds-ui-fc-div-val.is-minus { color: #b91c1c; font-weight: 700; }
+
+.cds-ui-fc-btn-primary.is-blocked,
+.cds-ui-fc-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .cds-ui-fc-recon__resumo {
   display: flex;
   flex-wrap: wrap;
@@ -1038,11 +1140,15 @@
   justify-content: space-between;
   align-items: center;
   gap: 0.75rem;
-  position: sticky;
-  bottom: 0;
-  padding: 0.9rem 0 0.2rem;
-  background: linear-gradient(180deg, rgba(245, 247, 250, 0) 0%, #f5f7fa 28%);
-  z-index: 2;
+  flex: 0 0 auto;
+  position: relative;
+  bottom: auto;
+  padding: 0.75rem 0.15rem 0.85rem;
+  margin: 0;
+  background: #fff;
+  border-top: 1px solid var(--cds-ui-border);
+  box-shadow: 0 -8px 20px rgba(15, 23, 42, 0.06);
+  z-index: 5;
 }
 
 .cds-ui-fc-actions__right {
@@ -1052,6 +1158,10 @@
   gap: 0.5rem;
 }
 
+.cds-ui-fc-actions .btn {
+  flex-shrink: 0;
+}
+
 .cds-ui-fc-btn-primary {
   background: #15803d !important;
   border-color: #15803d !important;
@@ -1059,6 +1169,7 @@
   font-weight: 700;
   padding: 0.65rem 1.35rem;
   min-height: 46px;
+  white-space: nowrap;
 }
 
 .cds-ui-fc-btn-primary:hover {
@@ -1087,13 +1198,95 @@
 
   .cds-ui-fc-actions {
     flex-direction: column-reverse;
-    position: static;
-    background: transparent;
-    padding-top: 0.4rem;
+    position: relative;
+    background: #fff;
+    padding: 0.7rem 0.1rem 0.8rem;
   }
 
   .cds-ui-fc-actions .btn,
   .cds-ui-fc-actions__right {
     width: 100%;
+    flex-shrink: 0;
+  }
+}
+
+/* Layout do fechamento: scroll no cupom/tela; consulta de caixas anteriores permanece visível abaixo */
+body:has(#caixa-v2-tela):not(.pdv-mode) #page-content {
+  overflow-y: auto;
+}
+
+body.pdv-mode:has(#caixa-v2-tela) #page-content {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+body:has(#caixa-v2-tela) #caixa-area > .cds-ui-fc {
+  width: 100%;
+}
+
+/* Bloco "Consultar Caixa por Dia" — sempre acessível com caixa aberto */
+body:has(#caixa-v2-tela) #caixa-area ~ .card,
+#caixa-consulta-anteriores {
+  display: block !important;
+  visibility: visible !important;
+  margin-top: 1.25rem;
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+.cds-ui-cupom-print-overlay {
+  position: fixed;
+  inset: auto;
+  left: calc(50% + 56px);
+  top: 72px;
+  background: transparent;
+  z-index: 12000;
+  pointer-events: none;
+}
+
+.cds-ui-cupom-print-dialog {
+  pointer-events: auto;
+  background: #fff;
+  border: 1px solid var(--cds-ui-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.16);
+  width: 248px;
+  max-width: calc(100vw - 1.5rem);
+  padding: 0.7rem 0.8rem 0.75rem;
+}
+
+.cds-ui-cupom-print-dialog h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.92rem;
+  line-height: 1.3;
+  color: #0f172a;
+}
+
+.cds-ui-cupom-print-dialog p {
+  margin: 0 0 0.65rem;
+  color: var(--cds-ui-muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.cds-ui-cupom-print-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.cds-ui-cupom-print-actions .btn {
+  font-size: 0.78rem;
+  padding: 0.28rem 0.65rem;
+  min-height: 32px;
+}
+
+@media (max-width: 1199px) {
+  .cds-ui-cupom-print-overlay {
+    left: 50%;
+    top: auto;
+    bottom: 16px;
+    transform: translateX(-50%);
   }
 }

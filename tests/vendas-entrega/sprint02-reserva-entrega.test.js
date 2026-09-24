@@ -186,6 +186,8 @@ async function main() {
     assert.ok(pdvEntrega.includes('Confirmar Entrega'));
     assert.ok(pdvEntrega.includes("tipo_venda: 'ENTREGA'"));
     assert.ok(pdvEntrega.includes('imprimirComprovanteEntrega'));
+    assert.ok(pdvEntrega.includes('CupomPrintPolicy') || pdvEntrega.includes('apresentarCupomNaTela'));
+    assert.ok(pdvEntrega.includes('automatico: true') || pdvEntrega.includes('automatico:true'));
     assert.ok(pdvEntrega.includes('atualizarBotaoEntrega'));
 
     const pdv = ler('frontend/pdv/js/pdv.js');

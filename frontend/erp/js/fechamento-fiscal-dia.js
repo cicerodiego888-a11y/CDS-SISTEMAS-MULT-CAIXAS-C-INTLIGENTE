@@ -451,15 +451,31 @@ function ffdRotuloStatusMonitoramento(status) {
   if (st === 'PRONTO_EMISSAO') return 'PRONTO PARA EMISSÃO';
   if (st === 'EMITINDO' || st === 'PROCESSANDO') return 'EM PROCESSAMENTO';
   if (st === 'AUTORIZADO' || st === 'CONCLUIDO' || st === 'CONFIRMADO') return 'AUTORIZADO';
+  if (st === 'AUTORIZACAO_PARCIAL') return 'AUTORIZAÇÃO PARCIAL';
+  if (st === 'PENDENTE_RECUPERACAO') return 'PENDENTE DE RECUPERAÇÃO';
   if (st === 'REJEITADO') return 'REJEITADO';
   if (st === 'ERRO') return 'ERRO TÉCNICO';
   return st;
 }
 
-/** Fechamento já emitido/autorizado — residual do dia NÃO deve excluir a própria prévia. */
+/** Fechamento já emitido/autorizado por completo — residual do dia NÃO deve excluir a própria prévia.
+ *  AUTORIZACAO_PARCIAL NÃO é finalizado: ainda há saldo para CONTINUAR EMISSÃO. */
 function ffdFechamentoFinalizado(status) {
   const st = String(status || __ffdEstado.statusFiscal || '').toUpperCase();
-  return st === 'AUTORIZADO' || st === 'CONCLUIDO' || st === 'CONFIRMADO';
+  return st === 'AUTORIZADO'
+    || st === 'CONCLUIDO'
+    || st === 'CONFIRMADO';
+}
+
+function ffdEhAutorizacaoParcial(status, saldo) {
+  const st = String(status || __ffdEstado.statusFiscal || '').toUpperCase();
+  // Já preparado o restante — não tratar como “precisa continuar”
+  if (st === 'PRONTO_EMISSAO' || st === 'EMITINDO' || st === 'AUTORIZADO') return false;
+  const s = saldo || __ffdEstado.saldo || {};
+  if (st === 'AUTORIZACAO_PARCIAL') return true;
+  return Number(s.valor_emitido_autorizado || 0) > 0
+    && Number(s.valor_pendente_emissao || 0) > 0
+    && st !== 'PENDENTE_RECUPERACAO';
 }
 
 /**
@@ -953,12 +969,13 @@ function loadFechamentoFiscalDoDia() {
             </div>
             <div class="col-md-3">
               <label class="form-label" for="ffdValorMin">Valor mínimo sugerido</label>
-              <input type="number" step="0.01" min="0" class="form-control" id="ffdValorMin" value="80.00">
+              <input type="number" step="0.01" min="0" class="form-control" id="ffdValorMin" value="8.00">
+              <div class="form-text">Sugestão mínima por NFC-e (padrão homologação realista).</div>
             </div>
             <div class="col-md-3">
               <label class="form-label" for="ffdValorMax">Valor máximo sugerido</label>
-              <input type="number" step="0.01" min="0" class="form-control" id="ffdValorMax" value="400.00">
-            </div>
+              <input type="number" step="0.01" min="0" class="form-control" id="ffdValorMax" value="500.00">
+              <div class="form-text">Teto por NFC-e na prévia de homologação.</div>            </div>
             <div class="col-md-3 d-flex align-items-end">
               <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" id="ffdAuto" checked>
@@ -994,6 +1011,17 @@ function loadFechamentoFiscalDoDia() {
             <div class="col-md-3"><div class="text-muted small">Documentos</div><div class="fs-5" id="ffdValDocs">—</div></div>
             <div class="col-md-3"><div class="text-muted small">Status</div><div class="fs-5" id="ffdValStatus">—</div></div>
             <div class="col-md-3"><div class="text-muted small">Ambiente</div><div class="fs-5" id="ffdValAmbiente">—</div></div>
+            <div class="col-12 mt-2">
+              <div class="row g-2" id="ffdSaldoBox" style="display:none">
+                <div class="col-md-4"><div class="border rounded p-2 bg-light"><div class="text-muted small">VALOR PRINCIPAL</div><div class="fs-5 fw-semibold" id="ffdSaldoPrincipal">—</div></div></div>
+                <div class="col-md-4"><div class="border rounded p-2 bg-light"><div class="text-muted small">JÁ EMITIDO</div><div class="fs-5 fw-semibold text-success" id="ffdSaldoEmitido">—</div></div></div>
+                <div class="col-md-4"><div class="border rounded p-2 bg-light"><div class="text-muted small">RESTANTE</div><div class="fs-5 fw-semibold text-primary" id="ffdSaldoPendente">—</div></div></div>
+              </div>
+              <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
+                <button type="button" class="btn btn-primary btn-lg" id="ffdBtnContinuarEmissao" style="display:none">Continuar emissão</button>
+                <div class="small text-muted" id="ffdSaldoMsgs"></div>
+              </div>
+            </div>
           </div>
           <div id="ffdPainelEmissao" class="mb-3"></div>
           <div id="ffdChecklist" class="mb-3"></div>
@@ -1050,6 +1078,7 @@ function loadFechamentoFiscalDoDia() {
   $('#ffdBtnCorrigir').on('click', () => ffdCorrigirPendencias());
   $('#ffdBtnTransmitir').on('click', () => ffdTransmitirSefaz());
   $('#ffdBtnRecuperar').on('click', () => ffdRecuperarSefaz());
+  $('#ffdBtnContinuarEmissao').on('click', () => ffdContinuarEmissao());
   $('#ffdVistaVenda').on('click', () => { __ffdEstado.vista = 'venda'; ffdAtualizarVistaBtns(); ffdRenderPrevia(__ffdEstado.previa); });
   $('#ffdVistaProduto').on('click', () => { __ffdEstado.vista = 'produto'; ffdAtualizarVistaBtns(); ffdRenderPrevia(__ffdEstado.previa); });
   $('#ffdValorAlvo, #ffdValorMin, #ffdValorMax').on('focus', () => { __ffdEstado.usuarioEditando = true; });
@@ -1157,8 +1186,29 @@ async function ffdCarregarDia(opts = {}) {
       __ffdEstado.statusFiscal = ff.status || null;
       __ffdEstado.documentos = ff.documentos || [];
       __ffdEstado.complementacao = ff.complementacao || null;
+      if (ff.saldo || ff.valor_principal != null) {
+        __ffdEstado.saldo = ff.saldo || {
+          valor_principal: ff.valor_principal,
+          valor_emitido_autorizado: ff.valor_emitido_autorizado,
+          valor_pendente_emissao: ff.valor_pendente_emissao,
+          mensagens: ff.mensagens_saldo
+        };
+        ffdRenderSaldo(__ffdEstado.saldo);
+      }
+      // Abertura explícita: força GET saldo com log RECUPERACAO no backend
+      if (!silencioso && ff.id) {
+        try {
+          const saldoResp = await fetch(`${ffdApi()}/fiscal/fechamentos/${ff.id}/saldo`, { headers: ffdHeaders() });
+          const saldoBody = await saldoResp.json().catch(() => ({}));
+          if (saldoResp.ok && saldoBody.saldo) {
+            __ffdEstado.saldo = saldoBody.saldo;
+            if (saldoBody.status) __ffdEstado.statusFiscal = saldoBody.status;
+            ffdRenderSaldo(saldoBody.saldo);
+          }
+        } catch (_) { /* ignore */ }
+      }
       ffdRenderComplementacao(__ffdEstado.complementacao);
-      const finalizado = ffdFechamentoFinalizado(ff.status);
+      const finalizado = ffdFechamentoFinalizado(__ffdEstado.statusFiscal || ff.status);
 
       if (finalizado) {
         // Não reidrata recebimentos/prévia na UI — limpeza automática pós-autorização.
@@ -1175,7 +1225,7 @@ async function ffdCarregarDia(opts = {}) {
         }
         if (!silencioso) {
           $('#ffdValorAlvo').val(Number(ff.valor_alvo || 250).toFixed(2));
-          $('#ffdValorMin').val(Number(ff.valor_min || 80).toFixed(2));
+          $('#ffdValorMin').val(Number(ff.valor_min != null ? ff.valor_min : 8).toFixed(2));
           $('#ffdValorMax').val(Number(ff.valor_max || 400).toFixed(2));
         }
         if (ff.previa_vendas && ff.previa_vendas.length && !silencioso) {
@@ -1421,6 +1471,7 @@ function ffdAtualizarBotoesEtapa5(previa) {
   const pronto = __ffdEstado.statusFiscal === 'PRONTO_EMISSAO';
   const emitindo = __ffdEstado.statusFiscal === 'EMITINDO';
   const autorizado = __ffdEstado.statusFiscal === 'AUTORIZADO';
+  const parcial = ffdEhAutorizacaoParcial();
   const temXml = (__ffdEstado.documentos || []).some((d) => d.xml_preparado || d.xml_hash);
   const moduloOk = Boolean(__ffdEstado.moduloOn);
   const homolog = Number(__ffdEstado.ambiente) === 2;
@@ -1433,18 +1484,24 @@ function ffdAtualizarBotoesEtapa5(previa) {
     && conciliado
     && okPrevia
     && !autorizado
+    && !parcial
     && !__ffdEstado.transmitindo
     && !ops.emitir
     && !ops.transmitir
   );
   $('#ffdBtnEmitir').prop('disabled', !aptoEmitir);
-  $('#ffdBtnValidar').prop('disabled', !moduloOk || ops.validar || (!okPrevia && !pronto) || (!conciliado && !pronto));
-  $('#ffdBtnGerarXml').prop('disabled', !moduloOk || ops.preparar || (!(okPrevia && (validado || pronto)) && !pronto));
-  $('#ffdBtnPreparar').prop('disabled', !moduloOk || ops.preparar || (!(okPrevia && (validado || pronto)) && !pronto));
+  if (parcial) {
+    $('#ffdBtnEmitir').addClass('d-none');
+  } else {
+    $('#ffdBtnEmitir').removeClass('d-none');
+  }
+  $('#ffdBtnValidar').prop('disabled', !moduloOk || ops.validar || (!okPrevia && !pronto) || (!conciliado && !pronto) || parcial);
+  $('#ffdBtnGerarXml').prop('disabled', !moduloOk || ops.preparar || (!(okPrevia && (validado || pronto)) && !pronto) || parcial);
+  $('#ffdBtnPreparar').prop('disabled', !moduloOk || ops.preparar || (!(okPrevia && (validado || pronto)) && !pronto) || parcial);
   $('#ffdBtnVerXml').prop('disabled', !temXml);
-  $('#ffdBtnAtualizarPrevia').prop('disabled', Boolean(ops.previa) || autorizado);
-  $('#ffdBtnSalvarRascunho').prop('disabled', Boolean(ops.salvar) || autorizado);
-  $('#ffdBtnCorrigir').prop('disabled', autorizado || !(__ffdEstado.validacao && __ffdEstado.validacao.ok === false));
+  $('#ffdBtnAtualizarPrevia').prop('disabled', Boolean(ops.previa) || autorizado || parcial);
+  $('#ffdBtnSalvarRascunho').prop('disabled', Boolean(ops.salvar) || autorizado || parcial);
+  $('#ffdBtnCorrigir').prop('disabled', autorizado || parcial || !(__ffdEstado.validacao && __ffdEstado.validacao.ok === false));
   $('#ffdBtnTransmitir').prop(
     'disabled',
     !moduloOk
@@ -1453,6 +1510,7 @@ function ffdAtualizarBotoesEtapa5(previa) {
       || Boolean(ops.transmitir)
       || !(pronto || emitindo)
       || autorizado
+      || parcial
   );
   $('#ffdBtnRecuperar').prop(
     'disabled',
@@ -1697,13 +1755,16 @@ async function ffdExecutarTransmissaoCore() {
     __ffdEstado.documentos = body.documentos || [];
     __ffdEstado.statusFiscal = body.status;
     if (body.resumo) __ffdEstado._ultimoTxResumo = body.resumo;
+    if (body.saldo) __ffdEstado.saldo = body.saldo;
     if (body.status === 'AUTORIZADO') {
       __ffdEstado.valorFechado = Number(
-        (body.resumo && body.resumo.valor_total)
+        (body.saldo && body.saldo.valor_principal)
+        || (body.resumo && body.resumo.valor_total)
         || (__ffdEstado.previa && (__ffdEstado.previa.valor_distribuido || __ffdEstado.previa.valor_informado))
         || 0
       );
     }
+    ffdRenderSaldo(body.saldo || body);
     ffdRenderResultadoTx(body);
     ffdAtualizarBotoesEtapa5(__ffdEstado.previa);
     ffdNotify(body.mensagem || 'Transmissão concluída.', body.ok ? 'success' : 'warning');
@@ -1734,6 +1795,8 @@ async function ffdRecuperarSefaz() {
     if (!resp.ok) throw new Error(body.error || `HTTP ${resp.status}`);
     __ffdEstado.documentos = body.documentos || [];
     __ffdEstado.statusFiscal = body.status;
+    if (body.saldo) __ffdEstado.saldo = body.saldo;
+    ffdRenderSaldo(body.saldo || body);
     ffdRenderResultadoTx(body);
     ffdAtualizarBotoesEtapa5(__ffdEstado.previa);
     ffdNotify('Recuperação concluída.', 'success');
@@ -1743,6 +1806,80 @@ async function ffdRecuperarSefaz() {
     }
   } catch (err) {
     ffdNotify(err.message || 'Falha na recuperação.', 'danger');
+  }
+}
+
+function ffdRenderSaldo(saldoOuBody) {
+  const s = saldoOuBody && (saldoOuBody.valor_principal != null || saldoOuBody.saldo)
+    ? (saldoOuBody.saldo || saldoOuBody)
+    : (__ffdEstado.saldo || null);
+  const box = document.getElementById('ffdSaldoBox');
+  const btn = document.getElementById('ffdBtnContinuarEmissao');
+  const msgs = document.getElementById('ffdSaldoMsgs');
+  if (!s || s.valor_principal == null) {
+    if (box) box.style.display = 'none';
+    if (btn) btn.style.display = 'none';
+    return;
+  }
+  __ffdEstado.saldo = s;
+  if (box) box.style.display = '';
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = ffdFmtMoney(v); };
+  set('ffdSaldoPrincipal', s.valor_principal);
+  set('ffdSaldoEmitido', s.valor_emitido_autorizado || 0);
+  set('ffdSaldoPendente', s.valor_pendente_emissao != null ? s.valor_pendente_emissao : 0);
+  if (msgs) {
+    const linhas = s.mensagens || saldoOuBody.mensagens_saldo || [];
+    const arr = Array.isArray(linhas) ? linhas : String(linhas || '').split('\n').filter(Boolean);
+    msgs.innerHTML = arr.map((m) => `<div>${ffdEsc(m)}</div>`).join('');
+  }
+  const st = String(__ffdEstado.statusFiscal || '').toUpperCase();
+  const podeContinuar = Number(s.valor_emitido_autorizado || 0) > 0
+    && Number(s.valor_pendente_emissao || 0) > 0
+    && st !== 'AUTORIZADO'
+    && st !== 'PENDENTE_RECUPERACAO'
+    && st !== 'PRONTO_EMISSAO'
+    && st !== 'EMITINDO';
+  if (btn) {
+    btn.style.display = podeContinuar ? '' : 'none';
+    btn.classList.toggle('btn-lg', podeContinuar);
+  }
+  // Em parcial, Emitir fechamento não é a ação principal
+  if (podeContinuar || ffdEhAutorizacaoParcial(st, s)) {
+    $('#ffdBtnEmitir').addClass('d-none');
+  }
+}
+
+async function ffdContinuarEmissao() {
+  const id = __ffdEstado.fechamentoId;
+  if (!id) return;
+  try {
+    const resp = await fetch(`${ffdApi()}/fiscal/fechamentos/${id}/continuar-emissao`, {
+      method: 'POST',
+      headers: ffdHeaders(),
+      body: JSON.stringify({
+        valor_alvo: Number($('#ffdValorAlvo').val() || 250),
+        valor_min: Number($('#ffdValorMin').val() || 8),
+        valor_max: Number($('#ffdValorMax').val() || 500)
+      })
+    });
+    const body = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(ffdErroApi(body, `HTTP ${resp.status}`));
+    if (body.saldo) __ffdEstado.saldo = body.saldo;
+    if (body.preparacao && body.preparacao.documentos) {
+      __ffdEstado.documentos = body.preparacao.documentos;
+    }
+    __ffdEstado.statusFiscal = (body.preparacao && body.preparacao.status) || body.status || __ffdEstado.statusFiscal;
+    ffdRenderSaldo(body.saldo || body);
+    ffdAtualizarBotoesEtapa5(__ffdEstado.previa);
+    ffdNotify(body.mensagem || 'Continuação preparada com o saldo restante.', 'info');
+    if (body.ok && __ffdEstado.statusFiscal === 'PRONTO_EMISSAO') {
+      const ok = window.confirm(
+        `${body.mensagem || ''}\n\nDeseja transmitir agora o restante (R$ ${Number(body.valor_base_continuacao || 0).toFixed(2)})?`
+      );
+      if (ok) await ffdTransmitirSefaz({ confirmado: true });
+    }
+  } catch (err) {
+    ffdNotify(err.message || 'Falha ao continuar emissão.', 'danger');
   }
 }
 
@@ -1775,12 +1912,66 @@ function ffdRenderResultadoTx(body) {
       <div class="small text-muted mt-2">Também disponível em Fiscal → NFC-e Emitidas.</div></div>`;
     const btn = document.getElementById('ffdBtnReabrirCupom');
     if (btn) btn.addEventListener('click', () => ffdAbrirCupomAposAutorizacao(body));
+  } else if (body.status === 'AUTORIZACAO_PARCIAL' || ((r.autorizados || 0) > 0 && (r.rejeitados || 0) > 0)) {
+    const docsAuth = docs.filter((d) => d.status === 'AUTORIZADO');
+    const docsRej = docs.filter((d) => d.status === 'REJEITADO');
+    const tem539 = docsRej.some((d) => String(d.cstat) === '539')
+      || (body.resultados || []).some((x) => String(x.cstat) === '539' || x.reconciliacao_539);
+    const saldo = body.saldo || {};
+    const emitido = saldo.valor_emitido_autorizado != null ? saldo.valor_emitido_autorizado : (r.valor_emitido_autorizado || 0);
+    const pendente = saldo.valor_pendente_emissao != null ? saldo.valor_pendente_emissao : (r.valor_pendente_emissao || 0);
+    const principal = saldo.valor_principal != null ? saldo.valor_principal : (r.valor_principal || __ffdEstado.previa?.valor_informado || 0);
+    const alerta539 = tem539
+      ? `<div class="alert alert-info mb-2 py-2"><strong>Reconciliação CStat 539</strong><br>
+         Foi identificada uma numeração já existente na SEFAZ.
+         O sistema está reconciliando o documento antes de continuar.</div>`
+      : '';
+    res.innerHTML = `<div class="alert alert-warning"><strong>⚠ AUTORIZAÇÃO PARCIAL</strong>
+      ${alerta539}
+      <div class="mt-2"><strong>Venda emitida:</strong> ${ffdFmtMoney(emitido)}</div>
+      <div><strong>Valor original do fechamento:</strong> ${ffdFmtMoney(principal)}</div>
+      <div><strong>Valor restante para emissão:</strong> ${ffdFmtMoney(pendente)}</div>
+      <div class="small mt-2">${r.autorizados || docsAuth.length} autorizada(s) · ${r.rejeitados || docsRej.length} rejeitada(s)</div>
+      <ul class="small mb-2 mt-2">${docsAuth.map((d) =>
+        `<li>✓ Número: <strong>${ffdEsc(d.numero || d.numero_provisorio)}</strong>
+         · Protocolo: ${ffdEsc(d.protocolo || '—')}<br>
+         Chave: ${ffdEsc(d.chave_acesso || '—')} · Valor: ${ffdFmtMoney(d.valor_total)}</li>`
+      ).join('')}</ul>
+      <ul class="small mb-2">${docsRej.map((d) =>
+        `<li>⚠ Documento ${String(d.sequencia).padStart(3, '0')} — Código: ${ffdEsc(d.cstat || '—')}<br>
+         ${String(d.cstat) === '539'
+           ? 'Numeração existente na SEFAZ — reconciliando antes de continuar.'
+           : `Motivo: ${ffdEsc(d.xmotivo || '—')}`}</li>`
+      ).join('')}</ul>
+      ${docsAuth.length ? '<button type="button" class="btn btn-sm btn-outline-success" id="ffdBtnReabrirCupomParcial">Visualizar Cupom (autorizada)</button>' : ''}
+      <button type="button" class="btn btn-sm btn-primary ms-1" id="ffdBtnContinuarEmissaoTx">Continuar emissão (${ffdFmtMoney(pendente)})</button>
+      <div class="small text-muted mt-2">A continuação usará automaticamente o saldo restante — nunca o valor principal novamente.</div></div>`;
+    const btnP = document.getElementById('ffdBtnReabrirCupomParcial');
+    if (btnP) btnP.addEventListener('click', () => ffdAbrirCupomAposAutorizacao(body));
+    const btnC = document.getElementById('ffdBtnContinuarEmissaoTx');
+    if (btnC) btnC.addEventListener('click', () => ffdContinuarEmissao());
+    ffdRenderSaldo(saldo);
   } else if ((r.rejeitados || 0) > 0) {
-    res.innerHTML = `<div class="alert alert-warning"><strong>⚠ DOCUMENTO REJEITADO / PARCIAL</strong>
-      <div class="small">${r.autorizados || 0} autorizados · ${r.rejeitados || 0} rejeitados</div>
-      <ul class="small mb-0 mt-2">${docs.filter((d) => d.status === 'REJEITADO').map((d) =>
-        `<li>Documento ${String(d.sequencia).padStart(3, '0')}<br>Código: ${ffdEsc(d.cstat || '—')}<br>Motivo: ${ffdEsc(d.xmotivo || '—')}</li>`
-      ).join('')}</ul></div>`;
+    const docsRej = docs.filter((d) => d.status === 'REJEITADO');
+    const tem539 = docsRej.some((d) => String(d.cstat) === '539')
+      || (body.resultados || []).some((x) => String(x.cstat) === '539' || x.reconciliacao_539);
+    if (tem539) {
+      res.innerHTML = `<div class="alert alert-info"><strong>Reconciliação CStat 539</strong>
+        <div class="mt-2">Foi identificada uma numeração já existente na SEFAZ.
+        O sistema está reconciliando o documento antes de continuar.</div>
+        <ul class="small mb-0 mt-2">${docsRej.map((d) =>
+          `<li>Documento ${String(d.sequencia).padStart(3, '0')}
+           · nNF ${ffdEsc(d.numero || d.numero_provisorio || '—')}
+           · ${String(d.cstat) === '539' ? 'OCUPADO_SEFAZ / reconciliando' : ffdEsc(d.xmotivo || '')}</li>`
+        ).join('')}</ul>
+        <div class="small text-muted mt-2">${ffdEsc(body.mensagem || '')}</div></div>`;
+    } else {
+      res.innerHTML = `<div class="alert alert-warning"><strong>⚠ DOCUMENTO REJEITADO / PARCIAL</strong>
+        <div class="small">${r.autorizados || 0} autorizados · ${r.rejeitados || 0} rejeitados</div>
+        <ul class="small mb-0 mt-2">${docsRej.map((d) =>
+          `<li>Documento ${String(d.sequencia).padStart(3, '0')}<br>Código: ${ffdEsc(d.cstat || '—')}<br>Motivo: ${ffdEsc(d.xmotivo || '—')}</li>`
+        ).join('')}</ul></div>`;
+    }
   } else {
     res.innerHTML = `<div class="alert alert-info">${ffdEsc(body.mensagem || 'Transmissão com pendências.')}
       <div class="small">${r.autorizados || 0} autorizados · ${r.erros || 0} erros</div></div>`;
@@ -2086,6 +2277,15 @@ async function ffdConfirmarEmissaoModal() {
  */
 async function ffdEmitirFechamento() {
   return ffdComLock('emitir', '#ffdBtnEmitir', 'Preparando emissão…', async () => {
+    // Fechamento legado/parcial → redireciona para CONTINUAR EMISSÃO (nunca reemite o principal)
+    if (ffdEhAutorizacaoParcial()) {
+      ffdNotify(
+        'Fechamento em AUTORIZAÇÃO PARCIAL. Use Continuar emissão para o saldo restante — não é possível reemitir o valor principal.',
+        'warning'
+      );
+      ffdRenderSaldo(__ffdEstado.saldo);
+      return ffdContinuarEmissao();
+    }
     const bloqueio = ffdBloqueioAvanco('emitir o fechamento');
     if (bloqueio) {
       ffdNotify(bloqueio, 'warning');
@@ -2208,7 +2408,7 @@ async function ffdGarantirRascunho() {
       data_fechamento: data,
       data,
       valor_alvo: Number($('#ffdValorAlvo').val() || 250),
-      valor_min: Number($('#ffdValorMin').val() || 80),
+      valor_min: Number($('#ffdValorMin').val() || 8),
       valor_max: Number($('#ffdValorMax').val() || 400),
       distribuicao_automatica: $('#ffdAuto').is(':checked')
     })
@@ -2281,7 +2481,7 @@ async function ffdAtualizarPrevia() {
         data_fechamento: data,
         valor_informado: total,
         valor_alvo: Number($('#ffdValorAlvo').val() || 250),
-        valor_min: Number($('#ffdValorMin').val() || 80),
+        valor_min: Number($('#ffdValorMin').val() || 8),
         valor_max: Number($('#ffdValorMax').val() || 400),
         distribuicao_automatica: $('#ffdAuto').is(':checked'),
         modo: __ffdEstado.vista || 'venda'

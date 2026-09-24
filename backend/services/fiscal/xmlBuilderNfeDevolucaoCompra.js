@@ -32,6 +32,7 @@ const {
   validarIcmsXmlContraCrt,
   resumoResolucaoIcms
 } = require('./resolverIcmsCrtEmitente');
+const { sanitizarInfCplNfe } = require('./sanitizarInfCplNfe');
 
 function limparCNPJ(cnpj) {
   return String(cnpj || '').replace(/\D/g, '');
@@ -514,9 +515,10 @@ function buildXmlNFeDevolucaoCompra({ config, compra, itens, numero, observacoes
     cMun: destCMun
   });
 
-  const cplBase =
+  const cplBase = sanitizarInfCplNfe(
     observacoes ||
-    `Devolução referente à NF-e ${refNFe}. Compra interna #${compra.id}.`;
+    `Devolucao referente a NF-e ${refNFe}. Compra interna #${compra.id}.`
+  );
 
   const xml = `
     <NFe xmlns="http://www.portalfiscal.inf.br/nfe">
@@ -609,7 +611,7 @@ function buildXmlNFeDevolucaoCompra({ config, compra, itens, numero, observacoes
         <transp><modFrete>9</modFrete></transp>
         <pag><detPag><tPag>90</tPag><vPag>0.00</vPag></detPag></pag>
         <infAdic>
-          <infCpl>${xmlEscape(String(cplBase).substring(0, 5000))}</infCpl>
+          <infCpl>${xmlEscape(cplBase)}</infCpl>
         </infAdic>
       </infNFe>
     </NFe>
@@ -623,12 +625,14 @@ function buildXmlNFeDevolucaoCompra({ config, compra, itens, numero, observacoes
     serie,
     numero,
     refNFe,
+    referenciaPorItem: false,
     finNFe: 4,
     tpNF: 1,
     natOp: 'DEVOLUCAO DE COMPRA',
     totalProdutos: vNF,
     cfop: cfopPadrao,
     xmlSemAssinatura: xmlCompacto,
+    infCpl: cplBase,
     resolucaoIcms,
     diagnosticoIpiDevol: {
       compraId: compra.id,
@@ -642,7 +646,38 @@ function buildXmlNFeDevolucaoCompra({ config, compra, itens, numero, observacoes
   };
 }
 
+function resolverNItemOrigemItem(item, idx) {
+  const n = Number(
+    item.nItemOrigem
+    || item.n_item_origem
+    || (item.espelhamento && item.espelhamento.nItemOrigem)
+    || 0
+  );
+  if (!(n > 0)) {
+    throw Object.assign(
+      new Error(`Item ${idx + 1} sem nItem da NF-e original (DFeReferenciado). Emissão bloqueada.`),
+      { code: 'NITEM_ORIGEM_INDETERMINADO', statusCode: 400 }
+    );
+  }
+  return n;
+}
+
+function montarXmlDfeReferenciado(chaveAcesso, nItem) {
+  const chave = onlyDigits(chaveAcesso);
+  const n = Number(nItem);
+  if (chave.length !== 44 || !(n > 0)) {
+    throw Object.assign(
+      new Error('DFeReferenciado inválido: informe chaveAcesso (44) e nItem da NF-e original.'),
+      { code: 'DFE_REFERENCIADO_INVALIDO', statusCode: 400 }
+    );
+  }
+  return `<DFeReferenciado><chaveAcesso>${chave}</chaveAcesso><nItem>${n}</nItem></DFeReferenciado>`;
+}
+
 module.exports = {
   buildXmlNFeDevolucaoCompra,
-  montarImpostoItem
+  sanitizarInfCplNfe,
+  montarImpostoItem,
+  montarXmlDfeReferenciado,
+  resolverNItemOrigemItem
 };

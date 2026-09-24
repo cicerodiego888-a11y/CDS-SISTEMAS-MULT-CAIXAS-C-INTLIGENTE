@@ -88,6 +88,7 @@ describe('Rejeição 275 — cMun destinatário (fornecedor)', () => {
         produto_codigo: 'P1',
         ncm: '22021000',
         unidade: 'UN',
+        nItemOrigem: 1,
         quantidade: 1,
         valor_unitario: 10,
         csosn: '102'

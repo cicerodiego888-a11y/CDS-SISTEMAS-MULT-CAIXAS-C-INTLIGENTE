@@ -883,20 +883,40 @@
         ${card('<i class="fas fa-print"></i> Impressão de cupom', `
           <p class="cds-cfg-hint mb-3">
             Somente <strong>Super Usuário</strong>.
-            Quando <strong>ATIVADO</strong> (padrão), o PDV imprime o cupom ao finalizar a venda (NFC-e ou não fiscal).
-            Quando <strong>DESATIVADO</strong>, a venda segue sem imprimir; a reimpressão no histórico continua disponível.
+            O cupom sempre aparece na tela. A impressão é uma etapa posterior e não altera a venda nem a NFC-e.
+            Padrão: <strong>perguntar antes de imprimir</strong>, 2 vias (Cliente e Estabelecimento).
           </p>
-          <label class="form-label" for="cfgPdvImprimirCupom">Imprimir cupom automaticamente no PDV</label>
+          <label class="form-label" for="cfgPdvImprimirCupom">Permitir impressão de cupom</label>
           <select class="form-select" id="cfgPdvImprimirCupom" data-cfg-search="cupom impressão imprimir pdv fiscal não fiscal">
             <option value="ATIVADO">ATIVADO</option>
             <option value="DESATIVADO">DESATIVADO</option>
           </select>
+          <label class="form-label mt-3">Modo de impressão</label>
+          <select class="form-select" id="cfgCupomPoliticaModo">
+            <option value="PERGUNTAR">Perguntar antes de imprimir</option>
+            <option value="AUTOMATICO">Imprimir automaticamente</option>
+            <option value="NAO_IMPRIMIR">Não imprimir</option>
+          </select>
+          <div class="row g-2 mt-2">
+            <div class="col-md-6">
+              <label class="form-label">Vias fiscais</label>
+              <select class="form-select" id="cfgCupomPoliticaFiscalVias">
+                <option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Vias não fiscais</label>
+              <select class="form-select" id="cfgCupomPoliticaNfVias">
+                <option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option>
+              </select>
+            </div>
+          </div>
           <div class="cds-cfg-actions mt-2">
             <button type="button" class="btn btn-primary btn-sm" id="btnSalvarPdvImprimirCupom">
               <i class="fas fa-save"></i> Salvar
             </button>
           </div>
-        `, 'cupom impressão imprimir pdv fiscal super usuário')}
+        `, 'cupom impressão imprimir pdv fiscal super usuário vias')}
 
         <h3 class="cds-cfg-pane__section mt-4 mb-2">Comportamento Fiscal</h3>
         ${card('<i class="fas fa-file-invoice-dollar"></i> Operação fiscal no PDV', `
@@ -1108,6 +1128,17 @@
     }).catch(() => {
       sel.value = 'ATIVADO';
     });
+    fetch(`${api}/configuracoes/cupom_impressao_politica`, {
+      headers: headersCfgApi()
+    }).then((r) => r.ok ? r.json() : {}).then((data) => {
+      const valor = data.valor || {};
+      const modo = document.getElementById('cfgCupomPoliticaModo');
+      const fv = document.getElementById('cfgCupomPoliticaFiscalVias');
+      const nv = document.getElementById('cfgCupomPoliticaNfVias');
+      if (modo) modo.value = valor.modo || 'PERGUNTAR';
+      if (fv) fv.value = String((valor.fiscal && valor.fiscal.vias) || 2);
+      if (nv) nv.value = String((valor.nao_fiscal && valor.nao_fiscal.vias) || 2);
+    }).catch(() => {});
   }
 
   async function salvarImprimirCupomPdv(opcoes) {
@@ -1126,11 +1157,24 @@
         throw new Error(data.error || data.erro || 'Não foi possível salvar.');
       }
       sel.value = data.valor === 'DESATIVADO' ? 'DESATIVADO' : 'ATIVADO';
+      const modo = (document.getElementById('cfgCupomPoliticaModo') || {}).value || 'PERGUNTAR';
+      const fiscalVias = Number((document.getElementById('cfgCupomPoliticaFiscalVias') || {}).value || 2);
+      const nfVias = Number((document.getElementById('cfgCupomPoliticaNfVias') || {}).value || 2);
+      const destinosPadrao = ['CLIENTE', 'ESTABELECIMENTO'];
+      await fetch(`${api}/configuracoes/cupom_impressao_politica`, {
+        method: 'PUT',
+        headers: headersCfgApi(),
+        body: JSON.stringify({
+          modo,
+          fiscal: { modo, vias: fiscalVias, destinos: destinosPadrao.slice(0, Math.max(1, fiscalVias)) },
+          nao_fiscal: { modo, vias: nfVias, destinos: destinosPadrao.slice(0, Math.max(1, nfVias)) }
+        })
+      });
       if (!silencioso && typeof global.showNotification === 'function') {
         global.showNotification(
           data.valor === 'DESATIVADO'
-            ? 'Impressão automática de cupom DESATIVADA.'
-            : 'Impressão automática de cupom ATIVADA.',
+            ? 'Impressão de cupom DESATIVADA.'
+            : 'Política de impressão de cupom salva.',
           'success'
         );
       }

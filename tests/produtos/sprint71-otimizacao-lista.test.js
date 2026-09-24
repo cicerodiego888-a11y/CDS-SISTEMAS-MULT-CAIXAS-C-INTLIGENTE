@@ -85,9 +85,11 @@ describe('Sprint 7.1 — árvore, DOM e debounce', () => {
     assert.match(PRODUTOS, /cancelarBuscaProdutosMib\(\)/);
   });
 
-  it('não evicta UIRequestContext', () => {
-    assert.equal(CTX.includes('_requests.delete'), false);
+  it('não evicta requests ACTIVE do UIRequestContext', () => {
+    // Foco Global V2: prune() remove só entradas terminais antigas (STALE/COMPLETED/CANCELLED).
+    assert.match(CTX, /if \(row\.status === STATUS\.ACTIVE\) continue/);
     assert.match(CTX, /retained:\s*_requests\.size/);
+    assert.match(CTX, /function prune|prune\(/);
   });
 });
 

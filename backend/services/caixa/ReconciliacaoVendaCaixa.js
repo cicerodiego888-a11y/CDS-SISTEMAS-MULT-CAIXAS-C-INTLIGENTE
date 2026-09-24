@@ -177,6 +177,9 @@ function reconciliarVenda(venda, pagamentosLinhas = [], recebimentosLinhas = [])
   let tipoInconsistencia = null;
   let mensagem = null;
 
+  const fiscalMaisNf = identidade.soma;
+  let divergencia = arred2(subtrair(fiscalMaisNf, totalOficial));
+
   if (!identidade.ok) {
     status = STATUS.INCONSISTENTE;
     tipoInconsistencia = 'inconsistencia_venda';
@@ -195,12 +198,18 @@ function reconciliarVenda(venda, pagamentosLinhas = [], recebimentosLinhas = [])
     status = STATUS.PARCIALMENTE_RECEBIDA;
   }
 
+  if (identidade.ok || identidade.legado) {
+    divergencia = arred2(subtrair(recebidoTotal, totalOficial));
+  }
+
   return {
     venda_id: venda && venda.id,
     codigo: venda && venda.codigo || null,
     total_oficial: totalOficial,
     valor_fiscal: identidade.valor_fiscal,
     valor_nao_fiscal: identidade.valor_nao_fiscal,
+    fiscal_mais_nao_fiscal: fiscalMaisNf,
+    divergencia,
     recebido_fiscal: arred2(recebidoFiscal),
     recebido_nao_fiscal: arred2(recebidoNaoFiscal),
     recebido_total: recebidoTotal,
@@ -218,8 +227,63 @@ function reconciliarVenda(venda, pagamentosLinhas = [], recebimentosLinhas = [])
 }
 
 function bloqueiaFechamento(rec) {
-  return rec.status_reconciliacao === STATUS.INCONSISTENTE
-    || rec.status_reconciliacao === STATUS.EXCEDENTE;
+  const status = rec && rec.status_reconciliacao;
+  return status === STATUS.INCONSISTENTE || status === STATUS.EXCEDENTE;
+}
+
+function detalheInconsistencia(rec) {
+  return {
+    venda_id: rec.venda_id,
+    codigo: rec.codigo || null,
+    oficial: rec.total_oficial,
+    fiscal_mais_nao_fiscal: rec.fiscal_mais_nao_fiscal != null
+      ? rec.fiscal_mais_nao_fiscal
+      : arred2(n(rec.valor_fiscal) + n(rec.valor_nao_fiscal)),
+    recebido_total: rec.recebido_total,
+    divergencia: rec.divergencia != null
+      ? arred2(rec.divergencia)
+      : arred2(n(rec.fiscal_mais_nao_fiscal != null
+        ? rec.fiscal_mais_nao_fiscal
+        : (n(rec.valor_fiscal) + n(rec.valor_nao_fiscal))) - n(rec.total_oficial)),
+    status: rec.status_reconciliacao,
+    tipo_inconsistencia: rec.tipo_inconsistencia || null,
+    mensagem: rec.mensagem || null
+  };
+}
+
+function resumirInconsistencias(vendas) {
+  const lista = (Array.isArray(vendas) ? vendas : []).filter(bloqueiaFechamento);
+  const detalhes = lista.map(detalheInconsistencia);
+  const saldoLiquido = arred2(detalhes.reduce((acc, item) => acc + n(item.divergencia), 0));
+  return {
+    quantidade_inconsistencias: detalhes.length,
+    valor_divergencia: arred2(Math.abs(saldoLiquido)),
+    saldo_liquido: saldoLiquido,
+    detalhes
+  };
+}
+
+function montarErroBloqueioReconciliacao(vendas, extras = {}) {
+  const resumo = resumirInconsistencias(vendas);
+  if (!resumo.quantidade_inconsistencias) return null;
+  const err = new Error(
+    `Não é possível finalizar o caixa enquanto existirem vendas inconsistentes. `
+    + `${resumo.quantidade_inconsistencias} venda(s) inconsistente(s). `
+    + `Diferença total: ${resumo.valor_divergencia.toFixed(2)}. `
+    + `Saldo líquido: ${resumo.saldo_liquido.toFixed(2)}.`
+  );
+  err.codigo = 'FECHAMENTO_BLOQUEADO_RECONCILIACAO';
+  err.quantidade_inconsistencias = resumo.quantidade_inconsistencias;
+  err.valor_divergencia = resumo.valor_divergencia;
+  err.saldo_liquido = resumo.saldo_liquido;
+  err.detalhes = resumo.detalhes;
+  err.inconsistencias = listaOuVendas(vendas);
+  err.divergencias = extras.divergencias || [];
+  return err;
+}
+
+function listaOuVendas(vendas) {
+  return (Array.isArray(vendas) ? vendas : []).filter(bloqueiaFechamento);
 }
 
 module.exports = {
@@ -233,5 +297,8 @@ module.exports = {
   identidadeFiscalVenda,
   resolverLinhasRecebidasVenda,
   reconciliarVenda,
-  bloqueiaFechamento
+  bloqueiaFechamento,
+  detalheInconsistencia,
+  resumirInconsistencias,
+  montarErroBloqueioReconciliacao
 };

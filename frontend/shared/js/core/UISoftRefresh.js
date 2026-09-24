@@ -1,5 +1,5 @@
 /**
- * Soft refresh helpers (Sprint 6).
+ * Soft refresh helpers (Sprint 6 + Foco Global V2).
  */
 (function (global) {
   'use strict';
@@ -30,9 +30,6 @@
   }
 
   const UISoftRefresh = {
-    /**
-     * Atualiza texto/atributos sem recriar o nó.
-     */
     patchText(selectorOrEl, text) {
       const el = typeof selectorOrEl === 'string'
         ? document.querySelector(selectorOrEl)
@@ -54,9 +51,11 @@
     },
 
     /**
-     * Substitui HTML preservando foco/scroll quando o usuário interage na área.
+     * Substitui HTML. Se o usuário estiver EDITANDO dentro do container,
+     * preserva foco/caret/valor. Se options.skipIfEditing === true e está
+     * editando, não aplica (caller deve usar incremental).
      */
-    replaceHtml(container, html) {
+    replaceHtml(container, html, options = {}) {
       if (!container) return false;
       const startedAt = (global.performance && typeof global.performance.now === 'function')
         ? global.performance.now()
@@ -64,16 +63,26 @@
       const nodesBefore = nodeCount(container);
       const Focus = global.UIFocusManager;
       const State = global.UIStateManager;
+      if (options.skipIfEditing === true && Focus && Focus.isEditing(container)) {
+        perf('skipped', container, startedAt, {
+          updateType: 'skipped-editing',
+          nodesBefore,
+          nodesAfter: nodesBefore
+        });
+        return false;
+      }
+      if (document.querySelector('.modal.show') && container.contains
+        && container.contains(document.querySelector('.modal.show'))
+        && options.allowModalReplace !== true) {
+        return false;
+      }
       const scroll = State ? State.captureScroll(container) : null;
       const run = () => {
         container.innerHTML = html;
         if (State && scroll) State.restoreScroll(container, scroll);
       };
-      if (Focus && Focus.isInside(container)) {
+      if (Focus && Focus.shouldPreserveFocus(container)) {
         Focus.withPreservedFocus(container, run);
-      } else if (document.querySelector('.modal.show') && container.contains
-        && container.contains(document.querySelector('.modal.show'))) {
-        return false;
       } else {
         run();
       }
@@ -87,7 +96,8 @@
     },
 
     /**
-     * Soft refresh: se editando/modal → skip full replace; senão aplica.
+     * Soft refresh: se editando/modal → skip full replace (ou incremental);
+     * senão aplica updateFn com preservação de foco.
      */
     softRefresh(container, updateFn, options = {}) {
       if (!container) return false;
@@ -95,8 +105,11 @@
         ? global.performance.now()
         : Date.now();
       const nodesBefore = nodeCount(container);
-      const Poll = global.UIPollingManager;
-      if (Poll && Poll.shouldSoftUpdate(container) && options.force !== true) {
+      const Focus = global.UIFocusManager;
+      const editing = Focus
+        ? Focus.shouldPreserveFocus(container)
+        : !!(global.UIPollingManager && global.UIPollingManager.shouldSoftUpdate(container));
+      if (editing && options.force !== true) {
         if (typeof options.incremental === 'function') {
           const result = options.incremental();
           perf('incremental', container, startedAt, {
@@ -115,7 +128,6 @@
         });
         return false;
       }
-      const Focus = global.UIFocusManager;
       const result = Focus
         ? Focus.withPreservedFocus(container, updateFn)
         : (typeof updateFn === 'function' ? updateFn() : false);

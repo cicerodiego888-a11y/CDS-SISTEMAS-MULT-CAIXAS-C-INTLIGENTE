@@ -30,7 +30,7 @@ const configBase = {
 };
 
 describe('RC1 — XML NF-e Devolução de Compra', () => {
-  it('gera finNFe=4, tpNF=1, natOp e NFref com 44 dígitos', () => {
+  it('gera finNFe=4, tpNF=1, natOp e NFref da compra (sem DFeReferenciado)', () => {
     const built = buildXmlNFeDevolucaoCompra({
       config: configBase,
       compra: {
@@ -52,6 +52,7 @@ describe('RC1 — XML NF-e Devolução de Compra', () => {
         unidade: 'UN',
         quantidade: 2,
         valor_unitario: 10.5,
+        nItemOrigem: 1,
         csosn: '102'
       }],
       numero: 123
@@ -64,7 +65,8 @@ describe('RC1 — XML NF-e Devolução de Compra', () => {
     assert.match(built.xmlSemAssinatura, /<finNFe>4<\/finNFe>/);
     assert.match(built.xmlSemAssinatura, /<tpNF>1<\/tpNF>/);
     assert.match(built.xmlSemAssinatura, /<natOp>DEVOLUCAO DE COMPRA<\/natOp>/);
-    assert.match(built.xmlSemAssinatura, new RegExp(`<NFref>\\s*<refNFe>${CHAVE44}</refNFe>\\s*</NFref>`));
+    assert.match(built.xmlSemAssinatura, new RegExp(`<NFref><refNFe>${CHAVE44}</refNFe></NFref>`));
+    assert.doesNotMatch(built.xmlSemAssinatura, /<DFeReferenciado>/);
     assert.match(built.xmlSemAssinatura, /<CSOSN>102<\/CSOSN>/);
     assert.match(built.xmlSemAssinatura, /<CFOP>5202<\/CFOP>/);
   });

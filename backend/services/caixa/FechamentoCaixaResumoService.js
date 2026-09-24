@@ -22,7 +22,9 @@ const {
   resolverLinhasRecebidasVenda,
   reconciliarVenda,
   bloqueiaFechamento,
-  totalOficialVenda
+  totalOficialVenda,
+  resumirInconsistencias,
+  montarErroBloqueioReconciliacao
 } = require('./ReconciliacaoVendaCaixa');
 const { calcularConferenciaFisica } = require('./FechamentoCaixaPolitica');
 
@@ -405,10 +407,12 @@ async function consolidarSessaoCaixa(caixa, options = {}) {
         tipo: rec.tipo_inconsistencia || 'inconsistencia_financeira',
         venda_id: rec.venda_id,
         valor_venda: rec.total_oficial,
+        fiscal_mais_nao_fiscal: rec.fiscal_mais_nao_fiscal,
         soma_pagamentos: rec.recebido_total,
         recebido: rec.recebido_total,
         pendente: rec.pendente_total,
-        diferenca: arred2(rec.recebido_total - rec.total_oficial),
+        diferenca: rec.divergencia,
+        divergencia: rec.divergencia,
         status_pagamento: rec.status_pagamento,
         status_reconciliacao: rec.status_reconciliacao,
         mensagem: rec.mensagem,
@@ -542,6 +546,7 @@ async function consolidarSessaoCaixa(caixa, options = {}) {
       vendas_pendentes: vendasPendentes,
       vendas_inconsistentes: vendasInconsistentes,
       vendas_excedentes: vendasExcedentes,
+      ...resumirInconsistencias(reconciliacoes),
       divergencias,
       vendas: reconciliacoes
     },
@@ -549,7 +554,8 @@ async function consolidarSessaoCaixa(caixa, options = {}) {
       ok: divergencias.length === 0,
       tolerancia: TOLERANCIA,
       divergencias,
-      inconsistencias: vendasInconsistentes
+      inconsistencias: vendasInconsistentes,
+      ...resumirInconsistencias(reconciliacoes)
     },
     sessao_id: sessaoId
   };
@@ -610,10 +616,23 @@ function montarResumoVazio(caixa, meta = {}) {
       vendas_pendentes: 0,
       vendas_inconsistentes: 0,
       vendas_excedentes: 0,
+      quantidade_inconsistencias: 0,
+      valor_divergencia: 0,
+      saldo_liquido: 0,
+      detalhes: [],
       divergencias: [],
       vendas: []
     },
-    validacao: { ok: true, tolerancia: TOLERANCIA, divergencias: [], inconsistencias: 0 },
+    validacao: {
+      ok: true,
+      tolerancia: TOLERANCIA,
+      divergencias: [],
+      inconsistencias: 0,
+      quantidade_inconsistencias: 0,
+      valor_divergencia: 0,
+      saldo_liquido: 0,
+      detalhes: []
+    },
     sessao_id: null
   };
 }
@@ -710,40 +729,26 @@ function paraFechamentoLegado(consolidacao, valorInformado) {
 }
 
 function validarConsolidacaoOuErro(consolidacao) {
-  const inconsistentes = (consolidacao?.reconciliacao?.vendas || [])
-    .filter((v) => v.status_reconciliacao === STATUS.INCONSISTENTE || v.status_reconciliacao === STATUS.EXCEDENTE);
-  const divergencias = consolidacao?.validacao?.divergencias || [];
-  if (!inconsistentes.length && !divergencias.length) {
-    return null;
-  }
-  if (!inconsistentes.length && consolidacao?.validacao?.ok) {
-    return null;
-  }
-  const qtd = inconsistentes.length || divergencias.length;
-  const msgs = (divergencias.length ? divergencias : inconsistentes).map((d) => {
-    if (d.tipo === 'inconsistencia_venda' || d.tipo_inconsistencia === 'inconsistencia_venda') {
-      return d.mensagem || `Venda #${d.venda_id}: total oficial não confere com fiscal + não fiscal`;
-    }
-    if (d.tipo === 'inconsistencia_recebimento' || d.status_reconciliacao === STATUS.INCONSISTENTE) {
-      return d.mensagem
-        || `Venda #${d.venda_id}: valor da venda ${d.valor_venda ?? d.total_oficial} | recebido ${d.recebido ?? d.recebido_total} | status ${d.status_pagamento || d.status_reconciliacao}`;
-    }
-    if (d.tipo === 'recebimento_excedente' || d.status_reconciliacao === STATUS.EXCEDENTE) {
-      return d.mensagem || `Venda #${d.venda_id}: recebimento excedente`;
-    }
-    if (d.tipo === 'total_recebido_vs_buckets') {
-      return `Total recebido (${d.liquido_recebido}) ≠ soma pagamentos (${d.soma_buckets})`;
-    }
-    if (d.tipo === 'pagamento_vs_venda') {
-      return d.mensagem || `Venda #${d.venda_id}: ${d.mensagem || 'inconsistência financeira'}`;
-    }
-    return d.mensagem || JSON.stringify(d);
+  const vendas = consolidacao?.reconciliacao?.vendas || [];
+  const bloqueio = montarErroBloqueioReconciliacao(vendas, {
+    divergencias: consolidacao?.validacao?.divergencias || []
   });
+  if (bloqueio) return bloqueio;
+
+  const divergencias = consolidacao?.validacao?.divergencias || [];
+  const soTotalBuckets = divergencias.filter((d) => d.tipo === 'total_recebido_vs_buckets');
+  if (!soTotalBuckets.length || consolidacao?.validacao?.ok) {
+    return null;
+  }
   const err = new Error(
-    `Existem ${qtd} vendas com inconsistência financeira. ${msgs.join('; ')}`
+    soTotalBuckets.map((d) => `Total recebido (${d.liquido_recebido}) ≠ soma pagamentos (${d.soma_buckets})`).join('; ')
   );
-  err.codigo = 'INCONSISTENCIA_FINANCEIRA';
-  err.inconsistencias = inconsistentes;
+  err.codigo = 'FECHAMENTO_BLOQUEADO_RECONCILIACAO';
+  err.quantidade_inconsistencias = 0;
+  err.valor_divergencia = arred2(soTotalBuckets.reduce((acc, d) => acc + Math.abs(n(d.diferenca)), 0));
+  err.saldo_liquido = arred2(soTotalBuckets.reduce((acc, d) => acc + n(d.diferenca), 0));
+  err.detalhes = soTotalBuckets;
+  err.inconsistencias = [];
   err.divergencias = divergencias;
   return err;
 }

@@ -9,7 +9,7 @@ function loadCaixa() {
       <div id="status-caixa-area" class="mb-3"></div>
       <div id="caixa-area"></div>
 
-      <div class="card mb-4 mt-4">
+      <div class="card mb-4 mt-4" id="caixa-consulta-anteriores">
         <div class="card-header bg-dark text-white">
           <strong><i class="fas fa-calendar-alt"></i> Consultar Caixa por Dia</strong>
         </div>
@@ -165,15 +165,33 @@ function renderAbrirCaixa() {
 }
 
 function carregarSaldoInicialSugerido() {
+  const campo = document.getElementById('valor-inicial-caixa');
+  const digitaram = () => {
+    const Focus = window.UIFocusManager;
+    const el = document.getElementById('valor-inicial-caixa');
+    if (!el) return true;
+    if (Focus && Focus.isEditingElement(el)) return true;
+    if (el.dataset && el.dataset.userTouched === '1') return true;
+    return false;
+  };
+  if (campo && !campo.dataset.boundTouch) {
+    campo.dataset.boundTouch = '1';
+    ['keydown', 'input', 'mousedown'].forEach((ev) => {
+      campo.addEventListener(ev, () => { campo.dataset.userTouched = '1'; }, { passive: true });
+    });
+  }
+
   $.get(`${API_URL}/caixa/saldo-inicial-sugerido`, function(res) {
     const valor = Number(res.valor_sugerido || 0);
-
-    $('#valor-inicial-caixa').val(
-      valor.toLocaleString('pt-BR', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      })
-    );
+    const $campo = $('#valor-inicial-caixa');
+    if ($campo.length && !digitaram()) {
+      $campo.val(
+        valor.toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        })
+      );
+    }
 
     $('#saldo-sugerido-info').html(`
       <strong>Último saldo contado:</strong> ${dinheiro(valor)}
@@ -182,6 +200,7 @@ function carregarSaldoInicialSugerido() {
     `);
 
     setTimeout(() => {
+      if (digitaram()) return;
       $('#valor-inicial-caixa').focus().select();
     }, 200);
   }).fail(function() {
@@ -189,9 +208,12 @@ function carregarSaldoInicialSugerido() {
       Não foi possível buscar o último saldo. Informe o valor manualmente.
     `);
 
-    $('#valor-inicial-caixa').val('0,00');
+    if (!digitaram()) {
+      $('#valor-inicial-caixa').val('0,00');
+    }
 
     setTimeout(() => {
+      if (digitaram()) return;
       $('#valor-inicial-caixa').focus().select();
     }, 200);
   });
@@ -327,43 +349,91 @@ function registrarSuprimento() {
   });
 }
 
-function imprimirCupomFechamentoCaixa(html) {
+async function imprimirCupomFechamentoCaixa(html) {
   if (!html) return;
+
+  const mostrarNaTela = () => {
+    try {
+      if (window.electronAPI && typeof window.electronAPI.abrirComprovante === 'function') {
+        window.electronAPI.abrirComprovante(html, {
+          silent: false,
+          autoFecharMs: 10000,
+          aguardarDecisao: true,
+          enviarImpressora: false
+        });
+        return true;
+      }
+    } catch (_) { /* fallback */ }
+    const w = window.open('', '_blank', 'width=340,height=720');
+    if (!w) return false;
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    return true;
+  };
+
+  mostrarNaTela();
+
   try {
-    if (window.electronAPI && typeof window.electronAPI.abrirComprovante === 'function') {
-      window.electronAPI.abrirComprovante(html, { silent: false, autoFecharMs: 5000 });
+    if (window.CupomPrintPolicy && typeof window.CupomPrintPolicy.aposCupomNaTela === 'function') {
+      await window.CupomPrintPolicy.aposCupomNaTela({
+        tipo: 'NAO_FISCAL',
+        html,
+        automatico: true,
+        vias: 1,
+        destinos: ['ESTABELECIMENTO']
+      });
       return;
     }
-  } catch (_) { /* fallback browser */ }
 
-  const w = window.open('', '_blank', 'width=340,height=720');
-  if (!w) return;
-  w.document.write(html);
-  w.document.close();
-  w.focus();
-  setTimeout(() => {
-    try { w.print(); } catch (_) { /* ignore */ }
-  }, 300);
+    const deviceName = (typeof obterDeviceNameImpressoraCupom === 'function')
+      ? await obterDeviceNameImpressoraCupom()
+      : null;
+    if (deviceName && window.electronAPI && typeof window.electronAPI.imprimirDANFESilencioso === 'function') {
+      await window.electronAPI.imprimirDANFESilencioso(html, deviceName);
+      return;
+    }
+
+    if (!deviceName && typeof showNotification === 'function') {
+      showNotification('Cupom na tela. Configure a impressora de cupom para imprimir automaticamente.', 'warning');
+    }
+  } catch (err) {
+    if (typeof showNotification === 'function') {
+      showNotification(err && err.message ? err.message : 'Falha ao enviar cupom à impressora.', 'danger');
+    }
+  }
 }
 
 function fecharCaixaComDivergencia() {
   fecharCaixa(true);
 }
 
-function fecharCaixa(fecharComDivergencia) {
-  const payload = window.FechamentoCaixaV2Ui
-    ? window.FechamentoCaixaV2Ui.coletarPayload(fecharComDivergencia === true)
-    : {
-      valor_informado: pegarValorCampo('#valor-fechamento'),
-      dinheiro_conferido: pegarValorCampo('#valor-fechamento'),
-      observacao: $('#observacao-fechamento').val(),
-      fechar_com_divergencia: fecharComDivergencia === true
-    };
+function tratarErroFechamentoCaixa(mensagem, xhr) {
+  const body = xhr && xhr.responseJSON;
+  const codigo = body && body.codigo;
+  if (codigo === 'FECHAMENTO_BLOQUEADO_RECONCILIACAO' || codigo === 'AUTORIZACAO_ADMIN_NECESSARIA') {
+    showNotification(body.error || 'É necessária autorização de um administrador.', 'danger');
+    if (window.FechamentoCaixaV2Ui && typeof window.FechamentoCaixaV2Ui.abrirInconsistencias === 'function') {
+      window.FechamentoCaixaV2Ui.abrirInconsistencias();
+    }
+    return;
+  }
+  if (codigo === 'CREDENCIAIS_INVALIDAS') {
+    showNotification(body.error || 'Usuário ou senha inválidos.', 'danger');
+    return;
+  }
+  if (codigo === 'SEM_PERMISSAO_DIVERGENCIA') {
+    showNotification(body.error || 'Este usuário não possui permissão para autorizar fechamento com divergência.', 'danger');
+    return;
+  }
+  if (codigo === 'SESSAO_JA_FECHADA') {
+    showNotification(body.error || 'Esta sessão já foi fechada.', 'danger');
+    return;
+  }
+  showNotification(mensagem || 'Erro ao fechar caixa.', 'danger');
+}
 
-  if (!confirm(fecharComDivergencia === true
-    ? 'Confirmar fechamento COM divergência de caixa?'
-    : 'Tem certeza que deseja fechar o caixa?')) return;
-
+function enviarFechamentoCaixa(payload) {
   enviarOperacaoCaixa(PERMISSOES_CAIXA.FECHAR, '/caixa/fechar', payload, {
     global: false,
     senha: {
@@ -379,10 +449,39 @@ function fecharCaixa(fecharComDivergencia) {
       renderAbrirCaixa();
       carregarCaixaAberto();
     },
-    onError: function(mensagem) {
-      showNotification(mensagem || 'Erro ao fechar caixa.', 'danger');
-    }
+    onError: tratarErroFechamentoCaixa
   });
+}
+
+function fecharCaixa(fecharComDivergencia) {
+  const Ui = window.FechamentoCaixaV2Ui;
+  if (Ui && typeof Ui.prepararFechamento === 'function') {
+    Ui.prepararFechamento(fecharComDivergencia === true, {
+      notify: typeof showNotification === 'function' ? showNotification : function () {}
+    }).then((prep) => {
+      if (!prep || !prep.ok) {
+        if (prep && prep.erro) showNotification(prep.erro, 'warning');
+        return;
+      }
+      enviarFechamentoCaixa(prep.payload);
+    });
+    return;
+  }
+
+  const payload = Ui
+    ? Ui.coletarPayload(fecharComDivergencia === true)
+    : {
+      valor_informado: pegarValorCampo('#valor-fechamento'),
+      dinheiro_conferido: pegarValorCampo('#valor-fechamento'),
+      observacao: $('#observacao-fechamento').val(),
+      fechar_com_divergencia: fecharComDivergencia === true
+    };
+
+  if (!confirm(fecharComDivergencia === true
+    ? 'Confirmar fechamento COM divergência de caixa?'
+    : 'Tem certeza que deseja fechar o caixa?')) return;
+
+  enviarFechamentoCaixa(payload);
 }
 
 function selecionarCaixaHoje() {

@@ -12,6 +12,8 @@ const { STATUS, DOC_STATUS, STATUS_PODEM_PREPARAR, TP_EMIS } = require('./consta
 const {
   validarPreparacaoFiscal,
   ratearRecebimentosPorDocumentos,
+  obterRecebimentosDaTentativa,
+  resolverContextoEmissao,
   hashIdempotencia,
   formatarErrosUsuario,
   agoraLocal,
@@ -142,8 +144,7 @@ async function resolverConfigFiscal(deps) {
 
 function peekNumeroProvisorio(config, sequencia) {
   // NÃO consome numeração — apenas visualização/preparação.
-  // Usa a numeração oficial do CDS (fiscal_numero_atual / fluxo incrementaNumeroFiscal).
-  // Não inventa série/número próprios do Fechamento Fiscal.
+  // A reserva definitiva ocorre na transmissão via reservarProximaNumeracaoFiscal (modelo 65).
   const base = Number(
     config.numeroAtual != null
       ? config.numeroAtual
@@ -249,6 +250,7 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
   const db = getDb(deps.db);
   const id = Number(fechamentoId);
   const snapshotAntes = deps.capturarSnapshot !== false ? await snapshotComercial(db) : null;
+  const saldoSvc = require('./FechamentoFiscalSaldoService');
 
   const ff = await get(db, `SELECT * FROM fechamentos_fiscais WHERE id = ?`, [id]);
   if (!ff) {
@@ -264,6 +266,36 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
     throw err;
   }
 
+  // Proteção legado/parcial + contexto da tentativa (nunca usar principal se já há autorização)
+  const saldoPrep = await saldoSvc.recalcularSaldoFechamento(db, id, {
+    candidatoPrincipal: Number(ff.valor_principal) > 0
+      ? ff.valor_principal
+      : ff.valor_informado
+  });
+  if (saldoPrep.concluido || toCentavos(saldoPrep.valor_pendente_emissao) === 0) {
+    if (toCentavos(saldoPrep.valor_emitido_autorizado) > 0) {
+      const err = new Error('Fechamento já totalmente autorizado. Não há saldo pendente para preparar.');
+      err.statusCode = 409;
+      err.code = 'FECHAMENTO_JA_CONCLUIDO';
+      err.saldo = saldoPrep;
+      throw err;
+    }
+  }
+  if (
+    Number(saldoPrep.valor_emitido_autorizado) > 0
+    && Number(saldoPrep.valor_pendente_emissao) > 0
+    && opts.continuar_emissao !== true
+    && opts.continuar !== true
+  ) {
+    const bloqueioParcial = saldoSvc.bloquearEmissaoIntegralSeParcial(saldoPrep, {});
+    if (bloqueioParcial) throw bloqueioParcial;
+  }
+
+  const contextoEmissao = resolverContextoEmissao(ff, saldoPrep, opts);
+  if (contextoEmissao.tipo === 'CONTINUACAO') {
+    saldoSvc.assertValorTentativaPermitido(saldoPrep, contextoEmissao.valorTentativa);
+  }
+
   if (opts.data_hora_emissao || opts.dhEmi || opts.forcar_dhEmi) {
     const err = new Error('Hora retroativa arbitrária não é permitida nesta preparação.');
     err.statusCode = 400;
@@ -277,6 +309,9 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
     `SELECT * FROM fechamentos_fiscais_recebimentos WHERE fechamento_fiscal_id = ? ORDER BY id`,
     [id]
   );
+  const recebimentosTentativa = contextoEmissao.tipo === 'CONTINUACAO'
+    ? obterRecebimentosDaTentativa(recebimentos, contextoEmissao.valorTentativa)
+    : recebimentos;
 
   const produtoIds = [];
   for (const v of previaVendas) {
@@ -294,25 +329,39 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
     throw err;
   }
 
+  // Fechamento efetivo para validação: em continuação, valor_distribuido deve bater com tentativa
+  const ffValidacao = contextoEmissao.tipo === 'CONTINUACAO'
+    ? {
+      ...ff,
+      valor_distribuido: contextoEmissao.valorTentativa,
+      // mantém valor_informado histórico; o validador ignora em CONTINUACAO
+      diferenca: 0
+    }
+    : ff;
+
   const validacao = validarPreparacaoFiscal({
-    fechamento: ff,
+    fechamento: ffValidacao,
     previaVendas,
     produtosPorId,
     configFiscal,
-    recebimentos,
+    recebimentos: recebimentosTentativa,
+    saldo: saldoPrep,
+    contextoEmissao,
     opts: {
       certificadoOpcional: deps.certificadoOpcional === true,
       bloquearProducaoEmTeste: deps.bloquearProducaoEmTeste === true,
       data_hora_emissao: opts.data_hora_emissao,
       dhEmi: opts.dhEmi,
-      forcar_dhEmi: opts.forcar_dhEmi
+      forcar_dhEmi: opts.forcar_dhEmi,
+      continuar_emissao: opts.continuar_emissao === true || opts.continuar === true,
+      recebimentosJaDaTentativa: true
     }
   });
 
   const idemKey = hashIdempotencia({
     fechamentoId: id,
     previaVendas,
-    recebimentos,
+    recebimentos: recebimentosTentativa,
     ambiente: configFiscal.ambiente,
     cnpj: configFiscal.cnpj || ff.cnpj
   });
@@ -379,17 +428,23 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
       id
     ]);
 
-    // Remove preparação anterior (substitui, não acumula)
-    const docsAntigos = await all(db, `SELECT id FROM fechamentos_fiscais_documentos WHERE fechamento_fiscal_id = ?`, [id]);
+    // Remove apenas documentos NÃO autorizados — nunca apaga NFC-e AUTORIZADA (proteção de saldo)
+    const docsAntigos = await all(
+      db,
+      `SELECT id, status FROM fechamentos_fiscais_documentos WHERE fechamento_fiscal_id = ?`,
+      [id]
+    );
     for (const d of docsAntigos) {
+      const st = String(d.status || '').toUpperCase();
+      if (st === 'AUTORIZADO' || st === 'AUTORIZADA') continue;
       await run(db, `DELETE FROM fechamentos_fiscais_documentos_pagamentos WHERE documento_id = ?`, [d.id]);
       await run(db, `DELETE FROM fechamentos_fiscais_documentos_itens WHERE documento_id = ?`, [d.id]);
+      await run(db, `DELETE FROM fechamentos_fiscais_documentos WHERE id = ?`, [d.id]);
     }
-    await run(db, `DELETE FROM fechamentos_fiscais_documentos WHERE fechamento_fiscal_id = ?`, [id]);
 
     const rateio = ratearRecebimentosPorDocumentos(
       previaVendas.map((v) => ({ previa_venda_id: v.id, sequencia: v.sequencia, valor: v.valor })),
-      recebimentos
+      recebimentosTentativa
     );
 
     const dataRef = ff.data_referencia_comercial || ff.data_fechamento;
@@ -589,7 +644,9 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
           detalhes: {
             data_referencia: dataRef,
             data_hora_preparacao: dataPrep,
-            valor: ff.valor_informado,
+            valor: contextoEmissao.valorTentativa,
+            valor_principal: contextoEmissao.valorPrincipal,
+            tipo_emissao: contextoEmissao.tipo,
             quantidade_documentos: documentosCriados.length,
             status: statusFinal,
             validacao_ok: !algumErro,
@@ -605,7 +662,10 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
       fechamento_id: id,
       status: statusFinal,
       documentos: documentosCriados.length,
-      ambiente: configFiscal.ambiente
+      ambiente: configFiscal.ambiente,
+      tipo_emissao: contextoEmissao.tipo,
+      valor_tentativa: contextoEmissao.valorTentativa,
+      valor_principal: contextoEmissao.valorPrincipal
     });
 
     const snapshotDepois = deps.capturarSnapshot !== false ? await snapshotComercial(db) : null;
@@ -616,6 +676,7 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
       err.code = 'XML_ERRO';
       err.documentos = documentosCriados;
       err.validacao = validacao;
+      err.contextoEmissao = contextoEmissao;
       throw err;
     }
 
@@ -630,6 +691,8 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
         )
       },
       documentos: documentosCriados,
+      contextoEmissao,
+      saldo: saldoPrep,
       mensagem: 'DOCUMENTO PRONTO PARA EMISSÃO',
       data_referencia_comercial: dataRef,
       data_hora_preparacao: dataPrep,
@@ -655,41 +718,58 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
 async function validarSomente(fechamentoId, opts = {}, deps = {}) {
   const db = getDb(deps.db);
   const id = Number(fechamentoId);
+  const saldoSvc = require('./FechamentoFiscalSaldoService');
   const ff = await get(db, `SELECT * FROM fechamentos_fiscais WHERE id = ?`, [id]);
   if (!ff) {
     const err = new Error('Fechamento fiscal não encontrado.');
     err.statusCode = 404;
     throw err;
   }
+  const saldo = await saldoSvc.recalcularSaldoFechamento(db, id, {
+    candidatoPrincipal: Number(ff.valor_principal) > 0 ? ff.valor_principal : ff.valor_informado
+  });
+  const contextoEmissao = resolverContextoEmissao(ff, saldo, opts);
   const previaVendas = await carregarPreviaCompleta(db, id);
   const recebimentos = await all(
     db,
     `SELECT * FROM fechamentos_fiscais_recebimentos WHERE fechamento_fiscal_id = ? ORDER BY id`,
     [id]
   );
+  const recebimentosTentativa = contextoEmissao.tipo === 'CONTINUACAO'
+    ? obterRecebimentosDaTentativa(recebimentos, contextoEmissao.valorTentativa)
+    : recebimentos;
   const produtoIds = [];
   for (const v of previaVendas) {
     for (const it of v.itens) produtoIds.push(it.produto_id);
   }
   const produtosPorId = await carregarProdutos(db, produtoIds);
   const configFiscal = await resolverConfigFiscal(deps);
+  const ffValidacao = contextoEmissao.tipo === 'CONTINUACAO'
+    ? { ...ff, valor_distribuido: contextoEmissao.valorTentativa, diferenca: 0 }
+    : ff;
   const validacao = validarPreparacaoFiscal({
-    fechamento: ff,
+    fechamento: ffValidacao,
     previaVendas,
     produtosPorId,
     configFiscal,
-    recebimentos,
+    recebimentos: recebimentosTentativa,
+    saldo,
+    contextoEmissao,
     opts: {
       certificadoOpcional: deps.certificadoOpcional === true,
       bloquearProducaoEmTeste: deps.bloquearProducaoEmTeste === true,
       data_hora_emissao: opts.data_hora_emissao,
-      dhEmi: opts.dhEmi
+      dhEmi: opts.dhEmi,
+      continuar_emissao: opts.continuar_emissao === true || opts.continuar === true,
+      recebimentosJaDaTentativa: true
     }
   });
   return {
     ok: validacao.ok,
     status: ff.status,
     validacao,
+    contextoEmissao,
+    saldo,
     mensagem_usuario: validacao.ok
       ? 'Validação fiscal OK — pronto para preparar emissão.'
       : formatarErrosUsuario(validacao.erros),
@@ -711,5 +791,7 @@ module.exports = {
   peekNumeroProvisorio,
   gerarXmlDocumento,
   ratearRecebimentosPorDocumentos,
+  obterRecebimentosDaTentativa,
+  resolverContextoEmissao,
   hashIdempotencia
 };

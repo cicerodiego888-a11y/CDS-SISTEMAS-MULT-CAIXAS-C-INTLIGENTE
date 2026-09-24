@@ -164,8 +164,28 @@ async function atualizarComplementacaoDoFechamento(db, fechamentoId) {
   return complementacao.gerarComplementacaoFiscal(row, { db, persistir: true }).catch(() => null);
 }
 
-async function montarDetalhe(db, row) {
+async function montarDetalhe(db, row, opts = {}) {
   if (!row) return null;
+
+  let saldoSync = null;
+  if (opts.sincronizarSaldo !== false) {
+    try {
+      const saldoSvc = require('./FechamentoFiscalSaldoService');
+      saldoSync = await saldoSvc.sincronizarSaldoAoAbrir(db, row.id, {
+        log: opts.logRecuperacao !== false
+      });
+      if (saldoSync && saldoSync.status) row = { ...row, status: saldoSync.status };
+      if (saldoSync) {
+        row = {
+          ...row,
+          valor_principal: saldoSync.valor_principal,
+          valor_emitido_autorizado: saldoSync.valor_emitido_autorizado,
+          valor_pendente_emissao: saldoSync.valor_pendente_emissao
+        };
+      }
+    } catch (_) { /* fechamento sem docs / schema — segue com row */ }
+  }
+
   const recebimentos = await listarRecebimentos(db, row.id);
   const itens = await all(
     db,
@@ -197,6 +217,17 @@ async function montarDetalhe(db, row) {
     valor_informado: arredondarMoeda(row.valor_informado),
     valor_distribuido: arredondarMoeda(row.valor_distribuido),
     diferenca: arredondarMoeda(row.diferenca),
+    valor_principal: arredondarMoeda(row.valor_principal != null ? row.valor_principal : row.valor_informado),
+    valor_emitido_autorizado: arredondarMoeda(row.valor_emitido_autorizado || 0),
+    valor_pendente_emissao: arredondarMoeda(
+      row.valor_pendente_emissao != null
+        ? row.valor_pendente_emissao
+        : Math.max(
+          0,
+          arredondarMoeda(row.valor_principal != null ? row.valor_principal : row.valor_informado)
+            - arredondarMoeda(row.valor_emitido_autorizado || 0)
+        )
+    ),
     recebimentos,
     itens,
     previa_vendas: previaVendas.map((v) => ({
@@ -206,7 +237,22 @@ async function montarDetalhe(db, row) {
     })),
     documentos,
     complementacao: await complementacao.lerComplementacao(db, row.id),
-    transmissao_habilitada: false
+    transmissao_habilitada: false,
+    saldo: saldoSync || {
+      valor_principal: arredondarMoeda(row.valor_principal != null ? row.valor_principal : row.valor_informado),
+      valor_emitido_autorizado: arredondarMoeda(row.valor_emitido_autorizado || 0),
+      valor_pendente_emissao: arredondarMoeda(
+        row.valor_pendente_emissao != null
+          ? row.valor_pendente_emissao
+          : Math.max(
+            0,
+            arredondarMoeda(row.valor_principal != null ? row.valor_principal : row.valor_informado)
+              - arredondarMoeda(row.valor_emitido_autorizado || 0)
+          )
+      ),
+      mensagens: saldoSync && saldoSync.mensagens
+    },
+    mensagens_saldo: (saldoSync && saldoSync.mensagens) || undefined
   };
 }
 
@@ -290,7 +336,8 @@ async function listarFechamentos(filtros = {}, deps = {}) {
     LIMIT ${Math.min(Number(filtros.limite) || 100, 500)}
   `;
   const rows = await all(db, sql, params);
-  return Promise.all(rows.map((r) => montarDetalhe(db, r)));
+  // Listagem (polling): sincroniza saldo/status sem spam de log RECUPERACAO
+  return Promise.all(rows.map((r) => montarDetalhe(db, r, { logRecuperacao: false })));
 }
 
 async function obterPorId(id, deps = {}) {
@@ -508,13 +555,18 @@ async function persistirPrevia(db, fechamento, previa, produtos, opts) {
            atualizado_em = ?
        WHERE id = ?`,
       [
-        previa.valor_informado,
+        // valor_principal imutável: não reduzir valor_informado original após autorizações
+        (Number(fechamento.valor_principal) > 0 || Number(fechamento.valor_emitido_autorizado) > 0)
+          ? arredondarMoeda(fechamento.valor_principal || fechamento.valor_informado)
+          : previa.valor_informado,
         previa.valor_distribuido,
         previa.diferenca,
         opts.valorAlvo,
         opts.valorMin,
         opts.valorMax,
-        STATUS.PREVIA,
+        (Number(fechamento.valor_emitido_autorizado) > 0
+          ? STATUS.AUTORIZACAO_PARCIAL
+          : STATUS.PREVIA),
         agoraLocal(),
         fechamento.id
       ]
@@ -555,6 +607,31 @@ async function gerarPrevia(params = {}, deps = {}) {
   }
 
   if (valorInformado == null) valorInformado = 0;
+
+  // Proteção de saldo: após NFC-e autorizada, nova prévia usa somente o pendente
+  if (fechamento && [STATUS.AUTORIZACAO_PARCIAL, STATUS.PENDENTE_RECUPERACAO, STATUS.REJEITADO, STATUS.ERRO].includes(fechamento.status)) {
+    const saldoSvc = require('./FechamentoFiscalSaldoService');
+    const saldo = await saldoSvc.recalcularSaldoFechamento(db, fechamento.id);
+    if (saldo.concluido) {
+      const err = new Error('Fechamento já concluído (saldo pendente zero). Não é possível regenerar prévia.');
+      err.statusCode = 409;
+      err.code = 'FECHAMENTO_JA_CONCLUIDO';
+      err.saldo = saldo;
+      throw err;
+    }
+    if (toCentavos(saldo.valor_emitido_autorizado) > 0) {
+      if (params.valor_informado != null) {
+        saldoSvc.assertValorTentativaPermitido(saldo, params.valor_informado);
+      }
+      valorInformado = arredondarMoeda(saldo.valor_pendente_emissao);
+      logTecnico('previa_base_pendente', {
+        fechamento_id: fechamento.id,
+        principal: saldo.valor_principal,
+        autorizado: saldo.valor_emitido_autorizado,
+        pendente: valorInformado
+      });
+    }
+  }
 
   const produtosComp = await complementacao.obterProdutosFiscaisDisponiveisParaComplementacao(db);
   const lotes = complementacao.mesclarLotesMonitoramentoComComplementacao(
@@ -712,6 +789,50 @@ async function recuperarFechamentoFiscal(id, opts = {}, deps = {}) {
   return transmissao.recuperarFechamento(id, opts, deps);
 }
 
+async function continuarEmissaoFiscal(id, opts = {}, deps = {}) {
+  const saldoSvc = require('./FechamentoFiscalSaldoService');
+  const base = await saldoSvc.continuarEmissaoFechamento(id, deps);
+  const optsContinuar = { ...opts, continuar_emissao: true, continuar: true };
+
+  // Gera prévia automática só do saldo pendente e prepara documentos (preservando autorizados)
+  const previa = await gerarPrevia({
+    id: Number(id),
+    valor_informado: base.valor_base_continuacao,
+    persistir: true,
+    valor_alvo: opts.valor_alvo,
+    valor_min: opts.valor_min,
+    valor_max: opts.valor_max,
+    continuar_emissao: true
+  }, deps);
+
+  let preparacao = null;
+  if (opts.preparar !== false && previa && previa.ok !== false) {
+    try {
+      preparacao = await prepararEmissaoFiscal(id, optsContinuar, deps);
+    } catch (err) {
+      return {
+        ...base,
+        previa,
+        preparacao_erro: err.message,
+        code: err.code || 'PREPARACAO_CONTINUACAO',
+        ok: false,
+        mensagem: `${base.mensagem}\nPrévia gerada para R$ ${Number(base.valor_base_continuacao).toFixed(2)}, mas a preparação falhou: ${err.message}`
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    ...base,
+    previa,
+    preparacao,
+    mensagem:
+      `Venda emitida (acumulado): R$ ${Number(base.saldo.valor_emitido_autorizado).toFixed(2)}\n` +
+      `Valor original do fechamento: R$ ${Number(base.saldo.valor_principal).toFixed(2)}\n` +
+      `Valor restante para emissão: R$ ${Number(base.saldo.valor_pendente_emissao).toFixed(2)}`
+  };
+}
+
 module.exports = {
   STATUS,
   STATUS_ATIVOS,
@@ -730,6 +851,7 @@ module.exports = {
   listarDocumentosFiscais,
   transmitirFechamentoFiscal,
   recuperarFechamentoFiscal,
+  continuarEmissaoFiscal,
   listarProdutosElegiveisDoDia,
   listarLotesElegiveisDoDia,
   listarMonitoramentoProdutosDoDia,

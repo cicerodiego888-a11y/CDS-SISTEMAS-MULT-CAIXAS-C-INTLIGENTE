@@ -23,6 +23,7 @@ const PERMISSOES_DISPONIVEIS = [
   'sangria_caixa',
   'suprimento_caixa',
   'fechar_caixa',
+  'fechar_caixa_com_divergencia',
   'fiscal',
   'configuracoes',
   'usuarios',
@@ -51,7 +52,14 @@ const PERMISSOES_DISPONIVEIS = [
 
 function extrairToken(req) {
   const authHeader = req.headers['authorization'];
-  return authHeader && authHeader.split(' ')[1];
+  const bearer = authHeader && authHeader.split(' ')[1];
+  if (bearer) return bearer;
+  if (String(req.method || '').toUpperCase() === 'GET') {
+    const q = req.query || {};
+    const viaQuery = q.token || q.access_token;
+    if (viaQuery) return String(viaQuery);
+  }
+  return null;
 }
 
 function isApiRequest(req) {

@@ -707,7 +707,11 @@
     const fiscal = data?.fiscal || null;
 
     if (cfg.comprovante_prestacao && data.comprovante_html) {
-      imprimirHtml(data.comprovante_html);
+      await imprimirHtml(data.comprovante_html, {
+        tipo: 'NAO_FISCAL',
+        vendaId,
+        titulo: 'comprovante_prestacao'
+      });
     }
 
     if (cfg.danfe && fiscal) {
@@ -728,7 +732,11 @@
       // Bug anterior: processarFiscalPosPagamentoPosVenda(data) passava o
       // objeto inteiro como vendaId → /fiscal/emitir/venda/[object Object].
       if (fiscal.danfeHtml) {
-        imprimirHtml(fiscal.danfeHtml);
+        await imprimirHtml(fiscal.danfeHtml, {
+          tipo: 'FISCAL',
+          vendaId,
+          titulo: 'danfe_prestacao'
+        });
         return;
       }
 
@@ -743,7 +751,9 @@
         return;
       }
     } else if (cfg.cupom_nao_fiscal && !fiscal && vendaId && typeof imprimirCupomNaoFiscal === 'function') {
-      try { imprimirCupomNaoFiscal(vendaId, data, undefined, undefined, { automatico: true }); } catch (_) { /* ignore */ }
+      try {
+        await imprimirCupomNaoFiscal(vendaId, data, undefined, undefined, { automatico: true });
+      } catch (_) { /* ignore */ }
     }
   }
 
@@ -764,18 +774,59 @@
     }
   }
 
-  function imprimirHtml(html) {
+  /**
+   * Mostra o comprovante e pergunta se deseja imprimir (CupomPrintPolicy).
+   * Não envia à impressora sem decisão do operador (modo PERGUNTAR).
+   */
+  async function imprimirHtml(html, opcoes) {
+    if (!html) return;
+    const opts = opcoes || {};
     try {
-      if (window.electronAPI && typeof window.electronAPI.abrirComprovante === 'function') {
-        window.electronAPI.abrirComprovante(html, { silent: false, autoFecharMs: 5000 });
+      if (typeof apresentarCupomNaTela === 'function') {
+        await apresentarCupomNaTela(html, html, {
+          tipo: opts.tipo || 'NAO_FISCAL',
+          vendaId: opts.vendaId,
+          automatico: true
+        });
         return;
       }
-    } catch (_) { /* fallback */ }
-    const w = window.open('', '_blank', 'width=320,height=600');
-    if (!w) return;
-    w.document.write(html);
-    w.document.close();
-    setTimeout(() => { try { w.print(); } catch (_) { /* ignore */ } }, 300);
+
+      if (window.electronAPI && typeof window.electronAPI.abrirComprovante === 'function') {
+        window.electronAPI.abrirComprovante(html, {
+          silent: false,
+          autoFecharMs: 10000,
+          aguardarDecisao: true,
+          enviarImpressora: false
+        });
+      } else {
+        const w = window.open('', '_blank', 'width=320,height=600');
+        if (w) {
+          w.document.write(html);
+          w.document.close();
+        }
+      }
+
+      if (window.CupomPrintPolicy && typeof window.CupomPrintPolicy.aposCupomNaTela === 'function') {
+        await window.CupomPrintPolicy.aposCupomNaTela({
+          tipo: opts.tipo || 'NAO_FISCAL',
+          html,
+          vendaId: opts.vendaId,
+          automatico: true
+        });
+        return;
+      }
+
+      const deviceName = (typeof obterDeviceNameImpressoraCupom === 'function')
+        ? await obterDeviceNameImpressoraCupom()
+        : null;
+      if (deviceName && window.electronAPI && typeof window.electronAPI.imprimirDANFESilencioso === 'function') {
+        await window.electronAPI.imprimirDANFESilencioso(html, deviceName);
+      }
+    } catch (err) {
+      if (typeof showNotification === 'function') {
+        showNotification(err && err.message ? err.message : 'Falha ao imprimir comprovante.', 'danger');
+      }
+    }
   }
 
   function bumpWidget(id, label, count, opts = {}) {

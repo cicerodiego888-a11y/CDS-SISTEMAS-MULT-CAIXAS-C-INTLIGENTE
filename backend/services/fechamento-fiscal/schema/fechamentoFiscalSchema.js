@@ -230,7 +230,13 @@ const ALTERS = [
   `ALTER TABLE fechamentos_fiscais_documentos ADD COLUMN xml_autorizado TEXT`,
   `ALTER TABLE fechamentos_fiscais_documentos ADD COLUMN xml_retorno TEXT`,
   `ALTER TABLE fechamentos_fiscais_documentos ADD COLUMN data_hora_autorizacao TEXT`,
-  `ALTER TABLE fechamentos_fiscais_documentos ADD COLUMN tentativa INTEGER NOT NULL DEFAULT 0`
+  `ALTER TABLE fechamentos_fiscais_documentos ADD COLUMN tentativa INTEGER NOT NULL DEFAULT 0`,
+  // Proteção de saldo — valor_principal imutável; emitido/pendente recalculados dos docs AUTORIZADOS
+  `ALTER TABLE fechamentos_fiscais ADD COLUMN valor_principal REAL`,
+  `ALTER TABLE fechamentos_fiscais ADD COLUMN valor_emitido_autorizado REAL NOT NULL DEFAULT 0`,
+  `ALTER TABLE fechamentos_fiscais ADD COLUMN valor_pendente_emissao REAL NOT NULL DEFAULT 0`,
+  `ALTER TABLE fechamentos_fiscais_transmissoes ADD COLUMN valor_transmitido REAL`,
+  `ALTER TABLE fechamentos_fiscais_transmissoes ADD COLUMN numero_nfce INTEGER`
 ];
 
 /**

@@ -282,7 +282,7 @@ function casarItemOrigem(itemDev, detsOrigem, usados) {
     .filter((x) => !usados.has(x.idx));
   if (!candidatos.length) return null;
 
-  const nItem = Number(itemDev.nItemOrigem || itemDev.n_item || itemDev.nItem || 0);
+  const nItem = Number(itemDev.nItemOrigem || itemDev.n_item_origem || 0);
   if (nItem > 0) {
     const porNitem = candidatos.find((x) => Number(x.d.nItem) === nItem);
     if (porNitem) {
@@ -534,6 +534,8 @@ function flattenParaItem(espelhado) {
   const cofins = t.cofins || {};
   const ipi = t.ipi || {};
   return {
+    nItemOrigem: espelhado.nItemOrigem,
+    n_item_origem: espelhado.nItemOrigem,
     csosn: t.csosn || '',
     cst: t.cst || '',
     origem: t.origem != null ? t.origem : 0,

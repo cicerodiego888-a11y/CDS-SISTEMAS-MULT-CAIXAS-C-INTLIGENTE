@@ -11,6 +11,10 @@ const STATUS = Object.freeze({
   PRONTO_EMISSAO: 'PRONTO_EMISSAO',
   EMITINDO: 'EMITINDO',
   AUTORIZADO: 'AUTORIZADO',
+  /** Autorizados + rejeitados/erros no mesmo fechamento — NFC-e autorizadas permanecem válidas. */
+  AUTORIZACAO_PARCIAL: 'AUTORIZACAO_PARCIAL',
+  /** Resultado fiscal ainda indeterminado (timeout / possível processamento). */
+  PENDENTE_RECUPERACAO: 'PENDENTE_RECUPERACAO',
   REJEITADO: 'REJEITADO',
   CONFIRMADO: 'CONFIRMADO', // legado Sprint 01
   PROCESSANDO: 'PROCESSANDO', // legado / reserva
@@ -27,6 +31,8 @@ const STATUS_ATIVOS = Object.freeze([
   STATUS.PRONTO_EMISSAO,
   STATUS.EMITINDO,
   STATUS.AUTORIZADO,
+  STATUS.AUTORIZACAO_PARCIAL,
+  STATUS.PENDENTE_RECUPERACAO,
   STATUS.REJEITADO,
   STATUS.CONFIRMADO,
   STATUS.PROCESSANDO,
@@ -39,20 +45,25 @@ const STATUS_PODEM_PREPARAR = Object.freeze([
   STATUS.VALIDANDO,
   STATUS.PRONTO_EMISSAO,
   STATUS.ERRO,
-  STATUS.REJEITADO
+  STATUS.REJEITADO,
+  STATUS.AUTORIZACAO_PARCIAL,
+  STATUS.PENDENTE_RECUPERACAO
 ]);
 
 const STATUS_PODEM_TRANSMITIR = Object.freeze([
   STATUS.PRONTO_EMISSAO,
   STATUS.REJEITADO,
   STATUS.ERRO,
-  STATUS.EMITINDO // recuperação / parcial
+  STATUS.EMITINDO, // recuperação / parcial
+  STATUS.AUTORIZACAO_PARCIAL,
+  STATUS.PENDENTE_RECUPERACAO
 ]);
 
 const DEFAULTS_DISTRIBUICAO = Object.freeze({
   valorAlvo: 250,
-  valorMin: 80,
-  valorMax: 400,
+  /** Homologação realista: permite vendas pequenas (R$ 8+). */
+  valorMin: 8,
+  valorMax: 500,
   distribuicaoAutomatica: true
 });
 

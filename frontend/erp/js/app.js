@@ -38,6 +38,7 @@ const CDS_ERP_PAGE_SCRIPTS = Object.freeze({
     'dfe-auditoria': ['/erp/js/dfe-auditoria.js'],
     fornecedores: ['/erp/js/fornecedores.js'],
     vendas: [
+        '/shared/js/cupomPrintPolicy.js',
         '/shared/js/fiscalImpressao.js',
         '/shared/js/vendasHistoricoUi.js',
         '/erp/js/vendas.js'
@@ -58,6 +59,7 @@ const CDS_ERP_PAGE_SCRIPTS = Object.freeze({
     licenca: ['/erp/js/licenca.js'],
     caixa: ['/erp/js/caixa.js'],
     configuracoes: [
+        '/shared/js/cupomPrintPolicy.js',
         '/shared/js/fiscalImpressao.js',
         '/shared/js/configuracaoRede.js',
         '/erp/js/configuracoes.js'
@@ -73,14 +75,15 @@ const CDS_ERP_PAGE_SCRIPTS = Object.freeze({
     'laboratorio-equipamentos': ['/erp/js/laboratorio-equipamentos.js'],
     'enviar-produtos-balanca': ['/erp/js/enviar-produtos-balanca.js'],
     'configuracoes-avancadas': [
+        '/shared/js/cupomPrintPolicy.js',
         '/shared/js/fiscalImpressao.js',
         '/shared/js/configuracaoRede.js',
         '/erp/js/fiscal.js',
         '/erp/js/configuracoes.js',
         '/erp/js/cds-centro-configuracoes.js'
     ],
-    fiscal: ['/shared/js/fiscalImpressao.js', '/shared/js/vendasHistoricoUi.js', '/erp/js/fiscal.js'],
-    'nfe-central': ['/shared/js/fiscalImpressao.js', '/shared/js/nfeDanfeViewer.js', '/erp/js/nfe-central.js'],
+    fiscal: ['/shared/js/cupomPrintPolicy.js', '/shared/js/fiscalImpressao.js', '/shared/js/vendasHistoricoUi.js', '/erp/js/fiscal.js'],
+    'nfe-central': ['/shared/js/cupomPrintPolicy.js', '/shared/js/fiscalImpressao.js', '/shared/js/nfeDanfeViewer.js', '/erp/js/nfe-central.js'],
     'nfe-avulsa': ['/shared/js/nfeDanfeViewer.js', '/erp/js/nfe-avulsa.js'],
     'nfe-devolucao-compra': ['/shared/js/nfeDanfeViewer.js', '/erp/js/nfe-devolucao-compra.js'],
     'nfe-monitor': ['/erp/js/nfe-operacional.js'],

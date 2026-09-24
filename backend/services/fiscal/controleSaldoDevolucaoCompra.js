@@ -21,9 +21,19 @@ const STATUS_UI = Object.freeze({
   [STATUS.SALDO_INSUFICIENTE]: { label: 'Saldo insuficiente', cor: 'vermelho', emoji: '🔴' }
 });
 
+/** Override somente para testes automatizados. */
+let dbOverride = null;
+function setDbForTests(dbInst) {
+  dbOverride = dbInst || null;
+}
+function getDb() {
+  return dbOverride || db;
+}
+
 function dbRun(sql, params = []) {
+  const conn = getDb();
   return new Promise((resolve, reject) => {
-    db.run(sql, params, function onRun(err) {
+    conn.run(sql, params, function onRun(err) {
       if (err) return reject(err);
       resolve({ lastID: this.lastID, changes: this.changes });
     });
@@ -31,14 +41,16 @@ function dbRun(sql, params = []) {
 }
 
 function dbGet(sql, params = []) {
+  const conn = getDb();
   return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row || null)));
+    conn.get(sql, params, (err, row) => (err ? reject(err) : resolve(row || null)));
   });
 }
 
 function dbAll(sql, params = []) {
+  const conn = getDb();
   return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => (err ? reject(err) : resolve(rows || [])));
+    conn.all(sql, params, (err, rows) => (err ? reject(err) : resolve(rows || [])));
   });
 }
 
@@ -115,9 +127,29 @@ async function somarDevolvidoFiscalPorItem(compraItemId) {
 /**
  * Saldo fiscal por item da compra.
  */
-async function carregarSaldosDevolucaoCompra(compraId) {
+function sqlFiltroNotasAutorizadas(excluirIds) {
+  const ids = (excluirIds || []).map((n) => Number(n)).filter((n) => n > 0);
+  let sql = `LOWER(TRIM(COALESCE(n.status, ''))) = 'autorizada'`;
+  if (ids.length) {
+    sql += ` AND n.id NOT IN (${ids.map(() => '?').join(',')})`;
+  }
+  return { sql, params: ids };
+}
+
+async function carregarSaldosDevolucaoCompra(compraId, opcoes = {}) {
   await garantirTabelasSaldoDevolucao();
   const id = Number(compraId);
+  let excluirIds = Array.isArray(opcoes.excluirDevolucaoIds) ? opcoes.excluirDevolucaoIds.slice() : [];
+  if (opcoes.naoExcluirSubstituidas !== true) {
+    try {
+      const {
+        listarIdsDevolucoesSubstituidasComNova
+      } = require('./nfeDevolucaoSubstituicaoService');
+      const auto = await listarIdsDevolucoesSubstituidasComNova(id);
+      excluirIds = Array.from(new Set(excluirIds.concat(auto)));
+    } catch (_) { /* módulo opcional */ }
+  }
+  const filtro = sqlFiltroNotasAutorizadas(excluirIds);
 
   const compra = await dbGet(`SELECT id, status FROM compras WHERE id = ?`, [id]);
   if (!compra) {
@@ -148,13 +180,13 @@ async function carregarSaldosDevolucaoCompra(compraId) {
         FROM nfe_devolucao_compra_itens i
         INNER JOIN nfe_devolucoes_compra n ON n.id = i.nfe_devolucao_id
         WHERE i.compra_item_id = ci.id
-          AND LOWER(TRIM(COALESCE(n.status, ''))) = 'autorizada'
+          AND ${filtro.sql}
       ), 0) AS quantidade_devolvida
     FROM compras_itens ci
     LEFT JOIN produtos p ON p.id = ci.produto_id
     WHERE ci.compra_id = ?
     ORDER BY ci.id
-  `, [id]);
+  `, [...filtro.params, id]);
 
   const mapeados = itens.map((row) => {
     const comprada = round3(row.quantidade_comprada);
@@ -201,6 +233,7 @@ async function carregarSaldosDevolucaoCompra(compraId) {
       devolvido: round3(totalDevolvido),
       saldo: round3(totalSaldo)
     },
+    excluirDevolucaoIds: excluirIds,
     itens: mapeados
   };
 }
@@ -208,7 +241,7 @@ async function carregarSaldosDevolucaoCompra(compraId) {
 /**
  * Valida itens solicitados contra saldo fiscal.
  */
-function validarQuantidadesContraSaldo({ saldos, itensSolicitados, compraCancelada }) {
+function validarQuantidadesContraSaldo({ saldos, itensSolicitados, compraCancelada, excecaoSubstituicao }) {
   const erros = [];
   if (compraCancelada) {
     erros.push('Compra cancelada — não é possível emitir NF-e de devolução.');
@@ -218,12 +251,23 @@ function validarQuantidadesContraSaldo({ saldos, itensSolicitados, compraCancela
     return { ok: false, erros };
   }
 
-  const porId = new Map((saldos.itens || []).map((i) => [Number(i.compra_item_id), i]));
+  let saldosEfetivos = saldos;
+  if (excecaoSubstituicao && excecaoSubstituicao.aplicar && !(saldos && saldos.excecaoSubstituicao)) {
+    const { aplicarRestanteExcecaoNosSaldos } = require('./nfeDevolucaoSubstituicaoService');
+    saldosEfetivos = aplicarRestanteExcecaoNosSaldos(saldos, excecaoSubstituicao);
+  }
+
+  const porId = new Map((saldosEfetivos.itens || []).map((i) => [Number(i.compra_item_id), i]));
+  const porProduto = new Map();
+  for (const i of (saldosEfetivos.itens || [])) {
+    const pid = Number(i.produto_id || 0);
+    if (pid > 0 && !porProduto.has(pid)) porProduto.set(pid, i);
+  }
 
   for (const req of itensSolicitados) {
     const itemId = Number(req.compra_item_id || req.id);
     const qtd = round3(req.quantidade);
-    const base = porId.get(itemId);
+    const base = porId.get(itemId) || porProduto.get(Number(req.produto_id || 0)) || null;
     const nome = base?.produto_nome || req.produto_nome || itemId;
 
     if (!base) {
@@ -235,12 +279,21 @@ function validarQuantidadesContraSaldo({ saldos, itensSolicitados, compraCancela
       continue;
     }
     if (qtd > base.saldo + 1e-9) {
-      erros.push(
-        `Saldo insuficiente para "${nome}": solicitado ${qtd}, saldo ${base.saldo} (comprado ${base.quantidade_comprada}, já devolvido ${base.quantidade_devolvida}).`
-      );
+      const rest = Number(base.quantidade_liberada_substituicao);
+      const numeroAnt = excecaoSubstituicao && excecaoSubstituicao.notaAnterior
+        && excecaoSubstituicao.notaAnterior.numero;
+      if (excecaoSubstituicao && excecaoSubstituicao.aplicar && rest <= 1e-9) {
+        erros.push(
+          `A quantidade já foi utilizada em uma nova NF-e de devolução relacionada à NF-e ${numeroAnt || 'anterior'}.`
+        );
+      } else {
+        erros.push(
+          `Saldo insuficiente para "${nome}": solicitado ${qtd}, saldo ${base.saldo} (comprado ${base.quantidade_comprada}, já devolvido ${base.quantidade_devolvida}).`
+        );
+      }
       continue;
     }
-    if (qtd > base.quantidade_comprada + 1e-9) {
+    if (qtd > base.quantidade_comprada + 1e-9 && !(excecaoSubstituicao && excecaoSubstituicao.aplicar && qtd <= base.saldo + 1e-9)) {
       erros.push(`Quantidade devolvida (${qtd}) maior que comprada (${base.quantidade_comprada}) em "${nome}".`);
     }
   }
@@ -256,10 +309,11 @@ async function persistirItensNfeDevolucao({
   compraId,
   itens,
   usuarioId = null,
-  usuarioNome = null
+  usuarioNome = null,
+  excluirDevolucaoIds = []
 }) {
   await garantirTabelasSaldoDevolucao();
-  const saldos = await carregarSaldosDevolucaoCompra(compraId);
+  const saldos = await carregarSaldosDevolucaoCompra(compraId, { excluirDevolucaoIds });
   const porId = new Map(saldos.itens.map((i) => [Number(i.compra_item_id), i]));
   let nItem = 0;
 
@@ -399,5 +453,6 @@ module.exports = {
   cancelarNfeDevolucaoCompra,
   listarNotasDevolucaoCompra,
   statusDoSaldo,
-  round3
+  round3,
+  setDbForTests
 };

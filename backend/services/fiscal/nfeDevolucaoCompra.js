@@ -1,14 +1,21 @@
 /**
  * NF-e de Devolução de Compra — MVP produção (RC1).
  * Reutiliza motor oficial: certificado, assinatura, validação, SOAP, parser, DANFE, numeração.
- * Builder específico: xmlBuilderNfeDevolucaoCompra (finNFe=4 + NFref).
+ * Builder específico: xmlBuilderNfeDevolucaoCompra (finNFe=4 + DFeReferenciado por item).
  */
 
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
-const db = require('../../database');
+const dbPadrao = require('../../database');
+let dbOverride = null;
+function setDbForTests(dbInst) {
+  dbOverride = dbInst || null;
+}
+function db() {
+  return dbOverride || dbPadrao;
+}
 const { getFiscalConfig } = require('./configService');
 const { assinarNFe } = require('./signer');
 const { montarLote, enviarLote } = require('./soapClient');
@@ -26,6 +33,10 @@ const {
 } = require('./nfeIdentityService');
 const { calcularHashXml } = require('./nfeXmlIdentityService');
 const { parseRetornoAutorizacaoNfe } = require('./nfeRetornoAutorizacao');
+const {
+  classificarResultadoEmissaoNfe,
+  deveBloquearNovaTransmissao
+} = require('./classificarResultadoEmissaoNfe');
 const { gerarDanfeNfeHtml } = require('./danfeNfe');
 const { buildXmlNFeDevolucaoCompra } = require('./xmlBuilderNfeDevolucaoCompra');
 const { resolverMunicipioDestinatario } = require('./municipioIbge');
@@ -64,23 +75,69 @@ const {
   podeCancelarDevolucao,
   mensagemRejeicaoDetalhada,
   podeGerarNovaIdentidadeDevolucao,
-  mensagemNovaIdentidadeDevolucao
+  mensagemNovaIdentidadeDevolucao,
+  xmlRejeicaoFiscalDefinitiva
 } = require('./nfeDevolucaoEstados');
 const {
   obterRascunhoDevolucaoCompra,
   salvarRascunhoDevolucaoCompra,
   excluirRascunhoDevolucaoCompra
 } = require('./rascunhoDevolucaoCompra');
+const {
+  garantirTabelasSubstituicaoDevolucao,
+  resolverContextoSubstituicao210240,
+  resolverOrigemSubstituicao210240,
+  trace210240,
+  registrarAuditoriaExcecaoSaldo,
+  efetivarSubstituicaoAposAutorizacao,
+  calcularSaldoDisponivelParaDevolucao,
+  montarBlocoDevolucaoRelacionada,
+  obterSubstituicaoPorAnterior
+} = require('./nfeDevolucaoSubstituicaoService');
 const configService = require('../configuracaoService');
+
+async function carregarSaldosComExcecao210240(compraId, origemDevolucaoId, rascunho) {
+  await garantirTabelasSubstituicaoDevolucao();
+  return calcularSaldoDisponivelParaDevolucao({
+    compraId,
+    origemDevolucaoId,
+    rascunho,
+    itensSolicitados: [],
+    carregarSaldos: carregarSaldosDevolucaoCompra
+  });
+}
 
 function salvarDebug(nome, conteudo) {
   const pasta = getFiscalSubDir('debug/nfe-devolucao');
   fs.writeFileSync(path.join(pasta, nome), String(conteudo || ''), 'utf8');
 }
 
+function registrarDiagnosticoEmissao(compraId, dados = {}) {
+  const seguro = {
+    em: new Date().toISOString(),
+    compraId: Number(compraId) || null,
+    notaId: dados.notaId || null,
+    numero: dados.numero || null,
+    serie: dados.serie || null,
+    chave: dados.chave || null,
+    ambiente: dados.ambiente != null ? dados.ambiente : null,
+    servico: dados.servico || 'NFeAutorizacao4',
+    status: dados.status || null,
+    classeResultado: dados.classeResultado || null,
+    cStat: dados.cStat || null,
+    xMotivo: dados.xMotivo || null,
+    nRec: dados.nRec || dados.recibo || null,
+    protocolo: dados.protocolo || null,
+    etapa: dados.etapa || null,
+    erroTecnico: dados.erroTecnico ? String(dados.erroTecnico).slice(0, 500) : null,
+    stack: dados.stack ? String(dados.stack).split('\n').slice(0, 8).join('\n') : null
+  };
+  salvarDebug(`${compraId || 'x'}-diagnostico-emissao.json`, JSON.stringify(seguro, null, 2));
+}
+
 async function garantirTabelas() {
   return new Promise((resolve, reject) => {
-    db.run(`
+    db().run(`
       CREATE TABLE IF NOT EXISTS nfe_devolucoes_compra (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         compra_id INTEGER NOT NULL,
@@ -112,7 +169,7 @@ async function garantirTabelas() {
         if (i >= alters.length) {
           return garantirSchemaLifecycle().then(resolve).catch(reject);
         }
-        db.run(alters[i++], () => next());
+        db().run(alters[i++], () => next());
       };
       next();
     });
@@ -121,7 +178,7 @@ async function garantirTabelas() {
 
 function obterNotaAutorizadaPorCompra(compraId) {
   return new Promise((resolve, reject) => {
-    db.get(`
+    db().get(`
       SELECT * FROM nfe_devolucoes_compra
       WHERE compra_id = ? AND status = 'autorizada'
       ORDER BY id DESC LIMIT 1
@@ -131,7 +188,7 @@ function obterNotaAutorizadaPorCompra(compraId) {
 
 function obterNotaEmAndamento(compraId) {
   return new Promise((resolve, reject) => {
-    db.get(`
+    db().get(`
       SELECT * FROM nfe_devolucoes_compra
       WHERE compra_id = ? AND status IN (
         'pendente','soap_enviado','enviada','aguardando_retorno',
@@ -140,6 +197,24 @@ function obterNotaEmAndamento(compraId) {
       ORDER BY id DESC LIMIT 1
     `, [compraId], (err, row) => (err ? reject(err) : resolve(row || null)));
   });
+}
+
+function obterUltimaNotaPorCompra(compraId) {
+  return new Promise((resolve, reject) => {
+    db().get(`
+      SELECT * FROM nfe_devolucoes_compra
+      WHERE compra_id = ?
+      ORDER BY id DESC LIMIT 1
+    `, [compraId], (err, row) => (err ? reject(err) : resolve(row || null)));
+  });
+}
+
+function anexarClassificacao(resultado) {
+  const cls = classificarResultadoEmissaoNfe(resultado);
+  resultado.classeResultado = cls.classe;
+  if (resultado.cStat == null && cls.cStat) resultado.cStat = cls.cStat;
+  if (resultado.xMotivo == null && cls.xMotivo) resultado.xMotivo = cls.xMotivo;
+  return resultado;
 }
 
 function modeloDaChaveNfe(chave) {
@@ -250,7 +325,7 @@ function listarOrigensNfeDevolucaoCompra(filtros = {}) {
   sql += ' ORDER BY c.data_compra DESC, c.id DESC LIMIT 80';
 
   return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
+    db().all(sql, params, (err, rows) => {
       if (err) return reject(err);
       const origens = (rows || []).map((r) => {
         const ch = onlyDigits(r.chave_acesso);
@@ -276,7 +351,7 @@ function listarOrigensNfeDevolucaoCompra(filtros = {}) {
 
 function carregarCompraCabecalho(compraId) {
   return new Promise((resolve, reject) => {
-    db.get(`
+    db().get(`
       SELECT c.*,
         f.id AS fornecedor_id,
         f.rua, f.numero, f.bairro, f.cidade, f.uf, f.cep, f.inscricao_estadual,
@@ -310,7 +385,7 @@ function persistirCodigoMunicipioFornecedor(compra) {
   const fornecedorId = Number(compra.fornecedor_id);
   if (!cMun || !fornecedorId) return Promise.resolve(cMun);
   return new Promise((resolve) => {
-    db.run(
+    db().run(
       'UPDATE fornecedores SET codigo_municipio = ? WHERE id = ?',
       [cMun, fornecedorId],
       () => resolve(cMun)
@@ -320,7 +395,7 @@ function persistirCodigoMunicipioFornecedor(compra) {
 
 function carregarItensCompra(compraId) {
   return new Promise((resolve, reject) => {
-    db.all(`
+    db().all(`
       SELECT
         ci.*,
         p.nome AS produto_nome,
@@ -344,7 +419,7 @@ function carregarItensCompra(compraId) {
 
 function carregarItensDevolucaoInterna(compraId) {
   return new Promise((resolve, reject) => {
-    db.all(`
+    db().all(`
       SELECT
         cd.*,
         ci.descricao_produto,
@@ -441,20 +516,63 @@ async function montarDocumentoXmlDevolucaoCompra(compraId, opcoes = {}) {
     );
   }
 
-  const config = await getFiscalConfig();
+  const config = opcoes.fiscalConfig || await getFiscalConfig();
   config.serie = Number(config.serieNfe || config.serie || 1);
 
   const rascunho = await obterRascunhoDevolucaoCompra(id);
   const cfopPadrao = onlyDigits(opcoes.cfop || (rascunho && rascunho.cfop) || sugerirCfop(compra, config)).slice(0, 4)
     || sugerirCfop(compra, config);
 
-  const saldos = await carregarSaldosDevolucaoCompra(id);
-  if (saldos.totais.saldo <= 0) {
-    throw Object.assign(
-      new Error('Compra totalmente devolvida — não há saldo disponível para nova NF-e.'),
-      { code: 'SALDO_ZERADO', statusCode: 400 }
-    );
+  const contexto210240 = await resolverContextoSubstituicao210240({
+    compraId: id,
+    origemDevolucaoId: opcoes.origemNfeDevolucaoId
+      || (rascunho && (rascunho.origem_nfe_devolucao_id || rascunho.documento_original_id))
+      || null,
+    rascunho,
+    chaveAnterior: opcoes.chaveAnterior
+  });
+  trace210240('emissao_inicio', {
+    compraId: id,
+    rascunhoId: rascunho && rascunho.id,
+    origemNfeDevolucaoId: contexto210240.origemDevolucaoId,
+    documento_original_id: rascunho && rascunho.documento_original_id,
+    substituicaoId: contexto210240.substituicaoId,
+    chaveNFAnterior: contexto210240.chaveAnterior,
+    evento210240: contexto210240.ativo,
+    origemResolvida: contexto210240.fonte
+  });
+
+  // Reconciliação SEFAZ antes do saldo — NF cancelada externamente não pode bloquear nova devolução
+  if (opcoes.pularReconciliacaoSefaz !== true) {
+    try {
+      const {
+        reconciliarDevolucoesCompraComSefaz
+      } = require('./nfeDevolucaoLifecycleService');
+      await reconciliarDevolucoesCompraComSefaz(id, {
+        origem: 'emissao',
+        forcar: opcoes.forcarReconciliacaoSefaz === true,
+        usuarioId: opcoes.usuarioId || opcoes.usuario_id || null,
+        usuarioNome: opcoes.usuarioNome || opcoes.usuario_nome || null,
+        consultarProtocolo: opcoes.consultarProtocolo,
+        getFiscalConfig: opcoes.getFiscalConfig
+      });
+    } catch (reconErr) {
+      // Não bloqueia a emissão por falha de consulta; saldo usa status local atual
+      try {
+        // eslint-disable-next-line no-console
+        console.warn(
+          '[DEVOLUCAO][RECONCILIACAO_SEFAZ] falha na reconciliação pré-emissão:',
+          reconErr.message || reconErr
+        );
+      } catch (_) { /* ignore */ }
+    }
   }
+
+  const origemDev = contexto210240.origemDevolucaoId
+    || opcoes.origemNfeDevolucaoId
+    || (rascunho && (rascunho.origem_nfe_devolucao_id || rascunho.documento_original_id))
+    || null;
+  const pularSaldo = opcoes.pularValidacaoSaldo === true;
 
   let itens;
   if (Array.isArray(opcoes.itens) && opcoes.itens.length) {
@@ -464,7 +582,24 @@ async function montarDocumentoXmlDevolucaoCompra(compraId, opcoes = {}) {
     const itensCompra = await carregarItensCompra(id);
     itens = resolverItensDoBody(compra, itensCompra, rascunho.itens, cfopPadrao);
     if (opcoes.observacoes == null && rascunho.observacoes) opcoes.observacoes = rascunho.observacoes;
-  } else {
+  }
+
+  const calculo = await calcularSaldoDisponivelParaDevolucao({
+    compraId: id,
+    origemDevolucaoId: origemDev,
+    rascunho,
+    itensSolicitados: (itens || []).filter((i) => Number(i.quantidade) > 0),
+    carregarSaldos: carregarSaldosDevolucaoCompra
+  });
+  const { saldos, saldosNormais, excecao } = calculo;
+  if (!pularSaldo && Number(calculo.saldoDisponivel || 0) <= 0 && !(excecao && excecao.aplicar && excecao.quantidadeRestante > 0)) {
+    throw Object.assign(
+      new Error('Compra totalmente devolvida — não há saldo disponível para nova NF-e.'),
+      { code: 'SALDO_ZERADO', statusCode: 400 }
+    );
+  }
+
+  if (!itens) {
     itens = saldos.itens
       .filter((s) => s.saldo > 0)
       .map((s) => {
@@ -492,30 +627,81 @@ async function montarDocumentoXmlDevolucaoCompra(compraId, opcoes = {}) {
   }
 
   const itensAtivos = itens.filter((i) => Number(i.quantidade) > 0);
+  if (itensAtivos.length && !calculo.itens.length) {
+    await calcularSaldoDisponivelParaDevolucao({
+      compraId: id,
+      origemDevolucaoId: origemDev || (excecao && excecao.devolucaoAnteriorId),
+      rascunho,
+      itensSolicitados: itensAtivos,
+      carregarSaldos: carregarSaldosDevolucaoCompra
+    }).catch(() => {});
+  }
+  const bloqueadosCalculo = (calculo.itens || []).filter((i) => i.resultado === 'BLOQUEADO');
   const validacaoSaldo = validarQuantidadesContraSaldo({
     saldos,
     itensSolicitados: itensAtivos.map((i) => ({
       compra_item_id: i.compra_item_id || i.id,
+      produto_id: i.produto_id,
       quantidade: i.quantidade,
       produto_nome: i.produto_nome
     })),
-    compraCancelada: saldos.compraCancelada
+    compraCancelada: saldos.compraCancelada,
+    excecaoSubstituicao: excecao
   });
-  if (!validacaoSaldo.ok) {
+  if (!pularSaldo && (bloqueadosCalculo.length || !validacaoSaldo.ok)) {
     throw Object.assign(
       new Error(validacaoSaldo.erros.join(' | ')),
       { code: 'SALDO_INSUFICIENTE', statusCode: 400, erros: validacaoSaldo.erros }
     );
   }
+  if (excecao && excecao.aplicar) {
+    await registrarAuditoriaExcecaoSaldo({
+      substituicaoId: (await obterSubstituicaoPorAnterior(excecao.devolucaoAnteriorId))?.id,
+      excecao,
+      saldosNormais,
+      saldosExcecao: saldos,
+      itensSolicitados: itensAtivos.map((i) => ({
+        compra_item_id: i.compra_item_id || i.id,
+        quantidade: i.quantidade
+      })),
+      usuarioId: opcoes.usuarioId,
+      usuarioNome: opcoes.usuarioNome
+    }).catch(() => {});
+  }
 
-  const espelhamento = await espelharTributosNfeDevolucaoCompra({
+  if (opcoes.pararAposValidacaoSaldo === true) {
+    return {
+      id,
+      compra,
+      config,
+      cfopPadrao,
+      refNFe,
+      saldos,
+      saldosNormais,
+      excecao,
+      contexto210240,
+      rascunho,
+      itensAtivos,
+      calculo,
+      validacaoSaldo,
+      espelhamento: { ok: true, itens: itensAtivos },
+      numero: Number(opcoes.numeroPreview || 1),
+      built: { xmlSemAssinatura: '', infCpl: opcoes.observacoes || null }
+    };
+  }
+
+  const espelhamento = opcoes.pularEspelhamento === true
+    ? { ok: true, itens: itensAtivos, fonteXml: 'teste' }
+    : await espelharTributosNfeDevolucaoCompra({
     compraId: id,
     chave: refNFe,
     itens: itensAtivos,
     cfopPadrao,
     exigirXml: true
   });
-  const validacaoEsp = validarEspelhamentoAntesTransmissao(espelhamento, espelhamento.itens);
+  const validacaoEsp = opcoes.pularEspelhamento === true
+    ? { ok: true, erros: [] }
+    : validarEspelhamentoAntesTransmissao(espelhamento, espelhamento.itens);
   if (!validacaoEsp.ok) {
     throw Object.assign(
       new Error(`Inconsistência fiscal: ${validacaoEsp.erros.join(' | ')}`),
@@ -564,6 +750,11 @@ async function montarDocumentoXmlDevolucaoCompra(compraId, opcoes = {}) {
     cfopPadrao,
     refNFe,
     saldos,
+    saldosNormais,
+    excecao,
+    contexto210240,
+    rascunho,
+    calculo,
     itensAtivos,
     espelhamento,
     numero,
@@ -657,10 +848,12 @@ async function previaNfeDevolucaoCompra(compraId, opcoes = {}) {
     modelo: '55',
     serie: cfgPeek.serie
   });
+  const rascunhoPrevia = await obterRascunhoDevolucaoCompra(Number(compraId));
   const montado = await montarDocumentoXmlDevolucaoCompra(compraId, {
     ...opcoes,
     reservarNumero: false,
-    numeroPreview: peek.numero
+    numeroPreview: peek.numero,
+    pularValidacaoSaldo: opcoes.pularValidacaoSaldo === true
   });
   const previa = montarResumoPreviaDevolucao({
     built: montado.built,
@@ -709,7 +902,13 @@ async function prepararNfeDevolucaoCompra(compraId) {
   const chave = onlyDigits(compra.chave_acesso);
   const cfopSugerido = sugerirCfop(compra, config);
 
-  const saldos = await carregarSaldosDevolucaoCompra(id);
+  await garantirTabelasSubstituicaoDevolucao();
+  const rascunhoPre = await obterRascunhoDevolucaoCompra(id);
+  const { saldos, saldosNormais, excecao } = await carregarSaldosComExcecao210240(
+    id,
+    rascunhoPre && (rascunhoPre.origem_nfe_devolucao_id || rascunhoPre.documento_original_id),
+    rascunhoPre
+  );
   const notas = await listarNotasDevolucaoCompra(id);
 
   const itensComSaldo = saldos.itens
@@ -791,6 +990,29 @@ async function prepararNfeDevolucaoCompra(compraId) {
   else if (!espelhamento?.ok) motivoBloqueio = motivoEspelhamento || 'Espelhamento fiscal da NF-e original indisponível.';
 
   const rascunho = await obterRascunhoDevolucaoCompra(id);
+  if (rascunho && Array.isArray(rascunho.itens) && rascunho.itens.length) {
+    const mapaSaldo = new Map((saldos.itens || []).map((s) => [Number(s.compra_item_id), s]));
+    const mapaEmit = new Map((itensFinais || []).map((i) => [Number(i.compra_item_id), i]));
+    itensFinais = rascunho.itens.map((r) => {
+      const s = mapaSaldo.get(Number(r.compra_item_id)) || {};
+      const e = mapaEmit.get(Number(r.compra_item_id)) || {};
+      const trib = mapearTributosItem(compra, { ...s, ...e, ...r });
+      return {
+        ...s,
+        ...e,
+        ...trib,
+        ...r,
+        compra_item_id: Number(r.compra_item_id),
+        quantidade: Number(r.quantidade),
+        quantidade_maxima: Number(
+          s.saldo > 0 ? s.saldo : (s.quantidade_comprada || r.quantidade || 0)
+        ),
+        valor_unitario: r.valor_unitario != null ? Number(r.valor_unitario) : Number(e.valor_unitario || s.valor_unitario || 0),
+        n_item_origem: r.n_item_origem || e.nItemOrigem || null,
+        editavel_rascunho: true
+      };
+    });
+  }
   const validacaoOrigem = avaliarValidacaoNfeOrigemDevolucao({
     compra,
     chave,
@@ -872,15 +1094,19 @@ async function prepararNfeDevolucaoCompra(compraId) {
       cst_ipi: compra.cst_ipi || compra.cst_ipi_xml
     },
     cfopSugerido,
-    camposEditaveis: ['quantidade', 'observacoes', 'cfop'],
+    camposEditaveis: ['quantidade', 'valor_unitario', 'observacoes', 'cfop'],
     camposBloqueados: ['emitente', 'destinatario', 'refNFe', 'cst', 'csosn', 'tributos'],
     itens: itensFinais,
     itensPainel,
     controleSaldo: {
       statusCompra: saldos.statusCompra,
       statusCompraUi: saldos.statusCompraUi,
-      totais: saldos.totais
+      totais: saldos.totais,
+      saldo_normal: (saldosNormais && saldosNormais.totais) || saldos.totais,
+      saldo_excecao: excecao && excecao.aplicar ? saldos.totais : null,
+      excecaoSubstituicao: saldos.excecaoSubstituicao || null
     },
+    devolucaoRelacionada: montarBlocoDevolucaoRelacionada(excecao),
     tributacaoOriginal: espelhamento?.tributacaoOriginal || null,
     comparacaoFiscal: espelhamento?.comparacaoFiscal || [],
     ajustesFiscais: espelhamento?.ajustes || [],
@@ -954,10 +1180,9 @@ function resolverItensDoBody(compra, itensCompra, bodyItens, cfopPadrao) {
     }
     const trib = mapearTributosItem(compra, base);
     const qtd = Number(b.quantidade);
-    const max = Number(base.quantidade || 0);
-    if (!(qtd > 0) || qtd > max + 1e-9) {
+    if (!(qtd > 0)) {
       throw Object.assign(
-        new Error(`Quantidade inválida para o item ${base.produto_nome || base.id} (máx. ${max}).`),
+        new Error(`Quantidade inválida para o item ${base.produto_nome || base.id}.`),
         { code: 'QTD_INVALIDA', statusCode: 400 }
       );
     }
@@ -974,6 +1199,12 @@ function resolverItensDoBody(compra, itensCompra, bodyItens, cfopPadrao) {
           ? b.valor_unitario
           : (base.custo_unitario_final || base.preco_unitario || 0)
       ),
+      n_item_origem: Number(b.n_item_origem || b.nItemOrigem || 0) || undefined,
+      nItemOrigem: Number(b.n_item_origem || b.nItemOrigem || 0) || undefined,
+      vDesc: Number(b.v_desc != null ? b.v_desc : (b.vDesc || 0)) || undefined,
+      vFrete: Number(b.v_frete != null ? b.v_frete : (b.vFrete || 0)) || undefined,
+      vSeg: Number(b.v_seg != null ? b.v_seg : (b.vSeg || 0)) || undefined,
+      vOutro: Number(b.v_outro != null ? b.v_outro : (b.vOutro || 0)) || undefined,
       cfop: onlyDigits(b.cfop || cfopPadrao).slice(0, 4) || cfopPadrao
     };
   });
@@ -994,7 +1225,7 @@ function resolverItensDevolucaoInterna(compra, itensDev, cfopPadrao) {
 
 function persistirNota(payload) {
   return new Promise((resolve, reject) => {
-    db.run(`
+    db().run(`
       INSERT INTO nfe_devolucoes_compra (
         compra_id, numero, serie, chave_acesso, chave_referenciada, protocolo, ambiente,
         status, natureza_operacao, cfop, xml_enviado, xml_retorno, danfe_html, updated_at
@@ -1019,7 +1250,7 @@ function persistirNota(payload) {
       const parsed = payload.chave_acesso
         ? require('./nfeIdentityService').parseChaveNfe(payload.chave_acesso)
         : null;
-      db.run(
+      db().run(
         `UPDATE nfe_devolucoes_compra
          SET xml_hash = ?, xml_assinado_hash = ?, cnf = ?, tp_emis = ?, identidade_congelada = 1
          WHERE id = ?`,
@@ -1050,7 +1281,7 @@ async function emitirNFeDevolucaoCompra(compraId, opcoes = {}) {
     arquivo: __filename
   });
 
-  if (!configService.recursoHabilitado('nfe')) {
+  if (!opcoes.forcarEmissaoTeste && !configService.recursoHabilitado('nfe')) {
     return {
       success: false,
       status: 'modulo_desabilitado',
@@ -1078,7 +1309,7 @@ async function emitirNFeDevolucaoCompra(compraId, opcoes = {}) {
   try {
   const emAndamento = await obterNotaEmAndamento(id);
   if (emAndamento) {
-    return {
+    return anexarClassificacao({
       success: false,
       reused: true,
       idNota: emAndamento.id,
@@ -1089,14 +1320,102 @@ async function emitirNFeDevolucaoCompra(compraId, opcoes = {}) {
       chave: emAndamento.chave_acesso,
       chaveAcesso: emAndamento.chave_acesso,
       protocolo: emAndamento.protocolo,
+      recibo: emAndamento.recibo || null,
+      cStat: emAndamento.cstat_retorno || null,
+      xMotivo: emAndamento.xmotivo_retorno || emAndamento.rejeicao_motivo || null,
       message: 'Há uma NF-e de devolução em andamento para esta compra. Aguarde o retorno da SEFAZ.'
-    };
+    });
+  }
+
+  const rascunhoAtual = await obterRascunhoDevolucaoCompra(id).catch(() => null);
+  if (!opcoes.origemNfeDevolucaoId) {
+    const ctxEmit = await resolverContextoSubstituicao210240({
+      compraId: id,
+      rascunho: rascunhoAtual,
+      origemDevolucaoId: rascunhoAtual && (rascunhoAtual.origem_nfe_devolucao_id || rascunhoAtual.documento_original_id),
+      chaveAnterior: opcoes.chaveAnterior
+    });
+    if (ctxEmit.ativo) opcoes.origemNfeDevolucaoId = ctxEmit.origemDevolucaoId;
+    trace210240('emitir_contexto', {
+      compraId: id,
+      rascunhoId: rascunhoAtual && rascunhoAtual.id,
+      origemNfeDevolucaoId: opcoes.origemNfeDevolucaoId,
+      documento_original_id: rascunhoAtual && rascunhoAtual.documento_original_id,
+      substituicaoId: ctxEmit.substituicaoId,
+      chaveNFAnterior: ctxEmit.chaveAnterior,
+      evento210240: ctxEmit.ativo,
+      origemResolvida: ctxEmit.fonte
+    });
+  }
+  const ultimaNota = await obterUltimaNotaPorCompra(id);
+  const stUltima = String((ultimaNota && ultimaNota.status) || '').toLowerCase();
+  const posteriorAoRascunho = Boolean(
+    rascunhoAtual
+    && ultimaNota
+    && String(ultimaNota.created_at || '') >= String(rascunhoAtual.created_at || '')
+  );
+  const rejeicaoXmlDefinitiva = ultimaNota && xmlRejeicaoFiscalDefinitiva(ultimaNota);
+  if (rejeicaoXmlDefinitiva) {
+    opcoes.novaIdentidade = true;
+  }
+  const bloqueioTx = (ultimaNota && posteriorAoRascunho && stUltima !== 'autorizada' && stUltima !== 'cancelada'
+    && !rejeicaoXmlDefinitiva && !opcoes.novaIdentidade)
+    ? deveBloquearNovaTransmissao(ultimaNota)
+    : { bloquear: false };
+  if (bloqueioTx.bloquear) {
+    registrarDiagnosticoEmissao(id, {
+      notaId: ultimaNota.id,
+      numero: ultimaNota.numero,
+      serie: ultimaNota.serie,
+      chave: ultimaNota.chave_acesso,
+      status: ultimaNota.status,
+      cStat: ultimaNota.cstat_retorno,
+      xMotivo: ultimaNota.xmotivo_retorno,
+      nRec: ultimaNota.recibo,
+      protocolo: ultimaNota.protocolo,
+      etapa: 'bloqueio_retransmissao',
+      erroTecnico: bloqueioTx.motivo
+    });
+    return anexarClassificacao({
+      success: false,
+      reused: true,
+      code: 'TRANSMISSAO_ANTERIOR',
+      status: ultimaNota.status || 'erro_validacao',
+      notaId: ultimaNota.id,
+      idNota: ultimaNota.id,
+      numero: ultimaNota.numero,
+      serie: ultimaNota.serie,
+      chave: ultimaNota.chave_acesso,
+      chaveAcesso: ultimaNota.chave_acesso,
+      protocolo: ultimaNota.protocolo,
+      recibo: ultimaNota.recibo || null,
+      cStat: ultimaNota.cstat_retorno || null,
+      xMotivo: ultimaNota.xmotivo_retorno || ultimaNota.rejeicao_motivo || null,
+      retorno: ultimaNota.xml_retorno || null,
+      message: bloqueioTx.motivo
+    });
   }
 
   const montado = await montarDocumentoXmlDevolucaoCompra(id, {
     ...opcoes,
     reservarNumero: false
   });
+  if (opcoes.pararAposMontarXml === true) {
+    return anexarClassificacao({
+      success: true,
+      status: 'xml_montado_sem_transmissao',
+      transmitido: false,
+      validacaoSaldoOk: true,
+      compraId: id,
+      xml: montado.built && montado.built.xmlSemAssinatura,
+      infCpl: montado.built && montado.built.infCpl,
+      refNFe: montado.refNFe,
+      excecao: montado.excecao,
+      contexto210240: montado.contexto210240,
+      calculo: montado.calculo,
+      message: 'Validação de saldo e montagem XML concluídas sem transmissão SEFAZ.'
+    });
+  }
   let {
     compra,
     config,
@@ -1112,7 +1431,11 @@ async function emitirNFeDevolucaoCompra(compraId, opcoes = {}) {
     cfop: cfopPadrao,
     observacoes: opcoes.observacoes,
     fornecedor: compra.fornecedor,
-    chave_nfe_original: compra.chave_acesso
+    chave_nfe_original: compra.chave_acesso,
+    origem_nfe_devolucao_id: (rascunhoAtual && (rascunhoAtual.origem_nfe_devolucao_id || rascunhoAtual.documento_original_id))
+      || (montado.excecao && montado.excecao.devolucaoAnteriorId)
+      || (montado.rascunho && montado.rascunho.origem_nfe_devolucao_id)
+      || null
   }, {
     usuarioId: opcoes.usuarioId,
     usuarioNome: opcoes.usuarioNome
@@ -1126,13 +1449,19 @@ async function emitirNFeDevolucaoCompra(compraId, opcoes = {}) {
     contexto: { compraId: id, nfeNumero: montado.numero, debugPrefix: String(id), fase: 'pre_numeracao' }
   });
   if (!auditoriaPre.aprovado) {
-    return {
+    registrarDiagnosticoEmissao(id, {
+      status: 'erro_validacao',
+      classeResultado: 'VALIDATION_ERROR',
+      etapa: 'validacao',
+      erroTecnico: formatarMensagemAuditoria(auditoriaPre)
+    });
+    return anexarClassificacao({
       success: false,
       status: 'erro_validacao',
       code: 'AUDITORIA_FISCAL_REPROVADA',
       message: formatarMensagemAuditoria(auditoriaPre),
       auditoria: auditoriaPre
-    };
+    });
   }
 
   const numero = await proximoNumeroNFeVenda();
@@ -1153,13 +1482,23 @@ async function emitirNFeDevolucaoCompra(compraId, opcoes = {}) {
     contexto: { compraId: id, nfeNumero: numero, debugPrefix: String(id) }
   });
   if (!auditoria.aprovado) {
-    return {
+    registrarDiagnosticoEmissao(id, {
+      numero,
+      serie: built.serie,
+      chave: built.chave,
+      ambiente: config.ambiente,
+      status: 'erro_validacao',
+      classeResultado: 'VALIDATION_ERROR',
+      etapa: 'validacao',
+      erroTecnico: formatarMensagemAuditoria(auditoria)
+    });
+    return anexarClassificacao({
       success: false,
       status: 'erro_validacao',
       code: 'AUDITORIA_FISCAL_REPROVADA',
       message: formatarMensagemAuditoria(auditoria),
       auditoria
-    };
+    });
   }
 
   const parsedChave = parseChaveNfe(built.chave);
@@ -1346,6 +1685,17 @@ async function emitirNFeDevolucaoCompra(compraId, opcoes = {}) {
       ip: opcoes.ip,
       computador: opcoes.computador
     });
+    registrarDiagnosticoEmissao(id, {
+      notaId,
+      numero,
+      serie: built.serie,
+      chave: built.chave,
+      ambiente: config.ambiente,
+      status: 'erro_comunicacao',
+      classeResultado: 'COMMUNICATION_ERROR',
+      etapa: 'comunicacao',
+      erroTecnico: commErr.message
+    });
     return {
       success: false,
       notaId,
@@ -1443,7 +1793,20 @@ async function emitirNFeDevolucaoCompra(compraId, opcoes = {}) {
   status = (notaLifecycle && notaLifecycle.status) || status;
 
   let saldosApos = null;
+  const rascPos = await obterRascunhoDevolucaoCompra(id).catch(() => null);
+  const origemPos = await resolverOrigemSubstituicao210240({
+    compraId: id,
+    origemDevolucaoId: rascPos && (rascPos.origem_nfe_devolucao_id || rascPos.documento_original_id),
+    rascunho: rascPos
+  }).catch(() => ({ origemDevolucaoId: null }));
   if (status === 'autorizada') {
+    if (origemPos && origemPos.origemDevolucaoId) {
+      await efetivarSubstituicaoAposAutorizacao({
+        devolucaoAnteriorId: origemPos.origemDevolucaoId,
+        novaDevolucaoId: notaId,
+        rascunhoId: rascPos && rascPos.id
+      }).catch(() => {});
+    }
     saldosApos = await persistirItensNfeDevolucao({
       nfeDevolucaoId: notaId,
       compraId: id,
@@ -1453,7 +1816,7 @@ async function emitirNFeDevolucaoCompra(compraId, opcoes = {}) {
     });
     if (opcoes.usuarioId || opcoes.usuarioNome) {
       await new Promise((resolve) => {
-        db.run(
+        db().run(
           `UPDATE nfe_devolucoes_compra SET usuario_id = ?, usuario_nome = ? WHERE id = ?`,
           [opcoes.usuarioId || null, opcoes.usuarioNome || null, notaId],
           () => resolve()
@@ -1467,7 +1830,7 @@ async function emitirNFeDevolucaoCompra(compraId, opcoes = {}) {
     ? mensagemRejeicaoDetalhada(parsed.cStat, parsed.xMotivo)
     : null;
 
-  return {
+  const outEmissao = anexarClassificacao({
     success: status === 'autorizada',
     tipoDocumento: 'DEVOLUCAO',
     finNFe: 4,
@@ -1484,6 +1847,7 @@ async function emitirNFeDevolucaoCompra(compraId, opcoes = {}) {
     chaveAcesso: chaveFinal,
     protocolo: (notaLifecycle && notaLifecycle.protocolo) || protocolo,
     recibo: (notaLifecycle && notaLifecycle.recibo) || parsed.recibo || null,
+    dhRecbto: parsed.dhRecbto || null,
     cStat: parsed.cStat,
     xMotivo: parsed.xMotivo,
     danfeHtml: Boolean(danfeHtml),
@@ -1494,7 +1858,22 @@ async function emitirNFeDevolucaoCompra(compraId, opcoes = {}) {
       ? 'NF-e de devolução autorizada com sucesso.'
       : (msgDetalhada || parsed.xMotivo || `NF-e de devolução não autorizada (status: ${status}).`),
     retorno: raw
-  };
+  });
+  registrarDiagnosticoEmissao(id, {
+    notaId,
+    numero,
+    serie: built.serie,
+    chave: chaveFinal,
+    ambiente: config.ambiente,
+    status,
+    classeResultado: outEmissao.classeResultado,
+    cStat: parsed.cStat,
+    xMotivo: parsed.xMotivo,
+    nRec: parsed.recibo,
+    protocolo,
+    etapa: 'sefaz'
+  });
+  return outEmissao;
   } finally {
     liberarLock(lockToken);
   }
@@ -1507,7 +1886,7 @@ async function criarNovaEmissaoDevolucao(compraId, opcoes = {}) {
 async function obterNfeDevolucaoPorId(notaId) {
   await garantirTabelas();
   return new Promise((resolve, reject) => {
-    db.get(`SELECT * FROM nfe_devolucoes_compra WHERE id = ?`, [Number(notaId)], (err, row) => {
+    db().get(`SELECT * FROM nfe_devolucoes_compra WHERE id = ?`, [Number(notaId)], (err, row) => {
       if (err) return reject(err);
       resolve(row || null);
     });
@@ -1596,6 +1975,8 @@ async function listarHistoricoDevolucaoCompra(compraId) {
 }
 
 module.exports = {
+  setDbForTests,
+  carregarSaldosComExcecao210240,
   emitirNFeDevolucaoCompra,
   criarNovaEmissaoDevolucao,
   previaNfeDevolucaoCompra,
@@ -1609,6 +1990,8 @@ module.exports = {
   cancelarNfeDevolucaoCompra,
   cancelarNfeDevolucaoOficial,
   consultarSituacaoDevolucao,
+  reconciliarDevolucoesCompraComSefaz: (...a) =>
+    require('./nfeDevolucaoLifecycleService').reconciliarDevolucoesCompraComSefaz(...a),
   reenviarNfeDevolucao,
   listarEventosDevolucao,
   obterPainelStatus,

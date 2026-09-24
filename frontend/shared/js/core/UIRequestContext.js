@@ -184,6 +184,17 @@
       };
     },
 
+    /** Remove entradas terminais antigas (evita crescimento infinito). */
+    prune(maxAgeMs) {
+      const age = Math.max(5000, Number(maxAgeMs) || 120000);
+      const now = Date.now();
+      for (const [id, row] of [..._requests.entries()]) {
+        if (row.status === STATUS.ACTIVE) continue;
+        if ((now - (row.created_ms || 0)) > age) _requests.delete(id);
+      }
+      return _requests.size;
+    },
+
     /** Helper: begin + fetch guard wrapper */
     async run(options, executor) {
       const ctx = this.begin(options);
@@ -191,6 +202,7 @@
         const result = await executor(ctx);
         if (!this.isFresh(ctx.request_id)) return { stale: true, ctx, result: null };
         this.markCompleted(ctx.request_id);
+        this.prune();
         return { stale: false, ctx, result };
       } catch (err) {
         if (ctx.abortController?.signal?.aborted) {

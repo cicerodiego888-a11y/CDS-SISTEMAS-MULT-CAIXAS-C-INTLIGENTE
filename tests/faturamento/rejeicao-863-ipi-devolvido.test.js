@@ -86,6 +86,7 @@ function itemDev({
     produto_codigo: String(codigo),
     ncm: '22021000',
     unidade: 'UN',
+    nItemOrigem: 1,
     quantidade,
     quantidade_original: quantidadeOriginal != null ? quantidadeOriginal : quantidade,
     valor_unitario: valorUnitario,

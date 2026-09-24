@@ -10,6 +10,13 @@ const FechamentoCaixaResumoService = require('../services/caixa/FechamentoCaixaR
 const { gerarHtmlCupomFechamento } = require('../services/caixa/FechamentoCaixaCupomService');
 const { validarConferenciaERetirada } = require('../services/caixa/FechamentoCaixaPolitica');
 const { parseMoedaBr } = require('../services/financeiro/politicaMonetaria');
+const { autenticarAdministrador } = require('../utils/validarSenhaAdmin');
+const {
+  avaliarDivergenciaFechamento,
+  decidirAutorizacaoFechamento,
+  montarErroAutorizacaoNecessaria
+} = require('../services/caixa/FechamentoCaixaAutorizacao');
+const { buscarPermissoesUsuario } = require('../middleware/auth');
 
 function n(valor) {
   return parseMoedaBr(valor);
@@ -172,6 +179,92 @@ function calcularResumoCaixa(caixa, options = {}, callback) {
 
 function calcularFechamentoDetalhado(caixa, options = {}, callback) {
   FechamentoCaixaResumoService.calcularFechamentoDetalhado(caixa, options, callback);
+}
+
+function resolverAutorizacaoFechamento(req, avaliacao, callback) {
+  const pretensao = decidirAutorizacaoFechamento({
+    avaliacao,
+    fecharComDivergencia: req.body && req.body.fechar_com_divergencia,
+    user: req.user,
+    permissoes: req.user && req.user.permissoes
+  });
+  if (!avaliacao || !avaliacao.exige_autorizacao) {
+    return callback(null, { autorizado: false, autorizador: null });
+  }
+
+  buscarPermissoesUsuario(req.user && req.user.id, (permErr, perms) => {
+    if (permErr) return callback(permErr);
+    const decisao = decidirAutorizacaoFechamento({
+      avaliacao,
+      fecharComDivergencia: req.body && req.body.fechar_com_divergencia,
+      user: req.user,
+      permissoes: (req.user && req.user.permissoes && req.user.permissoes.length)
+        ? req.user.permissoes
+        : perms
+    });
+    if (decisao.autorizado) {
+      return callback(null, {
+        autorizado: true,
+        autorizador: {
+          id: req.user.id,
+          nome: req.user.nome || req.user.username,
+          username: req.user.username
+        }
+      });
+    }
+
+    const usuarioAdmin = req.body.usuario_admin || req.body.usuario_autorizador;
+    const senhaAdmin = req.body.senha_admin;
+    if (!usuarioAdmin || !senhaAdmin) {
+      return callback(decisao.erro || pretensao.erro || montarErroAutorizacaoNecessaria(avaliacao));
+    }
+
+    autenticarAdministrador({ username: usuarioAdmin, senha: senhaAdmin }, (authErr, resultado) => {
+      if (authErr) return callback(authErr);
+      if (!resultado || !resultado.ok) {
+        const err = new Error((resultado && resultado.error) || 'Usuário ou senha inválidos.');
+        err.codigo = (resultado && resultado.codigo) || 'CREDENCIAIS_INVALIDAS';
+        return callback(err);
+      }
+      return callback(null, {
+        autorizado: true,
+        autorizador: resultado.usuario
+      });
+    });
+  });
+}
+
+function responderBloqueioReconciliacao(res, req, { operadorId, operadorNome, sessao, caixa, errVal }) {
+  gravarAuditoria({
+    usuario_id: operadorId,
+    usuario_nome: operadorNome,
+    modulo: 'caixa',
+    acao: 'fechamento_bloqueado',
+    referencia_tipo: 'caixa_sessao',
+    referencia_id: sessao.id,
+    detalhes: {
+      motivo: errVal.codigo || 'FECHAMENTO_BLOQUEADO_RECONCILIACAO',
+      erro: errVal.message,
+      caixa_id: caixa.id,
+      quantidade_inconsistencias: errVal.quantidade_inconsistencias,
+      valor_divergencia: errVal.valor_divergencia,
+      saldo_liquido: errVal.saldo_liquido,
+      inconsistencias: errVal.inconsistencias || [],
+      divergencias: errVal.divergencias || [],
+      detalhes: errVal.detalhes || []
+    },
+    ip_requisicao: req.ip || null
+  }).catch(() => {});
+  return res.status(400).json({
+    error: errVal.message,
+    codigo: errVal.codigo || 'FECHAMENTO_BLOQUEADO_RECONCILIACAO',
+    quantidade_inconsistencias: errVal.quantidade_inconsistencias || 0,
+    valor_divergencia: errVal.valor_divergencia != null ? errVal.valor_divergencia : 0,
+    saldo_liquido: errVal.saldo_liquido != null ? errVal.saldo_liquido : 0,
+    detalhes: errVal.detalhes || [],
+    inconsistencias: errVal.inconsistencias || [],
+    divergencias: errVal.divergencias || []
+  });
 }
 
 const { exigirPermissaoOuSenhaAdmin } = require('../middleware/exigirPermissaoOuSenhaAdmin');
@@ -630,7 +723,10 @@ router.post('/fechar', verificarToken, validarCaixaAberto, exigirPermissaoOuSenh
         db.get(`SELECT id FROM caixa_fechamentos WHERE sessao_id = ? LIMIT 1`, [sessao.id], (checkErr, jaFechado) => {
           if (checkErr) return res.status(500).json({ error: checkErr.message });
           if (jaFechado) {
-            return res.status(400).json({ error: 'Esta sessão de caixa já foi fechada. Use REIMPRESSÃO se necessário reimprimir.' });
+            return res.status(400).json({
+              error: 'Esta sessão já foi fechada.',
+              codigo: 'SESSAO_JA_FECHADA'
+            });
           }
 
           obterMetaSessao(sessao, operadorNome, (metaErr, meta) => {
@@ -643,48 +739,49 @@ router.post('/fechar', verificarToken, validarCaixaAberto, exigirPermissaoOuSenh
               retiradaFechamento,
               modoRetirada,
               meta,
-              validar: true
+              validar: false
             }, (calcErr, detalhes) => {
               if (calcErr) {
-                gravarAuditoria({
-                  usuario_id: operadorId,
-                  usuario_nome: operadorNome,
-                  modulo: 'caixa',
-                  acao: 'fechamento_bloqueado',
-                  referencia_tipo: 'caixa_sessao',
-                  referencia_id: sessao.id,
-                  detalhes: {
-                    motivo: calcErr.codigo || 'INCONSISTENCIA_FINANCEIRA',
-                    erro: calcErr.message,
-                    caixa_id: caixa.id,
-                    inconsistencias: calcErr.inconsistencias || [],
-                    divergencias: calcErr.divergencias || []
-                  },
-                  ip_requisicao: req.ip || null
-                }).catch(() => {});
-                return res.status(400).json({
-                  error: calcErr.message,
-                  codigo: calcErr.codigo || 'INCONSISTENCIA_FINANCEIRA',
-                  inconsistencias: calcErr.inconsistencias || [],
-                  divergencias: calcErr.divergencias || []
+                return responderBloqueioReconciliacao(res, req, {
+                  operadorId, operadorNome, sessao, caixa, errVal: calcErr
                 });
               }
 
               const fisico = detalhes.consolidacao && detalhes.consolidacao.caixa_fisico
                 ? detalhes.consolidacao.caixa_fisico
                 : null;
-              const conferencia = validarConferenciaERetirada(fisico || {
+              const fisicoRef = fisico || {
                 dinheiro_esperado: detalhes.total_esperado,
                 dinheiro_conferido: dinheiroConferido,
                 diferenca: detalhes.diferenca,
                 conferencia_ok: Math.abs(n(detalhes.diferenca)) <= 0.02,
                 retirada_fechamento: n(detalhes.retirada_fechamento || retiradaFechamento)
-              }, {
-                fecharComDivergencia,
+              };
+              const recErr = FechamentoCaixaResumoService.validarConsolidacaoOuErro(detalhes.consolidacao);
+              const avaliacao = avaliarDivergenciaFechamento(detalhes.consolidacao, fisicoRef);
+
+              resolverAutorizacaoFechamento(req, avaliacao, (authErr, autorizacao) => {
+              if (authErr) {
+                return responderBloqueioReconciliacao(res, req, {
+                  operadorId, operadorNome, sessao, caixa, errVal: authErr
+                });
+              }
+
+              const autorizador = autorizacao && autorizacao.autorizador;
+              const autorizadoDivergencia = !!(autorizacao && autorizacao.autorizado);
+              const conferencia = validarConferenciaERetirada(fisicoRef, {
+                fecharComDivergencia: fecharComDivergencia || autorizadoDivergencia,
                 justificativa,
-                user: req.user,
-                senhaAdminValidada: senhaAdminInformada
+                user: autorizador || req.user,
+                senhaAdminValidada: senhaAdminInformada || autorizadoDivergencia
               });
+
+              if (recErr && !autorizadoDivergencia) {
+                return responderBloqueioReconciliacao(res, req, {
+                  operadorId, operadorNome, sessao, caixa, errVal: recErr
+                });
+              }
+
               if (!conferencia.ok) {
                 gravarAuditoria({
                   usuario_id: operadorId,
@@ -726,6 +823,39 @@ router.post('/fechar', verificarToken, validarCaixaAberto, exigirPermissaoOuSenh
                 consolidacao.fechamento.retirada_fechamento = retiradaFinal;
                 consolidacao.fechamento.saldo_final = saldoFinal;
                 consolidacao.fechamento.justificativa_divergencia = justificativa || null;
+                if (autorizadoDivergencia) {
+                  consolidacao.fechamento.autorizacao = {
+                    usuario_id: autorizador && autorizador.id,
+                    usuario_nome: autorizador && (autorizador.nome || autorizador.username),
+                    em: fechadoEm,
+                    motivo: justificativa || null,
+                    tipo: avaliacao.tipo_divergencia,
+                    inconsistencias_existentes: avaliacao.quantidade_inconsistencias || 0,
+                    valor_divergencia: avaliacao.valor_divergencia,
+                    saldo_liquido: avaliacao.saldo_liquido,
+                    valor_divergencia_fisica: diferenca,
+                    valor_divergencia_vendas: consolidacao.reconciliacao
+                      ? consolidacao.reconciliacao.valor_divergencia
+                      : 0,
+                    fechamento_com_divergencia: true,
+                    snapshot: {
+                      dinheiro_esperado: fisico && fisico.dinheiro_esperado,
+                      dinheiro_conferido: dinheiroConferido,
+                      diferenca_fisica: diferenca,
+                      reconciliacao: consolidacao.reconciliacao
+                        ? {
+                          vendas_ok: consolidacao.reconciliacao.vendas_ok,
+                          vendas_parciais: consolidacao.reconciliacao.vendas_parciais,
+                          vendas_pendentes: consolidacao.reconciliacao.vendas_pendentes,
+                          vendas_inconsistentes: consolidacao.reconciliacao.vendas_inconsistentes,
+                          quantidade_inconsistencias: consolidacao.reconciliacao.quantidade_inconsistencias,
+                          valor_divergencia: consolidacao.reconciliacao.valor_divergencia,
+                          saldo_liquido: consolidacao.reconciliacao.saldo_liquido
+                        }
+                        : null
+                    }
+                  };
+                }
                 consolidacao.periodo = consolidacao.periodo || {};
                 consolidacao.periodo.fechado_em = fechadoEm;
                 consolidacao.operador = {
@@ -775,7 +905,7 @@ router.post('/fechar', verificarToken, validarCaixaAberto, exigirPermissaoOuSenh
                     saldo_esperado = ?,
                     diferenca = ?,
                     observacao = ?
-                  WHERE id = ?
+                  WHERE id = ? AND status = 'aberto'
                 `, [
                   fechadoEm,
                   operadorId,
@@ -851,13 +981,14 @@ router.post('/fechar', verificarToken, validarCaixaAberto, exigirPermissaoOuSenh
                     detalhes.total_recebido != null ? detalhes.total_recebido : detalhes.total_vendido,
                     detalhes.total_pendente || 0,
                     justificativa || null,
-                    fecharComDivergencia ? operadorId : null
+                    autorizadoDivergencia && autorizador ? autorizador.id : null
                   ], (insertErr) => {
                     if (insertErr) {
                       db.run('ROLLBACK');
                       if (/UNIQUE constraint failed|idx_caixa_fechamentos_sessao/i.test(String(insertErr.message))) {
                         return res.status(409).json({
-                          error: 'Esta sessão já está sendo fechada ou já foi fechada.'
+                          error: 'Esta sessão já foi fechada.',
+                          codigo: 'SESSAO_JA_FECHADA'
                         });
                       }
                       return res.status(500).json({ error: insertErr.message });
@@ -947,7 +1078,7 @@ router.post('/fechar', verificarToken, validarCaixaAberto, exigirPermissaoOuSenh
                               usuario_id: operadorId,
                               usuario_nome: operadorNome,
                               modulo: 'caixa',
-                              acao: fecharComDivergencia && Math.abs(diferenca) > 0.02
+                              acao: autorizadoDivergencia
                                 ? 'fechar_caixa_com_divergencia'
                                 : 'fechar_caixa',
                               referencia_tipo: 'caixa_sessao',
@@ -964,7 +1095,19 @@ router.post('/fechar', verificarToken, validarCaixaAberto, exigirPermissaoOuSenh
                                 terminal_id: sessao.terminal_id || terminalId,
                                 total_vendido: detalhes.total_vendido,
                                 total_recebido: detalhes.total_recebido,
-                                total_pendente: detalhes.total_pendente
+                                total_pendente: detalhes.total_pendente,
+                                operador_id: operadorId,
+                                autorizado_por: autorizadoDivergencia && autorizador ? autorizador.id : null,
+                                autorizado_por_nome: autorizadoDivergencia && autorizador
+                                  ? (autorizador.nome || autorizador.username)
+                                  : null,
+                                sessao_id: sessao.id,
+                                tipo_divergencia: avaliacao.tipo_divergencia,
+                                quantidade_inconsistencias: avaliacao.quantidade_inconsistencias,
+                                valor_divergencia: avaliacao.valor_divergencia,
+                                saldo_liquido: avaliacao.saldo_liquido,
+                                diferenca_fisica: avaliacao.diferenca_fisica,
+                                fechamento_com_divergencia: autorizadoDivergencia === true
                               },
                               ip_requisicao: req.ip || null
                             }).catch((aErr) => console.error('Erro ao gravar auditoria de fechamento de caixa:', aErr));
@@ -1022,6 +1165,7 @@ router.post('/fechar', verificarToken, validarCaixaAberto, exigirPermissaoOuSenh
                     });
                   });
                 });
+              });
               });
             });
           });

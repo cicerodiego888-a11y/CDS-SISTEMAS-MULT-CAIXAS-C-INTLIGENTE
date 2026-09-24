@@ -85,6 +85,7 @@ function itemDev(opts = {}) {
     produto_nome: opts.nome || 'PRODUTO',
     ncm: '22021000',
     unidade: 'UN',
+    nItemOrigem: opts.nItemOrigem || 1,
     quantidade: opts.quantidade != null ? opts.quantidade : 1,
     quantidade_original: opts.quantidadeOriginal != null ? opts.quantidadeOriginal : (opts.quantidade || 1),
     valor_unitario: opts.valorUnitario != null ? opts.valorUnitario : 10,
@@ -124,6 +125,7 @@ function itemIcms00Espelhado() {
     produto_nome: 'AL_CRIMP_DUP',
     produto_codigo: 'AL_CRIMP_DUP',
     quantidade: 1,
+    nItemOrigem: 1,
     valor_unitario: 157.35,
     ncm: '82032000',
     unidade: 'UN',
@@ -367,6 +369,11 @@ describe('Auditoria fiscal NF-e de devolução', () => {
     });
     assert.equal(r.aprovado, false);
     assert.equal(temCodigo(r, 'AUD-XML-ESTRUTURA-001'), true);
+  });
+
+  it('CENÁRIO 15b — reenviar XML rejeitado 225 (schema): BLOQUEADO', () => {
+    assert.equal(podeReenviarDevolucao({ status: 'rejeitada', rejeicao_codigo: '225' }), false);
+    assert.match(mensagemReenvioXmlEstruturalmenteRejeitado({ cstat_retorno: '225' }), /não pode ser reutilizado/i);
   });
 
   it('CENÁRIO 15 — reenviar XML rejeitado 275: BLOQUEADO', () => {

@@ -72,7 +72,7 @@ const BLOQUEIO_REENVIO = new Set([
 ]);
 
 /** cStat cujo XML é inválido: reenviar o mesmo arquivo só repete a rejeição. */
-const CSTAT_XML_INVALIDO_DEFINITIVO = new Set(['275', '539', '590', '591', '863']);
+const CSTAT_XML_INVALIDO_DEFINITIVO = new Set(['225', '275', '539', '590', '591', '863']);
 
 const EVENTOS = Object.freeze({
   XML_GERADO: 'xml_gerado',
@@ -87,6 +87,7 @@ const EVENTOS = Object.freeze({
   DENEGADO: 'denegado',
   DANFE_GERADO: 'danfe_gerado',
   CANCELADO: 'cancelado',
+  CANCELAMENTO_CONFIRMADO_SEFAZ: 'CANCELAMENTO_CONFIRMADO_SEFAZ',
   CANCELAMENTO_REJEITADO: 'cancelamento_rejeitado',
   REENVIO: 'reenvio',
   ERRO: 'erro'

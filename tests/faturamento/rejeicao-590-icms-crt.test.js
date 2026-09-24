@@ -132,6 +132,7 @@ function itemIcms00Espelhado({ vBC, pICMS, vICMS, quantidade = 1, valorUnitario 
     produto_nome: nome,
     produto_codigo: 'AL_CRIMP_DUP',
     quantidade,
+    nItemOrigem: 1,
     valor_unitario: valorUnitario,
     ncm: '82032000',
     unidade: 'UN',

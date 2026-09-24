@@ -256,6 +256,7 @@ async function showModalNovoUsuario(usuario = null) {
         pdv: 'PDV', vendas: 'Vendas', produtos: 'Produtos', clientes: 'Clientes', compras: 'Compras',
         fornecedores: 'Fornecedores', financeiro: 'Financeiro', caixa: 'Caixa',
         abrir_caixa: 'Abrir caixa', sangria_caixa: 'Sangria', suprimento_caixa: 'Adicionar dinheiro (suprimento)', fechar_caixa: 'Fechar caixa',
+        fechar_caixa_com_divergencia: 'Fechar caixa com divergência',
         fiscal: 'Fiscal', configuracoes: 'Configurações', usuarios: 'Usuários', relatorios: 'Relatórios',
         categorias: 'Categorias', auditoria: 'Auditoria', gerenciar_faixa_atacado: 'Gerenciar Faixa Atacado',
         entrega_visualizar: 'Entrega — Visualizar',

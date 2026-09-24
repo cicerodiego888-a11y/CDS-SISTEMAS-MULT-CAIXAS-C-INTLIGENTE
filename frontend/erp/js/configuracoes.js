@@ -82,6 +82,7 @@ function renderConfiguracoes(configuracoes) {
         config.chave !== 'endereco' &&
         config.chave !== 'imprimir_cupom' &&
         config.chave !== 'pdv_imprimir_cupom' &&
+        config.chave !== 'cupom_impressao_politica' &&
         config.chave !== 'pdv_exigir_ncm_cadastro' &&
         config.chave !== 'pdv_permitir_editar_preco_unitario' &&
         config.chave !== 'pdv_permitir_transferencia_nao_fiscal_fiscal' &&
@@ -170,6 +171,65 @@ function renderConfiguracoes(configuracoes) {
                         </button>
                     </div>
                 </div>
+                <hr>
+                <div id="cfgCupomPrintPolicyBox">
+                    <h6 class="mb-3">Impressão de Cupons</h6>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Modo de impressão</label>
+                        <div class="form-check"><input class="form-check-input" type="radio" name="cfgCupomModo" id="cfgCupomModoPerguntar" value="PERGUNTAR" checked><label class="form-check-label" for="cfgCupomModoPerguntar">Perguntar antes de imprimir</label></div>
+                        <div class="form-check"><input class="form-check-input" type="radio" name="cfgCupomModo" id="cfgCupomModoAuto" value="AUTOMATICO"><label class="form-check-label" for="cfgCupomModoAuto">Imprimir automaticamente</label></div>
+                        <div class="form-check"><input class="form-check-input" type="radio" name="cfgCupomModo" id="cfgCupomModoNao" value="NAO_IMPRIMIR"><label class="form-check-label" for="cfgCupomModoNao">Não imprimir</label></div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <strong>Cupom Fiscal</strong>
+                            <label class="form-label mt-2">Quantidade de vias</label>
+                            <select class="form-select" id="cfgCupomFiscalVias">
+                                <option value="1">1 via</option>
+                                <option value="2" selected>2 vias</option>
+                                <option value="3">3 vias</option>
+                                <option value="4">4 vias</option>
+                            </select>
+                            <label class="form-label mt-2">Via 1</label>
+                            <select class="form-select" id="cfgCupomFiscalVia1">
+                                <option value="CLIENTE" selected>Cliente</option>
+                                <option value="ESTABELECIMENTO">Estabelecimento</option>
+                                <option value="COPIA">Via adicional</option>
+                            </select>
+                            <label class="form-label mt-2">Via 2</label>
+                            <select class="form-select" id="cfgCupomFiscalVia2">
+                                <option value="CLIENTE">Cliente</option>
+                                <option value="ESTABELECIMENTO" selected>Estabelecimento</option>
+                                <option value="COPIA">Via adicional</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Cupom Não Fiscal</strong>
+                            <label class="form-label mt-2">Quantidade de vias</label>
+                            <select class="form-select" id="cfgCupomNfVias">
+                                <option value="1">1 via</option>
+                                <option value="2" selected>2 vias</option>
+                                <option value="3">3 vias</option>
+                                <option value="4">4 vias</option>
+                            </select>
+                            <label class="form-label mt-2">Via 1</label>
+                            <select class="form-select" id="cfgCupomNfVia1">
+                                <option value="CLIENTE" selected>Cliente</option>
+                                <option value="ESTABELECIMENTO">Estabelecimento</option>
+                                <option value="COPIA">Via adicional</option>
+                            </select>
+                            <label class="form-label mt-2">Via 2</label>
+                            <select class="form-select" id="cfgCupomNfVia2">
+                                <option value="CLIENTE">Cliente</option>
+                                <option value="ESTABELECIMENTO" selected>Estabelecimento</option>
+                                <option value="COPIA">Via adicional</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm mt-3" onclick="salvarPoliticaImpressaoCupom()">
+                        <i class="fas fa-save"></i> Salvar política de impressão
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -225,6 +285,7 @@ function renderConfiguracoes(configuracoes) {
     $('#page-content').html(html);
     carregarImpressoraCupom();
     carregarEstadoImpressaoCupomPdv();
+    carregarPoliticaImpressaoCupom();
 }
 
 // --- PIX AUTOMÁTICO ---
@@ -602,6 +663,7 @@ async function saveConfiguracoes() {
         if (!chave || chave === 'logoUpload' || chave === 'loginBackgroundUpload') return;
         if (
             chave === 'pdv_imprimir_cupom'
+            || chave === 'cupom_impressao_politica'
             || chave === 'imprimir_cupom'
             || chave === 'cfgPdvImprimirCupom'
             || chave === 'pdv_exigir_ncm_cadastro'
@@ -1211,6 +1273,62 @@ async function alternarImpressaoCupomPdv() {
         );
     } catch (err) {
         showNotification(err.message || 'Erro ao alterar impressão de cupom.', 'danger');
+    }
+}
+
+function coletarBlocoPoliticaCupom(prefixo) {
+    const vias = Number(document.getElementById(prefixo + 'Vias')?.value || 2);
+    const destinos = [];
+    destinos.push(document.getElementById(prefixo + 'Via1')?.value || 'CLIENTE');
+    if (vias >= 2) destinos.push(document.getElementById(prefixo + 'Via2')?.value || 'ESTABELECIMENTO');
+    if (vias >= 3) destinos.push('COPIA');
+    if (vias >= 4) destinos.push('COPIA');
+    return { vias, destinos };
+}
+
+async function carregarPoliticaImpressaoCupom() {
+    try {
+        const resp = await fetch(`${API_URL}/configuracoes/cupom_impressao_politica`, {
+            headers: { Authorization: 'Bearer ' + (localStorage.getItem('token') || '') }
+        });
+        const data = await resp.json().catch(() => ({}));
+        const valor = data.valor || {};
+        const modo = valor.modo || 'PERGUNTAR';
+        const radio = document.querySelector(`input[name="cfgCupomModo"][value="${modo}"]`);
+        if (radio) radio.checked = true;
+        const fiscal = valor.fiscal || {};
+        const nf = valor.nao_fiscal || {};
+        if (document.getElementById('cfgCupomFiscalVias')) document.getElementById('cfgCupomFiscalVias').value = String(fiscal.vias || 2);
+        if (document.getElementById('cfgCupomFiscalVia1')) document.getElementById('cfgCupomFiscalVia1').value = (fiscal.destinos && fiscal.destinos[0]) || 'CLIENTE';
+        if (document.getElementById('cfgCupomFiscalVia2')) document.getElementById('cfgCupomFiscalVia2').value = (fiscal.destinos && fiscal.destinos[1]) || 'ESTABELECIMENTO';
+        if (document.getElementById('cfgCupomNfVias')) document.getElementById('cfgCupomNfVias').value = String(nf.vias || 2);
+        if (document.getElementById('cfgCupomNfVia1')) document.getElementById('cfgCupomNfVia1').value = (nf.destinos && nf.destinos[0]) || 'CLIENTE';
+        if (document.getElementById('cfgCupomNfVia2')) document.getElementById('cfgCupomNfVia2').value = (nf.destinos && nf.destinos[1]) || 'ESTABELECIMENTO';
+        if (window.CupomPrintPolicy) window.CupomPrintPolicy.aplicarCache(valor);
+    } catch (_) { /* defaults */ }
+}
+
+async function salvarPoliticaImpressaoCupom() {
+    const modo = (document.querySelector('input[name="cfgCupomModo"]:checked') || {}).value || 'PERGUNTAR';
+    const fiscal = coletarBlocoPoliticaCupom('cfgCupomFiscal');
+    const nao_fiscal = coletarBlocoPoliticaCupom('cfgCupomNf');
+    fiscal.modo = modo;
+    nao_fiscal.modo = modo;
+    try {
+        const resp = await fetch(`${API_URL}/configuracoes/cupom_impressao_politica`, {
+            method: 'PUT',
+            headers: {
+                Authorization: 'Bearer ' + (localStorage.getItem('token') || ''),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ modo, fiscal, nao_fiscal })
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || data.erro || 'Não foi possível salvar.');
+        if (window.CupomPrintPolicy) window.CupomPrintPolicy.aplicarCache(data.valor);
+        showNotification(data.message || 'Política de impressão salva.', 'success');
+    } catch (err) {
+        showNotification(err.message || 'Erro ao salvar política de impressão.', 'danger');
     }
 }
 

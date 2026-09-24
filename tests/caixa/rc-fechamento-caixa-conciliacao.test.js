@@ -544,11 +544,19 @@ console.log('✓ regras entrega pendente / cancelamento');
     const pdv = fs.readFileSync(path.join(ROOT, 'frontend/pdv/js/caixa.js'), 'utf8');
     assert.ok(pdv.includes('PERMISSOES_CAIXA.FECHAR'));
     assert.ok(pdv.includes('imprimirCupomFechamentoCaixa'));
+    assert.ok(pdv.includes('CupomPrintPolicy'));
+    assert.ok(pdv.includes('imprimirDANFESilencioso'));
     assert.ok(pdv.includes('cupom_html'));
 
     const erp = fs.readFileSync(path.join(ROOT, 'frontend/erp/js/caixa.js'), 'utf8');
     assert.ok(erp.includes('PERMISSOES_CAIXA.FECHAR'));
     assert.ok(erp.includes('imprimirCupomFechamentoCaixa'));
+    assert.ok(erp.includes('CupomPrintPolicy'));
+    assert.ok(erp.includes('imprimirDANFESilencioso'));
+
+    const electronMod = fs.readFileSync(path.join(ROOT, 'electron-janelas-modulo.js'), 'utf8');
+    assert.ok(electronMod.includes('enriquecerHtmlImpressaoTermica'));
+    assert.ok(electronMod.includes('cds-print-density'));
 
     const perm = fs.readFileSync(path.join(ROOT, 'frontend/shared/js/caixaPermissoes.js'), 'utf8');
     assert.ok(perm.includes('FECHAR'));

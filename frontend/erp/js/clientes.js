@@ -53,6 +53,64 @@ function loadClientes() {
 function renderClientes(clientes) {
     const Perf = window.PerformanceMonitor;
     const totalOp = Perf?.start?.('clientes:render-total', { records: clientes.length });
+    const Focus = window.UIFocusManager;
+    const buscaExistente = document.getElementById('buscaCliente');
+    const tbodyExistente = document.getElementById('clientes-tbody');
+    window.__cdsClientesCache = clientes;
+
+    const montarLinhas = (lista) => lista.map(c => `
+        <tr>
+            <td>${c.nome}</td>
+            <td>${formatarCpfCnpj(c.cpf_cnpj) || '-'}</td>
+            <td>${c.telefone || '-'}</td>
+            <td>${c.email || '-'}</td>
+            <td>${formatCurrency(c.limite_credito)}</td>
+            <td class="${c.credito_atual > 0 ? 'text-danger' : 'text-success'}">
+                ${formatCurrency(c.credito_atual)}
+            </td>
+            <td>
+                <button class="btn btn-sm btn-info" onclick="viewCliente(${c.id})" title="Detalhes">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button class="btn btn-sm btn-secondary" onclick="historicoComprasCliente(${c.id})" title="Histórico de compras">
+                    <i class="fas fa-receipt"></i>
+                </button>
+                <button class="btn btn-sm btn-warning" onclick="editCliente(${c.id})" title="Editar">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="deleteCliente(${c.id})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('') || '<tr><td colspan="7" class="text-center">Nenhum cliente cadastrado</td></tr>';
+
+    const bindBusca = () => {
+        $('#buscaCliente').off('input.clientesFocus').on('input.clientesFocus', function() {
+            const termo = normalizarTexto($(this).val());
+            const filtrados = (window.__cdsClientesCache || []).filter(c =>
+                (c.nome && normalizarTexto(c.nome).includes(termo)) ||
+                (c.cpf_cnpj && String(c.cpf_cnpj).toLowerCase().includes(termo))
+            );
+            $('#clientes-tbody').html(montarLinhas(filtrados));
+        });
+    };
+
+    // Soft path: shell já montado — atualiza só o tbody e preserva #buscaCliente
+    if (buscaExistente && tbodyExistente) {
+        const termoAtual = String(buscaExistente.value || '');
+        const filtrados = termoAtual
+            ? clientes.filter(c =>
+                (c.nome && normalizarTexto(c.nome).includes(normalizarTexto(termoAtual))) ||
+                (c.cpf_cnpj && String(c.cpf_cnpj).toLowerCase().includes(normalizarTexto(termoAtual)))
+              )
+            : clientes;
+        tbodyExistente.innerHTML = montarLinhas(filtrados);
+        bindBusca();
+        if (totalOp) Perf.end(totalOp, { soft: true });
+        return;
+    }
+
     const htmlOp = Perf?.start?.('clientes:html-generation', { records: clientes.length });
     const shell = (typeof CdsPageShell !== 'undefined' && CdsPageShell.renderHeader)
         ? CdsPageShell.renderHeader({ page: 'clientes' })
@@ -88,33 +146,7 @@ function renderClientes(clientes) {
                             </tr>
                         </thead>
                         <tbody id="clientes-tbody">
-                            ${clientes.map(c => `
-                                <tr>
-                                    <td>${c.nome}</td>
-                                    <td>${formatarCpfCnpj(c.cpf_cnpj) || '-'}</td>
-                                    <td>${c.telefone || '-'}</td>
-                                    <td>${c.email || '-'}</td>
-                                    <td>${formatCurrency(c.limite_credito)}</td>
-                                    <td class="${c.credito_atual > 0 ? 'text-danger' : 'text-success'}">
-                                        ${formatCurrency(c.credito_atual)}
-                                    </td>
-                                    <td>
-                                        <button class="btn btn-sm btn-info" onclick="viewCliente(${c.id})" title="Detalhes">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-secondary" onclick="historicoComprasCliente(${c.id})" title="Histórico de compras">
-                                            <i class="fas fa-receipt"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-warning" onclick="editCliente(${c.id})" title="Editar">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-danger" onclick="deleteCliente(${c.id})">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                            ${clientes.length === 0 ? '<tr><td colspan="7" class="text-center">Nenhum cliente cadastrado</td></tr>' : ''}
+                            ${montarLinhas(clientes)}
                         </tbody>
                     </table>
                 </div>
@@ -123,67 +155,17 @@ function renderClientes(clientes) {
     `;
     if (htmlOp) Perf.end(htmlOp, { htmlBytesApprox: Perf.approximateBytes?.(html) ?? null });
     const domOp = Perf?.start?.('clientes:dom-update', { records: clientes.length, target: 'page-content' });
+    const pageEl = document.getElementById('page-content');
+    const snap = Focus && Focus.isEditing(pageEl) ? Focus.captureFocusState(pageEl) : null;
     $('#page-content').html(html);
+    if (snap) Focus.restoreFocusState(snap, { restoreValue: true });
     if (domOp) {
         Perf.end(domOp, {
             nodesAfter: document.getElementById('page-content')?.querySelectorAll('*').length || 0
         });
     }
     if (totalOp) Perf.end(totalOp);
-    $('#buscaCliente').on('input', function() {
-        const inputTotalOp = Perf?.start?.('clientes:filter-total', { recordsAnalyzed: clientes.length });
-        const termo = normalizarTexto($(this).val());
-        const filterOp = Perf?.start?.('clientes:filter-processing', { recordsAnalyzed: clientes.length });
-        const filtrados = clientes.filter(c =>
-            (c.nome && normalizarTexto(c.nome).includes(termo)) ||
-            (c.cpf_cnpj && String(c.cpf_cnpj).toLowerCase().includes(termo))
-        );
-        if (filterOp) Perf.end(filterOp, { matches: filtrados.length });
-        const rowsHtmlOp = Perf?.start?.('clientes:filter-html', { matches: filtrados.length });
-        const rowsHtml = filtrados.map(c => `
-            <tr>
-                <td>${c.nome}</td>
-                <td>${c.cpf_cnpj || '-'}</td>
-                <td>${c.telefone || '-'}</td>
-                <td>${c.email || '-'}</td>
-                <td>${formatCurrency(c.limite_credito)}</td>
-                <td class="${c.credito_atual > 0 ? 'text-danger' : 'text-success'}">
-                    ${formatCurrency(c.credito_atual)}
-                </td>
-                <td>
-                    <button class="btn btn-sm btn-info" onclick="viewCliente(${c.id})" title="Detalhes">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <button class="btn btn-sm btn-secondary" onclick="historicoComprasCliente(${c.id})" title="Histórico de compras">
-                        <i class="fas fa-receipt"></i>
-                    </button>
-                    <button class="btn btn-sm btn-warning" onclick="editCliente(${c.id})" title="Editar">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteCliente(${c.id})">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </td>
-            </tr>
-        `).join('');
-        if (rowsHtmlOp) {
-            Perf.end(rowsHtmlOp, {
-                matches: filtrados.length,
-                htmlBytesApprox: Perf.approximateBytes?.(rowsHtml) ?? null
-            });
-        }
-        const filterDomOp = Perf?.start?.('clientes:filter-dom', { matches: filtrados.length });
-        $('#clientes-tbody').html(rowsHtml);
-        if (filterDomOp) {
-            Perf.end(filterDomOp, {
-                rowsAfter: document.querySelectorAll('#clientes-tbody tr').length
-            });
-        }
-        if (inputTotalOp) Perf.end(inputTotalOp, { matches: filtrados.length });
-    });
-    return;
-    
-    $('#page-content').html(html);
+    bindBusca();
 }
 
 // Show cliente modal

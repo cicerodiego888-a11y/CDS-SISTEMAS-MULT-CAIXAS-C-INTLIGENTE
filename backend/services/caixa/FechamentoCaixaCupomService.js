@@ -105,31 +105,37 @@ function gerarHtmlCupomFechamento(consolidacao, extras = {}) {
       margin: 0 auto;
       padding: 3mm 2.5mm;
       font-family: "Courier New", Courier, monospace;
-      font-size: 11px;
-      color: #000;
-      background: #fff;
+      font-size: 12px;
+      line-height: 1.25;
+      color: #000 !important;
+      background: #fff !important;
+      font-weight: 700;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
-    h1, h2, h3 { margin: 0; padding: 0; font-weight: 700; text-align: center; }
-    h1 { font-size: 13px; margin-bottom: 2px; }
-    h2 { font-size: 12px; margin: 6px 0 4px; }
-    h3 { font-size: 11px; margin: 8px 0 3px; text-align: left; border-bottom: 1px dashed #000; padding-bottom: 2px; }
+    h1, h2, h3 { margin: 0; padding: 0; font-weight: 900; text-align: center; color: #000 !important; }
+    h1 { font-size: 14px; margin-bottom: 2px; }
+    h2 { font-size: 13px; margin: 6px 0 4px; }
+    h3 { font-size: 12px; margin: 8px 0 3px; text-align: left; border-bottom: 2px dashed #000; padding-bottom: 2px; }
     .center { text-align: center; }
-    .muted { color: #222; }
-    .sep { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+    .muted { color: #000 !important; font-weight: 700; }
+    .sep { border: none; border-top: 2px dashed #000; margin: 6px 0; }
     .linha {
       display: flex;
       justify-content: space-between;
       gap: 6px;
-      margin: 1px 0;
+      margin: 2px 0;
       white-space: nowrap;
+      color: #000 !important;
+      font-weight: 700;
     }
     .linha span:first-child { overflow: hidden; text-overflow: ellipsis; }
-    .linha.strong { font-weight: 700; }
-    .diff-pos { font-weight: 700; }
-    .diff-neg { font-weight: 700; }
-    small { font-size: 10px; }
-    .rodape { margin-top: 8px; text-align: center; font-size: 10px; }
-    .badge { text-align: center; font-weight: 700; margin: 4px 0; }
+    .linha.strong { font-weight: 900; }
+    .diff-pos { font-weight: 900; }
+    .diff-neg { font-weight: 900; }
+    small { font-size: 11px; color: #000 !important; font-weight: 700; }
+    .rodape { margin-top: 8px; text-align: center; font-size: 11px; color: #000 !important; font-weight: 700; }
+    .badge { text-align: center; font-weight: 900; margin: 4px 0; color: #000 !important; }
   </style>
 </head>
 <body>

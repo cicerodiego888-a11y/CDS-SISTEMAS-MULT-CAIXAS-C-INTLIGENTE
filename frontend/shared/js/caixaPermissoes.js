@@ -7,7 +7,8 @@ const PERMISSOES_CAIXA = {
   ABRIR: 'abrir_caixa',
   SANGRIA: 'sangria_caixa',
   SUPRIMENTO: 'suprimento_caixa',
-  FECHAR: 'fechar_caixa'
+  FECHAR: 'fechar_caixa',
+  FECHAR_COM_DIVERGENCIA: 'fechar_caixa_com_divergencia'
 };
 
 function temPermissaoOperacaoCaixa(permissao, user) {

@@ -101,14 +101,58 @@
       saldoFisico: resumo && resumo.saldo_fisico != null
         ? resumo.saldo_fisico
         : ((resumo && resumo.dinheiro && resumo.dinheiro.dinheiro_esperado) || 0),
-      totalFinanceiro: resumo && resumo.total_financeiro_sessao != null
-        ? resumo.total_financeiro_sessao
-        : ((resumo && resumo.total_recebido) || 0),
+      totalFinanceiro: totalFinanceiroSessao(resumo, vendas),
       reconciliacao: rec,
       inconsistentes: (rec.vendas || []).filter((v) =>
         v.status_reconciliacao === 'INCONSISTENTE' || v.status_reconciliacao === 'EXCEDENTE'
       )
     };
+  }
+
+  function totalFinanceiroSessao(resumo, vendas) {
+    const c = (resumo && resumo.consolidacao) || {};
+    const totais = c.totais || {};
+    if (resumo && resumo.total_financeiro_sessao != null) return resumo.total_financeiro_sessao;
+    if (totais.vendido != null) return totais.vendido;
+    if (vendas && vendas.total_vendido != null) return vendas.total_vendido;
+    if (resumo && resumo.total_vendido != null) return resumo.total_vendido;
+    if (totais.recebido != null) return totais.recebido;
+    if (resumo && resumo.total_recebido != null) return resumo.total_recebido;
+    return 0;
+  }
+
+  function fiscalMaisNf(v) {
+    if (v && v.fiscal_mais_nao_fiscal != null) return arred2(v.fiscal_mais_nao_fiscal);
+    return arred2(Number(v && v.valor_fiscal || 0) + Number(v && v.valor_nao_fiscal || 0));
+  }
+
+  function divergenciaItem(v) {
+    if (v && v.divergencia != null && Number.isFinite(Number(v.divergencia))) return arred2(v.divergencia);
+    if (v && v.identidade_ok === false) return arred2(fiscalMaisNf(v) - arred2(v.total_oficial));
+    return arred2(Number(v && v.recebido_total || 0) - arred2(v && v.total_oficial));
+  }
+
+  function resumirInconsistenciasUi(lista) {
+    const detalhes = (lista || []).map((v) => ({
+      venda_id: v.venda_id,
+      oficial: arred2(v.total_oficial),
+      fiscal_mais_nao_fiscal: fiscalMaisNf(v),
+      divergencia: divergenciaItem(v),
+      status: v.status_reconciliacao
+    }));
+    const saldoLiquido = arred2(detalhes.reduce((acc, item) => acc + item.divergencia, 0));
+    return {
+      quantidade: detalhes.length,
+      valorDivergencia: arred2(Math.abs(saldoLiquido)),
+      saldoLiquido,
+      detalhes
+    };
+  }
+
+  function formatarDivergencia(v) {
+    const n = arred2(v);
+    if (Math.abs(n) < 0.005) return dinheiro(0);
+    return n > 0 ? `+${dinheiro(n)}` : dinheiro(n);
   }
 
   function obterMetaSessao(resumo) {
@@ -132,33 +176,74 @@
     };
   }
 
-  function usuarioPodeFecharComDivergencia() {
+  function permissoesUsuarioAtual() {
     try {
-      if (typeof global.podeAdministrarFinanceiro === 'function') return !!global.podeAdministrarFinanceiro();
-      if (typeof global.isSuperAdminUser === 'function' && global.isSuperAdminUser()) return true;
-      if (typeof global.isUsuarioAdministrador === 'function') return !!global.isUsuarioAdministrador();
+      const user = typeof global.obterUsuarioLogado === 'function'
+        ? global.obterUsuarioLogado()
+        : (global.usuarioLogado || {});
+      if (typeof global.normalizarPermissoes === 'function') {
+        return global.normalizarPermissoes(user && user.permissoes) || [];
+      }
+      if (Array.isArray(user && user.permissoes)) return user.permissoes.slice();
+      return String((user && user.permissoes) || '')
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function usuarioAtual() {
+    try {
+      if (typeof global.obterUsuarioLogado === 'function') return global.obterUsuarioLogado() || {};
     } catch (_) { /* ignore */ }
-    return false;
+    return global.usuarioLogado || {};
+  }
+
+  function usuarioPodeAutorizarDivergencia() {
+    const perms = permissoesUsuarioAtual();
+    if (perms.includes('fechar_caixa_com_divergencia')) return true;
+    if (perms.length) return false;
+    const user = usuarioAtual();
+    const role = String(user && user.role || '').toLowerCase();
+    const perfil = String(user && user.perfil || '').toUpperCase();
+    return role === 'admin' || ['SUPER_ADMIN', 'ADMIN'].includes(perfil);
+  }
+
+  function usuarioPodeFecharComDivergencia() {
+    return usuarioPodeAutorizarDivergencia();
   }
 
   function htmlListaInconsistencias(lista) {
     if (!lista.length) return '';
     return `
       <div class="alert alert-danger mb-0" id="caixa-v2-inconsistencias">
-        <strong>Existem ${lista.length} vendas com inconsistência financeira.</strong>
+        <strong>⚠ Existem inconsistências nas vendas.</strong>
         <div class="table-responsive mt-2">
           <table class="table table-sm table-bordered bg-white mb-0">
-            <thead><tr><th>Venda</th><th>Oficial</th><th>Recebido</th><th>Pendente</th><th>Status</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Venda</th>
+                <th>Oficial</th>
+                <th>Fiscal + NF</th>
+                <th>Divergência</th>
+                <th>Status</th>
+              </tr>
+            </thead>
             <tbody>
-              ${lista.map((v) => `
+              ${lista.map((v) => {
+                const div = divergenciaItem(v);
+                const cls = div > 0.004 ? 'is-plus' : (div < -0.004 ? 'is-minus' : '');
+                return `
                 <tr>
                   <td>#${escapeHtml(v.venda_id)}</td>
                   <td>${dinheiro(v.total_oficial)}</td>
-                  <td>${dinheiro(v.recebido_total)}</td>
-                  <td>${dinheiro(v.pendente_total)}</td>
+                  <td>${dinheiro(fiscalMaisNf(v))}</td>
+                  <td class="cds-ui-fc-div-val ${cls}">${formatarDivergencia(div)}</td>
                   <td>${escapeHtml(v.status_reconciliacao || '')}${v.mensagem ? `<br><small>${escapeHtml(v.mensagem)}</small>` : ''}</td>
-                </tr>
-              `).join('')}
+                </tr>`;
+              }).join('')}
             </tbody>
           </table>
         </div>
@@ -288,7 +373,7 @@
             <details class="cds-ui-fc-mini-details">
               <summary>Ver detalhes</summary>
               <div class="cds-ui-fc-mini-details__body">
-                ${htmlLinha('Total financeiro da sessão', r.totalFinanceiro, 'caixa-v2-val-financeiro')}
+                ${htmlLinha('Total financeiro da sessão', r.totalFinanceiro, 'caixa-v2-val-financeiro-detalhe')}
               </div>
             </details>
           </header>
@@ -302,8 +387,8 @@
             ${htmlLinha('Entregas pendentes', resumo.entregas_pendentes || 0, 'caixa-v2-val-entregas')}
           </div>
           <footer class="cds-ui-fc-destaque cds-ui-fc-destaque--resumo">
-            <span>Saldo físico (esperado)</span>
-            <strong id="caixa-v2-val-saldo-fisico">${dinheiro(resumo.saldo_fisico != null ? resumo.saldo_fisico : d.dinheiro_esperado)}</strong>
+            <span>Total financeiro da sessão</span>
+            <strong id="caixa-v2-val-financeiro">${dinheiro(r.totalFinanceiro)}</strong>
           </footer>
         </article>
       </div>
@@ -330,10 +415,10 @@
             <input type="text" inputmode="decimal" id="valor-fechamento" class="form-control cds-ui-fc-input-destaque" placeholder="R$ 0,00" value="" autocomplete="off">
           </div>
           <div class="cds-ui-fc-conf__col">
-            <span class="cds-ui-fc-label">Diferença</span>
+            <span class="cds-ui-fc-label">Diferença física</span>
             <div class="cds-ui-fc-diff is-ok" id="caixa-v2-diferenca-box">
               <strong class="cds-ui-fc-diff__val" id="caixa-v2-diferenca">${dinheiro(0)}</strong>
-              <span class="cds-ui-fc-diff__msg" id="caixa-v2-diferenca-msg">Tudo certo!</span>
+              <span class="cds-ui-fc-diff__msg" id="caixa-v2-diferenca-msg">✓ Dinheiro conferido</span>
             </div>
           </div>
           <button type="button" class="cds-ui-fc-atalho" id="caixa-v2-usar-esperado">
@@ -438,7 +523,8 @@
 
   function htmlReconciliacao(r) {
     const rec = r.reconciliacao || {};
-    const ok = !r.inconsistentes.length
+    const tot = resumirInconsistenciasUi(r.inconsistentes);
+    const ok = tot.quantidade === 0
       && !(rec.vendas_inconsistentes)
       && !(rec.vendas_excedentes);
     return `
@@ -446,8 +532,24 @@
         <div class="cds-ui-fc-recon__resumo">
           ${ok
             ? '<span>✓ Vendas conferidas</span><span>✓ Nenhuma inconsistência</span>'
-            : `<span>Reconciliação precisa de atenção</span>
-               <span>${r.inconsistentes.length} venda(s) inconsistente(s)</span>`}
+            : `<span>⚠ Reconciliação precisa de atenção</span>
+               <span id="caixa-v2-rec-qtd">${tot.quantidade} venda(s) inconsistente(s)</span>
+               <span>Diferença total: <strong id="caixa-v2-rec-diff-total">${dinheiro(tot.valorDivergencia)}</strong></span>
+               <span>Saldo líquido: <strong id="caixa-v2-rec-saldo-liquido">${formatarDivergencia(tot.saldoLiquido)}</strong></span>`}
+        </div>
+        <div class="cds-ui-fc-recon-block d-none" id="caixa-v2-recon-bloqueio">
+          <div class="cds-ui-fc-recon-block__fisico d-none" id="caixa-v2-recon-dinheiro-ok">
+            <strong>✓ Dinheiro conferido</strong>
+            <span id="caixa-v2-recon-dinheiro-ok-val">${dinheiro(r.esperado)}</span>
+          </div>
+          <div>
+            <strong>⚠ Existem <span id="caixa-v2-recon-block-qtd">${tot.quantidade}</span> vendas inconsistentes</strong>
+          </div>
+          <div>Diferença encontrada: <strong id="caixa-v2-recon-block-diff">${dinheiro(tot.valorDivergencia)}</strong></div>
+          <p id="caixa-v2-recon-block-msg">O fechamento com esta divergência exige autorização.</p>
+          <button type="button" class="btn btn-outline-danger btn-sm" id="caixa-v2-ver-inconsistencias">
+            Ver inconsistências
+          </button>
         </div>
         <details id="caixa-v2-recon-detalhes">
           <summary>Ver detalhes da reconciliação</summary>
@@ -463,7 +565,7 @@
     `;
   }
 
-  function htmlObservacaoEAcoes() {
+  function htmlObservacao() {
     return `
       <section class="cds-ui-fc-obs" id="caixa-v2-obs">
         <details>
@@ -478,10 +580,21 @@
           Existe uma diferença no caixa. O fechamento precisa ser autorizado por um administrador.
         </p>
       </section>
+    `;
+  }
+
+  function htmlAcoes() {
+    return `
       <div class="cds-ui-fc-actions" id="caixa-v2-acoes">
-        <button type="button" class="btn btn-outline-secondary" id="btn-caixa-v2-cancelar">
-          ✕ Cancelar
-        </button>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <button type="button" class="btn btn-outline-secondary" id="btn-caixa-v2-cancelar">
+            ✕ Cancelar
+          </button>
+          <button type="button" class="btn btn-outline-dark btn-sm" id="btn-caixa-v2-ver-anteriores"
+            onclick="(function(){var el=document.getElementById('caixa-consulta-anteriores');if(el){el.scrollIntoView({behavior:'smooth',block:'start'});}})()">
+            <i class="fas fa-calendar-alt"></i> Caixas anteriores
+          </button>
+        </div>
         <div class="cds-ui-fc-actions__right">
           <button type="button" class="btn btn-outline-warning d-none" id="btn-fechar-caixa-div-v2" onclick="fecharCaixaComDivergencia()">
             Fechar com divergência
@@ -498,14 +611,17 @@
     const r = obterResumoV2(resumo || {});
     return `
       <div class="cds-ui cds-ui-fc" id="caixa-v2-tela">
-        ${htmlMetaSessao(resumo || {}, opcoes)}
-        ${htmlStatus(resumo || {})}
-        ${htmlTresCards(resumo || {})}
-        ${htmlConferencia(r)}
-        ${htmlRetirada(r)}
-        ${htmlMovimentacoes()}
-        ${htmlReconciliacao(r)}
-        ${htmlObservacaoEAcoes()}
+        <div class="cds-ui-fc-scroll">
+          ${htmlMetaSessao(resumo || {}, opcoes)}
+          ${htmlStatus(resumo || {})}
+          ${htmlTresCards(resumo || {})}
+          ${htmlConferencia(r)}
+          ${htmlRetirada(r)}
+          ${htmlMovimentacoes()}
+          ${htmlReconciliacao(r)}
+          ${htmlObservacao()}
+        </div>
+        ${htmlAcoes()}
       </div>
     `;
   }
@@ -569,16 +685,85 @@
       box.classList.remove('is-ok', 'is-warn');
       box.classList.add(zero ? 'is-ok' : 'is-warn');
     }
-    if (msg) msg.textContent = zero ? 'Tudo certo!' : (diferenca < 0 ? 'Falta dinheiro' : 'Sobra de dinheiro');
+    if (msg) msg.textContent = zero ? '✓ Dinheiro conferido' : (diferenca < 0 ? 'Falta dinheiro' : 'Sobra de dinheiro');
+    const tela = typeof document !== 'undefined' ? document.getElementById('caixa-v2-tela') : null;
+    if (tela) tela._cdsDiferencaFisica = diferenca;
     return zero;
+  }
+
+  function avaliarDivergenciaTela() {
+    const tot = obterInconsistenciasTela();
+    const tela = typeof document !== 'undefined' ? document.getElementById('caixa-v2-tela') : null;
+    const diferenca = tela && tela._cdsDiferencaFisica != null
+      ? Number(tela._cdsDiferencaFisica)
+      : 0;
+    const temFisica = Math.abs(diferenca) >= 0.005;
+    const temRecon = tot.quantidade > 0;
+    return {
+      exige_autorizacao: temRecon || temFisica,
+      temFisica,
+      temRecon,
+      quantidade: tot.quantidade,
+      valor_divergencia: temRecon ? tot.valorDivergencia : Math.abs(diferenca),
+      saldo_liquido: tot.saldoLiquido,
+      diferenca_fisica: diferenca
+    };
+  }
+
+  function obterInconsistenciasTela() {
+    const tela = typeof document !== 'undefined' ? document.getElementById('caixa-v2-tela') : null;
+    const lista = tela && tela._cdsInconsistentes ? tela._cdsInconsistentes : [];
+    return resumirInconsistenciasUi(lista);
+  }
+
+  function abrirInconsistencias() {
+    const recon = typeof document !== 'undefined' ? document.getElementById('caixa-v2-recon-detalhes') : null;
+    if (recon) {
+      recon.open = true;
+      if (typeof recon.scrollIntoView === 'function') {
+        recon.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    }
+  }
+
+  function podeFinalizarFechamento() {
+    return { ok: true, avaliacao: avaliarDivergenciaTela() };
   }
 
   function aplicarVisualDivergencia(zero) {
     const $ = global.$;
+    if (typeof $ !== 'function') return;
+    const tot = obterInconsistenciasTela();
+    const temInconsistencias = tot.quantidade > 0;
     const autorizado = usuarioPodeFecharComDivergencia();
     const $divBtn = $('#btn-fechar-caixa-div-v2');
     const $msg = $('#caixa-v2-div-msg');
     const $just = $('#caixa-v2-justificativa-wrap');
+    const $btn = $('#btn-fechar-caixa-v2');
+    const $block = $('#caixa-v2-recon-bloqueio');
+    const $dinOk = $('#caixa-v2-recon-dinheiro-ok');
+
+    if (temInconsistencias) {
+      $block.removeClass('d-none');
+      $('#caixa-v2-recon-block-qtd').text(String(tot.quantidade));
+      $('#caixa-v2-recon-block-diff').text(dinheiro(tot.valorDivergencia));
+      if (zero) $dinOk.removeClass('d-none');
+      else $dinOk.addClass('d-none');
+      $btn.prop('disabled', false).removeAttr('aria-disabled').removeClass('is-blocked');
+      $divBtn.addClass('d-none').prop('disabled', true);
+      if (zero) {
+        $just.addClass('d-none');
+        $msg.addClass('d-none');
+      } else {
+        $just.toggleClass('d-none', !autorizado);
+        $msg.toggleClass('d-none', autorizado);
+      }
+      return;
+    }
+
+    $block.addClass('d-none');
+    $btn.prop('disabled', false).removeAttr('aria-disabled').removeClass('is-blocked');
+    $divBtn.prop('disabled', false);
     if (zero) {
       $divBtn.addClass('d-none');
       $msg.addClass('d-none');
@@ -592,6 +777,7 @@
     } else {
       $divBtn.addClass('d-none');
       $msg.removeClass('d-none');
+      $btn.prop('disabled', false).removeAttr('aria-disabled').removeClass('is-blocked');
     }
   }
 
@@ -626,8 +812,12 @@
       aplicarVisualDivergencia(zero);
     };
 
-    $(document).off('input.caixaV2 change.caixaV2 click.caixaV2esperado click.caixaV2cancel');
+    $(document).off('input.caixaV2 change.caixaV2 click.caixaV2esperado click.caixaV2cancel click.caixaV2recon');
     $(document).on('input.caixaV2 change.caixaV2', '#valor-fechamento, #caixa-v2-retirada-valor, input[name="caixa-v2-retirada"]', atualizar);
+    $(document).on('click.caixaV2recon', '#caixa-v2-ver-inconsistencias', function (ev) {
+      if (ev && ev.preventDefault) ev.preventDefault();
+      abrirInconsistencias();
+    });
     $(document).on('click.caixaV2esperado', '#caixa-v2-usar-esperado', function () {
       const campo = document.getElementById('valor-fechamento');
       if (!campo) return;
@@ -668,6 +858,153 @@
     };
   }
 
+  function removerDialogoFechamento() {
+    const atual = typeof document !== 'undefined'
+      ? document.getElementById('caixa-v2-dialogo')
+      : null;
+    if (atual && atual.parentNode) atual.parentNode.removeChild(atual);
+  }
+
+  function htmlConfirmacaoDivergencia(valor) {
+    return `
+      <div class="cds-ui-fc-dialog__card" role="dialog" aria-labelledby="caixa-v2-dlg-titulo">
+        <h3 id="caixa-v2-dlg-titulo">⚠ Divergência no fechamento</h3>
+        <p>Foi identificada uma divergência de ${dinheiro(valor)}.</p>
+        <p>Deseja fechar o caixa mesmo assim?</p>
+        <div class="cds-ui-fc-dialog__actions">
+          <button type="button" class="btn btn-outline-secondary" id="caixa-v2-dlg-nao">NÃO</button>
+          <button type="button" class="btn cds-ui-fc-btn-primary" id="caixa-v2-dlg-sim">SIM</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function htmlAutorizacaoAdmin() {
+    return `
+      <div class="cds-ui-fc-dialog__card" role="dialog" aria-labelledby="caixa-v2-auth-titulo">
+        <h3 id="caixa-v2-auth-titulo">🔐 Autorização de administrador</h3>
+        <label class="cds-ui-fc-label" for="caixa-v2-auth-usuario">Usuário</label>
+        <input type="text" id="caixa-v2-auth-usuario" class="form-control" autocomplete="username">
+        <label class="cds-ui-fc-label mt-2" for="caixa-v2-auth-senha">Senha</label>
+        <input type="password" id="caixa-v2-auth-senha" class="form-control" autocomplete="current-password">
+        <div class="cds-ui-fc-dialog__actions">
+          <button type="button" class="btn btn-outline-secondary" id="caixa-v2-auth-cancelar">CANCELAR</button>
+          <button type="button" class="btn cds-ui-fc-btn-primary" id="caixa-v2-auth-ok">AUTORIZAR E FECHAR</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function montarDialogo(html) {
+    removerDialogoFechamento();
+    const tela = typeof document !== 'undefined' ? document.getElementById('caixa-v2-tela') : null;
+    const host = tela || (typeof document !== 'undefined' ? document.body : null);
+    if (!host) return null;
+    const wrap = document.createElement('div');
+    wrap.id = 'caixa-v2-dialogo';
+    wrap.className = 'cds-ui-fc-dialog';
+    wrap.innerHTML = html;
+    host.appendChild(wrap);
+    return wrap;
+  }
+
+  function confirmarDivergenciaFechamento(valor, hook) {
+    if (typeof hook === 'function') return Promise.resolve(hook(valor));
+    if (typeof document === 'undefined') return Promise.resolve(false);
+    return new Promise((resolve) => {
+      const wrap = montarDialogo(htmlConfirmacaoDivergencia(valor));
+      if (!wrap) return resolve(false);
+      const fechar = (sim) => {
+        removerDialogoFechamento();
+        resolve(sim === true);
+      };
+      wrap.querySelector('#caixa-v2-dlg-sim').addEventListener('click', () => fechar(true));
+      wrap.querySelector('#caixa-v2-dlg-nao').addEventListener('click', () => fechar(false));
+    });
+  }
+
+  function solicitarAutorizacaoAdminFechamento(hook) {
+    if (typeof hook === 'function') return Promise.resolve(hook());
+    if (typeof document === 'undefined') return Promise.resolve(null);
+    return new Promise((resolve) => {
+      const wrap = montarDialogo(htmlAutorizacaoAdmin());
+      if (!wrap) return resolve(null);
+      const usuarioEl = wrap.querySelector('#caixa-v2-auth-usuario');
+      const senhaEl = wrap.querySelector('#caixa-v2-auth-senha');
+      const fechar = (cred) => {
+        removerDialogoFechamento();
+        resolve(cred || null);
+      };
+      wrap.querySelector('#caixa-v2-auth-cancelar').addEventListener('click', () => fechar(null));
+      wrap.querySelector('#caixa-v2-auth-ok').addEventListener('click', () => {
+        const usuario = String(usuarioEl && usuarioEl.value || '').trim();
+        const senha = String(senhaEl && senhaEl.value || '');
+        if (!usuario || !senha) return;
+        fechar({ usuario, senha });
+      });
+      if (usuarioEl && typeof usuarioEl.focus === 'function') usuarioEl.focus();
+    });
+  }
+
+  function prepararFechamento(fecharComDivergencia, deps) {
+    const opcoes = deps || {};
+    const notify = typeof opcoes.notify === 'function' ? opcoes.notify : function () {};
+    const confirmSimples = typeof opcoes.confirmSimples === 'function'
+      ? opcoes.confirmSimples
+      : function (msg) {
+        return Promise.resolve(typeof global.confirm === 'function' ? !!global.confirm(msg) : true);
+      };
+    const confirmDiv = typeof opcoes.confirmDivergencia === 'function'
+      ? opcoes.confirmDivergencia
+      : confirmarDivergenciaFechamento;
+    const pedirAuth = typeof opcoes.pedirAutorizacao === 'function'
+      ? opcoes.pedirAutorizacao
+      : solicitarAutorizacaoAdminFechamento;
+
+    const avaliacao = opcoes.avaliacao || avaliarDivergenciaTela();
+    const payload = typeof opcoes.coletarPayload === 'function'
+      ? opcoes.coletarPayload(fecharComDivergencia === true)
+      : coletarPayload(fecharComDivergencia === true);
+    const podeAutorizar = typeof opcoes.usuarioPodeAutorizar === 'function'
+      ? !!opcoes.usuarioPodeAutorizar()
+      : usuarioPodeAutorizarDivergencia();
+
+    if (!avaliacao.exige_autorizacao) {
+      payload.fechar_com_divergencia = false;
+      return Promise.resolve(confirmSimples('Tem certeza que deseja fechar o caixa?')).then((ok) => {
+        if (!ok) return { ok: false, cancelado: true, avaliacao };
+        return { ok: true, payload, avaliacao };
+      });
+    }
+
+    if (avaliacao.temFisica && !String(payload.justificativa_divergencia || '').trim()) {
+      return Promise.resolve({
+        ok: false,
+        erro: 'Informe a justificativa para fechar com divergência.',
+        avaliacao
+      });
+    }
+
+    return Promise.resolve(confirmDiv(avaliacao.valor_divergencia)).then((sim) => {
+      if (!sim) return { ok: false, cancelado: true, avaliacao };
+      payload.fechar_com_divergencia = true;
+      if (podeAutorizar) {
+        notify('Fechamento autorizado.', 'success');
+        return { ok: true, payload, avaliacao, autorizadoLocal: true };
+      }
+      notify('É necessária autorização de um administrador.', 'warning');
+      return Promise.resolve(pedirAuth()).then((cred) => {
+        if (!cred || !cred.usuario || !cred.senha) {
+          return { ok: false, cancelado: true, avaliacao };
+        }
+        payload.usuario_admin = cred.usuario;
+        payload.senha_admin = cred.senha;
+        notify('Autorização concedida.', 'success');
+        return { ok: true, payload, avaliacao, autorizadoAdmin: true };
+      });
+    });
+  }
+
   function atualizarValoresResumo(resumo) {
     const tela = typeof document !== 'undefined' ? document.getElementById('caixa-v2-tela') : null;
     if (!tela || !resumo) return false;
@@ -700,13 +1037,18 @@
     patch('caixa-v2-val-tef', dinheiro(resumo.tef || 0));
     patch('caixa-v2-val-outras', dinheiro(resumo.outras_formas));
     patch('caixa-v2-val-entregas', dinheiro(resumo.entregas_pendentes || 0));
-    patch('caixa-v2-val-saldo-fisico', dinheiro(resumo.saldo_fisico != null ? resumo.saldo_fisico : d.dinheiro_esperado));
     patch('caixa-v2-val-financeiro', dinheiro(r.totalFinanceiro));
+    patch('caixa-v2-val-financeiro-detalhe', dinheiro(r.totalFinanceiro));
     const rec = r.reconciliacao || {};
     patch('caixa-v2-rec-ok', String(rec.vendas_ok || 0));
     patch('caixa-v2-rec-parciais', String(rec.vendas_parciais || 0));
     patch('caixa-v2-rec-pendentes', String(rec.vendas_pendentes || 0));
     patch('caixa-v2-rec-inconsistentes', String(rec.vendas_inconsistentes || 0));
+    const tot = resumirInconsistenciasUi(r.inconsistentes);
+    patch('caixa-v2-rec-qtd', `${tot.quantidade} venda(s) inconsistente(s)`);
+    patch('caixa-v2-rec-diff-total', dinheiro(tot.valorDivergencia));
+    patch('caixa-v2-rec-saldo-liquido', formatarDivergencia(tot.saldoLiquido));
+    tela._cdsInconsistentes = r.inconsistentes;
     const meta = obterMetaSessao(resumo);
     patch('caixa-v2-tempo-sessao', formatarDuracaoSessao(meta.abertoEm));
     ligarCalculos(r.esperado);
@@ -717,24 +1059,37 @@
     const html = montarHtmlTelaAberta(resumo, opcoes);
     const estado = capturarEstadoOperacional();
     const el = container && container.jquery ? container[0] : container;
-    if (el && global.UISoftRefresh && typeof global.UISoftRefresh.replaceHtml === 'function') {
-      global.UISoftRefresh.replaceHtml(el, html);
+    const Focus = global.UIFocusManager;
+    const Soft = global.UISoftRefresh;
+
+    if (el && Focus && Focus.isEditing(el) && estado.existe) {
+      if (typeof atualizarValoresResumo === 'function') {
+        atualizarValoresResumo(resumo);
+        return true;
+      }
+    }
+
+    if (el && Soft && typeof Soft.replaceHtml === 'function') {
+      Soft.replaceHtml(el, html, { skipIfEditing: false });
     } else if (el) {
-      el.innerHTML = html;
+      if (Focus && Focus.withPreservedFocus) {
+        Focus.withPreservedFocus(el, () => { el.innerHTML = html; }, { restoreValue: true });
+      } else {
+        el.innerHTML = html;
+      }
     } else if (global.$) {
       global.$('#caixa-area').html(html);
     }
     restaurarEstadoOperacional(estado);
-    const esperado = (resumo && resumo.dinheiro && resumo.dinheiro.dinheiro_esperado)
-      || obterResumoV2(resumo || {}).esperado;
+    const r = obterResumoV2(resumo || {});
+    const tela = typeof document !== 'undefined' ? document.getElementById('caixa-v2-tela') : null;
+    if (tela) tela._cdsInconsistentes = r.inconsistentes;
+    const esperado = (resumo && resumo.dinheiro && resumo.dinheiro.dinheiro_esperado) || r.esperado;
     ligarCalculos(esperado);
     if (!estado.existe) {
       const campo = typeof document !== 'undefined' ? document.getElementById('valor-fechamento') : null;
-      const ativo = typeof document !== 'undefined' ? document.activeElement : null;
-      const jaEditando = !!(ativo && ativo !== campo && (
-        ativo.tagName === 'INPUT' || ativo.tagName === 'TEXTAREA' || ativo.tagName === 'SELECT'
-      ));
-      if (campo && !jaEditando && !(global.UIFocusManager && global.UIFocusManager.isEditing(document.body))) {
+      const jaEditando = Focus && Focus.isEditing(document.body);
+      if (campo && !jaEditando) {
         campo.focus();
       }
     }
@@ -746,13 +1101,25 @@
 
   const api = {
     obterResumoV2,
+    totalFinanceiroSessao,
     montarHtmlFechamento,
     montarHtmlTelaAberta,
     aplicarTelaAberta,
     atualizarValoresResumo,
     ligarCalculos,
     coletarPayload,
-    parseMoeda
+    parseMoeda,
+    resumirInconsistenciasUi,
+    formatarDivergencia,
+    podeFinalizarFechamento,
+    abrirInconsistencias,
+    avaliarDivergenciaTela,
+    usuarioPodeAutorizarDivergencia,
+    htmlConfirmacaoDivergencia,
+    htmlAutorizacaoAdmin,
+    confirmarDivergenciaFechamento,
+    solicitarAutorizacaoAdminFechamento,
+    prepararFechamento
   };
 
   global.FechamentoCaixaV2Ui = api;

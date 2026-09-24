@@ -174,6 +174,16 @@ function empacotarVendas(selecionadas, opts = {}) {
   const valorAlvo = Math.max(1, toCentavos(opts.valorAlvo != null ? opts.valorAlvo : DEFAULTS_DISTRIBUICAO.valorAlvo));
   const valorMin = Math.max(1, toCentavos(opts.valorMin != null ? opts.valorMin : DEFAULTS_DISTRIBUICAO.valorMin));
   const valorMax = Math.max(valorMin, toCentavos(opts.valorMax != null ? opts.valorMax : DEFAULTS_DISTRIBUICAO.valorMax));
+  const modoRealista = opts.distribuicaoRealista !== false;
+
+  let sugerirAlvoCentavos = null;
+  if (modoRealista) {
+    try {
+      sugerirAlvoCentavos = require('../homologacao/GeradorVendasRealistas').sugerirAlvoCentavos;
+    } catch (_) {
+      sugerirAlvoCentavos = null;
+    }
+  }
 
   const fila = [...selecionadas];
   const vendas = [];
@@ -182,9 +192,25 @@ function empacotarVendas(selecionadas, opts = {}) {
   while (fila.length) {
     seq += 1;
     const restanteTotal = fila.reduce((s, u) => s + u.valor_cents, 0);
-    let desejado = Math.min(valorAlvo, valorMax, restanteTotal);
-    if (restanteTotal <= valorMax) desejado = restanteTotal;
-    if (desejado < valorMin && restanteTotal >= valorMin) desejado = Math.min(valorMin, restanteTotal);
+    let desejado;
+    if (restanteTotal <= valorMax) {
+      desejado = restanteTotal;
+    } else if (typeof sugerirAlvoCentavos === 'function') {
+      desejado = sugerirAlvoCentavos({
+        sequencia: seq,
+        seed: opts.seedRealista != null ? opts.seedRealista : 0,
+        valorMin: valorMin / 100,
+        valorMax: valorMax / 100,
+        valorAlvo: valorAlvo / 100
+      });
+      desejado = Math.min(desejado, valorMax, restanteTotal);
+      if (desejado < valorMin && restanteTotal >= valorMin) {
+        desejado = Math.min(Math.max(desejado, valorMin), restanteTotal);
+      }
+    } else {
+      desejado = Math.min(valorAlvo, valorMax, restanteTotal);
+      if (desejado < valorMin && restanteTotal >= valorMin) desejado = Math.min(valorMin, restanteTotal);
+    }
 
     const itensMap = new Map();
     let montado = 0;
@@ -405,7 +431,13 @@ function gerarPreviaDistribuicao(lotesOuProdutos, valorInformado, opts = {}) {
 
   if (alvoCents > capacidadeCents) {
     const { selecionadas, somaCents } = selecionarUnidades(unidades, capacidadeCents);
-    const vendas = empacotarVendas(selecionadas, { valorAlvo, valorMin, valorMax });
+    const vendas = empacotarVendas(selecionadas, {
+      valorAlvo,
+      valorMin,
+      valorMax,
+      seedRealista: opts.seedRealista,
+      distribuicaoRealista: opts.distribuicaoRealista
+    });
     const porProduto = consolidarPorProduto(vendas, lotes);
     return {
       vendas,
@@ -461,7 +493,13 @@ function gerarPreviaDistribuicao(lotesOuProdutos, valorInformado, opts = {}) {
     });
   }
 
-  const vendas = empacotarVendas(selecionadas, { valorAlvo, valorMin, valorMax });
+  const vendas = empacotarVendas(selecionadas, {
+    valorAlvo,
+    valorMin,
+    valorMax,
+    seedRealista: opts.seedRealista,
+    distribuicaoRealista: opts.distribuicaoRealista
+  });
 
   // Correção final: soma das vendas deve bater com somaCents/alvo
   let somaVendas = vendas.reduce((s, v) => s + toCentavos(v.valor), 0);

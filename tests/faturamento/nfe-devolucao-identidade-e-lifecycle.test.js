@@ -33,6 +33,7 @@ const {
 const { preflightNfeDevolucao } = require('../../backend/services/fiscal/nfeDevolucaoPreflight');
 const {
   podeReenviarDevolucao,
+  podeGerarNovaIdentidadeDevolucao,
   mensagemReenvioXmlEstruturalmenteRejeitado,
   ESTADOS
 } = require('../../backend/services/fiscal/nfeDevolucaoEstados');
@@ -145,6 +146,13 @@ describe('NF-e devolução — identidade e lifecycle', () => {
     assert.equal(diag.existeDocumentoComMesmoNumero, true);
     assert.match(diag.decisao, /CONFLITO_LOCAL|NOVA_IDENTIDADE|PENDENTE/);
     assert.notEqual(diag.estadoFinal, ESTADOS.AUTORIZADA);
+  });
+
+  it('5b. 225 schema XML bloqueada para reenvio e exige nova identidade', () => {
+    assert.equal(podeReenviarDevolucao({ status: 'rejeitada', cstat_retorno: '225' }), false);
+    assert.equal(podeGerarNovaIdentidadeDevolucao({ cstat_retorno: '225' }), true);
+    assert.equal(classificarRetornoSefaz('225').acao, ACOES.EXIGE_CORRECAO);
+    assert.match(mensagemReenvioXmlEstruturalmenteRejeitado({ cstat_retorno: '225' }), /nova emissão/i);
   });
 
   it('6. 275 bloqueada para reenvio', () => {

@@ -169,9 +169,14 @@ Troco: R$ ${troco.toFixed(2).replace('.', ',')}
 <pre style="
   font-family: monospace;
   font-size: 13px;
+  font-weight: 700;
+  color: #000;
+  background: #fff;
   width: 300px;
   margin: 0 auto;
   white-space: pre-wrap;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 ">
         ${escapeHtmlCupom(venda.nome_empresa || (typeof BrandService !== 'undefined' ? BrandService.NOME : 'CDS Sistemas'))}
 ${escapeHtmlCupom(venda.endereco || '')}
@@ -196,43 +201,59 @@ VOLTE SEMPRE.
 `;
 }
 
-async function enviarCupomNaoFiscalParaImpressora(vendaId, venda, total, desconto, enviarImpressora) {
-    const cupomHtml = montarHtmlCupomNaoFiscal(vendaId, venda, total, desconto);
-    const deviceName = enviarImpressora === false ? null : await obterDeviceNameImpressoraCupom();
-
+async function apresentarCupomNaTela(htmlTela, htmlImpressao, opcoes) {
+    const opts = opcoes || {};
     if (window.electronAPI?.abrirComprovante) {
-        window.electronAPI.abrirComprovante(cupomHtml, {
+        window.electronAPI.abrirComprovante(htmlTela, {
             silent: false,
             autoFecharMs: 5000,
-            deviceName,
-            enviarImpressora: enviarImpressora !== false
+            aguardarDecisao: true,
+            deviceName: null,
+            htmlImpressao: htmlImpressao || htmlTela,
+            enviarImpressora: false
         });
-        return;
-    }
-
-    if (enviarImpressora !== false && window.electronAPI?.imprimirDANFESilencioso) {
-        await window.electronAPI.imprimirDANFESilencioso(cupomHtml, deviceName);
-        if (typeof showNotification === 'function') {
-            showNotification('Cupom não fiscal enviado para impressora.', 'success');
+    } else {
+        const janela = window.open('', '_blank', 'width=420,height=720');
+        if (!janela) {
+            if (typeof showNotification === 'function') {
+                showNotification('Permita pop-ups para visualizar o cupom.', 'warning');
+            }
+        } else {
+            janela.document.open();
+            janela.document.write(htmlTela);
+            janela.document.close();
+            janela.focus();
         }
-        return;
     }
 
-    const janela = window.open('', '_blank', 'width=420,height=720');
-    if (!janela) {
-        if (typeof showNotification === 'function') {
-            showNotification('Permita pop-ups para visualizar o cupom não fiscal.', 'warning');
+    if (window.CupomPrintPolicy && typeof window.CupomPrintPolicy.aposCupomNaTela === 'function') {
+        return window.CupomPrintPolicy.aposCupomNaTela({
+            tipo: opts.tipo || 'NAO_FISCAL',
+            html: htmlImpressao || htmlTela,
+            vendaId: opts.vendaId,
+            automatico: opts.automatico === true,
+            reimpressao: opts.reimpressao === true
+        });
+    }
+
+    if (opts.reimpressao === true || (opts.automatico === true && deveEnviarCupomParaImpressora(opts))) {
+        const deviceName = await obterDeviceNameImpressoraCupom();
+        if (deviceName && window.electronAPI?.imprimirDANFESilencioso) {
+            await window.electronAPI.imprimirDANFESilencioso(htmlImpressao || htmlTela, deviceName);
         }
-        return;
     }
+}
 
-    janela.document.open();
-    janela.document.write(cupomHtml);
-    janela.document.close();
-    janela.focus();
-    if (enviarImpressora !== false) {
-        janela.print();
-    }
+async function enviarCupomNaoFiscalParaImpressora(vendaId, venda, total, desconto, enviarImpressora, opcoes) {
+    const cupomHtml = montarHtmlCupomNaoFiscal(vendaId, venda, total, desconto);
+    const automatico = !!(opcoes && opcoes.automatico);
+    const reimpressao = !automatico && enviarImpressora !== false && !(opcoes && opcoes.somenteTela);
+    await apresentarCupomNaTela(cupomHtml, cupomHtml, {
+        tipo: 'NAO_FISCAL',
+        vendaId,
+        automatico,
+        reimpressao
+    });
 }
 
 function impressaoAutomaticaCupomPermitida() {
@@ -270,7 +291,8 @@ async function imprimirCupomNaoFiscal(vendaId, venda, total, desconto, opcoes) {
             vendaCupom,
             total,
             desconto,
-            deveEnviarCupomParaImpressora(opcoes)
+            deveEnviarCupomParaImpressora(opcoes),
+            opcoes
         );
     } catch (error) {
         console.error('Erro ao imprimir cupom não fiscal:', error);
@@ -319,43 +341,14 @@ async function imprimirDANFEFiscal(vendaId, opcoes) {
             return;
         }
 
-        const enviarImpressora = deveEnviarCupomParaImpressora(opcoes);
-        const deviceName = enviarImpressora ? await obterDeviceNameImpressoraCupom() : null;
-
-        if (window.electronAPI?.abrirComprovante) {
-            window.electronAPI.abrirComprovante(htmlDanfe, {
-                silent: false,
-                autoFecharMs: 5000,
-                deviceName,
-                htmlImpressao: htmlTermico,
-                enviarImpressora
-            });
-            return;
-        }
-
-        if (enviarImpressora && window.electronAPI?.imprimirDANFESilencioso) {
-            await window.electronAPI.imprimirDANFESilencioso(htmlTermico || htmlDanfe, deviceName);
-            if (typeof showNotification === 'function') {
-                showNotification('Cupom fiscal enviado para impressora.', 'success');
-            }
-            return;
-        }
-
-        const janela = window.open('', '_blank', 'width=380,height=720');
-        if (!janela) {
-            if (typeof showNotification === 'function') {
-                showNotification('Permita pop-ups para visualizar o cupom fiscal.', 'warning');
-            }
-            return;
-        }
-
-        janela.document.open();
-        janela.document.write(htmlDanfe);
-        janela.document.close();
-
-        setTimeout(() => {
-            if (!janela.closed) janela.close();
-        }, 5000);
+        const automatico = !!(opcoes && opcoes.automatico);
+        const reimpressao = !!(opcoes && opcoes.reimpressao) || (!automatico && deveEnviarCupomParaImpressora(opcoes));
+        await apresentarCupomNaTela(htmlDanfe, htmlTermico || htmlDanfe, {
+            tipo: 'FISCAL',
+            vendaId,
+            automatico,
+            reimpressao
+        });
     } catch (error) {
         console.error('Erro ao imprimir DANFE fiscal:', error);
         if (typeof showNotification === 'function') {
@@ -381,7 +374,7 @@ function vendaPossuiCupomNaoFiscal(venda) {
 }
 
 function reimprimirCupomFiscalHistorico(vendaId) {
-    imprimirDANFEFiscal(vendaId);
+    imprimirDANFEFiscal(vendaId, { reimpressao: true });
 }
 
 async function reimprimirCupomNaoFiscalHistorico(vendaId) {

@@ -56,7 +56,7 @@ ipcMain.handle('listar-impressoras', async (event) => {
 
 // RC3.5.1 — Portal Nacional da NF-e (npm start usa electron.js como main)
 const { registrarPortalNfeHandlers } = require('./electron-registrar-portal-nfe');
-const { configurarAberturaJanelas, registrarIpcAbrirModulo, registrarIpcForcarReflow, registrarIpcAbrirComprovante, registrarIpcImprimirRelatorioHtml, registrarJanelaPrincipalComoModulo, nomeImpressoraTermicaValido } = require('./electron-janelas-modulo');
+const { configurarAberturaJanelas, registrarIpcAbrirModulo, registrarIpcForcarReflow, registrarIpcAbrirComprovante, registrarIpcImprimirRelatorioHtml, registrarJanelaPrincipalComoModulo, nomeImpressoraTermicaValido, enriquecerHtmlImpressaoTermica } = require('./electron-janelas-modulo');
 registrarPortalNfeHandlers(ipcMain, () => mainWindow);
 registrarIpcAbrirModulo(ipcMain);
 registrarIpcForcarReflow(ipcMain);
@@ -422,7 +422,7 @@ function criarMainWindow(opcoes = {}) {
       }
     });
 
-    await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(enriquecerHtmlImpressaoTermica(html))}`);
 
     // Aguardar renderização
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -436,7 +436,8 @@ function criarMainWindow(opcoes = {}) {
     const printOptions = {
       silent: true,
       printBackground: true,
-      deviceName: device
+      deviceName: device,
+      margins: { marginType: 'none' }
     };
 
     return new Promise((resolve, reject) => {

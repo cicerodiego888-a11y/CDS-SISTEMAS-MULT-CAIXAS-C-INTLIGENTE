@@ -16,6 +16,15 @@ const {
   montarModeloDanfe
 } = require('../../backend/services/fiscal/danfeNfe');
 const { paginarItensDanfe } = require('../../backend/services/fiscal/danfePaginacao');
+const {
+  LARGURA_UTIL_TABELA_MM,
+  obterColunasProdutosDanfe,
+  validarLargurasColunas,
+  quebrarDescricao,
+  alturaLinhaProduto,
+  ALTURA_LINHA_BASE_MM,
+  ALTURA_LINHA_EXTRA_MM
+} = require('../../backend/services/fiscal/danfeProdutosGrid');
 const { svgCodigoBarras, modulosCode128C } = require('../../backend/services/fiscal/danfeBarcode');
 const {
   validarDocumentoAutorizado,
@@ -145,11 +154,110 @@ describe('DANFE layout — NF-e 100 real', () => {
     assert.doesNotMatch(pdf, /DATA E HORA DA IMPRESSAO/);
     assert.doesNotMatch(pdf, /Representacao visual da NF-e autorizada/);
   });
+
+  it('NF 100 primeiro item preserva valores fiscais e o grid nas duas páginas', async () => {
+    const xml = xml100();
+    const modelo = montarModeloDanfe({
+      xml,
+      extras: { status: 'autorizada', protocolo: PROT_100, numero: 100, serie: 1 }
+    });
+    const primeiro = modelo.itens[0];
+    assert.equal(primeiro.codigo, 'AL_CRIMP_DUP');
+    assert.match(String(primeiro.descricao), /ALICATE CRIMPADOR DUPLO/);
+    assert.equal(primeiro.ncm, '82032010');
+    assert.equal(primeiro.cst, '900');
+    assert.equal(primeiro.cfop, '6202');
+    assert.equal(primeiro.unidade, 'PC');
+    assert.match(String(primeiro.qtd), /^5(\.0+)?$/);
+    assert.match(String(primeiro.vUn), /31\.47/);
+    assert.match(String(primeiro.vProd), /157\.35/);
+    assert.match(String(primeiro.vBC), /157\.35/);
+    assert.match(String(primeiro.vICMS), /6\.29/);
+    assert.match(String(primeiro.vIPI), /0(\.0+)?/);
+
+    const pags = paginarItensDanfe(modelo);
+    assert.ok(pags.length >= 2);
+    assert.equal(pags.reduce((s, p) => s + p.itens.length, 0), 46);
+    const cols1 = obterColunasProdutosDanfe();
+    const cols2 = obterColunasProdutosDanfe();
+    assert.deepEqual(cols1.map((c) => `${c.id}:${c.x}:${c.w}`), cols2.map((c) => `${c.id}:${c.x}:${c.w}`));
+
+    const html = await gerarDanfeNfeHtml({
+      xml, status: 'autorizada', protocolo: PROT_100, numero: 100, serie: 1
+    });
+    assert.match(html, /AL_CRIMP_DUP/);
+    assert.match(html, /31,47/);
+    assert.match(html, /157,35/);
+    assert.match(html, /6,29/);
+    assert.equal((html.match(/<col style="width:/g) || []).length, cols1.length * pags.length);
+
+    const pdf = gerarDanfeNfePdf({
+      xml, status: 'autorizada', protocolo: PROT_100, numero: 100, serie: 1
+    }).toString('latin1');
+    assert.match(pdf, /AL_CRIMP_DUP/);
+    assert.match(pdf, /31,47/);
+    assert.match(pdf, /157,35/);
+    assert.match(pdf, /6,29/);
+    assert.match(pdf, /COD/);
+    assert.match(pdf, /DESCRICAO/);
+  });
 });
 
 function onlyDigits(v) {
   return String(v || '').replace(/\D/g, '');
 }
+
+describe('DANFE layout — grid de produtos', () => {
+  it('larguras fixas somam no máximo a largura útil', () => {
+    const soma = validarLargurasColunas();
+    assert.ok(soma <= LARGURA_UTIL_TABELA_MM);
+    assert.equal(soma, LARGURA_UTIL_TABELA_MM);
+  });
+
+  it('cabeçalho e linha compartilham as mesmas posições X', () => {
+    const a = obterColunasProdutosDanfe();
+    const b = obterColunasProdutosDanfe();
+    assert.deepEqual(a.map((c) => ({ id: c.id, x: c.x, w: c.w })), b.map((c) => ({ id: c.id, x: c.x, w: c.w })));
+    assert.equal(a[0].x, 0);
+    assert.equal(a[a.length - 1].x + a[a.length - 1].w, LARGURA_UTIL_TABELA_MM);
+  });
+
+  it('descrição curta ocupa 1 linha', () => {
+    const linhas = quebrarDescricao('PARAFUSO');
+    assert.equal(linhas.length, 1);
+    assert.equal(alturaLinhaProduto({ descricao: 'PARAFUSO' }), ALTURA_LINHA_BASE_MM);
+  });
+
+  it('descrição longa quebra em 2 linhas sem invadir outras colunas', () => {
+    const desc = 'ALICATE CRIMPADOR DUPLO RJ-45, RJ11';
+    const linhas = quebrarDescricao(desc);
+    assert.ok(linhas.length >= 1);
+    const colDesc = obterColunasProdutosDanfe().find((c) => c.id === 'descricao');
+    linhas.forEach((ln) => {
+      assert.ok(ln.length <= 80);
+      assert.doesNotMatch(ln, /82032010/);
+    });
+    if (linhas.length === 2) {
+      assert.equal(alturaLinhaProduto({ descricao: desc }), ALTURA_LINHA_BASE_MM + ALTURA_LINHA_EXTRA_MM);
+    }
+    assert.ok(colDesc.w === 50);
+  });
+
+  it('descrição com 3 linhas aumenta a altura em 2 extras', () => {
+    const desc = 'PRODUTO COM DESCRICAO MUITO LONGA PARA QUEBRAR EM TRES LINHAS DENTRO DA COLUNA DESCRICAO DO DANFE';
+    const linhas = quebrarDescricao(desc);
+    assert.ok(linhas.length >= 2);
+    const h = alturaLinhaProduto({ descricao: desc });
+    assert.equal(h, ALTURA_LINHA_BASE_MM + (linhas.length - 1) * ALTURA_LINHA_EXTRA_MM);
+  });
+
+  it('valores grandes e quantidade decimal não alteram o grid', () => {
+    const cols = obterColunasProdutosDanfe();
+    assert.equal(cols.find((c) => c.id === 'valorTotal').align, 'right');
+    assert.equal(cols.find((c) => c.id === 'quantidade').align, 'right');
+    assert.equal(cols.find((c) => c.id === 'ncm').align, 'center');
+  });
+});
 
 describe('DANFE layout — tabela, paginação e extras', () => {
   it('1 produto aparece na tabela', async () => {

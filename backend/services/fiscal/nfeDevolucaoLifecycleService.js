@@ -42,10 +42,22 @@ const { getUrlNFe55 } = require('./nfeEmissorVenda');
 
 const BACKOFF_MS = [3000, 8000, 15000, 30000, 60000];
 const consultaTimers = new Map();
+/** Override somente para testes automatizados. */
+let dbOverride = null;
+
+function setDbForTests(dbInst) {
+  dbOverride = dbInst || null;
+  schemaOk = false;
+}
+
+function getDb() {
+  return dbOverride || db;
+}
 
 function dbRun(sql, params = []) {
+  const conn = getDb();
   return new Promise((resolve, reject) => {
-    db.run(sql, params, function onRun(err) {
+    conn.run(sql, params, function onRun(err) {
       if (err) return reject(err);
       resolve({ lastID: this.lastID, changes: this.changes });
     });
@@ -53,14 +65,16 @@ function dbRun(sql, params = []) {
 }
 
 function dbGet(sql, params = []) {
+  const conn = getDb();
   return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row || null)));
+    conn.get(sql, params, (err, row) => (err ? reject(err) : resolve(row || null)));
   });
 }
 
 function dbAll(sql, params = []) {
+  const conn = getDb();
   return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => (err ? reject(err) : resolve(rows || [])));
+    conn.all(sql, params, (err, rows) => (err ? reject(err) : resolve(rows || [])));
   });
 }
 
@@ -587,13 +601,16 @@ async function sincronizarStatusDaConsulta(notaId, body, ctx = {}) {
   const parsed = parseRetornoAutorizacaoNfe(body);
   const cStat = parsed.cStat;
   const xMotivo = parsed.xMotivo;
-  const protocolo = parsed.nProt || nota.protocolo;
+  // Protocolo de autorização: não confundir com protocolo de evento de cancelamento
+  const protocoloAutorizacao = nota.protocolo
+    || (cStat === '100' || cStat === '150' ? parsed.nProt : null)
+    || null;
   const agora = agoraLocal();
 
   let statusNovo = nota.status;
   if (cStat === '100' || cStat === '150' || parsed.status === 'autorizada') {
     statusNovo = ESTADOS.AUTORIZADA;
-  } else if (cStat === '101' || cStat === '135' || cStat === '155') {
+  } else if (cStat === '101' || cStat === '135' || cStat === '136' || cStat === '155') {
     statusNovo = ESTADOS.CANCELADA;
   } else if (cStat === '110' || cStat === '301' || cStat === '302' || parsed.status === 'denegada') {
     statusNovo = ESTADOS.DENEGADA;
@@ -607,7 +624,6 @@ async function sincronizarStatusDaConsulta(notaId, body, ctx = {}) {
 
   const patch = {
     status: statusNovo,
-    protocolo: protocolo || null,
     cstat_retorno: cStat,
     xmotivo_retorno: xMotivo,
     consultado_em: agora,
@@ -616,7 +632,11 @@ async function sincronizarStatusDaConsulta(notaId, body, ctx = {}) {
     tempo_resposta_ms: ctx.tempoRespostaMs || null
   };
 
+  // Só atualiza protocolo de autorização quando a consulta confirma autorização
   if (statusNovo === ESTADOS.AUTORIZADA) {
+    if (parsed.nProt || protocoloAutorizacao) {
+      patch.protocolo = parsed.nProt || protocoloAutorizacao;
+    }
     patch.fila_estado = 'autorizado';
     patch.rejeicao_codigo = null;
     patch.rejeicao_motivo = null;
@@ -626,7 +646,17 @@ async function sincronizarStatusDaConsulta(notaId, body, ctx = {}) {
   } else if (statusNovo === ESTADOS.PROCESSANDO) {
     patch.fila_estado = 'aguardando';
   } else if (statusNovo === ESTADOS.CANCELADA) {
+    // Cancelamento externo/consulta: NÃO preencher protocolo_cancelamento com nProt de autorização
     patch.fila_estado = 'cancelado';
+    if (!nota.cancelado_em) patch.cancelado_em = agora;
+    patch.cancelado_por_nome = ctx.canceladoPorNome || 'SEFAZ/RECONCILIACAO';
+    patch.motivo_cancelamento = xMotivo
+      || ctx.motivoCancelamento
+      || 'Cancelamento confirmado pela SEFAZ através de consulta de situação fiscal.';
+    // Preserva protocolo de autorização existente; não sobrescreve com lixo
+    if (nota.protocolo) {
+      /* mantém via omit — não incluir protocolo no patch */
+    }
     cancelarTimerConsulta(notaId);
   } else {
     patch.fila_estado = 'erro';
@@ -639,24 +669,34 @@ async function sincronizarStatusDaConsulta(notaId, body, ctx = {}) {
 
   const evento = statusNovo === ESTADOS.AUTORIZADA
     ? EVENTOS.AUTORIZADO
-    : (statusNovo === ESTADOS.DENEGADA
-      ? EVENTOS.DENEGADO
-      : (statusNovo === ESTADOS.REJEITADA ? EVENTOS.REJEITADO : EVENTOS.CONSULTA));
+    : (statusNovo === ESTADOS.CANCELADA
+      ? (ctx.origemReconciliacao ? EVENTOS.CANCELAMENTO_CONFIRMADO_SEFAZ : EVENTOS.CANCELADO)
+      : (statusNovo === ESTADOS.DENEGADA
+        ? EVENTOS.DENEGADO
+        : (statusNovo === ESTADOS.REJEITADA ? EVENTOS.REJEITADO : EVENTOS.CONSULTA)));
 
   await registrarEvento({
     notaId,
     compraId: nota.compra_id,
-    evento: ctx.automatica ? EVENTOS.CONSULTA_AUTOMATICA : evento,
+    evento: ctx.automatica && statusNovo !== ESTADOS.CANCELADA
+      ? EVENTOS.CONSULTA_AUTOMATICA
+      : evento,
     status: statusNovo,
     cStat,
     xMotivo,
-    mensagem: statusNovo === ESTADOS.REJEITADA || statusNovo === ESTADOS.DENEGADA
-      ? mensagemRejeicaoDetalhada(cStat, xMotivo)
-      : (xMotivo || `Status sincronizado: ${statusNovo}`),
+    mensagem: statusNovo === ESTADOS.CANCELADA
+      ? (xMotivo || 'Cancelamento confirmado pela SEFAZ')
+      : (statusNovo === ESTADOS.REJEITADA || statusNovo === ESTADOS.DENEGADA
+        ? mensagemRejeicaoDetalhada(cStat, xMotivo)
+        : (xMotivo || `Status sincronizado: ${statusNovo}`)),
     usuarioId: ctx.usuarioId,
-    usuarioNome: ctx.usuarioNome || (ctx.automatica ? 'sistema-auto' : null),
+    usuarioNome: ctx.usuarioNome || (ctx.automatica ? 'sistema-auto' : null) || (ctx.origemReconciliacao ? 'SEFAZ/RECONCILIACAO' : null),
     tempoRespostaMs: ctx.tempoRespostaMs,
-    detalhes: { automatica: Boolean(ctx.automatica) }
+    detalhes: {
+      automatica: Boolean(ctx.automatica),
+      origem: ctx.origem || (ctx.origemReconciliacao ? 'consulta_sefaz' : null),
+      protocoloAutorizacao: nota.protocolo || null
+    }
   });
 
   // RC3: persistir itens se autorização chegou via consulta (não no envio síncrono)
@@ -673,7 +713,354 @@ async function sincronizarStatusDaConsulta(notaId, body, ctx = {}) {
   }
 
   appendLog('consulta.log', { notaId, status: statusNovo, cStat, xMotivo, automatica: ctx.automatica });
-  return { ...nota, ...patch, status: statusNovo, cStat, xMotivo, protocolo };
+  return {
+    ...nota,
+    ...patch,
+    status: statusNovo,
+    cStat,
+    xMotivo,
+    protocolo: statusNovo === ESTADOS.AUTORIZADA
+      ? (patch.protocolo || nota.protocolo)
+      : nota.protocolo,
+    status_anterior: nota.status
+  };
+}
+
+/**
+ * Cancelamento confirmado pela SEFAZ (externo) — NÃO usa cancelarNfeDevolucaoCompra().
+ * Idempotente se já estiver cancelada.
+ */
+async function sincronizarCancelamentoExternoDevolucao(notaId, {
+  body = null,
+  cStat = null,
+  xMotivo = null,
+  origem = 'consulta_sefaz',
+  tempoRespostaMs = null,
+  usuarioId = null,
+  usuarioNome = null
+} = {}) {
+  await garantirSchemaLifecycle();
+  const nota = await obterNota(notaId);
+  if (!nota) {
+    throw Object.assign(new Error('NF-e de devolução não encontrada.'), {
+      code: 'NOTA_NAO_ENCONTRADA',
+      statusCode: 404
+    });
+  }
+
+  const statusAnterior = String(nota.status || '').toLowerCase();
+  if (statusAnterior === ESTADOS.CANCELADA) {
+    return {
+      success: true,
+      reused: true,
+      notaId: Number(notaId),
+      compraId: nota.compra_id,
+      status: ESTADOS.CANCELADA,
+      statusAnterior,
+      message: 'NF-e de devolução já estava cancelada.'
+    };
+  }
+
+  const agora = agoraLocal();
+  const motivo = xMotivo
+    || 'Cancelamento confirmado pela SEFAZ através de consulta de situação fiscal.';
+  const patch = {
+    status: ESTADOS.CANCELADA,
+    cancelado_em: nota.cancelado_em || agora,
+    motivo_cancelamento: motivo,
+    cancelado_por_nome: 'SEFAZ/RECONCILIACAO',
+    xmotivo_retorno: xMotivo || motivo,
+    cstat_retorno: cStat != null ? String(cStat) : (nota.cstat_retorno || '101'),
+    consultado_em: agora,
+    sincronizado_em: agora,
+    fila_estado: 'cancelado',
+    tempo_resposta_ms: tempoRespostaMs
+  };
+  if (body != null) patch.xml_retorno = body;
+  // NÃO altera protocolo (autorização) nem protocolo_cancelamento (sem evento 110111 local)
+  // NÃO sobrescreve xml_autorizado / xml_assinado / xml_enviado / xml_gerado
+
+  await atualizarNota(notaId, patch);
+
+  await registrarEvento({
+    notaId,
+    compraId: nota.compra_id,
+    evento: EVENTOS.CANCELAMENTO_CONFIRMADO_SEFAZ,
+    status: ESTADOS.CANCELADA,
+    cStat: patch.cstat_retorno,
+    xMotivo: xMotivo || motivo,
+    mensagem: 'Cancelamento confirmado pela SEFAZ (reconciliação)',
+    usuarioId,
+    usuarioNome: usuarioNome || 'SEFAZ/RECONCILIACAO',
+    tempoRespostaMs,
+    detalhes: {
+      origem,
+      chave: nota.chave_acesso,
+      cStat: patch.cstat_retorno,
+      xMotivo: xMotivo || motivo,
+      protocoloAutorizacao: nota.protocolo || null,
+      consultadoEm: agora
+    }
+  });
+
+  await registrarAuditoria({
+    notaId,
+    compraId: nota.compra_id,
+    acao: 'CANCELAMENTO_CONFIRMADO_SEFAZ',
+    status: ESTADOS.CANCELADA,
+    usuarioId,
+    usuarioNome: usuarioNome || 'SEFAZ/RECONCILIACAO',
+    tempoRespostaMs,
+    detalhes: {
+      origem,
+      chave: nota.chave_acesso,
+      cStat: patch.cstat_retorno,
+      statusAnterior,
+      protocoloAutorizacao: nota.protocolo || null
+    }
+  });
+
+  // eslint-disable-next-line no-console
+  console.log(
+    `[DEVOLUCAO][RECONCILIACAO_SEFAZ] notaId=${notaId} compraId=${nota.compra_id} `
+    + `chave=${onlyDigits(nota.chave_acesso)} statusAnterior=${statusAnterior} `
+    + `statusNovo=cancelada cStat=${patch.cstat_retorno} origem=${origem}`
+  );
+
+  return {
+    success: true,
+    reused: false,
+    notaId: Number(notaId),
+    compraId: nota.compra_id,
+    status: ESTADOS.CANCELADA,
+    statusAnterior,
+    cStat: patch.cstat_retorno,
+    xMotivo: xMotivo || motivo,
+    message: 'NF-e de devolução marcada como cancelada conforme SEFAZ. Saldo reaberto automaticamente.'
+  };
+}
+
+const TTL_RECONCILIACAO_MS = 60 * 1000;
+
+/**
+ * Reconcilia devoluções AUTORIZADAS da compra com a situação real na SEFAZ.
+ * Reutiliza consultarProtocolo — não cria segundo SOAP.
+ */
+async function reconciliarDevolucoesCompraComSefaz(compraId, ctx = {}) {
+  await garantirSchemaLifecycle();
+  const id = Number(compraId);
+  const consultar = ctx.consultarProtocolo || consultarProtocolo;
+  const carregarConfig = ctx.getFiscalConfig || getFiscalConfig;
+
+  const notas = await dbAll(
+    `SELECT * FROM nfe_devolucoes_compra WHERE compra_id = ? ORDER BY id ASC`,
+    [id]
+  );
+
+  const alvo = (notas || []).filter((n) => {
+    const st = String(n.status || '').toLowerCase();
+    if (st === ESTADOS.AUTORIZADA) return true;
+    // Opcionalmente reconsultar canceladas só se forçar
+    if (ctx.incluirCanceladas && st === ESTADOS.CANCELADA) return true;
+    return false;
+  });
+
+  const resumo = {
+    compraId: id,
+    consultadas: 0,
+    alteradas: 0,
+    canceladas: 0,
+    autorizadas: 0,
+    erros: 0,
+    ignoradas: 0,
+    detalhes: []
+  };
+
+  if (!alvo.length) {
+    return resumo;
+  }
+
+  let config = null;
+  try {
+    config = await carregarConfig({ validarUrls: false });
+  } catch (e) {
+    config = await carregarConfig().catch(() => null);
+  }
+
+  for (const nota of alvo) {
+    const chave = onlyDigits(nota.chave_acesso);
+    const statusAnterior = String(nota.status || '').toLowerCase();
+
+    if (chave.length !== 44) {
+      resumo.erros += 1;
+      resumo.detalhes.push({
+        notaId: nota.id,
+        chave: nota.chave_acesso,
+        erro: 'CHAVE_INVALIDA',
+        statusAnterior
+      });
+      continue;
+    }
+
+    // Cache curto — mas emissão sempre consulta (ctx.origem === 'emissao' ou forcar)
+    if (
+      !ctx.forcar
+      && ctx.origem !== 'emissao'
+      && nota.consultado_em
+    ) {
+      const t = Date.parse(String(nota.consultado_em).replace(' ', 'T'));
+      if (Number.isFinite(t) && (Date.now() - t) < TTL_RECONCILIACAO_MS) {
+        resumo.ignoradas += 1;
+        resumo.detalhes.push({
+          notaId: nota.id,
+          chave,
+          ignorada: true,
+          motivo: 'CONSULTA_RECENTE',
+          statusAnterior
+        });
+        continue;
+      }
+    }
+
+    const started = Date.now();
+    try {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[DEVOLUCAO][RECONCILIACAO_SEFAZ] notaId=${nota.id} compraId=${id} `
+        + `chave=${chave} statusAnterior=${statusAnterior} acao=CONSULTA origem=${ctx.origem || 'manual'}`
+      );
+
+      const consulta = await consultar({
+        chave,
+        modelo: ModelType.NFE,
+        ambiente: nota.ambiente || (config && config.ambiente),
+        cUF: config && config.codigoUf,
+        certificadoPath: config && config.certificadoPath,
+        certificadoSenha: config && config.certificadoSenha
+      });
+
+      const tempo = Date.now() - started;
+      resumo.consultadas += 1;
+
+      if (!consulta || consulta.success !== true) {
+        resumo.erros += 1;
+        resumo.detalhes.push({
+          notaId: nota.id,
+          chave,
+          erro: (consulta && (consulta.error || consulta.message)) || 'CONSULTA_FALHOU',
+          statusAnterior,
+          tempoRespostaMs: tempo
+        });
+        continue;
+      }
+
+      const body = String(consulta.body || '');
+      const sync = await sincronizarStatusDaConsulta(nota.id, body, {
+        ...ctx,
+        tempoRespostaMs: tempo,
+        origemReconciliacao: true,
+        origem: ctx.origem || 'consulta_sefaz',
+        canceladoPorNome: 'SEFAZ/RECONCILIACAO'
+      });
+
+      const statusNovo = String(sync.status || '').toLowerCase();
+      if (statusNovo !== statusAnterior) {
+        resumo.alteradas += 1;
+      }
+      if (statusNovo === ESTADOS.CANCELADA) {
+        resumo.canceladas += 1;
+      } else if (statusNovo === ESTADOS.AUTORIZADA) {
+        resumo.autorizadas += 1;
+      }
+
+      // eslint-disable-next-line no-console
+      console.log(
+        `[DEVOLUCAO][RECONCILIACAO_SEFAZ] notaId=${nota.id} compraId=${id} `
+        + `chave=${chave} statusAnterior=${statusAnterior} statusNovo=${statusNovo} `
+        + `cStat=${sync.cStat || ''} xMotivo=${String(sync.xMotivo || '').slice(0, 80)} `
+        + `tempoResposta=${tempo} origem=${ctx.origem || 'manual'}`
+      );
+
+      resumo.detalhes.push({
+        notaId: nota.id,
+        chave,
+        statusAnterior,
+        statusNovo,
+        cStat: sync.cStat,
+        xMotivo: sync.xMotivo,
+        tempoRespostaMs: tempo,
+        alterada: statusNovo !== statusAnterior
+      });
+    } catch (err) {
+      resumo.erros += 1;
+      resumo.detalhes.push({
+        notaId: nota.id,
+        chave,
+        erro: err.message || String(err),
+        statusAnterior
+      });
+    }
+  }
+
+  return resumo;
+}
+
+/**
+ * Ponte DF-e: evento 110111/110112 aplica cancelamento em nfe_devolucoes_compra pela chave.
+ */
+async function aplicarEventoDfeEmDevolucaoCompra({ chave, xml, tpEvento, origem = 'dfe_evento' } = {}) {
+  const dig = onlyDigits(chave);
+  if (dig.length !== 44) {
+    return { aplicado: false, motivo: 'CHAVE_INVALIDA' };
+  }
+
+  await garantirSchemaLifecycle();
+  const nota = await dbGet(
+    `SELECT * FROM nfe_devolucoes_compra
+     WHERE REPLACE(REPLACE(COALESCE(chave_acesso,''), ' ', ''), '-', '') = ?
+     ORDER BY id DESC LIMIT 1`,
+    [dig]
+  );
+  if (!nota) {
+    return { aplicado: false, motivo: 'DEVOLUCAO_NAO_ENCONTRADA', chave: dig };
+  }
+
+  const st = String(nota.status || '').toLowerCase();
+  if (st === ESTADOS.CANCELADA) {
+    return { aplicado: false, duplicado: true, notaId: nota.id, chave: dig };
+  }
+
+  // Preserva política: 110111 = cancelamento; 110112 só se já tratado como cancelamento no projeto
+  const tp = String(tpEvento || '');
+  const xmlStr = String(xml || '');
+  const isCancel = tp === '110111'
+    || /<tpEvento>\s*110111\s*<\/tpEvento>/i.test(xmlStr)
+    || (tp === '110112' || /<tpEvento>\s*110112\s*<\/tpEvento>/i.test(xmlStr));
+
+  if (!isCancel) {
+    return { aplicado: false, motivo: 'EVENTO_SEM_CANCELAMENTO', chave: dig };
+  }
+
+  const cStatMatch = xmlStr.match(/<cStat>\s*(\d+)\s*<\/cStat>/i);
+  const xMotivoMatch = xmlStr.match(/<xMotivo>\s*([^<]*)\s*<\/xMotivo>/i);
+
+  const out = await sincronizarCancelamentoExternoDevolucao(nota.id, {
+    body: xml || null,
+    cStat: cStatMatch ? cStatMatch[1] : '101',
+    xMotivo: xMotivoMatch
+      ? xMotivoMatch[1]
+      : 'Cancelamento confirmado via evento DF-e (110111/110112).',
+    origem
+  });
+
+  return {
+    aplicado: !out.reused,
+    duplicado: Boolean(out.reused),
+    notaId: nota.id,
+    compraId: nota.compra_id,
+    chave: dig,
+    status: ESTADOS.CANCELADA
+  };
 }
 
 async function consultarSituacaoDevolucao(notaId, ctx = {}) {
@@ -1223,9 +1610,13 @@ module.exports = {
   mensagemRejeicaoDetalhada,
   agendarConsultaAutomatica,
   sincronizarStatusDaConsulta,
+  sincronizarCancelamentoExternoDevolucao,
+  reconciliarDevolucoesCompraComSefaz,
+  aplicarEventoDfeEmDevolucaoCompra,
   podeReenviarDevolucao,
   podeCancelarDevolucao,
   ESTADOS,
   EVENTOS,
-  uiDoEstado
+  uiDoEstado,
+  setDbForTests
 };

@@ -8,6 +8,18 @@
 const { barrasParaPdf } = require('./danfeBarcode');
 const { fmtMoney, fmtQtd, rotuloModFrete, RODAPE_DANFE, linhaEnderecoEmitente, nomeEmitenteVisual } = require('./danfeModelo');
 const { paginarItensDanfe } = require('./danfePaginacao');
+const {
+  LARGURA_UTIL_TABELA_MM,
+  FONT_PRODUTO,
+  FONT_CABECALHO,
+  ALTURA_CABECALHO_MM,
+  ALTURA_LINHA_EXTRA_MM,
+  obterColunasProdutosDanfe,
+  quebrarDescricao,
+  alturaLinhaProduto,
+  mapearValoresLinha,
+  validarLargurasColunas
+} = require('./danfeProdutosGrid');
 
 const W = 595.28;
 const H = 841.89;
@@ -80,6 +92,22 @@ class PaginaPdf {
     this.ops.push(`BT /F1 ${size} Tf ${px.toFixed(2)} ${py.toFixed(2)} Td (${pdfEsc(str)}) Tj ET`);
   }
 
+  textInCell(x, yTop, w, h, str, size = 7, align = 'left') {
+    this.clip(x, yTop, w, h);
+    const text = String(str == null ? '' : str);
+    const pad = 0.35;
+    const textWpt = text.length * size * 0.50;
+    let px = ML + mm(x + pad);
+    if (align === 'right') {
+      px = ML + mm(x + w - pad) - textWpt;
+    } else if (align === 'center') {
+      px = ML + mm(x) + (mm(w) - textWpt) / 2;
+    }
+    const py = this.y(yTop) - size - mm(0.55);
+    this.ops.push(`BT /F1 ${size} Tf ${px.toFixed(2)} ${py.toFixed(2)} Td (${pdfEsc(text)}) Tj ET`);
+    this.unclip();
+  }
+
   clip(x, yTop, w, h) {
     const px = ML + mm(x);
     const py = this.y(yTop) - mm(h);
@@ -129,6 +157,53 @@ function desenharChave(p, x, y, w, m, compacto) {
   if (m.chave) {
     p.ops.push(`BT /F1 0.01 Tf -200 -200 Td (${pdfEsc(m.chave)}) Tj ET`);
   }
+}
+
+function desenharCabecalhoProdutos(p, y) {
+  validarLargurasColunas();
+  const cols = obterColunasProdutosDanfe();
+  const h = ALTURA_CABECALHO_MM;
+  p.rect(0, y, LARGURA_UTIL_TABELA_MM, h);
+  cols.forEach((col) => {
+    p.rect(col.x, y, col.w, h);
+    p.textInCell(col.x, y, col.w, h, col.labelPdf, FONT_CABECALHO, 'center');
+  });
+  return y + h;
+}
+
+function desenharLinhaProduto(p, y, item) {
+  const cols = obterColunasProdutosDanfe();
+  const valores = mapearValoresLinha(item, { fmtMoney, fmtQtd });
+  const descLines = quebrarDescricao(item.descricao);
+  const rowH = alturaLinhaProduto(item);
+  p.rect(0, y, LARGURA_UTIL_TABELA_MM, rowH);
+  cols.forEach((col) => {
+    p.rect(col.x, y, col.w, rowH);
+    if (col.id === 'descricao') {
+      descLines.forEach((ln, i) => {
+        p.textInCell(
+          col.x,
+          y + i * ALTURA_LINHA_EXTRA_MM,
+          col.w,
+          ALTURA_LINHA_EXTRA_MM + 0.8,
+          ln,
+          FONT_PRODUTO,
+          'left'
+        );
+      });
+      return;
+    }
+    p.textInCell(col.x, y, col.w, rowH, valores[col.id], FONT_PRODUTO, col.align);
+  });
+  return y + rowH;
+}
+
+function desenharTabelaProdutos(p, y, itens) {
+  y = desenharCabecalhoProdutos(p, y);
+  (itens || []).forEach((it) => {
+    y = desenharLinhaProduto(p, y, it);
+  });
+  return y;
 }
 
 function desenharPagina(modelo, pagina) {
@@ -270,27 +345,7 @@ function desenharPagina(modelo, pagina) {
 
   p.text(0.5, y + 0.2, 'DADOS DOS PRODUTOS / SERVICOS', 6);
   y += 3.4;
-  p.rect(0, y, USABLE, 5);
-  p.text(0.4, y + 1.4, 'COD  DESCRICAO  NCM  CST  CFOP  UN  QTD  VL UNIT  VL TOTAL  BC ICMS  VL ICMS  VL IPI  ALIQ', 4.5);
-  y += 5;
-  (pagina.itens || []).forEach((it) => {
-    const descLines = wrap(it.descricao, 34);
-    const rowH = Math.max(5, 3.2 + descLines.length * 2.6);
-    p.rect(0, y, USABLE, rowH);
-    p.text(0.4, y + 1.2, String(it.codigo || ''), 5.5);
-    descLines.forEach((ln, i) => p.text(16.5, y + 1.2 + i * 2.6, ln, 5.5));
-    p.text(70, y + 1.2, String(it.ncm || ''), 5);
-    p.text(84, y + 1.2, String(it.cst || ''), 5);
-    p.text(96, y + 1.2, String(it.cfop || ''), 5);
-    p.text(107, y + 1.2, String(it.unidade || ''), 5);
-    p.text(116, y + 1.2, fmtQtd(it.qtd), 5);
-    p.text(130, y + 1.2, fmtMoney(it.vUn), 5);
-    p.text(148, y + 1.2, fmtMoney(it.vProd), 5);
-    p.text(166, y + 1.2, fmtMoney(it.vBC), 5);
-    p.text(180, y + 1.2, fmtMoney(it.vICMS), 5);
-    p.text(190, y + 1.2, fmtMoney(it.vIPI), 5);
-    y += rowH;
-  });
+  y = desenharTabelaProdutos(p, y, pagina.itens || []);
 
   if (pagina.extra) {
     p.text(0.5, y + 0.2, 'DADOS ADICIONAIS', 6);

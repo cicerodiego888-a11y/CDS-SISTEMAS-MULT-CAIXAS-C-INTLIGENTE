@@ -5,13 +5,20 @@
 
 'use strict';
 
-const db = require('../../database');
+const dbPadrao = require('../../database');
+let dbOverride = null;
+function setDbForTests(dbInst) {
+  dbOverride = dbInst || null;
+}
+function db() {
+  return dbOverride || dbPadrao;
+}
 
 const STATUS_RASCUNHO = 'RASCUNHO';
 
 function dbRun(sql, params = []) {
   return new Promise((resolve, reject) => {
-    db.run(sql, params, function onRun(err) {
+    db().run(sql, params, function onRun(err) {
       if (err) return reject(err);
       resolve({ lastID: this.lastID, changes: this.changes });
     });
@@ -20,7 +27,7 @@ function dbRun(sql, params = []) {
 
 function dbGet(sql, params = []) {
   return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row || null)));
+    db().get(sql, params, (err, row) => (err ? reject(err) : resolve(row || null)));
   });
 }
 
@@ -45,17 +52,39 @@ async function garantirTabelaRascunhoDevolucaoCompra() {
     CREATE INDEX IF NOT EXISTS idx_nfe_dev_rascunho_compra
     ON nfe_devolucao_compra_rascunhos(compra_id)
   `);
+  const extras = [
+    `ALTER TABLE nfe_devolucao_compra_rascunhos ADD COLUMN origem_nfe_devolucao_id INTEGER`,
+    `ALTER TABLE nfe_devolucao_compra_rascunhos ADD COLUMN documento_original_id INTEGER`,
+    `ALTER TABLE nfe_devolucao_compra_rascunhos ADD COLUMN numero_base INTEGER`,
+    `ALTER TABLE nfe_devolucao_compra_rascunhos ADD COLUMN numero_origem TEXT`,
+    `ALTER TABLE nfe_devolucao_compra_rascunhos ADD COLUMN chave_referenciada TEXT`,
+    `ALTER TABLE nfe_devolucao_compra_rascunhos ADD COLUMN totais_json TEXT`
+  ];
+  for (const sql of extras) {
+    try { await dbRun(sql); } catch (_) { /* coluna já existe */ }
+  }
 }
 
 function normalizarItemRascunho(item = {}) {
   const qtd = Number(item.quantidade || 0);
+  const vu = item.valor_unitario != null ? Number(item.valor_unitario) : null;
+  const nItemOrigem = Number(item.n_item_origem || item.nItemOrigem || 0);
   return {
     compra_item_id: Number(item.compra_item_id || item.id),
     produto_id: item.produto_id != null ? Number(item.produto_id) : null,
     produto_nome: item.produto_nome || null,
+    produto_codigo: item.produto_codigo || null,
+    ncm: item.ncm || null,
+    unidade: item.unidade || null,
     quantidade: Math.round(qtd * 1000) / 1000,
     cfop: item.cfop ? String(item.cfop).replace(/\D/g, '').slice(0, 4) : null,
-    valor_unitario: item.valor_unitario != null ? Number(item.valor_unitario) : null
+    valor_unitario: vu,
+    valor_total: vu != null ? Math.round(qtd * vu * 100) / 100 : null,
+    n_item_origem: nItemOrigem > 0 ? nItemOrigem : null,
+    v_desc: item.v_desc != null ? Number(item.v_desc) : 0,
+    v_frete: item.v_frete != null ? Number(item.v_frete) : 0,
+    v_seg: item.v_seg != null ? Number(item.v_seg) : 0,
+    v_outro: item.v_outro != null ? Number(item.v_outro) : 0
   };
 }
 
@@ -67,6 +96,8 @@ function mapearRascunho(row) {
   } catch {
     itens = [];
   }
+  let totais = null;
+  try { totais = row.totais_json ? JSON.parse(row.totais_json) : null; } catch { totais = null; }
   return {
     id: row.id,
     compra_id: row.compra_id,
@@ -76,6 +107,12 @@ function mapearRascunho(row) {
     observacoes: row.observacoes || '',
     itens: Array.isArray(itens) ? itens.map(normalizarItemRascunho) : [],
     status: row.status || STATUS_RASCUNHO,
+    origem_nfe_devolucao_id: row.origem_nfe_devolucao_id || null,
+    documento_original_id: row.documento_original_id || row.origem_nfe_devolucao_id || null,
+    numero_base: row.numero_base || null,
+    numero_origem: row.numero_origem || null,
+    chave_referenciada: row.chave_referenciada || row.chave_nfe_original || '',
+    totais,
     usuario_id: row.usuario_id || null,
     usuario_nome: row.usuario_nome || null,
     created_at: row.created_at,
@@ -116,8 +153,10 @@ async function salvarRascunhoDevolucaoCompra(compraId, payload = {}, opcoes = {}
   const chave = String(payload.chave_nfe_original || payload.refNFe || payload.chave || '')
     .replace(/\D/g, '');
   const cfop = String(payload.cfop || '').replace(/\D/g, '').slice(0, 4) || null;
-  const observacoes = payload.observacoes != null ? String(payload.observacoes).slice(0, 500) : null;
+  const observacoes = payload.observacoes != null ? String(payload.observacoes).slice(0, 5000) : null;
   const itensJson = JSON.stringify(itens);
+  const origemId = payload.origem_nfe_devolucao_id || payload.documento_original_id || null;
+  const totaisJson = payload.totais ? JSON.stringify(payload.totais) : null;
 
   const existente = await obterRascunhoDevolucaoCompra(id);
   if (existente) {
@@ -129,6 +168,12 @@ async function salvarRascunhoDevolucaoCompra(compraId, payload = {}, opcoes = {}
         observacoes = ?,
         itens_json = ?,
         status = ?,
+        origem_nfe_devolucao_id = COALESCE(?, origem_nfe_devolucao_id),
+        documento_original_id = COALESCE(?, documento_original_id),
+        numero_base = COALESCE(?, numero_base),
+        numero_origem = COALESCE(?, numero_origem),
+        chave_referenciada = COALESCE(?, chave_referenciada),
+        totais_json = COALESCE(?, totais_json),
         usuario_id = COALESCE(?, usuario_id),
         usuario_nome = COALESCE(?, usuario_nome),
         updated_at = CURRENT_TIMESTAMP
@@ -140,6 +185,12 @@ async function salvarRascunhoDevolucaoCompra(compraId, payload = {}, opcoes = {}
       observacoes,
       itensJson,
       STATUS_RASCUNHO,
+      origemId,
+      origemId,
+      payload.numero_base || null,
+      payload.numero_origem != null ? String(payload.numero_origem) : null,
+      payload.chave_referenciada || chave || null,
+      totaisJson,
       opcoes.usuarioId || null,
       opcoes.usuarioNome || null,
       id
@@ -148,8 +199,10 @@ async function salvarRascunhoDevolucaoCompra(compraId, payload = {}, opcoes = {}
     await dbRun(`
       INSERT INTO nfe_devolucao_compra_rascunhos (
         compra_id, fornecedor, chave_nfe_original, cfop, observacoes,
-        itens_json, status, usuario_id, usuario_nome
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        itens_json, status, usuario_id, usuario_nome,
+        origem_nfe_devolucao_id, documento_original_id, numero_base,
+        numero_origem, chave_referenciada, totais_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       id,
       fornecedor || null,
@@ -159,7 +212,13 @@ async function salvarRascunhoDevolucaoCompra(compraId, payload = {}, opcoes = {}
       itensJson,
       STATUS_RASCUNHO,
       opcoes.usuarioId || null,
-      opcoes.usuarioNome || null
+      opcoes.usuarioNome || null,
+      origemId,
+      origemId,
+      payload.numero_base || null,
+      payload.numero_origem != null ? String(payload.numero_origem) : null,
+      payload.chave_referenciada || chave || null,
+      totaisJson
     ]);
   }
 
@@ -176,6 +235,7 @@ async function excluirRascunhoDevolucaoCompra(compraId) {
 }
 
 module.exports = {
+  setDbForTests,
   STATUS_RASCUNHO,
   garantirTabelaRascunhoDevolucaoCompra,
   obterRascunhoDevolucaoCompra,

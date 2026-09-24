@@ -290,6 +290,43 @@ function nomeImpressoraTermicaValido(deviceName) {
   return nome;
 }
 
+/**
+ * Reforça contraste para impressoras térmicas (HTML → raster costuma sair apagado).
+ */
+function enriquecerHtmlImpressaoTermica(html) {
+  const dens = `
+<style id="cds-print-density">
+  @page { margin: 0; }
+  html, body {
+    color: #000 !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    font-weight: 700 !important;
+  }
+  body, pre, table, td, th, div, span, p, h1, h2, h3, h4, small, strong, b, label {
+    color: #000 !important;
+    opacity: 1 !important;
+    font-weight: 700 !important;
+  }
+  .muted, .text-muted, .center.muted, [style*="color:#222"], [style*="color: #222"],
+  [style*="color:#333"], [style*="color: #333"], [style*="color:#444"], [style*="color: #444"],
+  [style*="color:#555"], [style*="color: #555"], [style*="color:#666"], [style*="color: #666"] {
+    color: #000 !important;
+    opacity: 1 !important;
+  }
+  img:not(.qr img), .qr img {
+    filter: contrast(1.45) brightness(0.78) !important;
+    image-rendering: pixelated !important;
+  }
+  hr, .sep { border-color: #000 !important; border-top-width: 2px !important; }
+</style>`;
+  const src = String(html || '');
+  if (/<\/head>/i.test(src)) return src.replace(/<\/head>/i, `${dens}</head>`);
+  if (/<body[\s>]/i.test(src)) return src.replace(/<body([\s>])/i, `${dens}<body$1`);
+  return dens + src;
+}
+
 function devolverFocoJanela(win) {
   if (!win || win.isDestroyed()) return;
   try {
@@ -342,9 +379,20 @@ function registrarIpcImprimirRelatorioHtml(ipcMainRef) {
   });
 }
 
+let cupomWindowAtual = null;
+
+function fecharComprovanteAberto() {
+  if (cupomWindowAtual && !cupomWindowAtual.isDestroyed()) {
+    try { cupomWindowAtual.destroy(); } catch (_) { /* ignore */ }
+  }
+  cupomWindowAtual = null;
+}
+
 function registrarIpcAbrirComprovante(ipcMain) {
   if (!ipcMain || typeof ipcMain.on !== 'function') return;
   ipcMain.removeAllListeners('abrir-comprovante');
+  ipcMain.removeAllListeners('fechar-comprovante');
+  ipcMain.on('fechar-comprovante', () => fecharComprovanteAberto());
   ipcMain.on('abrir-comprovante', (event, html, options = {}) => {
     const {
       silent = false,
@@ -353,6 +401,10 @@ function registrarIpcAbrirComprovante(ipcMain) {
     } = options;
     const origem = obterJanelaOrigemComprovante(event);
     const deviceName = nomeImpressoraTermicaValido(options.deviceName);
+
+    if (cupomWindowAtual && !cupomWindowAtual.isDestroyed()) {
+      try { cupomWindowAtual.destroy(); } catch (_) { /* ignore */ }
+    }
 
     const cupomWindow = new BrowserWindow({
       width: 380,
@@ -370,11 +422,12 @@ function registrarIpcAbrirComprovante(ipcMain) {
         preload: path.join(__dirname, 'preload.js')
       }
     });
+    cupomWindowAtual = cupomWindow;
 
     const papelMatch = String(html || '').match(/danfe-(58|80)/);
     const papelMm = papelMatch ? papelMatch[1] : '80';
     const utilMm = papelMm === '58' ? '54' : '76';
-    const htmlFinal = String(html || '').replace('</head>', `
+    const htmlFinal = enriquecerHtmlImpressaoTermica(String(html || '').replace('</head>', `
     <style>
       @page { size: ${papelMm}mm auto; margin: 0; }
       html, body.danfe {
@@ -387,10 +440,26 @@ function registrarIpcAbrirComprovante(ipcMain) {
       .qr img { display: block !important; margin: 8px auto !important; object-fit: contain !important; image-rendering: pixelated !important; }
       table.items { width: 100% !important; border-collapse: collapse !important; table-layout: fixed !important; }
     </style>
-  </head>`);
+  </head>`));
 
     let impressaoConcluida = false;
     let autoFecharTimer = null;
+
+    function posicionarCupomParaPergunta() {
+      try {
+        const display = screen.getDisplayMatching(origem && !origem.isDestroyed()
+          ? origem.getBounds()
+          : cupomWindow.getBounds());
+        const work = display.workArea;
+        const cupomW = 380;
+        const asideW = 280;
+        const gap = 20;
+        const altura = Math.min(720, Math.max(480, work.height - 72));
+        const x = work.x + Math.max(16, Math.floor((work.width - cupomW - gap - asideW) / 2));
+        const y = work.y + Math.max(24, Math.floor((work.height - altura) / 2));
+        cupomWindow.setBounds({ x, y, width: cupomW, height: altura });
+      } catch (_) { /* mantém o tamanho padrão */ }
+    }
 
     function restaurarPdv() {
       devolverFocoJanela(origem);
@@ -423,7 +492,7 @@ function registrarIpcAbrirComprovante(ipcMain) {
           parent: origem || undefined,
           webPreferences: { nodeIntegration: false, contextIsolation: true }
         });
-        printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(String(htmlImpressao))}`);
+        printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(enriquecerHtmlImpressaoTermica(String(htmlImpressao)))}`);
         printWindow.webContents.once('did-finish-load', async () => {
           await printWindow.webContents.executeJavaScript('new Promise(r => setTimeout(r, 400));');
           printWindow.webContents.print(printOptions, () => {
@@ -449,6 +518,7 @@ function registrarIpcAbrirComprovante(ipcMain) {
     }
 
     cupomWindow.on('closed', () => {
+      if (cupomWindowAtual === cupomWindow) cupomWindowAtual = null;
       restaurarPdv();
     });
 
@@ -467,6 +537,10 @@ function registrarIpcAbrirComprovante(ipcMain) {
           cupomWindow.setParentWindow(origem);
         } catch (_) { /* ignore */ }
       }
+      const aguardarDecisao = options.aguardarDecisao === true || options.enviarImpressora === false;
+      if (aguardarDecisao) {
+        posicionarCupomParaPergunta();
+      }
       cupomWindow.show();
       try { cupomWindow.moveTop(); } catch (_) { /* ignore */ }
 
@@ -477,9 +551,12 @@ function registrarIpcAbrirComprovante(ipcMain) {
         impressaoConcluida = true;
       }
 
-      autoFecharTimer = setTimeout(() => {
-        fecharCupom();
-      }, Math.max(Number(autoFecharMs) || 5000, 1000));
+      const fecharMs = Number(autoFecharMs);
+      if (fecharMs > 0) {
+        autoFecharTimer = setTimeout(() => {
+          fecharCupom();
+        }, Math.max(fecharMs, 1000));
+      }
     });
   });
 }
@@ -499,5 +576,6 @@ module.exports = {
   registrarIpcImprimirRelatorioHtml,
   aplicarReflowNaJanelaOrigem,
   nomeImpressoraTermicaValido,
+  enriquecerHtmlImpressaoTermica,
   obterJanelaOrigemComprovante
 };

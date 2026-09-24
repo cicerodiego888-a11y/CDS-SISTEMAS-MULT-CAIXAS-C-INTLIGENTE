@@ -295,6 +295,93 @@ function nfeEstaAutorizada(n) {
   return s === 'autorizada' || s === 'autorizado';
 }
 
+function podeDuplicarNfeComoDevolucao(n) {
+  const tipo = tipoNfeNota(n);
+  const status = String(n?.status || '').toLowerCase();
+  const bloqueados = ['cancelada', 'cancelado', 'rejeitada', 'rejeitado', 'inutilizada', 'inutilizado', 'rascunho'];
+  if (tipo !== 'DEVOLUCAO_COMPRA') return false;
+  if (!nfeEstaAutorizada(n)) return false;
+  if (bloqueados.includes(status)) return false;
+  return true;
+}
+
+let _duplicandoNfeDevolucao = false;
+
+async function duplicarNfeComoNovaDevolucao(id, tipo) {
+  if (_duplicandoNfeDevolucao) return;
+  const nota = localizarNotaNfe(id, tipo);
+  if (!podeDuplicarNfeComoDevolucao(nota)) {
+    if (typeof showNotification === 'function') {
+      showNotification('Esta NF-e não pode ser duplicada como nova devolução.', 'warning');
+    }
+    return;
+  }
+  let preview = {
+    nfBase: nota.numero,
+    destinatario: nota.cliente_nome || '',
+    nfOrigem: nota.numero_origem || '',
+    qtdItens: nota.qtd_itens || '',
+    mensagem: 'Será criado um novo rascunho. A NF-e original não será alterada.'
+  };
+  try {
+    const resp = await fetch(`${API_URL}/compras/nfe-devolucao/${id}/duplicar-preview`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (resp.ok && data.success !== false) preview = { ...preview, ...data };
+  } catch (_) { /* preview opcional */ }
+
+  const aviso210240 = preview.aviso210240 || (preview.temManifestacao210240
+    ? 'Esta NF-e possui manifestação do destinatário 210240 — Operação não Realizada. A nova devolução será criada como uma nova emissão e permanecerá vinculada à NF-e anterior para rastreabilidade.'
+    : '');
+  const ok = window.confirm(
+    `Duplicar NF-e como nova devolução?\n\n` +
+    `NF original: ${preview.nfBase || nota.numero || id}\n` +
+    `Destinatário: ${preview.destinatario || nota.cliente_nome || '-'}\n` +
+    `NF-e de origem: ${preview.nfOrigem || nota.numero_origem || '-'}\n` +
+    `Quantidade de itens: ${preview.qtdItens || nota.qtd_itens || '-'}\n\n` +
+    `${aviso210240 ? aviso210240 + '\n\n' : ''}` +
+    `${preview.mensagem && preview.mensagem !== aviso210240 ? preview.mensagem + '\n\n' : ''}` +
+    `A NF-e anterior permanece AUTORIZADA na SEFAZ.\n\n` +
+    `Cancelar = não criar.\nOK = Criar nova devolução.`
+  );
+  if (!ok) return;
+
+  _duplicandoNfeDevolucao = true;
+  try {
+    const resp = await fetch(`${API_URL}/compras/nfe-devolucao/${id}/duplicar`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({})
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || data.success === false) {
+      throw new Error(data.error || data.mensagem || 'Falha ao duplicar a NF-e.');
+    }
+    if (typeof showNotification === 'function') {
+      showNotification('Nova devolução criada com sucesso.', 'success');
+    }
+    window.__CDS_NFE_DEVOLUCAO_ABRIR_ITENS = true;
+    if (typeof abrirTelaNfeDevolucaoCompra === 'function') {
+      abrirTelaNfeDevolucaoCompra(data.compraId);
+    } else if (typeof loadPage === 'function') {
+      window.__CDS_NFE_DEVOLUCAO_COMPRA_ID = data.compraId;
+      loadPage('nfe-devolucao-compra');
+    }
+  } catch (err) {
+    if (typeof showNotification === 'function') {
+      showNotification(err.message || 'Falha ao duplicar a NF-e.', 'danger');
+    } else {
+      alert(err.message || 'Falha ao duplicar a NF-e.');
+    }
+  } finally {
+    setTimeout(() => { _duplicandoNfeDevolucao = false; }, 1200);
+  }
+}
+
 function rotuloTipoNfe(tipo) {
   if (tipo === 'DEVOLUCAO_COMPRA') return 'Dev. compra';
   if (tipo === 'DEVOLUCAO_VENDA') return 'Dev. venda';
@@ -317,6 +404,7 @@ function renderTabelaNfeNotas() {
   const rows = nfeNotasCache.map((n) => {
     const tipo = tipoNfeNota(n);
     const autorizada = nfeEstaAutorizada(n);
+    const temXml = Number(n.tem_xml) === 1 || Boolean(String(n.chave_acesso || '').trim());
     const venda = tipo === 'VENDA';
     const tipoJs = escapeHtmlNfe(tipo);
     const sel = nfeNotaSelecionadaId === `${tipo}:${n.id}` || (venda && nfeNotaSelecionadaId === n.id);
@@ -346,8 +434,26 @@ function renderTabelaNfeNotas() {
           <i class="fas fa-print"></i> Reimprimir</button>
         <button class="btn btn-sm btn-outline-secondary" title="Baixar PDF" onclick="downloadDanfeNfe(${n.id}, '${tipoJs}')" ${autorizada ? '' : 'disabled'}>
           <i class="fas fa-file-pdf"></i> PDF</button>
-        <button class="btn btn-sm btn-outline-success" title="Download XML" onclick="downloadXmlNfe(${n.id}, '${tipoJs}')" ${autorizada ? '' : 'disabled'}>
+        <button class="btn btn-sm btn-outline-success" title="Download XML" onclick="downloadXmlNfe(${n.id}, '${tipoJs}')" ${temXml ? '' : 'disabled'}>
           <i class="fas fa-download"></i> XML</button>
+        ${podeDuplicarNfeComoDevolucao(n) ? `
+        <div class="btn-group">
+          <button type="button" class="btn btn-sm btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Mais ações">
+            <i class="fas fa-ellipsis-v"></i>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li>
+              <button type="button" class="dropdown-item" onclick="duplicarNfeComoNovaDevolucao(${n.id}, '${tipoJs}')">
+                <i class="fas fa-copy me-1"></i> Duplicar como Nova Devolução
+              </button>
+            </li>
+            <li>
+              <button type="button" class="dropdown-item" onclick="registrarManifestacao210240Nfe(${n.id})">
+                <i class="fas fa-file-signature me-1"></i> Registrar manifestação 210240
+              </button>
+            </li>
+          </ul>
+        </div>` : ''}
         ${venda ? `
         <button class="btn btn-sm btn-outline-dark" title="Ver XML" onclick="visualizarXmlNfe(${n.id})" ${n.tem_xml ? '' : 'disabled'}>
           <i class="fas fa-code"></i>
@@ -498,6 +604,8 @@ function renderPendenciaDocumentalNfe(notaId, n) {
         <button type="button" class="btn btn-outline-secondary" onclick="corrigirPendenciaNfe(${notaId})">
           <i class="fas fa-edit"></i> Corrigir</button>
         ${btnReenviar}
+        <button type="button" class="btn btn-outline-success" onclick="downloadXmlNfe(${notaId})" ${n.tem_xml || n.chave_acesso ? '' : 'disabled'}>
+          <i class="fas fa-download"></i> Baixar XML</button>
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
       </div>
     </div>`;
@@ -739,7 +847,22 @@ function abrirDanfeNfe(id, { download = false, imprimir = false, tipo = 'VENDA' 
   }
   const url = `${API_URL}/nfe/notas/${id}/danfe${download ? '?download=1' : ''}`;
   if (download) {
-    window.open(url, '_blank');
+    $.ajax({
+      url,
+      method: 'GET',
+      xhrFields: { responseType: 'blob' },
+      success(blob) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `DANFE-NFe-${id}.html`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      },
+      error(xhr) {
+        showNotification(xhr.responseJSON?.error || 'DANFE indisponível.', 'danger');
+      }
+    });
     return;
   }
   $.ajax({
@@ -1058,6 +1181,40 @@ window.copiarChaveNfe = copiarChaveNfe;
 window.corrigirPendenciaNfe = corrigirPendenciaNfe;
 window.downloadXmlNfe = downloadXmlNfe;
 window.consultarSituacaoNfe = consultarSituacaoNfe;
+window.duplicarNfeComoNovaDevolucao = duplicarNfeComoNovaDevolucao;
+
+async function registrarManifestacao210240Nfe(id) {
+  const xml = window.prompt(
+    'Cole o XML do evento 210240 (Operação não Realizada).\n\n' +
+    'Deixe em branco para registro INFORMADO PELO USUÁRIO (não validado pela SEFAZ no sistema).'
+  );
+  if (xml === null) return;
+  const body = String(xml || '').trim()
+    ? { xmlEvento: xml }
+    : { informadoUsuario: true, nProt: window.prompt('Protocolo do evento (opcional):') || null };
+  try {
+    const resp = await fetch(`${API_URL}/compras/nfe-devolucao/${id}/manifestacao-210240`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify(body)
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || data.success === false) throw new Error(data.error || 'Falha ao registrar manifestação.');
+    const extra = data.avisoManual ? `\n${data.avisoManual}` : '';
+    if (typeof showNotification === 'function') {
+      showNotification('Manifestação 210240 registrada. A NF-e permanece AUTORIZADA.' + extra, 'success');
+    } else {
+      alert('Manifestação 210240 registrada. A NF-e permanece AUTORIZADA.' + extra);
+    }
+  } catch (err) {
+    if (typeof showNotification === 'function') showNotification(err.message, 'danger');
+    else alert(err.message);
+  }
+}
+window.registrarManifestacao210240Nfe = registrarManifestacao210240Nfe;
 window.cancelarNfeNota = cancelarNfeNota;
 window.reenviarNfeOperacional = reenviarNfeOperacional;
 window.abrirCentralNfeDocumental = abrirCentralNfeDocumental;

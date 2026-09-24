@@ -25,6 +25,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   abrirComprovante: (html, options) =>
     ipcRenderer.send('abrir-comprovante', html, options || {}),
 
+  fecharComprovante: () =>
+    ipcRenderer.send('fechar-comprovante'),
+
   imprimirRelatorioHtml: (payload) =>
     ipcRenderer.invoke('imprimir-relatorio-html', payload || {}),
 

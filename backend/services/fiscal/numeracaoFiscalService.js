@@ -136,11 +136,25 @@ async function maxLocalModelo({ modelo, serie, ambiente, cnpj }) {
     return Number(row && row.m) || 0;
   };
   if (mod === '65') {
-    return q(
-      `SELECT MAX(CAST(numero AS INTEGER)) AS m FROM nfce_notas
-       WHERE CAST(serie AS INTEGER) = ? AND CAST(ambiente AS INTEGER) = ?`,
-      [s, amb]
-    );
+    const [notas, docs, ocup] = await Promise.all([
+      q(
+        `SELECT MAX(CAST(numero AS INTEGER)) AS m FROM nfce_notas
+         WHERE CAST(serie AS INTEGER) = ? AND CAST(ambiente AS INTEGER) = ?`,
+        [s, amb]
+      ),
+      q(
+        `SELECT MAX(CAST(numero AS INTEGER)) AS m FROM fechamentos_fiscais_documentos
+         WHERE CAST(serie AS INTEGER) = ? AND CAST(ambiente AS INTEGER) = ?`,
+        [s, amb]
+      ).catch(() => 0),
+      q(
+        `SELECT MAX(CAST(numero AS INTEGER)) AS m FROM nfce_numeros_ocupados_sefaz
+         WHERE CAST(serie AS INTEGER) = ? AND CAST(ambiente AS INTEGER) = ?
+           AND (cnpj IS NULL OR cnpj = ? OR cnpj = '')`,
+        [s, amb, emp]
+      ).catch(() => 0)
+    ]);
+    return Math.max(notas, docs, ocup);
   }
   const likeCnpj = `%${emp}%`;
   const [compra, venda, nfe, ocup] = await Promise.all([
@@ -255,13 +269,22 @@ async function salvarProximaNumeracaoFiscal(params) {
   return out;
 }
 
+function logReserva(tag, campos = {}) {
+  const parts = Object.entries(campos)
+    .filter(([, v]) => v != null && v !== '')
+    .map(([k, v]) => `${String(k).toUpperCase()}=${v}`);
+  // eslint-disable-next-line no-console
+  console.log(`[FISCAL][NUMERACAO][${tag}] ${parts.join(' ')}`);
+}
+
 async function reservarProximaNumeracaoFiscal({
   empresaId,
   cnpj,
   ambiente,
   modelo,
   serie,
-  ocupadosExtras
+  ocupadosExtras,
+  origem
 } = {}) {
   const { withLockQueued } = require('./nfeEmissionLockService');
   const { setConfiguracao } = require('./configService');
@@ -271,8 +294,16 @@ async function reservarProximaNumeracaoFiscal({
   const ser = Number(serie || 1);
   const lock = chaveLockNumeracao({ cnpj: emp, ambiente: amb, modelo: mod, serie: ser });
 
+  logReserva('LOCK', { lock, origem: origem || 'DESCONHECIDA' });
+
   return withLockQueued(lock, async () => {
     await migrarNumeracaoSeNecessario({ cnpj: emp, ambiente: amb });
+    if (mod === '65') {
+      try {
+        const { reconciliarNumeracaoNfce } = require('./nfceNumeracaoOcupadosService');
+        await reconciliarNumeracaoNfce({ cnpj: emp, ambiente: amb, serie: ser });
+      } catch (_) { /* best-effort */ }
+    }
     const peek = await obterProximaNumeracaoFiscal({
       cnpj: emp, ambiente: amb, modelo: mod, serie: ser
     });
@@ -288,6 +319,17 @@ async function reservarProximaNumeracaoFiscal({
         }
       } catch (_) { /* ocupados opcionais */ }
     }
+    if (mod === '65') {
+      try {
+        const {
+          hidratarOcupadosNfceDoHistorico,
+          listarNumerosOcupadosNfce
+        } = require('./nfceNumeracaoOcupadosService');
+        await hidratarOcupadosNfceDoHistorico();
+        const lista = await listarNumerosOcupadosNfce({ cnpj: emp, ambiente: amb, serie: ser });
+        for (const n of lista) ocupados.add(Number(n));
+      } catch (_) { /* ocupados opcionais */ }
+    }
     const usado = proximoLivreDeConjunto(Math.max(peek.numero, (peek.maiorLocal || 0) + 1), ocupados);
     await upsertNumeracao({
       cnpj: emp, ambiente: amb, modelo: mod, serie: ser, proximoNumero: usado + 1
@@ -297,15 +339,32 @@ async function reservarProximaNumeracaoFiscal({
       await setConfiguracao('fiscal_serie_nfe', String(ser), 'number', 'Série da NF-e modelo 55');
     }
     if (mod === '65') {
-      await setConfiguracao('fiscal_numero_atual', String(usado + 1), 'number', 'Próximo número NFC-e');
+      // Compatibilidade UX: fiscal_numero_atual = último nNF usado; UI deriva próximo = atual + 1.
+      await setConfiguracao('fiscal_numero_atual', String(usado), 'number', 'Último número NFC-e utilizado');
+      await setConfiguracao('fiscal_serie', String(ser), 'number', 'Série da NFC-e');
     }
-    return {
+    const out = {
       numero: usado,
       serie: ser,
       modelo: mod,
       ambiente: amb,
-      empresaCnpj: emp
+      empresaCnpj: emp,
+      origem: origem || null
     };
+    logReserva('RESERVA', {
+      cnpj: emp,
+      ambiente: amb,
+      modelo: mod,
+      serie: ser,
+      numero: usado,
+      origem: origem || (mod === '65' ? 'NFCe' : 'NFe')
+    });
+    if (mod === '65') {
+      logReserva('NFCe', {
+        cnpj: emp, ambiente: amb, modelo: 65, serie: ser, numero: usado, origem: origem || 'NFCe'
+      });
+    }
+    return out;
   });
 }
 
@@ -322,6 +381,23 @@ async function alinharProximoMinimoNfe({ cnpj, ambiente, serie, minimo }) {
   return alvo;
 }
 
+async function alinharProximoMinimoNfce({ cnpj, ambiente, serie, minimo }) {
+  const peek = await obterProximaNumeracaoFiscal({
+    cnpj, ambiente, modelo: '65', serie: serie || 1
+  });
+  const alvo = Math.max(peek.numero, Number(minimo) || 1);
+  if (alvo > peek.numero) {
+    await salvarProximaNumeracaoFiscal({
+      cnpj, ambiente, modelo: '65', serie: peek.serie, proximoNumero: alvo
+    });
+  }
+  return alvo;
+}
+
+async function maxLocalModelo65(opts) {
+  return maxLocalModelo({ ...opts, modelo: '65' });
+}
+
 module.exports = {
   LIMITE_NUMERO,
   LIMITE_SERIE,
@@ -334,6 +410,8 @@ module.exports = {
   salvarProximaNumeracaoFiscal,
   reservarProximaNumeracaoFiscal,
   alinharProximoMinimoNfe,
+  alinharProximoMinimoNfce,
+  maxLocalModelo65,
   cnpjChave,
   padModelo,
   upsertNumeracao

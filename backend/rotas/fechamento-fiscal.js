@@ -36,6 +36,10 @@ function sendError(res, err) {
   if (err.resultados) body.resultados = err.resultados;
   if (err.pendencias) body.pendencias = err.pendencias;
   if (err.diagnostico) body.diagnostico = err.diagnostico;
+  if (err.saldo) body.saldo = err.saldo;
+  if (err.valor_principal != null) body.valor_principal = err.valor_principal;
+  if (err.valor_emitido_autorizado != null) body.valor_emitido_autorizado = err.valor_emitido_autorizado;
+  if (err.valor_pendente_emissao != null) body.valor_pendente_emissao = err.valor_pendente_emissao;
   return res.status(status).json(body);
 }
 
@@ -377,6 +381,30 @@ router.post('/:id/recuperar', async (req, res) => {
       ...(req.body || {})
     });
     res.json(result);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+/** Proteção de saldo — continua emissão apenas do valor_pendente_emissao */
+router.post('/:id/continuar-emissao', async (req, res) => {
+  try {
+    const result = await service.continuarEmissaoFiscal(req.params.id, {
+      usuario_id: usuarioId(req),
+      empresa_id: req.user?.empresa_id,
+      ...(req.body || {})
+    });
+    res.json(result);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+router.get('/:id/saldo', async (req, res) => {
+  try {
+    const saldoSvc = require('../services/fechamento-fiscal/FechamentoFiscalSaldoService');
+    const saldo = await saldoSvc.sincronizarSaldoAoAbrir(db, req.params.id);
+    res.json({ ok: true, saldo, mensagens: saldo.mensagens, status: saldo.status });
   } catch (err) {
     sendError(res, err);
   }

@@ -6,13 +6,13 @@
 
 'use strict';
 
+const { alturaLinhaProduto } = require('./danfeProdutosGrid');
+
 const PAGE_H = 287;
 const MARGIN = 5;
 
 function alturaDescricao(desc) {
-  const len = String(desc || '').length;
-  const linhas = Math.max(1, Math.ceil(len / 38));
-  return Math.min(12, 4.0 + (linhas - 1) * 3.0);
+  return alturaLinhaProduto({ descricao: desc });
 }
 
 function paginarItensDanfe(modelo) {

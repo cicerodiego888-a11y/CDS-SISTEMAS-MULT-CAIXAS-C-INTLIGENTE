@@ -2852,9 +2852,30 @@ function gerarRelatorioEstoque() {
 function renderProdutos(produtos) {
     const Perf = window.PerformanceMonitor;
     const totalOp = Perf?.start?.('produtos:render-total', { records: produtos.length });
-    const htmlOp = Perf?.start?.('produtos:html-generation', { records: produtos.length });
     window.produtosCache = produtos;
     window.produtosOriginais = produtos;
+    window.produtosList = produtos;
+
+    // Soft path: shell já montado — não destruir #buscaProduto / filtros durante edição
+    if (shellListagemProdutosMontado()) {
+        if (typeof atualizarListagemProdutosSemRemontarShell === 'function') {
+            atualizarListagemProdutosSemRemontarShell(produtos, { semFanout: true });
+            if (totalOp) Perf.end(totalOp, { soft: true });
+            return;
+        }
+    }
+
+    const Focus = window.UIFocusManager;
+    const pageEl = document.getElementById('page-content');
+    if (Focus && Focus.isEditing(pageEl) && document.getElementById('buscaProduto')) {
+        if (typeof atualizarListagemProdutosSemRemontarShell === 'function') {
+            atualizarListagemProdutosSemRemontarShell(produtos, { semFanout: true });
+            if (totalOp) Perf.end(totalOp, { soft: true, editing: true });
+            return;
+        }
+    }
+
+    const htmlOp = Perf?.start?.('produtos:html-generation', { records: produtos.length });
     // Não zerar a árvore: recargas (modo fiscal / PDV aberto) fechavam as categorias.
     const shell = (typeof CdsPageShell !== 'undefined' && CdsPageShell.renderHeader)
         ? CdsPageShell.renderHeader({ page: 'produtos' })
@@ -2984,7 +3005,9 @@ function renderProdutos(produtos) {
 
     if (htmlOp) Perf.end(htmlOp, { htmlBytesApprox: Perf.approximateBytes?.(html) ?? null });
     const domOp = Perf?.start?.('produtos:dom-update', { target: 'page-content' });
+    const snap = Focus && Focus.isEditing(pageEl) ? Focus.captureFocusState(pageEl) : null;
     $('#page-content').html(html);
+    if (snap) Focus.restoreFocusState(snap, { restoreValue: true });
     if (domOp) {
         Perf.end(domOp, {
             nodesAfter: document.getElementById('page-content')?.querySelectorAll('*').length || 0

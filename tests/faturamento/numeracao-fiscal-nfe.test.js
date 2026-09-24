@@ -136,11 +136,14 @@ describe('Numeração fiscal configurável — NF-e 55', () => {
     assert.equal(podeGerarNovaIdentidadeDevolucao({ cstat_retorno: '275' }), true);
   });
 
-  it('18. NFC-e continua com incrementaNumeroFiscal próprio (modelo 65)', () => {
+  it('18. NFC-e 65 usa reservarProximaNumeracaoFiscal (não caminho legado operacional)', () => {
+    const emi = fs.readFileSync(path.join(ROOT, 'backend/services/fiscal/emissor.js'), 'utf8');
+    assert.match(emi, /reservarProximaNumeracaoFiscal/);
+    assert.match(emi, /modelo:\s*['"]65['"]/);
+    assert.ok(!/incrementaNumeroFiscal\s*\(/.test(emi.replace(/\/\/.*$/gm, '')));
     const cfg = fs.readFileSync(path.join(ROOT, 'backend/services/fiscal/configService.js'), 'utf8');
+    assert.match(cfg, /LEGACY/);
     assert.match(cfg, /async function incrementaNumeroFiscal/);
-    assert.match(cfg, /FROM nfce_notas/);
-    assert.match(cfg, /modelo: '65'/);
   });
 
   it('19. documento autorizado não pode ter identidade alterada', () => {

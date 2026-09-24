@@ -1,6 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const { resolverIconeJanela } = require('./electron-icon');
-const { configurarAberturaJanelas, registrarIpcAbrirModulo, registrarIpcForcarReflow, registrarIpcAbrirComprovante, registrarIpcImprimirRelatorioHtml, registrarJanelaPrincipalComoModulo, nomeImpressoraTermicaValido } = require('./electron-janelas-modulo');
+const { configurarAberturaJanelas, registrarIpcAbrirModulo, registrarIpcForcarReflow, registrarIpcAbrirComprovante, registrarIpcImprimirRelatorioHtml, registrarJanelaPrincipalComoModulo, nomeImpressoraTermicaValido, enriquecerHtmlImpressaoTermica } = require('./electron-janelas-modulo');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -313,7 +313,7 @@ function imprimirHtmlEmJanelaOculta(html, deviceName, callback) {
   };
   if (deviceName) printOptions.deviceName = deviceName;
 
-  printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(String(html || ''))}`);
+  printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(enriquecerHtmlImpressaoTermica(String(html || '')))}`);
   printWindow.webContents.once('did-finish-load', async () => {
     await printWindow.webContents.executeJavaScript('new Promise(r => setTimeout(r, 600));');
     printWindow.webContents.print(printOptions, () => {
@@ -337,14 +337,14 @@ function registrarHandlersIpc() {
       show: false,
       webPreferences: { nodeIntegration: false, contextIsolation: true }
     });
-    await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(enriquecerHtmlImpressaoTermica(html))}`);
     await new Promise(resolve => setTimeout(resolve, 500));
     const device = nomeImpressoraTermicaValido(deviceName);
     if (!device) {
       if (!printWindow.isDestroyed()) printWindow.close();
       return { sucesso: false, motivo: 'sem-impressora-termica' };
     }
-    const printOptions = { silent: true, printBackground: true, deviceName: device };
+    const printOptions = { silent: true, printBackground: true, deviceName: device, margins: { marginType: 'none' } };
     return new Promise((resolve, reject) => {
       printWindow.webContents.print(printOptions, (success, errorType) => {
         if (!printWindow.isDestroyed()) printWindow.close();

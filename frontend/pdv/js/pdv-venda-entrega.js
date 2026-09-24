@@ -679,7 +679,9 @@
       if (data.comprovante_html) {
         const cfg = window.configuracaoAvancadaServidor || {};
         if (cfg.imprimir_comprovante_entrega !== false) {
-          imprimirComprovanteEntrega(data.comprovante_html);
+          await imprimirComprovanteEntrega(data.comprovante_html, {
+            vendaId: data.id || data.venda_id
+          });
         }
       }
 
@@ -708,22 +710,60 @@
     }
   }
 
-  function imprimirComprovanteEntrega(html) {
+  /**
+   * Mostra o comprovante de entrega e pergunta se deseja imprimir.
+   * Não envia à impressora sem decisão do operador (modo PERGUNTAR).
+   */
+  async function imprimirComprovanteEntrega(html, opcoes) {
+    if (!html) return;
+    const opts = opcoes || {};
     try {
-      if (window.electronAPI && typeof window.electronAPI.abrirComprovante === 'function') {
-        window.electronAPI.abrirComprovante(html, { silent: false, autoFecharMs: 5000 });
+      if (typeof apresentarCupomNaTela === 'function') {
+        await apresentarCupomNaTela(html, html, {
+          tipo: 'NAO_FISCAL',
+          vendaId: opts.vendaId,
+          automatico: true
+        });
         return;
       }
-    } catch (_) { /* fallback */ }
 
-    const w = window.open('', '_blank', 'width=320,height=600');
-    if (!w) return;
-    w.document.write(html);
-    w.document.close();
-    w.focus();
-    setTimeout(() => {
-      try { w.print(); } catch (_) { /* ignore */ }
-    }, 300);
+      if (window.electronAPI && typeof window.electronAPI.abrirComprovante === 'function') {
+        window.electronAPI.abrirComprovante(html, {
+          silent: false,
+          autoFecharMs: 10000,
+          aguardarDecisao: true,
+          enviarImpressora: false
+        });
+      } else {
+        const w = window.open('', '_blank', 'width=320,height=600');
+        if (w) {
+          w.document.write(html);
+          w.document.close();
+          w.focus();
+        }
+      }
+
+      if (window.CupomPrintPolicy && typeof window.CupomPrintPolicy.aposCupomNaTela === 'function') {
+        await window.CupomPrintPolicy.aposCupomNaTela({
+          tipo: 'NAO_FISCAL',
+          html,
+          vendaId: opts.vendaId,
+          automatico: true
+        });
+        return;
+      }
+
+      const deviceName = (typeof obterDeviceNameImpressoraCupom === 'function')
+        ? await obterDeviceNameImpressoraCupom()
+        : null;
+      if (deviceName && window.electronAPI && typeof window.electronAPI.imprimirDANFESilencioso === 'function') {
+        await window.electronAPI.imprimirDANFESilencioso(html, deviceName);
+      }
+    } catch (err) {
+      if (typeof showNotification === 'function') {
+        showNotification(err && err.message ? err.message : 'Falha ao imprimir comprovante de entrega.', 'danger');
+      }
+    }
   }
 
   function initUi() {

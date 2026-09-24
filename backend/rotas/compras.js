@@ -46,6 +46,19 @@ const {
   salvarRascunhoDevolucaoCompra,
   excluirRascunhoDevolucaoCompra
 } = require('../services/fiscal/rascunhoDevolucaoCompra');
+const {
+  previewDuplicarDevolucaoCompra,
+  duplicarDevolucaoCompra
+} = require('../services/fiscal/duplicarDevolucaoCompra');
+const {
+  registrarManifestacaoDevolucao,
+  obterManifestacao210240,
+  resolverContextoSubstituicao210240,
+  trace210240
+} = require('../services/fiscal/nfeDevolucaoSubstituicaoService');
+const {
+  classificarResultadoEmissaoNfe
+} = require('../services/fiscal/classificarResultadoEmissaoNfe');
 const { getMiipService } = require('../motores/miip/getMiipService');
 const centralOrchestrator = require('../motores/central-entradas/CentralEntradasOrchestrator');
 const { logCentralErro } = require('../motores/central-entradas/utils/centralLog');
@@ -1987,7 +2000,9 @@ router.post('/:id/nfe-devolucao/previa', async (req, res) => {
       itens: body.itens,
       observacoes: body.observacoes,
       cfop: body.cfop,
-      refNFe: body.refNFe || body.chave_referenciada || body.chaveReferenciada
+      refNFe: body.refNFe || body.chave_referenciada || body.chaveReferenciada,
+      origemNfeDevolucaoId: body.origemNfeDevolucaoId || body.origem_nfe_devolucao_id,
+      chaveAnterior: body.chaveAnterior || body.chave_nfe_anterior
     });
     res.json(previa);
   } catch (error) {
@@ -2007,6 +2022,64 @@ router.get('/:id/nfe-devolucao/historico', async (req, res) => {
     res.json({ success: true, ...historico });
   } catch (error) {
     res.status(error.statusCode || 500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/nfe-devolucao/:notaId/manifestacao-210240', async (req, res) => {
+  try {
+    const manif = await obterManifestacao210240(Number(req.params.notaId));
+    res.json({ success: true, manifestacao: manif });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/nfe-devolucao/:notaId/manifestacao-210240', async (req, res) => {
+  try {
+    const out = await registrarManifestacaoDevolucao(Number(req.params.notaId), req.body || {}, {
+      usuarioId: req.usuario?.id || req.user?.id || null,
+      usuarioNome: req.usuario?.nome || req.user?.nome || req.usuario?.username || null,
+      ip: req.ip || req.headers['x-forwarded-for'] || null
+    });
+    res.json(out);
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message,
+      code: error.code || null
+    });
+  }
+});
+
+router.get('/nfe-devolucao/:notaId/duplicar-preview', async (req, res) => {
+  try {
+    const preview = await previewDuplicarDevolucaoCompra(Number(req.params.notaId));
+    res.json(preview);
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message,
+      code: error.code || null,
+      erros: error.erros || null
+    });
+  }
+});
+
+router.post('/nfe-devolucao/:notaId/duplicar', async (req, res) => {
+  try {
+    const out = await duplicarDevolucaoCompra(Number(req.params.notaId), {
+      usuarioId: req.usuario?.id || req.user?.id || null,
+      usuarioNome: req.usuario?.nome || req.user?.nome || req.usuario?.username || null,
+      ip: req.ip || req.headers['x-forwarded-for'] || null
+    });
+    res.json(out);
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message,
+      code: error.code || null,
+      erros: error.erros || null
+    });
   }
 });
 
@@ -2126,24 +2199,68 @@ router.post('/:id/emitir-nfe-devolucao', async (req, res) => {
     const compraId = Number(req.params.id);
     const body = req.body || {};
 
+    const rascunhoRota = await obterRascunhoDevolucaoCompra(compraId).catch(() => null);
+    const ctxRota = await resolverContextoSubstituicao210240({
+      compraId,
+      rascunho: rascunhoRota,
+      origemDevolucaoId: body.origemNfeDevolucaoId
+        || body.origem_nfe_devolucao_id
+        || (rascunhoRota && (rascunhoRota.origem_nfe_devolucao_id || rascunhoRota.documento_original_id))
+        || null,
+      chaveAnterior: body.chaveAnterior || body.chave_nfe_anterior
+    }).catch(() => ({ ativo: false }));
+    trace210240('http_emitir', {
+      compraId,
+      rascunhoId: rascunhoRota && rascunhoRota.id,
+      origemNfeDevolucaoId: ctxRota.origemDevolucaoId,
+      documento_original_id: rascunhoRota && rascunhoRota.documento_original_id,
+      substituicaoId: ctxRota.substituicaoId,
+      chaveNFAnterior: ctxRota.chaveAnterior,
+      evento210240: ctxRota.ativo,
+      origemResolvida: ctxRota.fonte
+    });
     const resultado = await emitirNFeDevolucaoCompra(compraId, {
       itens: body.itens,
       observacoes: body.observacoes,
       cfop: body.cfop,
       refNFe: body.refNFe || body.chave_referenciada || body.chaveReferenciada,
+      origemNfeDevolucaoId: ctxRota.origemDevolucaoId || body.origemNfeDevolucaoId || body.origem_nfe_devolucao_id,
+      chaveAnterior: ctxRota.chaveAnterior || body.chaveAnterior,
       usuarioId: req.usuario?.id || req.user?.id || body.usuarioId || null,
       usuarioNome: req.usuario?.nome || req.user?.nome || req.usuario?.username || body.usuarioNome || null,
       ip: req.ip || req.headers['x-forwarded-for'] || null,
       computador: req.headers['x-computer-name'] || req.headers['x-client-host'] || null
     });
+    const cls = classificarResultadoEmissaoNfe(resultado);
+    resultado.classeResultado = cls.classe;
+
+    if (!resultado.success && resultado.code === 'TRANSMISSAO_ANTERIOR') {
+      return res.status(409).json({
+        sucesso: false,
+        error: resultado.message,
+        message: resultado.message,
+        code: resultado.code,
+        status: resultado.status,
+        classeResultado: cls.classe,
+        cStat: resultado.cStat || null,
+        xMotivo: resultado.xMotivo || null,
+        protocolo: resultado.protocolo || null,
+        recibo: resultado.recibo || null,
+        notaId: resultado.notaId,
+        resultado
+      });
+    }
 
     if (!resultado.success && resultado.status === 'rejeitada') {
       return res.status(400).json({
         sucesso: false,
         autorizado: false,
         mensagem: resultado.message || 'NF-e de devolução rejeitada pela SEFAZ.',
-        cStat: resultado.cStat,
-        xMotivo: resultado.xMotivo,
+        message: resultado.message,
+        status: resultado.status,
+        classeResultado: cls.classe,
+        cStat: resultado.cStat || null,
+        xMotivo: resultado.xMotivo || null,
         retornoSefaz: resultado.retorno,
         resultado
       });
@@ -2153,7 +2270,12 @@ router.post('/:id/emitir-nfe-devolucao', async (req, res) => {
       return res.status(400).json({
         sucesso: false,
         error: resultado.message,
+        message: resultado.message,
         code: resultado.code || resultado.status,
+        status: resultado.status,
+        classeResultado: cls.classe,
+        cStat: resultado.cStat || null,
+        xMotivo: resultado.xMotivo || null,
         resultado
       });
     }
@@ -2166,19 +2288,35 @@ router.post('/:id/emitir-nfe-devolucao', async (req, res) => {
       resultado,
       notaId: resultado.notaId || resultado.idNota,
       status: resultado.status,
+      classeResultado: cls.classe,
       chaveAcesso: resultado.chaveAcesso || resultado.chave,
       protocolo: resultado.protocolo,
       recibo: resultado.recibo || null,
       numero: resultado.numero,
-      serie: resultado.serie
+      serie: resultado.serie,
+      cStat: resultado.cStat || null,
+      xMotivo: resultado.xMotivo || null
     });
   } catch (error) {
     console.error('Erro ao emitir NF-e de devolução:', error);
-    res.status(error.statusCode || 500).json({
+    const status = String(error.code || '').toLowerCase() === 'saldo_zerado'
+      || String(error.code || '').toLowerCase() === 'saldo_insuficiente'
+      || String(error.code || '').toLowerCase() === 'qtd_invalida'
+      || String(error.code || '').toLowerCase() === 'auditoria_fiscal_reprovada'
+      ? 'erro_validacao'
+      : (error.status || 'erro');
+    const payload = {
+      success: false,
       error: error.message,
+      message: error.message,
       code: error.code || null,
+      status,
+      cStat: error.cStat || null,
+      xMotivo: error.xMotivo || null,
       erros: error.erros || null
-    });
+    };
+    payload.classeResultado = classificarResultadoEmissaoNfe(payload).classe;
+    res.status(error.statusCode || 500).json(payload);
   }
 });
 

@@ -2162,6 +2162,26 @@ function criarTabelas() {
       aplicarAlteracaoSegura('nfce_notas', `ALTER TABLE nfce_notas ADD COLUMN origem TEXT DEFAULT 'venda'`);
     });
 
+    // NFC-e 65 — números já ocupados na SEFAZ (CStat 539 / colisão). Não implica autorização local.
+    db.run(`
+      CREATE TABLE IF NOT EXISTS nfce_numeros_ocupados_sefaz (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cnpj TEXT NOT NULL,
+        ambiente INTEGER NOT NULL,
+        serie INTEGER NOT NULL,
+        numero INTEGER NOT NULL,
+        chave TEXT,
+        origem TEXT,
+        cstat TEXT,
+        xmotivo TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(cnpj, ambiente, serie, numero)
+      )
+    `, (err) => {
+      if (err) console.error('Erro ao criar tabela nfce_numeros_ocupados_sefaz:', err);
+      else console.log('Tabela nfce_numeros_ocupados_sefaz criada/verificada');
+    });
+
     // @deprecated RC1 — Tabela legada; migração futura para central_entradas_documentos.
     // Tabela de notas recebidas via Distribuição DF-e (schema antigo)
     db.run(`
@@ -3074,6 +3094,7 @@ function inserirConfiguracoesPadrao() {
     ,['pdv_permitir_editar_preco_unitario', 'DESATIVADO', 'string', 'Permitir editar preço unitário no PDV e atualizar cadastro do produto']
     ,['pdv_exigir_ncm_cadastro', 'DESATIVADO', 'string', 'No PDV, se o produto não tiver NCM, pedir o código e atualizar o cadastro']
     ,['pdv_imprimir_cupom', 'ATIVADO', 'string', 'Imprimir cupom automaticamente ao finalizar a venda no PDV']
+    ,['cupom_impressao_politica', '{"modo":"PERGUNTAR","max_vias":4,"fiscal":{"modo":"PERGUNTAR","vias":2,"destinos":["CLIENTE","ESTABELECIMENTO"]},"nao_fiscal":{"modo":"PERGUNTAR","vias":2,"destinos":["CLIENTE","ESTABELECIMENTO"]}}', 'json', 'Política de impressão de cupons fiscal e não fiscal']
     ,['pdv_composicao_itens', 'UNIFICAR', 'string', 'Composição de itens no carrinho do PDV: UNIFICAR, SEPARAR ou AUTOMATICO']
     ,['empresa_controla_validade', 'ATIVADO', 'string', 'Empresa controla validade de produtos (lotes/FEFO/alertas)']
     ,['empresa_permite_venda_sem_estoque', 'DESATIVADO', 'string', 'Permitir venda sem estoque (baixa continua; saldo pode ficar negativo)']

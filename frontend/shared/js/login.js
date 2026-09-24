@@ -16,6 +16,18 @@ const API_URL = (() => {
 const CDS_LOGIN_ULTIMO_USER_KEY = 'cds_login_ultimo_usuario';
 const CDS_LOGIN_ULTIMO_PASS_KEY = 'cds_login_ultima_senha';
 
+/** Usuário já tocou/digitou no formulário — lifecycle automático não pode roubar foco. */
+let loginUsuarioInteragiu = false;
+
+function marcarLoginUsuarioInteragiu() {
+  loginUsuarioInteragiu = true;
+}
+
+function loginCampoAtivoEhFormulario() {
+  const ativo = document.activeElement;
+  return !!(ativo && (ativo.id === 'username' || ativo.id === 'password' || ativo.id === 'btn-entrar'));
+}
+
 function persistirChaveLogin(chave, valor) {
   const texto = String(valor == null ? '' : valor);
   try { localStorage.setItem(chave, texto); } catch (_) { /* ignore */ }
@@ -54,12 +66,13 @@ function obterUltimoAcessoLogin() {
 
 function carregarUltimoAcessoLogin() {
   try {
+    if (loginUsuarioInteragiu || loginCampoAtivoEhFormulario()) return false;
     const { username, password } = obterUltimoAcessoLogin();
     if (!username && !password) return false;
     const $user = $('#username');
     const $pass = $('#password');
-    if (username && $user.length && $user.val() !== username) $user.val(username);
-    if (password && $pass.length && $pass.val() !== password) $pass.val(password);
+    if (username && $user.length && !String($user.val() || '').trim()) $user.val(username);
+    if (password && $pass.length && !String($pass.val() || '')) $pass.val(password);
     return true;
   } catch (_) {
     return false;
@@ -269,6 +282,7 @@ function aplicarAutofillPrimeiroAcesso() {
     url: `${API_URL}/auth/primeiro-acesso`,
     method: 'GET',
     success: function (data) {
+      if (loginUsuarioInteragiu || loginCampoAtivoEhFormulario()) return;
       const ultimo = obterUltimoAcessoLogin();
       if (ultimo.username) {
         carregarUltimoAcessoLogin();
@@ -278,18 +292,22 @@ function aplicarAutofillPrimeiroAcesso() {
         carregarUltimoAcessoLogin();
         return;
       }
-      $('#username').val(data.username || 'admin');
-      $('#password').val('1234');
+      if (!$('#username').val()) $('#username').val(data.username || 'admin');
+      if (!$('#password').val()) $('#password').val('1234');
+      if (loginUsuarioInteragiu || loginCampoAtivoEhFormulario()) return;
       const btn = document.getElementById('btn-entrar');
       const pwd = document.getElementById('password');
-      if (btn && typeof btn.focus === 'function') {
-        btn.focus();
-      } else if (pwd) {
+      const user = document.getElementById('username');
+      if (user && !String(user.value || '').trim()) {
+        user.focus();
+      } else if (pwd && !String(pwd.value || '')) {
         pwd.focus();
+      } else if (btn && typeof btn.focus === 'function' && !loginUsuarioInteragiu) {
+        btn.focus();
       }
     },
     error: function () {
-      carregarUltimoAcessoLogin();
+      if (!loginUsuarioInteragiu) carregarUltimoAcessoLogin();
     }
   });
 }
@@ -336,6 +354,7 @@ function removerOverlayResidualLogin() {
 }
 
 function focarCampoLoginPronto() {
+  if (loginUsuarioInteragiu) return;
   const ativo = document.activeElement;
   if (ativo && (ativo.id === 'username' || ativo.id === 'password' || ativo.id === 'btn-entrar')) {
     return;
@@ -347,7 +366,7 @@ function focarCampoLoginPronto() {
     user.focus();
   } else if (pass && !String(pass.value || '')) {
     pass.focus();
-  } else if (btn) {
+  } else if (btn && !loginUsuarioInteragiu) {
     btn.focus();
   }
 }
@@ -368,10 +387,12 @@ function liberarTelaLogin() {
 }
 
 $(document).ready(function () {
+  loginUsuarioInteragiu = false;
   carregarUltimoAcessoLogin();
   agendarRestauracaoUltimoAcessoLogin();
   aplicarAutofillPrimeiroAcesso();
 
+  $('#username, #password, #btn-entrar').on('keydown.loginFocus input.loginFocus mousedown.loginFocus', marcarLoginUsuarioInteragiu);
   $('#username, #password').on('input change blur', lembrarCamposDigitadosLogin);
   $(window).on('pagehide beforeunload', lembrarCamposDigitadosLogin);
 

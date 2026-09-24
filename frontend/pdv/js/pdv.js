@@ -3280,13 +3280,27 @@ function alternarModoFiscalPdv() {
 function focarCampoCodigo(opcoes) {
     const opts = opcoes && typeof opcoes === 'object' ? opcoes : {};
     const limpar = opts.limpar !== false;
+    const forcar = opts.forcar === true;
 
     setTimeout(() => {
-        // Não roubar o foco enquanto um modal estiver aberto (ex.: quantidade / transferir estoque / NCM)
         if (document.querySelector('.modal.show')) return;
         if (document.getElementById('modalTransferirEstoquePdv')) return;
         if (document.getElementById('modalNcmProdutoPdv')) return;
         if (document.getElementById('inputNcmProdutoPdv')) return;
+
+        const Focus = window.UIFocusManager;
+        const ativo = document.activeElement;
+        if (!forcar && Focus && typeof Focus.isEditingElement === 'function' && Focus.isEditingElement(ativo)) {
+            const id = ativo && ativo.id;
+            if (id && id !== 'buscaProdutoPdv') return;
+            if (ativo && ativo.closest && ativo.closest('#tabelaItensVendaPdv')) return;
+            if (ativo && ativo.classList && (
+              ativo.classList.contains('quantidade-item')
+              || ativo.classList.contains('percentual-item')
+              || ativo.classList.contains('desconto-valor-item')
+              || ativo.classList.contains('valor-item')
+            )) return;
+        }
 
         const input = $('#buscaProdutoPdv');
         if (!input.length) return;
@@ -5454,7 +5468,18 @@ function atualizarCarrinho() {
     sincronizarCarrinhoGlobalPdv();
     const tbody = $('#tabelaItensVendaPdv');
     if (tbody.length) {
-        tbody.html(renderCarrinhoItens());
+        const el = tbody[0];
+        const Focus = window.UIFocusManager;
+        const html = renderCarrinhoItens();
+        const aplicar = () => { tbody.html(html); };
+
+        // Remonta o carrinho, mas se o usuário estiver no meio da edição,
+        // restaura o foco no campo equivalente (sem reaplicar valor antigo).
+        if (Focus && typeof Focus.withPreservedFocus === 'function') {
+            Focus.withPreservedFocus(el, aplicar, { restoreValue: false });
+        } else {
+            aplicar();
+        }
 
         tbody.off('click', '.item-remover').on('click', '.item-remover', function() {
             const index = $(this).data('index');
@@ -8642,21 +8667,21 @@ $(document).on('hide.bs.modal', '.modal', function () {
 
 // Limpeza extra quando o modal terminar de fechar
 $(document).on('hidden.bs.modal', '.modal', function () {
-    if (document.activeElement) {
-        document.activeElement.blur();
-    }
-
     $('.modal-backdrop').remove();
 
     if ($('.modal.show').length === 0) {
         $('body').removeClass('modal-open');
         $('body').css('padding-right', '');
 
-        // UX-03.3: devolver o teclado à barra de pesquisa do PDV
         if (document.getElementById('modalNcmProdutoPdv')) return;
-        if (typeof currentPage !== 'undefined' && currentPage === 'pdv' && $('#buscaProdutoPdv').length) {
-            focarCampoCodigo({ limpar: true });
+        if (typeof currentPage === 'undefined' || currentPage !== 'pdv' || !$('#buscaProdutoPdv').length) return;
+
+        const Focus = window.UIFocusManager;
+        const ativo = document.activeElement;
+        if (Focus && typeof Focus.isEditingElement === 'function' && Focus.isEditingElement(ativo)) {
+            if (ativo.id !== 'buscaProdutoPdv') return;
         }
+        focarCampoCodigo({ limpar: false });
     }
 });
 

@@ -18,6 +18,7 @@ const {
   validarDocumentoAutorizado,
   validarIdentidadeDocumento,
   extrairXmlPersistido,
+  extrairXmlNfeDisponivel,
   gerarPdfDanfeBuffer,
   aplicarCssImpressaoA4
 } = require('../../backend/services/fiscal/danfeService');
@@ -100,6 +101,23 @@ describe('Central DANFE — XML persistido e PDF', () => {
     assert.equal(xml, xmlAut);
     const svc = read('backend/services/fiscal/danfeService.js');
     assert.doesNotMatch(svc, /buildXmlNFe|assinarXml|proximoNumeroNFeVenda|reservarProximoNumeroNfe/);
+  });
+
+  it('NF rejeitada entrega o XML assinado persistido', () => {
+    const xmlAssinado = `<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe${CHAVE_A}"></infNFe></NFe>`;
+    assert.equal(extrairXmlPersistido({
+      xml_assinado: xmlAssinado,
+      xml_enviado: xmlAssinado,
+      xml_retorno: '<retEnviNFe><cStat>225</cStat></retEnviNFe>'
+    }), '');
+    const xml = extrairXmlNfeDisponivel({
+      xml_assinado: xmlAssinado,
+      xml_enviado: xmlAssinado,
+      xml_retorno: '<retEnviNFe><cStat>225</cStat></retEnviNFe>'
+    });
+    assert.equal(xml, xmlAssinado);
+    const ui = read('frontend/erp/js/nfe-central.js');
+    assert.match(ui, /Download XML[\s\S]*temXml \? '' : 'disabled'/);
   });
 
   it('sem xml_autorizado extrai nfeProc já persistido no retorno', () => {

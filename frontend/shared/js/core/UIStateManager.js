@@ -1,5 +1,5 @@
 /**
- * UIStateManager — estado transitório da interface (Sprint 6).
+ * UIStateManager — estado transitório da interface (Sprint 6 + Foco Global V2).
  * NÃO armazena dados fiscais/financeiros/estoque/negócio.
  */
 (function (global) {
@@ -31,6 +31,8 @@
   }
 
   const UIStateManager = {
+    cssPath,
+
     capture(element) {
       const root = element || document.activeElement;
       const active = document.activeElement;
@@ -48,6 +50,7 @@
         activeTab: null,
         modal: !!document.querySelector('.modal.show'),
         page: global.UINavigation ? global.UINavigation.getPage() : (global.currentPage || null),
+        page_token: global.UINavigation ? global.UINavigation.getToken() : null,
         capturedAt: Date.now()
       };
       if (target && typeof target.selectionStart === 'number') {
@@ -64,9 +67,24 @@
 
     restore(state, options = {}) {
       if (!state) return false;
+      if (state.page_token && global.UINavigation
+        && !global.UINavigation.isActiveToken(state.page_token)
+        && options.requireSamePage !== false) {
+        return false;
+      }
       const preferUser = options.preferUserFocus !== false;
       const current = document.activeElement;
-      if (preferUser && current && current !== document.body && current !== document.documentElement) {
+      const Focus = global.UIFocusManager;
+      const currentIsEditable = Focus
+        ? Focus.isEditingElement(current)
+        : !!(current && (
+          /^(INPUT|TEXTAREA|SELECT)$/i.test(current.tagName || '')
+          || current.isContentEditable
+        ) && !/^(button|submit|reset|checkbox|radio|file|image|hidden)$/i.test(String(current.type || '')));
+      // Só respeitar "usuário mudou o foco" se o destino atual for editável.
+      // Botões / body / elementos meramente focáveis NÃO bloqueiam o restore.
+      if (preferUser && currentIsEditable
+        && current !== document.body && current !== document.documentElement) {
         const currentSel = current.id ? `#${current.id}` : cssPath(current);
         if (currentSel && state.focusSelector && currentSel !== state.focusSelector) {
           return false;
@@ -79,6 +97,13 @@
       }
       if (!el) return false;
       try {
+        if (options.restoreValue === true
+          && state.value != null
+          && typeof el.value === 'string'
+          && el.value !== state.value
+          && (el.tagName || '').toLowerCase() !== 'select') {
+          el.value = state.value;
+        }
         el.focus({ preventScroll: true });
         if (typeof el.setSelectionRange === 'function'
           && state.selectionStart != null

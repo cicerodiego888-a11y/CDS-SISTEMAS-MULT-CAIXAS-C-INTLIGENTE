@@ -98,6 +98,33 @@ class CentralDfePersistenciaService {
 
     const existente = await this._documentosRepository.buscarPorChave(chave);
     if (!existente) {
+      // Mesmo sem documento na Central, tenta atualizar nfe_devolucoes_compra pela chave
+      let ponteDevolucao = null;
+      if (statusNovo === DocumentoFiscalStatus.CANCELADA) {
+        try {
+          const {
+            aplicarEventoDfeEmDevolucaoCompra
+          } = require('../../../services/fiscal/nfeDevolucaoLifecycleService');
+          const tpMatch = String(xml || '').match(/<tpEvento>\s*(\d+)\s*<\/tpEvento>/i);
+          ponteDevolucao = await aplicarEventoDfeEmDevolucaoCompra({
+            chave,
+            xml,
+            tpEvento: tpMatch ? tpMatch[1] : null,
+            origem: dados.origem || 'dfe_evento'
+          });
+        } catch (_) { /* ignore */ }
+      }
+      if (ponteDevolucao && (ponteDevolucao.aplicado || ponteDevolucao.duplicado)) {
+        return {
+          aplicado: Boolean(ponteDevolucao.aplicado),
+          duplicado: Boolean(ponteDevolucao.duplicado),
+          ignorado: false,
+          chave,
+          status: statusNovo,
+          devolucaoCompra: ponteDevolucao,
+          motivo: 'Atualizado via ponte nfe_devolucoes_compra (sem doc Central)'
+        };
+      }
       return { aplicado: false, ignorado: true, motivo: 'Documento não encontrado para evento', chave };
     }
 
@@ -129,12 +156,36 @@ class CentralDfePersistenciaService {
       Status: statusNovo
     });
 
+    // Ponte: NF-e de devolução de compra (saída) — atualiza nfe_devolucoes_compra pela chave
+    let ponteDevolucao = null;
+    if (statusNovo === DocumentoFiscalStatus.CANCELADA) {
+      try {
+        const {
+          aplicarEventoDfeEmDevolucaoCompra
+        } = require('../../../services/fiscal/nfeDevolucaoLifecycleService');
+        const tpMatch = String(xml || '').match(/<tpEvento>\s*(\d+)\s*<\/tpEvento>/i);
+        ponteDevolucao = await aplicarEventoDfeEmDevolucaoCompra({
+          chave,
+          xml,
+          tpEvento: tpMatch ? tpMatch[1] : null,
+          origem: dados.origem || 'dfe_evento'
+        });
+      } catch (e) {
+        logCentral('DFE', {
+          mensagem: 'Ponte devolução compra falhou (não bloqueante)',
+          chave,
+          Erro: e.message || String(e)
+        });
+      }
+    }
+
     return {
       aplicado: true,
       cancelado: statusNovo === DocumentoFiscalStatus.CANCELADA,
       documento,
       chave,
-      status: statusNovo
+      status: statusNovo,
+      devolucaoCompra: ponteDevolucao || undefined
     };
   }
 

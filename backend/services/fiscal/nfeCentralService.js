@@ -156,7 +156,7 @@ async function listarNfeNotas(filtros = {}) {
         c.nome AS cliente_nome,
         c.cpf_cnpj AS cliente_documento,
         CASE WHEN n.danfe_html IS NOT NULL AND n.danfe_html <> '' THEN 1 ELSE 0 END AS tem_danfe,
-        CASE WHEN n.xml_retorno IS NOT NULL AND n.xml_retorno <> '' THEN 1 ELSE 0 END AS tem_xml,
+        CASE WHEN COALESCE(NULLIF(n.xml_retorno, ''), NULLIF(n.xml_enviado, '')) IS NOT NULL THEN 1 ELSE 0 END AS tem_xml,
         'VENDA' AS tipo
       FROM nfe_notas n
       LEFT JOIN vendas v ON v.id = n.venda_id
@@ -179,31 +179,36 @@ async function listarNfeNotas(filtros = {}) {
         d.status,
         d.protocolo,
         d.recibo,
-        NULL AS protocolo_cancelamento,
-        NULL AS consultado_em,
-        NULL AS cstat_consulta,
-        NULL AS xmotivo_consulta,
+        d.protocolo_cancelamento AS protocolo_cancelamento,
+        d.consultado_em AS consultado_em,
+        d.cstat_retorno AS cstat_consulta,
+        d.xmotivo_retorno AS xmotivo_consulta,
         d.natureza_operacao,
         d.cfop,
         d.created_at,
         d.updated_at,
         d.usuario_nome AS usuario_emissao,
-        NULL AS fila_estado,
+        d.fila_estado AS fila_estado,
         NULL AS tentativas,
         NULL AS ultima_tentativa_em,
-        NULL AS erro_codigo,
-        NULL AS erro_mensagem,
+        d.rejeicao_codigo AS erro_codigo,
+        d.rejeicao_motivo AS erro_mensagem,
         NULL AS erro_sugestao,
-        NULL AS tempo_resposta_ms,
+        d.tempo_resposta_ms AS tempo_resposta_ms,
         NULL AS valor,
         NULL AS venda_codigo,
         NULL AS operador_id,
         d.usuario_nome AS usuario_responsavel,
+        d.compra_id AS compra_id,
+        d.chave_referenciada AS chave_referenciada,
+        co.numero_nf AS numero_origem,
+        co.chave_acesso AS chave_origem,
+        (SELECT COUNT(*) FROM nfe_devolucao_compra_itens i WHERE i.nfe_devolucao_id = d.id) AS qtd_itens,
         co.fornecedor AS cliente_nome,
         co.fornecedor_cnpj AS cliente_documento,
         CASE WHEN d.danfe_html IS NOT NULL AND d.danfe_html <> '' THEN 1 ELSE 0 END AS tem_danfe,
-        CASE WHEN IFNULL(d.xml_autorizado, d.xml_retorno) IS NOT NULL
-          AND IFNULL(d.xml_autorizado, d.xml_retorno) <> '' THEN 1 ELSE 0 END AS tem_xml,
+        CASE WHEN COALESCE(NULLIF(d.xml_autorizado, ''), NULLIF(d.xml_assinado, ''), NULLIF(d.xml_enviado, ''), NULLIF(d.xml_retorno, ''), NULLIF(d.xml_gerado, '')) IS NOT NULL
+          THEN 1 ELSE 0 END AS tem_xml,
         'DEVOLUCAO_COMPRA' AS tipo
       FROM nfe_devolucoes_compra d
       LEFT JOIN compras co ON co.id = d.compra_id
@@ -247,8 +252,8 @@ async function listarNfeNotas(filtros = {}) {
         c.nome AS cliente_nome,
         c.cpf_cnpj AS cliente_documento,
         CASE WHEN d.danfe_html IS NOT NULL AND d.danfe_html <> '' THEN 1 ELSE 0 END AS tem_danfe,
-        CASE WHEN IFNULL(d.xml_autorizado, d.xml_retorno) IS NOT NULL
-          AND IFNULL(d.xml_autorizado, d.xml_retorno) <> '' THEN 1 ELSE 0 END AS tem_xml,
+        CASE WHEN COALESCE(NULLIF(d.xml_autorizado, ''), NULLIF(d.xml_assinado, ''), NULLIF(d.xml_enviado, ''), NULLIF(d.xml_retorno, ''), NULLIF(d.xml_gerado, '')) IS NOT NULL
+          THEN 1 ELSE 0 END AS tem_xml,
         'DEVOLUCAO_VENDA' AS tipo
       FROM nfe_devolucoes_venda d
       LEFT JOIN vendas v ON v.id = d.venda_id

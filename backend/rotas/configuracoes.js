@@ -9,6 +9,7 @@ const cfgTransferenciaPdv = require('../services/estoque/pdvTransferenciaNaoFisc
 const cfgEditarPrecoUnitarioPdv = require('../services/estoque/pdvEditarPrecoUnitarioConfig');
 const cfgExigirNcmPdv = require('../services/estoque/pdvExigirNcmCadastroConfig');
 const cfgImprimirCupomPdv = require('../services/estoque/pdvImprimirCupomConfig');
+const cfgCupomPrintPolicy = require('../services/impressao/CupomPrintPolicy');
 const cfgComposicaoItensPdv = require('../services/estoque/pdvComposicaoItensConfig');
 const cfgValidadeEmpresa = require('../services/estoque/empresaControlaValidadeConfig');
 const cfgVendaSemEstoque = require('../services/estoque/empresaPermiteVendaSemEstoqueConfig');
@@ -23,6 +24,7 @@ function chaveReservadaSuperAdmin(chave) {
     || cfgEditarPrecoUnitarioPdv.ehChave(chave)
     || cfgExigirNcmPdv.ehChave(chave)
     || cfgImprimirCupomPdv.ehChave(chave)
+    || cfgCupomPrintPolicy.ehChave(chave)
     || cfgComposicaoItensPdv.ehChave(chave)
     || cfgValidadeEmpresa.ehChave(chave)
     || cfgVendaSemEstoque.ehChave(chave)
@@ -427,6 +429,62 @@ router.get('/pdv_exigir_ncm_cadastro', (req, res) => {
     }
     res.json(dados);
   });
+});
+
+router.get('/cupom_impressao_politica', (req, res) => {
+  cfgCupomPrintPolicy.ler(db, (err, dados) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(dados);
+  });
+});
+
+router.put(
+  '/cupom_impressao_politica',
+  cfgImprimirCupomPdv.exigirSuperAdminAlteracao,
+  (req, res) => {
+    const entrada = (req.body && (req.body.valor != null ? req.body.valor : req.body)) || {};
+    cfgCupomPrintPolicy.salvar(db, entrada, (err, dados) => {
+      if (err) {
+        const status = err.status || 500;
+        return res.status(status).json({ error: err.message });
+      }
+      auditarConfiguracao(req, 'atualizar_configuracao', cfgCupomPrintPolicy.CHAVE, {
+        modo: dados.valor && dados.valor.modo,
+        fiscal: dados.valor && dados.valor.fiscal,
+        nao_fiscal: dados.valor && dados.valor.nao_fiscal
+      });
+      res.json({
+        message: 'Política de impressão de cupons atualizada.',
+        ...dados
+      });
+    });
+  }
+);
+
+router.post('/cupom_impressao_evento', (req, res) => {
+  const body = req.body || {};
+  const usuario = req.user || {};
+  gravarAuditoria({
+    usuario_id: usuario.id || null,
+    usuario_nome: usuario.username || usuario.nome || null,
+    modulo: 'impressao',
+    acao: 'cupom_impressao',
+    referencia_tipo: body.tipo === 'FISCAL' ? 'cupom_fiscal' : 'cupom_nao_fiscal',
+    referencia_id: body.venda_id || null,
+    detalhes: {
+      tipo: body.tipo || null,
+      decisao: body.decisao || null,
+      quantidade_solicitada: body.quantidade_solicitada || 0,
+      quantidade_impressa: body.quantidade_impressa || 0,
+      resultado: body.resultado || null,
+      erro: body.erro || null,
+      terminal_id: body.terminal_id || null
+    },
+    ip_requisicao: req.ip || null
+  }).catch((auditErr) => console.error('Erro ao gravar auditoria de impressão:', auditErr));
+  res.json({ ok: true });
 });
 
 router.get('/pdv_imprimir_cupom', (req, res) => {

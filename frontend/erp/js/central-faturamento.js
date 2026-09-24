@@ -240,6 +240,20 @@
   }
 
   async function carregarPainel(silencioso) {
+    const Nav = global.UINavigation;
+    const Req = global.UIRequestContext;
+    const Soft = global.UISoftRefresh;
+    const Focus = global.UIFocusManager;
+    const pageToken = Nav && typeof Nav.getToken === 'function' ? Nav.getToken() : null;
+    const ctx = Req && typeof Req.begin === 'function'
+      ? Req.begin({
+        page: 'central-faturamento',
+        component: 'painel',
+        page_token: pageToken,
+        search_key: `cf:${filtroAtual}:${buscaAtual}`
+      })
+      : null;
+
     const qs = new URLSearchParams({
       filtro: filtroAtual || 'todos',
       q: buscaAtual || '',
@@ -249,17 +263,46 @@
     const resp = await fetch(`${API()}/central-faturamento/painel?${qs}`, { headers: headersJson() });
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) throw new Error(data.error || 'Falha ao carregar painel.');
+
+    if (ctx && Req && !Req.isFresh(ctx.request_id)) return;
+    if (Nav && pageToken && !Nav.isActiveToken(pageToken)) return;
+    if (vista !== 'painel') {
+      if (ctx && Req) Req.markStale(ctx.request_id, 'vista_changed');
+      return;
+    }
+
     painelCache = data;
 
-    $('#cfDashboard').html(renderDashboard(data.dashboard));
-    $('#cfSefaz').html(renderSefaz(data.sefaz));
-    $('#cfRejeicoes').html(renderRejeicoes(data.rejeicoes));
-    $('#cfEventos').html(renderEventos(data.eventos));
-    $('#cfTiposDoc').html(renderTiposDoc(data.tipos_documento));
-    $('#cfFiltros').html(renderFiltros(data.filtros_disponiveis));
-    $('#cfFilaOps').html(renderFilaTabela(data.fila?.itens || []));
-    $('#cfFilaMeta').text(`${data.fila?.total || 0} registro(s) · atualizado ${fmtData(data.atualizado_em)}`);
+    const applyRegion = (selector, html) => {
+      const el = document.querySelector(selector);
+      if (!el) return;
+      if (Soft && typeof Soft.replaceHtml === 'function') {
+        Soft.replaceHtml(el, html, { skipIfEditing: true });
+        return;
+      }
+      if (Focus && Focus.isEditing(el)) return;
+      el.innerHTML = html;
+    };
+
+    applyRegion('#cfDashboard', renderDashboard(data.dashboard));
+    applyRegion('#cfSefaz', renderSefaz(data.sefaz));
+    applyRegion('#cfRejeicoes', renderRejeicoes(data.rejeicoes));
+    applyRegion('#cfEventos', renderEventos(data.eventos));
+    applyRegion('#cfTiposDoc', renderTiposDoc(data.tipos_documento));
+    applyRegion('#cfFiltros', renderFiltros(data.filtros_disponiveis));
+    applyRegion('#cfFilaOps', renderFilaTabela(data.fila?.itens || []));
+
+    const busca = document.getElementById('cfBusca');
+    if (busca && document.activeElement !== busca) {
+      /* não sobrescrever enquanto digita */
+    } else if (busca && Focus && Focus.isEditing(busca)) {
+      /* preserva caret/texto */
+    }
+
+    const meta = document.getElementById('cfFilaMeta');
+    if (meta) meta.textContent = `${data.fila?.total || 0} registro(s) · atualizado ${fmtData(data.atualizado_em)}`;
     atualizarContadorSelecao();
+    if (ctx && Req) Req.markCompleted(ctx.request_id);
     if (!silencioso) alertar('Painel atualizado.', 'success');
   }
 
@@ -935,8 +978,16 @@
   }
 
   async function loadCentralFaturamento() {
-    if (global.__cfRefreshTimer) clearInterval(global.__cfRefreshTimer);
-    global.__cfRefreshTimer = setInterval(() => {
+    const Poll = global.UIPollingManager;
+    if (global.__cfRefreshTimer) {
+      clearInterval(global.__cfRefreshTimer);
+      global.__cfRefreshTimer = null;
+    }
+    if (Poll && typeof Poll.stop === 'function') {
+      Poll.stop('central-faturamento-refresh');
+    }
+
+    const tickRefresh = () => {
       if (vista === 'painel') {
         carregarPainel(true).catch(() => {});
       } else if (vista === 'detalhe' && vendaAtualId && pacoteAtual) {
@@ -944,12 +995,33 @@
         if (['autorizada', 'cancelada', 'denegada'].includes(st)) return;
         carregarVenda(vendaAtualId).catch(() => {});
       }
-    }, 25000);
+    };
+
+    if (Poll && typeof Poll.start === 'function') {
+      Poll.start({
+        id: 'central-faturamento-refresh',
+        page: 'central-faturamento',
+        component: 'painel',
+        interval: 25000,
+        fn: tickRefresh
+      });
+    } else {
+      global.__cfRefreshTimer = setInterval(tickRefresh, 25000);
+    }
+
+    if (global.UINavigation && typeof global.UINavigation.onPageLeave === 'function') {
+      global.UINavigation.onPageLeave('central-faturamento', () => {
+        if (Poll) Poll.stop('central-faturamento-refresh');
+        if (global.__cfRefreshTimer) {
+          clearInterval(global.__cfRefreshTimer);
+          global.__cfRefreshTimer = null;
+        }
+      });
+    }
 
     const inicial = resolverVendaInicial();
     try {
       if (inicial > 0 && global.__cdsCentralFatVendaId) {
-        // veio da Expedição → abre detalhe
         await carregarVenda(inicial);
         try { delete global.__cdsCentralFatVendaId; } catch (_) { /* */ }
       } else {

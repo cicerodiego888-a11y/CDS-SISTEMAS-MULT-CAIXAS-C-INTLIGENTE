@@ -53,8 +53,9 @@ const ENDPOINTS = Object.freeze({
     [EnvironmentType.HOMOLOGACAO]: 'https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NFeConsultaProtocolo4.asmx'
   },
   NFE_CONSULTA: {
-    [EnvironmentType.PRODUCAO]: 'https://nfe.svrs.rs.gov.br/ws/NfeConsulta/NFeConsultaProtocolo4.asmx',
-    [EnvironmentType.HOMOLOGACAO]: 'https://nfe-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NFeConsultaProtocolo4.asmx'
+    // SVRS oficial (Portal NF-e / SEFAZ-CE): NfeConsulta4.asmx — NFeConsultaProtocolo4.asmx retorna HTTP 404
+    [EnvironmentType.PRODUCAO]: 'https://nfe.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx',
+    [EnvironmentType.HOMOLOGACAO]: 'https://nfe-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx'
   },
   NFCE_EVENTO: {
     [EnvironmentType.PRODUCAO]: 'https://nfce.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx',

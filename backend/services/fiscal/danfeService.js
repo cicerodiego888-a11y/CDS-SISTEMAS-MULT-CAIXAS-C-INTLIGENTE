@@ -90,6 +90,18 @@ function extrairXmlPersistido(row) {
   return '';
 }
 
+function extrairXmlNfeDisponivel(row) {
+  const autorizadoOuProc = extrairXmlPersistido(row);
+  if (autorizadoOuProc) return autorizadoOuProc;
+  const assinado = String(row?.xml_assinado || '').trim();
+  if (assinado) return assinado;
+  const enviado = String(row?.xml_enviado || '').trim();
+  if (enviado) return enviado;
+  const gerado = String(row?.xml_gerado || '').trim();
+  if (gerado) return gerado;
+  return '';
+}
+
 function validarIdentidadeDocumento(doc, esperado = {}) {
   if (!doc) {
     throw fiscalError('Documento fiscal não encontrado.', 'DOCUMENTO_NAO_ENCONTRADO', 404);
@@ -257,12 +269,12 @@ async function obterDanfe(ref = {}) {
   return { documento: resumirDocumento(doc), html, xml: extrairXmlPersistido(doc.row || doc) };
 }
 
-async function obterXmlAutorizado(ref = {}) {
+async function obterXmlDocumento(ref = {}) {
   const doc = await obterDocumentoFiscal(ref);
-  validarDocumentoAutorizado(doc, ref);
-  const xml = extrairXmlPersistido(doc.row || doc);
+  validarIdentidadeDocumento(doc, ref);
+  const xml = extrairXmlNfeDisponivel(doc.row || doc);
   if (!xml) {
-    throw fiscalError('XML autorizado não está persistido para este documento.', 'XML_NAO_DISPONIVEL', 404);
+    throw fiscalError('XML não está persistido para este documento.', 'XML_NAO_DISPONIVEL', 404);
   }
   const chaveXml = onlyDigits(tagXml(xml, 'chNFe') || xml.match(/Id="NFe(\d{44})"/i)?.[1]);
   if (chaveXml && doc.chave && chaveXml !== doc.chave) {
@@ -272,8 +284,13 @@ async function obterXmlAutorizado(ref = {}) {
       409
     );
   }
-  const nome = `NFE-${doc.chave || doc.id}.xml`;
+  const sufixo = statusEhAutorizado(doc.status) ? '' : `-${String(doc.status || 'xml').replace(/\s+/g, '-')}`;
+  const nome = `NFE-${doc.chave || doc.id}${sufixo}.xml`;
   return { documento: resumirDocumento(doc), xml, nome };
+}
+
+async function obterXmlAutorizado(ref = {}) {
+  return obterXmlDocumento(ref);
 }
 
 function gerarPdfDanfeBuffer(doc, extra = {}) {
@@ -343,6 +360,8 @@ module.exports = {
   validarIdentidadeDocumento,
   validarDocumentoAutorizado,
   extrairXmlPersistido,
+  extrairXmlNfeDisponivel,
+  obterXmlDocumento,
   aplicarCssImpressaoA4,
   gerarPdfDanfeBuffer,
   obterDocumentoFiscal,

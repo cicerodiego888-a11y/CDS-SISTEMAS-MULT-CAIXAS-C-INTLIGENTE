@@ -24,8 +24,8 @@ function getConsultaProtocoloUrl(ambiente, modelo = 'NFCE') {
   const isNfe = String(modelo).toUpperCase() === 'NFE';
   if (isNfe) {
     return prod
-      ? 'https://nfe.svrs.rs.gov.br/ws/NfeConsulta/NFeConsultaProtocolo4.asmx'
-      : 'https://nfe-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NFeConsultaProtocolo4.asmx';
+      ? 'https://nfe.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx'
+      : 'https://nfe-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx';
   }
   return prod
     ? 'https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NFeConsultaProtocolo4.asmx'

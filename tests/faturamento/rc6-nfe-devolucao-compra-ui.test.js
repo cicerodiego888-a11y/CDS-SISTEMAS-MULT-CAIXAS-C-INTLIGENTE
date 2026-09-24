@@ -31,6 +31,8 @@ describe('RC6 — superfície da tela dedicada', () => {
     assert.match(central, /Nova NF-e/);
     assert.match(central, /Devolução de Compra/);
     assert.match(central, /nfe-devolucao-compra/);
+    assert.match(central, /Duplicar como Nova Devolução/);
+    assert.match(central, /duplicarNfeComoNovaDevolucao/);
     assert.match(avulsa, /Devolução de Compra/);
     assert.match(avulsa, /NF_AVULSA/);
     assert.match(avulsa, /loadPage\('nfe-devolucao-compra'\)/);
@@ -54,6 +56,8 @@ describe('RC6 — superfície da tela dedicada', () => {
     assert.match(ui, /Digite ou cole a chave de acesso/);
     assert.match(ui, /Ou selecionar uma compra/);
     assert.match(ui, /Qtd\. Devolver/);
+    assert.match(ui, /ndcBuscaItens/);
+    assert.match(ui, /Buscar por código ou descrição/);
     assert.match(ui, /Quantidade superior ao saldo disponível/);
     assert.match(ui, /Totais da Devolução/);
     assert.match(ui, /finNFe = 4/);
@@ -77,8 +81,9 @@ describe('RC6 — reutiliza APIs RC1–RC4 sem motor paralelo', () => {
     assert.match(ui, /nfe-devolucao\/origens/);
     assert.match(ui, /nfe-devolucao\/previa/);
     assert.match(ui, /emitir-nfe-devolucao/);
-    assert.match(ui, /nfe-devolucao\/\$\{notaId\}\/xml/);
-    assert.match(ui, /nfe-devolucao\/\$\{notaId\}\/danfe/);
+    assert.match(ui, /nfe-devolucao\/\$\{ref\.id\}\/xml/);
+    assert.match(ui, /btnNdcDanfe/);
+    assert.match(ui, /abrirDanfe/);
     assert.match(ui, /nfe-devolucao\/\$\{notaId\}\/status/);
     assert.match(ui, /nfe-devolucao\/\$\{notaId\}\/consultar/);
     assert.match(ui, /nfe-devolucao\/\$\{notaId\}\/reenviar/);

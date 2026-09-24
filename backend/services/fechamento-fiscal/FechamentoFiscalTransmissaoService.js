@@ -123,11 +123,29 @@ async function resolverConfig(deps) {
 }
 
 async function reservarNumero(deps, config) {
+  if (typeof deps.reservarProximaNumeracaoFiscal === 'function') {
+    const r = await deps.reservarProximaNumeracaoFiscal({
+      cnpj: config.cnpj,
+      ambiente: config.ambiente,
+      modelo: '65',
+      serie: config.serie,
+      origem: 'FECHAMENTO_FISCAL'
+    });
+    return r && r.numero != null ? r.numero : r;
+  }
+  // LEGACY inject (testes antigos): se ainda passarem incrementaNumeroFiscal, aceitar.
   if (typeof deps.incrementaNumeroFiscal === 'function') {
     return deps.incrementaNumeroFiscal(config);
   }
-  const { incrementaNumeroFiscal } = require('../fiscal/configService');
-  return incrementaNumeroFiscal();
+  const { reservarProximaNumeracaoFiscal } = require('../fiscal/numeracaoFiscalService');
+  const reserva = await reservarProximaNumeracaoFiscal({
+    cnpj: config.cnpj,
+    ambiente: config.ambiente,
+    modelo: '65',
+    serie: config.serie,
+    origem: 'FECHAMENTO_FISCAL'
+  });
+  return reserva.numero;
 }
 
 async function assinarXml({ config, xmlSemAssinatura, chave }, deps) {
@@ -215,48 +233,88 @@ async function consultarDoc({ config, chave }, deps) {
 }
 
 async function registrarTentativa(db, row) {
-  await run(
-    db,
-    `INSERT INTO fechamentos_fiscais_transmissoes (
-      fechamento_fiscal_id, documento_id, usuario_id, tentativa, ambiente, status,
-      cstat, xmotivo, chave_acesso, protocolo, duracao_ms, xml_enviado_hash,
-      retorno_resumo, erro_tecnico, criado_em
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      row.fechamento_fiscal_id,
-      row.documento_id,
-      row.usuario_id || null,
-      row.tentativa || 1,
-      row.ambiente || null,
-      row.status || null,
-      row.cstat || null,
-      row.xmotivo || null,
-      row.chave_acesso || null,
-      row.protocolo || null,
-      row.duracao_ms != null ? row.duracao_ms : null,
-      row.xml_enviado_hash || null,
-      row.retorno_resumo != null ? String(row.retorno_resumo).slice(0, 2000) : null,
-      row.erro_tecnico != null ? String(row.erro_tecnico).slice(0, 1000) : null,
-      agoraLocal()
-    ]
-  );
+  try {
+    await run(
+      db,
+      `INSERT INTO fechamentos_fiscais_transmissoes (
+        fechamento_fiscal_id, documento_id, usuario_id, tentativa, ambiente, status,
+        cstat, xmotivo, chave_acesso, protocolo, duracao_ms, xml_enviado_hash,
+        retorno_resumo, erro_tecnico, valor_transmitido, numero_nfce, criado_em
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        row.fechamento_fiscal_id,
+        row.documento_id,
+        row.usuario_id || null,
+        row.tentativa || 1,
+        row.ambiente || null,
+        row.status || null,
+        row.cstat || null,
+        row.xmotivo || null,
+        row.chave_acesso || null,
+        row.protocolo || null,
+        row.duracao_ms != null ? row.duracao_ms : null,
+        row.xml_enviado_hash || null,
+        row.retorno_resumo != null ? String(row.retorno_resumo).slice(0, 2000) : null,
+        row.erro_tecnico != null ? String(row.erro_tecnico).slice(0, 1000) : null,
+        row.valor_transmitido != null ? Number(row.valor_transmitido) : null,
+        row.numero_nfce != null ? Number(row.numero_nfce) : null,
+        agoraLocal()
+      ]
+    );
+  } catch (_) {
+    // Compatibilidade se migração ainda não aplicou colunas novas
+    await run(
+      db,
+      `INSERT INTO fechamentos_fiscais_transmissoes (
+        fechamento_fiscal_id, documento_id, usuario_id, tentativa, ambiente, status,
+        cstat, xmotivo, chave_acesso, protocolo, duracao_ms, xml_enviado_hash,
+        retorno_resumo, erro_tecnico, criado_em
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        row.fechamento_fiscal_id,
+        row.documento_id,
+        row.usuario_id || null,
+        row.tentativa || 1,
+        row.ambiente || null,
+        row.status || null,
+        row.cstat || null,
+        row.xmotivo || null,
+        row.chave_acesso || null,
+        row.protocolo || null,
+        row.duracao_ms != null ? row.duracao_ms : null,
+        row.xml_enviado_hash || null,
+        row.retorno_resumo != null ? String(row.retorno_resumo).slice(0, 2000) : null,
+        row.erro_tecnico != null ? String(row.erro_tecnico).slice(0, 1000) : null,
+        agoraLocal()
+      ]
+    );
+  }
 }
 
 function montarStatusFechamento(docs) {
   const statuses = docs.map((d) => d.status);
+  if (!statuses.length) return STATUS.EMITINDO;
   if (statuses.every((s) => s === DOC_STATUS.AUTORIZADO)) return STATUS.AUTORIZADO;
-  if (statuses.some((s) => s === DOC_STATUS.EMITINDO || s === DOC_STATUS.ERRO_COM_POSSIVEL_PROCESSAMENTO)) {
-    return STATUS.EMITINDO;
+
+  const temAutorizado = statuses.some((s) => s === DOC_STATUS.AUTORIZADO);
+  const temRejeitado = statuses.some((s) => s === DOC_STATUS.REJEITADO);
+  const temErro = statuses.some((s) => s === DOC_STATUS.ERRO);
+  const temPendenteRecuperacao = statuses.some(
+    (s) => s === DOC_STATUS.EMITINDO || s === DOC_STATUS.ERRO_COM_POSSIVEL_PROCESSAMENTO
+  );
+
+  if (temPendenteRecuperacao) {
+    return STATUS.PENDENTE_RECUPERACAO;
   }
-  if (statuses.some((s) => s === DOC_STATUS.AUTORIZADO)) {
-    // parcial: autorizados + rejeitados/erro
-    if (statuses.some((s) => s === DOC_STATUS.REJEITADO)) return STATUS.REJEITADO;
-    if (statuses.some((s) => s === DOC_STATUS.ERRO)) return STATUS.ERRO;
-    return STATUS.AUTORIZADO;
+
+  if (temAutorizado && (temRejeitado || temErro)) {
+    return STATUS.AUTORIZACAO_PARCIAL;
   }
+
+  if (temAutorizado) return STATUS.AUTORIZADO;
   if (statuses.every((s) => s === DOC_STATUS.REJEITADO)) return STATUS.REJEITADO;
-  if (statuses.some((s) => s === DOC_STATUS.REJEITADO)) return STATUS.REJEITADO;
-  if (statuses.some((s) => s === DOC_STATUS.ERRO)) return STATUS.ERRO;
+  if (temRejeitado && !temAutorizado) return STATUS.REJEITADO;
+  if (temErro) return STATUS.ERRO;
   return STATUS.EMITINDO;
 }
 
@@ -446,15 +504,40 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
   const db = getDb(deps.db);
   const id = Number(fechamentoId);
   const snapshotAntes = deps.capturarSnapshot !== false ? await snapshotComercial(db) : null;
+  const saldoSvc = require('./FechamentoFiscalSaldoService');
 
   const { ff, config, ambiente } = await exigirPrecondicoesTransmissao({
     db, fechamentoId: id, opts, deps
   });
 
+  // Congela valor_principal na 1ª transmissão; recalcula emitido/pendente do banco
+  await saldoSvc.garantirValorPrincipal(
+    db,
+    id,
+    ff.valor_distribuido > 0 ? ff.valor_distribuido : ff.valor_informado
+  );
+  let saldoPre = await saldoSvc.recalcularSaldoFechamento(db, id);
+
+  // Legado/parcial: rota antiga (REJEITADO / AUTORIZACAO_PARCIAL) não transmite valor principal
+  {
+    const st = String(ff.status || '').toUpperCase();
+    const parcialComSaldo = Number(saldoPre.valor_emitido_autorizado) > 0
+      && Number(saldoPre.valor_pendente_emissao) > 0;
+    if (
+      parcialComSaldo
+      && (st === STATUS.REJEITADO || st === STATUS.AUTORIZACAO_PARCIAL || st === STATUS.ERRO)
+      && opts.continuar_emissao !== true
+      && opts.continuar !== true
+    ) {
+      const bloqueioTx = saldoSvc.bloquearEmissaoIntegralSeParcial(saldoPre, {});
+      if (bloqueioTx) throw bloqueioTx;
+    }
+  }
+
   // Já totalmente autorizado → idempotência do fechamento
-  if (ff.status === STATUS.AUTORIZADO) {
+  if (ff.status === STATUS.AUTORIZADO || saldoPre.concluido) {
     const docs = await listarDocumentos(db, id);
-    return {
+    const out = {
       ok: true,
       idempotente: true,
       status: STATUS.AUTORIZADO,
@@ -464,6 +547,7 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
       transmissao_habilitada: true,
       protecao: { comercial_inalterado: true }
     };
+    return saldoSvc.anexarSaldoAoResultado(out, saldoPre);
   }
 
   // Trava: se já EMITINDO sem documentos pendentes de envio novo, preferir recuperar
@@ -500,6 +584,33 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
     err.statusCode = 400;
     err.code = 'SEM_DOCUMENTOS';
     throw err;
+  }
+
+  // Proteção: docs a transmitir não podem exceder o pendente nem repetir o principal
+  if (Number(saldoPre.valor_emitido_autorizado) > 0 && Number(saldoPre.valor_pendente_emissao) > 0) {
+    const { toCentavos: tc, arredondarMoeda: am } = require('../fiscal/modeloTotais');
+    let somaCents = 0;
+    for (const d of docs) {
+      const st = String(d.status || '').toUpperCase();
+      if (st === DOC_STATUS.AUTORIZADO || st === 'AUTORIZADA') continue;
+      somaCents += tc(d.valor_total);
+    }
+    const pendCents = tc(saldoPre.valor_pendente_emissao);
+    const princCents = tc(saldoPre.valor_principal);
+    if (somaCents > pendCents + 1) {
+      const err = new Error(
+        `Documentos preparados (R$ ${am(somaCents / 100).toFixed(2)}) excedem o saldo pendente ` +
+        `(R$ ${am(saldoPre.valor_pendente_emissao).toFixed(2)}). Use CONTINUAR EMISSÃO.`
+      );
+      err.statusCode = 409;
+      err.code = 'FECHAMENTO_SALDO_EXCEDE_PENDENTE';
+      err.saldo = saldoPre;
+      throw err;
+    }
+    if (somaCents >= princCents - 1 && princCents > pendCents) {
+      const bloqueio = saldoSvc.bloquearEmissaoIntegralSeParcial(saldoPre, {});
+      if (bloqueio) throw bloqueio;
+    }
   }
 
   const resultados = [];
@@ -575,8 +686,8 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
         [DOC_STATUS.EMITINDO, tentativa, dataEmissao, agoraLocal(), doc.id]
       );
 
-      // Numeração real somente agora — fluxo oficial CDS (incrementaNumeroFiscal).
-      // Documento REJEITADO NÃO reutiliza o nNF anterior (ex.: 50); reserva o próximo oficial.
+      // Numeração real somente agora — autoridade única: reservarProximaNumeracaoFiscal (modelo 65).
+      // Documento REJEITADO NÃO reutiliza o nNF anterior; reserva o próximo oficial.
       if (!numero || doc.status === DOC_STATUS.REJEITADO) {
         numero = await reservarNumero(deps, config);
       }
@@ -672,6 +783,169 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
         if (raw.includes('<protNFe') || raw.includes('<nfeProc')) {
           xmlAutorizado = raw.includes('<nfeProc') ? raw : xmlAssinado;
         }
+      } else if (String(cStat) === '539' || raw.includes('<cStat>539</cStat>')) {
+        // Reconciliação obrigatória: não só rejeitar/incrementar
+        if (typeof opts._reconciliacoes539 !== 'number') opts._reconciliacoes539 = 0;
+        let recon = null;
+        try {
+          const {
+            reconciliarCstat539Documento,
+            RESULTADO: R539
+          } = require('./NfceCstat539ReconciliacaoService');
+          recon = await reconciliarCstat539Documento({
+            db,
+            fechamentoId: id,
+            documento: doc,
+            config,
+            numeroEnviado: numero,
+            chaveEnviada: chave,
+            xMotivo,
+            xmlRetorno: raw,
+            contadorCiclo: opts._reconciliacoes539,
+            deps
+          });
+          opts._reconciliacoes539 += 1;
+          statusFinal = recon.statusDocumento || DOC_STATUS.REJEITADO;
+          if (recon.chaveSefaz && recon.resultado === R539.AUTORIZADO) {
+            chaveFinal = recon.chaveSefaz;
+            if (recon.protocolo) {
+              // protocolo local shadow — aplicado no UPDATE abaixo via variável
+            }
+          }
+          if (recon.resultado === R539.LIMITE_LOOP || recon.statusFechamentoSugerido === STATUS.PENDENTE_RECUPERACAO) {
+            opts._pararPorLimite539 = true;
+          }
+          resultados.push({
+            documento_id: doc.id,
+            sequencia: doc.sequencia,
+            status: statusFinal,
+            numero,
+            serie: String(config.serie),
+            chave_acesso: recon.chaveSefaz || chaveFinal,
+            protocolo: recon.protocolo || protocolo,
+            cstat: '539',
+            xmotivo: xMotivo,
+            duracao_ms: duracao,
+            reconciliacao_539: recon,
+            mensagem_usuario: recon.mensagem
+          });
+        } catch (e539) {
+          statusFinal = DOC_STATUS.REJEITADO;
+          logTecnico('numeracao_539_erro', {
+            documento_id: doc.id,
+            erro: e539.message || String(e539)
+          });
+          resultados.push({
+            documento_id: doc.id,
+            sequencia: doc.sequencia,
+            status: statusFinal,
+            numero,
+            serie: String(config.serie),
+            chave_acesso: chaveFinal,
+            protocolo,
+            cstat: '539',
+            xmotivo: xMotivo,
+            duracao_ms: duracao,
+            mensagem_usuario:
+              'Foi identificada uma numeração já existente na SEFAZ. '
+              + 'O sistema está reconciliando o documento antes de continuar.',
+            erro_reconciliacao: e539.message || String(e539)
+          });
+        }
+
+        const protocolo539 = (recon && recon.protocolo) || protocolo;
+        const chave539 = (recon && recon.resultado === 'AUTORIZADO' && recon.chaveSefaz)
+          ? recon.chaveSefaz
+          : chaveFinal;
+        const dataAuth539 = statusFinal === DOC_STATUS.AUTORIZADO ? agoraLocal() : null;
+
+        // Se reconciliacao já persistiu AUTORIZADO, não sobrescrever com REJEITADO
+        if (!(recon && recon.resultado === 'AUTORIZADO')) {
+          await run(
+            db,
+            `UPDATE fechamentos_fiscais_documentos
+             SET status = ?, cstat = ?, xmotivo = ?, protocolo = COALESCE(?, protocolo),
+                 chave_acesso = COALESCE(?, chave_acesso), xml_retorno = ?,
+                 data_hora_autorizacao = COALESCE(?, data_hora_autorizacao),
+                 atualizado_em = ?
+             WHERE id = ?`,
+            [
+              statusFinal,
+              '539',
+              xMotivo,
+              protocolo539,
+              chave539,
+              raw || null,
+              dataAuth539,
+              agoraLocal(),
+              doc.id
+            ]
+          );
+        } else {
+          chaveFinal = chave539;
+        }
+
+        await registrarTentativa(db, {
+          fechamento_fiscal_id: id,
+          documento_id: doc.id,
+          usuario_id: opts.usuario_id,
+          tentativa,
+          ambiente,
+          status: statusFinal,
+          cstat: '539',
+          xmotivo: xMotivo,
+          chave_acesso: chave539 || chaveFinal,
+          protocolo: protocolo539,
+          duracao_ms: duracao,
+          xml_enviado_hash: hashXml(xmlAssinado),
+          retorno_resumo: (recon && recon.mensagem) || xMotivo || '539',
+          valor_transmitido: Number(doc.valor_total || 0),
+          numero_nfce: numero
+        });
+
+        if (statusFinal === DOC_STATUS.AUTORIZADO) {
+          try {
+            const { persistirNfceAutorizadaDoFechamento } = require('./NfceHistoricoOficialService');
+            const historicoNfce = await persistirNfceAutorizadaDoFechamento(db, {
+              id: doc.id,
+              fechamento_fiscal_id: id,
+              status: statusFinal,
+              numero,
+              serie: config.serie,
+              ambiente,
+              chave_acesso: chaveFinal,
+              protocolo: protocolo539,
+              recibo,
+              xml_enviado: xmlAssinado,
+              xml_assinado: xmlAssinado,
+              xml_retorno: raw || null,
+              xml_autorizado: xmlAssinado
+            }, { fechamentoId: id });
+            const last = resultados[resultados.length - 1];
+            if (last && last.documento_id === doc.id) last.historico_nfce = historicoNfce;
+          } catch (histErr) {
+            logTecnico('historico_nfce_erro', {
+              fechamento_id: id,
+              documento_id: doc.id,
+              erro: histErr.message || String(histErr)
+            });
+          }
+        }
+
+        logTecnico('documento_transmitido', {
+          fechamento_id: id,
+          documento_id: doc.id,
+          status: statusFinal,
+          cStat: '539',
+          reconciliacao: recon && recon.resultado,
+          duracao_ms: duracao,
+          ambiente
+        });
+
+        if (opts._pararPorLimite539) {
+          break;
+        }
+        continue;
       } else if (isRejeicaoFiscal(cStat, raw)) {
         statusFinal = DOC_STATUS.REJEITADO;
       } else if (!envio.success && (envio.timeout || isTimeoutError(envio))) {
@@ -722,7 +996,11 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
         retorno_resumo: xMotivo || cStat,
         erro_tecnico: statusFinal === DOC_STATUS.ERRO || statusFinal === DOC_STATUS.ERRO_COM_POSSIVEL_PROCESSAMENTO
           ? (envio.message || null)
-          : null
+          : null,
+        valor_transmitido: statusFinal === DOC_STATUS.AUTORIZADO
+          ? Number(doc.valor_total || 0)
+          : Number(doc.valor_total || 0),
+        numero_nfce: numero
       });
 
       logTecnico('documento_transmitido', {
@@ -841,7 +1119,34 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
   }
 
   const docsFinais = await listarDocumentos(db, id);
-  const statusFinal = montarStatusFechamento(docsFinais);
+  let statusFinal = montarStatusFechamento(docsFinais);
+
+  if (opts._pararPorLimite539) {
+    statusFinal = STATUS.PENDENTE_RECUPERACAO;
+  }
+
+  const ultimoAuth = resultados
+    .filter((r) => r.status === DOC_STATUS.AUTORIZADO && !r.idempotente)
+    .reduce((s, r) => {
+      const doc = docsFinais.find((d) => Number(d.id) === Number(r.documento_id));
+      return s + (doc ? Number(doc.valor_total || 0) : 0);
+    }, 0);
+
+  const saldo = await saldoSvc.recalcularSaldoFechamento(db, id, {
+    ultimoAutorizado: ultimoAuth > 0 ? ultimoAuth : null
+  });
+
+  if (saldo.concluido) {
+    statusFinal = STATUS.AUTORIZADO;
+  } else if (opts._pararPorLimite539) {
+    statusFinal = STATUS.PENDENTE_RECUPERACAO;
+  } else if (
+    Number(saldo.valor_emitido_autorizado) > 0
+    && statusFinal !== STATUS.PENDENTE_RECUPERACAO
+  ) {
+    statusFinal = STATUS.AUTORIZACAO_PARCIAL;
+  }
+
   const dataAuthFech = statusFinal === STATUS.AUTORIZADO ? agoraLocal() : null;
 
   await run(
@@ -870,7 +1175,29 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
     return d;
   });
 
-  return {
+  let mensagem = statusFinal === STATUS.AUTORIZADO
+    ? '✓ FECHAMENTO FISCAL AUTORIZADO'
+    : statusFinal === STATUS.AUTORIZACAO_PARCIAL
+      ? `⚠ AUTORIZAÇÃO PARCIAL — emitido R$ ${Number(saldo.valor_emitido_autorizado).toFixed(2)} · restante R$ ${Number(saldo.valor_pendente_emissao).toFixed(2)}`
+      : statusFinal === STATUS.PENDENTE_RECUPERACAO
+        ? '⟳ PENDENTE DE RECUPERAÇÃO — consulte status antes de nova identidade'
+        : (rejeitados ? '⚠ DOCUMENTO(S) REJEITADO(S)' : 'Transmissão concluída com pendências');
+
+  const tem539 = resultados.some((r) =>
+    String(r.cstat) === '539' || (r.reconciliacao_539 && r.reconciliacao_539.reconciliacao)
+  );
+  if (tem539) {
+    mensagem =
+      'Foi identificada uma numeração já existente na SEFAZ. '
+      + 'O sistema está reconciliando o documento antes de continuar.\n'
+      + mensagem;
+  }
+
+  if (saldo.mensagens && saldo.mensagens.length) {
+    mensagem = `${mensagem}\n${saldo.mensagens.join('\n')}`;
+  }
+
+  const out = {
     ok: statusFinal === STATUS.AUTORIZADO,
     status: statusFinal,
     ambiente,
@@ -882,13 +1209,14 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
       autorizados,
       rejeitados,
       erros,
-      valor_total: ff.valor_informado
+      valor_total: ff.valor_informado,
+      valor_principal: saldo.valor_principal,
+      valor_emitido_autorizado: saldo.valor_emitido_autorizado,
+      valor_pendente_emissao: saldo.valor_pendente_emissao
     },
     documentos: docsComHistorico,
     resultados,
-    mensagem: statusFinal === STATUS.AUTORIZADO
-      ? '✓ FECHAMENTO FISCAL AUTORIZADO'
-      : (rejeitados ? '⚠ DOCUMENTO(S) REJEITADO(S)' : 'Transmissão concluída com pendências'),
+    mensagem,
     data_referencia_comercial: ff.data_referencia_comercial || ff.data_fechamento,
     protecao: {
       snapshot_antes: snapshotAntes,
@@ -898,6 +1226,7 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
         : true
     }
   };
+  return saldoSvc.anexarSaldoAoResultado(out, saldo);
 }
 
 async function recuperarDocumento(db, doc, config, opts, deps) {
@@ -1059,7 +1388,13 @@ async function recuperarFechamento(fechamentoId, opts = {}, deps = {}) {
   }
 
   const docsFinais = await listarDocumentos(db, id);
-  const statusFinal = montarStatusFechamento(docsFinais);
+  let statusFinal = montarStatusFechamento(docsFinais);
+  const saldoSvc = require('./FechamentoFiscalSaldoService');
+  const saldo = await saldoSvc.recalcularSaldoFechamento(db, id);
+  if (saldo.concluido) statusFinal = STATUS.AUTORIZADO;
+  else if (Number(saldo.valor_emitido_autorizado) > 0 && statusFinal !== STATUS.PENDENTE_RECUPERACAO) {
+    statusFinal = STATUS.AUTORIZACAO_PARCIAL;
+  }
   await run(
     db,
     `UPDATE fechamentos_fiscais
@@ -1072,7 +1407,7 @@ async function recuperarFechamento(fechamentoId, opts = {}, deps = {}) {
 
   const snapshotDepois = deps.capturarSnapshot !== false ? await snapshotComercial(db) : null;
 
-  return {
+  const out = {
     ok: true,
     status: statusFinal,
     resultados,
@@ -1086,6 +1421,7 @@ async function recuperarFechamento(fechamentoId, opts = {}, deps = {}) {
         : true
     }
   };
+  return saldoSvc.anexarSaldoAoResultado(out, saldo);
 }
 
 module.exports = {

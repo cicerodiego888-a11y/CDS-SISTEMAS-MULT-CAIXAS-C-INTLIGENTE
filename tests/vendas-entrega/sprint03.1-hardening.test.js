@@ -86,6 +86,8 @@ async function main() {
     assert.ok(prest.includes('Finalizar Venda'));
     assert.ok(prest.includes('entregas-prestacao'));
     assert.ok(prest.includes('imprimirPosPrestacao'));
+    assert.ok(prest.includes('CupomPrintPolicy') || prest.includes('apresentarCupomNaTela'));
+    assert.ok(prest.includes('automatico: true') || prest.includes('automatico:true'));
 
     const entregas = ler('frontend/pdv/js/entregas.js');
     assert.ok(entregas.includes('ticket_medio'));

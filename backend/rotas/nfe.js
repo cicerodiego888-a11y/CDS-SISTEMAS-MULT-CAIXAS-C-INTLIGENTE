@@ -322,6 +322,21 @@ router.post('/notas/:id/cancelar', async (req, res) => {
   }
 });
 
+router.post('/notas/:id/duplicar-devolucao', async (req, res) => {
+  try {
+    const { duplicarDevolucaoCompra } = require('../services/fiscal/duplicarDevolucaoCompra');
+    const ctx = contextoAuditoriaRequisicao(req);
+    const out = await duplicarDevolucaoCompra(Number(req.params.id), {
+      usuarioId: ctx.usuario_id,
+      usuarioNome: ctx.usuario_nome,
+      ip: ctx.ip_requisicao
+    });
+    res.json(out);
+  } catch (err) {
+    enviarErroAmigavel(res, err, err.statusCode || 500);
+  }
+});
+
 router.get('/notas/:id/historico', async (req, res) => {
   try {
     const eventos = await nfeCentral.listarHistoricoNfe(req.params.id, req.query.limite);

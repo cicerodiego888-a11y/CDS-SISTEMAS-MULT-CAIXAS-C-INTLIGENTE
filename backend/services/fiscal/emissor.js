@@ -1,7 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 const db = require('../../database');
-const { getFiscalConfig, incrementaNumeroFiscal, setConfiguracao } = require('./configService');
+const { getFiscalConfig } = require('./configService');
+const { reservarProximaNumeracaoFiscal } = require('./numeracaoFiscalService');
+const { aplicarOcupacaoPorRejeicao539Nfce } = require('./nfceNumeracaoOcupadosService');
 const { carregarCertificadoPfx } = require('./certificateService');
 const {
   buildNfceXml
@@ -272,11 +274,19 @@ async function emitirPorVendaId(vendaId) {
   let numero;
 
   if (notaPendenteAnterior && notaPendenteAnterior.numero) {
+    // Timeout / erro de transmissão: preserva identidade fiscal (nNF + chave + XML).
     numero = notaPendenteAnterior.numero;
-    console.log(`REUTILIZANDO NÚMERO FISCAL DA TENTATIVA ANTERIOR: ${numero}`);
+    console.log(`[FISCAL][NUMERACAO][NFCe] REUTILIZANDO identidade da tentativa anterior NUMERO=${numero}`);
   } else {
-    numero = await incrementaNumeroFiscal();
-    console.log(`NÚMERO FISCAL GERADO: ${numero} (MAX no banco + 1)`);
+    const reserva = await reservarProximaNumeracaoFiscal({
+      cnpj: config.cnpj,
+      ambiente: config.ambiente,
+      modelo: '65',
+      serie: config.serie,
+      origem: 'VENDA'
+    });
+    numero = reserva.numero;
+    console.log(`[FISCAL][NUMERACAO][RESERVA] ORIGEM=VENDA NUMERO=${numero}`);
   }
 
   if (!config.nomeEmpresa || !config.cnpj || !config.ie) {
@@ -578,19 +588,22 @@ async function emitirPorVendaId(vendaId) {
       } else if (authSefaz?.protocolo) {
         soapResponse.protocolo = authSefaz.protocolo;
       }
-    } else if (raw.includes('<cStat>539</cStat>')) {
+    } else if (raw.includes('<cStat>539</cStat>') || String(soapResponse.cStat || '') === '539') {
       status = 'rejeitada_duplicidade';
-
-      const match = raw.match(/\[chNFe:(\d{44})\]/);
-
-      if (match) {
-        const chave = match[1];
-        const numeroDuplicado = Number(chave.substring(25, 34));
-        const proximo = numeroDuplicado + 1;
-
-        await setConfiguracao('fiscal_numero_atual', String(proximo));
-
-        console.warn(`Corrigido automaticamente para número ${proximo}`);
+      try {
+        const xMotivo539 = (raw.match(/<xMotivo>\s*([^<]+)\s*<\/xMotivo>/i) || [])[1] || null;
+        await aplicarOcupacaoPorRejeicao539Nfce({
+          cnpj: config.cnpj,
+          ambiente: config.ambiente,
+          serie: config.serie,
+          numeroEnviado: numero,
+          chaveEnviada: xmlBase.chave,
+          xMotivo: xMotivo539,
+          xmlRetorno: raw,
+          cStat: '539'
+        });
+      } catch (e539) {
+        console.warn('[FISCAL][NUMERACAO][539] falha ao registrar ocupação:', e539.message || e539);
       }
     } else if (raw.includes('<cStat>') || /rejeic/i.test(raw)) {
       status = 'rejeitada';

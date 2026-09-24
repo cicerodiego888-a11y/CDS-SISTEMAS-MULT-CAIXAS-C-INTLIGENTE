@@ -8,6 +8,11 @@
 const { svgCodigoBarras } = require('./danfeBarcode');
 const { fmtMoney, fmtQtd, rotuloModFrete, RODAPE_DANFE, linhaEnderecoEmitente, nomeEmitenteVisual } = require('./danfeModelo');
 const { paginarItensDanfe } = require('./danfePaginacao');
+const {
+  LARGURA_UTIL_TABELA_MM,
+  obterColunasProdutosDanfe,
+  mapearValoresLinha
+} = require('./danfeProdutosGrid');
 
 function esc(v) {
   return String(v == null ? '' : v)
@@ -83,15 +88,29 @@ table { border-collapse: collapse; width: 100%; }
 .barcode svg { width: 100%; height: 26px; display: block; }
 .head-cont { min-height: 22mm; }
 .head-cont .barcode svg { height: 20px; }
-.prod { font-size: 5.5pt; }
+.prod {
+  font-size: 5.5pt;
+  table-layout: fixed;
+  width: ${LARGURA_UTIL_TABELA_MM}mm;
+  max-width: ${LARGURA_UTIL_TABELA_MM}mm;
+}
+.prod col { overflow: hidden; }
 .prod th {
   font-size: 4.6pt; background: #f2f2f2; border: 0.3pt solid #000;
   padding: 1px; text-align: center; font-weight: 700; line-height: 1.1;
+  overflow: hidden;
 }
-.prod td { border: 0.3pt solid #000; padding: 1px 1.5px; vertical-align: top; }
-.prod td.ctr { text-align: center; }
+.prod td {
+  border: 0.3pt solid #000; padding: 1px 1.5px; vertical-align: top;
+  overflow: hidden; word-wrap: break-word; overflow-wrap: anywhere;
+}
+.prod td.ctr { text-align: center; white-space: nowrap; }
+.prod td.left { text-align: left; }
 .num { text-align: right; white-space: nowrap; }
-.desc { text-align: left; font-size: 5.5pt; }
+.desc {
+  text-align: left; font-size: 5.5pt; white-space: normal;
+  word-break: break-word; overflow-wrap: anywhere;
+}
 .marca-previa {
   position: absolute; inset: 28% 8%; text-align: center;
   font-size: 20pt; font-weight: 700; color: rgba(0,0,0,.16);
@@ -262,30 +281,23 @@ function transporte(m) {
   </div>`;
 }
 
+function classeCelula(col) {
+  if (col.id === 'descricao') return 'desc';
+  if (col.id === 'codigo') return 'left';
+  if (col.align === 'right') return 'num';
+  return 'ctr';
+}
+
 function tabelaProdutos(itens) {
-  const head = `<tr>
-    <th>CÓDIGO</th><th>DESCRIÇÃO DO PRODUTO / SERVIÇO</th><th>NCM/SH</th><th>CST/CSOSN</th>
-    <th>CFOP</th><th>UN</th><th>QTD.</th><th>VALOR UNITÁRIO</th><th>VALOR TOTAL</th>
-    <th>BC ICMS</th><th>VALOR ICMS</th><th>VALOR IPI</th><th>ALÍQ. ICMS</th><th>ALÍQ. IPI</th>
-  </tr>`;
-  const body = (itens || []).map((it) => `<tr>
-    <td class="ctr">${esc(it.codigo)}</td>
-    <td class="desc">${esc(it.descricao)}</td>
-    <td class="ctr">${esc(it.ncm)}</td>
-    <td class="ctr">${esc(it.cst)}</td>
-    <td class="ctr">${esc(it.cfop)}</td>
-    <td class="ctr">${esc(it.unidade)}</td>
-    <td class="num">${esc(fmtQtd(it.qtd))}</td>
-    <td class="num">${esc(fmtMoney(it.vUn))}</td>
-    <td class="num">${esc(fmtMoney(it.vProd))}</td>
-    <td class="num">${esc(fmtMoney(it.vBC))}</td>
-    <td class="num">${esc(fmtMoney(it.vICMS))}</td>
-    <td class="num">${esc(fmtMoney(it.vIPI))}</td>
-    <td class="num">${esc(fmtMoney(it.pICMS))}</td>
-    <td class="num">${esc(fmtMoney(it.pIPI))}</td>
-  </tr>`).join('');
+  const cols = obterColunasProdutosDanfe();
+  const colgroup = `<colgroup>${cols.map((c) => `<col style="width:${c.w}mm">`).join('')}</colgroup>`;
+  const head = `<tr>${cols.map((c) => `<th>${esc(c.labelHtml)}</th>`).join('')}</tr>`;
+  const body = (itens || []).map((it) => {
+    const valores = mapearValoresLinha(it, { fmtMoney, fmtQtd });
+    return `<tr>${cols.map((c) => `<td class="${classeCelula(c)}">${esc(valores[c.id])}</td>`).join('')}</tr>`;
+  }).join('');
   return `<div class="sec">DADOS DOS PRODUTOS / SERVIÇOS</div>
-  <table class="prod"><thead>${head}</thead><tbody>${body || '<tr><td colspan="14">&nbsp;</td></tr>'}</tbody></table>`;
+  <table class="prod">${colgroup}<thead>${head}</thead><tbody>${body || `<tr><td colspan="${cols.length}">&nbsp;</td></tr>`}</tbody></table>`;
 }
 
 function adicionais(m) {

@@ -28,6 +28,96 @@ function criarErroEstruturado({ produto, campo, mensagem, codigo }) {
 }
 
 /**
+ * Consome recebimentos históricos até o valor da tentativa (sem alterar o original).
+ * Ex.: recebimento 687,76 + tentativa 437,77 → [{ ..., valor: 437,77 }]
+ */
+function obterRecebimentosDaTentativa(recebimentos, valorTentativa) {
+  const alvoCents = toCentavos(valorTentativa);
+  if (!(alvoCents > 0)) return [];
+  const out = [];
+  let restante = alvoCents;
+  for (const r of recebimentos || []) {
+    if (restante <= 0) break;
+    const disp = toCentavos(r.valor);
+    if (disp <= 0) continue;
+    const usa = Math.min(restante, disp);
+    out.push({
+      ...r,
+      valor: arredondarMoeda(usa / 100),
+      valor_original: arredondarMoeda(r.valor),
+      valor_tentativa: arredondarMoeda(usa / 100)
+    });
+    restante -= usa;
+  }
+  if (restante > 0) {
+    const err = new Error(
+      `Recebimentos históricos insuficientes para a tentativa (faltam R$ ${arredondarMoeda(restante / 100).toFixed(2)}).`
+    );
+    err.statusCode = 400;
+    err.code = 'RECEBIMENTOS_TENTATIVA_INSUFICIENTES';
+    throw err;
+  }
+  return out;
+}
+
+/**
+ * Contexto da emissão: INICIAL vs CONTINUACAO (valorTentativa ≠ valor_principal).
+ */
+function resolverContextoEmissao(fechamento, saldo = null, opts = {}) {
+  const principal = arredondarMoeda(
+    (saldo && saldo.valor_principal != null)
+      ? saldo.valor_principal
+      : (fechamento.valor_principal != null ? fechamento.valor_principal : fechamento.valor_informado)
+  );
+  const emitido = arredondarMoeda(
+    (saldo && saldo.valor_emitido_autorizado != null)
+      ? saldo.valor_emitido_autorizado
+      : (fechamento.valor_emitido_autorizado || 0)
+  );
+  const pendente = arredondarMoeda(
+    (saldo && saldo.valor_pendente_emissao != null)
+      ? saldo.valor_pendente_emissao
+      : Math.max(0, principal - emitido)
+  );
+
+  const forcarContinuar = opts.continuar_emissao === true
+    || opts.continuar === true
+    || opts.tipo === 'CONTINUACAO';
+
+  if (toCentavos(emitido) > 0 && toCentavos(pendente) > 0) {
+    return {
+      tipo: 'CONTINUACAO',
+      valorPrincipal: principal,
+      valorEmitidoAutorizado: emitido,
+      valorPendente: pendente,
+      valorTentativa: pendente
+    };
+  }
+
+  if (toCentavos(emitido) > 0 && toCentavos(pendente) === 0) {
+    return {
+      tipo: 'CONCLUIDO',
+      valorPrincipal: principal,
+      valorEmitidoAutorizado: emitido,
+      valorPendente: 0,
+      valorTentativa: 0
+    };
+  }
+
+  const valorDistribuido = arredondarMoeda(fechamento.valor_distribuido || 0);
+  const valorInformado = arredondarMoeda(fechamento.valor_informado || 0);
+  const valorTentativa = valorDistribuido > 0 ? valorDistribuido : valorInformado;
+
+  return {
+    tipo: forcarContinuar ? 'CONTINUACAO' : 'INICIAL',
+    valorPrincipal: principal,
+    valorEmitidoAutorizado: emitido,
+    valorPendente: pendente > 0 ? pendente : valorTentativa,
+    valorTentativa
+  };
+}
+
+/**
  * Rateia recebimentos (centavos) entre documentos (centavos),
  * garantindo soma por documento = valor do documento.
  */
@@ -197,7 +287,9 @@ function validarPreparacaoFiscal({
   produtosPorId,
   configFiscal,
   recebimentos,
-  opts = {}
+  opts = {},
+  contextoEmissao = null,
+  saldo = null
 }) {
   const erros = [];
   const avisos = [];
@@ -220,7 +312,24 @@ function validarPreparacaoFiscal({
     return { ok: false, erros, checklist: montarChecklist(flags), avisos };
   }
 
-  if (![STATUS.PREVIA, STATUS.VALIDANDO, STATUS.PRONTO_EMISSAO, STATUS.ERRO, STATUS.REJEITADO].includes(fechamento.status)) {
+  const contexto = contextoEmissao || resolverContextoEmissao(fechamento, saldo, opts);
+  const isContinuacao = contexto.tipo === 'CONTINUACAO';
+
+  if (contexto.tipo === 'CONCLUIDO') {
+    erros.push(criarErroEstruturado({
+      mensagem: 'Fechamento já totalmente autorizado. Não há saldo para nova preparação.',
+      codigo: 'FECHAMENTO_JA_CONCLUIDO'
+    }));
+    return {
+      ok: false,
+      erros,
+      checklist: montarChecklist(flags),
+      avisos,
+      contextoEmissao: contexto
+    };
+  }
+
+  if (![STATUS.PREVIA, STATUS.VALIDANDO, STATUS.PRONTO_EMISSAO, STATUS.ERRO, STATUS.REJEITADO, STATUS.AUTORIZACAO_PARCIAL, STATUS.PENDENTE_RECUPERACAO].includes(fechamento.status)) {
     erros.push(criarErroEstruturado({
       mensagem: `Status ${fechamento.status} não permite preparação fiscal.`,
       codigo: 'STATUS_INVALIDO'
@@ -353,40 +462,96 @@ function validarPreparacaoFiscal({
   flags.tributacao = tribOk && vendas.length > 0;
   flags.valores = valoresItensOk && vendas.length > 0;
 
-  const valorInformado = toCentavos(fechamento.valor_informado);
+  const valorTentativaCents = toCentavos(contexto.valorTentativa);
   const valorDistribuido = toCentavos(fechamento.valor_distribuido);
+  const valorInformadoHistorico = toCentavos(fechamento.valor_informado);
   const diferenca = toCentavos(fechamento.diferenca);
 
-  if (somaVendas !== valorDistribuido) {
-    erros.push(criarErroEstruturado({
-      mensagem: 'Soma das vendas fiscais difere do valor distribuído.',
-      codigo: 'TOTAL_VENDAS_DIVERGENTE'
-    }));
-  }
-  if (valorDistribuido !== valorInformado || diferenca !== 0) {
-    erros.push(criarErroEstruturado({
-      mensagem: 'Valor distribuído deve ser igual ao valor informado (diferença R$ 0,00).',
-      codigo: 'DIFERENCA_NAO_ZERO'
-    }));
-  } else {
-    flags.total = true;
-  }
+  // Continuação: NÃO comparar valor_principal/valor_informado histórico com distribuído.
+  // Esperado: soma vendas = distribuído = valorTentativa (pendente).
+  if (isContinuacao) {
+    if (somaVendas !== valorTentativaCents) {
+      erros.push(criarErroEstruturado({
+        mensagem:
+          `Soma das vendas da tentativa (R$ ${arredondarMoeda(somaVendas / 100).toFixed(2)}) ` +
+          `difere do valor pendente da continuação (R$ ${arredondarMoeda(contexto.valorTentativa).toFixed(2)}).`,
+        codigo: 'TOTAL_VENDAS_TENTATIVA_DIVERGENTE'
+      }));
+    }
+    if (valorDistribuido !== valorTentativaCents) {
+      erros.push(criarErroEstruturado({
+        mensagem:
+          `Valor distribuído da tentativa (R$ ${arredondarMoeda(valorDistribuido / 100).toFixed(2)}) ` +
+          `deve ser igual ao saldo pendente (R$ ${arredondarMoeda(contexto.valorTentativa).toFixed(2)}).`,
+        codigo: 'DISTRIBUIDO_TENTATIVA_DIVERGENTE'
+      }));
+    } else if (somaVendas === valorTentativaCents) {
+      flags.total = true;
+    }
 
-  const somaRec = toCentavos(somarMoeda((recebimentos || []).map((r) => r.valor)));
-  if (somaRec !== valorInformado) {
-    erros.push(criarErroEstruturado({
-      campo: 'pagamento',
-      mensagem: 'Soma dos recebimentos das máquinas deve ser igual ao valor do fechamento.',
-      codigo: 'RECEBIMENTOS_DIVERGENTES'
-    }));
-  } else if ((recebimentos || []).length > 0) {
-    flags.pagamento = true;
+    let recebimentosTentativa = recebimentos;
+    if (opts.recebimentosJaDaTentativa !== true) {
+      try {
+        recebimentosTentativa = obterRecebimentosDaTentativa(recebimentos, contexto.valorTentativa);
+      } catch (e) {
+        erros.push(criarErroEstruturado({
+          campo: 'pagamento',
+          mensagem: e.message,
+          codigo: e.code || 'RECEBIMENTOS_TENTATIVA'
+        }));
+        recebimentosTentativa = [];
+      }
+    }
+    const somaRecTent = toCentavos(somarMoeda((recebimentosTentativa || []).map((r) => r.valor)));
+    if (somaRecTent !== valorTentativaCents) {
+      erros.push(criarErroEstruturado({
+        campo: 'pagamento',
+        mensagem:
+          `Soma dos recebimentos da tentativa (R$ ${arredondarMoeda(somaRecTent / 100).toFixed(2)}) ` +
+          `deve ser igual ao valor da continuação (R$ ${arredondarMoeda(contexto.valorTentativa).toFixed(2)}).`,
+        codigo: 'RECEBIMENTOS_TENTATIVA_DIVERGENTES'
+      }));
+    } else if ((recebimentosTentativa || []).length > 0) {
+      flags.pagamento = true;
+    } else {
+      erros.push(criarErroEstruturado({
+        campo: 'pagamento',
+        mensagem: 'Informe os recebimentos das máquinas para o pagamento fiscal da tentativa.',
+        codigo: 'RECEBIMENTOS_AUSENTES'
+      }));
+    }
   } else {
-    erros.push(criarErroEstruturado({
-      campo: 'pagamento',
-      mensagem: 'Informe os recebimentos das máquinas para o pagamento fiscal.',
-      codigo: 'RECEBIMENTOS_AUSENTES'
-    }));
+    if (somaVendas !== valorDistribuido) {
+      erros.push(criarErroEstruturado({
+        mensagem: 'Soma das vendas fiscais difere do valor distribuído.',
+        codigo: 'TOTAL_VENDAS_DIVERGENTE'
+      }));
+    }
+    if (valorDistribuido !== valorInformadoHistorico || diferenca !== 0) {
+      erros.push(criarErroEstruturado({
+        mensagem: 'Valor distribuído deve ser igual ao valor informado (diferença R$ 0,00).',
+        codigo: 'DIFERENCA_NAO_ZERO'
+      }));
+    } else {
+      flags.total = true;
+    }
+
+    const somaRec = toCentavos(somarMoeda((recebimentos || []).map((r) => r.valor)));
+    if (somaRec !== valorInformadoHistorico) {
+      erros.push(criarErroEstruturado({
+        campo: 'pagamento',
+        mensagem: 'Soma dos recebimentos das máquinas deve ser igual ao valor do fechamento.',
+        codigo: 'RECEBIMENTOS_DIVERGENTES'
+      }));
+    } else if ((recebimentos || []).length > 0) {
+      flags.pagamento = true;
+    } else {
+      erros.push(criarErroEstruturado({
+        campo: 'pagamento',
+        mensagem: 'Informe os recebimentos das máquinas para o pagamento fiscal.',
+        codigo: 'RECEBIMENTOS_AUSENTES'
+      }));
+    }
   }
 
   flags.xml = false; // preenchido após geração
@@ -401,7 +566,8 @@ function validarPreparacaoFiscal({
     cnpj,
     tp_emis: TP_EMIS.NORMAL,
     data_referencia_comercial: fechamento.data_referencia_comercial || fechamento.data_fechamento,
-    data_hora_preparacao: agoraLocal()
+    data_hora_preparacao: agoraLocal(),
+    contextoEmissao: contexto
   };
 }
 
@@ -451,6 +617,8 @@ module.exports = {
   validarProdutoSnapshot,
   validarPreparacaoFiscal,
   ratearRecebimentosPorDocumentos,
+  obterRecebimentosDaTentativa,
+  resolverContextoEmissao,
   hashIdempotencia,
   formatarErrosUsuario,
   montarChecklist,

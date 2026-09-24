@@ -6,6 +6,7 @@ module.exports = {
   ...require('./FechamentoFiscalService'),
   ...require('./NfceSituacaoFiscalService'),
   ...require('./NfceDuplicidadeRecuperacaoService'),
+  ...require('./NfceCstat539ReconciliacaoService'),
   gerarPreviaDistribuicao: require('./FechamentoFiscalDistribuicaoService').gerarPreviaDistribuicao,
   listarLotesElegiveisDoDia: require('./FechamentoFiscalElegibilidadeService').listarLotesElegiveisDoDia,
   listarMonitoramentoProdutosDoDia: require('./FechamentoFiscalElegibilidadeService').listarMonitoramentoProdutosDoDia,
@@ -19,6 +20,7 @@ module.exports = {
   transmitirFechamento: require('./FechamentoFiscalTransmissaoService').transmitirFechamento,
   recuperarFechamento: require('./FechamentoFiscalTransmissaoService').recuperarFechamento,
   diagnosticarProntidaoTransmissao: require('./FechamentoFiscalTransmissaoService').diagnosticarProntidaoTransmissao,
+  ...require('./FechamentoFiscalSaldoService'),
   ...require('./NfceHistoricoOficialService'),
   ...require('./NfceCancelamentoFechamentoService'),
   moduloConfig: require('./fechamentoFiscalModuloConfig')
