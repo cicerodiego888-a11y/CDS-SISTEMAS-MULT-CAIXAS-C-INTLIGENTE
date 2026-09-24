@@ -25,6 +25,82 @@ const {
   round2
 } = require('./modeloTotais');
 const { resolverNomeDestinatarioNfe } = require('./nfeRetornoAutorizacao');
+const { resolverMunicipioDestinatario } = require('./municipioIbge');
+
+/**
+ * Propaga IE do cadastro do cliente para <dest>.
+ * IE válida (dígitos) → indIEDest=1 + <IE>.
+ * Sem IE → não inventa tag; mantém indIEDest=9 (regra anterior do builder).
+ */
+function resolverIeDestinatarioNfe(venda = {}, dadosNfe = {}) {
+  const raw = dadosNfe.dest_ie != null && String(dadosNfe.dest_ie).trim() !== ''
+    ? dadosNfe.dest_ie
+    : (venda.cliente_ie || venda.ie || '');
+  const ie = onlyDigits(raw);
+  const ieValida = !!ie && !/^0+$/.test(ie);
+
+  const indOverride = dadosNfe.dest_ind_ie != null && String(dadosNfe.dest_ind_ie).trim() !== ''
+    ? String(dadosNfe.dest_ind_ie).trim()
+    : null;
+
+  if (indOverride) {
+    return {
+      indIEDest: indOverride,
+      ie: (indOverride === '1' && ieValida) ? ie : null
+    };
+  }
+
+  if (ieValida) {
+    return { indIEDest: '1', ie };
+  }
+
+  return { indIEDest: '9', ie: null };
+}
+
+/**
+ * cMun/xMun/UF do destinatário a partir do cliente — nunca herda cMun do emitente
+ * quando o cliente já tem código ou município resolvível (municipioIbge).
+ */
+function resolverEnderecoDestinatarioNfe(venda = {}, dadosNfe = {}, config = {}) {
+  const destUf = String(
+    dadosNfe.dest_uf || venda.cliente_uf || config.uf_sigla || 'CE'
+  ).trim().toUpperCase().substring(0, 2);
+
+  const cidadeCliente = String(
+    dadosNfe.dest_municipio || venda.cliente_cidade || ''
+  ).trim();
+
+  const codigoCliente = onlyDigits(
+    dadosNfe.dest_codigo_municipio || venda.cliente_codigo_municipio || ''
+  );
+
+  const temDadosCliente = !!(cidadeCliente || codigoCliente.length === 7);
+
+  const cMunResolvido = resolverMunicipioDestinatario({
+    cidade: cidadeCliente,
+    uf: destUf,
+    codigoMunicipio: codigoCliente.length === 7 ? codigoCliente : null
+  });
+
+  let destCMun;
+  let destXMun;
+
+  if (temDadosCliente) {
+    // Cliente com município/código: nunca substituir pelo cMun do emitente
+    destCMun = cMunResolvido || (codigoCliente.length === 7 ? codigoCliente : '');
+    destXMun = cidadeCliente || 'NAO INFORMADO';
+  } else {
+    // Sem dados do cliente — mantém fallback de schema do builder anterior
+    destCMun = onlyDigits(config.codigo_municipio || '2307304');
+    destXMun = String(config.municipio_nome || 'JUAZEIRO DO NORTE');
+  }
+
+  return {
+    destUf,
+    destXMun: String(destXMun).substring(0, 60),
+    destCMun: onlyDigits(destCMun)
+  };
+}
 
 /** Hotfix: NF-e consome exclusivamente a parcela fiscal do Motor. */
 function itemEntraNaNfe(item) {
@@ -282,6 +358,8 @@ function buildNfeXml({ config, venda, itens, numero, dadosNfe = {} }) {
     resolverNomeDestinatarioNfe(config.ambiente, venda.cliente_nome)
   ).substring(0, 60);
   const destTag = destDocInfo.tagXml;
+  const ieDest = resolverIeDestinatarioNfe(venda, dadosNfe);
+  const enderDestInfo = resolverEnderecoDestinatarioNfe(venda, dadosNfe, config);
 
   // Ordem XSD 4.00: CPF|CNPJ|idEstrangeiro → xNome → enderDest → indIEDest → (IE/email opcionais)
   const enderDest = `
@@ -289,9 +367,9 @@ function buildNfeXml({ config, venda, itens, numero, dadosNfe = {} }) {
       <xLgr>${xmlEscape(String(dadosNfe.dest_logradouro || venda.cliente_rua || 'NAO INFORMADO').substring(0, 60))}</xLgr>
       <nro>${xmlEscape(String(dadosNfe.dest_numero || venda.cliente_numero || 'S/N').substring(0, 60))}</nro>
       <xBairro>${xmlEscape(String(dadosNfe.dest_bairro || venda.cliente_bairro || 'CENTRO').substring(0, 60))}</xBairro>
-      <cMun>${onlyDigits(dadosNfe.dest_codigo_municipio || config.codigo_municipio || '2307304')}</cMun>
-      <xMun>${xmlEscape(String(dadosNfe.dest_municipio || venda.cliente_cidade || config.municipio_nome || 'JUAZEIRO DO NORTE').substring(0, 60))}</xMun>
-      <UF>${xmlEscape(String(dadosNfe.dest_uf || venda.cliente_uf || config.uf_sigla || 'CE').substring(0, 2))}</UF>
+      <cMun>${enderDestInfo.destCMun}</cMun>
+      <xMun>${xmlEscape(enderDestInfo.destXMun)}</xMun>
+      <UF>${xmlEscape(enderDestInfo.destUf)}</UF>
       <CEP>${padLeft(onlyDigits(dadosNfe.dest_cep || venda.cliente_cep || '00000000'), 8)}</CEP>
       <cPais>1058</cPais>
       <xPais>BRASIL</xPais>
@@ -485,13 +563,14 @@ function buildNfeXml({ config, venda, itens, numero, dadosNfe = {} }) {
       <CRT>${config.crt || 1}</CRT>
     </emit>`;
 
-  // RC3.16.12 — ordem obrigatória: identificador → xNome → enderDest → indIEDest
+  // RC3.16.12 — ordem obrigatória: identificador → xNome → enderDest → indIEDest → IE opcional
+  const tagIeDest = ieDest.ie ? `\n      <IE>${ieDest.ie}</IE>` : '';
   const dest = `
     <dest>
       ${destTag}
       <xNome>${destNome}</xNome>
       ${enderDest}
-      <indIEDest>9</indIEDest>
+      <indIEDest>${ieDest.indIEDest}</indIEDest>${tagIeDest}
     </dest>`;
 
   if (String(dest).includes('00000000000000') || String(dest).includes('00000000000')) {
@@ -561,6 +640,8 @@ module.exports = {
   obterValorFiscalItem,
   montarDocumentoDestinatarioNfe,
   assertDestinatarioIdentificadoNfe,
+  resolverIeDestinatarioNfe,
+  resolverEnderecoDestinatarioNfe,
   MSG_DEST_SEM_DOCUMENTO,
   MODELO_BRUTO,
   MODELO_LIQUIDO

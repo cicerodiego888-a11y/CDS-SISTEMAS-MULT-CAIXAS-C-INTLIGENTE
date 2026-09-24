@@ -74,8 +74,11 @@ function montarPayloadVendaAvulsa(body = {}) {
   const subtotalItens = itens.reduce((s, i) => s + Number(i.subtotal || 0), 0);
   const dadosNfe = extrairDadosNfe(body, {});
   const descontoCabeca = Number(body.desconto != null ? body.desconto : dadosNfe.desconto || 0);
+  const frete = Number(dadosNfe.frete || 0);
+  const acrescimo = Number(dadosNfe.acrescimo || 0);
+  // Total comercial = itens + frete + acréscimo − desconto (frete uma única vez)
   const totalAjustado = Number(
-    (subtotalItens + dadosNfe.frete + dadosNfe.acrescimo - descontoCabeca).toFixed(2)
+    (subtotalItens + frete + acrescimo - descontoCabeca).toFixed(2)
   );
 
   const forma = String(
@@ -105,7 +108,9 @@ function montarPayloadVendaAvulsa(body = {}) {
     itens,
     total: totalAjustado > 0 ? totalAjustado : subtotalItens,
     desconto: descontoCabeca,
-    acrescimo: dadosNfe.acrescimo,
+    acrescimo,
+    // Expõe frete no payload do núcleo (mesma fonte de dadosNfe.frete — sem duplicar no total)
+    frete,
     forma_pagamento: forma,
     pagamentos,
     parcelas,
@@ -194,6 +199,7 @@ async function emitirNfeAvulsa(body = {}, reqHttp = {}) {
   }
 
   const montado = montarPayloadVendaAvulsa(body);
+  // origem NF_AVULSA fica no payload → VendaContext → Orquestrador (TEF por documento)
   const { dadosNfe, ...payload } = montado;
 
   const contract = criarVendaContract({ body: payload });

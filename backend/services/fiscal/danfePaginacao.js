@@ -17,8 +17,10 @@ function alturaDescricao(desc) {
 
 function paginarItensDanfe(modelo) {
   const itens = Array.isArray(modelo.itens) ? modelo.itens : [];
-  const header1 = 24 + 3 + 42 + 14 + 24 + 18 + 24 + 6;
-  const headerCont = 24 + 6;
+  const nDups = Array.isArray(modelo.duplicatas) ? modelo.duplicatas.length : 0;
+  const faturaH = nDups > 0 ? 4 + Math.min(nDups, 4) * 4 : 5;
+  const header1 = 20 + 2 + 34 + 8 + 22 + faturaH + 16 + 22 + 5;
+  const headerCont = 18 + 5;
   const extras = 26;
   const footer = 7;
 

@@ -119,12 +119,20 @@ router.get('/vendas/:vendaId/danfe', async (req, res) => {
       return responderModuloNaoLicenciado(res, 'nfe');
     }
     const { obterNotaNfePorVenda } = require('../services/fiscal/nfeEmissorVenda');
+    const danfeCentral = require('../services/fiscal/danfeService');
     const nota = await obterNotaNfePorVenda(req.params.vendaId);
-    if (!nota || !nota.danfe_html) {
+    if (!nota) {
       return res.status(404).json({ error: 'DANFE não disponível.' });
     }
+    const out = await danfeCentral.obterDanfe({
+      tipo: 'VENDA',
+      id: nota.id,
+      chave: nota.chave_acesso,
+      numero: nota.numero,
+      serie: nota.serie
+    });
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(nota.danfe_html);
+    res.send(out.html);
   } catch (err) {
     responderErro(res, err);
   }

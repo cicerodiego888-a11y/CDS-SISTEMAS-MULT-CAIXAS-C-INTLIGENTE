@@ -116,6 +116,23 @@ function enderecoTexto(ender) {
   return [lgr, nro, cpl].filter(Boolean).join(', ');
 }
 
+function extrairDuplicatas(inf) {
+  const cobr = bloco(inf, 'cobr');
+  if (!cobr) return [];
+  const dups = [];
+  const re = /<dup\b[^>]*>([\s\S]*?)<\/dup>/gi;
+  let m;
+  while ((m = re.exec(cobr))) {
+    const block = m[0];
+    dups.push({
+      nDup: tag(block, 'nDup'),
+      dVenc: fmtDataIso(tag(block, 'dVenc')),
+      vDup: tag(block, 'vDup')
+    });
+  }
+  return dups;
+}
+
 function cstItem(imposto) {
   const icms = bloco(imposto, 'ICMS');
   return tag(icms, 'CSOSN') || tag(icms, 'CST') || '';
@@ -206,6 +223,8 @@ function montarModeloDanfe({ xml = '', extras = {} } = {}) {
     horaSaida: fmtHoraIso(tag(ide, 'dhSaiEnt')),
     protocolo,
     dhAutorizacao: fmtDataHoraIso(dhRecbto),
+    logoUrl: String(extras.logoUrl || extras.logo || extras.empresa?.logo || '').trim() || null,
+    duplicatas: extrairDuplicatas(inf),
     emitente: {
       nome: tag(emit, 'xNome') || extras.empresa?.nome || '',
       fantasia: tag(emit, 'xFant'),
@@ -213,6 +232,8 @@ function montarModeloDanfe({ xml = '', extras = {} } = {}) {
       ie: tag(emit, 'IE') || extras.empresa?.ie || '',
       ieSt: tag(emit, 'IEST'),
       endereco: enderecoTexto(enderEmit) || extras.empresa?.endereco || '',
+      logradouro: tag(enderEmit, 'xLgr'),
+      numero: tag(enderEmit, 'nro'),
       bairro: tag(enderEmit, 'xBairro'),
       municipio: tag(enderEmit, 'xMun'),
       uf: tag(enderEmit, 'UF'),
@@ -225,11 +246,14 @@ function montarModeloDanfe({ xml = '', extras = {} } = {}) {
       cnpj: fmtDoc(tag(dest, 'CNPJ') || tag(dest, 'CPF') || extras.venda?.cliente_cpf),
       ie: tag(dest, 'IE'),
       endereco: enderecoTexto(enderDest),
+      logradouro: tag(enderDest, 'xLgr'),
+      numero: tag(enderDest, 'nro'),
+      complemento: tag(enderDest, 'xCpl'),
       bairro: tag(enderDest, 'xBairro'),
       municipio: tag(enderDest, 'xMun'),
       uf: tag(enderDest, 'UF'),
       cep: fmtCep(tag(enderDest, 'CEP')),
-      fone: tag(enderDest, 'fone')
+      fone: fmtFone(tag(enderDest, 'fone'))
     },
     imposto: {
       vBC: tag(tot, 'vBC'),

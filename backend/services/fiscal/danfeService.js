@@ -65,6 +65,22 @@ function dbGet(sql, params = []) {
   });
 }
 
+async function obterLogoUrlConfigurada() {
+  try {
+    const row = await dbGet(
+      `SELECT valor FROM configuracoes
+       WHERE chave IN ('logo', 'caminho_logomarca')
+         AND valor IS NOT NULL AND TRIM(valor) != ''
+       ORDER BY CASE WHEN chave = 'logo' THEN 0 ELSE 1 END
+       LIMIT 1`
+    );
+    const valor = String(row?.valor || '').trim();
+    return valor || null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function tagXml(xml, name) {
   const m = String(xml || '').match(new RegExp(`<${name}(?:\\s[^>]*)?>([^<]*)</${name}>`, 'i'));
   return m ? m[1] : '';
@@ -247,6 +263,14 @@ function aplicarCssImpressaoA4(html) {
 
 async function montarHtmlDanfe(doc, { previa = false } = {}) {
   const xml = extrairXmlPersistido(doc.row || doc);
+  if (!xml) {
+    throw fiscalError(
+      'XML autorizado não está disponível para montar o DANFE.',
+      'XML_NAO_DISPONIVEL',
+      404
+    );
+  }
+  const logoUrl = await obterLogoUrlConfigurada();
   const html = await gerarDanfeNfeHtml({
     xml,
     chave: doc.chave,
@@ -257,15 +281,35 @@ async function montarHtmlDanfe(doc, { previa = false } = {}) {
     natureza: doc.natureza,
     dhAutorizacao: doc.dhAutorizacao,
     chaveReferenciada: doc.chaveReferenciada,
+    logoUrl,
     venda: { cliente_nome: doc.destinatarioNome, cliente_cpf: doc.destinatarioDoc }
   });
   return aplicarCssImpressaoA4(html);
 }
 
+/** Atualiza snapshot visual (não altera XML nem identidade fiscal). */
+function persistirDanfeHtml(doc, html) {
+  const tabela = TABELAS[doc.tipo];
+  const id = Number(doc.id || 0);
+  if (!tabela || !id || !html) return Promise.resolve();
+  return new Promise((resolve) => {
+    db.run(
+      `UPDATE ${tabela} SET danfe_html = ?, updated_at = datetime('now','localtime') WHERE id = ?`,
+      [html, id],
+      (err) => {
+        if (err) console.warn('[DANFE] falha ao atualizar snapshot html:', err.message);
+        resolve();
+      }
+    );
+  });
+}
+
 async function obterDanfe(ref = {}) {
   const doc = await obterDocumentoFiscal(ref);
   validarDocumentoAutorizado(doc, ref);
+  // Sempre regenera a partir do XML (layout atual). Não reutiliza HTML antigo da emissão.
   const html = await montarHtmlDanfe(doc);
+  await persistirDanfeHtml(doc, html);
   return { documento: resumirDocumento(doc), html, xml: extrairXmlPersistido(doc.row || doc) };
 }
 
@@ -315,6 +359,7 @@ async function obterPdfDanfe(ref = {}) {
   const doc = await obterDocumentoFiscal(ref);
   validarDocumentoAutorizado(doc, ref);
   const xml = extrairXmlPersistido(doc.row || doc);
+  const logoUrl = await obterLogoUrlConfigurada();
   const html = await montarHtmlDanfe(doc);
   const buffer = gerarDanfeNfePdf({
     xml,
@@ -324,7 +369,8 @@ async function obterPdfDanfe(ref = {}) {
     protocolo: doc.protocolo,
     status: doc.status,
     dhAutorizacao: doc.dhAutorizacao,
-    chaveReferenciada: doc.chaveReferenciada
+    chaveReferenciada: doc.chaveReferenciada,
+    logoUrl
   });
   const nome = documentoNomePdf(doc);
   return { documento: resumirDocumento(doc), html, buffer, nome };

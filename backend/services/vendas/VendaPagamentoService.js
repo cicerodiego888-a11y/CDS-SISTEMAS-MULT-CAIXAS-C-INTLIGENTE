@@ -777,6 +777,7 @@ const {
   total,
   desconto,
   acrescimo,
+  frete: freteBody,
   forma_pagamento,
   itens,
   parcelas,
@@ -796,6 +797,13 @@ const {
 const pedidoIdVenda = Number(pedidoIdBody || req.body?.pedidoId || 0) || null;
 
 const vendaFiscal = resolverVendaFiscalParaMotor(req.body);
+
+// Frete comercial (NF-e avulsa / faturamento). Default 0 = PDV legado sem frete.
+const frete = Number(
+  freteBody != null
+    ? freteBody
+    : (req.body?.dadosNfe && req.body.dadosNfe.frete != null ? req.body.dadosNfe.frete : 0)
+) || 0;
 
 const cpfCnpjNotaLimpo = String(cpf_cnpj_nota || '').replace(/\D/g, '');
 
@@ -1084,6 +1092,7 @@ db.all(`
     itens,
     desconto,
     acrescimo,
+    frete,
     pagamentos: [],
     formaPagamento: formaPagamentoFinal
   });
@@ -1112,6 +1121,12 @@ db.all(`
     
     modoConfirmacaoFiscal = configService.getModoConfirmacaoFiscal() || 'TEF';
 
+    const origemDocumento = String(
+      req.vendaContext?.origem
+      || req.body?.origem
+      || ''
+    ).toUpperCase().trim();
+
     const politicaRecebimentosPrazo = aplicarPoliticaRecebimentosFluxoVenda({
       body: req.body,
       totalFiscal,
@@ -1132,6 +1147,7 @@ db.all(`
       pagamentos: req.body.pagamentos || [],
       tefHabilitado,
       modoConfirmacaoFiscal,
+      origem: origemDocumento,
       valorFiscalMaximo: resultadoMotor.valorFiscalMaximo,
       preservacaoAplicada: resultadoMotor.preservacaoAplicada,
       midpAtivo,
@@ -1407,6 +1423,7 @@ const executarVenda = async () => {
     itens,
     desconto,
     acrescimo,
+    frete,
     pagamentos: pagamentosVenda,
     formaPagamento: formaPagamentoFinal
   });
@@ -1435,6 +1452,12 @@ const executarVenda = async () => {
   
   modoConfirmacaoFiscal = configService.getModoConfirmacaoFiscal() || 'TEF';
 
+  const origemDocumento = String(
+    req.vendaContext?.origem
+    || req.body?.origem
+    || ''
+  ).toUpperCase().trim();
+
   const politicaRecebimentosVistaPre = aplicarPoliticaRecebimentosFluxoVenda({
     body: req.body,
     totalFiscal,
@@ -1455,6 +1478,7 @@ const executarVenda = async () => {
     pagamentos: req.body.pagamentos || [],
     tefHabilitado,
     modoConfirmacaoFiscal,
+    origem: origemDocumento,
     valorFiscalMaximo: resultadoMotor.valorFiscalMaximo,
     preservacaoAplicada: resultadoMotor.preservacaoAplicada,
     midpAtivo,

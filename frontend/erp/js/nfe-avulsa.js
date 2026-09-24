@@ -1,6 +1,7 @@
 /**
- * RC3.16 — Nova NF-e Avulsa (porta fiscal).
+ * RC3.16 / V2 UX — Nova NF-e Avulsa (porta fiscal).
  * Cria Venda origem=NF_AVULSA via núcleo + emitirNfePorVendaId (mesmo motor).
+ * Sprint UX: apenas apresentação — sem alterar regras fiscais / TEF / pagamento.
  */
 
 (function () {
@@ -10,6 +11,8 @@
   let timerCliente = null;
   let timerProduto = null;
   let emitindo = false;
+  let consultaCnpjPendente = null;
+  let consultandoCnpj = false;
 
   function headersJson() {
     const h = { 'Content-Type': 'application/json' };
@@ -32,6 +35,23 @@
     return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
+  function apenasDigitos(v) {
+    return String(v || '').replace(/\D/g, '');
+  }
+
+  function formatarDocInput(el) {
+    const d = apenasDigitos(el.value).slice(0, 14);
+    if (typeof formatCpfCnpjInput === 'function') {
+      formatCpfCnpjInput(el);
+      return;
+    }
+    if (typeof formatarCpfCnpj === 'function') {
+      el.value = formatarCpfCnpj(d) || d;
+      return;
+    }
+    el.value = d;
+  }
+
   function modoFiscalAtivo() {
     if (typeof modoFiscalAtivoSistema === 'function') return !!modoFiscalAtivoSistema();
     return localStorage.getItem('pdv_modo_fiscal_ativo') === '1';
@@ -40,6 +60,11 @@
   function alertar(msg, tipo) {
     if (typeof showNotification === 'function') showNotification(msg, tipo || 'info');
     else window.alert(String(msg).replace(/<[^>]+>/g, ''));
+  }
+
+  function setValSeTem(sel, valor) {
+    if (valor == null || String(valor).trim() === '') return;
+    $(sel).val(valor);
   }
 
   function calcularTotais() {
@@ -54,22 +79,47 @@
     return { sub, frete, desconto, total };
   }
 
+  function atualizarHintPagamento() {
+    const forma = String($('#nfaForma').val() || '').toLowerCase();
+    const hint = $('#nfaPixHint');
+    if (!hint.length) return;
+    if (forma === 'pix') {
+      hint.removeClass('d-none').html(
+        '<i class="fas fa-qrcode me-1"></i> <strong>PIX por chave (sem TEF)</strong>. ' +
+        'Pagamento manual via chave PIX da empresa. <strong>Não utiliza TEF/maquineta.</strong>'
+      );
+    } else if (forma === 'pix_tef') {
+      hint.removeClass('d-none').html(
+        '<i class="fas fa-credit-card me-1"></i> <strong>PIX integrado (TEF)</strong>. ' +
+        'Segue o fluxo TEF configurado no CDS.'
+      );
+    } else {
+      hint.addClass('d-none').empty();
+    }
+  }
+
   function renderItens() {
     if (!itensAvulsa.length) {
-      $('#nfaItensBody').html('<tr><td colspan="7" class="text-muted text-center">Nenhum produto</td></tr>');
+      $('#nfaItensBody').html(
+        '<tr><td colspan="11" class="text-muted text-center py-3">Nenhum produto adicionado.</td></tr>'
+      );
       calcularTotais();
       return;
     }
     $('#nfaItensBody').html(itensAvulsa.map((it, idx) => `
       <tr>
+        <td>${idx + 1}</td>
         <td>${escapeHtml(it.produto_codigo || it.produto_id)}</td>
         <td>${escapeHtml(it.produto_nome || '')}</td>
+        <td>${escapeHtml(it.ncm || '—')}</td>
+        <td>${escapeHtml(it.cfop || $('#nfaCfop').val() || '—')}</td>
+        <td>${escapeHtml(it.unidade || 'UN')}</td>
         <td class="text-end">${Number(it.quantidade)}</td>
         <td class="text-end">${fmtMoney(it.preco_unitario)}</td>
         <td class="text-end">${Number(it.desconto_percentual || 0)}%</td>
         <td class="text-end">${fmtMoney(it.subtotal)}</td>
         <td class="text-end">
-          <button type="button" class="btn btn-sm btn-outline-danger nfa-rm-item" data-idx="${idx}">
+          <button type="button" class="btn btn-sm btn-outline-danger nfa-rm-item" data-idx="${idx}" title="Remover">
             <i class="fas fa-trash"></i>
           </button>
         </td>
@@ -86,6 +136,43 @@
     $('#nfaClienteBusca').val(nome || '');
     $('#nfaClienteLabel').text(id ? `Cliente #${id} — ${nome}` : 'Nenhum cliente selecionado');
     $('#nfaClienteSugestoes').hide().empty();
+    if (id) {
+      $('#nfaCdsClienteStatus').removeClass('d-none').html(
+        `<div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <span><i class="fas fa-check-circle me-1"></i> Cliente já cadastrado no CDS.
+            <strong>Cliente #${escapeHtml(id)} — ${escapeHtml(nome)}</strong></span>
+          <button type="button" class="btn btn-sm btn-primary" id="btnNfaVerCadastro">
+            <i class="fas fa-external-link-alt"></i> Ver no cadastro
+          </button>
+        </div>`
+      );
+      $('#btnNfaVerCadastro').off('click').on('click', () => {
+        if (typeof loadPage === 'function') loadPage('clientes');
+      });
+    }
+  }
+
+  async function carregarClienteCompleto(id) {
+    try {
+      const resp = await fetch(`${API_URL}/clientes/${id}`, { headers: headersJson() });
+      if (!resp.ok) return;
+      const c = await resp.json().catch(() => null);
+      if (!c) return;
+      setValSeTem('#nfaDestDoc', typeof formatarCpfCnpj === 'function' ? formatarCpfCnpj(c.cpf_cnpj) : c.cpf_cnpj);
+      setValSeTem('#nfaDestRazao', c.razao_social || c.nome);
+      setValSeTem('#nfaDestFantasia', c.nome);
+      setValSeTem('#nfaDestIe', c.inscricao_estadual);
+      setValSeTem('#nfaDestTel', c.telefone);
+      setValSeTem('#nfaDestEmail', c.email);
+      setValSeTem('#nfaDestCep', c.cep);
+      setValSeTem('#nfaDestRua', c.rua);
+      setValSeTem('#nfaDestNumero', c.numero);
+      setValSeTem('#nfaDestBairro', c.bairro);
+      setValSeTem('#nfaDestUf', c.uf);
+      setValSeTem('#nfaDestMunicipio', c.cidade);
+      setValSeTem('#nfaDestPais', 'BRASIL');
+      aplicarCliente(c.id, c.nome || c.razao_social || '');
+    } catch (_) { /* ignore */ }
   }
 
   function buscarClientes(termo) {
@@ -109,12 +196,214 @@
             <small class="d-block text-muted">${escapeHtml(c.cpf_cnpj || '')}</small>
           </button>`).join('')).show();
         $('.nfa-pick-cliente').off('click').on('click', function () {
-          aplicarCliente(Number($(this).data('id')), $(this).data('nome'));
+          const id = Number($(this).data('id'));
+          const nome = $(this).data('nome');
+          aplicarCliente(id, nome);
+          carregarClienteCompleto(id);
         });
       } catch (_) {
         $('#nfaClienteSugestoes').hide();
       }
     }, 250);
+  }
+
+  async function carregarClientesRecentes() {
+    const box = $('#nfaClientesRecentes');
+    box.html('<div class="text-muted small">Carregando…</div>');
+    try {
+      const resp = await fetch(`${API_URL}/clientes`, { headers: headersJson() });
+      const rows = await resp.json().catch(() => []);
+      const lista = Array.isArray(rows)
+        ? rows.slice().sort((a, b) => Number(b.id) - Number(a.id)).slice(0, 8)
+        : [];
+      if (!lista.length) {
+        box.html('<div class="text-muted small">Nenhum cliente recente.</div>');
+        return;
+      }
+      box.html(`<div class="list-group">${lista.map((c) => `
+        <button type="button" class="list-group-item list-group-item-action nfa-pick-recente"
+          data-id="${c.id}" data-nome="${escapeHtml(c.nome || '')}">
+          <strong>${escapeHtml(c.nome || '—')}</strong>
+          <small class="d-block text-muted">${escapeHtml(c.cpf_cnpj || '')}</small>
+        </button>`).join('')}</div>`);
+      $('.nfa-pick-recente').off('click').on('click', function () {
+        const id = Number($(this).data('id'));
+        aplicarCliente(id, $(this).data('nome'));
+        carregarClienteCompleto(id);
+        ativarAbaDest('cadastrado');
+      });
+    } catch (_) {
+      box.html('<div class="text-danger small">Falha ao carregar recentes.</div>');
+    }
+  }
+
+  function ativarAbaDest(aba) {
+    $('.nfa-tab').removeClass('is-active');
+    $(`.nfa-tab[data-aba="${aba}"]`).addClass('is-active');
+    $('.nfa-aba-painel').addClass('d-none');
+    $(`#nfaAba${aba.charAt(0).toUpperCase()}${aba.slice(1)}`).removeClass('d-none');
+    if (aba === 'recente') carregarClientesRecentes();
+  }
+
+  async function localizarClientePorDocumento(digitos) {
+    if (!digitos) return null;
+    try {
+      const resp = await fetch(`${API_URL}/clientes`, { headers: headersJson() });
+      const rows = await resp.json().catch(() => []);
+      if (!Array.isArray(rows)) return null;
+      return rows.find((c) => apenasDigitos(c.cpf_cnpj) === digitos) || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function preencherPreviewConsulta(dto) {
+    const d = dto || {};
+    $('#nfaConsultaStatus').removeClass('d-none').addClass('nfa-callout--ok').html(
+      '<i class="fas fa-check-circle me-1"></i> Empresa encontrada na Receita Federal. Dados carregados com sucesso.'
+    );
+    $('#nfaConsultaPreview').removeClass('d-none');
+    $('#nfaPreviewRazao').text(d.razaoSocial || '—');
+    $('#nfaPreviewFantasia').text(d.nomeFantasia || '—');
+    $('#nfaPreviewDoc').text(
+      typeof formatarCpfCnpj === 'function' ? (formatarCpfCnpj(d.cnpj) || d.cnpj || '—') : (d.cnpj || '—')
+    );
+  }
+
+  function aplicarDadosConsultaNosCampos(dto, { forcar = false } = {}) {
+    const d = dto || {};
+    const set = (sel, val) => {
+      if (val == null || String(val).trim() === '') return;
+      if (!forcar && String($(sel).val() || '').trim()) return;
+      $(sel).val(val);
+    };
+    if (d.cnpj) {
+      $('#nfaDestDoc').val(typeof formatarCpfCnpj === 'function' ? formatarCpfCnpj(d.cnpj) : d.cnpj);
+    }
+    set('#nfaDestRazao', d.razaoSocial);
+    set('#nfaDestFantasia', d.nomeFantasia || d.razaoSocial);
+    if (d.inscricaoEstadual) set('#nfaDestIe', d.inscricaoEstadual);
+    if (d.inscricaoMunicipal) set('#nfaDestIm', d.inscricaoMunicipal);
+    if (d.cnae) set('#nfaDestCnae', d.cnae);
+    if (d.telefone) set('#nfaDestTel', d.telefone);
+    if (d.email) set('#nfaDestEmail', d.email);
+    if (d.cep) set('#nfaDestCep', d.cep);
+    if (d.logradouro) set('#nfaDestRua', d.logradouro);
+    if (d.numero) set('#nfaDestNumero', d.numero);
+    if (d.complemento) set('#nfaDestCompl', d.complemento);
+    if (d.bairro) set('#nfaDestBairro', d.bairro);
+    if (d.uf) set('#nfaDestUf', String(d.uf).toUpperCase());
+    if (d.municipio) set('#nfaDestMunicipio', d.municipio);
+    set('#nfaDestPais', 'BRASIL');
+  }
+
+  async function consultarCnpjDestinatario() {
+    if (consultandoCnpj) return;
+    const digitos = apenasDigitos($('#nfaDestDoc').val());
+    if (digitos.length === 11) {
+      alertar('CPF informado. Selecione o cliente na aba "Cliente cadastrado" ou preencha os dados manualmente.', 'info');
+      return;
+    }
+    if (digitos.length !== 14) {
+      alertar('Informe um CNPJ com 14 dígitos para consultar.', 'warning');
+      $('#nfaDestDoc').focus();
+      return;
+    }
+
+    consultandoCnpj = true;
+    $('#btnNfaConsultarCnpj').prop('disabled', true);
+    $('#nfaConsultaStatus').removeClass('d-none nfa-callout--ok').addClass('nfa-callout--info')
+      .html('<i class="fas fa-spinner fa-spin me-1"></i> Consultando CNPJ…');
+    $('#nfaConsultaPreview').addClass('d-none');
+    $('#nfaCdsClienteStatus').addClass('d-none').empty();
+    consultaCnpjPendente = null;
+
+    try {
+      const response = await fetch(`/api/consulta-cnpj/${encodeURIComponent(digitos)}`, {
+        headers: headersJson()
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        let msg = payload.error || 'Não foi possível consultar o CNPJ agora.';
+        if (payload.code === 'NAO_ENCONTRADO' || response.status === 404) {
+          msg = 'Empresa não encontrada para este CNPJ.';
+        } else if (payload.code === 'CNPJ_INVALIDO' || response.status === 400) {
+          msg = 'CNPJ inválido.';
+        }
+        $('#nfaConsultaStatus').removeClass('nfa-callout--info').html(
+          `<i class="fas fa-exclamation-circle me-1"></i> ${escapeHtml(msg)}`
+        );
+        alertar(msg, 'warning');
+        return;
+      }
+
+      const dto = payload.data || {};
+      consultaCnpjPendente = dto;
+      preencherPreviewConsulta(dto);
+      aplicarDadosConsultaNosCampos(dto, { forcar: false });
+
+      const existente = await localizarClientePorDocumento(apenasDigitos(dto.cnpj || digitos));
+      if (existente) {
+        $('#nfaCdsClienteStatus').removeClass('d-none').html(
+          `<div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span><i class="fas fa-check-circle me-1"></i> Cliente já cadastrado no CDS.
+              <strong>Cliente #${existente.id} — ${escapeHtml(existente.nome || '')}</strong></span>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="btnNfaVerCadastro2">
+              <i class="fas fa-external-link-alt"></i> Ver no cadastro
+            </button>
+          </div>`
+        );
+        $('#btnNfaVerCadastro2').off('click').on('click', () => {
+          if (typeof loadPage === 'function') loadPage('clientes');
+        });
+        consultaCnpjPendente._clienteExistente = existente;
+      }
+    } catch (err) {
+      console.error('Consulta CNPJ NF-e avulsa:', err);
+      $('#nfaConsultaStatus').removeClass('nfa-callout--info').html(
+        '<i class="fas fa-exclamation-circle me-1"></i> Falha na consulta. Verifique a conexão.'
+      );
+      alertar('Não foi possível consultar o CNPJ agora.', 'danger');
+    } finally {
+      consultandoCnpj = false;
+      $('#btnNfaConsultarCnpj').prop('disabled', false);
+    }
+  }
+
+  async function usarDestinatarioConsultado() {
+    if (!consultaCnpjPendente) {
+      alertar('Consulte um CNPJ antes de usar o destinatário.', 'warning');
+      return;
+    }
+    const dto = consultaCnpjPendente;
+    aplicarDadosConsultaNosCampos(dto, { forcar: true });
+
+    const existente = dto._clienteExistente
+      || await localizarClientePorDocumento(apenasDigitos(dto.cnpj));
+    if (existente) {
+      aplicarCliente(existente.id, existente.nome || dto.nomeFantasia || dto.razaoSocial || '');
+      alertar('Destinatário confirmado (cliente já cadastrado no CDS).', 'success');
+    } else {
+      $('#nfaClienteId').val('');
+      $('#nfaClienteLabel').text('Destinatário consultado — ainda não cadastrado no CDS');
+      $('#nfaCdsClienteStatus').removeClass('d-none').html(
+        '<i class="fas fa-info-circle me-1"></i> Dados preenchidos. Cadastre o cliente no CDS antes de emitir, ' +
+        'ou selecione um cliente já cadastrado. A consulta <strong>não</strong> salvou automaticamente.'
+      );
+      alertar('Destinatário preenchido. Cadastre o cliente no CDS se ainda não existir.', 'info');
+    }
+  }
+
+  function limparDestinatario() {
+    consultaCnpjPendente = null;
+    $('#nfaClienteId').val('');
+    $('#nfaClienteBusca').val('');
+    $('#nfaClienteLabel').text('Nenhum cliente selecionado');
+    $('#nfaDestDoc, #nfaDestRazao, #nfaDestFantasia, #nfaDestIe, #nfaDestIm, #nfaDestCnae, #nfaDestTel, #nfaDestEmail').val('');
+    $('#nfaDestCep, #nfaDestRua, #nfaDestNumero, #nfaDestCompl, #nfaDestBairro, #nfaDestUf, #nfaDestMunicipio').val('');
+    $('#nfaDestPais').val('BRASIL');
+    $('#nfaConsultaStatus, #nfaConsultaPreview, #nfaCdsClienteStatus').addClass('d-none').empty();
+    $('#nfaClienteSugestoes').hide().empty();
   }
 
   function buscarProdutos(termo) {
@@ -139,7 +428,8 @@
           return `
             <button type="button" class="list-group-item list-group-item-action nfa-pick-produto"
               data-id="${p.id}" data-nome="${escapeHtml(p.nome)}" data-codigo="${escapeHtml(p.codigo || '')}"
-              data-preco="${preco}">
+              data-preco="${preco}" data-ncm="${escapeHtml(p.ncm || '')}" data-cfop="${escapeHtml(p.cfop || '')}"
+              data-unidade="${escapeHtml(p.unidade || 'UN')}">
               <strong>${escapeHtml(p.codigo || p.id)}</strong> — ${escapeHtml(p.nome)}
               <span class="float-end">${fmtMoney(preco)}</span>
             </button>`;
@@ -148,6 +438,9 @@
           $('#nfaProdutoId').val($(this).data('id'));
           $('#nfaProdutoNome').val($(this).data('nome'));
           $('#nfaProdutoCodigo').val($(this).data('codigo'));
+          $('#nfaProdutoNcm').val($(this).data('ncm') || '');
+          $('#nfaProdutoCfop').val($(this).data('cfop') || '');
+          $('#nfaProdutoUnidade').val($(this).data('unidade') || 'UN');
           $('#nfaProdutoBusca').val(`${$(this).data('codigo') || ''} — ${$(this).data('nome')}`);
           $('#nfaItemPreco').val($(this).data('preco'));
           $('#nfaProdutoSugestoes').hide().empty();
@@ -173,6 +466,9 @@
       produto_id: produtoId,
       produto_nome: $('#nfaProdutoNome').val(),
       produto_codigo: $('#nfaProdutoCodigo').val(),
+      ncm: $('#nfaProdutoNcm').val() || '',
+      cfop: $('#nfaProdutoCfop').val() || $('#nfaCfop').val() || '',
+      unidade: $('#nfaProdutoUnidade').val() || 'UN',
       quantidade: qtd,
       preco_unitario: preco,
       desconto_percentual: desc,
@@ -182,7 +478,7 @@
     const ix = itensAvulsa.findIndex((i) => i.produto_id === produtoId);
     if (ix >= 0) itensAvulsa[ix] = row;
     else itensAvulsa.push(row);
-    $('#nfaProdutoId, #nfaProdutoNome, #nfaProdutoCodigo, #nfaProdutoBusca, #nfaItemPreco').val('');
+    $('#nfaProdutoId, #nfaProdutoNome, #nfaProdutoCodigo, #nfaProdutoNcm, #nfaProdutoCfop, #nfaProdutoUnidade, #nfaProdutoBusca, #nfaItemPreco').val('');
     $('#nfaItemQtd').val('1');
     $('#nfaItemDesc').val('0');
     renderItens();
@@ -322,6 +618,7 @@
 
   function loadNfeAvulsa() {
     itensAvulsa = [];
+    consultaCnpjPendente = null;
     const htmlChooser = `
       ${(typeof CdsPageShell !== 'undefined' && CdsPageShell.renderHeader)
         ? CdsPageShell.renderHeader({
@@ -367,146 +664,334 @@
   }
 
   function renderFormAvulsa() {
-    const html = `
-      ${(typeof CdsPageShell !== 'undefined' && CdsPageShell.renderHeader)
-        ? CdsPageShell.renderHeader({ page: 'nfe-avulsa', toolbarHtml: '' })
-        : ''}
-      <div class="alert mb-3" id="nfaBannerF12"></div>
-      <div class="card shadow-sm">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <div>
-            <i class="fas fa-file-invoice"></i> Nova NF-e
-            <span class="badge bg-secondary ms-2">Origem NF_AVULSA</span>
-          </div>
+    const header = (typeof CdsPageShell !== 'undefined' && CdsPageShell.renderHeader)
+      ? CdsPageShell.renderHeader({
+        page: 'nfe-avulsa',
+        titulo: 'Nova NF-e',
+        subtitulo: 'Emissão de Nota Fiscal Eletrônica de forma avulsa.',
+        toolbarHtml: `
+          <span class="badge bg-primary nfa-badge-origem me-2">Origem: NF_AVULSA</span>
           <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadPage('nfe-central')">
             Central NF-e
-          </button>
-        </div>
-        <div class="card-body">
-          <div class="row g-2 mb-3">
-            <div class="col-md-6 position-relative">
-              <label class="form-label">Cliente</label>
-              <input type="text" class="form-control" id="nfaClienteBusca" placeholder="Nome, CPF ou telefone" autocomplete="off">
-              <input type="hidden" id="nfaClienteId">
-              <div id="nfaClienteSugestoes" class="list-group position-absolute w-100 shadow"
-                style="z-index:1050;display:none;max-height:220px;overflow:auto;"></div>
-              <div class="form-text" id="nfaClienteLabel">Nenhum cliente selecionado</div>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Natureza da Operação</label>
-              <input type="text" class="form-control" id="nfaNatureza" value="VENDA DE MERCADORIA">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">CFOP</label>
-              <input type="text" class="form-control" id="nfaCfop" value="5102">
+          </button>`
+      })
+      : `<div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <h2 class="h4 mb-0">Nova NF-e <span class="badge bg-primary">Origem: NF_AVULSA</span></h2>
+            <div class="text-muted small">Emissão de Nota Fiscal Eletrônica de forma avulsa.</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadPage('nfe-central')">Central NF-e</button>
+        </div>`;
+
+    const html = `
+      <div class="nfa-v2">
+        ${header}
+        <div class="alert mb-3" id="nfaBannerF12"></div>
+        <div class="row g-3">
+          <div class="col-lg-8">
+            <section class="nfa-section">
+              <h3 class="nfa-section__title"><span class="nfa-section__num">1</span> Destinatário (Cliente)</h3>
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                <div class="nfa-tabs mb-0">
+                  <button type="button" class="nfa-tab is-active" data-aba="cnpj">Buscar por CNPJ/CPF</button>
+                  <button type="button" class="nfa-tab" data-aba="cadastrado">Cliente cadastrado</button>
+                  <button type="button" class="nfa-tab" data-aba="recente">Cliente recente</button>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnNfaLimparDest">Limpar dados</button>
+              </div>
+
+              <div id="nfaAbaCnpj" class="nfa-aba-painel">
+                <label class="form-label">CNPJ / CPF *</label>
+                <div class="input-group">
+                  <input type="text" class="form-control" id="nfaDestDoc" maxlength="18" placeholder="00.000.000/0000-00" autocomplete="off">
+                  <button type="button" class="btn btn-primary" id="btnNfaConsultarCnpj">
+                    <i class="fas fa-search"></i> Consultar
+                  </button>
+                </div>
+                <div id="nfaConsultaStatus" class="nfa-callout d-none"></div>
+                <div id="nfaConsultaPreview" class="nfa-callout nfa-callout--ok d-none mt-2">
+                  <div class="small mb-2">
+                    <div><strong>Razão Social:</strong> <span id="nfaPreviewRazao">—</span></div>
+                    <div><strong>Nome Fantasia:</strong> <span id="nfaPreviewFantasia">—</span></div>
+                    <div><strong>CNPJ:</strong> <span id="nfaPreviewDoc">—</span></div>
+                  </div>
+                  <button type="button" class="btn btn-sm btn-primary" id="btnNfaUsarDest">
+                    <i class="fas fa-user-check"></i> Usar este destinatário
+                  </button>
+                </div>
+                <div id="nfaCdsClienteStatus" class="nfa-callout nfa-callout--ok d-none"></div>
+              </div>
+
+              <div id="nfaAbaCadastrado" class="nfa-aba-painel d-none">
+                <label class="form-label">Buscar cliente cadastrado</label>
+                <div class="position-relative">
+                  <input type="text" class="form-control" id="nfaClienteBusca" placeholder="Nome, CPF/CNPJ ou telefone" autocomplete="off">
+                  <input type="hidden" id="nfaClienteId">
+                  <div id="nfaClienteSugestoes" class="list-group position-absolute w-100 shadow nfa-sugestoes" style="display:none;"></div>
+                </div>
+                <div class="form-text" id="nfaClienteLabel">Nenhum cliente selecionado</div>
+              </div>
+
+              <div id="nfaAbaRecente" class="nfa-aba-painel d-none">
+                <div id="nfaClientesRecentes" class="mt-1"></div>
+              </div>
+
+              <div class="row g-2 nfa-dest-grid mt-3">
+                <div class="col-md-6">
+                  <label class="form-label">Razão Social *</label>
+                  <input type="text" class="form-control form-control-sm" id="nfaDestRazao">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Nome Fantasia</label>
+                  <input type="text" class="form-control form-control-sm" id="nfaDestFantasia">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Inscrição Estadual</label>
+                  <input type="text" class="form-control form-control-sm" id="nfaDestIe">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">Inscrição Municipal</label>
+                  <input type="text" class="form-control form-control-sm" id="nfaDestIm" placeholder="—">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">CNAE</label>
+                  <input type="text" class="form-control form-control-sm" id="nfaDestCnae" placeholder="—">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">Telefone</label>
+                  <input type="text" class="form-control form-control-sm" id="nfaDestTel">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">E-mail</label>
+                  <input type="email" class="form-control form-control-sm" id="nfaDestEmail">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">CEP</label>
+                  <input type="text" class="form-control form-control-sm" id="nfaDestCep">
+                </div>
+                <div class="col-md-5">
+                  <label class="form-label">Endereço</label>
+                  <input type="text" class="form-control form-control-sm" id="nfaDestRua">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">Número</label>
+                  <input type="text" class="form-control form-control-sm" id="nfaDestNumero">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Complemento</label>
+                  <input type="text" class="form-control form-control-sm" id="nfaDestCompl">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Bairro</label>
+                  <input type="text" class="form-control form-control-sm" id="nfaDestBairro">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">UF</label>
+                  <input type="text" class="form-control form-control-sm" id="nfaDestUf" maxlength="2">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Município</label>
+                  <input type="text" class="form-control form-control-sm" id="nfaDestMunicipio">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">País</label>
+                  <input type="text" class="form-control form-control-sm" id="nfaDestPais" value="BRASIL">
+                </div>
+              </div>
+            </section>
+
+            <section class="nfa-section">
+              <h3 class="nfa-section__title"><span class="nfa-section__num">2</span> Operação Fiscal</h3>
+              <div class="row g-2 align-items-end">
+                <div class="col-md-5">
+                  <label class="form-label">Natureza da Operação *</label>
+                  <input type="text" class="form-control" id="nfaNatureza" value="VENDA DE MERCADORIA">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">CFOP *</label>
+                  <div class="input-group">
+                    <input type="text" class="form-control" id="nfaCfop" value="5102">
+                    <button type="button" class="btn btn-outline-secondary" id="btnNfaCfopHint" title="Descrição do CFOP">
+                      <i class="fas fa-search"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="nfa-cfop-hint" id="nfaCfopDesc">
+                    <strong>5102</strong> — Venda de mercadoria adquirida ou recebida de terceiros.
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="nfa-section">
+              <h3 class="nfa-section__title"><span class="nfa-section__num">3</span> Produtos / Itens</h3>
+              <div class="row g-2 align-items-end mb-2">
+                <div class="col-md-5 position-relative">
+                  <label class="form-label small mb-0">Código ou descrição do produto</label>
+                  <div class="input-group input-group-sm">
+                    <input type="text" class="form-control" id="nfaProdutoBusca" placeholder="Buscar produto…" autocomplete="off">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                  </div>
+                  <div id="nfaProdutoSugestoes" class="list-group position-absolute w-100 shadow nfa-sugestoes" style="display:none;"></div>
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label small mb-0">Qtd</label>
+                  <input type="number" class="form-control form-control-sm" id="nfaItemQtd" min="0.001" step="0.001" value="1">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label small mb-0">Preço (R$)</label>
+                  <input type="number" class="form-control form-control-sm" id="nfaItemPreco" min="0" step="0.01" value="0">
+                </div>
+                <div class="col-md-1">
+                  <label class="form-label small mb-0">Desc. %</label>
+                  <input type="number" class="form-control form-control-sm" id="nfaItemDesc" min="0" max="100" step="0.01" value="0">
+                </div>
+                <div class="col-md-2">
+                  <button type="button" class="btn btn-sm btn-success w-100" id="btnNfaAddItem">
+                    <i class="fas fa-plus"></i> Adicionar
+                  </button>
+                </div>
+              </div>
+              <input type="hidden" id="nfaProdutoId">
+              <input type="hidden" id="nfaProdutoNome">
+              <input type="hidden" id="nfaProdutoCodigo">
+              <input type="hidden" id="nfaProdutoNcm">
+              <input type="hidden" id="nfaProdutoCfop">
+              <input type="hidden" id="nfaProdutoUnidade">
+
+              <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>#</th>
+                      <th>Código</th>
+                      <th>Produto</th>
+                      <th>NCM</th>
+                      <th>CFOP</th>
+                      <th>Un.</th>
+                      <th class="text-end">Qtd</th>
+                      <th class="text-end">Preço</th>
+                      <th class="text-end">Desc. %</th>
+                      <th class="text-end">Total</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="nfaItensBody"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <section class="nfa-section">
+                  <h3 class="nfa-section__title"><span class="nfa-section__num">4</span> Transporte / Frete</h3>
+                  <div class="mb-2">
+                    <label class="form-label">Transportadora</label>
+                    <input type="text" class="form-control" id="nfaTransportadora" placeholder="Opcional">
+                  </div>
+                  <div class="row g-2">
+                    <div class="col-6">
+                      <label class="form-label">Frete (R$)</label>
+                      <input type="number" step="0.01" min="0" class="form-control" id="nfaFrete" value="0">
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label">Modalidade de frete</label>
+                      <select class="form-select" id="nfaModFrete">
+                        <option value="9">9 - Sem frete</option>
+                        <option value="0">0 - Emitente</option>
+                        <option value="1">1 - Destinatário</option>
+                      </select>
+                    </div>
+                  </div>
+                </section>
+              </div>
+              <div class="col-md-6">
+                <section class="nfa-section">
+                  <h3 class="nfa-section__title"><span class="nfa-section__num">5</span> Informações Adicionais</h3>
+                  <div class="mb-2">
+                    <label class="form-label">Desconto (R$)</label>
+                    <input type="number" step="0.01" min="0" class="form-control" id="nfaDesconto" value="0">
+                  </div>
+                  <div>
+                    <label class="form-label">Observações</label>
+                    <textarea class="form-control" id="nfaObservacoes" rows="3" placeholder="Informações complementares da NF-e…"></textarea>
+                  </div>
+                </section>
+              </div>
             </div>
           </div>
 
-          <div class="border rounded p-2 mb-2 bg-light">
-            <div class="row g-2 align-items-end">
-              <div class="col-md-5 position-relative">
-                <label class="form-label small mb-0">Produto</label>
-                <input type="text" class="form-control form-control-sm" id="nfaProdutoBusca" placeholder="Código ou descrição" autocomplete="off">
-                <div id="nfaProdutoSugestoes" class="list-group position-absolute w-100 shadow"
-                  style="z-index:1050;display:none;max-height:220px;overflow:auto;"></div>
+          <div class="col-lg-4">
+            <div class="nfa-side">
+              <section class="nfa-section">
+                <h3 class="nfa-section__title"><span class="nfa-section__num">6</span> Pagamento</h3>
+                <div id="nfaFormaWrap">
+                  <label class="form-label">Forma de pagamento *</label>
+                  <select class="form-select" id="nfaForma"></select>
+                </div>
+                <div id="nfaPixHint" class="nfa-pix-hint d-none"></div>
+                <div id="nfaPagamentoExtras"></div>
+              </section>
+
+              <section class="nfa-section">
+                <h3 class="nfa-section__title"><span class="nfa-section__num">7</span> Resumo da NF-e</h3>
+                <div class="nfa-resumo-row"><span>Subtotal dos itens</span><strong id="nfaTotSub">R$ 0,00</strong></div>
+                <div class="nfa-resumo-row"><span>Frete</span><strong id="nfaTotFrete">R$ 0,00</strong></div>
+                <div class="nfa-resumo-row"><span>Desconto</span><strong id="nfaTotDesc">R$ 0,00</strong></div>
+                <div class="nfa-resumo-total">
+                  <span>TOTAL DA NF-e</span>
+                  <span class="nfa-total-valor" id="nfaTotGeral">R$ 0,00</span>
+                </div>
+              </section>
+
+              <div class="nfa-info-box mb-3">
+                <strong><i class="fas fa-info-circle me-1"></i> Informações importantes</strong>
+                <ul>
+                  <li>Verifique os dados do destinatário.</li>
+                  <li>Confirme a natureza da operação e CFOP.</li>
+                  <li>Revise os itens, frete e desconto.</li>
+                  <li>Confirme a forma de pagamento.</li>
+                  <li>Após a emissão, o XML será enviado para a SEFAZ.</li>
+                </ul>
               </div>
-              <div class="col-md-2">
-                <label class="form-label small mb-0">Qtd</label>
-                <input type="number" class="form-control form-control-sm" id="nfaItemQtd" min="0.001" step="0.001" value="1">
-              </div>
-              <div class="col-md-2">
-                <label class="form-label small mb-0">Preço</label>
-                <input type="number" class="form-control form-control-sm" id="nfaItemPreco" min="0" step="0.01">
-              </div>
-              <div class="col-md-1">
-                <label class="form-label small mb-0">Desc.%</label>
-                <input type="number" class="form-control form-control-sm" id="nfaItemDesc" min="0" max="100" step="0.01" value="0">
-              </div>
-              <div class="col-md-2">
-                <button type="button" class="btn btn-sm btn-success w-100" id="btnNfaAddItem">
-                  <i class="fas fa-plus"></i> Adicionar
+
+              <div class="nfa-actions">
+                <button type="button" class="btn btn-outline-secondary" onclick="loadPage('nfe-central')">
+                  <i class="fas fa-times"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" id="btnNfaEmitir">
+                  <i class="fas fa-file-invoice"></i> Emitir NF-e
                 </button>
               </div>
             </div>
-            <input type="hidden" id="nfaProdutoId">
-            <input type="hidden" id="nfaProdutoNome">
-            <input type="hidden" id="nfaProdutoCodigo">
-          </div>
-
-          <div class="table-responsive mb-3">
-            <table class="table table-sm align-middle">
-              <thead>
-                <tr>
-                  <th>Código</th><th>Produto</th><th class="text-end">Qtd</th>
-                  <th class="text-end">Preço</th><th class="text-end">Desc.%</th>
-                  <th class="text-end">Total</th><th></th>
-                </tr>
-              </thead>
-              <tbody id="nfaItensBody"></tbody>
-            </table>
-          </div>
-
-          <div class="row g-2 mb-3">
-            <div class="col-md-3">
-              <label class="form-label">Transportadora</label>
-              <input type="text" class="form-control" id="nfaTransportadora" placeholder="Opcional">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Frete (R$)</label>
-              <input type="number" step="0.01" min="0" class="form-control" id="nfaFrete" value="0">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Mod. frete</label>
-              <select class="form-select" id="nfaModFrete">
-                <option value="9">Sem frete</option>
-                <option value="0">Emitente</option>
-                <option value="1">Destinatário</option>
-              </select>
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Desconto (R$)</label>
-              <input type="number" step="0.01" min="0" class="form-control" id="nfaDesconto" value="0">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Observações</label>
-              <input type="text" class="form-control" id="nfaObservacoes">
-            </div>
-          </div>
-
-          <div class="row g-2 mb-3 align-items-end">
-            <div class="col-md-5" id="nfaFormaWrap">
-              <label class="form-label">Forma de pagamento</label>
-              <select class="form-select" id="nfaForma"></select>
-            </div>
-            <div class="col-md-7">
-              <div class="d-flex justify-content-end gap-4 small pt-3">
-                <div>Subtotal <strong id="nfaTotSub">R$ 0,00</strong></div>
-                <div>Frete <strong id="nfaTotFrete">R$ 0,00</strong></div>
-                <div>Desconto <strong id="nfaTotDesc">R$ 0,00</strong></div>
-                <div>Total <strong class="text-primary fs-5" id="nfaTotGeral">R$ 0,00</strong></div>
-              </div>
-            </div>
-            <div class="col-12" id="nfaPagamentoExtras"></div>
-          </div>
-
-          <div class="d-flex justify-content-end gap-2">
-            <button type="button" class="btn btn-outline-secondary" onclick="loadPage('nfe-central')">Cancelar</button>
-            <button type="button" class="btn btn-primary" id="btnNfaEmitir">
-              <i class="fas fa-file-invoice"></i> Emitir NF-e
-            </button>
           </div>
         </div>
       </div>`;
+
     $('#page-content').html(html);
     renderItens();
     atualizarBannerF12();
 
     if (typeof CdsFormasPagamento !== 'undefined') {
-      $('#nfaForma').html(CdsFormasPagamento.optionsHtml('dinheiro'));
+      $('#nfaForma').html(CdsFormasPagamento.optionsHtml('pix'));
       $('#nfaPagamentoExtras').html(CdsFormasPagamento.htmlPaineisExtras('nfa'));
       CdsFormasPagamento.bind('nfa', () => calcularTotais().total);
+    } else {
+      $('#nfaForma').html('<option value="pix" selected>PIX</option><option value="dinheiro">Dinheiro</option>');
     }
+    atualizarHintPagamento();
 
+    $('.nfa-tab').on('click', function () {
+      ativarAbaDest($(this).data('aba'));
+    });
+    $('#btnNfaLimparDest').on('click', limparDestinatario);
+    $('#btnNfaConsultarCnpj').on('click', consultarCnpjDestinatario);
+    $('#btnNfaUsarDest').on('click', usarDestinatarioConsultado);
+    $('#nfaDestDoc').on('input', function () { formatarDocInput(this); });
+    $('#nfaDestDoc').on('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); consultarCnpjDestinatario(); }
+    });
     $('#nfaClienteBusca').on('input', function () { buscarClientes($(this).val()); });
     $('#nfaProdutoBusca').on('input', function () { buscarProdutos($(this).val()); });
     $('#btnNfaAddItem').on('click', adicionarItem);
@@ -518,6 +1003,18 @@
       if (typeof CdsFormasPagamento !== 'undefined') {
         CdsFormasPagamento.atualizarResumo(null, 'nfa', t.total);
       }
+    });
+    $('#nfaForma').on('change', atualizarHintPagamento);
+    $('#btnNfaCfopHint').on('click', () => {
+      const cfop = String($('#nfaCfop').val() || '').trim();
+      const mapa = {
+        '5102': 'Venda de mercadoria adquirida ou recebida de terceiros.',
+        '5101': 'Venda de produção do estabelecimento.',
+        '5405': 'Venda de mercadoria sujeita a ST, de propriedade do estabelecimento.'
+      };
+      $('#nfaCfopDesc').html(
+        `<strong>${escapeHtml(cfop || '—')}</strong> — ${escapeHtml(mapa[cfop] || 'Confira o CFOP nas regras fiscais da empresa.')}`
+      );
     });
     $('#btnNfaEmitir').on('click', emitir);
     $(document).off('cds:modo-fiscal-alterado.nfa').on('cds:modo-fiscal-alterado.nfa', atualizarBannerF12);

@@ -43,7 +43,8 @@ async function processarFluxoPagamentoVenda({
   desconto,
   acrescimo,
   subtotalBruto,
-  debugDescontoFiscal
+  debugDescontoFiscal,
+  origem
 }) {
   // Validações básicas — totalFiscal/totalNaoFiscal DEVEM ser líquidos (RC7.10.1 / FISCAL-4.0.2)
   totalFiscal = Number(totalFiscal || 0);
@@ -139,7 +140,8 @@ async function processarFluxoPagamentoVenda({
     totalFiscal,
     tefHabilitado,
     modoConfirmacaoFiscal,
-    formaPagamento
+    formaPagamento,
+    origem
   });
   
   if (!resultadoFiscal.sucesso) {
@@ -206,7 +208,8 @@ async function processarRecebimentoFiscal({
   totalFiscal,
   tefHabilitado,
   modoConfirmacaoFiscal,
-  formaPagamento
+  formaPagamento,
+  origem
 }) {
   // Se não há fiscal, não processa nada
   if (totalFiscal <= 0 || !recebimentosFiscal || recebimentosFiscal.length === 0) {
@@ -218,11 +221,12 @@ async function processarRecebimentoFiscal({
     tefHabilitado,
     modoConfirmacaoFiscal,
     formaPagamento,
-    totalFiscal
+    totalFiscal,
+    origem
   });
   
   if (deveUsarTef) {
-    return await processarTEFFiscal(recebimentosFiscal);
+    return await processarTEFFiscal(recebimentosFiscal, origem);
   } else {
     return await processarConfirmacaoManualFiscal(recebimentosFiscal);
   }
@@ -231,7 +235,7 @@ async function processarRecebimentoFiscal({
 /**
  * Processa TEF para recebimentos fiscais
  */
-async function processarTEFFiscal(recebimentosFiscal) {
+async function processarTEFFiscal(recebimentosFiscal, origem) {
   const tefConfig = await tefConfigService.obterConfiguracao();
   const tefOn = tefFluxoPagamento.parseTefHabilitado(tefConfig.tefHabilitado);
   
@@ -239,9 +243,9 @@ async function processarTEFFiscal(recebimentosFiscal) {
     return { sucesso: false, erro: 'TEF desabilitado no sistema.' };
   }
   
-  // Filtrar apenas recebimentos que exigem TEF
+  // Filtrar apenas recebimentos que exigem TEF (regra por origem do documento)
   const recebimentosTEF = recebimentosFiscal.filter(r => 
-    tefFluxoPagamento.formaPagamentoUsaTEF(r.forma_pagamento)
+    tefFluxoPagamento.formaPagamentoUsaTEF(r.forma_pagamento, origem)
   );
   
   if (recebimentosTEF.length === 0) {
@@ -335,13 +339,20 @@ async function deveUsarTEFParaFiscal({
   tefHabilitado,
   modoConfirmacaoFiscal,
   formaPagamento,
-  totalFiscal
+  totalFiscal,
+  origem
 }) {
   if (totalFiscal <= 0) return false;
   
   const tefOn = tefFluxoPagamento.parseTefHabilitado(tefHabilitado);
   if (!tefOn) return false;
+
+  // NF-e Avulsa: só TEF em formas integradas; não usa modo_confirmacao_fiscal (NFC-e)
+  if (tefFluxoPagamento.ehOrigemNfeAvulsa(origem)) {
+    return tefFluxoPagamento.formaPagamentoUsaTEF(formaPagamento, origem);
+  }
   
+  // NFC-e / PDV — regra atual
   const modoManual = String(modoConfirmacaoFiscal || 'TEF').toUpperCase() === 'MANUAL';
   if (modoManual) return false;
   

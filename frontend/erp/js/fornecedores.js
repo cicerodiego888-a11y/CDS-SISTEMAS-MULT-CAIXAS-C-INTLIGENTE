@@ -87,7 +87,13 @@ function exibirFormularioFornecedor(fornecedor = null) {
           </div>
           <div class="form-group">
             <label>CPF/CNPJ</label>
-            <input type="text" id="cpfCnpjFornecedor" class="form-control" placeholder="CPF ou CNPJ" value="${formatarCpfCnpj(f.cpf_cnpj) || ''}" oninput="formatCpfCnpjInput(this)" maxlength="18">
+            <div class="d-flex align-items-start">
+              <input type="text" id="cpfCnpjFornecedor" class="form-control" placeholder="CPF ou CNPJ" value="${formatarCpfCnpj(f.cpf_cnpj) || ''}" oninput="formatCpfCnpjInput(this)" maxlength="18">
+              <button type="button" class="btn btn-outline-primary text-nowrap ms-2" id="btnConsultarCnpjFornecedor" onclick="consultarCnpjFornecedor()">
+                Consultar CNPJ
+              </button>
+            </div>
+            <small id="consultaCnpjFornecedorStatus" class="text-muted d-block mt-1"></small>
           </div>
           <div class="form-group">
             <label>Inscrição Estadual</label>
@@ -149,6 +155,121 @@ function exibirFormularioFornecedor(fornecedor = null) {
       }
     });
   }, 300);
+}
+
+let _consultaCnpjFornecedorEmAndamento = false;
+
+function setStatusConsultaCnpjFornecedor(texto, classe) {
+  const el = $('#consultaCnpjFornecedorStatus');
+  if (!el.length) return;
+  el.removeClass('text-muted text-success text-danger text-warning');
+  el.addClass(classe || 'text-muted');
+  el.text(texto || '');
+}
+
+function aplicarDadosConsultaCnpjFornecedor(data) {
+  const d = data || {};
+  if (d.cnpj) {
+    $('#cpfCnpjFornecedor').val(typeof formatarCpfCnpj === 'function' ? formatarCpfCnpj(d.cnpj) : d.cnpj);
+  }
+  if (d.razaoSocial) {
+    $('#razaoSocialFornecedor').val(d.razaoSocial);
+    const nomeAtual = $('#nomeFornecedor').val().trim();
+    if (!nomeAtual) {
+      $('#nomeFornecedor').val(d.nomeFantasia || d.razaoSocial);
+    }
+  } else if (d.nomeFantasia) {
+    const nomeAtual = $('#nomeFornecedor').val().trim();
+    if (!nomeAtual) $('#nomeFornecedor').val(d.nomeFantasia);
+  }
+  if (d.inscricaoEstadual) {
+    $('#inscricaoEstadualFornecedor').val(d.inscricaoEstadual);
+  }
+  if (d.telefone) $('#telefoneFornecedor').val(d.telefone);
+  if (d.email) $('#emailFornecedor').val(d.email);
+  if (d.cep) $('#cepFornecedor').val(d.cep);
+  if (d.logradouro) $('#ruaFornecedor').val(d.logradouro);
+  if (d.numero) $('#numeroFornecedor').val(d.numero);
+  if (d.bairro) $('#bairroFornecedor').val(d.bairro);
+  if (d.municipio) $('#cidadeFornecedor').val(d.municipio);
+  if (d.uf) $('#ufFornecedor').val(String(d.uf).toUpperCase());
+}
+
+async function consultarCnpjFornecedor() {
+  if (_consultaCnpjFornecedorEmAndamento) return;
+
+  const raw = $('#cpfCnpjFornecedor').val() || '';
+  const digitos = String(raw).replace(/\D/g, '');
+  if (digitos.length !== 14) {
+    showNotification('Informe um CNPJ com 14 dígitos para consultar.', 'warning');
+    $('#cpfCnpjFornecedor').focus();
+    return;
+  }
+
+  const btn = $('#btnConsultarCnpjFornecedor');
+  _consultaCnpjFornecedorEmAndamento = true;
+  btn.prop('disabled', true);
+  setStatusConsultaCnpjFornecedor('Consultando...', 'text-muted');
+
+  try {
+    const response = await fetch(`/api/consulta-cnpj/${encodeURIComponent(digitos)}`, {
+      headers: {
+        Authorization: 'Bearer ' + localStorage.getItem('token')
+      }
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      const code = payload.code || '';
+      let msg = payload.error || 'Não foi possível consultar o CNPJ agora.';
+      if (code === 'NAO_ENCONTRADO' || response.status === 404) {
+        msg = 'Empresa não encontrada para este CNPJ.';
+      } else if (code === 'RATE_LIMIT' || response.status === 429) {
+        msg = 'A consulta de CNPJ atingiu o limite temporário. Tente novamente em alguns instantes.';
+      } else if (code === 'CNPJ_INVALIDO' || response.status === 400) {
+        msg = 'CNPJ inválido.';
+      }
+      setStatusConsultaCnpjFornecedor(msg, 'text-danger');
+      showNotification(msg, response.status === 404 ? 'warning' : 'danger');
+      return;
+    }
+
+    aplicarDadosConsultaCnpjFornecedor(payload.data);
+    const statusTxt = payload.fromCache
+      ? 'Dados consultados anteriormente. Confira os campos antes de salvar.'
+      : 'Dados preenchidos. Confira os campos antes de salvar.';
+    setStatusConsultaCnpjFornecedor(statusTxt, 'text-success');
+    showNotification('Dados do CNPJ carregados. Confira e salve o fornecedor.', 'success');
+
+    const cnpjConsultado = String((payload.data && payload.data.cnpj) || digitos).replace(/\D/g, '');
+    const existente = (fornecedoresCache || []).find((f) =>
+      String(f.cpf_cnpj || '').replace(/\D/g, '') === cnpjConsultado
+    );
+    const idAtual = $('#fornecedorId').val();
+    if (existente && String(existente.id) !== String(idAtual || '')) {
+      const nomeExistente = existente.nome || existente.razao_social || '';
+      showNotification(
+        nomeExistente
+          ? `Este CNPJ já está cadastrado: ${nomeExistente}`
+          : 'Este CNPJ já está cadastrado.',
+        'warning'
+      );
+      setStatusConsultaCnpjFornecedor(
+        nomeExistente
+          ? `Este CNPJ já está cadastrado (${nomeExistente}). Não será criado em duplicidade ao salvar.`
+          : 'Este CNPJ já está cadastrado. Não será criado em duplicidade ao salvar.',
+        'text-warning'
+      );
+    }
+  } catch (error) {
+    console.error('Erro ao consultar CNPJ:', error);
+    const msg = 'Não foi possível consultar o CNPJ agora. Verifique sua conexão ou tente novamente.';
+    setStatusConsultaCnpjFornecedor(msg, 'text-danger');
+    showNotification(msg, 'danger');
+  } finally {
+    _consultaCnpjFornecedorEmAndamento = false;
+    btn.prop('disabled', false);
+  }
 }
 
 function fecharFormularioFornecedor() {

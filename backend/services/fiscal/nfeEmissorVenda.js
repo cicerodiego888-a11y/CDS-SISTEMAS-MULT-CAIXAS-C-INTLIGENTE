@@ -172,7 +172,9 @@ function carregarVendaParaNfe(vendaId) {
         c.bairro AS cliente_bairro,
         c.cidade AS cliente_cidade,
         c.uf AS cliente_uf,
-        c.cep AS cliente_cep
+        c.cep AS cliente_cep,
+        c.inscricao_estadual AS cliente_ie,
+        c.codigo_municipio AS cliente_codigo_municipio
       FROM vendas v
       LEFT JOIN clientes c ON c.id = v.cliente_id
       WHERE v.id = ?

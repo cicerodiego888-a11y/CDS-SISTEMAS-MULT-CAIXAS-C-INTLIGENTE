@@ -43,7 +43,7 @@ function badgeStatusNfe(status) {
   else if (s === 'inutilizada') { cls = 'dark'; label = 'Inutilizada'; }
   else if (s.includes('rejeit') || s.includes('erro') || s.includes('deneg')) { cls = 'danger'; label = status || 'Rejeitada'; }
   else if (s.includes('pendente') || s.includes('aguardando') || s.includes('emitindo')) { cls = 'warning'; label = status || 'Pendente'; }
-  return `<span class="badge bg-${cls}">${escapeHtmlNfe(label)}</span>`;
+  return `<span class="badge bg-${cls} nfe-badge-status">${escapeHtmlNfe(label)}</span>`;
 }
 
 function consumirFocoNfePendente() {
@@ -127,12 +127,12 @@ function renderNfeCentral() {
       })
       : ''}
     <div id="nfe-auth-banner"></div>
-    <div class="card shadow-sm">
-      <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card shadow-sm nfe-central-lista">
+      <div class="card-header nfe-central-card-head d-flex justify-content-between align-items-center">
         <div>
           <i class="fas fa-file-invoice-dollar"></i> Central NF-e
           <span class="badge bg-primary ms-2">Central Documental</span>
-          <div class="small text-muted fw-normal mt-1">NF-e de venda e NF-e de devolução (compra e venda)</div>
+          <div class="small text-muted fw-normal">NF-e de venda e NF-e de devolução (compra e venda)</div>
         </div>
       </div>
       <div class="card-body">
@@ -241,6 +241,37 @@ function renderNfeCentral() {
         </div>
       </div>
     </div>
+
+    <div class="modal fade" id="nfeCceModal" tabindex="-1">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="nfeCceTitulo">Carta de Correção</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body" id="nfeCceBody"></div>
+          <div class="modal-footer" id="nfeCceFooter">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">CANCELAR</button>
+            <button type="button" class="btn btn-primary" id="nfeCceTransmitirBtn">TRANSMITIR CC-e</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="nfeCceHistoricoModal" tabindex="-1">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="nfeCceHistoricoTitulo">Histórico CC-e</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body" id="nfeCceHistoricoBody"></div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+          </div>
+        </div>
+      </div>
+    </div>
   `;
   $('#page-content').html(html);
 }
@@ -291,8 +322,25 @@ function tipoNfeNota(n) {
 }
 
 function nfeEstaAutorizada(n) {
-  const s = String(n?.status || '').toLowerCase();
+  const s = String(n?.status || '').toLowerCase().trim();
   return s === 'autorizada' || s === 'autorizado';
+}
+
+/** CC-e: NF-e 55 autorizada (venda ou devolução). Nunca cancelada/rejeitada/pendente. */
+function nfePodeCartaCorrecao(n) {
+  const tipo = tipoNfeNota(n);
+  if (!['VENDA', 'DEVOLUCAO_COMPRA', 'DEVOLUCAO_VENDA'].includes(tipo)) return false;
+  const s = String(n?.status || '').toLowerCase().trim();
+  if (!s || s === 'cancelada' || s === 'cancelado') return false;
+  if (s.includes('rejeit') || s.includes('pendente') || s.includes('erro') || s.includes('deneg')) return false;
+  if (s.includes('aguardando') || s.includes('emitindo') || s.includes('rascunho')) return false;
+  return nfeEstaAutorizada(n);
+}
+
+/** Histórico CC-e: disponível para NF-e 55 da central (venda/devolução). */
+function nfePodeHistoricoCce(n) {
+  const tipo = tipoNfeNota(n);
+  return ['VENDA', 'DEVOLUCAO_COMPRA', 'DEVOLUCAO_VENDA'].includes(tipo);
 }
 
 function podeDuplicarNfeComoDevolucao(n) {
@@ -395,6 +443,152 @@ function localizarNotaNfe(id, tipo) {
     || {};
 }
 
+/** Dropdown item: ícone + texto (somente ações válidas entram no menu). */
+function nfeMenuItem(icon, label, onclick, { danger = false } = {}) {
+  return `<li>
+    <button type="button" class="dropdown-item nfe-mais-item${danger ? ' nfe-mais-item-danger' : ''}" onclick="${onclick}">
+      <i class="fas ${icon}"></i><span>${escapeHtmlNfe(label)}</span>
+    </button>
+  </li>`;
+}
+
+function nfeMenuHeader(label) {
+  return `<li><h6 class="dropdown-header nfe-mais-header">${escapeHtmlNfe(label)}</h6></li>`;
+}
+
+function nfeMenuDivider() {
+  return `<li><hr class="dropdown-divider nfe-mais-divider"></li>`;
+}
+
+/**
+ * Coluna Ações compacta V1: [Visualizar] [Imprimir] [Mais ⋮]
+ * Sem remoção de funcionalidades — apenas reorganização visual.
+ */
+function renderAcoesCompactasNfe(n) {
+  const tipo = tipoNfeNota(n);
+  const tipoJs = escapeHtmlNfe(tipo);
+  const venda = tipo === 'VENDA';
+  const autorizada = nfeEstaAutorizada(n);
+  const st = String(n.status || '').toLowerCase();
+  const temXml = Number(n.tem_xml) === 1 || Boolean(String(n.chave_acesso || '').trim());
+  const podeCancelar = st === 'autorizada' || st === 'cancelamento_rejeitado';
+  const podeDuplicar = podeDuplicarNfeComoDevolucao(n);
+  const menuId = `nfeMaisMenu-${tipoJs}-${n.id}`;
+
+  const btnVisualizar = venda
+    ? `<button type="button" class="btn btn-sm btn-outline-secondary nfe-acao-primaria" title="Visualizar documento"
+        onclick="visualizarFichaNfe(${n.id})">
+        <i class="fas fa-eye"></i><span class="nfe-acao-lbl">Visualizar</span>
+      </button>`
+    : `<button type="button" class="btn btn-sm btn-outline-secondary nfe-acao-primaria" title="Visualizar DANFE"
+        onclick="visualizarDanfeNfe(${n.id}, '${tipoJs}')" ${autorizada ? '' : 'disabled'}>
+        <i class="fas fa-eye"></i><span class="nfe-acao-lbl">Visualizar</span>
+      </button>`;
+
+  const btnImprimir = `<button type="button" class="btn btn-sm btn-outline-secondary nfe-acao-primaria" title="Imprimir DANFE"
+      onclick="reimprimirDanfeNfe(${n.id}, '${tipoJs}')" ${autorizada ? '' : 'disabled'}>
+      <i class="fas fa-print"></i><span class="nfe-acao-lbl">Imprimir</span>
+    </button>`;
+
+  const grupos = [];
+
+  // CORREÇÃO — primeiro no menu (visível ao abrir ⋮), só ações válidas no estado atual
+  const corrItems = [];
+  if (nfePodeCartaCorrecao(n)) {
+    corrItems.push(nfeMenuItem('fa-pen', 'Carta de Correção', `abrirModalCartaCorrecaoNfe(${n.id}, '${tipoJs}')`));
+  }
+  if (nfePodeHistoricoCce(n)) {
+    corrItems.push(nfeMenuItem('fa-list-alt', 'Histórico CC-e', `abrirHistoricoCartaCorrecaoNfe(${n.id}, '${tipoJs}')`));
+  }
+  if (corrItems.length) {
+    grupos.push({ header: 'CORREÇÃO', items: corrItems });
+  }
+
+  // DOCUMENTO
+  const docItems = [];
+  if (autorizada) {
+    // Em venda, Visualizar abre a ficha — DANFE fica no menu.
+    // Em outros tipos, o botão Visualizar já abre o DANFE — evita duplicar.
+    if (venda) {
+      docItems.push(nfeMenuItem('fa-file-invoice', 'Visualizar DANFE', `visualizarDanfeNfe(${n.id}, '${tipoJs}')`));
+    }
+    docItems.push(nfeMenuItem('fa-file-pdf', 'Baixar PDF', `downloadDanfeNfe(${n.id}, '${tipoJs}')`));
+  }
+  if (temXml) {
+    docItems.push(nfeMenuItem('fa-download', 'Baixar XML', `downloadXmlNfe(${n.id}, '${tipoJs}')`));
+  }
+  if (venda && n.tem_xml) {
+    docItems.push(nfeMenuItem('fa-code', 'Visualizar XML', `visualizarXmlNfe(${n.id})`));
+  }
+  if (venda) {
+    docItems.push(nfeMenuItem('fa-history', 'Histórico operacional', `selecionarNfeNota(${n.id})`));
+  }
+  if (docItems.length) {
+    grupos.push({ header: 'DOCUMENTO', items: docItems });
+  }
+
+  // SEFAZ
+  const sefazItems = [];
+  if (venda) {
+    sefazItems.push(nfeMenuItem('fa-sync', 'Consultar situação na SEFAZ', `consultarSituacaoNfe(${n.id})`));
+  }
+  if (venda && n.pode_reenviar) {
+    sefazItems.push(nfeMenuItem('fa-redo', 'Reenviar', `reenviarNfeOperacional(${n.id})`));
+  }
+  if (sefazItems.length) {
+    grupos.push({ header: 'SEFAZ', items: sefazItems });
+  }
+
+  // EVENTOS
+  const evtItems = [];
+  if (podeDuplicar) {
+    evtItems.push(nfeMenuItem('fa-copy', 'Duplicar como Nova Devolução', `duplicarNfeComoNovaDevolucao(${n.id}, '${tipoJs}')`));
+    evtItems.push(nfeMenuItem('fa-file-signature', 'Registrar manifestação 210240', `registrarManifestacao210240Nfe(${n.id})`));
+  }
+  if (evtItems.length) {
+    grupos.push({ header: 'EVENTOS', items: evtItems });
+  }
+
+  // CANCELAMENTO (destrutivo, separado)
+  const cancelItems = [];
+  if (venda && podeCancelar) {
+    cancelItems.push(nfeMenuItem('fa-ban', 'Cancelar NF-e', `cancelarNfeNota(${n.id})`, { danger: true }));
+  }
+
+  let menuBody = '';
+  grupos.forEach((g, idx) => {
+    if (idx > 0) menuBody += nfeMenuDivider();
+    menuBody += nfeMenuHeader(g.header);
+    menuBody += g.items.join('');
+  });
+  if (cancelItems.length) {
+    if (grupos.length) menuBody += nfeMenuDivider();
+    menuBody += nfeMenuHeader('CANCELAMENTO');
+    menuBody += cancelItems.join('');
+  }
+
+  const temMenu = Boolean(menuBody);
+  const btnMais = temMenu
+    ? `<div class="btn-group nfe-mais-group dropstart">
+        <button type="button" class="btn btn-sm btn-outline-secondary nfe-acao-mais dropdown-toggle"
+          data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false"
+          title="Mais ações" id="${menuId}">
+          <i class="fas fa-ellipsis-v"></i><span class="nfe-acao-lbl">Mais</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end nfe-mais-menu" aria-labelledby="${menuId}">
+          ${menuBody}
+        </ul>
+      </div>`
+    : '';
+
+  return `
+    <div class="nfe-acoes nfe-acoes-compactas">
+      ${btnVisualizar}
+      ${btnImprimir}
+      ${btnMais}
+    </div>`;
+}
+
 function renderTabelaNfeNotas() {
   if (!nfeNotasCache.length) {
     $('#nfe-notas-area').html('<div class="alert alert-info mb-0">Nenhuma NF-e encontrada.</div>');
@@ -403,91 +597,46 @@ function renderTabelaNfeNotas() {
 
   const rows = nfeNotasCache.map((n) => {
     const tipo = tipoNfeNota(n);
-    const autorizada = nfeEstaAutorizada(n);
-    const temXml = Number(n.tem_xml) === 1 || Boolean(String(n.chave_acesso || '').trim());
     const venda = tipo === 'VENDA';
-    const tipoJs = escapeHtmlNfe(tipo);
     const sel = nfeNotaSelecionadaId === `${tipo}:${n.id}` || (venda && nfeNotaSelecionadaId === n.id);
+    const dest = String(n.cliente_nome || '-');
+    const prot = String(n.protocolo || '-');
+    const usuario = String(n.usuario_responsavel || '-');
+    const cstat = n.cstat_consulta != null && n.cstat_consulta !== ''
+      ? String(n.cstat_consulta)
+      : (n.c_stat != null && n.c_stat !== '' ? String(n.c_stat) : '-');
     return `
     <tr class="${sel ? 'table-active' : ''}">
-      <td><span class="badge bg-secondary">${escapeHtmlNfe(rotuloTipoNfe(tipo))}</span></td>
-      <td>${n.numero || '-'}</td>
-      <td>${n.serie || '-'}</td>
-      <td class="small text-break" style="max-width:180px;">${n.chave_acesso || '-'}</td>
-      <td>${n.cliente_nome || '-'}</td>
-      <td class="text-nowrap">${formatarDataHoraNfe(n.created_at)}</td>
-      <td class="text-end">${formatarMoedaNfe(n.valor)}</td>
-      <td>${badgeStatusNfe(n.status)}</td>
-      <td class="small">${n.cstat_consulta ? escapeHtmlNfe(String(n.cstat_consulta)) : '-'}</td>
-      <td class="small">${n.protocolo || '-'}</td>
-      <td class="small">${n.usuario_responsavel || '-'}</td>
-      <td class="text-nowrap">
-        ${venda ? `<button class="btn btn-sm btn-primary" title="Visualizar NF-e" onclick="visualizarFichaNfe(${n.id})">
-          <i class="fas fa-file-alt"></i>
-        </button>
-        <button class="btn btn-sm btn-outline-secondary" title="Selecionar / Histórico" onclick="selecionarNfeNota(${n.id})">
-          <i class="fas fa-history"></i>
-        </button>` : ''}
-        <button class="btn btn-sm btn-outline-primary" title="Visualizar DANFE" onclick="visualizarDanfeNfe(${n.id}, '${tipoJs}')" ${autorizada ? '' : 'disabled'}>
-          <i class="fas fa-eye"></i> DANFE</button>
-        <button class="btn btn-sm btn-primary" title="Reimprimir DANFE" onclick="reimprimirDanfeNfe(${n.id}, '${tipoJs}')" ${autorizada ? '' : 'disabled'}>
-          <i class="fas fa-print"></i> Reimprimir</button>
-        <button class="btn btn-sm btn-outline-secondary" title="Baixar PDF" onclick="downloadDanfeNfe(${n.id}, '${tipoJs}')" ${autorizada ? '' : 'disabled'}>
-          <i class="fas fa-file-pdf"></i> PDF</button>
-        <button class="btn btn-sm btn-outline-success" title="Download XML" onclick="downloadXmlNfe(${n.id}, '${tipoJs}')" ${temXml ? '' : 'disabled'}>
-          <i class="fas fa-download"></i> XML</button>
-        ${podeDuplicarNfeComoDevolucao(n) ? `
-        <div class="btn-group">
-          <button type="button" class="btn btn-sm btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Mais ações">
-            <i class="fas fa-ellipsis-v"></i>
-          </button>
-          <ul class="dropdown-menu dropdown-menu-end">
-            <li>
-              <button type="button" class="dropdown-item" onclick="duplicarNfeComoNovaDevolucao(${n.id}, '${tipoJs}')">
-                <i class="fas fa-copy me-1"></i> Duplicar como Nova Devolução
-              </button>
-            </li>
-            <li>
-              <button type="button" class="dropdown-item" onclick="registrarManifestacao210240Nfe(${n.id})">
-                <i class="fas fa-file-signature me-1"></i> Registrar manifestação 210240
-              </button>
-            </li>
-          </ul>
-        </div>` : ''}
-        ${venda ? `
-        <button class="btn btn-sm btn-outline-dark" title="Ver XML" onclick="visualizarXmlNfe(${n.id})" ${n.tem_xml ? '' : 'disabled'}>
-          <i class="fas fa-code"></i>
-        </button>
-        <button class="btn btn-sm btn-outline-info" title="Atualizar Situação (SEFAZ)" onclick="consultarSituacaoNfe(${n.id})">
-          <i class="fas fa-sync"></i>
-        </button>
-        ${n.pode_reenviar ? `<button class="btn btn-sm btn-warning" title="Reenviar" onclick="reenviarNfeOperacional(${n.id})">REENVIAR</button>` : ''}
-        <button class="btn btn-sm btn-outline-danger" title="Cancelar NF-e"
-          onclick="cancelarNfeNota(${n.id})"
-          ${String(n.status).toLowerCase() === 'autorizada' || String(n.status).toLowerCase() === 'cancelamento_rejeitado' ? '' : 'disabled'}>
-          <i class="fas fa-ban"></i>
-        </button>` : ''}
-      </td>
+      <td class="nfe-col-tipo"><span class="badge bg-secondary nfe-badge-tipo">${escapeHtmlNfe(rotuloTipoNfe(tipo))}</span></td>
+      <td class="nfe-col-numero nfe-cell-nowrap">${escapeHtmlNfe(n.numero || '-')}</td>
+      <td class="nfe-col-serie nfe-cell-nowrap">${escapeHtmlNfe(n.serie || '-')}</td>
+      <td class="nfe-col-dest nfe-cell-ellipsis" title="${escapeHtmlNfe(dest)}">${escapeHtmlNfe(dest)}</td>
+      <td class="nfe-col-data nfe-cell-nowrap">${formatarDataHoraNfe(n.created_at)}</td>
+      <td class="nfe-col-valor text-end nfe-cell-nowrap">${formatarMoedaNfe(n.valor)}</td>
+      <td class="nfe-col-sit">${badgeStatusNfe(n.status)}</td>
+      <td class="nfe-col-cstat nfe-cell-nowrap" title="${escapeHtmlNfe(cstat)}">${escapeHtmlNfe(cstat)}</td>
+      <td class="nfe-col-prot nfe-cell-ellipsis" title="${escapeHtmlNfe(prot)}">${escapeHtmlNfe(prot)}</td>
+      <td class="nfe-col-user nfe-cell-ellipsis" title="${escapeHtmlNfe(usuario)}">${escapeHtmlNfe(usuario)}</td>
+      <td class="nfe-col-acoes">${renderAcoesCompactasNfe(n)}</td>
     </tr>`;
   }).join('');
 
   $('#nfe-notas-area').html(`
-    <div class="table-responsive">
-      <table class="table table-sm table-hover align-middle mb-0">
+    <div class="nfe-central-table-wrap table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0 nfe-central-table">
         <thead>
           <tr>
-            <th>Tipo</th>
-            <th>Número</th>
-            <th>Série</th>
-            <th>Chave</th>
-            <th>Destinatário</th>
-            <th>Data/Hora</th>
-            <th class="text-end">Valor</th>
-            <th>Situação</th>
-            <th>cStat</th>
-            <th>Protocolo</th>
-            <th>Usuário</th>
-            <th>Ações</th>
+            <th class="nfe-col-tipo">Tipo</th>
+            <th class="nfe-col-numero">Número</th>
+            <th class="nfe-col-serie">Série</th>
+            <th class="nfe-col-dest">Destinatário</th>
+            <th class="nfe-col-data">Data/Hora</th>
+            <th class="nfe-col-valor text-end">Valor</th>
+            <th class="nfe-col-sit">Situação</th>
+            <th class="nfe-col-cstat">cStat</th>
+            <th class="nfe-col-prot">Protocolo</th>
+            <th class="nfe-col-user">Usuário</th>
+            <th class="nfe-col-acoes">Ações</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -571,6 +720,10 @@ function renderAcoesPrincipaisNfeAutorizada(notaId, n) {
         <i class="fas fa-download"></i> Baixar XML</button>
       <button type="button" class="btn btn-outline-secondary" onclick="copiarChaveNfe('${chaveAttr}')" ${n.chave_acesso ? '' : 'disabled'}>
         <i class="fas fa-copy"></i> Copiar Chave</button>
+      <button type="button" class="btn btn-outline-warning" onclick="abrirModalCartaCorrecaoNfe(${notaId})">
+        <i class="fas fa-pen"></i> Carta de Correção</button>
+      <button type="button" class="btn btn-outline-secondary" onclick="abrirHistoricoCartaCorrecaoNfe(${notaId})">
+        <i class="fas fa-list-alt"></i> Histórico CC-e</button>
       <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
         <i class="fas fa-times"></i> Fechar</button>
     </div>`;
@@ -802,6 +955,10 @@ function visualizarFichaNfe(id, opcoes = {}) {
       $('#nfeFichaFooter').html(autorizada ? `
         <button type="button" class="btn btn-outline-info btn-sm" onclick="consultarSituacaoNfe(${notaId})">
           <i class="fas fa-sync"></i> Consultar SEFAZ</button>
+        <button type="button" class="btn btn-outline-warning btn-sm" onclick="abrirModalCartaCorrecaoNfe(${notaId})">
+          <i class="fas fa-pen"></i> Carta de Correção</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="abrirHistoricoCartaCorrecaoNfe(${notaId})">
+          <i class="fas fa-list-alt"></i> Histórico CC-e</button>
         <button type="button" class="btn btn-outline-danger btn-sm" onclick="cancelarNfeNota(${notaId})" ${podeCancelar ? '' : 'disabled'}>
           <i class="fas fa-ban"></i> Cancelar NF-e</button>
         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
@@ -1042,6 +1199,196 @@ function cancelarNfeNota(id) {
   });
 }
 
+const NFE_CCE_AVISO =
+  'A Carta de Correção não pode ser utilizada para alterar valores, impostos, quantidade, destinatário, remetente ou datas da NF-e.';
+
+let nfeCceNotaAtual = null;
+
+function chaveResumidaNfe(chave) {
+  const c = String(chave || '').replace(/\D/g, '');
+  if (c.length < 12) return c || '—';
+  return `${c.slice(0, 6)}…${c.slice(-6)}`;
+}
+
+function atualizarContadorCce() {
+  const ta = document.getElementById('nfeCceTexto');
+  const cont = document.getElementById('nfeCceContador');
+  if (!ta || !cont) return;
+  const len = String(ta.value || '').length;
+  cont.textContent = `${len} / 1000`;
+  cont.classList.toggle('text-danger', len > 1000 || (len > 0 && len < 15));
+}
+
+function abrirModalCartaCorrecaoNfe(id, tipo) {
+  let nota = localizarNotaNfe(id, tipo);
+  if (!nota || !nota.id) {
+    nota = nfeNotasCache.find((n) => Number(n.id) === Number(id) && (!tipo || tipoNfeNota(n) === String(tipo).toUpperCase()))
+      || nfeNotasCache.find((n) => Number(n.id) === Number(id))
+      || null;
+  }
+  if (!nota || !nota.id) {
+    showNotification('NF-e não encontrada na lista.', 'warning');
+    return;
+  }
+  if (!nfePodeCartaCorrecao(nota)) {
+    showNotification('CC-e disponível somente para NF-e autorizada.', 'warning');
+    return;
+  }
+  nfeCceNotaAtual = nota;
+  const tipoNota = tipoNfeNota(nota);
+  const dest = nota.destinatario_nome || nota.cliente_nome || nota.fornecedor_nome || '—';
+  $('#nfeCceTitulo').text(`Carta de Correção — NF-e Nº ${nota.numero || id}`);
+  $('#nfeCceBody').html(`
+    <div class="row g-2 small mb-3">
+      <div class="col-md-3"><span class="text-muted">NF-e</span><div class="fw-semibold">${escapeHtmlNfe(nota.numero || '—')}</div></div>
+      <div class="col-md-2"><span class="text-muted">Série</span><div class="fw-semibold">${escapeHtmlNfe(nota.serie || '—')}</div></div>
+      <div class="col-md-4"><span class="text-muted">Destinatário</span><div class="fw-semibold text-truncate" title="${escapeHtmlNfe(dest)}">${escapeHtmlNfe(dest)}</div></div>
+      <div class="col-md-3"><span class="text-muted">Valor</span><div class="fw-semibold">${formatarMoedaNfe(nota.valor_total || nota.valor)}</div></div>
+      <div class="col-12"><span class="text-muted">Chave</span><div class="font-monospace">${escapeHtmlNfe(chaveResumidaNfe(nota.chave_acesso))}</div></div>
+    </div>
+    <div class="alert alert-warning small py-2">${escapeHtmlNfe(NFE_CCE_AVISO)}</div>
+    <label class="form-label fw-semibold" for="nfeCceTexto">CORREÇÃO</label>
+    <textarea id="nfeCceTexto" class="form-control" rows="8" maxlength="1000"
+      placeholder="Descreva a correção (mínimo 15 caracteres)"></textarea>
+    <div class="d-flex justify-content-between small mt-1">
+      <span class="text-muted">Mínimo: 15 caracteres.</span>
+      <span id="nfeCceContador" class="text-muted">0 / 1000</span>
+    </div>
+    <div id="nfeCceResultado" class="mt-3"></div>
+  `);
+  $('#nfeCceFooter').html(`
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">CANCELAR</button>
+    <button type="button" class="btn btn-primary" id="nfeCceTransmitirBtn">TRANSMITIR CC-e</button>
+  `);
+  const el = document.getElementById('nfeCceModal');
+  if (el && window.bootstrap) bootstrap.Modal.getOrCreateInstance(el).show();
+  else $('#nfeCceModal').modal('show');
+  $('#nfeCceTexto').off('input.cce').on('input.cce', atualizarContadorCce);
+  $('#nfeCceTransmitirBtn').off('click.cce').on('click.cce', () => transmitirCartaCorrecaoNfe(id, tipoNota));
+  atualizarContadorCce();
+}
+
+function transmitirCartaCorrecaoNfe(id, tipo) {
+  const texto = String($('#nfeCceTexto').val() || '').trim();
+  if (texto.length < 15) {
+    showNotification('A correção deve ter no mínimo 15 caracteres.', 'warning');
+    return;
+  }
+  if (texto.length > 1000) {
+    showNotification('A correção deve ter no máximo 1000 caracteres.', 'warning');
+    return;
+  }
+  const tipoDoc = String(tipo || (nfeCceNotaAtual && tipoNfeNota(nfeCceNotaAtual)) || 'VENDA').toUpperCase();
+  const $btn = $('#nfeCceTransmitirBtn');
+  $btn.prop('disabled', true).text('Transmitindo…');
+  $('#nfeCceResultado').html('');
+  $.ajax({
+    url: `${API_URL}/nfe/notas/${id}/cce`,
+    method: 'POST',
+    contentType: 'application/json',
+    data: JSON.stringify({ xCorrecao: texto, tipo: tipoDoc }),
+    success(resp) {
+      const ev = resp.evento || {};
+      if (resp.success) {
+        showNotification('CC-e registrada com sucesso.', 'success');
+        $('#nfeCceResultado').html(`
+          <div class="alert alert-success mb-0">
+            <strong>CC-e registrada com sucesso.</strong>
+            <div class="small mt-2">
+              <div>Sequencial: <strong>${escapeHtmlNfe(ev.n_seq_evento)}</strong></div>
+              <div>Protocolo: <strong>${escapeHtmlNfe(ev.protocolo || '—')}</strong></div>
+              <div>Data/hora: ${escapeHtmlNfe(formatarDataHoraNfe(ev.dh_recebimento || ev.dh_evento))}</div>
+              <div>Mensagem SEFAZ: ${escapeHtmlNfe(ev.x_motivo || resp.message || '')}</div>
+            </div>
+          </div>`);
+        $('#nfeCceFooter').html(`
+          <button type="button" class="btn btn-outline-secondary" onclick="abrirHistoricoCartaCorrecaoNfe(${id}, '${escapeHtmlNfe(tipoDoc)}')">Histórico CC-e</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+        `);
+      } else {
+        showNotification(resp.message || 'CC-e rejeitada pela SEFAZ.', 'warning');
+        $('#nfeCceResultado').html(`
+          <div class="alert alert-warning mb-0">
+            <strong>CC-e rejeitada.</strong>
+            <div class="small mt-2">
+              <div>cStat: <strong>${escapeHtmlNfe(ev.c_stat || '—')}</strong></div>
+              <div>xMotivo: ${escapeHtmlNfe(ev.x_motivo || resp.message || '')}</div>
+            </div>
+          </div>`);
+        $btn.prop('disabled', false).text('TRANSMITIR CC-e');
+      }
+      carregarNfeNotas();
+    },
+    error(xhr) {
+      const body = xhr.responseJSON || {};
+      showNotification(body.error || body.mensagem || 'Erro ao transmitir CC-e.', 'danger');
+      $('#nfeCceResultado').html(`
+        <div class="alert alert-danger mb-0">
+          ${escapeHtmlNfe(body.error || body.mensagem || 'Falha na transmissão.')}
+          ${body.codigo ? `<div class="small mt-1">Código: ${escapeHtmlNfe(body.codigo)}</div>` : ''}
+        </div>`);
+      $btn.prop('disabled', false).text('TRANSMITIR CC-e');
+    }
+  });
+}
+
+function badgeStatusCce(status) {
+  const s = String(status || '').toLowerCase();
+  if (s === 'registrada') return '<span class="badge bg-success">Registrada</span>';
+  if (s === 'rejeitada') return '<span class="badge bg-warning text-dark">Rejeitada</span>';
+  if (s === 'erro') return '<span class="badge bg-danger">Erro</span>';
+  return `<span class="badge bg-secondary">${escapeHtmlNfe(status || 'Pendente')}</span>`;
+}
+
+function abrirHistoricoCartaCorrecaoNfe(id, tipo) {
+  const tipoDoc = String(tipo || (localizarNotaNfe(id, tipo)?.tipo) || 'VENDA').toUpperCase();
+  $('#nfeCceHistoricoTitulo').text(`Histórico CC-e — NF-e #${id}`);
+  $('#nfeCceHistoricoBody').html('<div class="text-muted">Carregando…</div>');
+  const el = document.getElementById('nfeCceHistoricoModal');
+  if (el && window.bootstrap) bootstrap.Modal.getOrCreateInstance(el).show();
+  else $('#nfeCceHistoricoModal').modal('show');
+
+  $.ajax({
+    url: `${API_URL}/nfe/notas/${id}/cce?tipo=${encodeURIComponent(tipoDoc)}`,
+    method: 'GET',
+    success(resp) {
+      const eventos = resp.eventos || [];
+      if (!eventos.length) {
+        $('#nfeCceHistoricoBody').html(`
+          <div class="alert alert-info mb-2">Nenhuma Carta de Correção registrada para esta NF-e.</div>
+          <p class="small text-muted mb-0">${escapeHtmlNfe(resp.avisoRestricoes || NFE_CCE_AVISO)}</p>`);
+        return;
+      }
+      const rows = eventos.map((e) => `
+        <tr>
+          <td class="text-nowrap">CC-e #${escapeHtmlNfe(e.n_seq_evento)}</td>
+          <td>${badgeStatusCce(e.status)}</td>
+          <td class="small">${escapeHtmlNfe(e.c_stat || '—')}</td>
+          <td class="small font-monospace">${escapeHtmlNfe(e.protocolo || '—')}</td>
+          <td class="small text-nowrap">${formatarDataHoraNfe(e.dh_recebimento || e.dh_evento || e.created_at)}</td>
+          <td class="small text-break">${escapeHtmlNfe(e.x_correcao || '')}</td>
+        </tr>`).join('');
+      $('#nfeCceHistoricoBody').html(`
+        <div class="alert alert-warning small py-2">${escapeHtmlNfe(resp.avisoRestricoes || NFE_CCE_AVISO)}</div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Evento</th><th>Status</th><th>cStat</th><th>Protocolo</th><th>Data/hora</th><th>Correção</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`);
+    },
+    error(xhr) {
+      $('#nfeCceHistoricoBody').html(
+        `<div class="alert alert-danger">${escapeHtmlNfe(xhr.responseJSON?.error || 'Erro ao listar CC-e.')}</div>`
+      );
+    }
+  });
+}
+
 function carregarHistoricoNfe(id) {
   $('#nfe-historico-titulo').text(`Histórico da NF-e #${id}`);
   $('#nfe-historico-area').html('<div class="text-muted">Carregando…</div>');
@@ -1216,6 +1563,9 @@ async function registrarManifestacao210240Nfe(id) {
 }
 window.registrarManifestacao210240Nfe = registrarManifestacao210240Nfe;
 window.cancelarNfeNota = cancelarNfeNota;
+window.abrirModalCartaCorrecaoNfe = abrirModalCartaCorrecaoNfe;
+window.abrirHistoricoCartaCorrecaoNfe = abrirHistoricoCartaCorrecaoNfe;
+window.transmitirCartaCorrecaoNfe = transmitirCartaCorrecaoNfe;
 window.reenviarNfeOperacional = reenviarNfeOperacional;
 window.abrirCentralNfeDocumental = abrirCentralNfeDocumental;
 window.apresentarDocumentoNfePosEmissao = apresentarDocumentoNfePosEmissao;

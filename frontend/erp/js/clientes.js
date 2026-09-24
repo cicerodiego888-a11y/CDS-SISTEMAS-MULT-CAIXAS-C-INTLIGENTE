@@ -172,7 +172,14 @@ function renderClientes(clientes) {
 function showClienteModal(cliente = null) {
     const isEdit = cliente !== null;
     const title = isEdit ? 'Editar Cliente' : 'Novo Cliente';
-    
+    const utilizaLimite = isEdit && Number(cliente.utiliza_limite_credito) === 1;
+    const limiteValor = isEdit ? (cliente.limite_credito != null ? cliente.limite_credito : 0) : 0;
+    const creditoAtualInfo = isEdit
+        ? (typeof formatCurrency === 'function'
+            ? formatCurrency(Number(cliente.credito_atual) || 0)
+            : String(cliente.credito_atual != null ? cliente.credito_atual : 0))
+        : null;
+
     const modalHtml = `
         <div class="modal fade" id="clienteModal" tabindex="-1">
             <div class="modal-dialog modal-lg">
@@ -184,55 +191,92 @@ function showClienteModal(cliente = null) {
                     <div class="modal-body">
                         <form id="clienteForm">
                             <input type="hidden" id="clienteId" value="${isEdit ? cliente.id : ''}">
+                            <input type="hidden" id="codigo_municipio" value="${isEdit ? escapeHtml(cliente.codigo_municipio || '') : ''}">
                             <div class="row">
                                 <div class="col-md-6 mb-3">
-                                    <label for="nome" class="form-label">Nome *</label>
-                                    <input type="text" class="form-control" id="nome" required value="${isEdit ? cliente.nome : ''}">
+                                    <label for="nome" class="form-label">Nome / Nome Fantasia *</label>
+                                    <input type="text" class="form-control" id="nome" required value="${isEdit ? escapeHtml(cliente.nome || '') : ''}">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="razao_social" class="form-label">Razão Social</label>
+                                    <input type="text" class="form-control" id="razao_social" value="${isEdit ? escapeHtml(cliente.razao_social || '') : ''}">
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label for="cpf_cnpj" class="form-label">CPF/CNPJ</label>
-                                    <input type="text" class="form-control" id="cpf_cnpj" value="${isEdit ? (formatarCpfCnpj(cliente.cpf_cnpj) || '') : ''}" oninput="formatCpfCnpjInput(this)" maxlength="18">
+                                    <div class="d-flex align-items-start">
+                                        <input type="text" class="form-control" id="cpf_cnpj" value="${isEdit ? (formatarCpfCnpj(cliente.cpf_cnpj) || '') : ''}" oninput="formatCpfCnpjInput(this)" maxlength="18">
+                                        <button type="button" class="btn btn-outline-primary text-nowrap ms-2" id="btnConsultarCnpjCliente" onclick="consultarCnpjCliente()">
+                                            Consultar CNPJ
+                                        </button>
+                                    </div>
+                                    <small id="consultaCnpjClienteStatus" class="text-muted d-block mt-1"></small>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="inscricao_estadual" class="form-label">Inscrição Estadual</label>
+                                    <input type="text" class="form-control" id="inscricao_estadual" value="${isEdit ? escapeHtml(cliente.inscricao_estadual || '') : ''}" placeholder="Opcional">
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label for="telefone" class="form-label">Telefone</label>
-                                    <input type="text" class="form-control" id="telefone" value="${isEdit ? (cliente.telefone || '') : ''}">
+                                    <input type="text" class="form-control" id="telefone" value="${isEdit ? escapeHtml(cliente.telefone || '') : ''}">
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label for="email" class="form-label">Email</label>
-                                    <input type="email" class="form-control" id="email" value="${isEdit ? (cliente.email || '') : ''}">
+                                    <label for="email" class="form-label">E-mail</label>
+                                    <input type="email" class="form-control" id="email" value="${isEdit ? escapeHtml(cliente.email || '') : ''}">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="contato" class="form-label">Contato</label>
+                                    <input type="text" class="form-control" id="contato" value="${isEdit ? escapeHtml(cliente.contato || '') : ''}" placeholder="Pessoa de contato">
                                 </div>
                                 <div class="col-md-4 mb-3">
                                     <label for="cep" class="form-label">CEP</label>
-                                    <input type="text" class="form-control" id="cep" maxlength="9" value="${isEdit && cliente.cep ? cliente.cep : ''}" placeholder="00000-000">
+                                    <input type="text" class="form-control" id="cep" maxlength="9" value="${isEdit && cliente.cep ? escapeHtml(cliente.cep) : ''}" placeholder="00000-000">
                                 </div>
                                 <div class="col-md-8 mb-3 d-flex align-items-end">
-                                    <button type="button" class="btn btn-outline-secondary ms-2" id="buscarCepBtn">Buscar Endereço</button>
+                                    <button type="button" class="btn btn-outline-secondary" id="buscarCepBtn">Buscar Endereço</button>
                                     <span id="cep-loading" class="ms-2" style="display:none;"><i class="fas fa-spinner fa-spin"></i> Buscando...</span>
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label for="rua" class="form-label">Rua</label>
-                                    <input type="text" class="form-control" id="rua" value="${isEdit ? (cliente.rua || '') : ''}">
+                                    <input type="text" class="form-control" id="rua" value="${isEdit ? escapeHtml(cliente.rua || '') : ''}">
                                 </div>
                                 <div class="col-md-2 mb-3">
                                     <label for="numero" class="form-label">Número</label>
-                                    <input type="text" class="form-control" id="numero" value="${isEdit ? (cliente.numero || '') : ''}">
+                                    <input type="text" class="form-control" id="numero" value="${isEdit ? escapeHtml(cliente.numero || '') : ''}">
                                 </div>
                                 <div class="col-md-4 mb-3">
                                     <label for="bairro" class="form-label">Bairro</label>
-                                    <input type="text" class="form-control" id="bairro" value="${isEdit ? (cliente.bairro || '') : ''}">
+                                    <input type="text" class="form-control" id="bairro" value="${isEdit ? escapeHtml(cliente.bairro || '') : ''}">
                                 </div>
                                 <div class="col-md-4 mb-3">
                                     <label for="cidade" class="form-label">Cidade</label>
-                                    <input type="text" class="form-control" id="cidade" value="${isEdit ? (cliente.cidade || '') : ''}">
+                                    <input type="text" class="form-control" id="cidade" value="${isEdit ? escapeHtml(cliente.cidade || '') : ''}">
                                 </div>
                                 <div class="col-md-2 mb-3">
                                     <label for="uf" class="form-label">UF</label>
-                                    <input type="text" class="form-control" id="uf" maxlength="2" value="${isEdit ? (cliente.uf || '') : ''}">
+                                    <input type="text" class="form-control" id="uf" maxlength="2" value="${isEdit ? escapeHtml(cliente.uf || '') : ''}">
+                                </div>
+                                <div class="col-md-12 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="utiliza_limite_credito" ${utilizaLimite ? 'checked' : ''}>
+                                        <label class="form-check-label" for="utiliza_limite_credito">
+                                            Utiliza limite de crédito
+                                        </label>
+                                    </div>
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label for="limite_credito" class="form-label">Limite de Crédito (fiado)</label>
-                                    <input type="number" step="0.01" min="0" class="form-control" id="limite_credito" value="${isEdit ? (cliente.limite_credito || 0) : 0}">
-                                    <small class="text-muted">Deve ser maior que zero para permitir vendas com forma &quot;Crédito&quot;.</small>
+                                    <label for="limite_credito" class="form-label" id="label_limite_credito">Limite de Crédito (fiado)</label>
+                                    <input type="number" step="0.01" min="0" class="form-control" id="limite_credito" value="${limiteValor}">
+                                    <small class="text-muted" id="hint_limite_credito">Opcional enquanto o uso de limite estiver desmarcado.</small>
+                                </div>
+                                ${isEdit ? `
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Crédito Atual</label>
+                                    <input type="text" class="form-control" value="${escapeHtml(creditoAtualInfo)}" readonly disabled>
+                                    <small class="text-muted">Somente leitura — atualizado pelo sistema.</small>
+                                </div>` : ''}
+                                <div class="col-md-12 mb-3">
+                                    <label for="observacoes" class="form-label">Observações</label>
+                                    <textarea class="form-control" id="observacoes" rows="3" placeholder="Observações">${isEdit ? escapeHtml(cliente.observacoes || '') : ''}</textarea>
                                 </div>
                             </div>
                         </form>
@@ -248,54 +292,223 @@ function showClienteModal(cliente = null) {
     $('#modal-container').html(modalHtml);
     $('#clienteModal').modal('show');
 
-    // Evento de busca automática ao sair do campo CEP ou clicar no botão
-    $('#cep').on('blur', buscarEnderecoPorCep);
-    $('#buscarCepBtn').on('click', buscarEnderecoPorCep);
+    atualizarUiLimiteCreditoCliente();
+    $('#utiliza_limite_credito').off('change').on('change', atualizarUiLimiteCreditoCliente);
 
-    function buscarEnderecoPorCep() {
-        const cep = $('#cep').val().replace(/\D/g, '');
-        if (cep.length !== 8) {
-            showNotification('CEP inválido!', 'warning');
+    $('#cep').off('blur').on('blur', buscarEnderecoPorCepCliente);
+    $('#buscarCepBtn').off('click').on('click', buscarEnderecoPorCepCliente);
+}
+
+function buscarEnderecoPorCepCliente() {
+    const cep = String($('#cep').val() || '').replace(/\D/g, '');
+    if (cep.length !== 8) {
+        showNotification('CEP inválido!', 'warning');
+        return;
+    }
+    $('#cep-loading').show();
+    // Mesma rotina ViaCEP já usada no cadastro de fornecedor / clientes
+    $.getJSON(`https://viacep.com.br/ws/${cep}/json/`, function(data) {
+        $('#cep-loading').hide();
+        if (data.erro) {
+            showNotification('CEP não encontrado!', 'warning');
             return;
         }
-        $('#cep-loading').show();
-        $.getJSON(`https://viacep.com.br/ws/${cep}/json/`, function(data) {
-            $('#cep-loading').hide();
-            if (data.erro) {
-                showNotification('CEP não encontrado!', 'warning');
-                return;
-            }
-            $('#rua').val(data.logradouro || '');
-            $('#bairro').val(data.bairro || '');
-            $('#cidade').val(data.localidade || '');
-            $('#uf').val(data.uf || '');
-        }).fail(function() {
-            $('#cep-loading').hide();
-            showNotification('Erro ao buscar o CEP!', 'danger');
+        if (data.logradouro) $('#rua').val(data.logradouro);
+        if (data.bairro) $('#bairro').val(data.bairro);
+        if (data.localidade) $('#cidade').val(data.localidade);
+        if (data.uf) $('#uf').val(data.uf);
+        // Cidade/UF mudaram — IBGE será resolvido no backend ao salvar
+        if (data.localidade || data.uf) {
+            $('#codigo_municipio').val('');
+        }
+    }).fail(function() {
+        $('#cep-loading').hide();
+        showNotification('Erro ao buscar o CEP!', 'danger');
+    });
+}
+
+function atualizarUiLimiteCreditoCliente() {
+    const marcado = $('#utiliza_limite_credito').is(':checked');
+    const label = $('#label_limite_credito');
+    const input = $('#limite_credito');
+    const hint = $('#hint_limite_credito');
+    if (marcado) {
+        label.html('Limite de Crédito (fiado) *');
+        input.prop('disabled', false);
+        hint.text('Obrigatório. Informe um valor maior ou igual a zero.');
+    } else {
+        label.html('Limite de Crédito (fiado)');
+        input.prop('disabled', false);
+        hint.text('Opcional enquanto o uso de limite estiver desmarcado.');
+    }
+}
+
+let _consultaCnpjClienteEmAndamento = false;
+
+function setStatusConsultaCnpjCliente(texto, classe) {
+    const el = $('#consultaCnpjClienteStatus');
+    if (!el.length) return;
+    el.removeClass('text-muted text-success text-danger text-warning');
+    el.addClass(classe || 'text-muted');
+    el.text(texto || '');
+}
+
+function aplicarDadosConsultaCnpjCliente(data) {
+    const d = data || {};
+    const temValor = (v) => v != null && String(v).trim() !== '';
+
+    // Só preenche quando a API retorna valor — não apaga campos existentes
+    if (temValor(d.cnpj)) {
+        $('#cpf_cnpj').val(typeof formatarCpfCnpj === 'function' ? formatarCpfCnpj(d.cnpj) : d.cnpj);
+    }
+    if (temValor(d.nomeFantasia)) {
+        $('#nome').val(d.nomeFantasia);
+    }
+    if (temValor(d.razaoSocial)) {
+        $('#razao_social').val(d.razaoSocial);
+        // Se ainda não houver nome/fantasia, usa razão social como fallback
+        if (!temValor($('#nome').val())) {
+            $('#nome').val(d.razaoSocial);
+        }
+    }
+    if (temValor(d.inscricaoEstadual)) $('#inscricao_estadual').val(d.inscricaoEstadual);
+    if (temValor(d.telefone)) $('#telefone').val(d.telefone);
+    if (temValor(d.email)) $('#email').val(d.email);
+    if (temValor(d.cep)) $('#cep').val(d.cep);
+    if (temValor(d.logradouro)) $('#rua').val(d.logradouro);
+    if (temValor(d.numero)) $('#numero').val(d.numero);
+    if (temValor(d.bairro)) $('#bairro').val(d.bairro);
+    if (temValor(d.municipio)) $('#cidade').val(d.municipio);
+    if (temValor(d.uf)) $('#uf').val(String(d.uf).toUpperCase());
+    if (temValor(d.codigoMunicipio)) $('#codigo_municipio').val(d.codigoMunicipio);
+}
+
+async function consultarCnpjCliente() {
+    if (_consultaCnpjClienteEmAndamento) return;
+
+    const digitos = String($('#cpf_cnpj').val() || '').replace(/\D/g, '');
+    if (digitos.length !== 14) {
+        showNotification('Informe um CNPJ com 14 dígitos para consultar.', 'warning');
+        $('#cpf_cnpj').focus();
+        return;
+    }
+
+    const btn = $('#btnConsultarCnpjCliente');
+    _consultaCnpjClienteEmAndamento = true;
+    btn.prop('disabled', true);
+    setStatusConsultaCnpjCliente('Consultando...', 'text-muted');
+
+    try {
+        const response = await fetch(`/api/consulta-cnpj/${encodeURIComponent(digitos)}`, {
+            headers: { Authorization: 'Bearer ' + localStorage.getItem('token') }
         });
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            let msg = payload.error || 'Não foi possível consultar o CNPJ agora.';
+            if (payload.code === 'NAO_ENCONTRADO' || response.status === 404) {
+                msg = 'Empresa não encontrada para este CNPJ.';
+            } else if (payload.code === 'RATE_LIMIT' || response.status === 429) {
+                msg = 'A consulta de CNPJ atingiu o limite temporário. Tente novamente em alguns instantes.';
+            } else if (payload.code === 'CNPJ_INVALIDO' || response.status === 400) {
+                msg = 'CNPJ inválido.';
+            }
+            setStatusConsultaCnpjCliente(msg, 'text-danger');
+            showNotification(msg, response.status === 404 ? 'warning' : 'danger');
+            return;
+        }
+
+        aplicarDadosConsultaCnpjCliente(payload.data);
+        setStatusConsultaCnpjCliente(
+            payload.fromCache
+                ? 'Dados consultados anteriormente. Confira os campos antes de salvar.'
+                : 'Dados preenchidos. Confira os campos antes de salvar.',
+            'text-success'
+        );
+        showNotification('Dados do CNPJ carregados. Confira e salve o cliente.', 'success');
+
+        const cnpjConsultado = String((payload.data && payload.data.cnpj) || digitos).replace(/\D/g, '');
+        const existente = (window.__cdsClientesCache || []).find((c) =>
+            String(c.cpf_cnpj || '').replace(/\D/g, '') === cnpjConsultado
+        );
+        const idAtual = $('#clienteId').val();
+        if (existente && String(existente.id) !== String(idAtual || '')) {
+            const nomeExistente = existente.nome || '';
+            showNotification(
+                nomeExistente
+                    ? `Este CNPJ já está cadastrado: ${nomeExistente}`
+                    : 'Este CNPJ já está cadastrado.',
+                'warning'
+            );
+            setStatusConsultaCnpjCliente(
+                nomeExistente
+                    ? `Este CNPJ já está cadastrado (${nomeExistente}).`
+                    : 'Este CNPJ já está cadastrado.',
+                'text-warning'
+            );
+        }
+    } catch (error) {
+        console.error('Erro ao consultar CNPJ do cliente:', error);
+        const msg = 'Não foi possível consultar o CNPJ agora. Verifique sua conexão ou tente novamente.';
+        setStatusConsultaCnpjCliente(msg, 'text-danger');
+        showNotification(msg, 'danger');
+    } finally {
+        _consultaCnpjClienteEmAndamento = false;
+        btn.prop('disabled', false);
     }
 }
 
 // Save cliente
 function saveCliente() {
     const id = $('#clienteId').val();
+    const utilizaLimite = $('#utiliza_limite_credito').is(':checked');
+    const limiteRaw = $('#limite_credito').val();
+
+    if (utilizaLimite && (limiteRaw === '' || limiteRaw == null)) {
+        showNotification('Limite de crédito é obrigatório quando "Utiliza limite de crédito" está marcado.', 'warning');
+        $('#limite_credito').focus();
+        return;
+    }
+    if (utilizaLimite) {
+        const num = parseFloat(limiteRaw);
+        if (isNaN(num) || num < 0) {
+            showNotification('Informe um limite de crédito válido (maior ou igual a zero).', 'warning');
+            $('#limite_credito').focus();
+            return;
+        }
+    }
+
     const data = {
         nome: $('#nome').val(),
+        razao_social: $('#razao_social').val(),
         cpf_cnpj: $('#cpf_cnpj').val(),
         telefone: $('#telefone').val(),
         email: $('#email').val(),
+        contato: $('#contato').val(),
         cep: $('#cep').val(),
         rua: $('#rua').val(),
         numero: $('#numero').val(),
         bairro: $('#bairro').val(),
         cidade: $('#cidade').val(),
         uf: $('#uf').val(),
-        limite_credito: parseFloat($('#limite_credito').val())
+        inscricao_estadual: $('#inscricao_estadual').val(),
+        codigo_municipio: $('#codigo_municipio').val(),
+        observacoes: $('#observacoes').val(),
+        utiliza_limite_credito: utilizaLimite ? 1 : 0,
+        limite_credito: utilizaLimite
+            ? parseFloat(limiteRaw)
+            : (limiteRaw === '' || limiteRaw == null ? null : parseFloat(limiteRaw))
     };
-    
+
+    if (!data.nome || !String(data.nome).trim()) {
+        showNotification('O campo nome é obrigatório.', 'warning');
+        $('#nome').focus();
+        return;
+    }
+
     const url = id ? `${API_URL}/clientes/${id}` : `${API_URL}/clientes`;
     const method = id ? 'PUT' : 'POST';
-    
+
     $.ajax({
         url: url,
         method: method,
@@ -307,7 +520,10 @@ function saveCliente() {
             loadClientes();
         },
         error: function(xhr) {
-            showNotification('Erro ao salvar cliente: ' + (xhr.responseJSON?.error || 'Erro desconhecido'), 'danger');
+            const msg = xhr.responseJSON?.error
+                || xhr.responseJSON?.message
+                || 'Erro desconhecido';
+            showNotification('Erro ao salvar cliente: ' + msg, 'danger');
         }
     });
 }
@@ -406,16 +622,20 @@ function viewCliente(id) {
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
-                                <p><strong>Nome:</strong> ${cliente.nome}</p>
+                                <p><strong>Nome / Fantasia:</strong> ${escapeHtml(cliente.nome || '-')}</p>
+                                <p><strong>Razão Social:</strong> ${escapeHtml(cliente.razao_social || '-')}</p>
                                 <p><strong>CPF/CNPJ:</strong> ${formatarCpfCnpj(cliente.cpf_cnpj) || '-'}</p>
-                                <p><strong>Telefone:</strong> ${cliente.telefone || '-'}</p>
-                                <p><strong>Email:</strong> ${cliente.email || '-'}</p>
-                                <p><strong>CEP:</strong> ${cliente.cep || '-'}</p>
-                                <p><strong>Rua:</strong> ${cliente.rua || '-'}</p>
-                                <p><strong>Número:</strong> ${cliente.numero || '-'}</p>
-                                <p><strong>Bairro:</strong> ${cliente.bairro || '-'}</p>
-                                <p><strong>Cidade:</strong> ${cliente.cidade || '-'}</p>
-                                <p><strong>UF:</strong> ${cliente.uf || '-'}</p>
+                                <p><strong>Inscrição Estadual:</strong> ${escapeHtml(cliente.inscricao_estadual || '-')}</p>
+                                <p><strong>Telefone:</strong> ${escapeHtml(cliente.telefone || '-')}</p>
+                                <p><strong>E-mail:</strong> ${escapeHtml(cliente.email || '-')}</p>
+                                <p><strong>Contato:</strong> ${escapeHtml(cliente.contato || '-')}</p>
+                                <p><strong>CEP:</strong> ${escapeHtml(cliente.cep || '-')}</p>
+                                <p><strong>Rua:</strong> ${escapeHtml(cliente.rua || '-')}</p>
+                                <p><strong>Número:</strong> ${escapeHtml(cliente.numero || '-')}</p>
+                                <p><strong>Bairro:</strong> ${escapeHtml(cliente.bairro || '-')}</p>
+                                <p><strong>Cidade:</strong> ${escapeHtml(cliente.cidade || '-')}</p>
+                                <p><strong>UF:</strong> ${escapeHtml(cliente.uf || '-')}</p>
+                                <p><strong>Observações:</strong> ${escapeHtml(cliente.observacoes || '-')}</p>
                                 <p><strong>Limite de Crédito:</strong> ${limiteCredito}</p>
                                 <p><strong>Crédito Atual:</strong> ${creditoAtual}</p>
                                 <p><strong>Cadastrado em:</strong> ${formatDateTime(cliente.created_at)}</p>
@@ -453,4 +673,13 @@ function deleteCliente(id) {
             }
         });
     }
+}
+
+function escapeHtml(texto) {
+    return String(texto == null ? '' : texto)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }

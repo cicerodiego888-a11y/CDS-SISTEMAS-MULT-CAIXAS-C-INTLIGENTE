@@ -4,6 +4,72 @@ const db = require('../database');
 const { verificarToken: autenticarToken } = require('../middleware/auth');
 const { gravarAuditoria } = require('../services/auditoria');
 const { obterSearchService } = require('../motores/mib');
+const {
+  prepararDocumentoCadastro,
+  apenasDigitos,
+  sqlColunaSomenteDigitos
+} = require('../services/cadastro/documentoCpfCnpj');
+const { validarLimiteCreditoCadastro } = require('../services/cadastro/limiteCreditoCliente');
+const { resolverMunicipioDestinatario } = require('../services/fiscal/municipioIbge');
+
+/**
+ * Normaliza cpf_cnpj no cadastro de cliente (mesma política POST/PUT).
+ * CNPJ (14) → dígitos + validação DV; CPF (11) → só dígitos; vazio → ''.
+ */
+function normalizarDocumentoCliente(valor) {
+  const bruto = valor == null ? '' : String(valor).trim();
+  if (!bruto) return { ok: true, valor: '' };
+
+  const digitos = apenasDigitos(bruto);
+  if (digitos.length === 14) {
+    const doc = prepararDocumentoCadastro(digitos);
+    if (!doc.ok) return doc;
+    return { ok: true, valor: doc.valor };
+  }
+
+  return { ok: true, valor: digitos };
+}
+
+function textoOuNull(valor) {
+  if (valor == null) return null;
+  const s = String(valor).trim();
+  return s === '' ? null : s;
+}
+
+function montarCamposCliente(body) {
+  const cidade = textoOuNull(body.cidade);
+  const uf = textoOuNull(body.uf);
+  const ufLimpa = uf ? uf.toUpperCase() : null;
+  const codigoInformado = textoOuNull(body.codigo_municipio);
+
+  let codigoMunicipio = null;
+  try {
+    codigoMunicipio = resolverMunicipioDestinatario({
+      cidade,
+      uf: ufLimpa,
+      codigoMunicipio: codigoInformado
+    });
+  } catch (_) {
+    codigoMunicipio = null;
+  }
+
+  return {
+    nome: String(body.nome || '').trim(),
+    razao_social: textoOuNull(body.razao_social),
+    telefone: textoOuNull(body.telefone),
+    email: textoOuNull(body.email),
+    contato: textoOuNull(body.contato),
+    cep: textoOuNull(body.cep),
+    rua: textoOuNull(body.rua || body.logradouro),
+    numero: textoOuNull(body.numero),
+    bairro: textoOuNull(body.bairro),
+    cidade,
+    uf: ufLimpa,
+    codigo_municipio: codigoMunicipio,
+    inscricao_estadual: textoOuNull(body.inscricao_estadual),
+    observacoes: textoOuNull(body.observacoes)
+  };
+}
 
 // Listar todos os clientes
 router.get('/', (req, res) => {
@@ -74,7 +140,6 @@ router.get('/:id', (req, res) => {
       res.status(500).json({ error: err.message });
       return;
     }
-    // Garante que todos os campos de endereço existam (evita undefined)
     if (row) {
       row.cep = row.cep || '';
       row.rua = row.rua || '';
@@ -82,6 +147,12 @@ router.get('/:id', (req, res) => {
       row.bairro = row.bairro || '';
       row.cidade = row.cidade || '';
       row.uf = row.uf || '';
+      row.inscricao_estadual = row.inscricao_estadual || '';
+      row.codigo_municipio = row.codigo_municipio || '';
+      row.razao_social = row.razao_social || '';
+      row.contato = row.contato || '';
+      row.observacoes = row.observacoes || '';
+      row.utiliza_limite_credito = Number(row.utiliza_limite_credito) === 1 ? 1 : 0;
     }
     res.json(row);
   });
@@ -89,56 +160,60 @@ router.get('/:id', (req, res) => {
 
 // Criar cliente
 router.post('/', (req, res) => {
-  const { nome, cpf_cnpj, telefone, email, cep, rua, numero, bairro, cidade, uf, limite_credito } = req.body;
-  // Validação básica
-  if (!nome) {
+  const body = req.body || {};
+  if (!body.nome || !String(body.nome).trim()) {
     return res.status(400).json({ error: 'O campo nome é obrigatório.' });
   }
 
-  // Validação de CPF/CNPJ duplicado
-  const cpfCnpjLimpo = String(req.body.cpf_cnpj || '').replace(/\D/g, '');
+  const doc = normalizarDocumentoCliente(body.cpf_cnpj != null ? body.cpf_cnpj : body.documento);
+  if (!doc.ok) {
+    return res.status(doc.status || 400).json({ error: doc.error });
+  }
 
-  if (cpfCnpjLimpo) {
-    db.get(
-      'SELECT id, nome, cpf_cnpj FROM clientes WHERE REPLACE(REPLACE(REPLACE(cpf_cnpj, ".", ""), "-", ""), "/", "") = ?',
-      [cpfCnpjLimpo],
-      (err, clienteExistente) => {
-        if (err) {
-          return res.status(500).json({ error: 'Erro ao verificar CPF/CNPJ: ' + err.message });
-        }
+  const limite = validarLimiteCreditoCadastro(body);
+  if (!limite.ok) {
+    return res.status(limite.status || 400).json({ error: limite.error });
+  }
 
-        if (clienteExistente) {
+  const cpfCnpjLimpo = doc.valor;
+  const campos = montarCamposCliente(body);
+
+  const inserir = () => {
+    db.run(`
+      INSERT INTO clientes (
+        nome, razao_social, cpf_cnpj, telefone, email, contato, cep, rua, numero, bairro, cidade, uf,
+        limite_credito, credito_atual, utiliza_limite_credito, codigo_municipio, inscricao_estadual, observacoes
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+    `, [
+      campos.nome,
+      campos.razao_social,
+      cpfCnpjLimpo,
+      campos.telefone,
+      campos.email,
+      campos.contato,
+      campos.cep,
+      campos.rua,
+      campos.numero,
+      campos.bairro,
+      campos.cidade,
+      campos.uf,
+      limite.limite,
+      limite.utiliza,
+      campos.codigo_municipio,
+      campos.inscricao_estadual,
+      campos.observacoes
+    ], function onInsert(err) {
+      if (err) {
+        if (String(err.message || '').includes('UNIQUE constraint failed: clientes.cpf_cnpj')) {
           return res.status(409).json({
             success: false,
-            message: `Já existe um cliente cadastrado com este CPF/CNPJ: ${clienteExistente.nome}`
+            message: 'Já existe um cliente cadastrado com este CPF/CNPJ.'
           });
         }
-
-        req.body.cpf_cnpj = cpfCnpjLimpo;
-        inserirCliente(req, res);
+        return res.status(500).json({ error: 'Erro ao criar cliente: ' + err.message });
       }
-    );
-  } else {
-    inserirCliente(req, res);
-  }
-});
 
-function inserirCliente(req, res) {
-  const { nome, cpf_cnpj, telefone, email, cep, rua, numero, bairro, cidade, uf, limite_credito } = req.body;
-
-  // Garante que limite_credito seja número
-  let limiteCreditoNum = parseFloat(limite_credito);
-  if (isNaN(limiteCreditoNum)) limiteCreditoNum = 0;
-  db.run(`
-    INSERT INTO clientes (nome, cpf_cnpj, telefone, email, cep, rua, numero, bairro, cidade, uf, limite_credito, credito_atual)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-  `, [nome, cpf_cnpj, telefone, email, cep, rua, numero, bairro, cidade, uf, limiteCreditoNum],
-    function(err) {
-      if (err) {
-        res.status(500).json({ error: 'Erro ao criar cliente: ' + err.message });
-        return;
-      }
-      // auditoria de criação de cliente
       gravarAuditoria({
         usuario_id: req.user?.id || null,
         usuario_nome: req.user?.nome || req.user?.username || null,
@@ -146,33 +221,95 @@ function inserirCliente(req, res) {
         acao: 'criar_cliente',
         referencia_tipo: 'cliente',
         referencia_id: this.lastID,
-        detalhes: { nome },
+        detalhes: { nome: campos.nome, cpf_cnpj: cpfCnpjLimpo },
         ip_requisicao: req.ip || null
       }).catch((auditErr) => console.error('Erro ao gravar auditoria de cliente:', auditErr));
 
       res.json({ id: this.lastID, message: 'Cliente criado com sucesso' });
     });
-}
+  };
+
+  if (!cpfCnpjLimpo) {
+    return inserir();
+  }
+
+  db.get(
+    `SELECT id, nome, cpf_cnpj FROM clientes WHERE ${sqlColunaSomenteDigitos('cpf_cnpj')} = ?`,
+    [cpfCnpjLimpo],
+    (err, clienteExistente) => {
+      if (err) {
+        return res.status(500).json({ error: 'Erro ao verificar CPF/CNPJ: ' + err.message });
+      }
+      if (clienteExistente) {
+        return res.status(409).json({
+          success: false,
+          message: `Já existe um cliente cadastrado com este CPF/CNPJ: ${clienteExistente.nome}`
+        });
+      }
+      return inserir();
+    }
+  );
+});
 
 // Atualizar cliente
 router.put('/:id', (req, res) => {
   const { id } = req.params;
-  const { nome, cpf_cnpj, telefone, email, cep, rua, numero, bairro, cidade, uf, limite_credito } = req.body;
-  if (!nome) {
+  const body = req.body || {};
+  if (!body.nome || !String(body.nome).trim()) {
     return res.status(400).json({ error: 'O campo nome é obrigatório.' });
   }
-  let limiteCreditoNum = parseFloat(limite_credito);
-  if (isNaN(limiteCreditoNum)) limiteCreditoNum = 0;
-  db.run(`
-    UPDATE clientes 
-    SET nome = ?, cpf_cnpj = ?, telefone = ?, email = ?, cep = ?, rua = ?, numero = ?, bairro = ?, cidade = ?, uf = ?, limite_credito = ?
-    WHERE id = ?
-  `, [nome, cpf_cnpj, telefone, email, cep, rua, numero, bairro, cidade, uf, limiteCreditoNum, id],
-    function(err) {
+
+  const doc = normalizarDocumentoCliente(body.cpf_cnpj != null ? body.cpf_cnpj : body.documento);
+  if (!doc.ok) {
+    return res.status(doc.status || 400).json({ error: doc.error });
+  }
+
+  const limite = validarLimiteCreditoCadastro(body);
+  if (!limite.ok) {
+    return res.status(limite.status || 400).json({ error: limite.error });
+  }
+
+  const cpfCnpjLimpo = doc.valor;
+  const campos = montarCamposCliente(body);
+
+  const executarUpdate = () => {
+    db.run(`
+      UPDATE clientes
+      SET nome = ?, razao_social = ?, cpf_cnpj = ?, telefone = ?, email = ?, contato = ?,
+          cep = ?, rua = ?, numero = ?, bairro = ?, cidade = ?, uf = ?,
+          limite_credito = ?, utiliza_limite_credito = ?,
+          codigo_municipio = ?, inscricao_estadual = ?, observacoes = ?
+      WHERE id = ?
+    `, [
+      campos.nome,
+      campos.razao_social,
+      cpfCnpjLimpo,
+      campos.telefone,
+      campos.email,
+      campos.contato,
+      campos.cep,
+      campos.rua,
+      campos.numero,
+      campos.bairro,
+      campos.cidade,
+      campos.uf,
+      limite.limite,
+      limite.utiliza,
+      campos.codigo_municipio,
+      campos.inscricao_estadual,
+      campos.observacoes,
+      id
+    ], function onUpdate(err) {
       if (err) {
-        res.status(500).json({ error: 'Erro ao atualizar cliente: ' + err.message });
-        return;
+        if (String(err.message || '').includes('UNIQUE constraint failed: clientes.cpf_cnpj')) {
+          return res.status(409).json({
+            success: false,
+            message: 'Já existe um cliente cadastrado com este CPF/CNPJ.'
+          });
+        }
+        return res.status(500).json({ error: 'Erro ao atualizar cliente: ' + err.message });
       }
+
       gravarAuditoria({
         usuario_id: req.user?.id || null,
         usuario_nome: req.user?.nome || req.user?.username || null,
@@ -180,12 +317,39 @@ router.put('/:id', (req, res) => {
         acao: 'atualizar_cliente',
         referencia_tipo: 'cliente',
         referencia_id: id,
-        detalhes: { antes: null, depois: req.body },
+        detalhes: {
+          cpf_cnpj: cpfCnpjLimpo,
+          utiliza_limite_credito: limite.utiliza,
+          limite_credito: limite.limite
+        },
         ip_requisicao: req.ip || null
       }).catch((auditErr) => console.error('Erro ao gravar auditoria de atualização de cliente:', auditErr));
 
       res.json({ message: 'Cliente atualizado com sucesso' });
     });
+  };
+
+  if (!cpfCnpjLimpo) {
+    return executarUpdate();
+  }
+
+  db.get(
+    `SELECT id, nome, cpf_cnpj FROM clientes
+     WHERE ${sqlColunaSomenteDigitos('cpf_cnpj')} = ? AND id != ?`,
+    [cpfCnpjLimpo, id],
+    (err, clienteExistente) => {
+      if (err) {
+        return res.status(500).json({ error: 'Erro ao verificar CPF/CNPJ: ' + err.message });
+      }
+      if (clienteExistente) {
+        return res.status(409).json({
+          success: false,
+          message: `Já existe um cliente cadastrado com este CPF/CNPJ: ${clienteExistente.nome}`
+        });
+      }
+      return executarUpdate();
+    }
+  );
 });
 
 // Deletar cliente
@@ -206,7 +370,7 @@ router.delete('/:id', (req, res) => {
         });
       }
 
-      db.run('DELETE FROM clientes WHERE id = ?', [id], function (err) {
+      db.run('DELETE FROM clientes WHERE id = ?', [id], function onDelete(err) {
         if (err) {
           return res.status(500).json({ error: err.message });
         }

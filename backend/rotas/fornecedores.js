@@ -9,6 +9,42 @@ const {
   findOrCreateFornecedor
 } = require('../services/FornecedorCadastroSimplesService');
 const { resolverMunicipioDestinatario } = require('../services/fiscal/municipioIbge');
+const {
+  prepararDocumentoCadastro,
+  sqlColunaSomenteDigitos
+} = require('../services/cadastro/documentoCpfCnpj');
+
+function limparCamposFornecedor(body) {
+  const b = body || {};
+  return {
+    nomeLimpo: b.nome ? String(b.nome).trim() : '',
+    razaoSocialLimpa: b.razao_social ? String(b.razao_social).trim() : null,
+    inscricaoEstadualLimpa: b.inscricao_estadual ? String(b.inscricao_estadual).trim() : null,
+    telefoneLimpo: b.telefone ? String(b.telefone).trim() : null,
+    emailLimpo: b.email ? String(b.email).trim() : null,
+    contatoLimpo: b.contato ? String(b.contato).trim() : null,
+    cepLimpo: b.cep ? String(b.cep).trim() : null,
+    ruaLimpa: b.rua ? String(b.rua).trim() : null,
+    numeroLimpo: b.numero ? String(b.numero).trim() : null,
+    bairroLimpo: b.bairro ? String(b.bairro).trim() : null,
+    cidadeLimpa: b.cidade ? String(b.cidade).trim() : null,
+    ufLimpa: b.uf ? String(b.uf).trim().toUpperCase() : null,
+    observacoesLimpas: b.observacoes ? String(b.observacoes).trim() : null
+  };
+}
+
+function buscarFornecedorPorDocumento(documento, excluirId, callback) {
+  if (!documento) return callback(null, null);
+  const sql = excluirId
+    ? `SELECT id, nome, cpf_cnpj FROM fornecedores
+       WHERE ${sqlColunaSomenteDigitos('cpf_cnpj')} = ? AND id != ?
+       LIMIT 1`
+    : `SELECT id, nome, cpf_cnpj FROM fornecedores
+       WHERE ${sqlColunaSomenteDigitos('cpf_cnpj')} = ?
+       LIMIT 1`;
+  const params = excluirId ? [documento, excluirId] : [documento];
+  db.get(sql, params, callback);
+}
 
 // LISTAR TODOS (com busca via SearchService quando há termo)
 router.get('/', async (req, res) => {
@@ -93,218 +129,207 @@ router.get('/:id', (req, res) => {
 
 // CRIAR
 router.post('/', (req, res) => {
-  const {
-    nome,
-    razao_social,
-    cpf_cnpj,
-    inscricao_estadual,
-    telefone,
-    email,
-    contato,
-    cep,
-    rua,
-    numero,
-    bairro,
-    cidade,
-    uf,
-    observacoes
-  } = req.body || {};
+  const body = req.body || {};
+  const campos = limparCamposFornecedor(body);
 
-  if (!nome || !String(nome).trim()) {
+  if (!campos.nomeLimpo) {
     return res.status(400).json({ error: 'O nome do fornecedor é obrigatório.' });
   }
 
-  const nomeLimpo = String(nome).trim();
-  const razaoSocialLimpa = razao_social ? String(razao_social).trim() : null;
-  const cpfCnpjLimpo = cpf_cnpj ? String(cpf_cnpj).trim() : null;
-  const inscricaoEstadualLimpa = inscricao_estadual ? String(inscricao_estadual).trim() : null;
-  const telefoneLimpo = telefone ? String(telefone).trim() : null;
-  const emailLimpo = email ? String(email).trim() : null;
-  const contatoLimpo = contato ? String(contato).trim() : null;
-  const cepLimpo = cep ? String(cep).trim() : null;
-  const ruaLimpa = rua ? String(rua).trim() : null;
-  const numeroLimpo = numero ? String(numero).trim() : null;
-  const bairroLimpo = bairro ? String(bairro).trim() : null;
-  const cidadeLimpa = cidade ? String(cidade).trim() : null;
-  const ufLimpa = uf ? String(uf).trim().toUpperCase() : null;
-  const observacoesLimpas = observacoes ? String(observacoes).trim() : null;
+  const doc = prepararDocumentoCadastro(body.cpf_cnpj);
+  if (!doc.ok) {
+    return res.status(doc.status || 400).json({ error: doc.error });
+  }
+  const cpfCnpjLimpo = doc.valor;
 
-  db.run(`
-    INSERT INTO fornecedores (
-      nome,
-      razao_social,
-      cpf_cnpj,
-      inscricao_estadual,
-      telefone,
-      email,
-      contato,
-      cep,
-      rua,
-      numero,
-      bairro,
-      cidade,
-      uf,
-      codigo_municipio,
-      observacoes
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, [
-    nomeLimpo,
-    razaoSocialLimpa,
-    cpfCnpjLimpo,
-    inscricaoEstadualLimpa,
-    telefoneLimpo,
-    emailLimpo,
-    contatoLimpo,
-    cepLimpo,
-    ruaLimpa,
-    numeroLimpo,
-    bairroLimpo,
-    cidadeLimpa,
-    ufLimpa,
-    resolverMunicipioDestinatario({ cidade: cidadeLimpa, uf: ufLimpa }),
-    observacoesLimpas
-  ], function (err) {
-    if (err) {
-      console.error('Erro ao criar fornecedor:', err.message);
+  const inserir = () => {
+    db.run(`
+      INSERT INTO fornecedores (
+        nome,
+        razao_social,
+        cpf_cnpj,
+        inscricao_estadual,
+        telefone,
+        email,
+        contato,
+        cep,
+        rua,
+        numero,
+        bairro,
+        cidade,
+        uf,
+        codigo_municipio,
+        observacoes
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      campos.nomeLimpo,
+      campos.razaoSocialLimpa,
+      cpfCnpjLimpo,
+      campos.inscricaoEstadualLimpa,
+      campos.telefoneLimpo,
+      campos.emailLimpo,
+      campos.contatoLimpo,
+      campos.cepLimpo,
+      campos.ruaLimpa,
+      campos.numeroLimpo,
+      campos.bairroLimpo,
+      campos.cidadeLimpa,
+      campos.ufLimpa,
+      resolverMunicipioDestinatario({ cidade: campos.cidadeLimpa, uf: campos.ufLimpa }),
+      campos.observacoesLimpas
+    ], function (err) {
+      if (err) {
+        console.error('Erro ao criar fornecedor:', err.message);
 
-      if (err.message.includes('UNIQUE constraint failed: fornecedores.cpf_cnpj')) {
-        return res.status(400).json({
-          error: 'Já existe um fornecedor com este CPF/CNPJ.'
+        if (err.message.includes('UNIQUE constraint failed: fornecedores.cpf_cnpj')) {
+          return res.status(400).json({
+            error: 'Já existe um fornecedor com este CPF/CNPJ.'
+          });
+        }
+
+        return res.status(500).json({
+          error: 'Erro ao cadastrar fornecedor: ' + err.message
         });
       }
 
-      return res.status(500).json({
-        error: 'Erro ao cadastrar fornecedor: ' + err.message
+      gravarAuditoria({
+        usuario_id: req.user?.id || null,
+        usuario_nome: req.user?.nome || req.user?.username || null,
+        modulo: 'fornecedores',
+        acao: 'criar_fornecedor',
+        referencia_tipo: 'fornecedor',
+        referencia_id: this.lastID,
+        detalhes: { nome: campos.nomeLimpo, cpf_cnpj: cpfCnpjLimpo },
+        ip_requisicao: req.ip || null
+      }).catch((auditErr) => console.error('Erro ao gravar auditoria de fornecedor:', auditErr));
+
+      res.json({
+        id: this.lastID,
+        message: 'Fornecedor cadastrado com sucesso.'
+      });
+    });
+  };
+
+  if (!cpfCnpjLimpo) {
+    return inserir();
+  }
+
+  buscarFornecedorPorDocumento(cpfCnpjLimpo, null, (err, existente) => {
+    if (err) {
+      console.error('Erro ao verificar CPF/CNPJ de fornecedor:', err.message);
+      return res.status(500).json({ error: 'Erro ao verificar CPF/CNPJ.' });
+    }
+    if (existente) {
+      return res.status(400).json({
+        error: 'Já existe um fornecedor com este CPF/CNPJ.'
       });
     }
-
-    // registrar auditoria
-    gravarAuditoria({
-      usuario_id: req.user?.id || null,
-      usuario_nome: req.user?.nome || req.user?.username || null,
-      modulo: 'fornecedores',
-      acao: 'criar_fornecedor',
-      referencia_tipo: 'fornecedor',
-      referencia_id: this.lastID,
-      detalhes: { nome: nomeLimpo, cpf_cnpj: cpfCnpjLimpo },
-      ip_requisicao: req.ip || null
-    }).catch((auditErr) => console.error('Erro ao gravar auditoria de fornecedor:', auditErr));
-
-    res.json({
-      id: this.lastID,
-      message: 'Fornecedor cadastrado com sucesso.'
-    });
+    return inserir();
   });
 });
 
 // ATUALIZAR
 router.put('/:id', (req, res) => {
   const { id } = req.params;
+  const body = req.body || {};
+  const campos = limparCamposFornecedor(body);
 
-  const {
-    nome,
-    razao_social,
-    cpf_cnpj,
-    inscricao_estadual,
-    telefone,
-    email,
-    contato,
-    cep,
-    rua,
-    numero,
-    bairro,
-    cidade,
-    uf,
-    observacoes
-  } = req.body || {};
-
-  if (!nome || !String(nome).trim()) {
+  if (!campos.nomeLimpo) {
     return res.status(400).json({ error: 'O nome do fornecedor é obrigatório.' });
   }
 
-  const nomeLimpo = String(nome).trim();
-  const razaoSocialLimpa = razao_social ? String(razao_social).trim() : null;
-  const cpfCnpjLimpo = cpf_cnpj ? String(cpf_cnpj).trim() : null;
-  const inscricaoEstadualLimpa = inscricao_estadual ? String(inscricao_estadual).trim() : null;
-  const telefoneLimpo = telefone ? String(telefone).trim() : null;
-  const emailLimpo = email ? String(email).trim() : null;
-  const contatoLimpo = contato ? String(contato).trim() : null;
-  const cepLimpo = cep ? String(cep).trim() : null;
-  const ruaLimpa = rua ? String(rua).trim() : null;
-  const numeroLimpo = numero ? String(numero).trim() : null;
-  const bairroLimpo = bairro ? String(bairro).trim() : null;
-  const cidadeLimpa = cidade ? String(cidade).trim() : null;
-  const ufLimpa = uf ? String(uf).trim().toUpperCase() : null;
-  const observacoesLimpas = observacoes ? String(observacoes).trim() : null;
+  const doc = prepararDocumentoCadastro(body.cpf_cnpj);
+  if (!doc.ok) {
+    return res.status(doc.status || 400).json({ error: doc.error });
+  }
+  const cpfCnpjLimpo = doc.valor;
 
-  db.run(`
-    UPDATE fornecedores SET
-      nome = ?,
-      razao_social = ?,
-      cpf_cnpj = ?,
-      inscricao_estadual = ?,
-      telefone = ?,
-      email = ?,
-      contato = ?,
-      cep = ?,
-      rua = ?,
-      numero = ?,
-      bairro = ?,
-      cidade = ?,
-      uf = ?,
-      codigo_municipio = ?,
-      observacoes = ?
-    WHERE id = ?
-  `, [
-    nomeLimpo,
-    razaoSocialLimpa,
-    cpfCnpjLimpo,
-    inscricaoEstadualLimpa,
-    telefoneLimpo,
-    emailLimpo,
-    contatoLimpo,
-    cepLimpo,
-    ruaLimpa,
-    numeroLimpo,
-    bairroLimpo,
-    cidadeLimpa,
-    ufLimpa,
-    resolverMunicipioDestinatario({ cidade: cidadeLimpa, uf: ufLimpa }),
-    observacoesLimpas,
-    id
-  ], function (err) {
-    if (err) {
-      console.error('Erro ao atualizar fornecedor:', err.message);
+  const atualizar = () => {
+    db.run(`
+      UPDATE fornecedores SET
+        nome = ?,
+        razao_social = ?,
+        cpf_cnpj = ?,
+        inscricao_estadual = ?,
+        telefone = ?,
+        email = ?,
+        contato = ?,
+        cep = ?,
+        rua = ?,
+        numero = ?,
+        bairro = ?,
+        cidade = ?,
+        uf = ?,
+        codigo_municipio = ?,
+        observacoes = ?
+      WHERE id = ?
+    `, [
+      campos.nomeLimpo,
+      campos.razaoSocialLimpa,
+      cpfCnpjLimpo,
+      campos.inscricaoEstadualLimpa,
+      campos.telefoneLimpo,
+      campos.emailLimpo,
+      campos.contatoLimpo,
+      campos.cepLimpo,
+      campos.ruaLimpa,
+      campos.numeroLimpo,
+      campos.bairroLimpo,
+      campos.cidadeLimpa,
+      campos.ufLimpa,
+      resolverMunicipioDestinatario({ cidade: campos.cidadeLimpa, uf: campos.ufLimpa }),
+      campos.observacoesLimpas,
+      id
+    ], function (err) {
+      if (err) {
+        console.error('Erro ao atualizar fornecedor:', err.message);
 
-      if (err.message.includes('UNIQUE constraint failed: fornecedores.cpf_cnpj')) {
-        return res.status(400).json({
-          error: 'Já existe outro fornecedor com este CPF/CNPJ.'
+        if (err.message.includes('UNIQUE constraint failed: fornecedores.cpf_cnpj')) {
+          return res.status(400).json({
+            error: 'Já existe outro fornecedor com este CPF/CNPJ.'
+          });
+        }
+
+        return res.status(500).json({
+          error: 'Erro ao atualizar fornecedor: ' + err.message
         });
       }
 
-      return res.status(500).json({
-        error: 'Erro ao atualizar fornecedor: ' + err.message
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Fornecedor não encontrado.' });
+      }
+
+      gravarAuditoria({
+        usuario_id: req.user?.id || null,
+        usuario_nome: req.user?.nome || req.user?.username || null,
+        modulo: 'fornecedores',
+        acao: 'atualizar_fornecedor',
+        referencia_tipo: 'fornecedor',
+        referencia_id: id,
+        detalhes: { antes: null, depois: { nome: campos.nomeLimpo, cpf_cnpj: cpfCnpjLimpo } },
+        ip_requisicao: req.ip || null
+      }).catch((auditErr) => console.error('Erro ao gravar auditoria de atualização de fornecedor:', auditErr));
+
+      res.json({ message: 'Fornecedor atualizado com sucesso.' });
+    });
+  };
+
+  if (!cpfCnpjLimpo) {
+    return atualizar();
+  }
+
+  buscarFornecedorPorDocumento(cpfCnpjLimpo, id, (err, existente) => {
+    if (err) {
+      console.error('Erro ao verificar CPF/CNPJ de fornecedor:', err.message);
+      return res.status(500).json({ error: 'Erro ao verificar CPF/CNPJ.' });
+    }
+    if (existente) {
+      return res.status(400).json({
+        error: 'Já existe outro fornecedor com este CPF/CNPJ.'
       });
     }
-
-    if (this.changes === 0) {
-      return res.status(404).json({ error: 'Fornecedor não encontrado.' });
-    }
-
-    // auditoria de atualização
-    gravarAuditoria({
-      usuario_id: req.user?.id || null,
-      usuario_nome: req.user?.nome || req.user?.username || null,
-      modulo: 'fornecedores',
-      acao: 'atualizar_fornecedor',
-      referencia_tipo: 'fornecedor',
-      referencia_id: id,
-      detalhes: { antes: null, depois: { nome: nomeLimpo, cpf_cnpj: cpfCnpjLimpo } },
-      ip_requisicao: req.ip || null
-    }).catch((auditErr) => console.error('Erro ao gravar auditoria de atualização de fornecedor:', auditErr));
-
-    res.json({ message: 'Fornecedor atualizado com sucesso.' });
+    return atualizar();
   });
 });
 
@@ -322,7 +347,6 @@ router.delete('/:id', (req, res) => {
       return res.status(404).json({ error: 'Fornecedor não encontrado.' });
     }
 
-    // auditoria de exclusão
     gravarAuditoria({
       usuario_id: req.user?.id || null,
       usuario_nome: req.user?.nome || req.user?.username || null,

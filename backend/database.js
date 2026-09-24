@@ -464,6 +464,16 @@ function aplicarAlteracoesPosCriacao() {
   aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN cidade_entrega TEXT`);
   aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN uf_entrega TEXT`);
 
+  // Sprint 2C — cliente: limite opcional + código IBGE + IE (destinatário NF-e)
+  aplicarAlteracaoSegura('clientes', `ALTER TABLE clientes ADD COLUMN utiliza_limite_credito INTEGER DEFAULT 0`);
+  aplicarAlteracaoSegura('clientes', `ALTER TABLE clientes ADD COLUMN codigo_municipio VARCHAR(7)`);
+  aplicarAlteracaoSegura('clientes', `ALTER TABLE clientes ADD COLUMN inscricao_estadual VARCHAR(20)`);
+
+  // Sprint 2D — padronização cadastro cliente (paridade com fornecedor)
+  aplicarAlteracaoSegura('clientes', `ALTER TABLE clientes ADD COLUMN razao_social VARCHAR(200)`);
+  aplicarAlteracaoSegura('clientes', `ALTER TABLE clientes ADD COLUMN contato VARCHAR(100)`);
+  aplicarAlteracaoSegura('clientes', `ALTER TABLE clientes ADD COLUMN observacoes TEXT`);
+
   // Sprint 3.1 — Faturamento / Pedido → Venda
   aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN origem TEXT DEFAULT 'PDV'`);
   aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN pedido_id INTEGER`);
@@ -3758,6 +3768,40 @@ db.serialize(() => {
     aplicarAlteracaoSegura('nfe_notas', `ALTER TABLE nfe_notas ADD COLUMN tempo_resposta_ms INTEGER`);
     aplicarAlteracaoSegura('nfe_notas', `ALTER TABLE nfe_notas ADD COLUMN consulta_auto_tentativas INTEGER DEFAULT 0`);
     aplicarAlteracaoSegura('nfe_notas', `ALTER TABLE nfe_notas ADD COLUMN proxima_consulta_em DATETIME`);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS nfe_cce_eventos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nfe_id INTEGER NOT NULL,
+        documento_tipo TEXT NOT NULL DEFAULT 'VENDA',
+        chave_nfe TEXT NOT NULL,
+        n_seq_evento INTEGER NOT NULL,
+        x_correcao TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pendente',
+        c_stat TEXT,
+        x_motivo TEXT,
+        protocolo TEXT,
+        dh_evento TEXT,
+        dh_recebimento TEXT,
+        xml_envio TEXT,
+        xml_retorno TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(documento_tipo, nfe_id, n_seq_evento),
+        UNIQUE(chave_nfe, n_seq_evento)
+      )
+    `, (err) => {
+      if (err) console.error('Erro ao criar tabela nfe_cce_eventos:', err);
+      else console.log('Tabela nfe_cce_eventos criada/verificada');
+    });
+    db.run(
+      `CREATE INDEX IF NOT EXISTS idx_nfe_cce_nfe_id ON nfe_cce_eventos(nfe_id)`,
+      () => {}
+    );
+    db.run(
+      `CREATE INDEX IF NOT EXISTS idx_nfe_cce_chave ON nfe_cce_eventos(chave_nfe)`,
+      () => {}
+    );
 
     db.run(`
       CREATE TABLE IF NOT EXISTS nfe_operacional_logs (

@@ -3739,7 +3739,10 @@ function showProdutoModal(produto = null, opcoes = {}) {
 
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="button" class="btn btn-primary" onclick="saveProduto()">${!isEdit && origemCadastro !== 'COMPRA' && origemCadastro !== 'MIIP' ? 'Salvar e Add Novo' : 'Salvar'}</button>
+                        ${!isEdit && origemCadastro !== 'COMPRA' && origemCadastro !== 'MIIP'
+                            ? `<button type="button" class="btn btn-outline-primary" onclick="saveProduto({ continuar: false })">Salvar</button>
+                        <button type="button" class="btn btn-primary" onclick="saveProduto({ continuar: true })">Salvar e Add Novo</button>`
+                            : `<button type="button" class="btn btn-primary" onclick="saveProduto({ continuar: false })">Salvar</button>`}
                     </div>
                 </div>
             </div>
@@ -5316,7 +5319,10 @@ function inicializarConfirmacaoControlaEstoque() {
 
 
 // Salva produto
-async function saveProduto() {
+// opcoes.continuar === true → após salvar, abre outro "Novo Produto" (fluxo rápido)
+async function saveProduto(opcoes) {
+    const forcarContinuar = opcoes && typeof opcoes === 'object' && opcoes.continuar === true;
+    const forcarFechar = opcoes && typeof opcoes === 'object' && opcoes.continuar === false;
     const id = $('#produtoId').val();
 
     if ($('#venda_atacado').is(':checked')) {
@@ -5568,7 +5574,9 @@ async function saveProduto() {
             const perguntarBalanca = typeof produtoSalvoElegivelPerguntaBalanca === 'function'
                 && produtoSalvoElegivelPerguntaBalanca(produtoNormalizado);
             const origemCadastro = $modal.data('origemCadastroProduto');
-            const continuarCadastrando = !id && origemCadastro !== 'COMPRA' && origemCadastro !== 'MIIP';
+            let continuarCadastrando = !id && origemCadastro !== 'COMPRA' && origemCadastro !== 'MIIP';
+            if (forcarContinuar) continuarCadastrando = true;
+            if (forcarFechar) continuarCadastrando = false;
 
             const aposFecharCadastro = () => {
                 if (perguntarBalanca) {

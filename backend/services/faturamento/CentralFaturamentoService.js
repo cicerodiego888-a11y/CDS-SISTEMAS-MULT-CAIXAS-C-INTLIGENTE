@@ -479,7 +479,14 @@ function montarAcoesDocumentos(pacote) {
     consultar_situacao: { habilitado: Boolean(nota?.id), label: 'Consultar Situação' },
     reenviar: { habilitado: Boolean(podeReenviar), label: 'Reenviar NF-e' },
     cancelar: { habilitado: autorizada, label: 'Cancelar NF-e' },
-    carta_correcao: { habilitado: false, label: 'Carta de Correção', preparado: true, mensagem: 'Estrutura preparada — disponível em RC futura' },
+    carta_correcao: {
+      habilitado: autorizada,
+      label: 'Carta de Correção',
+      preparado: true,
+      mensagem: autorizada
+        ? null
+        : 'Disponível somente para NF-e autorizada'
+    },
     manifestacao: { habilitado: false, label: 'Manifestação', preparado: true, mensagem: 'Estrutura preparada — disponível em RC futura' }
   };
 }
@@ -682,14 +689,22 @@ async function obterXml(vendaId) {
 async function obterDanfe(vendaId) {
   assertModuloNfe();
   const pacote = await carregarVendaCompleta(vendaId);
-  if (!pacote.nota?.danfe_html) {
+  if (!pacote.nota?.id) {
     const err = new Error('DANFE não disponível.');
     err.statusCode = 404;
     throw err;
   }
+  const danfeCentral = require('../fiscal/danfeService');
+  const out = await danfeCentral.obterDanfe({
+    tipo: 'VENDA',
+    id: pacote.nota.id,
+    chave: pacote.nota.chave_acesso,
+    numero: pacote.nota.numero,
+    serie: pacote.nota.serie
+  });
   return {
     success: true,
-    danfe_html: pacote.nota.danfe_html,
+    danfe_html: out.html,
     nota_id: pacote.nota.id,
     numero: pacote.nota.numero
   };

@@ -1,0 +1,186 @@
+/* NF-e Avulsa V2 — layout profissional (somente UX) */
+.nfa-v2 {
+  --nfa-primary: #1a56db;
+  --nfa-border: #e5e7eb;
+  --nfa-muted: #6b7280;
+  --nfa-ok: #047857;
+  --nfa-ok-bg: #ecfdf5;
+  --nfa-info-bg: #eff6ff;
+  --nfa-card-radius: 10px;
+}
+
+.nfa-v2 .nfa-section {
+  background: #fff;
+  border: 1px solid var(--nfa-border);
+  border-radius: var(--nfa-card-radius);
+  padding: 1rem 1.15rem 1.15rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.nfa-v2 .nfa-section__title {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 0.9rem;
+  letter-spacing: 0.01em;
+}
+
+.nfa-v2 .nfa-section__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 999px;
+  background: var(--nfa-primary);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.nfa-v2 .nfa-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.85rem;
+}
+
+.nfa-v2 .nfa-tab {
+  border: 1px solid var(--nfa-border);
+  background: #fff;
+  color: #374151;
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.nfa-v2 .nfa-tab.is-active {
+  background: var(--nfa-primary);
+  border-color: var(--nfa-primary);
+  color: #fff;
+}
+
+.nfa-v2 .nfa-callout {
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.nfa-v2 .nfa-callout--ok {
+  background: var(--nfa-ok-bg);
+  border: 1px solid #a7f3d0;
+  color: var(--nfa-ok);
+}
+
+.nfa-v2 .nfa-callout--info {
+  background: var(--nfa-info-bg);
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.nfa-v2 .nfa-cfop-hint {
+  background: var(--nfa-info-bg);
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.8rem;
+  color: #1e3a8a;
+  height: 100%;
+}
+
+.nfa-v2 .nfa-side {
+  position: sticky;
+  top: 0.75rem;
+}
+
+.nfa-v2 .nfa-resumo-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  color: #374151;
+  margin-bottom: 0.35rem;
+}
+
+.nfa-v2 .nfa-resumo-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-top: 1px solid var(--nfa-border);
+  margin-top: 0.65rem;
+  padding-top: 0.75rem;
+  font-weight: 700;
+}
+
+.nfa-v2 .nfa-resumo-total .nfa-total-valor {
+  color: var(--nfa-primary);
+  font-size: 1.35rem;
+}
+
+.nfa-v2 .nfa-info-box {
+  background: var(--nfa-info-bg);
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  font-size: 0.82rem;
+  color: #1e3a8a;
+}
+
+.nfa-v2 .nfa-info-box ul {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.nfa-v2 .nfa-info-box li {
+  margin-bottom: 0.25rem;
+}
+
+.nfa-v2 .nfa-pix-hint {
+  background: var(--nfa-info-bg);
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 0.65rem 0.8rem;
+  font-size: 0.8rem;
+  color: #1e40af;
+  margin-top: 0.55rem;
+}
+
+.nfa-v2 .nfa-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: stretch;
+}
+
+.nfa-v2 .nfa-actions .btn {
+  flex: 1;
+}
+
+.nfa-v2 .nfa-dest-grid .form-label {
+  font-size: 0.78rem;
+  margin-bottom: 0.2rem;
+  color: #4b5563;
+}
+
+.nfa-v2 .list-group.nfa-sugestoes {
+  z-index: 1060;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.nfa-v2 .nfa-badge-origem {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 991.98px) {
+  .nfa-v2 .nfa-side {
+    position: static;
+  }
+}

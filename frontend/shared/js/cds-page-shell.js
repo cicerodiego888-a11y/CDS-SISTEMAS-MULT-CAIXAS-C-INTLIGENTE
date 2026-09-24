@@ -18,7 +18,7 @@
     fornecedores: { grupo: 'Cadastros', titulo: 'Fornecedores', subtitulo: 'Cadastro de fornecedores' },
     fiscal: { grupo: 'Fiscal', titulo: 'NFC-e Emitidas', subtitulo: 'Notas fiscais de consumidor emitidas' },
     'nfe-central': { grupo: 'Fiscal', titulo: 'NF-e Emitidas', subtitulo: 'Notas fiscais eletrônicas emitidas' },
-    'nfe-avulsa': { grupo: 'Fiscal', titulo: 'Nova NF-e', subtitulo: 'Emissão avulsa de NF-e de venda' },
+    'nfe-avulsa': { grupo: 'Fiscal', titulo: 'Nova NF-e', subtitulo: 'Emissão de Nota Fiscal Eletrônica de forma avulsa.' },
     'nfe-devolucao-compra': { grupo: 'Fiscal', titulo: 'Devolução de Compra', subtitulo: 'Devolver mercadoria ao fornecedor, referenciando a NF-e original.' },
     'nfe-monitor': { grupo: 'Fiscal', titulo: 'Monitor NF-e', subtitulo: 'Acompanhamento operacional de NF-e' },
     'nfe-fila': { grupo: 'Fiscal', titulo: 'Fila NF-e', subtitulo: 'Fila operacional de emissão' },

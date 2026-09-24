@@ -134,9 +134,16 @@ function celulas(p, y, cols) {
   let x = 0;
   const h = 6.8;
   cols.forEach((c) => {
+    if (c.destaque) {
+      const px = ML + mm(x);
+      const py = p.y(y) - mm(h);
+      p.ops.push('0.91 0.95 0.98 rg');
+      p.ops.push(`${px.toFixed(2)} ${py.toFixed(2)} ${mm(c.w).toFixed(2)} ${mm(h).toFixed(2)} re f`);
+      p.ops.push('0 0 0 rg');
+    }
     p.rect(x, y, c.w, h);
     p.text(x + 0.5, y + 0.3, String(c.l || '').toUpperCase(), 4.5);
-    p.text(x + 0.5, y + 2.4, c.v == null ? '' : String(c.v), 7);
+    p.text(x + 0.5, y + 2.4, c.v == null ? '' : String(c.v), c.destaque ? 8 : 7);
     x += c.w;
   });
   return y + h;
@@ -153,6 +160,9 @@ function desenharChave(p, x, y, w, m, compacto) {
     p.text(x + 1, aposChave, 'Consulta de autenticidade no portal nacional da NF-e', 4.5);
     p.text(x + 1, aposChave + 2.6, 'www.nfe.fazenda.gov.br/portal', 5);
     p.text(x + 1, aposChave + 4.8, 'ou no site da Sefaz autorizadora', 5);
+    const prot = [m.protocolo, m.dhAutorizacao].filter(Boolean).join(' ');
+    p.text(x + 1, aposChave + 7.4, 'PROTOCOLO DE AUTORIZACAO DE USO', 4.5);
+    p.text(x + 1, aposChave + 9.6, prot, 6.5);
   }
   if (m.chave) {
     p.ops.push(`BT /F1 0.01 Tf -200 -200 Td (${pdfEsc(m.chave)}) Tj ET`);
@@ -232,7 +242,7 @@ function desenharPagina(modelo, pagina) {
     y += 2.2;
   }
 
-  const headH = primeira ? 42 : 22;
+  const headH = primeira ? 34 : 18;
   p.rect(0, y, 86, headH);
   p.rect(86, y, 36, headH);
   p.rect(122, y, 78, headH);
@@ -270,34 +280,53 @@ function desenharPagina(modelo, pagina) {
 
   if (primeira) {
     y = celulas(p, y, [
-      { w: 128, l: 'NATUREZA DA OPERACAO', v: modelo.natureza },
-      { w: 72, l: 'PROTOCOLO DE AUTORIZACAO DE USO', v: [modelo.protocolo, modelo.dhAutorizacao].filter(Boolean).join(' ') }
-    ]);
-    y = celulas(p, y, [
-      { w: 66, l: 'INSCRICAO ESTADUAL', v: modelo.emitente.ie },
-      { w: 74, l: 'INSCRICAO ESTADUAL DO SUBSTITUTO TRIBUTARIO', v: modelo.emitente.ieSt },
-      { w: 60, l: 'CNPJ / CPF', v: modelo.emitente.cnpj }
+      { w: 58, l: 'NATUREZA DA OPERACAO', v: modelo.natureza },
+      { w: 28, l: 'INSCRICAO ESTADUAL', v: modelo.emitente.ie },
+      { w: 36, l: 'INSC. EST. SUBST. TRIB.', v: modelo.emitente.ieSt },
+      { w: 34, l: 'CNPJ', v: modelo.emitente.cnpj },
+      { w: 22, l: 'DATA DA EMISSAO', v: modelo.dataEmissao },
+      { w: 22, l: 'HORA DA EMISSAO', v: modelo.horaEmissao }
     ]);
     p.text(0.5, y + 0.2, 'DESTINATARIO / REMETENTE', 6);
     y += 3.4;
     y = celulas(p, y, [
       { w: 110, l: 'NOME / RAZAO SOCIAL', v: modelo.destinatario.nome },
       { w: 50, l: 'CNPJ / CPF', v: modelo.destinatario.cnpj },
-      { w: 40, l: 'DATA DA EMISSAO', v: modelo.dataEmissao }
+      { w: 40, l: 'INSCRICAO ESTADUAL', v: modelo.destinatario.ie }
     ]);
     y = celulas(p, y, [
-      { w: 80, l: 'ENDERECO', v: modelo.destinatario.endereco },
+      { w: 80, l: 'ENDERECO', v: modelo.destinatario.logradouro || modelo.destinatario.endereco },
+      { w: 24, l: 'NUMERO', v: modelo.destinatario.numero },
       { w: 46, l: 'BAIRRO / DISTRITO', v: modelo.destinatario.bairro },
-      { w: 30, l: 'CEP', v: modelo.destinatario.cep },
-      { w: 44, l: 'DATA DA SAIDA / ENTRADA', v: modelo.dataSaida }
+      { w: 50, l: 'CEP', v: modelo.destinatario.cep }
     ]);
     y = celulas(p, y, [
       { w: 56, l: 'MUNICIPIO', v: modelo.destinatario.municipio },
-      { w: 40, l: 'FONE / FAX', v: modelo.destinatario.fone },
       { w: 14, l: 'UF', v: modelo.destinatario.uf },
-      { w: 46, l: 'INSCRICAO ESTADUAL', v: modelo.destinatario.ie },
+      { w: 40, l: 'TELEFONE', v: modelo.destinatario.fone },
+      { w: 46, l: 'DATA DA SAIDA / ENTRADA', v: modelo.dataSaida },
       { w: 44, l: 'HORA DA SAIDA', v: modelo.horaSaida }
     ]);
+    p.text(0.5, y + 0.2, 'FATURA / DUPLICATA', 6);
+    y += 3.4;
+    const dups = Array.isArray(modelo.duplicatas) ? modelo.duplicatas : [];
+    if (dups.length) {
+      y = celulas(p, y, [
+        { w: 50, l: 'No DUPLICATA', v: 'VENCIMENTO' },
+        { w: 70, l: '', v: 'VALOR' },
+        { w: 80, l: '', v: '' }
+      ]);
+      dups.slice(0, 4).forEach((d) => {
+        y = celulas(p, y, [
+          { w: 50, l: '', v: d.nDup },
+          { w: 70, l: '', v: d.dVenc },
+          { w: 80, l: '', v: fmtMoney(d.vDup) }
+        ]);
+      });
+    } else {
+      p.rect(0, y, USABLE, 4);
+      y += 4.2;
+    }
     p.text(0.5, y + 0.2, 'CALCULO DO IMPOSTO', 6);
     y += 3.4;
     const i = modelo.imposto;
@@ -313,17 +342,17 @@ function desenharPagina(modelo, pagina) {
       { w: 32, l: 'VALOR DO SEGURO', v: fmtMoney(i.vSeg) },
       { w: 32, l: 'DESCONTO', v: fmtMoney(i.vDesc) },
       { w: 36, l: 'OUTRAS DESPESAS', v: fmtMoney(i.vOutro) },
-      { w: 34, l: 'VALOR TOTAL DO IPI', v: fmtMoney(i.vIPI || i.vIPIDevol) },
-      { w: 34, l: 'VALOR TOTAL DA NOTA', v: fmtMoney(i.vNF) }
+      { w: 34, l: 'VALOR DO IPI', v: fmtMoney(i.vIPI || i.vIPIDevol) },
+      { w: 34, l: 'VALOR TOTAL DA NOTA', v: fmtMoney(i.vNF), destaque: true }
     ]);
     p.text(0.5, y + 0.2, 'TRANSPORTADOR / VOLUMES TRANSPORTADOS', 6);
     y += 3.4;
     const t = modelo.transporte;
     y = celulas(p, y, [
-      { w: 70, l: 'NOME / RAZAO SOCIAL', v: t.nome },
+      { w: 70, l: 'RAZAO SOCIAL', v: t.nome },
       { w: 32, l: 'FRETE POR CONTA', v: rotuloModFrete(t.modFrete) },
       { w: 24, l: 'CODIGO ANTT', v: t.rntc },
-      { w: 26, l: 'PLACA DO VEICULO', v: t.placa },
+      { w: 26, l: 'PLACA', v: t.placa },
       { w: 12, l: 'UF', v: t.ufVeic },
       { w: 36, l: 'CNPJ / CPF', v: t.cnpj }
     ]);

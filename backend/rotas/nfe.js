@@ -33,7 +33,24 @@ router.post('/avulsa', async (req, res) => {
         error: err.message
       });
     }
-    enviarErroAmigavel(res, err, err.statusCode || 500);
+    // Validação do núcleo: preservar mensagem real (não mascarar como erro fiscal genérico)
+    const status = err.statusCode || err.body?.statusCode || 500;
+    if (status === 400) {
+      const msg = String(
+        err.message
+        || err.body?.error
+        || err.body?.mensagem
+        || err.body?.message
+        || 'Falha de validação na NF-e avulsa.'
+      );
+      return res.status(400).json({
+        success: false,
+        mensagem: msg,
+        error: msg,
+        codigo: err.codigo || err.code || err.body?.codigo || 'VALIDACAO_NFE_AVULSA'
+      });
+    }
+    enviarErroAmigavel(res, err, status);
   }
 });
 
@@ -193,23 +210,23 @@ router.get('/notas/:id/xml', async (req, res) => {
 
 router.get('/notas/:id/danfe', async (req, res) => {
   try {
-    const nota = await nfeCentral.obterNfeNotaPorId(req.params.id);
-    if (!nota) {
-      return enviarErroAmigavel(res, Object.assign(new Error('NF-e não encontrada.'), { statusCode: 404 }));
-    }
-    if (!nota.danfe_html) {
-      return enviarErroAmigavel(res, Object.assign(new Error('DANFE não disponível para esta nota.'), { statusCode: 404 }));
-    }
+    const out = await danfeCentral.obterDanfe({
+      tipo: 'VENDA',
+      id: req.params.id,
+      chave: req.query.chave,
+      numero: req.query.numero,
+      serie: req.query.serie
+    });
 
     if (String(req.query.download || '') === '1') {
-      const nome = `DANFE-NFe-${nota.numero || nota.id}.html`;
+      const nome = `DANFE-NFe-${out.documento.numero || out.documento.id}.html`;
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${nome}"`);
-      return res.send(nota.danfe_html);
+      return res.send(out.html);
     }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(nota.danfe_html);
+    res.send(out.html);
   } catch (err) {
     enviarErroAmigavel(res, err);
   }
@@ -316,6 +333,30 @@ router.post('/notas/:id/cancelar', async (req, res) => {
       ip: ctx.ip_requisicao,
       forcarPrazo: Boolean(req.body?.forcarPrazo)
     });
+    res.json(out);
+  } catch (err) {
+    enviarErroAmigavel(res, err, err.statusCode || 500);
+  }
+});
+
+router.post('/notas/:id/cce', async (req, res) => {
+  try {
+    const { transmitirCartaCorrecao } = require('../services/fiscal/cartaCorrecaoNfe');
+    const body = {
+      ...(req.body || {}),
+      tipo: (req.body && (req.body.tipo || req.body.documento_tipo)) || req.query.tipo || 'VENDA'
+    };
+    const out = await transmitirCartaCorrecao(req.params.id, body);
+    res.status(out.success ? 200 : 422).json(out);
+  } catch (err) {
+    enviarErroAmigavel(res, err, err.statusCode || 500);
+  }
+});
+
+router.get('/notas/:id/cce', async (req, res) => {
+  try {
+    const { listarCartasCorrecao } = require('../services/fiscal/cartaCorrecaoNfe');
+    const out = await listarCartasCorrecao(req.params.id, req.query.tipo || 'VENDA');
     res.json(out);
   } catch (err) {
     enviarErroAmigavel(res, err, err.statusCode || 500);

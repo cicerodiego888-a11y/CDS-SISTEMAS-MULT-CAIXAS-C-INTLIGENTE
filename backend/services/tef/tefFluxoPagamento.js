@@ -1,6 +1,8 @@
 /**
  * Regras de fluxo PDV/backend: TEF habilitado prevalece sobre confirmação fiscal manual
  * para pagamentos em cartão (e demais formas TEF).
+ *
+ * Sprint TEF×NF-e: NF_AVULSA não herda obrigatoriedade de PIX genérico da NFC-e.
  */
 
 function normalizarFormaPagamentoTEF(forma) {
@@ -11,6 +13,7 @@ function normalizarFormaPagamentoTEF(forma) {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+/** Formas TEF no fluxo NFC-e / PDV (regra atual — inclui PIX genérico). */
 const FORMAS_TEF = new Set([
   'cartao',
   'cartao_credito',
@@ -22,8 +25,41 @@ const FORMAS_TEF = new Set([
   'tef'
 ]);
 
-function formaPagamentoUsaTEF(forma) {
-  return FORMAS_TEF.has(normalizarFormaPagamentoTEF(forma));
+/**
+ * Formas que exigem TEF na NF-e Avulsa.
+ * PIX genérico (`pix`) = manual/chave → sem TEF.
+ * PIX integrado = `pix_tef` (e cartão/terminal).
+ */
+const FORMAS_TEF_NFE_AVULSA = new Set([
+  'cartao',
+  'cartao_credito',
+  'cartao_debito',
+  'credito',
+  'debito',
+  'pix_tef',
+  'tef'
+]);
+
+function normalizarOrigemDocumento(origem) {
+  return String(origem || '')
+    .toUpperCase()
+    .trim();
+}
+
+function ehOrigemNfeAvulsa(origem) {
+  return normalizarOrigemDocumento(origem) === 'NF_AVULSA';
+}
+
+/**
+ * @param {string} forma
+ * @param {string} [origem] — NF_AVULSA | PDV | NFCE | … (omitido = regra NFC-e/PDV)
+ */
+function formaPagamentoUsaTEF(forma, origem) {
+  const f = normalizarFormaPagamentoTEF(forma);
+  if (ehOrigemNfeAvulsa(origem)) {
+    return FORMAS_TEF_NFE_AVULSA.has(f);
+  }
+  return FORMAS_TEF.has(f);
 }
 
 function normalizarTipoTef(tipo) {
@@ -50,9 +86,9 @@ function parseTefHabilitado(valor) {
   return valor === true || valor === 'true' || valor === '1' || valor === 1;
 }
 
-function pagamentoMistoExigeTef(pagamentos) {
+function pagamentoMistoExigeTef(pagamentos, origem) {
   return (pagamentos || []).some((pagamento) =>
-    formaPagamentoUsaTEF(pagamento?.forma_pagamento)
+    formaPagamentoUsaTEF(pagamento?.forma_pagamento, origem)
   );
 }
 
@@ -62,13 +98,28 @@ function resolverFluxoPagamentoFiscal({
   formaPagamento,
   ehPagamentoMisto,
   pagamentosMistos,
-  totalFiscal
+  totalFiscal,
+  origem
 }) {
   const formaNormalizada = normalizarFormaPagamentoTEF(formaPagamento);
   const pagamentoExigeTef = ehPagamentoMisto
-    ? pagamentoMistoExigeTef(pagamentosMistos)
-    : formaPagamentoUsaTEF(formaNormalizada);
+    ? pagamentoMistoExigeTef(pagamentosMistos, origem)
+    : formaPagamentoUsaTEF(formaNormalizada, origem);
   const tefOn = parseTefHabilitado(tefHabilitado);
+
+  // NF-e Avulsa: TEF só se forma integrada; não usa modo_confirmacao_fiscal (NFC-e/PDV)
+  if (ehOrigemNfeAvulsa(origem)) {
+    const deveUsarTefAutomatico = tefOn && pagamentoExigeTef;
+    return {
+      formaNormalizada,
+      pagamentoExigeTef,
+      deveUsarTefAutomatico,
+      usarConfirmacaoManual: false,
+      origem: 'NF_AVULSA'
+    };
+  }
+
+  // NFC-e / PDV — regra atual preservada
   const deveUsarTefAutomatico = tefOn && pagamentoExigeTef;
   const modoManual = String(modoConfirmacaoFiscal || 'TEF').toUpperCase() === 'MANUAL';
   const usarConfirmacaoManual = modoManual
@@ -79,7 +130,8 @@ function resolverFluxoPagamentoFiscal({
     formaNormalizada,
     pagamentoExigeTef,
     deveUsarTefAutomatico,
-    usarConfirmacaoManual
+    usarConfirmacaoManual,
+    origem: normalizarOrigemDocumento(origem) || 'NFCE'
   };
 }
 
@@ -123,5 +175,9 @@ module.exports = {
   pagamentoMistoExigeTef,
   resolverFluxoPagamentoFiscal,
   isConfirmacaoFiscalManualFlag,
-  devePularAutorizacaoTefBackend
+  devePularAutorizacaoTefBackend,
+  ehOrigemNfeAvulsa,
+  normalizarOrigemDocumento,
+  FORMAS_TEF,
+  FORMAS_TEF_NFE_AVULSA
 };

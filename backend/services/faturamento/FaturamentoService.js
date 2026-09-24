@@ -75,7 +75,9 @@ function extrairDadosNfe(body = {}, pedido = {}) {
     dest_municipio: body.dest_municipio,
     dest_uf: body.dest_uf,
     dest_cep: body.dest_cep,
-    dest_codigo_municipio: body.dest_codigo_municipio
+    dest_codigo_municipio: body.dest_codigo_municipio,
+    dest_ie: body.dest_ie,
+    dest_ind_ie: body.dest_ind_ie
   };
 }
 

@@ -26,16 +26,19 @@ function validarIdentidadeFinanceiraVenda({
   itens = [],
   desconto = 0,
   acrescimo = 0,
+  frete = 0,
   pagamentos = [],
   statusPagamento = null,
   formaPagamento = null
 } = {}) {
   const totalOficial = n(total);
+  const freteNum = n(frete);
   const listaItens = Array.isArray(itens) ? itens : [];
 
   if (listaItens.length > 0) {
     const somaItens = arred2(listaItens.reduce((acc, item) => acc + subtotalItem(item), 0));
-    const calculado = arred2(somaItens - n(desconto) + n(acrescimo));
+    // Composição: itens − desconto + acréscimo + frete (frete uma vez; default 0 = PDV legado)
+    const calculado = arred2(somaItens - n(desconto) + n(acrescimo) + freteNum);
     if (!quaseIgual(calculado, totalOficial)) {
       return {
         ok: false,
@@ -44,9 +47,10 @@ function validarIdentidadeFinanceiraVenda({
     }
   }
 
+  // Motor fiscal/não fiscal não inclui frete; somar frete só na conferência (não duplicar no motor).
   const identidade = identidadeFiscalVenda({
     total: totalOficial,
-    valor_fiscal: valorFiscal,
+    valor_fiscal: arred2(n(valorFiscal) + freteNum),
     valor_nao_fiscal: valorNaoFiscal
   });
   if (!identidade.ok) {

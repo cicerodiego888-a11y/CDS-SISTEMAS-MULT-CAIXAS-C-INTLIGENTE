@@ -1,12 +1,13 @@
 /**
- * Layout HTML clássico do DANFE NF-e 55 — A4 retrato profissional.
- * Sem cards, sombras, cores da UI, logo ilustrativa ou botões na área impressa.
+ * Layout HTML DANFE NF-e 55 V2 — A4 retrato profissional (mockup aprovado).
+ * Somente apresentação. Logo apenas se configurada no sistema.
+ * Não altera XML, cálculos, emissão ou identidade fiscal.
  */
 
 'use strict';
 
 const { svgCodigoBarras } = require('./danfeBarcode');
-const { fmtMoney, fmtQtd, rotuloModFrete, RODAPE_DANFE, linhaEnderecoEmitente, nomeEmitenteVisual } = require('./danfeModelo');
+const { fmtMoney, fmtQtd, rotuloModFrete, RODAPE_DANFE, nomeEmitenteVisual } = require('./danfeModelo');
 const { paginarItensDanfe } = require('./danfePaginacao');
 const {
   LARGURA_UTIL_TABELA_MM,
@@ -31,7 +32,7 @@ function cssDanfe() {
 @page { size: A4 portrait; margin: 5mm; }
 * { box-sizing: border-box; }
 html, body {
-  margin: 0; padding: 0; background: #fff; color: #000;
+  margin: 0; padding: 0; background: #fff; color: #111;
   font-family: Arial, Helvetica, sans-serif;
 }
 .danfe-toolbar, .no-print { display: block; }
@@ -45,49 +46,101 @@ html, body {
 .danfe-page:last-child { page-break-after: auto; break-after: auto; }
 table { border-collapse: collapse; width: 100%; }
 .row { display: flex; width: 100%; }
-.row > .c { flex: 1; }
-.c { border: 0.4pt solid #000; padding: 1px 3px; min-height: 6.6mm; }
-.l { display: block; font-size: 5pt; text-transform: uppercase; line-height: 1.15; color: #000; }
-.v { font-size: 7.5pt; font-weight: 700; line-height: 1.15; min-height: 8px; }
+.row > .c { flex: 1; min-width: 0; }
+.c { border: 0.4pt solid #222; padding: 1px 3px; min-height: 6.4mm; }
+.l { display: block; font-size: 5pt; text-transform: uppercase; line-height: 1.15; color: #333; letter-spacing: .02em; }
+.v { font-size: 7.5pt; font-weight: 700; line-height: 1.15; min-height: 8px; color: #000; }
 .sec {
   font-size: 6.5pt; font-weight: 700; background: #f2f2f2;
-  border: 0.4pt solid #000; padding: 1px 4px; letter-spacing: .03em;
+  border: 0.4pt solid #222; border-bottom: 0; padding: 1.5px 4px; letter-spacing: .04em;
+  text-transform: uppercase;
 }
-.canhoto { display: flex; border: 0.4pt solid #000; }
+.canhoto { display: flex; border: 0.4pt solid #222; }
 .canhoto-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.canhoto-txt { padding: 2px 4px; font-size: 6.5pt; line-height: 1.25; flex: 1; }
-.canhoto-meta { margin-top: 1.5mm; font-size: 6.5pt; }
+.canhoto-tit {
+  font-size: 6pt; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  padding: 1px 4px; border-bottom: 0.4pt solid #222; background: #f7f7f7;
+}
+.canhoto-txt { padding: 1px 4px; font-size: 6.3pt; line-height: 1.2; flex: 1; }
+.canhoto-meta { margin-top: 0.6mm; font-size: 6pt; }
 .canhoto-assin { display: flex; }
-.canhoto-assin .c { flex: 1; min-height: 8mm; border-bottom: 0; }
+.canhoto-assin .c { flex: 1; min-height: 5.5mm; border-bottom: 0; }
 .canhoto-assin .c:first-child { border-left: 0; }
 .canhoto-r {
-  width: 42mm; border-left: 0.4pt solid #000; text-align: center;
+  width: 42mm; border-left: 0.4pt solid #222; text-align: center;
   padding: 2px 2px 1px; font-size: 8pt; font-weight: 700;
 }
-.canhoto-r .barcode svg { height: 22px; margin-top: 1mm; }
-.corte { border-top: 1px dashed #555; margin: 1.8mm 0 2mm; height: 0; }
-.head { display: flex; border: 0.4pt solid #000; min-height: 42mm; }
-.head-e { flex: 1.15; padding: 3px 5px; font-size: 6.5pt; border-right: 0.4pt solid #000; text-align: center; line-height: 1.25; overflow: hidden; min-width: 0; }
-.head-c { width: 36mm; text-align: center; padding: 2px 2px; border-right: 0.4pt solid #000; overflow: hidden; }
-.head-d { width: 78mm; padding: 2px 3px; text-align: center; overflow: hidden; }
-.emit-nome { font-size: 9pt; font-weight: 700; line-height: 1.15; margin: 1mm 0 1.5mm; overflow-wrap: anywhere; word-break: break-word; }
-.danfe-t { font-size: 13pt; font-weight: 700; letter-spacing: .12em; margin: 1px 0 0; }
-.danfe-s { font-size: 5.8pt; margin: 0 0 2px; line-height: 1.15; }
-.tp { font-size: 5.5pt; margin: 2px 0 3px; line-height: 1.2; }
+.canhoto-r .barcode svg { height: 18px; margin-top: 0.5mm; }
+.corte { border-top: 1px dashed #555; margin: 0.8mm 0 1mm; height: 0; }
+.head {
+  display: flex; align-items: stretch; border: 0.4pt solid #222;
+  min-height: 0; height: auto;
+}
+.head-e {
+  flex: 1.2; padding: 2px 4px; font-size: 6.5pt; border-right: 0.4pt solid #222;
+  text-align: left; line-height: 1.2; overflow: hidden; min-width: 0;
+  display: flex; flex-direction: column; justify-content: flex-start;
+}
+.head-c {
+  width: 38mm; text-align: center; padding: 2px 2px; border-right: 0.4pt solid #222;
+  overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start;
+}
+.head-d {
+  width: 76mm; padding: 2px 3px 2px; text-align: center; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: flex-start;
+}
+.emit-logo {
+  display: flex; justify-content: center; align-items: center;
+  max-height: 10mm; margin: 0 auto 0.8mm;
+}
+.emit-logo img {
+  max-height: 10mm; max-width: 40mm; object-fit: contain; display: block;
+}
+.emit-nome {
+  font-size: 8.5pt; font-weight: 700; line-height: 1.1; margin: 0 0 0.6mm;
+  overflow-wrap: anywhere; word-break: break-word; text-align: center;
+}
+.emit-linhas { text-align: center; font-size: 6.2pt; line-height: 1.2; }
+.danfe-t { font-size: 12pt; font-weight: 700; letter-spacing: .12em; margin: 0; line-height: 1.1; }
+.danfe-s { font-size: 5.5pt; margin: 0 0 1px; line-height: 1.1; }
+.tp { font-size: 5.2pt; margin: 1px 0 1px; line-height: 1.15; }
 .tp-num, .mk.on {
-  display: inline-block; width: 11px; height: 11px; border: 0.7pt solid #000;
-  text-align: center; font-size: 8pt; font-weight: 700; line-height: 10px; margin: 1px auto;
+  display: inline-block; width: 10px; height: 10px; border: 0.7pt solid #000;
+  text-align: center; font-size: 7.5pt; font-weight: 700; line-height: 9px; margin: 0 auto;
 }
-.nnf { font-size: 8.5pt; font-weight: 700; }
-.bloco-chave { width: 100%; }
+.nnf { font-size: 8pt; font-weight: 700; margin-top: 1px; line-height: 1.15; }
+.bloco-chave { width: 100%; margin: 0; padding: 0; }
 .chave {
-  font-size: 7pt; letter-spacing: 0.3px; font-family: Arial, Helvetica, sans-serif;
-  font-weight: 700; line-height: 1.25; margin: 1px 0 2px;
+  font-size: 6.8pt; letter-spacing: 0.25px; font-family: Arial, Helvetica, sans-serif;
+  font-weight: 700; line-height: 1.15; margin: 0 0 1px;
 }
-.consulta { font-size: 5.8pt; line-height: 1.2; margin-top: 1px; }
-.barcode svg { width: 100%; height: 26px; display: block; }
-.head-cont { min-height: 22mm; }
-.head-cont .barcode svg { height: 20px; }
+.consulta { font-size: 5.3pt; line-height: 1.15; margin-top: 0; color: #222; }
+.prot-box {
+  margin-top: 1px; border-top: 0.4pt solid #222; padding-top: 1px; text-align: left;
+}
+.prot-box .v { font-size: 6.5pt; line-height: 1.15; }
+.barcode { margin: 0; padding: 0; line-height: 0; }
+.barcode svg { width: 100%; height: 22px; display: block; margin: 0; }
+.head-cont { min-height: 0; }
+.head-cont .barcode svg { height: 18px; }
+.head-cont .emit-nome { font-size: 7.5pt; margin-bottom: 0; }
+.c.destaque-total {
+  background: #e8f1fb;
+  border-color: #1a4f8a;
+}
+.c.destaque-total .l { color: #1a4f8a; font-weight: 700; }
+.c.destaque-total .v { font-size: 9pt; color: #0d2f57; }
+.fatura-wrap { border: 0.4pt solid #222; border-top: 0; }
+.fatura-wrap.empty { min-height: 4mm; }
+.fatura-tbl { width: 100%; font-size: 6.5pt; }
+.fatura-tbl th {
+  background: #f2f2f2; border: 0.3pt solid #222; padding: 1px 3px;
+  font-size: 5pt; text-transform: uppercase; font-weight: 700;
+}
+.fatura-tbl td {
+  border: 0.3pt solid #222; padding: 1px 3px; font-weight: 700; font-size: 7pt;
+}
+.fatura-tbl td.num { text-align: right; }
 .prod {
   font-size: 5.5pt;
   table-layout: fixed;
@@ -96,14 +149,15 @@ table { border-collapse: collapse; width: 100%; }
 }
 .prod col { overflow: hidden; }
 .prod th {
-  font-size: 4.6pt; background: #f2f2f2; border: 0.3pt solid #000;
+  font-size: 4.6pt; background: #f2f2f2; border: 0.3pt solid #222;
   padding: 1px; text-align: center; font-weight: 700; line-height: 1.1;
-  overflow: hidden;
+  overflow: hidden; text-transform: uppercase;
 }
 .prod td {
-  border: 0.3pt solid #000; padding: 1px 1.5px; vertical-align: top;
+  border: 0.3pt solid #222; padding: 1px 1.5px; vertical-align: top;
   overflow: hidden; word-wrap: break-word; overflow-wrap: anywhere;
 }
+.prod tbody tr:nth-child(even) { background: #f8f8f8; }
 .prod td.ctr { text-align: center; white-space: nowrap; }
 .prod td.left { text-align: left; }
 .num { text-align: right; white-space: nowrap; }
@@ -118,12 +172,14 @@ table { border-collapse: collapse; width: 100%; }
 }
 .page-rel { position: relative; }
 .rod {
-  font-size: 6pt; margin-top: 2.5mm; text-align: left; color: #000;
+  font-size: 6pt; margin-top: 2.5mm; text-align: left; color: #333;
 }
 @media print {
   .danfe-toolbar, .no-print, button { display: none !important; }
   html, body { background: #fff !important; }
   .danfe-page { margin: 0; }
+  thead { display: table-header-group; }
+  tr { page-break-inside: avoid; }
 }
 `;
 }
@@ -132,6 +188,7 @@ function canhoto(m) {
   const bar = m.chave ? svgCodigoBarras(m.chave, { width: 140, height: 22 }) : '';
   return `<div class="canhoto">
     <div class="canhoto-main">
+      <div class="canhoto-tit">Recebimento / Assinatura</div>
       <div class="canhoto-txt">
         Recebemos de <strong>${esc(nomeEmitenteVisual(m.emitente.nome))}</strong> os produtos e/ou serviços constantes da Nota Fiscal Eletrônica indicada ao lado.
         <div class="canhoto-meta">Emissão: ${esc(m.dataEmissao)}&nbsp;&nbsp; Dest/Reme: ${esc(m.destinatario.nome)}&nbsp;&nbsp; Valor Total: ${esc(fmtMoney(m.imposto.vNF))}</div>
@@ -142,7 +199,7 @@ function canhoto(m) {
       </div>
     </div>
     <div class="canhoto-r">
-      NF-e Nº ${esc(m.numeroFormatado)}<br>Série ${esc(m.serieFormatada)}
+      NF-e<br>Nº ${esc(m.numeroFormatado)}<br>Série ${esc(m.serieFormatada)}
       <div class="barcode">${bar}</div>
     </div>
   </div>
@@ -151,21 +208,43 @@ function canhoto(m) {
 
 function blocoChave(m, compacto) {
   const barcode = m.chave ? svgCodigoBarras(m.chave, { width: 280, height: compacto ? 20 : 26 }) : '';
+  const prot = [m.protocolo, m.dhAutorizacao].filter(Boolean).join(' — ');
   return `<div class="bloco-chave" data-chave="${esc(m.chave)}">
     <div class="barcode">${barcode}</div>
     <div class="l">CHAVE DE ACESSO</div>
     <div class="chave">${esc(m.chaveFormatada)}</div>
-    ${compacto ? '' : `<div class="consulta">Consulta de autenticidade no portal nacional da NF-e<br>www.nfe.fazenda.gov.br/portal<br>ou no site da Sefaz autorizadora</div>`}
+    ${compacto ? '' : `<div class="consulta">Consulta de autenticidade no portal nacional da NF-e<br>www.nfe.fazenda.gov.br/portal<br>ou no site da Sefaz autorizadora</div>
+    <div class="prot-box">
+      <span class="l">PROTOCOLO DE AUTORIZAÇÃO DE USO</span>
+      <div class="v">${prot ? esc(prot) : '&nbsp;'}</div>
+    </div>`}
   </div>`;
+}
+
+function blocoEmitente(m, compacto) {
+  const e = m.emitente || {};
+  const logo = !compacto && m.logoUrl
+    ? `<div class="emit-logo"><img src="${esc(m.logoUrl)}" alt=""></div>`
+    : '';
+  if (compacto) {
+    return `${logo}<div class="emit-nome">${esc(nomeEmitenteVisual(e.nome))}</div>`;
+  }
+  const munUf = [e.municipio, e.uf].filter(Boolean).join(' / ');
+  return `${logo}
+    <div class="emit-nome">${esc(nomeEmitenteVisual(e.nome))}</div>
+    <div class="emit-linhas">
+      <div>CNPJ: ${esc(e.cnpj)}${e.ie ? ` &nbsp; IE: ${esc(e.ie)}` : ''}</div>
+      <div>${esc(e.endereco || e.logradouro || '')}</div>
+      <div>${esc([e.bairro, munUf, e.cep ? `CEP ${e.cep}` : ''].filter(Boolean).join(' — '))}</div>
+      ${e.fone ? `<div>Fone: ${esc(e.fone)}</div>` : ''}
+    </div>`;
 }
 
 function cabecalho(m, folha, total, compacto) {
   const tp = String(m.tpNF) === '0' ? '0' : '1';
   if (compacto) {
     return `<div class="head head-cont">
-      <div class="head-e">
-        <div class="emit-nome" style="font-size:8pt">${esc(nomeEmitenteVisual(m.emitente.nome))}</div>
-      </div>
+      <div class="head-e">${blocoEmitente(m, true)}</div>
       <div class="head-c">
         <p class="danfe-t" style="font-size:11pt">DANFE</p>
         <div class="nnf">Nº ${esc(m.numeroFormatado)}</div>
@@ -175,14 +254,8 @@ function cabecalho(m, folha, total, compacto) {
       <div class="head-d">${blocoChave(m, true)}</div>
     </div>`;
   }
-  const ender = linhaEnderecoEmitente(m.emitente);
   return `<div class="head">
-    <div class="head-e">
-      <div class="emit-nome">${esc(nomeEmitenteVisual(m.emitente.nome))}</div>
-      <div>${esc(ender)}</div>
-      <div>Fone: ${esc(m.emitente.fone)}</div>
-      ${m.emitente.email ? `<div>${esc(m.emitente.email)}</div>` : ''}
-    </div>
+    <div class="head-e">${blocoEmitente(m, false)}</div>
     <div class="head-c">
       <p class="danfe-t">DANFE</p>
       <p class="danfe-s">Documento Auxiliar da<br>Nota Fiscal Eletrônica</p>
@@ -201,35 +274,56 @@ function cabecalho(m, folha, total, compacto) {
 
 function natureza(m) {
   return `<div class="row">
-    ${cel('NATUREZA DA OPERAÇÃO', m.natureza)}
-    ${cel('PROTOCOLO DE AUTORIZAÇÃO DE USO', [m.protocolo, m.dhAutorizacao].filter(Boolean).join(' '))}
-  </div>
-  <div class="row">
+    ${cel('NATUREZA DA OPERAÇÃO', m.natureza, 'grow')}
     ${cel('INSCRIÇÃO ESTADUAL', m.emitente.ie)}
-    ${cel('INSCRIÇÃO ESTADUAL DO SUBSTITUTO TRIBUTÁRIO', m.emitente.ieSt)}
-    ${cel('CNPJ / CPF', m.emitente.cnpj)}
+    ${cel('INSC. ESTADUAL DO SUBST. TRIBUTÁRIO', m.emitente.ieSt)}
+    ${cel('CNPJ', m.emitente.cnpj)}
+    ${cel('DATA DA EMISSÃO', m.dataEmissao)}
+    ${cel('HORA DA EMISSÃO', m.horaEmissao)}
   </div>`;
 }
 
 function destinatario(m) {
+  const d = m.destinatario || {};
+  const endereco = d.logradouro || d.endereco;
   return `<div class="sec">DESTINATÁRIO / REMETENTE</div>
   <div class="row">
-    ${cel('NOME / RAZÃO SOCIAL', m.destinatario.nome)}
-    ${cel('CNPJ / CPF', m.destinatario.cnpj)}
-    ${cel('DATA DA EMISSÃO', m.dataEmissao)}
+    ${cel('NOME / RAZÃO SOCIAL', d.nome)}
+    ${cel('CNPJ / CPF', d.cnpj)}
+    ${cel('INSCRIÇÃO ESTADUAL', d.ie)}
   </div>
   <div class="row">
-    ${cel('ENDEREÇO', m.destinatario.endereco)}
-    ${cel('BAIRRO / DISTRITO', m.destinatario.bairro)}
-    ${cel('CEP', m.destinatario.cep)}
+    ${cel('ENDEREÇO', endereco)}
+    ${cel('NÚMERO', d.numero)}
+    ${cel('BAIRRO / DISTRITO', d.bairro)}
+    ${cel('CEP', d.cep)}
+  </div>
+  <div class="row">
+    ${cel('MUNICÍPIO', d.municipio)}
+    ${cel('UF', d.uf)}
+    ${cel('TELEFONE', d.fone)}
     ${cel('DATA DA SAÍDA / ENTRADA', m.dataSaida)}
-  </div>
-  <div class="row">
-    ${cel('MUNICÍPIO', m.destinatario.municipio)}
-    ${cel('FONE / FAX', m.destinatario.fone)}
-    ${cel('UF', m.destinatario.uf)}
-    ${cel('INSCRIÇÃO ESTADUAL', m.destinatario.ie)}
     ${cel('HORA DA SAÍDA', m.horaSaida)}
+  </div>`;
+}
+
+function fatura(m) {
+  const dups = Array.isArray(m.duplicatas) ? m.duplicatas : [];
+  if (!dups.length) {
+    return `<div class="sec">FATURA / DUPLICATA</div>
+    <div class="fatura-wrap empty">&nbsp;</div>`;
+  }
+  const rows = dups.map((d) => `<tr>
+    <td>${esc(d.nDup)}</td>
+    <td>${esc(d.dVenc)}</td>
+    <td class="num">${esc(fmtMoney(d.vDup))}</td>
+  </tr>`).join('');
+  return `<div class="sec">FATURA / DUPLICATA</div>
+  <div class="fatura-wrap">
+    <table class="fatura-tbl">
+      <thead><tr><th>Nº DUPLICATA</th><th>VENCIMENTO</th><th>VALOR</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
   </div>`;
 }
 
@@ -248,9 +342,9 @@ function imposto(m) {
     ${cel('VALOR DO FRETE', fmtMoney(i.vFrete))}
     ${cel('VALOR DO SEGURO', fmtMoney(i.vSeg))}
     ${cel('DESCONTO', fmtMoney(i.vDesc))}
-    ${cel('OUTRAS DESPESAS', fmtMoney(i.vOutro))}
-    ${cel('VALOR TOTAL DO IPI', fmtMoney(vIpi))}
-    ${cel('VALOR TOTAL DA NOTA', fmtMoney(i.vNF))}
+    ${cel('OUTRAS DESPESAS ACESSÓRIAS', fmtMoney(i.vOutro))}
+    ${cel('VALOR DO IPI', fmtMoney(vIpi))}
+    ${cel('VALOR TOTAL DA NOTA', fmtMoney(i.vNF), 'destaque-total')}
   </div>`;
 }
 
@@ -258,10 +352,10 @@ function transporte(m) {
   const t = m.transporte;
   return `<div class="sec">TRANSPORTADOR / VOLUMES TRANSPORTADOS</div>
   <div class="row">
-    ${cel('NOME / RAZÃO SOCIAL', t.nome)}
+    ${cel('RAZÃO SOCIAL', t.nome)}
     ${cel('FRETE POR CONTA', rotuloModFrete(t.modFrete))}
     ${cel('CÓDIGO ANTT', t.rntc)}
-    ${cel('PLACA DO VEÍCULO', t.placa)}
+    ${cel('PLACA', t.placa)}
     ${cel('UF', t.ufVeic)}
     ${cel('CNPJ / CPF', t.cnpj)}
   </div>
@@ -308,11 +402,11 @@ function adicionais(m) {
   }).join('');
   return `<div class="sec">DADOS ADICIONAIS</div>
   <div class="row">
-    <div class="c" style="flex:1.45;min-height:20mm">
+    <div class="c" style="flex:1.45;min-height:18mm">
       <span class="l">INFORMAÇÕES COMPLEMENTARES</span>
       <div class="v" style="font-weight:400;font-size:6.5pt">${infCpl}${refs || '&nbsp;'}</div>
     </div>
-    <div class="c" style="flex:1;min-height:20mm">
+    <div class="c" style="flex:1;min-height:18mm">
       <span class="l">RESERVADO AO FISCO</span>
       <div class="v">&nbsp;</div>
     </div>
@@ -333,6 +427,7 @@ function renderizarDanfeHtml(modelo) {
       ${cabecalho(modelo, p.folha, p.total, !primeira)}
       ${primeira ? natureza(modelo) : ''}
       ${primeira ? destinatario(modelo) : ''}
+      ${primeira ? fatura(modelo) : ''}
       ${primeira ? imposto(modelo) : ''}
       ${primeira ? transporte(modelo) : ''}
       ${tabelaProdutos(p.itens)}

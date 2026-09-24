@@ -1,0 +1,233 @@
+/**
+ * Central NF-e — listagem compacta V2 (somente apresentação).
+ */
+
+.nfe-central-lista .nfe-central-table-wrap {
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+}
+
+.nfe-central-lista table.nfe-central-table {
+  width: 100%;
+  min-width: 1080px;
+  border-collapse: collapse;
+  margin: 0;
+  background: #fff;
+  font-size: 12.5px;
+  line-height: 1.25;
+  overflow: visible;
+}
+
+.nfe-central-lista table.nfe-central-table thead th {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #334;
+  background: #f4f6f8;
+  border-bottom: 1px solid #d8dee6;
+  padding: 6px 8px;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.nfe-central-lista table.nfe-central-table tbody td {
+  padding: 5px 8px;
+  border-bottom: 1px solid #e8ecf1;
+  vertical-align: middle;
+  height: 56px;
+  max-height: 62px;
+}
+
+.nfe-central-lista table.nfe-central-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.nfe-central-lista table.nfe-central-table tbody tr.table-active {
+  background: #eef5ff;
+}
+
+.nfe-central-lista .nfe-cell-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nfe-central-lista .nfe-cell-nowrap {
+  white-space: nowrap;
+}
+
+.nfe-central-lista .nfe-col-tipo { width: 78px; }
+.nfe-central-lista .nfe-col-numero { width: 70px; }
+.nfe-central-lista .nfe-col-serie { width: 48px; }
+.nfe-central-lista .nfe-col-dest {
+  width: 168px;
+  max-width: 168px;
+}
+.nfe-central-lista .nfe-col-data { width: 148px; }
+.nfe-central-lista .nfe-col-valor { width: 100px; }
+.nfe-central-lista .nfe-col-sit { width: 100px; }
+.nfe-central-lista .nfe-col-cstat { width: 56px; }
+.nfe-central-lista .nfe-col-prot {
+  width: 128px;
+  max-width: 128px;
+}
+.nfe-central-lista .nfe-col-user {
+  width: 90px;
+  max-width: 90px;
+}
+.nfe-central-lista .nfe-col-acoes {
+  width: 210px;
+  min-width: 190px;
+}
+
+.nfe-central-lista .nfe-acoes,
+.nfe-central-lista .nfe-acoes-compactas {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.nfe-central-lista .nfe-acoes .btn,
+.nfe-central-lista .nfe-acao-primaria,
+.nfe-central-lista .nfe-acao-mais {
+  padding: 3px 8px;
+  min-height: 28px;
+  max-height: 32px;
+  line-height: 1.1;
+  font-size: 11.5px;
+  margin: 0;
+  color: #334155;
+  border-color: #cbd5e1;
+  background: #fff;
+}
+
+.nfe-central-lista .nfe-acoes .btn:hover:not(:disabled),
+.nfe-central-lista .nfe-acao-primaria:hover:not(:disabled),
+.nfe-central-lista .nfe-acao-mais:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.nfe-central-lista .nfe-acoes .btn:disabled {
+  opacity: 0.45;
+}
+
+.nfe-central-lista .nfe-acoes .btn i,
+.nfe-central-lista .nfe-acao-primaria i,
+.nfe-central-lista .nfe-acao-mais i {
+  font-size: 11px;
+}
+
+.nfe-central-lista .nfe-acao-lbl {
+  margin-left: 4px;
+}
+
+.nfe-central-lista .nfe-acao-mais.dropdown-toggle::after {
+  display: none;
+}
+
+.nfe-central-lista .nfe-mais-group {
+  position: relative;
+}
+
+.nfe-central-lista td.nfe-col-acoes {
+  overflow: visible;
+}
+
+.nfe-central-lista .nfe-mais-menu {
+  min-width: 240px;
+  max-width: 280px;
+  padding: 4px 0;
+  font-size: 12.5px;
+  z-index: 1080;
+}
+
+.nfe-central-lista .nfe-mais-header {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  padding: 6px 12px 2px;
+  margin: 0;
+}
+
+.nfe-central-lista .nfe-mais-divider {
+  margin: 4px 0;
+}
+
+.nfe-central-lista .nfe-mais-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  color: #1e293b;
+  white-space: nowrap;
+}
+
+.nfe-central-lista .nfe-mais-item i {
+  width: 14px;
+  text-align: center;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.nfe-central-lista .nfe-mais-item:hover,
+.nfe-central-lista .nfe-mais-item:focus {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.nfe-central-lista .nfe-mais-item-danger {
+  color: #b91c1c;
+}
+
+.nfe-central-lista .nfe-mais-item-danger i {
+  color: #b91c1c;
+}
+
+.nfe-central-lista .nfe-mais-item-danger:hover,
+.nfe-central-lista .nfe-mais-item-danger:focus {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+@media (max-width: 1200px) {
+  .nfe-central-lista .nfe-acao-lbl {
+    display: none;
+  }
+  .nfe-central-lista .nfe-col-acoes {
+    width: 118px;
+    min-width: 110px;
+  }
+  .nfe-central-lista .nfe-acao-primaria,
+  .nfe-central-lista .nfe-acao-mais {
+    padding: 3px 7px;
+  }
+}
+
+.nfe-central-lista .nfe-badge-tipo {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 3px 6px;
+}
+
+.nfe-central-lista .nfe-badge-status {
+  font-size: 10.5px;
+  padding: 3px 7px;
+  white-space: nowrap;
+}
+
+.nfe-central-lista .card-header.nfe-central-card-head {
+  padding: 8px 14px;
+}
+
+.nfe-central-lista .card-header.nfe-central-card-head .small {
+  margin-top: 2px !important;
+  font-size: 11.5px;
+}

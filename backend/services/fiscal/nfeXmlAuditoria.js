@@ -139,7 +139,13 @@ function resolverCamposDestDiagnostico({ config = {}, venda = {}, dadosNfe = {} 
     ),
     uf: String(dadosNfe.dest_uf || venda.cliente_uf || config.uf_sigla || ''),
     ie: onlyDigits(dadosNfe.dest_ie || venda.cliente_ie || venda.ie || '') || null,
-    indicadorIE: dadosNfe.dest_ind_ie != null ? String(dadosNfe.dest_ind_ie) : '9'
+    indicadorIE: (() => {
+      if (dadosNfe.dest_ind_ie != null && String(dadosNfe.dest_ind_ie).trim() !== '') {
+        return String(dadosNfe.dest_ind_ie);
+      }
+      const ieDigits = onlyDigits(dadosNfe.dest_ie || venda.cliente_ie || venda.ie || '');
+      return (ieDigits && !/^0+$/.test(ieDigits)) ? '1' : '9';
+    })()
   };
 }
 

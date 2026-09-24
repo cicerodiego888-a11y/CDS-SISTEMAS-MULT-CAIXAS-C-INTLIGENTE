@@ -28,6 +28,10 @@ const {
 } = require('../lib/motorConversaoUnidades');
 const { obterMuc, resultadoParaJson } = require('../motores/muc');
 const {
+  apenasDigitos,
+  sqlColunaSomenteDigitos
+} = require('../services/cadastro/documentoCpfCnpj');
+const {
   emitirNFeDevolucaoCompra,
   previaNfeDevolucaoCompra,
   prepararNfeDevolucaoCompra,
@@ -197,7 +201,7 @@ function addDays(date, days) {
 }
 
 function digitsOnly(value) {
-  return String(value || '').replace(/\D/g, '');
+  return apenasDigitos(value);
 }
 
 function createSlugCodigo(nome = '') {
@@ -257,7 +261,7 @@ function garantirFornecedorCompra(dados, callback) {
 
   db.get(`
     SELECT id FROM fornecedores 
-    WHERE REPLACE(REPLACE(REPLACE(REPLACE(cpf_cnpj, '.', ''), '/', ''), '-', ''), ' ', '') = ?
+    WHERE ${sqlColunaSomenteDigitos('cpf_cnpj')} = ?
     LIMIT 1
   `, [cnpj], (err, existente) => {
     if (err) return callback(err);
