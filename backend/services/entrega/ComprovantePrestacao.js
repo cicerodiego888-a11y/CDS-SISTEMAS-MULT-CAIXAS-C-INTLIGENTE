@@ -62,13 +62,16 @@ function montarHtmlComprovantePrestacao(dados = {}) {
 <html lang="pt-BR"><head><meta charset="utf-8">
 <title>Comprovante de Prestação</title>
 <style>
-  body{font-family:monospace;font-size:12px;width:280px;margin:0 auto;padding:8px;}
-  h1{font-size:14px;text-align:center;margin:0 0 8px;}
-  h2{font-size:11px;margin:10px 0 4px;border-bottom:1px dashed #000;padding-bottom:2px;}
-  .muted{color:#444;font-size:11px;text-align:center;}
+  body{font-family:"Courier New",Courier,monospace;font-size:13px;font-weight:700;color:#000;background:#fff;width:280px;margin:0 auto;padding:8px;-webkit-font-smoothing:none;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  h1,h2,strong,b,.ok{font-weight:900;color:#000;}
+  h1{font-size:15px;text-align:center;margin:0 0 8px;}
+  h2{font-size:12px;margin:10px 0 4px;border-bottom:2px solid #000;padding-bottom:2px;}
+  .muted{color:#000;font-size:12px;font-weight:700;text-align:center;}
   table{width:100%;border-collapse:collapse;margin:6px 0;}
+  td,div,span,p{color:#000;font-weight:700;}
   td{padding:2px 0;}
-  .ok{margin-top:10px;text-align:center;font-weight:bold;border-top:1px dashed #000;padding-top:8px;}
+  hr{border:none;border-top:2px solid #000;margin:6px 0;}
+  .ok{margin-top:10px;text-align:center;border-top:2px solid #000;padding-top:8px;}
 </style></head><body>
   <h1>COMPROVANTE DE PRESTAÇÃO</h1>
   <div class="muted">${dados.empresa || dados.nome_empresa || 'CDS Sistemas'}</div>

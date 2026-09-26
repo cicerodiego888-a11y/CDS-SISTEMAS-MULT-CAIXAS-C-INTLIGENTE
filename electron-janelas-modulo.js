@@ -302,12 +302,14 @@ function enriquecerHtmlImpressaoTermica(html) {
     background: #fff !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    font-weight: 700 !important;
+    font-weight: 900 !important;
   }
   body, pre, table, td, th, div, span, p, h1, h2, h3, h4, small, strong, b, label {
     color: #000 !important;
     opacity: 1 !important;
-    font-weight: 700 !important;
+    font-weight: 900 !important;
+    -webkit-font-smoothing: none !important;
+    text-shadow: 0.45px 0 0 #000, -0.45px 0 0 #000, 0 0.25px 0 #000 !important;
   }
   .muted, .text-muted, .center.muted, [style*="color:#222"], [style*="color: #222"],
   [style*="color:#333"], [style*="color: #333"], [style*="color:#444"], [style*="color: #444"],

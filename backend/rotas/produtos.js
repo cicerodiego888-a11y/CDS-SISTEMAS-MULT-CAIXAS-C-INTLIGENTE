@@ -78,27 +78,50 @@ function publicarProdutoNoCatalogoOperacional(produto) {
   }
 }
 
+const MAX_DIGITOS_CODIGO_INTERNO = 5;
+const MAX_CODIGO_INTERNO = 99999;
+
 /**
- * Próximo código interno numérico (maior código só-dígitos + 1).
- * Fallback: MAX(id)+1.
+ * Próximo código interno numérico de até 5 dígitos.
+ * Ignora códigos longos (EAN/barras) para não estourar o limite.
  */
+function proximoCodigoInternoCincoDigitos(codigosExistentes) {
+  const usados = new Set();
+  for (const raw of codigosExistentes || []) {
+    const s = String(raw == null ? '' : raw).trim();
+    if (!/^\d{1,5}$/.test(s)) continue;
+    const n = Number(s);
+    if (n >= 1 && n <= MAX_CODIGO_INTERNO) usados.add(n);
+  }
+  let max = 0;
+  for (const n of usados) {
+    if (n > max) max = n;
+  }
+  if (max < MAX_CODIGO_INTERNO) return String(max + 1);
+  for (let n = 1; n <= MAX_CODIGO_INTERNO; n += 1) {
+    if (!usados.has(n)) return String(n);
+  }
+  return null;
+}
+
 function obterProximoCodigoInternoProduto(callback) {
-  db.get(
+  db.all(
     `
-      SELECT MAX(CAST(codigo AS INTEGER)) AS max_num
+      SELECT TRIM(codigo) AS codigo
       FROM produtos
       WHERE codigo IS NOT NULL
         AND TRIM(codigo) != ''
-        AND codigo GLOB '[0-9]*'
+        AND LENGTH(TRIM(codigo)) <= ?
+        AND TRIM(codigo) NOT GLOB '*[^0-9]*'
     `,
-    (err, row) => {
-      if (!err && row && row.max_num != null) {
-        return callback(null, String(Number(row.max_num) + 1));
+    [MAX_DIGITOS_CODIGO_INTERNO],
+    (err, rows) => {
+      if (err) return callback(err);
+      const codigo = proximoCodigoInternoCincoDigitos((rows || []).map((row) => row.codigo));
+      if (!codigo) {
+        return callback(new Error('Não há código interno disponível com até 5 dígitos.'));
       }
-      db.get('SELECT COALESCE(MAX(id), 0) + 1 AS proximo FROM produtos', (err2, row2) => {
-        if (err2) return callback(err2);
-        callback(null, String(row2?.proximo || 1));
-      });
+      callback(null, codigo);
     }
   );
 }
@@ -110,6 +133,11 @@ function obterProximoCodigoInternoProduto(callback) {
 function resolverCodigoInternoCriacao(codigoInformado, callback) {
   const informado = String(codigoInformado == null ? '' : codigoInformado).trim();
   if (informado) {
+    if (/^\d+$/.test(informado) && informado.length > MAX_DIGITOS_CODIGO_INTERNO) {
+      const err = new Error('O código interno deve ter no máximo 5 dígitos.');
+      err.status = 400;
+      return callback(err);
+    }
     return callback(null, { codigo: informado, gerado: false });
   }
 
@@ -121,8 +149,10 @@ function resolverCodigoInternoCriacao(codigoInformado, callback) {
       if (err) return callback(err);
       if (!row) return callback(null, { codigo: candidato, gerado: true });
       const n = Number(candidato);
-      const proximo = Number.isFinite(n) ? String(n + 1) : `${candidato}-${tentativas + 1}`;
-      tentar(proximo, tentativas + 1);
+      if (!Number.isFinite(n) || n >= MAX_CODIGO_INTERNO) {
+        return callback(new Error('Não há código interno disponível com até 5 dígitos.'));
+      }
+      tentar(String(n + 1), tentativas + 1);
     });
   };
 
@@ -2422,7 +2452,7 @@ router.post('/', (req, res) => {
 
   resolverCodigoInternoCriacao(codigo, (codigoErr, resolvido) => {
     if (codigoErr) {
-      return res.status(500).json({ error: codigoErr.message || 'Falha ao gerar código interno.' });
+      return res.status(codigoErr.status || 500).json({ error: codigoErr.message || 'Falha ao gerar código interno.' });
     }
     const codigoFinal = resolvido.codigo;
 
@@ -3415,5 +3445,6 @@ router.post('/verificar-expiradas-agora', (req, res) => {
 });
 
 module.exports = router;
+module.exports._proximoCodigoInternoCincoDigitos = proximoCodigoInternoCincoDigitos;
 module.exports._setPdvIdentificacaoServiceForTests = _setPdvIdentificacaoServiceForTests;
 module.exports._obterPdvIdentificacaoService = obterPdvIdentificacaoService;

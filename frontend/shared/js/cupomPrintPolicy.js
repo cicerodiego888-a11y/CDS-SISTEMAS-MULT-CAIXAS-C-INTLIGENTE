@@ -142,11 +142,16 @@
 
   function enveloparVia(html, destino) {
     const titulo = rotuloVia(destino);
-    return `<div class="cds-ui-cupom-via" style="font-family:monospace;font-size:13px;text-align:center;font-weight:700;padding:4px 0 8px;">
+    const faixa = `<div class="cds-ui-cupom-via" style="font-family:monospace;font-size:13px;text-align:center;font-weight:900;color:#000;padding:4px 0 8px;">
 --------------------------------
 ${titulo}
 --------------------------------
-</div>${html || ''}`;
+</div>`;
+    const src = String(html || '');
+    if (/<body[^>]*>/i.test(src)) {
+      return src.replace(/<body([^>]*)>/i, `<body$1>${faixa}`);
+    }
+    return faixa + src;
   }
 
   function removerDialogos() {

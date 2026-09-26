@@ -3161,6 +3161,9 @@ function showProdutoModal(produto = null, opcoes = {}) {
         ? Number(produto.estoque_atual ?? (Number(produto.saldo_fiscal || 0) + Number(produto.saldo_nao_fiscal || 0)))
         : 0;
 
+    const codigoAtualForm = isEdit ? String(produto.codigo || '') : '';
+    const codigoInternoMax5 = !codigoAtualForm || /^\d{1,5}$/.test(codigoAtualForm);
+
     // Remove modais antigos para evitar conflitos de aria-hidden e IDs duplicados
     $('#produtoModal').remove();
     $('#viewProdutoModal').remove();
@@ -3193,8 +3196,13 @@ function showProdutoModal(produto = null, opcoes = {}) {
                                         <div class="row g-3">
                                             <div class="col-md-3">
                                                 <label for="codigo" class="form-label">Código Interno</label>
-                                                <input type="text" class="form-control" id="codigo" value="${isEdit ? escapeHtml(produto.codigo || '') : ''}" placeholder="Gerado ao salvar" autocomplete="off">
-                                                <div class="form-text">Se não informar, o sistema gera ao salvar. Informe primeiro o código de barras, se houver.</div>
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control" id="codigo" value="${isEdit ? escapeHtml(produto.codigo || '') : ''}" placeholder="Até 5 dígitos" autocomplete="off" inputmode="numeric" ${codigoInternoMax5 ? 'maxlength="5"' : ''}>
+                                                    <button type="button" class="btn btn-outline-secondary" id="btnGerarCodigoInterno" title="Gerar código interno de até 5 dígitos para produto sem código de barras">
+                                                        Gerar
+                                                    </button>
+                                                </div>
+                                                <div class="form-text">Sem código de barras, gere um código de até 5 dígitos.</div>
                                             </div>
                                             <div class="col-md-3">
                                                 <label for="plu" class="form-label">PLU / Código do item da balança</label>
@@ -3920,6 +3928,9 @@ function inicializarEspelhoCodigoBarras(produto, isEdit) {
             const codigo = String($(this).val() || '').trim();
             const $barras = $('#codigo_barras');
             const barras = String($barras.val() || '').trim();
+            if ($modal.data('codigoInternoAvulso') === true && barras === '') {
+                return;
+            }
             const ultimoEspelhado = String($modal.data('ultimoCodigoEspelhado') || '');
             const manual = $modal.data('codigoBarrasEditadoManualmente') === true;
 
@@ -3941,8 +3952,34 @@ function inicializarEspelhoCodigoBarras(produto, isEdit) {
                 $modal.data('ultimoCodigoEspelhado', '');
             } else {
                 $modal.data('codigoBarrasEditadoManualmente', true);
+                $modal.data('codigoInternoAvulso', false);
             }
         });
+
+    $modal.off('click.gerarCodigoInterno').on('click.gerarCodigoInterno', '#btnGerarCodigoInterno', async function () {
+        const $btn = $(this);
+        const barras = String($('#codigo_barras').val() || '').trim();
+        if (barras) {
+            showNotification('Código interno de 5 dígitos é para produto sem código de barras.', 'warning');
+            return;
+        }
+        $btn.prop('disabled', true);
+        try {
+            const resp = await fetch(`${API_URL}/produtos/proximo-codigo`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) throw new Error(data.error || 'Falha ao gerar código interno.');
+            const codigo = String(data.codigo || '').replace(/\D/g, '').slice(0, 5);
+            if (!/^\d{1,5}$/.test(codigo)) throw new Error('Código interno inválido.');
+            $modal.data('codigoInternoAvulso', true);
+            $('#codigo').val(codigo);
+        } catch (err) {
+            showNotification(err.message || 'Erro ao gerar código interno.', 'danger');
+        } finally {
+            $btn.prop('disabled', false);
+        }
+    });
 }
 window.inicializarEspelhoCodigoBarras = inicializarEspelhoCodigoBarras;
 

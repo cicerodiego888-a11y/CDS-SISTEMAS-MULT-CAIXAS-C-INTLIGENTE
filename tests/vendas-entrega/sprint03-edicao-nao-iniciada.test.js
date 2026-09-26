@@ -189,6 +189,12 @@ describe('Sprint 3 — contratos UI/API', () => {
     assert.match(ui, /NÃO INICIADA/);
     assert.match(ui, /Aguardando saída do entregador/);
     assert.match(ui, /btn-editar-entrega/);
+    assert.match(ui, /btn-reimprimir-entrega/);
+    assert.match(ui, /Reimprimir cupom/);
+    assert.match(ui, /\/comprovante/);
+    assert.match(ui, /modalCupomEntrega/);
+    assert.match(ui, /mostrarCupomEntregaNaTela/);
+    assert.match(ui, /reimpressao:\s*true/);
     assert.match(ui, /Iniciar Entrega/);
     assert.match(ui, /Editar Entrega #/);
     assert.match(ui, /Salvar Alterações/);
@@ -201,6 +207,12 @@ describe('Sprint 3 — contratos UI/API', () => {
     assert.match(rotas, /patch\('\/entregas\/:id'/i);
     assert.match(rotas, /patch\('\/:id\/entrega'/i);
     assert.match(rotas, /editarEntrega/);
+  });
+
+  it('rota de reimpressão do comprovante existe', () => {
+    const rotas = ler('backend/rotas/entregas.js');
+    assert.match(rotas, /get\('\/entregas\/:id\/comprovante'/i);
+    assert.match(rotas, /comprovante/);
   });
 
   it('frontend oculta Editar fora de AGUARDANDO_ENTREGA', () => {
@@ -409,5 +421,75 @@ describe('Sprint 3 — snapshot / comprovante', () => {
     assert.match(html, /Atualizado/);
     assert.match(html, /Rua Nova/);
     assert.match(html, /85900001111/);
+  });
+
+  it('reimpressão marca o comprovante e preserva a data da venda', () => {
+    const html = montarHtmlComprovanteEntrega({
+      id: 116,
+      total: 16,
+      data_venda: '2026-09-26 03:39:34',
+      reimpressao: true,
+      nome_cliente_entrega: 'Cicero Diego',
+      entregador: 'Jose',
+      pagamento_previsto: 'PIX'
+    }, [{ nome: 'Item', quantidade: 1, preco_unitario: 16, subtotal: 16 }]);
+    assert.match(html, /REIMPRESSÃO/);
+    assert.match(html, /2026-09-26/);
+    assert.match(html, /03:39:34/);
+    assert.match(html, /Cicero Diego/);
+    assert.match(html, /ESTE DOCUMENTO NÃO POSSUI VALOR FISCAL/);
+  });
+});
+
+describe('Sprint 3 — reimpressão do comprovante', () => {
+  it('monta o HTML a partir do snapshot e dos itens', async () => {
+    const service = new EntregaService({
+      repository: {
+        buscarPorVendaId: async () => ({
+          id: 116,
+          tipo_venda: TipoVenda.ENTREGA,
+          total: 16,
+          taxa_entrega: 0,
+          data_venda: '2026-09-26 03:39:34',
+          nome_cliente_entrega: 'Cicero Diego',
+          entregador: 'Jose',
+          pagamento_previsto: 'PIX',
+          endereco_entrega: 'Rua A',
+          numero_entrega: '10',
+          cidade_entrega: 'Fortaleza',
+          uf_entrega: 'CE'
+        }),
+        listarItensComprovante: async () => ([
+          { nome: 'Bolacha', quantidade: 1, preco_unitario: 16, subtotal: 16 }
+        ])
+      },
+      obterEmpresaCupom: async () => ({ nome: 'Loja Teste', cnpj: '00.000.000/0001-00' }),
+      gravarAuditoria: async () => ({})
+    });
+
+    const out = await service.reimprimirComprovante(116, {});
+    assert.equal(out.success, true);
+    assert.equal(out.reimpressao, true);
+    assert.match(out.comprovante_html, /COMPROVANTE DE ENTREGA/);
+    assert.match(out.comprovante_html, /REIMPRESSÃO/);
+    assert.match(out.comprovante_html, /Cicero Diego/);
+    assert.match(out.comprovante_html, /Bolacha/);
+    assert.match(out.comprovante_html, /Loja Teste/);
+    assert.match(out.comprovante_html, /2026-09-26/);
+  });
+
+  it('retorna 404 quando a entrega não existe', async () => {
+    const service = new EntregaService({
+      repository: {
+        buscarPorVendaId: async () => null,
+        listarItensComprovante: async () => []
+      },
+      gravarAuditoria: async () => ({})
+    });
+
+    await assert.rejects(
+      () => service.reimprimirComprovante(999, {}),
+      (err) => err.status === 404
+    );
   });
 });

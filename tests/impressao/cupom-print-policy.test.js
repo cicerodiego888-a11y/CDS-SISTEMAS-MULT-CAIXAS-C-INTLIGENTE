@@ -84,6 +84,10 @@ describe('CupomPrintPolicy — frontend e integração', () => {
     assert.match(via, /VIA DO CLIENTE/);
     assert.match(via, /CUPOM/);
     assert.equal(html, '<pre>CUPOM</pre>');
+    const doc = '<html><head></head><body><p>CUPOM</p></body></html>';
+    const viaDoc = Ui.enveloparVia(doc, 'CLIENTE');
+    assert.match(viaDoc, /<body[^>]*>\s*<div class="cds-ui-cupom-via"/);
+    assert.match(viaDoc, /<\/head><body/);
     Ui.aplicarCache({ fiscal: { vias: 2 } });
     const d = Ui.resolver('FISCAL');
     assert.equal(d.perguntar, true);

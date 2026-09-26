@@ -339,6 +339,9 @@
         <td>${dataPart}</td>
         <td>${horaPart}</td>
         <td class="text-nowrap">
+          <button type="button" class="btn btn-sm btn-outline-secondary btn-reimprimir-entrega" data-id="${v.id}" title="Reimprimir comprovante de entrega">
+            <i class="fas fa-print"></i> Reimprimir
+          </button>
           ${podeEditar
             ? `<button type="button" class="btn btn-sm btn-outline-warning btn-editar-entrega" data-id="${v.id}" title="Editar entrega">
                 <i class="fas fa-pen"></i> Editar
@@ -385,6 +388,95 @@
       e.preventDefault();
       abrirDetalheTimeline($(this).data('id'));
     });
+
+    $('.btn-reimprimir-entrega').off('click').on('click', function () {
+      reimprimirCupomEntrega($(this).data('id'));
+    });
+  }
+
+  function escreverHtmlNoFrame(frame, html) {
+    const doc = frame.contentDocument || frame.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+  }
+
+  function mostrarCupomEntregaNaTela(html, vendaId) {
+    document.querySelectorAll('.modal.show').forEach((el) => {
+      const inst = bootstrap.Modal.getInstance(el);
+      if (inst) inst.hide();
+    });
+    $('.modal-backdrop').remove();
+    $('body').removeClass('modal-open').css('padding-right', '');
+
+    $('#modal-container').html(`
+      <div class="modal fade" id="modalCupomEntrega" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width:420px;">
+          <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+              <h5 class="modal-title">Cupom da entrega #${vendaId}</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-2" style="background:#f4f4f5;">
+              <iframe id="frameCupomEntrega" title="Cupom da entrega" style="width:100%;height:70vh;border:0;background:#fff;"></iframe>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+              <button type="button" class="btn btn-primary" id="btnImprimirCupomEntregaModal">
+                <i class="fas fa-print"></i> Imprimir
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+
+    const frame = document.getElementById('frameCupomEntrega');
+    if (frame) escreverHtmlNoFrame(frame, html);
+
+    $('#btnImprimirCupomEntregaModal').on('click', function () {
+      imprimirCupomEntregaJaAberto(html, vendaId);
+    });
+
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCupomEntrega')).show();
+  }
+
+  async function imprimirCupomEntregaJaAberto(html, vendaId) {
+    try {
+      if (window.CupomPrintPolicy && typeof window.CupomPrintPolicy.aposCupomNaTela === 'function') {
+        await window.CupomPrintPolicy.aposCupomNaTela({
+          tipo: 'NAO_FISCAL',
+          html,
+          vendaId,
+          reimpressao: true
+        });
+        return;
+      }
+      if (typeof apresentarCupomNaTela === 'function') {
+        await apresentarCupomNaTela(html, html, {
+          tipo: 'NAO_FISCAL',
+          vendaId,
+          reimpressao: true
+        });
+      }
+    } catch (err) {
+      showNotification(err.message || 'Erro ao imprimir cupom.', 'danger');
+    }
+  }
+
+  async function reimprimirCupomEntrega(vendaId) {
+    try {
+      const resp = await fetch(`${API_URL}/vendas/entregas/${vendaId}/comprovante`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.error || 'Falha ao reimprimir o cupom.');
+      if (!data.comprovante_html) throw new Error('Cupom da entrega indisponível.');
+
+      mostrarCupomEntregaNaTela(data.comprovante_html, vendaId);
+    } catch (err) {
+      showNotification(err.message || 'Erro ao reimprimir cupom.', 'danger');
+    }
   }
 
   function authHeadersJson() {
@@ -793,10 +885,17 @@
                 <h6 class="mb-3">Histórico da Entrega</h6>
                 ${timelineHtml}
               </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-reimprimir-entrega" data-id="${item.id}">
+                  <i class="fas fa-print"></i> Reimprimir cupom
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+              </div>
             </div>
           </div>
         </div>
       `);
+      bindAcoesPedidos();
       bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetalheEntrega')).show();
     } catch (err) {
       showNotification(err.message || 'Erro', 'danger');

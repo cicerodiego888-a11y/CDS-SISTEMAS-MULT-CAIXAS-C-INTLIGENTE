@@ -112,6 +112,20 @@ async function totaisReservados(_req, res) {
   }
 }
 
+async function comprovante(req, res) {
+  try {
+    const data = await entregaService.reimprimirComprovante(
+      req.params.id,
+      contextoAuditoriaRequisicao(req)
+    );
+    res.json(data);
+  } catch (err) {
+    res.status(err.status || 500).json({
+      error: err.message || 'Erro ao reimprimir comprovante.'
+    });
+  }
+}
+
 async function timeline(req, res) {
   try {
     const data = await entregaService.obterTimeline(req.params.id);
@@ -207,6 +221,7 @@ module.exports = {
   resumoPorStatus,
   totaisReservados,
   timeline,
+  comprovante,
   prestacao,
   atualizarEntrega,
   editarEntrega,

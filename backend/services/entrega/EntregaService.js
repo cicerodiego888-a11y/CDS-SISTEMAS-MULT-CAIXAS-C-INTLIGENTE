@@ -15,6 +15,7 @@ const {
   TIMELINE_ORDEM
 } = require('./EntregaAuditoria');
 const { montarHtmlComprovantePrestacao } = require('./ComprovantePrestacao');
+const { montarHtmlComprovanteEntrega } = require('./CriarVendaEntregaService');
 const { montarSnapshotEntrega } = require('./EntregaClienteSnapshot');
 const { gravarAuditoria } = require('../auditoria');
 const db = require('../../database');
@@ -42,6 +43,28 @@ const CAMPOS_EDITAVEIS_ANTES_INICIO = Object.freeze([
   'troco_para',
   'observacao_entrega'
 ]);
+
+function obterEmpresaCupom() {
+  return new Promise((resolve) => {
+    db.all(
+      `SELECT chave, valor FROM configuracoes WHERE chave IN ('nome_empresa', 'nome_fantasia', 'razao_social', 'cnpj')`,
+      [],
+      (err, rows) => {
+        if (err) {
+          return resolve({ nome: 'CDS Sistemas', cnpj: '' });
+        }
+        const map = {};
+        (rows || []).forEach((row) => {
+          map[row.chave] = row.valor;
+        });
+        resolve({
+          nome: map.nome_fantasia || map.nome_empresa || map.razao_social || 'CDS Sistemas',
+          cnpj: map.cnpj || ''
+        });
+      }
+    );
+  });
+}
 
 function buscarClientePorId(clienteId) {
   return new Promise((resolve, reject) => {
@@ -96,6 +119,8 @@ class EntregaService {
     this.repository = deps.repository || entregaRepository;
     this.validator = deps.validator || entregaValidator;
     this._buscarCliente = deps.buscarCliente || buscarClientePorId;
+    this._obterEmpresaCupom = deps.obterEmpresaCupom || obterEmpresaCupom;
+    this._gravarAuditoria = deps.gravarAuditoria || gravarAuditoria;
   }
 
   estaHabilitado() {
@@ -136,6 +161,49 @@ class EntregaService {
       venda_id: Number(vendaId) || null,
       item,
       timeline
+    };
+  }
+
+  /**
+   * Reimprime o comprovante térmico da entrega (o mesmo gerado na criação).
+   * Usa o snapshot atual e os itens da venda. Não altera estoque nem financeiro.
+   */
+  async reimprimirComprovante(vendaId, contexto = {}) {
+    const item = await this.repository.buscarPorVendaId(vendaId);
+    if (!item) {
+      const err = new Error('Venda para entrega não encontrada.');
+      err.status = 404;
+      throw err;
+    }
+
+    if (item.tipo_venda && item.tipo_venda !== TipoVenda.ENTREGA) {
+      const err = new Error('Este pedido não é uma venda para entrega.');
+      err.status = 400;
+      throw err;
+    }
+
+    const itens = await this.repository.listarItensComprovante(vendaId);
+    const empresa = await this._obterEmpresaCupom();
+    const html = montarHtmlComprovanteEntrega(
+      { ...item, reimpressao: true },
+      itens || [],
+      empresa
+    );
+
+    await this._gravarAuditoria(
+      montarPayloadAuditoriaEntrega({
+        acao: EntregaAuditoriaEventos.COMPROVANTE_IMPRESSO,
+        vendaId,
+        detalhes: { tipo: 'comprovante_entrega', reimpressao: true },
+        ...contexto
+      })
+    ).catch((e) => console.error(e));
+
+    return {
+      success: true,
+      venda_id: Number(vendaId) || null,
+      reimpressao: true,
+      comprovante_html: html
     };
   }
 

@@ -144,6 +144,13 @@ describe('PDV composição de itens — configuração', () => {
     const pdv = fs.readFileSync(path.join(ROOT, 'frontend/pdv/js/pdv.js'), 'utf8');
     assert.match(pdv, /carregarFlagComposicaoItensPdv/);
     assert.match(pdv, /pdvObterModoComposicaoItens/);
+    assert.match(pdv, /function pdvSepararItensAtivo\(\)/);
+    const fluxoAdd = pdv.slice(
+      pdv.indexOf('function continuarAdicionarProdutoPdv'),
+      pdv.indexOf('function iniciarFluxoAdicionarProdutoPdv')
+    );
+    assert.match(fluxoAdd, /pdvSepararItensAtivo\(\)/);
+    assert.equal((fluxoAdd.match(/pdvSepararItensAtivo\(\)/g) || []).length, 2);
     assert.match(pdv, /PDVItemCompositionService/);
     assert.match(pdv, /linha_id/);
     assert.doesNotMatch(pdv, /cfgPdvComposicaoUnificar/);

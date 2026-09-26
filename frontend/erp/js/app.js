@@ -43,7 +43,11 @@ const CDS_ERP_PAGE_SCRIPTS = Object.freeze({
         '/shared/js/vendasHistoricoUi.js',
         '/erp/js/vendas.js'
     ],
-    entregas: ['/pdv/js/entregas.js'],
+    entregas: [
+        '/shared/js/cupomPrintPolicy.js',
+        '/shared/js/fiscalImpressao.js',
+        '/pdv/js/entregas.js'
+    ],
     faturamento: ['/shared/js/nfeDanfeViewer.js', '/erp/js/faturamento.js'],
     'central-faturamento': ['/shared/js/nfeDanfeViewer.js', '/erp/js/central-faturamento.js'],
     pedidos: ['/erp/js/pedidos.js'],

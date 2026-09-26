@@ -3852,7 +3852,8 @@ function renderCarrinhoItens() {
     return carrinho.map((item, index) => {
         const produto = produtosDisponiveis.find(p => Number(p.id) === Number(item.id));
         const vendaUnidade = itemVendaPorUnidade(item);
-        const decimal = vendaUnidade ? false : produtoUsaConversaoUnidadesPdv(produto);
+        const refQuantidade = produto || { unidade: item.unidade };
+        const decimal = vendaUnidade ? false : quantidadeUsaDecimaisPdv(refQuantidade);
         const unidade = vendaUnidade ? 'UN' : String(produto?.unidade || item.unidade || 'UN').toUpperCase();
         const descontoValorItem = obterDescontoValorItemPdv(item, produto);
         const descontoPctItem = Number(item.desconto_percentual || 0);
@@ -3888,9 +3889,9 @@ function renderCarrinhoItens() {
                 <td class="col-qtd">
                     <input type="${decimal ? 'text' : 'number'}"
                            class="form-control form-control-sm quantidade-item"
-                           value="${vendaUnidade ? Math.round(Number(item.quantidade || 0)) : formatarQuantidadePdv(item.quantidade, produto)}"
-                           min="${decimal ? '0.01' : '1'}"
-                           step="${decimal ? '0.01' : '1'}"
+                           value="${vendaUnidade ? String(Math.round(Number(item.quantidade || 0))) : formatarQuantidadePdv(item.quantidade, refQuantidade)}"
+                           min="${decimal ? '0.001' : '1'}"
+                           step="${decimal ? '0.001' : '1'}"
                            inputmode="${decimal ? 'decimal' : 'numeric'}"
                            data-index="${index}">
                 </td>
@@ -4007,7 +4008,7 @@ function produtoFracionado(produto) {
 }
 
 function permiteQuantidadeDecimal(produto) {
-    return produtoUsaConversaoUnidadesPdv(produto);
+    return quantidadeUsaDecimaisPdv(produto);
 }
 
 function quantidadeUsaDecimaisPdv(produto) {
@@ -4034,7 +4035,7 @@ function normalizarQuantidadePdv(quantidade, produto) {
     const qtd = Number(quantidade || 0);
     if (!Number.isFinite(qtd) || qtd <= 0) return 0;
     if (quantidadeUsaDecimaisPdv(produto)) {
-        return Number(qtd.toFixed(2));
+        return Number(qtd.toFixed(3));
     }
     return Math.round(qtd);
 }
@@ -4048,14 +4049,11 @@ function normalizarQuantidadeEtiquetaPdv(quantidade) {
 
 function formatarQuantidadePdv(quantidade, produto) {
     const qtd = Number(quantidade || 0);
-    if (!quantidadeUsaDecimaisPdv(produto)) {
-        return String(Math.round(qtd));
+    if (!Number.isFinite(qtd)) return '0';
+    if (produto && quantidadeUsaDecimaisPdv(produto)) {
+        return qtd.toFixed(3).replace('.', ',');
     }
-    const arredondado = Math.round(qtd * 100) / 100;
-    if (Number.isInteger(arredondado)) {
-        return String(arredondado);
-    }
-    return arredondado.toFixed(2).replace('.', ',').replace(/,00$/, '').replace(/(\,\d)0$/, '$1');
+    return String(Math.round(qtd));
 }
 
 function formatarPesoEtiquetaPdv(peso) {
@@ -4701,11 +4699,27 @@ function abrirModalModoVendaProduto(produto, callback) {
     }, { once: true });
 }
 
+function pdvSepararItensAtivo() {
+    return pdvObterModoComposicaoItens() === 'SEPARAR';
+}
+
 function continuarAdicionarProdutoPdv(produto, promocao, tipoVenda = TIPO_VENDA_PESO) {
     if (tipoVendaEhUnidade(tipoVenda)) {
         const qtdTeste = obterQuantidadeEstoqueParaVenda(produto, 1, TIPO_VENDA_UNIDADE);
         const qtdMin = qtdTeste > 0 ? qtdTeste : 0.001;
         if (produtoControlaEstoquePdv(produto) && !pdvNotificarEstoqueInsuficiente(produto, qtdMin)) {
+            return;
+        }
+
+        if (pdvSepararItensAtivo()) {
+            adicionarItemNoCarrinho(
+                produto,
+                1,
+                Number(produto.preco_unidade || 0),
+                ' - 1 un.',
+                null,
+                { tipo_venda: TIPO_VENDA_UNIDADE }
+            );
             return;
         }
 
@@ -4737,6 +4751,18 @@ function continuarAdicionarProdutoPdv(produto, promocao, tipoVenda = TIPO_VENDA_
                 { tipo_venda: TIPO_VENDA_PESO }
             );
         });
+        return;
+    }
+
+    if (pdvSepararItensAtivo()) {
+        adicionarItemNoCarrinho(
+            produto,
+            1,
+            Number(produto.preco_venda || 0),
+            '',
+            promocao,
+            { tipo_venda: TIPO_VENDA_PESO }
+        );
         return;
     }
 
@@ -7198,17 +7224,21 @@ function abrirModalQuantidadeProduto(produto, callback, opcoes = {}) {
                             class="form-control form-control-lg"
                             id="inputQuantidadeProduto"
                             min="${fracionado ? '0.01' : '1'}"
-                            step="${fracionado ? '0.01' : '1'}"
+                            step="${fracionado ? '0.001' : '1'}"
                             inputmode="${fracionado ? 'decimal' : 'numeric'}"
                             value="${fracionado ? '1,000' : '1'}"
-                            placeholder="${vendaPorUnidade ? 'Ex: 5' : (fracionado ? 'Ex: 7,25' : 'Ex: 1')}"
+                            placeholder="${vendaPorUnidade ? 'Ex: 5' : (fracionado ? 'Ex: 2,536' : 'Ex: 1')}"
                             autofocus
                         >
 
                         <small class="text-muted">
                             ${vendaPorUnidade
                                 ? 'Exemplo: 5 unidades'
-                                : (fracionado ? `Digite a quantidade em ${unidade}` : 'Digite a quantidade vendida')}
+                                : (fracionado
+                                    ? (unidadeEhKg(produto)
+                                        ? 'Digite o peso exato. Ex.: 2,536 kg'
+                                        : `Digite a quantidade exata em ${unidade}`)
+                                    : 'Digite a quantidade vendida')}
                         </small>
 
                         ${vendaPorUnidade ? `

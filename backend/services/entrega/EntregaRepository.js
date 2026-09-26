@@ -468,6 +468,24 @@ class EntregaRepository {
     return grupos;
   }
 
+  async listarItensComprovante(vendaId) {
+    return all(
+      `
+        SELECT
+          vi.produto_id,
+          vi.quantidade,
+          vi.preco_unitario,
+          vi.subtotal,
+          COALESCE(p.nome, '') AS nome
+        FROM vendas_itens vi
+        LEFT JOIN produtos p ON p.id = vi.produto_id
+        WHERE vi.venda_id = ?
+        ORDER BY vi.id
+      `,
+      [vendaId]
+    );
+  }
+
   async listarTimeline(vendaId) {
     try {
       return await all(

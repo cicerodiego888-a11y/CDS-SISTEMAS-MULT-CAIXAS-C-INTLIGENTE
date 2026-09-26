@@ -38,12 +38,21 @@ const {
 
 const { agoraLocalBrasil } = VendaFinanceiroService;
 
+function dataHoraComprovanteEntrega(venda) {
+  const bruto = String(venda?.data_venda || venda?.created_at || '').trim().replace('T', ' ');
+  if (bruto.length >= 16) {
+    return [bruto.slice(0, 10), bruto.slice(11, 19)];
+  }
+  const agora = agoraLocalBrasil();
+  return [agora.slice(0, 10), agora.slice(11, 19) || ''];
+}
+
 function montarHtmlComprovanteEntrega(venda, itens, empresa = {}) {
   const fmt = (n) => Number(n || 0).toFixed(2).replace('.', ',');
-  const agora = agoraLocalBrasil();
-  const [data, hora] = agora.includes('T')
-    ? [agora.slice(0, 10), agora.slice(11, 19)]
-    : [agora.slice(0, 10), agora.slice(11, 19) || ''];
+  const [data, hora] = dataHoraComprovanteEntrega(venda);
+  const seloReimpressao = venda && venda.reimpressao
+    ? '<div class="muted"><strong>*** REIMPRESSÃO ***</strong></div>'
+    : '';
 
   const snap = resolverDadosClienteEntrega(venda);
   const cepFmt = snap.cep && String(snap.cep).length === 8
@@ -78,16 +87,20 @@ function montarHtmlComprovanteEntrega(venda, itens, empresa = {}) {
 <html lang="pt-BR"><head><meta charset="utf-8">
 <title>Comprovante de Entrega</title>
 <style>
-  body{font-family:monospace;font-size:12px;width:280px;margin:0 auto;padding:8px;}
-  h1{font-size:14px;text-align:center;margin:0 0 8px;}
-  h2{font-size:11px;margin:10px 0 4px;border-bottom:1px dashed #000;padding-bottom:2px;}
-  .muted{color:#444;font-size:11px;text-align:center;}
+  body{font-family:"Courier New",Courier,monospace;font-size:13px;font-weight:700;color:#000;background:#fff;width:280px;margin:0 auto;padding:8px;-webkit-font-smoothing:none;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  h1,h2,strong,b,.total,.aviso{font-weight:900;color:#000;}
+  h1{font-size:15px;text-align:center;margin:0 0 8px;}
+  h2{font-size:12px;margin:10px 0 4px;border-bottom:2px solid #000;padding-bottom:2px;}
+  .muted{color:#000;font-size:12px;font-weight:700;text-align:center;}
   table{width:100%;border-collapse:collapse;margin:8px 0;}
+  td,div,span,p{color:#000;font-weight:700;}
   td{padding:2px 0;vertical-align:top;}
-  .total{font-weight:bold;border-top:1px dashed #000;padding-top:6px;margin-top:6px;}
-  .aviso{margin-top:10px;text-align:center;font-size:10px;border-top:1px dashed #000;padding-top:8px;}
+  hr{border:none;border-top:2px solid #000;margin:6px 0;}
+  .total{border-top:2px solid #000;padding-top:6px;margin-top:6px;}
+  .aviso{margin-top:10px;text-align:center;font-size:11px;border-top:2px solid #000;padding-top:8px;}
 </style></head><body>
   <h1>COMPROVANTE DE ENTREGA</h1>
+  ${seloReimpressao}
   <div class="muted">${empresa.nome || empresa.nome_empresa || 'CDS Sistemas'}</div>
   <div class="muted">${empresa.cnpj ? `CNPJ ${empresa.cnpj}` : ''}</div>
   <hr>

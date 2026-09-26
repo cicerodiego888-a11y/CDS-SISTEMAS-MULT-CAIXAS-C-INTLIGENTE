@@ -40,6 +40,7 @@ router.get('/entregas/pendentes', EntregaController.listarPendentes);
 
 router.get('/entregas', EntregaController.listar);
 router.get('/entregas/:id/timeline', EntregaController.timeline);
+router.get('/entregas/:id/comprovante', EntregaController.comprovante);
 router.get('/entregas/:id', EntregaController.buscarPorId);
 router.post('/entregas/:id/iniciar', EntregaController.iniciarEntrega);
 router.patch('/entregas/:id', EntregaController.editarEntrega);
