@@ -48,21 +48,23 @@ function agoraLocal() {
  * NÃO usa monitoramento, NÃO usa estoque_atual, NÃO consome saldo.
  * valor_disponivel = saldo_fiscal * preco_venda (teto documental).
  */
-async function obterProdutosFiscaisDisponiveisParaComplementacao(db) {
-  const rows = await all(
-    db,
-    `SELECT
-       p.id AS produto_id,
-       p.nome AS nome,
-       p.codigo AS codigo,
-       COALESCE(p.item_fiscal, 0) AS item_fiscal,
-       COALESCE(p.saldo_fiscal, 0) AS saldo_fiscal,
-       COALESCE(p.preco_venda, 0) AS preco_venda
-     FROM produtos p
-     WHERE COALESCE(p.item_fiscal, 0) = 1
-       AND COALESCE(p.saldo_fiscal, 0) > 0
-     ORDER BY p.id ASC`
-  );
+async function obterProdutosFiscaisDisponiveisParaComplementacao(db, produtosDisponiveis = null) {
+  const rows = Array.isArray(produtosDisponiveis)
+    ? produtosDisponiveis
+    : await all(
+      db,
+      `SELECT
+         p.id AS produto_id,
+         p.nome AS nome,
+         p.codigo AS codigo,
+         COALESCE(p.item_fiscal, 0) AS item_fiscal,
+         COALESCE(p.saldo_fiscal, 0) AS saldo_fiscal,
+         COALESCE(p.preco_venda, 0) AS preco_venda
+       FROM produtos p
+       WHERE COALESCE(p.item_fiscal, 0) = 1
+         AND COALESCE(p.saldo_fiscal, 0) > 0
+       ORDER BY p.id ASC`
+    );
 
   const out = [];
   for (const r of rows || []) {
@@ -330,8 +332,15 @@ async function gerarComplementacaoFiscal(fechamentoOuId, deps = {}) {
   const valorRecebido = arredondarMoeda(
     (recebimentos || []).reduce((s, r) => s + Number(r.valor || 0), 0)
   );
-  const coberturaFiscal = await calcularCoberturaFiscalDoDia(db, ff.data_fechamento);
-  const lotes = await obterProdutosFiscaisDisponiveisParaComplementacao(db);
+  const coberturaFiscal = await calcularCoberturaFiscalDoDia(
+    db,
+    ff.data_fechamento,
+    deps.contextoDia || null
+  );
+  const lotes = await obterProdutosFiscaisDisponiveisParaComplementacao(
+    db,
+    deps.produtosFiscaisDisponiveis || null
+  );
 
   const calc = calcularComplementacaoFiscal({
     valorRecebido,

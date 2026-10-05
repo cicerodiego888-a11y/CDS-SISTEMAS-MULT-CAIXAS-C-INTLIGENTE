@@ -489,7 +489,7 @@ console.log('✓ regras entrega pendente / cancelamento');
       caixa_id: caixaId,
       reimpressao: false
     });
-    assert.ok(html.includes('80mm'), 'largura 80mm');
+    assert.ok(html.includes('fechamento-caixa-80'), 'largura 80mm');
     assert.ok(html.includes('FECHAMENTO DE CAIXA'));
     assert.ok(html.includes('FORMAS DE PAGAMENTO'));
     assert.ok(html.includes('VENDAS PARA ENTREGA'));
@@ -557,6 +557,10 @@ console.log('✓ regras entrega pendente / cancelamento');
     const electronMod = fs.readFileSync(path.join(ROOT, 'electron-janelas-modulo.js'), 'utf8');
     assert.ok(electronMod.includes('enriquecerHtmlImpressaoTermica'));
     assert.ok(electronMod.includes('cds-print-density'));
+    assert.match(electronMod, /filter:\s*contrast\(1\.45\) brightness\(0\.78\)/);
+    assert.doesNotMatch(electronMod, /font-size:\s*11\.?5px|line-height:\s*1\.?35/);
+    assert.doesNotMatch(electronMod, /font-weight:\s*(?:700|800)\s*!important;/);
+    assert.doesNotMatch(electronMod, /font-weight:\s*900\s*!important;\s*\n\s*body, pre, table, td, th, div, span, p, h1, h2, h3, h4, small, strong, b, label/);
 
     const perm = fs.readFileSync(path.join(ROOT, 'frontend/shared/js/caixaPermissoes.js'), 'utf8');
     assert.ok(perm.includes('FECHAR'));

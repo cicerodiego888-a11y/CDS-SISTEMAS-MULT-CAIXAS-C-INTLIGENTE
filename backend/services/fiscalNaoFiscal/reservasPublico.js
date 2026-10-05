@@ -7,10 +7,7 @@
 'use strict';
 
 const { calcularEstoqueProduto } = require('../estoque/EstoqueDisponivelService');
-const {
-  produtoControlaEstoque,
-  SALDO_VIRTUAL_SEM_CONTROLE
-} = require('../estoque/produtoControlaEstoque');
+const { produtoControlaEstoque } = require('../estoque/produtoControlaEstoque');
 
 function round3(n) {
   return Math.round(Number(n || 0) * 1000) / 1000;
@@ -132,18 +129,20 @@ async function consultarDisponibilidade(produtoId, opts = {}) {
   }
 
   if (!produtoControlaEstoque(row)) {
+    const sf = Number(row.saldo_fiscal || 0);
+    const snf = Number(row.saldo_nao_fiscal || 0);
     return Object.freeze({
       produto_id: id,
       existe: true,
       controla_estoque: 0,
       estoque_fisico: Number(row.estoque_atual || 0),
-      saldo_fiscal: Number(row.saldo_fiscal || 0),
-      saldo_nao_fiscal: Number(row.saldo_nao_fiscal || 0),
+      saldo_fiscal: sf,
+      saldo_nao_fiscal: snf,
       reservado_fiscal: 0,
       reservado_nao_fiscal: 0,
-      disponivel_fiscal: SALDO_VIRTUAL_SEM_CONTROLE,
-      disponivel_nao_fiscal: SALDO_VIRTUAL_SEM_CONTROLE,
-      disponivel_total: SALDO_VIRTUAL_SEM_CONTROLE * 2
+      disponivel_fiscal: sf,
+      disponivel_nao_fiscal: snf,
+      disponivel_total: sf + snf
     });
   }
 

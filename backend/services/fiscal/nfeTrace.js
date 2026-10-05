@@ -26,13 +26,15 @@ function garantirDir(dir) {
 }
 
 function caminhosTrace() {
-  const projeto = garantirDir(path.join(getProjectRoot(), 'logs', 'nfe', 'trace'));
+  const projeto = process.env.FISCAL_DIR
+    ? null
+    : garantirDir(path.join(getProjectRoot(), 'logs', 'nfe', 'trace'));
   let fiscal = null;
   try {
     fiscal = getFiscalSubDir('debug/nfe-trace');
   } catch (_) { /* ignore */ }
   return {
-    projetoLog: path.join(projeto, 'fluxo.log'),
+    projetoLog: projeto ? path.join(projeto, 'fluxo.log') : null,
     fiscalLog: fiscal ? path.join(fiscal, 'fluxo.log') : null,
     projetoDir: projeto,
     fiscalDir: fiscal
@@ -61,10 +63,12 @@ function traceNfe(metodo, dados = {}) {
 
   const { projetoLog, fiscalLog } = caminhosTrace();
   const bloco = `${linha}\n`;
-  try {
-    fs.appendFileSync(projetoLog, bloco, 'utf8');
-  } catch (err) {
-    console.error('[TRACE][NFE] falha projeto:', err.message);
+  if (projetoLog) {
+    try {
+      fs.appendFileSync(projetoLog, bloco, 'utf8');
+    } catch (err) {
+      console.error('[TRACE][NFE] falha projeto:', err.message);
+    }
   }
   if (fiscalLog) {
     try {

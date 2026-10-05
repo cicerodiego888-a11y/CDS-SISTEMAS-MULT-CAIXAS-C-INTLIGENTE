@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { obterAdapter, criarAdapter } = require('./tefFactory');
 const repository = require('./tefRepository');
 const tefEvents = require('./tefEvents');
@@ -11,22 +12,59 @@ const tefCircuitBreakerService = require('./tefCircuitBreakerService');
 const tefFailureNotificationService = require('./tefFailureNotificationService');
 const tefFluxoPagamento = require('./tefFluxoPagamento');
 const {
+  FINANCIAL_STATES,
   classificarErroFinanceiro,
   classificarResultadoFinanceiro,
+  decidirResultadoTardio,
   montarLogDecisao
 } = require('./tefFinancialSafetyPolicy');
 
+const ESTADOS_TRAVA_RESULTADO_TARDIO = Object.freeze({
+  AGUARDANDO_RESULTADO: 'AGUARDANDO_RESULTADO_TARDIO',
+  RECONCILIACAO_PENDENTE: 'RECONCILIACAO_PENDENTE'
+});
+
+const STATUS_POR_RECONCILIACAO = Object.freeze({
+  [FINANCIAL_STATES.CONFIRMED_SUCCESS]: tefContrato.STATUS.APROVADO,
+  [FINANCIAL_STATES.CONFIRMED_DENIED]: tefContrato.STATUS.NEGADO,
+  CANCELLED: tefContrato.STATUS.CANCELADO
+});
+
+function processoVivo(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error.code === 'EPERM';
+  }
+}
+
 class TefManager {
 
-  constructor() {
-    // Timeout padrão para operações TEF (configurável via variável de ambiente)
+  constructor(opcoes = {}) {
+    // Timeout operacional do CDS (configurável via variável de ambiente). Não é
+    // autoridade sobre o resultado: adapters com contratoTimeout.resultadoTardio
+    // seguem executando e o desfecho tardio passa por _registrarResultadoTardio.
     this.timeout = Number(process.env.TEF_TIMEOUT_MS) || 30000; // 30 segundos padrão
+    // Espelho em memória das linhas tef_transacoes com status `pendente`
+    // (operação sem desfecho seguro). O banco é a fonte da verdade.
+    this._pendencias = new Map();
+    this._emExecucao = new Set();
+    this._escritasPendentes = new Set();
+    this._idsRecuperadosRegistrados = new Set();
+    this._recuperacao = null;
+    this._autorizacaoEmCurso = false;
+    this._instanciaId = `${process.pid}-${crypto.randomBytes(4).toString('hex')}`;
+    if (opcoes.recuperarNoInicio !== false) {
+      setImmediate(() => this.garantirRecuperacao().catch(() => {}));
+    }
   }
 
   async autorizar(dados, timeoutMs) {
     const operacaoTimeout = timeoutMs || this.timeout;
     let transacaoEmCursoId = null;
     let provedorEmCurso = null;
+    let mutexAdquirido = false;
     const dadosNormalizados = {
       ...dados,
       tipo: tefFluxoPagamento.normalizarTipoTef(dados.tipo)
@@ -97,8 +135,36 @@ class TefManager {
         }
       }
 
+      // Operação anterior (deste ou de outro processo, antes ou depois de um
+      // restart) sem desfecho seguro: nenhuma nova autorização, transactionId ou cobrança.
+      try {
+        await this.garantirRecuperacao();
+        await this._aguardarEscritas();
+        if (this._pendencias.size > 0) await this.recarregarPendencias();
+      } catch (error) {
+        return this._respostaSemRecuperacao(error);
+      }
+      if (this._pendencias.size > 0) {
+        return this._respostaTravaResultadoTardio();
+      }
+      if (this._autorizacaoEmCurso) {
+        return this._respostaAutorizacaoEmCurso();
+      }
+      this._autorizacaoEmCurso = true;
+      mutexAdquirido = true;
+
       const adapter = await obterAdapter();
       provedorEmCurso = adapter.nome;
+
+      // Adapters com gate financeiro (Destaxa real) validam pré-condições antes
+      // da linha pendente: bloqueio não cria transactionId nem aciona o PinPad.
+      let preparacaoAdapter = null;
+      if (typeof adapter.prepararAutorizacao === 'function') {
+        preparacaoAdapter = await adapter.prepararAutorizacao(dadosNormalizados);
+        if (!preparacaoAdapter.pronto) {
+          return preparacaoAdapter.resposta;
+        }
+      }
 
       // Circuit breaker permanece; autorização financeira, porém, tem uma
       // única tentativa. O retry service aplica a política sem retry.
@@ -107,20 +173,28 @@ class TefManager {
         async () => {
           return await tefRetryService.autorizarComRetry(async () => {
             return await tefLockService.comLock(lockKey, async () => {
-              // Criar Promise com timeout
+              // Timeout operacional: responde UNKNOWN/PENDING ao chamador, mas não
+              // cancela a chamada do adapter (a DLL não pode ser interrompida).
+              let expirado = false;
               const operacaoComTimeout = new Promise((resolve, reject) => {
                 const timeoutId = setTimeout(() => {
+                  expirado = true;
+                  if (transacaoEmCursoId != null && adapter.contratoTimeout?.resultadoTardio === true) {
+                    this._abrirTravaResultadoTardio(transacaoEmCursoId, adapter.nome, dadosNormalizados.tipo);
+                  }
                   reject(new Error(`Timeout de ${operacaoTimeout}ms excedido na operação TEF`));
                 }, operacaoTimeout);
 
-                repository.criarTransacao({
+                repository.criarTransacaoExclusiva({
                   venda_id: dadosNormalizados.venda_id || null,
                   tipo: dadosNormalizados.tipo,
                   valor: dadosNormalizados.valor,
                   parcelas: dadosNormalizados.parcelas || 1,
-                  status: 'pendente',
                   provedor: adapter.nome,
-                  idempotency_key: dadosNormalizados.idempotency_key || null
+                  idempotency_key: dadosNormalizados.idempotency_key || null,
+                  payload_retorno: {
+                    execucao: { instancia: this._instanciaId, pid: process.pid, iniciadoEm: new Date().toISOString() }
+                  }
                 }, async (err, transacaoId) => {
                   if (err) {
                     clearTimeout(timeoutId);
@@ -141,7 +215,29 @@ class TefManager {
                     return reject(err);
                   }
 
+                  if (transacaoId == null) {
+                    // Outra instância/processo abriu uma transação pendente entre a
+                    // verificação e o INSERT: nada foi criado nem enviado.
+                    clearTimeout(timeoutId);
+                    return this.recarregarPendencias()
+                      .catch(() => {})
+                      .then(() => resolve(this._respostaTravaResultadoTardio()));
+                  }
+
+                  if (expirado) {
+                    // O chamador já recebeu TIMEOUT: a autorização não é mais enviada.
+                    this._gravar((pronto) => repository.atualizarTransacao(transacaoId, {
+                      status: tefContrato.STATUS.ERRO,
+                      payload_retorno: { codigo: 'TEF_TIMEOUT_ANTES_DO_ENVIO', transactionAttempted: false }
+                    }, () => pronto()));
+                    repository.registrarLog(transacaoId, 'TIMEOUT_ANTES_DO_ENVIO', 'Timeout operacional antes do envio ao adapter — autorização não enviada', {
+                      transactionAttempted: false
+                    });
+                    return;
+                  }
+
                   transacaoEmCursoId = transacaoId;
+                  this._emExecucao.add(String(transacaoId));
 
                   // Mascarar dados sensíveis nos logs
                   const dadosMascarados = DataMaskingService.mascararObjeto(dadosNormalizados);
@@ -150,7 +246,17 @@ class TefManager {
                   tefEvents.emitirEstado(tefEvents.estados.INSIRA_CARTAO);
 
                   try {
-                    const retornoBruto = await adapter.autorizarPagamento(dadosNormalizados);
+                    const retornoBruto = preparacaoAdapter
+                      ? await adapter.autorizarPagamento(dadosNormalizados, {
+                        ...preparacaoAdapter,
+                        transactionId: String(transacaoId)
+                      })
+                      : await adapter.autorizarPagamento(dadosNormalizados);
+                    if (expirado) {
+                      this._registrarResultadoTardio(transacaoId, adapter.nome, dadosNormalizados.tipo, retornoBruto);
+                      return;
+                    }
+                    clearTimeout(timeoutId);
                     const decisaoFinanceira = classificarResultadoFinanceiro(retornoBruto);
                     const retorno = tefContrato.criarRespostaAutorizacao({
                       sucesso: retornoBruto.sucesso,
@@ -178,12 +284,25 @@ class TefManager {
 
                     repository.atualizarTransacao(transacaoId, {
                       venda_id: dados.venda_id || null,
-                      ...persistencia
+                      ...persistencia,
+                      payload_retorno: { ...persistencia.payload_retorno, financialState: retorno.financialState }
                     }, (updateErr) => {
                       if (updateErr) {
                         clearTimeout(timeoutId);
+                        this._concluirExecucao(transacaoId, tefContrato.STATUS.PENDENTE, {
+                          provedor: adapter.nome,
+                          operacao: dadosNormalizados.tipo,
+                          financialState: FINANCIAL_STATES.UNKNOWN,
+                          codigo: 'TEF_PERSISTENCIA_FALHOU'
+                        });
                         return reject(updateErr);
                       }
+                      this._concluirExecucao(transacaoId, retorno.status, {
+                        provedor: adapter.nome,
+                        operacao: dadosNormalizados.tipo,
+                        financialState: retorno.financialState,
+                        codigo: retorno.codigo
+                      });
 
                       if (tefContrato.estaAprovado(retorno)) {
                         tefEvents.emitirEstadoPinpad(tefEvents.estadosPinpad.TRANSACAO_APROVADA, { transacaoId });
@@ -217,6 +336,19 @@ class TefManager {
                   } catch (error) {
                     clearTimeout(timeoutId);
                     repository.registrarLog(transacaoId, 'ERRO', error.message, { error: error.message });
+                    if (expirado) {
+                      this._registrarResultadoTardio(transacaoId, adapter.nome, dadosNormalizados.tipo, {
+                        codigo: error.code || 'TEF_UNKNOWN',
+                        mensagem: error.message
+                      });
+                      return;
+                    }
+                    this._concluirExecucao(transacaoId, tefContrato.STATUS.PENDENTE, {
+                      provedor: adapter.nome,
+                      operacao: dadosNormalizados.tipo,
+                      financialState: FINANCIAL_STATES.UNKNOWN,
+                      codigo: error.code || 'TEF_UNKNOWN'
+                    });
                     reject(error);
                   }
                 });
@@ -331,7 +463,314 @@ class TefManager {
         operation: dadosNormalizados.tipo
       });
       return Promise.reject(error);
+    } finally {
+      if (mutexAdquirido) this._autorizacaoEmCurso = false;
     }
+  }
+
+  _definirPendencia(transacaoId, dados) {
+    const id = String(transacaoId);
+    const atual = this._pendencias.get(id) || {};
+    this._pendencias.set(id, {
+      transacaoId: id,
+      provedor: dados.provedor ?? atual.provedor ?? null,
+      operacao: dados.operacao ?? atual.operacao ?? null,
+      estado: dados.estado,
+      desde: atual.desde || dados.desde || new Date().toISOString(),
+      origem: dados.origem || atual.origem || 'instancia-atual',
+      financialState: dados.financialState ?? atual.financialState ?? FINANCIAL_STATES.UNKNOWN,
+      codigo: dados.codigo ?? atual.codigo ?? null,
+      resultadoTardio: dados.resultadoTardio ?? atual.resultadoTardio ?? null
+    });
+  }
+
+  /** Chamada ao adapter terminou dentro do prazo: pendente mantém a trava, desfecho final a remove. */
+  _concluirExecucao(transacaoId, status, dados) {
+    const id = String(transacaoId);
+    this._emExecucao.delete(id);
+    if (status === tefContrato.STATUS.PENDENTE) {
+      this._definirPendencia(id, { ...dados, estado: ESTADOS_TRAVA_RESULTADO_TARDIO.RECONCILIACAO_PENDENTE });
+    } else {
+      this._pendencias.delete(id);
+    }
+  }
+
+  _gravar(executar) {
+    const escrita = new Promise((resolve) => executar(() => resolve()));
+    this._escritasPendentes.add(escrita);
+    escrita.then(() => this._escritasPendentes.delete(escrita));
+    return escrita;
+  }
+
+  async _aguardarEscritas() {
+    while (this._escritasPendentes.size > 0) {
+      await Promise.all([...this._escritasPendentes]);
+    }
+  }
+
+  /**
+   * Recuperação no startup (uma vez por instância; refeita se falhar).
+   * Reconstrói a trava a partir das linhas `pendente` de tef_transacoes.
+   */
+  garantirRecuperacao() {
+    if (!this._recuperacao) {
+      this._recuperacao = this.recarregarPendencias().catch((error) => {
+        this._recuperacao = null;
+        throw error;
+      });
+    }
+    return this._recuperacao;
+  }
+
+  /**
+   * Sincroniza o espelho em memória com o banco. Linha `pendente` criada por
+   * processo ainda vivo (outra instância) ou com chamada em andamento nesta
+   * instância → AGUARDANDO_RESULTADO_TARDIO (reconciliação recusada); demais →
+   * RECONCILIACAO_PENDENTE (o processo que executava a chamada terminou).
+   */
+  async recarregarPendencias() {
+    await this._aguardarEscritas();
+    const linhas = await new Promise((resolve, reject) => {
+      repository.listarTransacoesPendentes((err, rows) => (err ? reject(err) : resolve(rows || [])));
+    });
+    const abertas = new Set(linhas.map((linha) => String(linha.id)));
+    for (const id of [...this._pendencias.keys()]) {
+      if (!abertas.has(id)) this._pendencias.delete(id);
+    }
+
+    for (const linha of linhas) {
+      const id = String(linha.id);
+      const payload = linha.payload_retorno || {};
+      const execucao = payload.execucao || null;
+      const propria = execucao?.instancia === this._instanciaId;
+      const origemViva = Boolean(execucao && !propria && execucao.pid && processoVivo(execucao.pid));
+      const emAndamento = (propria && this._emExecucao.has(id)) || origemViva;
+      const conhecida = this._pendencias.get(id);
+
+      if (conhecida && !(conhecida.estado === ESTADOS_TRAVA_RESULTADO_TARDIO.AGUARDANDO_RESULTADO && !emAndamento && !propria)) {
+        continue;
+      }
+      this._definirPendencia(id, {
+        provedor: linha.provedor,
+        operacao: linha.tipo,
+        estado: emAndamento
+          ? ESTADOS_TRAVA_RESULTADO_TARDIO.AGUARDANDO_RESULTADO
+          : ESTADOS_TRAVA_RESULTADO_TARDIO.RECONCILIACAO_PENDENTE,
+        desde: linha.criado_em,
+        origem: propria ? 'instancia-atual' : 'persistida',
+        financialState: payload.resultadoTardio?.financialState || payload.financialState || FINANCIAL_STATES.UNKNOWN,
+        codigo: payload.resultadoTardio?.codigo || payload.codigoDestaxa || null,
+        resultadoTardio: payload.resultadoTardio || null
+      });
+
+      if (!propria && !this._idsRecuperadosRegistrados.has(id)) {
+        this._idsRecuperadosRegistrados.add(id);
+        const pendencia = this._pendencias.get(id);
+        repository.registrarLog(linha.id, 'TEF_RESULTADO_PENDENTE_RECUPERADO', 'Transação TEF sem desfecho seguro recuperada do banco — nova autorização bloqueada', {
+          transactionId: id,
+          status: linha.status,
+          estado: pendencia.estado,
+          financialState: pendencia.financialState,
+          resultCode: pendencia.codigo,
+          provider: linha.provedor || null,
+          criadoEm: linha.criado_em || null,
+          execucaoOrigemAtiva: origemViva,
+          retryAllowed: false
+        });
+      }
+    }
+    return this.obterTravaResultadoTardio();
+  }
+
+  _abrirTravaResultadoTardio(transacaoId, provedor, operacao) {
+    this._definirPendencia(transacaoId, {
+      provedor,
+      operacao,
+      estado: ESTADOS_TRAVA_RESULTADO_TARDIO.AGUARDANDO_RESULTADO,
+      financialState: FINANCIAL_STATES.UNKNOWN,
+      desde: new Date().toISOString()
+    });
+    repository.registrarLog(transacaoId, 'TRAVA_RESULTADO_TARDIO', 'Timeout operacional do CDS com chamada nativa em andamento — nova autorização bloqueada', {
+      transactionId: String(transacaoId),
+      provider: provedor || null,
+      retryAllowed: false
+    });
+  }
+
+  /** Pendência mais antiga (a que bloqueia) + ids de todas as pendências abertas. */
+  obterTravaResultadoTardio() {
+    const [primeira] = this._pendencias.values();
+    if (!primeira) return null;
+    return {
+      ...primeira,
+      resultadoTardio: primeira.resultadoTardio ? { ...primeira.resultadoTardio } : null,
+      pendentes: [...this._pendencias.keys()]
+    };
+  }
+
+  _respostaTravaResultadoTardio() {
+    const trava = this.obterTravaResultadoTardio();
+    let mensagem = 'Existe transação TEF pendente — nova autorização bloqueada';
+    if (trava) {
+      mensagem = trava.estado === ESTADOS_TRAVA_RESULTADO_TARDIO.AGUARDANDO_RESULTADO
+        ? `Transação TEF ${trava.transacaoId} ainda em execução — nova autorização bloqueada`
+        : `Transação TEF ${trava.transacaoId} aguarda reconciliação — nova autorização bloqueada`;
+    }
+    return {
+      sucesso: false,
+      status: tefContrato.STATUS.PENDENTE,
+      codigo: 'TEF_RESULTADO_PENDENTE',
+      mensagem,
+      tipo_erro: 'conflito',
+      transacaoId: null,
+      transacao_pendente_id: trava ? trava.transacaoId : null,
+      trava,
+      retryAllowed: false,
+      retryReason: 'TEF_LATE_RESULT_PENDING_NO_NEW_AUTHORIZATION'
+    };
+  }
+
+  _respostaAutorizacaoEmCurso() {
+    return {
+      sucesso: false,
+      status: tefContrato.STATUS.ERRO,
+      codigo: 'TEF_AUTORIZACAO_EM_ANDAMENTO',
+      mensagem: 'Outra autorização TEF está em andamento — nova autorização não enviada',
+      tipo_erro: 'conflito',
+      transacaoId: null,
+      retryAllowed: false,
+      retryReason: 'TEF_AUTHORIZATION_IN_PROGRESS_NO_NEW_AUTHORIZATION'
+    };
+  }
+
+  _respostaSemRecuperacao(error) {
+    return {
+      sucesso: false,
+      status: tefContrato.STATUS.ERRO,
+      codigo: 'TEF_RECUPERACAO_PENDENCIAS_FALHOU',
+      mensagem: `Não foi possível verificar transações TEF pendentes: ${error.message}`,
+      tipo_erro: 'pre_condicao',
+      transacaoId: null,
+      retryAllowed: false,
+      retryReason: 'TEF_PENDING_CHECK_FAILED_NO_NEW_AUTHORIZATION'
+    };
+  }
+
+  /**
+   * Desfecho de uma autorização que terminou depois do timeout operacional.
+   * 03/04/09 tardio → negado e lock liberado; 00 tardio, 08, A0, A1, 99 ou erro
+   * → linha permanece pendente e o lock só é liberado por reconciliarResultadoTardio.
+   */
+  _registrarResultadoTardio(transacaoId, provedor, operacao, retornoBruto) {
+    const decisao = decidirResultadoTardio(retornoBruto);
+    const status = decisao.releaseLock ? tefContrato.STATUS.NEGADO : tefContrato.STATUS.PENDENTE;
+    const retorno = tefContrato.criarRespostaAutorizacao({
+      sucesso: false,
+      status,
+      nsu: retornoBruto.nsu,
+      autorizacao: retornoBruto.autorizacao,
+      adquirente: retornoBruto.adquirente,
+      bandeira: retornoBruto.bandeira,
+      comprovanteCliente: retornoBruto.comprovanteCliente || retornoBruto.comprovante_cliente,
+      comprovanteLoja: retornoBruto.comprovanteLoja || retornoBruto.comprovante_estabelecimento,
+      transacaoId: String(transacaoId),
+      codigo: retornoBruto.codigo,
+      mensagem: retornoBruto.mensagem,
+      payloadRetorno: retornoBruto.payloadRetorno || retornoBruto.payload_retorno,
+      modo: retornoBruto.modo,
+      financialState: decisao.financialState,
+      protocolState: retornoBruto.estado || decisao.state,
+      retryAllowed: false,
+      retryReason: decisao.retryReason
+    });
+    const resultadoTardio = {
+      codigo: decisao.resultCode || null,
+      financialState: decisao.financialState,
+      resolution: decisao.resolution,
+      reconciliationRequired: decisao.reconciliationRequired,
+      recebidoEm: new Date().toISOString()
+    };
+
+    this._gravar((pronto) => repository.atualizarTransacao(transacaoId, {
+      ...tefContrato.paraPersistencia(retorno),
+      payload_retorno: { ...(retorno.payloadRetorno || {}), resultadoTardio }
+    }, (err) => {
+      if (err) repository.registrarLog(transacaoId, 'ERRO', err.message, { error: err.message });
+      pronto();
+    }));
+    repository.registrarLog(transacaoId, 'RESULTADO_TARDIO', retorno.mensagem, {
+      ...montarLogDecisao({ transactionId: transacaoId, provider: provedor, operation: operacao, decision: decisao }),
+      resolution: decisao.resolution,
+      reconciliationRequired: decisao.reconciliationRequired
+    });
+
+    const id = String(transacaoId);
+    this._emExecucao.delete(id);
+    if (decisao.releaseLock) {
+      this._pendencias.delete(id);
+    } else {
+      this._definirPendencia(id, {
+        provedor,
+        operacao,
+        estado: ESTADOS_TRAVA_RESULTADO_TARDIO.RECONCILIACAO_PENDENTE,
+        financialState: decisao.financialState,
+        codigo: decisao.resultCode || null,
+        resultadoTardio
+      });
+    }
+    return decisao;
+  }
+
+  /**
+   * Reconciliação explícita (operador) de transação com resultado tardio.
+   * Só depois do desfecho da chamada nativa; nunca envia nova autorização.
+   * @param {{financialState: 'CONFIRMED_SUCCESS'|'CONFIRMED_DENIED'|'CANCELLED', usuario: string, observacao: string}} dados
+   */
+  reconciliarResultadoTardio(transacaoId, dados = {}) {
+    const trava = this._pendencias.get(String(transacaoId));
+    const falhar = (code, message) => {
+      const error = new Error(message);
+      error.code = code;
+      throw error;
+    };
+    if (!trava) {
+      falhar('TEF_RECONCILIACAO_SEM_TRAVA', `Transação ${transacaoId} não possui resultado tardio pendente`);
+    }
+    if (trava.estado !== ESTADOS_TRAVA_RESULTADO_TARDIO.RECONCILIACAO_PENDENTE) {
+      falhar('TEF_RECONCILIACAO_PREMATURA', `Transação ${transacaoId} ainda em execução no TEF — reconciliação somente após o desfecho`);
+    }
+    const status = STATUS_POR_RECONCILIACAO[dados.financialState];
+    if (!status) {
+      falhar('TEF_RECONCILIACAO_INVALIDA', `Estado de reconciliação inválido: ${dados.financialState}`);
+    }
+    if (!String(dados.usuario || '').trim() || !String(dados.observacao || '').trim()) {
+      falhar('TEF_RECONCILIACAO_INVALIDA', 'Reconciliação exige usuário e observação');
+    }
+
+    this._gravar((pronto) => repository.atualizarTransacao(transacaoId, {
+      status,
+      payload_retorno: {
+        resultadoTardio: trava.resultadoTardio,
+        reconciliacao: {
+          financialState: dados.financialState,
+          usuario: String(dados.usuario),
+          observacao: String(dados.observacao),
+          em: new Date().toISOString()
+        }
+      }
+    }, (err) => {
+      if (err) repository.registrarLog(transacaoId, 'ERRO', err.message, { error: err.message });
+      pronto();
+    }));
+    repository.registrarLog(transacaoId, 'RECONCILIACAO_RESULTADO_TARDIO', `Reconciliado como ${dados.financialState}`, {
+      transactionId: String(transacaoId),
+      financialState: dados.financialState,
+      resultadoTardio: trava.resultadoTardio,
+      usuario: String(dados.usuario),
+      retryAllowed: false
+    });
+    this._pendencias.delete(String(transacaoId));
+    return { transacaoId: String(transacaoId), status, financialState: dados.financialState, travaLiberada: true };
   }
 
   async _verificarIdempotencia(idempotencyKey) {
@@ -504,10 +943,11 @@ class TefManager {
       throw error;
     }
 
+    // Diagnóstico 06A inspeciona o bridge de forma síncrona: execução in-process, sem transação.
     const adapter = criarAdapter({
       provedor: 'destaxa',
       ambiente: 'homologacao'
-    });
+    }, { adapterOpcoes: { executionMode: 'in-process' } });
     const status = await adapter.status();
     return { adapter, status };
   }
@@ -544,3 +984,5 @@ class TefManager {
 }
 
 module.exports = new TefManager();
+module.exports.ESTADOS_TRAVA_RESULTADO_TARDIO = ESTADOS_TRAVA_RESULTADO_TARDIO;
+module.exports.TefManager = TefManager;

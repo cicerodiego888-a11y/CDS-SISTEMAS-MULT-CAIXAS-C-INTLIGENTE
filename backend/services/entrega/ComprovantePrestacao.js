@@ -3,10 +3,15 @@
  */
 
 const { agoraLocalBrasil } = require('../vendas/VendaFinanceiroService');
+const { resolverDadosClienteEntrega } = require('./EntregaClienteSnapshot');
 const {
-  resolverDadosClienteEntrega,
-  linhaOpcional
-} = require('./EntregaClienteSnapshot');
+  colunas,
+  centro,
+  blocoCentro,
+  comporLinha,
+  linhaSe,
+  documento
+} = require('./comprovanteTermicoLayout');
 
 function fmt(n) {
   return Number(n || 0).toFixed(2).replace('.', ',');
@@ -37,71 +42,70 @@ function montarHtmlComprovantePrestacao(dados = {}) {
     ? `${String(snap.cep).slice(0, 5)}-${String(snap.cep).slice(5)}`
     : (snap.cep || '');
   const temEnderecoEstruturado = !!(snap.numero || snap.complemento || snap.bairro || snap.cidade || snap.uf || snap.cep);
-  const blocoEndereco = temEnderecoEstruturado
-    ? `${linhaOpcional('CEP', cepFmt)}
-  ${linhaOpcional('Endereço', snap.endereco)}
-  ${linhaOpcional('Número', snap.numero)}
-  ${linhaOpcional('Complemento', snap.complemento)}
-  ${linhaOpcional('Bairro', snap.bairro)}
-  ${linhaOpcional('Cidade', snap.cidade)}
-  ${linhaOpcional('UF', snap.uf)}
-  ${linhaOpcional('Referência', snap.referencia)}`
-    : `<div><strong>Endereço:</strong> ${snap.endereco_linha || '—'}</div>
-  ${linhaOpcional('Referência', snap.referencia)}`;
-
   const formas = Array.isArray(dados.formas_pagamento) ? dados.formas_pagamento : [];
+  const papelMm = Number(dados.papel_mm) === 58 ? 58 : 80;
+  const cols = colunas(papelMm);
+  const sep = '-'.repeat(cols);
+  const L = (label, valor) => comporLinha(label, valor, cols);
+  const endereco = temEnderecoEstruturado
+    ? [
+      ...linhaSe('CEP', cepFmt, cols),
+      ...linhaSe('Endereço', snap.endereco, cols),
+      ...linhaSe('Número', snap.numero, cols),
+      ...linhaSe('Complemento', snap.complemento, cols),
+      ...linhaSe('Bairro', snap.bairro, cols),
+      ...linhaSe('Cidade', snap.cidade, cols),
+      ...linhaSe('UF', snap.uf, cols),
+      ...linhaSe('Referência', snap.referencia, cols)
+    ]
+    : [
+      ...L('Endereço:', snap.endereco_linha || '—'),
+      ...linhaSe('Referência', snap.referencia, cols)
+    ];
   const linhasFormas = formas.length
-    ? formas.map((p) => `
-        <tr>
-          <td>${String(p.forma_pagamento || '').toUpperCase()}</td>
-          <td style="text-align:right">R$ ${fmt(p.valor)}</td>
-        </tr>`).join('')
-    : `<tr><td>${String(dados.pagamento_recebido || '—')}</td><td style="text-align:right">R$ ${fmt(dados.valor)}</td></tr>`;
+    ? formas.flatMap((p) => L(String(p.forma_pagamento || '').toUpperCase(), `R$ ${fmt(p.valor)}`))
+    : L(String(dados.pagamento_recebido || '—'), `R$ ${fmt(dados.valor)}`);
 
-  return `<!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="utf-8">
-<title>Comprovante de Prestação</title>
-<style>
-  body{font-family:"Courier New",Courier,monospace;font-size:13px;font-weight:700;color:#000;background:#fff;width:280px;margin:0 auto;padding:8px;-webkit-font-smoothing:none;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-  h1,h2,strong,b,.ok{font-weight:900;color:#000;}
-  h1{font-size:15px;text-align:center;margin:0 0 8px;}
-  h2{font-size:12px;margin:10px 0 4px;border-bottom:2px solid #000;padding-bottom:2px;}
-  .muted{color:#000;font-size:12px;font-weight:700;text-align:center;}
-  table{width:100%;border-collapse:collapse;margin:6px 0;}
-  td,div,span,p{color:#000;font-weight:700;}
-  td{padding:2px 0;}
-  hr{border:none;border-top:2px solid #000;margin:6px 0;}
-  .ok{margin-top:10px;text-align:center;border-top:2px solid #000;padding-top:8px;}
-</style></head><body>
-  <h1>COMPROVANTE DE PRESTAÇÃO</h1>
-  <div class="muted">${dados.empresa || dados.nome_empresa || 'CDS Sistemas'}</div>
-  <div class="muted">${dados.cnpj ? `CNPJ ${dados.cnpj}` : ''}</div>
-  <hr>
-  <h2>CLIENTE / CONSUMIDOR</h2>
-  <div><strong>Nome:</strong> ${snap.nome}</div>
-  ${linhaOpcional('CPF/CNPJ', snap.cpf_cnpj)}
-  ${linhaOpcional('Telefone', snap.telefone)}
-  ${linhaOpcional('E-mail', snap.email)}
-  <h2>ENDEREÇO DA ENTREGA</h2>
-  ${blocoEndereco}
-  <h2>PRESTAÇÃO</h2>
-  <div><strong>Pedido:</strong> ${dados.pedido || dados.codigo || '—'}</div>
-  <div><strong>Venda:</strong> ${dados.codigo || dados.pedido || '—'}</div>
-  <div><strong>Valor:</strong> R$ ${fmt(dados.valor)}</div>
-  <div><strong>Pagamento previsto:</strong> ${dados.pagamento_previsto || '—'}</div>
-  <div><strong>Pagamento recebido:</strong> ${dados.pagamento_recebido || '—'}</div>
-  <table><tbody>${linhasFormas}</tbody></table>
-  <div><strong>Documento:</strong> ${dados.documento || 'NAO_FISCAL'}</div>
-  <div><strong>Troco levado:</strong> R$ ${fmt(dados.troco_levado)}</div>
-  <div><strong>Troco devolvido:</strong> R$ ${fmt(dados.troco_devolvido)}</div>
-  <div><strong>Maquineta:</strong> ${dados.maquineta || 'NÃO'}</div>
-  <div><strong>Entregador:</strong> ${dados.entregador || '—'}</div>
-  <div><strong>Operador:</strong> ${dados.operador || '—'}</div>
-  <div><strong>Data:</strong> ${data}</div>
-  <div><strong>Hora:</strong> ${hora}</div>
-  ${linhaOpcional('Observações', dados.observacao_entrega || dados.observacoes)}
-  <div class="ok">PRESTAÇÃO DE CONTAS FINALIZADA</div>
-</body></html>`;
+  const linhas = [
+    ...blocoCentro('COMPROVANTE DE PRESTAÇÃO', cols),
+    ...blocoCentro(dados.empresa || dados.nome_empresa || 'CDS Sistemas', cols),
+    ...(dados.cnpj ? blocoCentro(`CNPJ ${dados.cnpj}`, cols) : []),
+    sep,
+    centro('CLIENTE / CONSUMIDOR', cols),
+    ...L('Nome:', snap.nome || '—'),
+    ...linhaSe('CPF/CNPJ', snap.cpf_cnpj, cols),
+    ...linhaSe('Telefone', snap.telefone, cols),
+    ...linhaSe('E-mail', snap.email, cols),
+    '',
+    centro('ENDEREÇO DA ENTREGA', cols),
+    ...endereco,
+    '',
+    centro('PRESTAÇÃO', cols),
+    ...L('Pedido:', String(dados.pedido || dados.codigo || '—')),
+    ...L('Venda:', String(dados.codigo || dados.pedido || '—')),
+    ...L('Valor:', `R$ ${fmt(dados.valor)}`),
+    ...L('Pagamento previsto:', dados.pagamento_previsto || '—'),
+    ...L('Pagamento recebido:', dados.pagamento_recebido || '—'),
+    ...linhasFormas,
+    ...L('Documento:', dados.documento || 'NAO_FISCAL'),
+    ...L('Troco levado:', `R$ ${fmt(dados.troco_levado)}`),
+    ...L('Troco devolvido:', `R$ ${fmt(dados.troco_devolvido)}`),
+    ...L('Maquineta:', dados.maquineta || 'NÃO'),
+    ...L('Entregador:', dados.entregador || '—'),
+    ...L('Operador:', dados.operador || '—'),
+    ...L('Data:', data),
+    ...L('Hora:', hora),
+    ...linhaSe('Observações', dados.observacao_entrega || dados.observacoes, cols),
+    sep,
+    ...blocoCentro('PRESTAÇÃO DE CONTAS FINALIZADA', cols)
+  ];
+
+  return documento({
+    titulo: 'Comprovante de Prestação',
+    classe: `comprovante-prestacao-${papelMm}`,
+    linhas,
+    papelMm
+  });
 }
 
 module.exports = {

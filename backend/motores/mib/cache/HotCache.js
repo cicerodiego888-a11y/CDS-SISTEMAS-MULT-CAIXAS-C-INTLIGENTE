@@ -50,7 +50,6 @@ class HotCache {
       || /^\d+$/.test(String(termoNorm || '').trim());
 
     for (const p of this._byId.values()) {
-      if (modoFiscal && Number(p.item_fiscal) !== 1) continue;
       const codigo = String(p.codigo || '').toLowerCase();
       const barras = String(p.codigo_barras || '').toLowerCase();
       const plu = String(p.plu || '').toLowerCase();

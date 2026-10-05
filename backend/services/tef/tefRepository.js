@@ -55,6 +55,73 @@ function criarTransacao(dados, callback) {
   });
 }
 
+/**
+ * Cria a linha somente se não houver nenhuma transação TEF `pendente`
+ * (operação sem desfecho seguro). A verificação e o INSERT são um único
+ * comando SQLite: atômico também entre processos. callback(err, id|null).
+ */
+function criarTransacaoExclusiva(dados, callback) {
+  const payloadRetornoCriptografado = dados.payload_retorno
+    ? cryptoService.criptografarObjeto(dados.payload_retorno)
+    : null;
+
+  db.run(`
+    INSERT INTO tef_transacoes (
+      venda_id,
+      tipo,
+      valor,
+      parcelas,
+      status,
+      provedor,
+      idempotency_key,
+      payload_retorno,
+      criado_em,
+      atualizado_em
+    )
+    SELECT ?, ?, ?, ?, 'pendente', ?, ?, ?, datetime('now'), datetime('now')
+    WHERE NOT EXISTS (SELECT 1 FROM tef_transacoes WHERE status = 'pendente')
+  `, [
+    dados.venda_id || null,
+    dados.tipo,
+    dados.valor,
+    dados.parcelas || 1,
+    dados.provedor || 'SITEF',
+    dados.idempotency_key || null,
+    payloadRetornoCriptografado
+  ], function (err) {
+    if (err) return callback(err, null);
+    callback(null, this && this.changes > 0 ? this.lastID : null);
+  });
+}
+
+/** Transações TEF sem desfecho seguro (status `pendente`), mais antigas primeiro. */
+function listarTransacoesPendentes(callback) {
+  if (typeof db.whenReady === 'function') {
+    return db.whenReady((erro) => (erro ? callback(erro, []) : consultarPendentes(callback)));
+  }
+  return consultarPendentes(callback);
+}
+
+function consultarPendentes(callback) {
+  db.all(`
+    SELECT id, status, provedor, tipo, codigo_transacao, payload_retorno, criado_em, atualizado_em
+    FROM tef_transacoes
+    WHERE status = 'pendente'
+    ORDER BY id ASC
+  `, [], (err, rows) => {
+    if (err) return callback(err, []);
+    callback(null, (rows || []).map((row) => {
+      let payload = null;
+      try {
+        payload = row.payload_retorno ? cryptoService.descriptografarObjeto(row.payload_retorno) : null;
+      } catch (_) {
+        payload = null;
+      }
+      return { ...row, payload_retorno: payload };
+    }));
+  });
+}
+
 function atualizarTransacao(id, dados, callback) {
   // Criptografar dados sensíveis antes de atualizar
   const comprovanteClienteCriptografado = dados.comprovante_cliente 
@@ -128,6 +195,8 @@ function registrarLog(transacaoId, tipo, mensagem, payload) {
 
 module.exports = {
   criarTransacao,
+  criarTransacaoExclusiva,
+  listarTransacoesPendentes,
   atualizarTransacao,
   registrarLog,
   registrarAcesso

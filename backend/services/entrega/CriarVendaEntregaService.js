@@ -17,8 +17,9 @@ const {
 } = require('../estoque/transferenciaNaoFiscalParaFiscalPdv');
 const cfgTransferenciaPdv = require('../estoque/pdvTransferenciaNaoFiscalFiscalConfig');
 const cfgVendaSemEstoque = require('../estoque/empresaPermiteVendaSemEstoqueConfig');
+const { deveBloquearExcedentePorCategoria } = require('../estoque/vendaSemEstoqueElegibilidade');
 const mpfc = require('../mpfc');
-const { calcularEstoqueProduto } = require('../estoque/EstoqueDisponivelService');
+const { saldosDisponiveisMotorFxNf } = require('../estoque/EstoqueDisponivelService');
 const { saldosParaDistribuicaoVenda } = require('../estoque/produtoControlaEstoque');
 const { reservarItem } = require('../estoque/EstoqueReservaService');
 const { TipoVenda, StatusEntrega, StatusVenda, PagamentoPrevisto } = require('./enums');
@@ -32,9 +33,17 @@ const VendaFinanceiroService = require('../vendas/VendaFinanceiroService');
 const { obterCaixaTurnoId } = require('../../utils/caixaSessaoHelpers');
 const {
   montarSnapshotEntrega,
-  resolverDadosClienteEntrega,
-  linhaOpcional
+  resolverDadosClienteEntrega
 } = require('./EntregaClienteSnapshot');
+const {
+  colunas,
+  centro,
+  blocoCentro,
+  comporLinha,
+  linhaSe,
+  quebrar,
+  documento
+} = require('./comprovanteTermicoLayout');
 
 const { agoraLocalBrasil } = VendaFinanceiroService;
 
@@ -50,90 +59,85 @@ function dataHoraComprovanteEntrega(venda) {
 function montarHtmlComprovanteEntrega(venda, itens, empresa = {}) {
   const fmt = (n) => Number(n || 0).toFixed(2).replace('.', ',');
   const [data, hora] = dataHoraComprovanteEntrega(venda);
-  const seloReimpressao = venda && venda.reimpressao
-    ? '<div class="muted"><strong>*** REIMPRESSÃO ***</strong></div>'
-    : '';
-
   const snap = resolverDadosClienteEntrega(venda);
   const cepFmt = snap.cep && String(snap.cep).length === 8
     ? `${String(snap.cep).slice(0, 5)}-${String(snap.cep).slice(5)}`
     : (snap.cep || '');
   const temEnderecoEstruturado = !!(snap.numero || snap.complemento || snap.bairro || snap.cidade || snap.uf || snap.cep);
 
-  const linhasItens = (itens || []).map((item) => `
-    <tr>
-      <td>${String(item.nome || item.produto_nome || item.produto_id || '')}</td>
-      <td style="text-align:right">${fmt(item.quantidade)}</td>
-      <td style="text-align:right">${fmt(item.preco_unitario)}</td>
-      <td style="text-align:right">${fmt(item.subtotal)}</td>
-    </tr>
-  `).join('');
-
   const subtotalItens = (itens || []).reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
   const taxa = Number(venda.taxa_entrega || 0);
-  const blocoEndereco = temEnderecoEstruturado
-    ? `${linhaOpcional('CEP', cepFmt)}
-  ${linhaOpcional('Endereço', snap.endereco)}
-  ${linhaOpcional('Número', snap.numero)}
-  ${linhaOpcional('Complemento', snap.complemento)}
-  ${linhaOpcional('Bairro', snap.bairro)}
-  ${linhaOpcional('Cidade', snap.cidade)}
-  ${linhaOpcional('UF', snap.uf)}
-  ${linhaOpcional('Referência', snap.referencia)}`
-    : `<div><strong>Endereço:</strong> ${snap.endereco_linha || '—'}</div>
-  ${linhaOpcional('Referência', snap.referencia)}`;
+  const papelMm = Number(empresa.papel_mm) === 58 ? 58 : 80;
+  const cols = colunas(papelMm);
+  const sep = '-'.repeat(cols);
+  const L = (label, valor) => comporLinha(label, valor, cols);
 
-  return `<!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="utf-8">
-<title>Comprovante de Entrega</title>
-<style>
-  body{font-family:"Courier New",Courier,monospace;font-size:13px;font-weight:700;color:#000;background:#fff;width:280px;margin:0 auto;padding:8px;-webkit-font-smoothing:none;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-  h1,h2,strong,b,.total,.aviso{font-weight:900;color:#000;}
-  h1{font-size:15px;text-align:center;margin:0 0 8px;}
-  h2{font-size:12px;margin:10px 0 4px;border-bottom:2px solid #000;padding-bottom:2px;}
-  .muted{color:#000;font-size:12px;font-weight:700;text-align:center;}
-  table{width:100%;border-collapse:collapse;margin:8px 0;}
-  td,div,span,p{color:#000;font-weight:700;}
-  td{padding:2px 0;vertical-align:top;}
-  hr{border:none;border-top:2px solid #000;margin:6px 0;}
-  .total{border-top:2px solid #000;padding-top:6px;margin-top:6px;}
-  .aviso{margin-top:10px;text-align:center;font-size:11px;border-top:2px solid #000;padding-top:8px;}
-</style></head><body>
-  <h1>COMPROVANTE DE ENTREGA</h1>
-  ${seloReimpressao}
-  <div class="muted">${empresa.nome || empresa.nome_empresa || 'CDS Sistemas'}</div>
-  <div class="muted">${empresa.cnpj ? `CNPJ ${empresa.cnpj}` : ''}</div>
-  <hr>
-  <h2>DADOS DO CLIENTE/CONSUMIDOR</h2>
-  <div><strong>Nome:</strong> ${snap.nome}</div>
-  ${linhaOpcional('CPF/CNPJ', snap.cpf_cnpj)}
-  ${linhaOpcional('Telefone', snap.telefone)}
-  ${linhaOpcional('E-mail', snap.email)}
-  <h2>ENDEREÇO DA ENTREGA</h2>
-  ${blocoEndereco}
-  <h2>DADOS DA ENTREGA</h2>
-  <div><strong>Pedido:</strong> ${venda.id || '—'}</div>
-  <div><strong>Data:</strong> ${data}</div>
-  <div><strong>Hora:</strong> ${hora}</div>
-  <div><strong>Entregador:</strong> ${venda.entregador || '—'}</div>
-  <div><strong>Taxa de entrega:</strong> R$ ${fmt(taxa)}</div>
-  <div><strong>Pagamento previsto:</strong> ${venda.pagamento_previsto || 'NAO_INFORMADO'}</div>
-  <div><strong>Levar maquineta:</strong> ${Number(venda.leva_maquineta || 0) === 1 ? 'SIM' : 'NÃO'}</div>
-  ${Number(venda.troco_para || 0) > 0 ? `<div><strong>Troco para:</strong> R$ ${fmt(venda.troco_para)}</div>` : ''}
-  <div><strong>Observações:</strong> ${venda.observacao_entrega || '—'}</div>
-  <h2>ITENS</h2>
-  <table>
-    <thead><tr><td>Item</td><td style="text-align:right">Qtd</td><td style="text-align:right">Vlr</td><td style="text-align:right">Sub</td></tr></thead>
-    <tbody>${linhasItens}</tbody>
-  </table>
-  <div>Subtotal: R$ ${fmt(subtotalItens)}</div>
-  ${taxa > 0 ? `<div>Taxa: R$ ${fmt(taxa)}</div>` : ''}
-  <div class="total">Total: R$ ${fmt(venda.total)}</div>
-  <div class="aviso">
-    <div>ESTE DOCUMENTO NÃO POSSUI VALOR FISCAL</div>
-    <div>Venda sujeita à confirmação na prestação de contas.</div>
-  </div>
-</body></html>`;
+  const endereco = temEnderecoEstruturado
+    ? [
+      ...linhaSe('CEP', cepFmt, cols),
+      ...linhaSe('Endereço', snap.endereco, cols),
+      ...linhaSe('Número', snap.numero, cols),
+      ...linhaSe('Complemento', snap.complemento, cols),
+      ...linhaSe('Bairro', snap.bairro, cols),
+      ...linhaSe('Cidade', snap.cidade, cols),
+      ...linhaSe('UF', snap.uf, cols),
+      ...linhaSe('Referência', snap.referencia, cols)
+    ]
+    : [
+      ...L('Endereço:', snap.endereco_linha || '—'),
+      ...linhaSe('Referência', snap.referencia, cols)
+    ];
+
+  const itensLinhas = (itens || []).flatMap((item) => {
+    const nome = String(item.nome || item.produto_nome || item.produto_id || '');
+    const valores = `${fmt(item.quantidade)} x ${fmt(item.preco_unitario)} = ${fmt(item.subtotal)}`;
+    return [...(nome ? quebrar(nome, cols) : []), ...L('', valores)];
+  });
+
+  const linhas = [
+    ...blocoCentro('COMPROVANTE DE ENTREGA', cols),
+    ...(venda && venda.reimpressao ? blocoCentro('*** REIMPRESSÃO ***', cols) : []),
+    ...blocoCentro(empresa.nome || empresa.nome_empresa || 'CDS Sistemas', cols),
+    ...(empresa.cnpj ? blocoCentro(`CNPJ ${empresa.cnpj}`, cols) : []),
+    sep,
+    centro('DADOS DO CLIENTE/CONSUMIDOR', cols),
+    ...L('Nome:', snap.nome || '—'),
+    ...linhaSe('CPF/CNPJ', snap.cpf_cnpj, cols),
+    ...linhaSe('Telefone', snap.telefone, cols),
+    ...linhaSe('E-mail', snap.email, cols),
+    '',
+    centro('ENDEREÇO DA ENTREGA', cols),
+    ...endereco,
+    '',
+    centro('DADOS DA ENTREGA', cols),
+    ...L('Pedido:', String(venda.id || '—')),
+    ...L('Data:', data),
+    ...L('Hora:', hora),
+    ...L('Entregador:', venda.entregador || '—'),
+    ...L('Taxa de entrega:', `R$ ${fmt(taxa)}`),
+    ...L('Pagamento previsto:', venda.pagamento_previsto || 'NAO_INFORMADO'),
+    ...L('Levar maquineta:', Number(venda.leva_maquineta || 0) === 1 ? 'SIM' : 'NÃO'),
+    ...(Number(venda.troco_para || 0) > 0 ? L('Troco para:', `R$ ${fmt(venda.troco_para)}`) : []),
+    ...L('Observações:', venda.observacao_entrega || '—'),
+    '',
+    centro('ITENS', cols),
+    ...itensLinhas,
+    sep,
+    ...L('Subtotal:', `R$ ${fmt(subtotalItens)}`),
+    ...(taxa > 0 ? L('Taxa:', `R$ ${fmt(taxa)}`) : []),
+    ...L('Total:', `R$ ${fmt(venda.total)}`),
+    sep,
+    ...blocoCentro('ESTE DOCUMENTO NÃO POSSUI VALOR FISCAL', cols),
+    ...blocoCentro('Venda sujeita à confirmação', cols),
+    ...blocoCentro('na prestação de contas.', cols)
+  ];
+
+  return documento({
+    titulo: 'Comprovante de Entrega',
+    classe: `comprovante-entrega-${papelMm}`,
+    linhas,
+    papelMm
+  });
 }
 
 function criarVendaEntrega(req, res) {
@@ -191,14 +195,17 @@ function criarVendaEntrega(req, res) {
   db.all(
     `
       SELECT
-        id, nome, estoque_atual,
-        COALESCE(saldo_fiscal, 0) AS saldo_fiscal,
-        COALESCE(saldo_nao_fiscal, 0) AS saldo_nao_fiscal,
-        COALESCE(reservado_fiscal, 0) AS reservado_fiscal,
-        COALESCE(reservado_nao_fiscal, 0) AS reservado_nao_fiscal,
-        COALESCE(controla_estoque, 1) AS controla_estoque
+        produtos.id, produtos.nome, produtos.estoque_atual,
+        COALESCE(produtos.saldo_fiscal, 0) AS saldo_fiscal,
+        COALESCE(produtos.saldo_nao_fiscal, 0) AS saldo_nao_fiscal,
+        COALESCE(produtos.reservado_fiscal, 0) AS reservado_fiscal,
+        COALESCE(produtos.reservado_nao_fiscal, 0) AS reservado_nao_fiscal,
+        COALESCE(produtos.controla_estoque, 1) AS controla_estoque,
+        COALESCE(produtos.item_fiscal, 0) AS item_fiscal,
+        categorias.nome AS categoria_nome
       FROM produtos
-      WHERE id IN (${produtoIds.map(() => '?').join(',')})
+      LEFT JOIN categorias ON categorias.id = produtos.categoria_id
+      WHERE produtos.id IN (${produtoIds.map(() => '?').join(',')})
     `,
     produtoIds,
     (errProd, produtos) => {
@@ -219,7 +226,7 @@ function criarVendaEntrega(req, res) {
           return res.status(400).json({ error: `Produto ID ${item.produto_id} não encontrado` });
         }
 
-        const calc = calcularEstoqueProduto(produto);
+        const calc = saldosDisponiveisMotorFxNf(produto).estoque;
         const qtdEstoque = item.quantidade_estoque != null && item.quantidade_estoque !== ''
           ? Number(item.quantidade_estoque)
           : Number(item.quantidade || 0);
@@ -229,11 +236,22 @@ function criarVendaEntrega(req, res) {
           calc.disponivel_fiscal,
           calc.disponivel_nao_fiscal
         );
+        if (deveBloquearExcedentePorCategoria(
+          produto,
+          qtdEstoque,
+          saldos.saldoFiscal + saldos.saldoNaoFiscal,
+          cfgVendaSemEstoque.estaAtivadaSync()
+        )) {
+          return res.status(400).json({
+            error: `Estoque disponível insuficiente para ${produto.nome}. Disponível: ${saldos.saldoFiscal + saldos.saldoNaoFiscal}`
+          });
+        }
         entradasMotor.push({
           item,
           saldoFiscal: saldos.saldoFiscal,
           saldoNaoFiscal: saldos.saldoNaoFiscal,
           controlaEstoque: Number(produto.controla_estoque) !== 0,
+          itemFiscal: Number(produto.item_fiscal || 0),
           produto
         });
       }
@@ -518,35 +536,43 @@ function criarVendaEntrega(req, res) {
                     prestacao_realizada: 0
                   };
 
-                  const html = montarHtmlComprovanteEntrega(
-                    vendaResp,
-                    distribuicaoItens,
-                    {
-                      nome: body.empresa_nome,
-                      cnpj: body.empresa_cnpj
+                  db.get(
+                    `SELECT valor FROM configuracoes WHERE chave = 'fiscal_danfe_largura_mm'`,
+                    [],
+                    (cfgErr, cfgRow) => {
+                      const papelMm = !cfgErr && Number(cfgRow && cfgRow.valor) === 58 ? 58 : 80;
+                      const html = montarHtmlComprovanteEntrega(
+                        vendaResp,
+                        distribuicaoItens,
+                        {
+                          nome: body.empresa_nome,
+                          cnpj: body.empresa_cnpj,
+                          papel_mm: papelMm
+                        }
+                      );
+
+                      gravarAuditoria(
+                        montarPayloadAuditoriaEntrega({
+                          acao: EntregaAuditoriaEventos.COMPROVANTE_IMPRESSO,
+                          vendaId: vendaIdFinal,
+                          detalhes: { tipo: 'comprovante_entrega' },
+                          ...ctx
+                        })
+                      ).catch((e) => console.error(e));
+
+                      return res.status(201).json({
+                        success: true,
+                        message: 'Venda para entrega criada com reserva de estoque.',
+                        venda: vendaResp,
+                        itens: distribuicaoItens,
+                        comprovante_html: html,
+                        fiscal: null,
+                        financeiro_gerado: false,
+                        estoque_baixado: false,
+                        estoque_reservado: true
+                      });
                     }
                   );
-
-                  gravarAuditoria(
-                    montarPayloadAuditoriaEntrega({
-                      acao: EntregaAuditoriaEventos.COMPROVANTE_IMPRESSO,
-                      vendaId: vendaIdFinal,
-                      detalhes: { tipo: 'comprovante_entrega' },
-                      ...ctx
-                    })
-                  ).catch((e) => console.error(e));
-
-                  return res.status(201).json({
-                    success: true,
-                    message: 'Venda para entrega criada com reserva de estoque.',
-                    venda: vendaResp,
-                    itens: distribuicaoItens,
-                    comprovante_html: html,
-                    fiscal: null,
-                    financeiro_gerado: false,
-                    estoque_baixado: false,
-                    estoque_reservado: true
-                  });
                 });
               };
 

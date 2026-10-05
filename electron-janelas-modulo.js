@@ -290,43 +290,52 @@ function nomeImpressoraTermicaValido(deviceName) {
   return nome;
 }
 
+function injetarEstiloImpressao(html, estilo) {
+  if (/<\/head>/i.test(html)) return html.replace(/<\/head>/i, `${estilo}</head>`);
+  if (/<head\b[^>]*>/i.test(html)) return html.replace(/<head\b[^>]*>/i, (abertura) => `${abertura}${estilo}`);
+  if (/<body[\s>]/i.test(html)) return html.replace(/<body([\s>])/i, `${estilo}<body$1`);
+  return estilo + html;
+}
+
 /**
  * Reforça contraste para impressoras térmicas (HTML → raster costuma sair apagado).
+ * O tamanho do papel não é declarado no CSS: `size: <largura> auto` é inválido no Chromium
+ * e a página vem do papel padrão do driver.
  */
 function enriquecerHtmlImpressaoTermica(html) {
-  const dens = `
+  const src = String(html || '');
+  const regraPaginaFallback = /@page\b[^{}]*\{[^{}]*\}/i.test(src)
+    ? ''
+    : '@page { margin: 0; }';
+  const contraste = `
 <style id="cds-print-density">
-  @page { margin: 0; }
+  ${regraPaginaFallback}
   html, body {
-    color: #000 !important;
-    background: #fff !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-    font-weight: 900 !important;
+    color: #000;
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
-  body, pre, table, td, th, div, span, p, h1, h2, h3, h4, small, strong, b, label {
-    color: #000 !important;
-    opacity: 1 !important;
-    font-weight: 900 !important;
-    -webkit-font-smoothing: none !important;
-    text-shadow: 0.45px 0 0 #000, -0.45px 0 0 #000, 0 0.25px 0 #000 !important;
+  body, pre, table, td, th, div, span, p, label, small, h1, h2, h3, h4, strong, b {
+    color: #000;
+    opacity: 1;
+    -webkit-font-smoothing: none;
+    text-shadow: 0.25px 0 0 #000, -0.25px 0 0 #000, 0 0.18px 0 #000;
   }
   .muted, .text-muted, .center.muted, [style*="color:#222"], [style*="color: #222"],
   [style*="color:#333"], [style*="color: #333"], [style*="color:#444"], [style*="color: #444"],
   [style*="color:#555"], [style*="color: #555"], [style*="color:#666"], [style*="color: #666"] {
-    color: #000 !important;
-    opacity: 1 !important;
+    color: #000;
+    opacity: 1;
   }
   img:not(.qr img), .qr img {
-    filter: contrast(1.45) brightness(0.78) !important;
-    image-rendering: pixelated !important;
+    filter: contrast(1.45) brightness(0.78);
+    image-rendering: pixelated;
   }
-  hr, .sep { border-color: #000 !important; border-top-width: 2px !important; }
+  hr, .sep { border-color: #000; }
 </style>`;
-  const src = String(html || '');
-  if (/<\/head>/i.test(src)) return src.replace(/<\/head>/i, `${dens}</head>`);
-  if (/<body[\s>]/i.test(src)) return src.replace(/<body([\s>])/i, `${dens}<body$1`);
-  return dens + src;
+
+  return injetarEstiloImpressao(src, contraste);
 }
 
 function devolverFocoJanela(win) {
@@ -426,12 +435,16 @@ function registrarIpcAbrirComprovante(ipcMain) {
     });
     cupomWindowAtual = cupomWindow;
 
-    const papelMatch = String(html || '').match(/danfe-(58|80)/);
+    const srcHtml = String(html || '');
+    const papelMatch = srcHtml.match(/danfe-(58|80)/);
     const papelMm = papelMatch ? papelMatch[1] : '80';
-    const utilMm = papelMm === '58' ? '54' : '76';
-    const htmlFinal = enriquecerHtmlImpressaoTermica(String(html || '').replace('</head>', `
+    const utilMm = papelMm === '58' ? '48' : '72';
+    // O CSS de tela do DANFE só entra no DANFE. Fechamento e demais cupons
+    // imprimem o HTML original: reescrever a largura cortava a coluna dos valores.
+    const htmlTela = papelMatch
+      ? srcHtml.replace('</head>', `
     <style>
-      @page { size: ${papelMm}mm auto; margin: 0; }
+      @page { margin: 0; }
       html, body.danfe {
         width: ${utilMm}mm !important; max-width: ${utilMm}mm !important;
         margin: 0 auto !important;
@@ -442,7 +455,9 @@ function registrarIpcAbrirComprovante(ipcMain) {
       .qr img { display: block !important; margin: 8px auto !important; object-fit: contain !important; image-rendering: pixelated !important; }
       table.items { width: 100% !important; border-collapse: collapse !important; table-layout: fixed !important; }
     </style>
-  </head>`));
+  </head>`)
+      : srcHtml;
+    const htmlFinal = enriquecerHtmlImpressaoTermica(htmlTela);
 
     let impressaoConcluida = false;
     let autoFecharTimer = null;

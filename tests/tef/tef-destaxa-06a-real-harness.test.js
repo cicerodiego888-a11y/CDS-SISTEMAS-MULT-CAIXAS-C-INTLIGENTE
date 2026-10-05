@@ -129,9 +129,13 @@ async function main() {
       assert.strictEqual(nodeReport.vspague.startedByHarness, false);
     });
 
-    await test('PPC930 ausente é registrado como NOT_DETECTED', () => {
-      assert.strictEqual(nodeReport.pinpad.status, 'NOT_DETECTED');
-      assert.strictEqual(nodeReport.pinpad.detected, false);
+    await test('PPC930 registrado conforme a detecção física atual', () => {
+      const atual = require('../../backend/services/tef/sdkDetector').detectarGertecPPC930();
+      assert.strictEqual(nodeReport.pinpad.detected, atual.detectado === true);
+      assert.strictEqual(nodeReport.pinpad.status, atual.detectado === true ? 'DETECTED' : 'NOT_DETECTED');
+      if (nodeReport.pinpad.detected) {
+        assert.ok(nodeReport.pinpad.port);
+      }
     });
 
     await test('nenhum transactionId financeiro e zero chamadas transacionais', () => {

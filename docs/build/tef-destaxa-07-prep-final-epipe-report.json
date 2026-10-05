@@ -1,0 +1,823 @@
+{
+  "sprint": "TEF-DESTAXA-07-PREP-FINAL-EPIPE",
+  "inicio": "2026-09-28T13:49:37.688Z",
+  "fim": "2026-09-28T13:55:46.747Z",
+  "transactionExecuted": false,
+  "rootCause": {
+    "summary": "Leitor do stdout/stderr do Electron encerrado antes do processo: todo console.log do main passa a falhar com EPIPE (erro emitido no stream sem handler → exceção não tratada → diálogo \"A JavaScript error occurred in the main process\"). Os stacks em database.js, produtoEmbalagensSchema.js, migracaoF12Policy.js, tefConfigService.js, destaxaTransacaoOrquestrador.js e no fixture são apenas o primeiro console.log de cada módulo após o fechamento do pipe.",
+    "trigger": "Execução ad hoc do fixture durante a construção do 07-PREP, direto pelo PowerShell (`& electron.exe tests/tef/fixtures/tef-07-prep-electron-main.js > arquivo 2>&1`): o comando retornou (~11 s) com arquivo de saída vazio, ou seja, nenhum leitor manteve o pipe durante a vida do Electron. O harness Node (spawnSync) nunca fechava o pipe antes do filho.",
+    "mechanismReproduced": {
+      "runtime": "Electron 22.3.27 com ELECTRON_RUN_AS_NODE=1 (mesmo Node 16.17.1; sem janela de diálogo)",
+      "script": "console.log a cada 5ms, 200 linhas",
+      "leitorFechaPipeCedo": {
+        "exitCode": 1,
+        "ocorrencias": {
+          "epipe": 2,
+          "uncaughtException": 0,
+          "mainProcessError": 0
+        },
+        "stderr": [
+          "Error: EPIPE: broken pipe, write",
+          "    at Socket._write (node:internal/net:55:25)",
+          "    at writeOrBuffer (node:internal/streams/writable:391:12)",
+          "    at _write (node:internal/streams/writable:332:10)",
+          "    at Writable.write (node:internal/streams/writable:336:10)",
+          "    at console.value (node:internal/console/constructor:299:16)"
+        ]
+      },
+      "leitorConsomeAteClose": {
+        "exitCode": 0,
+        "linhasRecebidas": 200,
+        "ocorrencias": {
+          "epipe": 0,
+          "uncaughtException": 0,
+          "mainProcessError": 0
+        }
+      }
+    },
+    "responsibleFile": "tests/tef/fixtures/tef-07-prep-electron-main.js (invocado sem harness que mantivesse o pipe) + tests/tef/tef-destaxa-07-prep.test.js (lifecycle de stdio implícito em spawnSync, sem contagem nem verificação)",
+    "latentRaceFixed": "fixture chamava app.exit() logo após process.stdout.write do resultado (sem aguardar o flush do pipe) — podia truncar a linha final; agora app.exit() somente no callback do write"
+  },
+  "lifecycleAnterior": {
+    "harness": "spawnSync(electron, [fixture], { encoding: 'utf8', maxBuffer: 50MB, timeout: 240000 })",
+    "stdout": "pipe implícito, acumulado pelo spawnSync; nenhuma contagem/verificação de EPIPE",
+    "stderr": "pipe implícito, acumulado pelo spawnSync; nenhuma verificação",
+    "encerramento": "app.exit() imediatamente após process.stdout.write (sem aguardar flush)",
+    "usoAdHoc": "fixture também foi executado direto pelo PowerShell com redirecionamento, sem leitor durante a vida do processo"
+  },
+  "lifecycleCorrigido": {
+    "harness": "child_process.spawn(electron, [fixture], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })",
+    "stdout": "setEncoding('utf8') + listener 'data' contínuo desde o spawn; linhas/bytes contados; 'end' registrado",
+    "stderr": "setEncoding('utf8') + listener 'data' contínuo desde o spawn; linhas/bytes contados; 'end' registrado",
+    "encerramento": "resultado avaliado somente no evento 'close' do ChildProcess (processo encerrado E stdout/stderr fechados); nenhum kill/destroy/removeAllListeners; único kill() = limite de 240 s, registrado como motivoEncerramento='timeout' (falha)",
+    "fixture": "await process.stdout.write(resultado, callback) antes de app.exit()",
+    "verificacao": "item 21 do 07-PREP falha se houver EPIPE, \"uncaught exception\" ou \"A JavaScript error occurred in the main process\" no stdout/stderr do Electron, se nenhum log normal chegar, ou se o encerramento não for exit 0",
+    "naoOcultado": "nenhum uncaughtException handler, nenhum console.log substituído, nenhum try/catch em logs, nenhum descarte de stdout/stderr (stdio ignore somente no stdin, que o fixture não usa)"
+  },
+  "executions": {
+    "total": 8,
+    "consecutive": true,
+    "markerScan": "Electron: stdout+stderr integrais (harnessStdio do 07-PREP). npm: stdout+stderr integrais exceto linhas de status do checklist (\"OK|FALHOU N.\"), cujo título do item 21 cita os marcadores — primeira execução do sprint contou 1 falso positivo por execução exatamente nessa linha.",
+    "results": [
+      {
+        "execucao": 1,
+        "resultado": "PASS",
+        "exitCode": 0,
+        "duracaoMs": 4520,
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0,
+        "electron": {
+          "exitCode": 0,
+          "motivoEncerramento": "exit",
+          "stdoutLinhas": 252,
+          "stderrLinhas": 1,
+          "stdoutFechadoAposMs": 4091,
+          "stderrFechadoAposMs": 4091,
+          "closeAposMs": 4097
+        },
+        "harnessNpm": {
+          "stdoutLinhas": 35,
+          "stderrLinhas": 1,
+          "streamsFechados": {
+            "stdout": true,
+            "stderr": true
+          },
+          "ocorrencias": {
+            "epipe": 0,
+            "uncaughtException": 0,
+            "mainProcessError": 0
+          },
+          "linhasChecklistExcluidasDaVarredura": [
+            "  OK  21. STDIO: logs do Electron consumidos até o fim; EPIPE / uncaughtException / erro no main = 0"
+          ]
+        },
+        "electronOcorrencias": {
+          "epipe": 0,
+          "uncaughtException": 0,
+          "mainProcessError": 0
+        },
+        "prepResult": "READY_FOR_REAL_R$1",
+        "tripwire": {
+          "ativo": true,
+          "iniciaTransacaoDestaxa": 0,
+          "continuaTransacaoDestaxa": 0,
+          "finalizaTransacaoDestaxa": 0
+        },
+        "client": "00",
+        "gate": "OFF"
+      },
+      {
+        "execucao": 2,
+        "resultado": "PASS",
+        "exitCode": 0,
+        "duracaoMs": 4057,
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0,
+        "electron": {
+          "exitCode": 0,
+          "motivoEncerramento": "exit",
+          "stdoutLinhas": 252,
+          "stderrLinhas": 1,
+          "stdoutFechadoAposMs": 3624,
+          "stderrFechadoAposMs": 3624,
+          "closeAposMs": 3629
+        },
+        "harnessNpm": {
+          "stdoutLinhas": 35,
+          "stderrLinhas": 1,
+          "streamsFechados": {
+            "stdout": true,
+            "stderr": true
+          },
+          "ocorrencias": {
+            "epipe": 0,
+            "uncaughtException": 0,
+            "mainProcessError": 0
+          },
+          "linhasChecklistExcluidasDaVarredura": [
+            "  OK  21. STDIO: logs do Electron consumidos até o fim; EPIPE / uncaughtException / erro no main = 0"
+          ]
+        },
+        "electronOcorrencias": {
+          "epipe": 0,
+          "uncaughtException": 0,
+          "mainProcessError": 0
+        },
+        "prepResult": "READY_FOR_REAL_R$1",
+        "tripwire": {
+          "ativo": true,
+          "iniciaTransacaoDestaxa": 0,
+          "continuaTransacaoDestaxa": 0,
+          "finalizaTransacaoDestaxa": 0
+        },
+        "client": "00",
+        "gate": "OFF"
+      },
+      {
+        "execucao": 3,
+        "resultado": "PASS",
+        "exitCode": 0,
+        "duracaoMs": 4089,
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0,
+        "electron": {
+          "exitCode": 0,
+          "motivoEncerramento": "exit",
+          "stdoutLinhas": 252,
+          "stderrLinhas": 1,
+          "stdoutFechadoAposMs": 3657,
+          "stderrFechadoAposMs": 3658,
+          "closeAposMs": 3663
+        },
+        "harnessNpm": {
+          "stdoutLinhas": 35,
+          "stderrLinhas": 1,
+          "streamsFechados": {
+            "stdout": true,
+            "stderr": true
+          },
+          "ocorrencias": {
+            "epipe": 0,
+            "uncaughtException": 0,
+            "mainProcessError": 0
+          },
+          "linhasChecklistExcluidasDaVarredura": [
+            "  OK  21. STDIO: logs do Electron consumidos até o fim; EPIPE / uncaughtException / erro no main = 0"
+          ]
+        },
+        "electronOcorrencias": {
+          "epipe": 0,
+          "uncaughtException": 0,
+          "mainProcessError": 0
+        },
+        "prepResult": "READY_FOR_REAL_R$1",
+        "tripwire": {
+          "ativo": true,
+          "iniciaTransacaoDestaxa": 0,
+          "continuaTransacaoDestaxa": 0,
+          "finalizaTransacaoDestaxa": 0
+        },
+        "client": "00",
+        "gate": "OFF"
+      },
+      {
+        "execucao": 4,
+        "resultado": "PASS",
+        "exitCode": 0,
+        "duracaoMs": 3987,
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0,
+        "electron": {
+          "exitCode": 0,
+          "motivoEncerramento": "exit",
+          "stdoutLinhas": 252,
+          "stderrLinhas": 1,
+          "stdoutFechadoAposMs": 3532,
+          "stderrFechadoAposMs": 3533,
+          "closeAposMs": 3537
+        },
+        "harnessNpm": {
+          "stdoutLinhas": 35,
+          "stderrLinhas": 1,
+          "streamsFechados": {
+            "stdout": true,
+            "stderr": true
+          },
+          "ocorrencias": {
+            "epipe": 0,
+            "uncaughtException": 0,
+            "mainProcessError": 0
+          },
+          "linhasChecklistExcluidasDaVarredura": [
+            "  OK  21. STDIO: logs do Electron consumidos até o fim; EPIPE / uncaughtException / erro no main = 0"
+          ]
+        },
+        "electronOcorrencias": {
+          "epipe": 0,
+          "uncaughtException": 0,
+          "mainProcessError": 0
+        },
+        "prepResult": "READY_FOR_REAL_R$1",
+        "tripwire": {
+          "ativo": true,
+          "iniciaTransacaoDestaxa": 0,
+          "continuaTransacaoDestaxa": 0,
+          "finalizaTransacaoDestaxa": 0
+        },
+        "client": "00",
+        "gate": "OFF"
+      },
+      {
+        "execucao": 5,
+        "resultado": "PASS",
+        "exitCode": 0,
+        "duracaoMs": 4107,
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0,
+        "electron": {
+          "exitCode": 0,
+          "motivoEncerramento": "exit",
+          "stdoutLinhas": 252,
+          "stderrLinhas": 1,
+          "stdoutFechadoAposMs": 3692,
+          "stderrFechadoAposMs": 3692,
+          "closeAposMs": 3698
+        },
+        "harnessNpm": {
+          "stdoutLinhas": 35,
+          "stderrLinhas": 1,
+          "streamsFechados": {
+            "stdout": true,
+            "stderr": true
+          },
+          "ocorrencias": {
+            "epipe": 0,
+            "uncaughtException": 0,
+            "mainProcessError": 0
+          },
+          "linhasChecklistExcluidasDaVarredura": [
+            "  OK  21. STDIO: logs do Electron consumidos até o fim; EPIPE / uncaughtException / erro no main = 0"
+          ]
+        },
+        "electronOcorrencias": {
+          "epipe": 0,
+          "uncaughtException": 0,
+          "mainProcessError": 0
+        },
+        "prepResult": "READY_FOR_REAL_R$1",
+        "tripwire": {
+          "ativo": true,
+          "iniciaTransacaoDestaxa": 0,
+          "continuaTransacaoDestaxa": 0,
+          "finalizaTransacaoDestaxa": 0
+        },
+        "client": "00",
+        "gate": "OFF"
+      },
+      {
+        "execucao": 6,
+        "resultado": "PASS",
+        "exitCode": 0,
+        "duracaoMs": 4305,
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0,
+        "electron": {
+          "exitCode": 0,
+          "motivoEncerramento": "exit",
+          "stdoutLinhas": 252,
+          "stderrLinhas": 1,
+          "stdoutFechadoAposMs": 3850,
+          "stderrFechadoAposMs": 3851,
+          "closeAposMs": 3856
+        },
+        "harnessNpm": {
+          "stdoutLinhas": 35,
+          "stderrLinhas": 1,
+          "streamsFechados": {
+            "stdout": true,
+            "stderr": true
+          },
+          "ocorrencias": {
+            "epipe": 0,
+            "uncaughtException": 0,
+            "mainProcessError": 0
+          },
+          "linhasChecklistExcluidasDaVarredura": [
+            "  OK  21. STDIO: logs do Electron consumidos até o fim; EPIPE / uncaughtException / erro no main = 0"
+          ]
+        },
+        "electronOcorrencias": {
+          "epipe": 0,
+          "uncaughtException": 0,
+          "mainProcessError": 0
+        },
+        "prepResult": "READY_FOR_REAL_R$1",
+        "tripwire": {
+          "ativo": true,
+          "iniciaTransacaoDestaxa": 0,
+          "continuaTransacaoDestaxa": 0,
+          "finalizaTransacaoDestaxa": 0
+        },
+        "client": "00",
+        "gate": "OFF"
+      },
+      {
+        "execucao": 7,
+        "resultado": "PASS",
+        "exitCode": 0,
+        "duracaoMs": 3952,
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0,
+        "electron": {
+          "exitCode": 0,
+          "motivoEncerramento": "exit",
+          "stdoutLinhas": 252,
+          "stderrLinhas": 1,
+          "stdoutFechadoAposMs": 3518,
+          "stderrFechadoAposMs": 3519,
+          "closeAposMs": 3524
+        },
+        "harnessNpm": {
+          "stdoutLinhas": 35,
+          "stderrLinhas": 1,
+          "streamsFechados": {
+            "stdout": true,
+            "stderr": true
+          },
+          "ocorrencias": {
+            "epipe": 0,
+            "uncaughtException": 0,
+            "mainProcessError": 0
+          },
+          "linhasChecklistExcluidasDaVarredura": [
+            "  OK  21. STDIO: logs do Electron consumidos até o fim; EPIPE / uncaughtException / erro no main = 0"
+          ]
+        },
+        "electronOcorrencias": {
+          "epipe": 0,
+          "uncaughtException": 0,
+          "mainProcessError": 0
+        },
+        "prepResult": "READY_FOR_REAL_R$1",
+        "tripwire": {
+          "ativo": true,
+          "iniciaTransacaoDestaxa": 0,
+          "continuaTransacaoDestaxa": 0,
+          "finalizaTransacaoDestaxa": 0
+        },
+        "client": "00",
+        "gate": "OFF"
+      },
+      {
+        "execucao": 8,
+        "resultado": "PASS",
+        "exitCode": 0,
+        "duracaoMs": 3931,
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0,
+        "electron": {
+          "exitCode": 0,
+          "motivoEncerramento": "exit",
+          "stdoutLinhas": 252,
+          "stderrLinhas": 1,
+          "stdoutFechadoAposMs": 3519,
+          "stderrFechadoAposMs": 3519,
+          "closeAposMs": 3524
+        },
+        "harnessNpm": {
+          "stdoutLinhas": 35,
+          "stderrLinhas": 1,
+          "streamsFechados": {
+            "stdout": true,
+            "stderr": true
+          },
+          "ocorrencias": {
+            "epipe": 0,
+            "uncaughtException": 0,
+            "mainProcessError": 0
+          },
+          "linhasChecklistExcluidasDaVarredura": [
+            "  OK  21. STDIO: logs do Electron consumidos até o fim; EPIPE / uncaughtException / erro no main = 0"
+          ]
+        },
+        "electronOcorrencias": {
+          "epipe": 0,
+          "uncaughtException": 0,
+          "mainProcessError": 0
+        },
+        "prepResult": "READY_FOR_REAL_R$1",
+        "tripwire": {
+          "ativo": true,
+          "iniciaTransacaoDestaxa": 0,
+          "continuaTransacaoDestaxa": 0,
+          "finalizaTransacaoDestaxa": 0
+        },
+        "client": "00",
+        "gate": "OFF"
+      }
+    ]
+  },
+  "electronJsDiff": {
+    "mtime": "2026-09-28T12:35:09.464Z",
+    "addedBlocks": [
+      {
+        "de": 613,
+        "ate": 677,
+        "removidas": 0
+      },
+      {
+        "de": 768,
+        "ate": 777,
+        "removidas": 0
+      }
+    ],
+    "removedLines": 0,
+    "contents": [
+      {
+        "sprint": "TEF-DESTAXA-06B",
+        "trecho": "hook DESTAXA_CRT_PATH_CHECK + DESTAXA_CRT_PATH_CHECK_ELECTRON (DestaxaCrtRealPathVerifier no Electron)",
+        "necessarioPara": "test:tef-destaxa-06b e test:tef-destaxa-06c-prep (regressões)"
+      },
+      {
+        "sprint": "TEF-DESTAXA-06C-MITIGACAO",
+        "trecho": "hook DESTAXA_NATIVE_HOST_CHECK + DESTAXA_NATIVE_HOST_CHECK_ELECTRON (destaxaNativeHostVerifier no Electron)",
+        "necessarioPara": "test:tef-destaxa-06c-mitigacao (regressão)"
+      },
+      {
+        "sprint": "TEF-DESTAXA-06C-MITIGACAO",
+        "trecho": "will-quit: encerra o TEF Native Host compartilhado (adiado com chamada nativa em voo)",
+        "necessarioPara": "lifecycle produtivo do Native Host"
+      }
+    ],
+    "belongsTo07Prep": false,
+    "requiredBy07PrepHarness": false,
+    "note": "o 07-PREP executa o fixture como entry point próprio do Electron; electron.js não foi alterado no 07-PREP nem neste sprint; nada revertido",
+    "raw": "diff --git a/electron.js b/electron.js\nindex df7ad80..32a1e8b 100644\n--- a/electron.js\n+++ b/electron.js\n@@ -610,6 +610,71 @@ app.whenReady().then(async () => {\n     return;\n   }\n \n+  if (\n+    String(process.env.DESTAXA_CRT_PATH_CHECK || '').trim() === '1'\n+    && String(process.env.DESTAXA_CRT_PATH_CHECK_ELECTRON || '').trim() === '1'\n+  ) {\n+    try {\n+      const {\n+        DestaxaCrtRealPathVerifier,\n+        RESULT_READY\n+      } = require('./backend/services/tef/destaxa/destaxaCrtRealPathVerifier');\n+      const execucao = await new DestaxaCrtRealPathVerifier().executar();\n+      console.log('[TEF-DESTAXA-06B-ELECTRON]', JSON.stringify({\n+        result: execucao.relatorio.result,\n+        runtime: execucao.relatorio.runtime,\n+        realTransactionGate: execucao.relatorio.realTransactionGate,\n+        transaction: execucao.relatorio.transaction,\n+        report: execucao.arquivo\n+      }));\n+      const dbVerificacao = require('./backend/database');\n+      await new Promise((resolve, reject) => {\n+        dbVerificacao.whenReady((readyError) => {\n+          if (readyError) return reject(readyError);\n+          resolve();\n+        });\n+      });\n+      await new Promise((resolve) => setTimeout(resolve, 750));\n+      await new Promise((resolve, reject) => {\n+        dbVerificacao.close((dbError) => {\n+          if (dbError) return reject(dbError);\n+          resolve();\n+        });\n+      });\n+      app.exit(execucao.relatorio.result === RESULT_READY ? 0 : 1);\n+    } catch (error) {\n+      console.error('[TEF-DESTAXA-06B-ELECTRON] FALHA', error.code || 'ERROR', error.message);\n+      app.exit(1);\n+    }\n+    return;\n+  }\n+\n+  if (\n+    String(process.env.DESTAXA_NATIVE_HOST_CHECK || '').trim() === '1'\n+    && String(process.env.DESTAXA_NATIVE_HOST_CHECK_ELECTRON || '').trim() === '1'\n+  ) {\n+    try {\n+      const verificador = require('./backend/services/tef/destaxa/destaxaNativeHostVerifier');\n+      const resultado = await verificador.executarTodas();\n+      console.log('[TEF-DESTAXA-06C-MITIGACAO-ELECTRON]', JSON.stringify({\n+        runtime: {\n+          electron: process.versions.electron,\n+          node: process.versions.node,\n+          abi: process.versions.modules,\n+          processType: process.type\n+        },\n+        responsividade: resultado.responsividade,\n+        crash: resultado.crash,\n+        nativo: resultado.nativo\n+      }));\n+      app.exit(0);\n+    } catch (error) {\n+      console.error('[TEF-DESTAXA-06C-MITIGACAO-ELECTRON] FALHA', error.code || 'ERROR', error.message);\n+      app.exit(1);\n+    }\n+    return;\n+  }\n+\n   if (String(process.env.TEF_DESTAXA_REAL_TEST || '').trim() === '1') {\n     const testeDestaxa = require('./backend/services/tef/destaxa/destaxaElectronRealTest');\n     const codigoSaida = await testeDestaxa.executarNoProcessoElectron();\n@@ -700,6 +765,16 @@ app.on('window-all-closed', () => {\n });\n \n app.on('will-quit', () => {\n+  try {\n+    const { clienteCompartilhadoExistente } = require('./backend/services/tef/destaxa/DestaxaNativeHostClient');\n+    const hostTef = clienteCompartilhadoExistente();\n+    if (hostTef) {\n+      // Com chamada nativa em voo o encerramento é adiado e registrado — nunca tratado como cancelamento.\n+      hostTef.encerrar().then((r) => {\n+        if (r && r.adiado) console.warn('[TEF-NATIVE-HOST] encerramento adiado: chamada nativa em andamento', JSON.stringify(r.operacaoEmVoo));\n+      }).catch(() => {});\n+    }\n+  } catch (_) { /* ignore */ }\n   try {\n     const cm = require('./backend/motores/equipamentos/connection/ConnectionManager');\n     if (cm && typeof cm.closeAll === 'function') {\n"
+  },
+  "packageJsonDiff": {
+    "addedScripts": [
+      "\"test:tef-destaxa-06b\": \"node tests/tef/tef-destaxa-06b-crt-real-path.test.js\",",
+      "\"test:tef-destaxa-06c-prep\": \"node tests/tef/tef-destaxa-06c-prep.test.js\",",
+      "\"test:tef-destaxa-06c-mitigacao\": \"node tests/tef/tef-destaxa-06c-mitigacao.test.js\",",
+      "\"test:tef-destaxa-06c-timeout\": \"node tests/tef/tef-destaxa-06c-timeout.test.js\",",
+      "\"test:tef-destaxa-06c-persistencia\": \"node tests/tef/tef-destaxa-06c-persistencia.test.js\",",
+      "\"test:tef-destaxa-07-prep\": \"node tests/tef/tef-destaxa-07-prep.test.js\",",
+      "\"test:tef-destaxa-07-prep-final-epipe\": \"node tests/tef/tef-destaxa-07-prep-final-epipe.test.js\","
+    ],
+    "belongsTo07Prep": [
+      "\"test:tef-destaxa-07-prep\": \"node tests/tef/tef-destaxa-07-prep.test.js\",",
+      "\"test:tef-destaxa-07-prep-final-epipe\": \"node tests/tef/tef-destaxa-07-prep-final-epipe.test.js\","
+    ],
+    "otherChanges": [],
+    "raw": "diff --git a/package.json b/package.json\nindex 753e92a..0f87919 100644\n--- a/package.json\n+++ b/package.json\n@@ -77,6 +77,13 @@\n     \"test:tef-destaxa-prep-04b\": \"node tests/tef/tef-destaxa-prep-04b.test.js\",\n     \"test:tef-destaxa-05\": \"node tests/tef/tef-destaxa-05-financial-safety.test.js\",\n     \"test:tef-destaxa-06a\": \"node tests/tef/tef-destaxa-06a-real-harness.test.js\",\n+    \"test:tef-destaxa-06b\": \"node tests/tef/tef-destaxa-06b-crt-real-path.test.js\",\n+    \"test:tef-destaxa-06c-prep\": \"node tests/tef/tef-destaxa-06c-prep.test.js\",\n+    \"test:tef-destaxa-06c-mitigacao\": \"node tests/tef/tef-destaxa-06c-mitigacao.test.js\",\n+    \"test:tef-destaxa-06c-timeout\": \"node tests/tef/tef-destaxa-06c-timeout.test.js\",\n+    \"test:tef-destaxa-06c-persistencia\": \"node tests/tef/tef-destaxa-06c-persistencia.test.js\",\n+    \"test:tef-destaxa-07-prep\": \"node tests/tef/tef-destaxa-07-prep.test.js\",\n+    \"test:tef-destaxa-07-prep-final-epipe\": \"node tests/tef/tef-destaxa-07-prep-final-epipe.test.js\",\n     \"test:tef\": \"node tests/tef/tef-01-configuracao.test.js && node tests/tef/tef-02-deteccao-ppc930.test.js && node tests/tef/tef-fluxo-pagamento.test.js && node tests/tef/tef-destaxa-01-fundacao.test.js && node tests/tef/tef-destaxa-03-crt-protocolo.test.js && node scripts/test-tef-fluxo-api.js\",\n     \"test:equipamentos-drivers\": \"node tests/motor-equipamentos/drivers-framework.test.js\",\n     \"test:equipamentos-toledo-prix4\": \"node tests/motor-equipamentos/toledo-prix4-driver.test.js\",\n"
+  },
+  "regressions": [
+    {
+      "script": "test:tef-01",
+      "exitCode": 0,
+      "durationMs": 831,
+      "summary": [
+        "=== RESULTADO TEF-01: 13 passou, 0 falhou ==="
+      ],
+      "ocorrencias": {
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0
+      }
+    },
+    {
+      "script": "test:tef-02",
+      "exitCode": 0,
+      "durationMs": 2403,
+      "summary": [
+        "=== RESULTADO TEF-02 UNITÁRIO: 24 passou, 0 falhou ===",
+        "=== RESULTADO TEF-02 REAL: 4 passou, 0 falhou ==="
+      ],
+      "ocorrencias": {
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0
+      }
+    },
+    {
+      "script": "test:tef-fluxo",
+      "exitCode": 0,
+      "durationMs": 430,
+      "summary": [
+        "=== RESULTADO: 13 ok, 0 falhou ==="
+      ],
+      "ocorrencias": {
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0
+      }
+    },
+    {
+      "script": "test:tef-destaxa-01",
+      "exitCode": 0,
+      "durationMs": 580,
+      "summary": [
+        "Resultado: 9 ok, 0 falhou"
+      ],
+      "ocorrencias": {
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0
+      }
+    },
+    {
+      "script": "test:tef-destaxa-02",
+      "exitCode": 0,
+      "durationMs": 381,
+      "summary": [
+        "RESULTADO: CLIENT_INITIALIZED (00)"
+      ],
+      "ocorrencias": {
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0
+      }
+    },
+    {
+      "script": "test:tef-destaxa-03",
+      "exitCode": 0,
+      "durationMs": 387,
+      "summary": [
+        "Resultado: 25 ok, 0 falhou"
+      ],
+      "ocorrencias": {
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0
+      }
+    },
+    {
+      "script": "test:tef-destaxa-prep-04b",
+      "exitCode": 0,
+      "durationMs": 507,
+      "summary": [
+        "Resultado: 6 ok, 0 falhou"
+      ],
+      "ocorrencias": {
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0
+      }
+    },
+    {
+      "script": "test:tef-destaxa-05",
+      "exitCode": 0,
+      "durationMs": 389,
+      "summary": [
+        "Resultado: 15 ok, 0 falhou"
+      ],
+      "ocorrencias": {
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0
+      }
+    },
+    {
+      "script": "test:tef-destaxa-06a",
+      "exitCode": 0,
+      "durationMs": 6885,
+      "summary": [
+        "Resultado: 13 ok, 0 falhou"
+      ],
+      "ocorrencias": {
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0
+      }
+    },
+    {
+      "script": "test:tef-destaxa-06b",
+      "exitCode": 0,
+      "durationMs": 7450,
+      "summary": [
+        "Resultado: 46 ok, 0 falhou"
+      ],
+      "ocorrencias": {
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0
+      }
+    },
+    {
+      "script": "test:tef-destaxa-06c-prep",
+      "exitCode": 0,
+      "durationMs": 9018,
+      "summary": [
+        "Resultado: 34 ok, 0 falhou"
+      ],
+      "ocorrencias": {
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0
+      }
+    },
+    {
+      "script": "test:tef-destaxa-06c-mitigacao",
+      "exitCode": 0,
+      "durationMs": 36902,
+      "summary": [
+        "Resultado: 42 ok, 0 falhou"
+      ],
+      "ocorrencias": {
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0
+      }
+    },
+    {
+      "script": "test:tef-destaxa-06c-timeout",
+      "exitCode": 0,
+      "durationMs": 73260,
+      "summary": [
+        "Resultado: 39 ok, 0 falhou"
+      ],
+      "ocorrencias": {
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0
+      }
+    },
+    {
+      "script": "test:tef-destaxa-06c-persistencia",
+      "exitCode": 0,
+      "durationMs": 193219,
+      "summary": [
+        "OK  9: reinício recupera a trava e registra TEF_RESULTADO_PENDENTE_RECUPERADO uma vez",
+        "Resultado: 42 ok, 0 falhou"
+      ],
+      "ocorrencias": {
+        "epipe": 0,
+        "uncaughtException": 0,
+        "mainProcessError": 0
+      }
+    }
+  ],
+  "database": {
+    "before": {
+      "total": 0,
+      "pendentes": 0,
+      "aprovadas": 0,
+      "negadas": 0,
+      "canceladas": 0,
+      "erros": 0,
+      "tefConfiguracao": {
+        "ambiente": "homologacao",
+        "provedor": "destaxa",
+        "tentativas": 3,
+        "atualizado_em": "2026-09-28 12:21:25"
+      }
+    },
+    "after": {
+      "total": 0,
+      "pendentes": 0,
+      "aprovadas": 0,
+      "negadas": 0,
+      "canceladas": 0,
+      "erros": 0,
+      "tefConfiguracao": {
+        "ambiente": "homologacao",
+        "provedor": "destaxa",
+        "tentativas": 3,
+        "atualizado_em": "2026-09-28 12:21:25"
+      }
+    },
+    "newTransactions": 0,
+    "configurationChanged": false
+  },
+  "tripwire": [
+    {
+      "execucao": 1,
+      "ativo": true,
+      "iniciaTransacaoDestaxa": 0,
+      "continuaTransacaoDestaxa": 0,
+      "finalizaTransacaoDestaxa": 0
+    },
+    {
+      "execucao": 2,
+      "ativo": true,
+      "iniciaTransacaoDestaxa": 0,
+      "continuaTransacaoDestaxa": 0,
+      "finalizaTransacaoDestaxa": 0
+    },
+    {
+      "execucao": 3,
+      "ativo": true,
+      "iniciaTransacaoDestaxa": 0,
+      "continuaTransacaoDestaxa": 0,
+      "finalizaTransacaoDestaxa": 0
+    },
+    {
+      "execucao": 4,
+      "ativo": true,
+      "iniciaTransacaoDestaxa": 0,
+      "continuaTransacaoDestaxa": 0,
+      "finalizaTransacaoDestaxa": 0
+    },
+    {
+      "execucao": 5,
+      "ativo": true,
+      "iniciaTransacaoDestaxa": 0,
+      "continuaTransacaoDestaxa": 0,
+      "finalizaTransacaoDestaxa": 0
+    },
+    {
+      "execucao": 6,
+      "ativo": true,
+      "iniciaTransacaoDestaxa": 0,
+      "continuaTransacaoDestaxa": 0,
+      "finalizaTransacaoDestaxa": 0
+    },
+    {
+      "execucao": 7,
+      "ativo": true,
+      "iniciaTransacaoDestaxa": 0,
+      "continuaTransacaoDestaxa": 0,
+      "finalizaTransacaoDestaxa": 0
+    },
+    {
+      "execucao": 8,
+      "ativo": true,
+      "iniciaTransacaoDestaxa": 0,
+      "continuaTransacaoDestaxa": 0,
+      "finalizaTransacaoDestaxa": 0
+    }
+  ],
+  "gate": {
+    "env": "DESTAXA_REAL_TRANSACTION_ENABLED",
+    "estado": "OFF",
+    "porExecucao": [
+      "OFF",
+      "OFF",
+      "OFF",
+      "OFF",
+      "OFF",
+      "OFF",
+      "OFF",
+      "OFF"
+    ]
+  },
+  "realTransactionalCalls": {
+    "iniciaTransacaoDestaxa": 0,
+    "continuaTransacaoDestaxa": 0,
+    "finalizaTransacaoDestaxa": 0,
+    "nativaPermitida": "iniciaClientDestaxa → 00"
+  },
+  "productionTefModules": {
+    "unchanged": true,
+    "sha256": {
+      "backend/services/tef/TefManager.js": "20babd0a34cd8fe344b476c674e6dfa21e394eb4261821b0834135197d7a3fff",
+      "backend/services/tef/adapters/DestaxaRealAdapter.js": "5fb236303bd41d8bc7ebc0768a30f5be373d608f7c76cfaaa3dcfc8177c00408",
+      "backend/services/tef/destaxa/DestaxaNativeHost.js": "a19be487dd920b01757293764dbf36b27b1f288927ad293ba9896f7629b9d1c7",
+      "backend/services/tef/destaxa/DestaxaNativeHostClient.js": "e70821e2a892d492b1825a8f9722049e4da57bb185482a1004df4f38cfe5143f",
+      "backend/services/tef/destaxa/DestaxaHostBridge.js": "2ecb40424152bb7c2405bdf5e27f76598245693fde5c214368cf6bc53ccded59",
+      "backend/services/tef/destaxa/DestaxaNativeBridge.js": "5bc53f4291bf9efe6ea5273d099f920c10803b49b4d4e2cf450a906a7a57f4e3",
+      "backend/services/tef/destaxa/destaxaNativeHostProtocolo.js": "8b1f3a31bfad753105b73a8631d49f7d694f12ecfb7f5a033e268759eb2a35e5",
+      "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js": "979bb32e373bd6d541bf8eeae9a05b81328cb6137bb5027ca74c3cf406b74920",
+      "backend/services/tef/destaxa/destaxaProtocolo.js": "dbe530b6d60d6a1d9d2b58f147a0d00353dfea44ec9d83b99c336d407cc3a991",
+      "backend/services/tef/destaxa/destaxaConstantes.js": "886c177940043c1497fd61f8230af44e1a73ef627fd2fa37eceb2f33ad0670be",
+      "backend/services/tef/tefRetryService.js": "68308798b18b408fd9d62df5f2e4a7beb3f18fe9d9cf335d623724be804a75f9",
+      "backend/services/tef/tefRepository.js": "efd845981deef107e8207f756add81dc8c024b2d6d2699fa685edb178c61de82",
+      "backend/services/tef/tefFinancialSafetyPolicy.js": "76e6cccd5ddbc8afbfbe606ae5390c1408caa6c7b090a9920ef18e4fda595841"
+    }
+  },
+  "tests": {
+    "passed": 22,
+    "failed": 0,
+    "failures": []
+  },
+  "conclusion": "EPIPE reproduzido somente no controle (leitor fecha o pipe cedo) e ausente em todas as execuções do 07-PREP com stdout/stderr consumidos até o close; nada ocultado; gate OFF; 0/0/0; banco sem novas transações; regressões verdes.",
+  "result": "READY_FOR_07_EXEC"
+}

@@ -86,8 +86,9 @@ const ENDPOINTS = Object.freeze({
  * Quantidade oficial de serviços cadastrados pelo builder.
  * F2: 20 (auth/cancel/status/retorno/nfe/dfe + 4 manifestações × 2 amb)
  * F8: +4 Consulta Protocolo (NFC-e + NF-e × 2 ambientes) = 24
+ * F9: +2 NF-e Cancelamento modelo 55 (× 2 ambientes) = 26
  */
-const OFFICIAL_SERVICE_COUNT = 24;
+const OFFICIAL_SERVICE_COUNT = 26;
 
 function soapHeaders(soapAction) {
   return Object.freeze({

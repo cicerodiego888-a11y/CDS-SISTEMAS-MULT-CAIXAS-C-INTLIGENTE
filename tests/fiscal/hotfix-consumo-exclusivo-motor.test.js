@@ -98,6 +98,17 @@ describe('Hotfix Motor — NF-e consome só parcela fiscal', () => {
 });
 
 describe('Hotfix Motor — Pagamentos e agregação', () => {
+  it('separarItensDistribuidos exige lista; VendaPagamentoService protege com || []', () => {
+    assert.throws(() => separarItensDistribuidos(undefined));
+    assert.deepEqual(separarItensDistribuidos([]), { totalFiscal: 0, totalNaoFiscal: 0 });
+    const pag = fs.readFileSync(
+      path.join(__dirname, '../..', 'backend/services/vendas/VendaPagamentoService.js'),
+      'utf8'
+    );
+    assert.match(pag, /resolverTotaisFiscaisLiquidosMotor/);
+    assert.match(pag, /separarItensDistribuidos\(distribuicaoItens \|\| \[\]\)/);
+  });
+
   it('Distribuidor usa totais produzidos pelo Motor (5F+5NF em valor)', () => {
     const itens = [itemMistoMotor()];
     const { totalFiscal, totalNaoFiscal } = separarItensDistribuidos(itens);
@@ -142,7 +153,7 @@ describe('Hotfix Motor — consumidores sem recálculo', () => {
     assert.doesNotMatch(mon, /valor_restante.*\*.*valor_fiscal.*\/ v\.total/);
     assert.match(nfe, /quantidade_fiscal/);
     assert.match(nfe, /itemEntraNaNfe/);
-    assert.match(pag, /separarItensDistribuidos\(distribuicaoItens\)/);
+    assert.match(pag, /separarItensDistribuidos\(distribuicaoItens(?:\s*\|\|\s*\[\])?\)/);
     assert.match(pag, /valor_fiscal: totalFiscal/);
     // Motor permanece com assinatura oficial
     assert.match(motor, /function distribuirItemVenda/);

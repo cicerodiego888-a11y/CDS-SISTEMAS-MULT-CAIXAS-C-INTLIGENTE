@@ -4974,6 +4974,7 @@ async function finalizarEntradaDesdeCentral(documentoId, opcoes = {}) {
 
         sessionStorage.setItem('central_abrir_compra', JSON.stringify({
             documentoId: resultado.documentoId || id,
+            origem: 'CENTRAL_NFE',
             dadosCompra: resultado.dadosCompra
         }));
 

@@ -301,8 +301,8 @@ async function main() {
     const status = platform.getStatus();
     assert.strictEqual(status.active, true);
     assert.strictEqual(status.registryEmpty, false);
-    assert.strictEqual(status.registrySize, 24);
-    assert.strictEqual(status.officialCount, 24);
+    assert.strictEqual(status.registrySize, 26);
+    assert.strictEqual(status.officialCount, 26);
     assert.strictEqual(status.resolverReady, true);
     assert.strictEqual(status.transportEnabled, true);
     assert.ok(status.resolverMetrics);

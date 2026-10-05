@@ -48,7 +48,8 @@ function close(db) {
 async function schemaComercial(db) {
   await run(db, `CREATE TABLE produtos (
     id INTEGER PRIMARY KEY, nome TEXT, codigo TEXT, item_fiscal INTEGER DEFAULT 0,
-    estoque REAL DEFAULT 0, saldo_fiscal REAL DEFAULT 0, saldo_nao_fiscal REAL DEFAULT 0
+    estoque REAL DEFAULT 0, saldo_fiscal REAL DEFAULT 0, saldo_nao_fiscal REAL DEFAULT 0,
+    preco_venda REAL DEFAULT 0
   )`);
   await run(db, `CREATE TABLE vendas (
     id INTEGER PRIMARY KEY, data_venda TEXT, total REAL, valor_fiscal REAL DEFAULT 0,
@@ -251,7 +252,8 @@ describe('Sprint 07.8 — conciliação pela fotografia do fechamento', { concur
     assert.ok(idxLista < idxResumo, 'lista deve vir antes do resumo');
     assert.match(FRONT, /silencioso: true/);
     assert.match(FRONT, /ff\.previa_vendas && ff\.previa_vendas\.length && !silencioso/);
-    assert.match(FRONT, /!\(__ffdEstado\.recebimentos \|\| \[\]\)\.length/);
+    // Reidratação não sobrescreve recebimentos editados localmente (flag substituiu o teste de lista vazia).
+    assert.match(FRONT, /if \(!silencioso && !__ffdEstado\.recebimentosLocais\) \{\s*__ffdEstado\.recebimentos = \(ff\.recebimentos/);
   });
 
   it('05 — Motor Fiscal e transmissão automática permanecem fora do escopo', () => {

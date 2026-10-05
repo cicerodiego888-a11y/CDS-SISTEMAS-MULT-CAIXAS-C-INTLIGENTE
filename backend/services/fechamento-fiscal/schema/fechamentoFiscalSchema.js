@@ -36,6 +36,28 @@ const DDL = [
     criado_em TEXT NOT NULL DEFAULT (datetime('now','localtime')),
     FOREIGN KEY (fechamento_fiscal_id) REFERENCES fechamentos_fiscais(id) ON DELETE CASCADE
   )`,
+  `CREATE TABLE IF NOT EXISTS fechamentos_fiscais_recebimentos_comprovantes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fechamento_fiscal_id INTEGER NOT NULL,
+    valor REAL NOT NULL DEFAULT 0,
+    ordem INTEGER NOT NULL DEFAULT 0,
+    criado_em TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    atualizado_em TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY (fechamento_fiscal_id) REFERENCES fechamentos_fiscais(id) ON DELETE CASCADE
+  )`,
+  `CREATE TABLE IF NOT EXISTS fechamentos_fiscais_recebimentos_vendas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fechamento_fiscal_id INTEGER NOT NULL,
+    venda_id INTEGER NOT NULL,
+    valor_venda REAL NOT NULL DEFAULT 0,
+    valor_comprovante REAL,
+    diferenca REAL,
+    observacao TEXT,
+    criado_em TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    atualizado_em TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    UNIQUE(fechamento_fiscal_id, venda_id),
+    FOREIGN KEY (fechamento_fiscal_id) REFERENCES fechamentos_fiscais(id) ON DELETE CASCADE
+  )`,
   `CREATE TABLE IF NOT EXISTS fechamentos_fiscais_itens (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     fechamento_fiscal_id INTEGER NOT NULL,
@@ -53,6 +75,8 @@ const DDL = [
     fechamento_fiscal_id INTEGER NOT NULL,
     sequencia INTEGER NOT NULL DEFAULT 1,
     valor REAL NOT NULL DEFAULT 0,
+    desconto REAL NOT NULL DEFAULT 0,
+    valor_final REAL NOT NULL DEFAULT 0,
     quantidade_itens INTEGER NOT NULL DEFAULT 0,
     criado_em TEXT NOT NULL DEFAULT (datetime('now','localtime')),
     FOREIGN KEY (fechamento_fiscal_id) REFERENCES fechamentos_fiscais(id) ON DELETE CASCADE
@@ -212,6 +236,8 @@ const INDICES = [
 
 const ALTERS = [
   `ALTER TABLE fechamentos_fiscais_previa_vendas ADD COLUMN quantidade_itens INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE fechamentos_fiscais_previa_vendas ADD COLUMN desconto REAL NOT NULL DEFAULT 0`,
+  `ALTER TABLE fechamentos_fiscais_previa_vendas ADD COLUMN valor_final REAL NOT NULL DEFAULT 0`,
   `ALTER TABLE fechamentos_fiscais ADD COLUMN data_referencia_comercial TEXT`,
   `ALTER TABLE fechamentos_fiscais ADD COLUMN data_hora_preparacao TEXT`,
   `ALTER TABLE fechamentos_fiscais ADD COLUMN data_hora_emissao TEXT`,
@@ -239,6 +265,13 @@ const ALTERS = [
   `ALTER TABLE fechamentos_fiscais_transmissoes ADD COLUMN numero_nfce INTEGER`
 ];
 
+function isIgnorableSchemaError(err) {
+  const message = err && err.message ? String(err.message) : '';
+  if (!message) return false;
+
+  return /duplicate column|duplicate column name|already exists|index .* already exists|unique constraint failed/i.test(message);
+}
+
 /**
  * @param {object} db
  * @param {function} [callback]
@@ -254,8 +287,12 @@ function garantirSchemaFechamentoFiscal(db, callback) {
 
   function next(err) {
     if (err) {
-      console.error('[FechamentoFiscal] schema:', err.message);
-      return done(err);
+      if (isIgnorableSchemaError(err)) {
+        console.warn('[FechamentoFiscal] schema ignorado:', err.message);
+      } else {
+        console.error('[FechamentoFiscal] schema:', err.message);
+        return done(err);
+      }
     }
     if (i >= todos.length) {
       return aplicarAlters(0);
@@ -270,9 +307,12 @@ function garantirSchemaFechamentoFiscal(db, callback) {
       return done(null);
     }
     db.run(ALTERS[j], (err) => {
-      // coluna já existe → ignore
-      if (err && !/duplicate column/i.test(String(err.message || ''))) {
-        console.warn('[FechamentoFiscal] alter:', err.message);
+      if (err) {
+        if (isIgnorableSchemaError(err)) {
+          console.warn('[FechamentoFiscal] alter ignorado:', err.message);
+        } else {
+          console.warn('[FechamentoFiscal] alter:', err.message);
+        }
       }
       aplicarAlters(j + 1);
     });
@@ -284,5 +324,6 @@ function garantirSchemaFechamentoFiscal(db, callback) {
 module.exports = {
   garantirSchemaFechamentoFiscal,
   DDL,
-  INDICES
+  INDICES,
+  ALTERS
 };

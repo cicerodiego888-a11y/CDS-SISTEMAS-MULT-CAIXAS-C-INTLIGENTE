@@ -141,7 +141,8 @@ class BuscaOperacionalProdutosService {
   }
 
   _filtroFiscal(modoFiscal) {
-    return modoFiscal ? ' AND COALESCE(p.item_fiscal, 1) = 1' : '';
+    // O produto alternativo continua visível no catálogo mesmo com modo fiscal ativo.
+    return '';
   }
 
   async _porIdentificador(termoRaw, limite, fiscal) {

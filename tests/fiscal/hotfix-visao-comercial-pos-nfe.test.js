@@ -13,7 +13,8 @@ const root = path.join(__dirname, '../..');
 describe('Hotfix visão comercial pós NF-e', () => {
   it('histórico sempre comercial: todos itens + total original', () => {
     const src = fs.readFileSync(path.join(root, 'frontend/shared/js/vendasHistoricoUi.js'), 'utf8');
-    const sandbox = { window: {}, console };
+    // Instalação com módulo fiscal habilitado (gate RC800 — tests/plataforma/rc800-ocultacao-modulo-fiscal.test.js).
+    const sandbox = { window: {}, console, fiscalHabilitado: () => true };
     vm.createContext(sandbox);
     vm.runInContext(src, sandbox);
 

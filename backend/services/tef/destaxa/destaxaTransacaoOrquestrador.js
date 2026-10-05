@@ -10,6 +10,9 @@ const {
   CODIGO_ACAO_SOLICITADA,
   FINALIZACAO_CONFIRMAR,
   FINALIZACAO_CANCELAR,
+  OPERACOES_REAIS_PERMITIDAS,
+  REAL_TRANSACTION_ENV,
+  transacaoRealHabilitada,
   criarErro
 } = require('./destaxaConstantes');
 const {
@@ -51,6 +54,23 @@ class DestaxaTransacaoOrquestrador {
 
   definirDriver(driver) {
     this._driver = driver;
+  }
+
+  definirPermissaoTransacaoReal(permitir) {
+    this._permitirTransacaoReal = permitir === true;
+  }
+
+  _driverNativo() {
+    return this._driver?.nome === 'native';
+  }
+
+  _bloqueioGateReal() {
+    return this._falha(
+      ERROS.DESTAXA_REAL_TRANSACTION_DISABLED,
+      `Transação Destaxa real desabilitada: ${REAL_TRANSACTION_ENV} != 1`,
+      this._contexto?.estado || ESTADOS_TRANSACAO.IDLE,
+      { preservarContexto: true, retryReason: 'DESTAXA_REAL_TRANSACTION_DISABLED' }
+    );
   }
 
   getContexto() {
@@ -181,7 +201,7 @@ class DestaxaTransacaoOrquestrador {
     };
   }
 
-  iniciarTransacao(operacao, camposEntrada = {}) {
+  iniciarTransacao(operacao, camposEntrada = {}, opcoes = {}) {
     if (this._contexto && ESTADOS_BLOQUEIAM_NOVA.has(this._contexto.estado)) {
       return this._falha(
         ERROS.DESTAXA_TRANSACAO_EM_ANDAMENTO,
@@ -202,20 +222,37 @@ class DestaxaTransacaoOrquestrador {
       );
     }
 
-    if (!this._permitirTransacaoReal && this._driver.nome === 'native') {
-      return this._falha(
-        ERROS.DESTAXA_TRANSACAO_REAL_BLOQUEADA,
-        'iniciaTransacaoDestaxa real não permitido nesta sprint',
-        ESTADOS_TRANSACAO.ERROR
-      );
+    const op = String(operacao || '').trim().toUpperCase();
+
+    if (this._driverNativo()) {
+      if (!transacaoRealHabilitada()) {
+        return this._bloqueioGateReal();
+      }
+      if (!this._permitirTransacaoReal) {
+        return this._falha(
+          ERROS.DESTAXA_TRANSACAO_REAL_BLOQUEADA,
+          'iniciaTransacaoDestaxa real não permitido: bridge não liberou o driver nativo',
+          ESTADOS_TRANSACAO.ERROR,
+          { preservarContexto: true }
+        );
+      }
+      if (!OPERACOES_REAIS_PERMITIDAS.includes(op)) {
+        return this._falha(
+          ERROS.DESTAXA_OPERACAO_NAO_PERMITIDA,
+          `Operação real ${op || '(vazia)'} não permitida; somente ${OPERACOES_REAIS_PERMITIDAS.join(', ')}`,
+          ESTADOS_TRANSACAO.ERROR,
+          { preservarContexto: true }
+        );
+      }
     }
 
-    const op = String(operacao || '').trim().toUpperCase();
     const entrada = buildTransactionInput(camposEntrada);
     const inicio = process.hrtime.bigint();
 
     this._contexto = {
-      transactionId: novoTransactionId(),
+      transactionId: opcoes.transactionId != null && String(opcoes.transactionId).trim()
+        ? String(opcoes.transactionId).trim()
+        : novoTransactionId(),
       operacao: op,
       estado: ESTADOS_TRANSACAO.STARTING,
       inicio: new Date().toISOString(),
@@ -238,8 +275,8 @@ class DestaxaTransacaoOrquestrador {
     }
   }
 
-  iniciarTransacaoCRT(camposEntrada = {}) {
-    return this.iniciarTransacao(OPERACOES.CRT, camposEntrada);
+  iniciarTransacaoCRT(camposEntrada = {}, opcoes = {}) {
+    return this.iniciarTransacao(OPERACOES.CRT, camposEntrada, opcoes);
   }
 
   continuarTransacao(respostaEntrada = {}) {
@@ -262,6 +299,10 @@ class DestaxaTransacaoOrquestrador {
 
     if (!this._driver) {
       return this._falha(ERROS.DESTAXA_TRANSACAO_REAL_BLOQUEADA, 'Driver ausente', ESTADOS_TRANSACAO.ERROR);
+    }
+
+    if (this._driverNativo() && !transacaoRealHabilitada()) {
+      return this._bloqueioGateReal();
     }
 
     const entrada = buildContinuaInput(respostaEntrada);
@@ -288,6 +329,10 @@ class DestaxaTransacaoOrquestrador {
 
     if (!this._driver) {
       return this._falha(ERROS.DESTAXA_TRANSACAO_REAL_BLOQUEADA, 'Driver ausente', ESTADOS_TRANSACAO.ERROR);
+    }
+
+    if (this._driverNativo() && !transacaoRealHabilitada()) {
+      return this._bloqueioGateReal();
     }
 
     const conf = Number(confirmacao);
@@ -330,3 +375,4 @@ class DestaxaTransacaoOrquestrador {
 }
 
 module.exports = DestaxaTransacaoOrquestrador;
+module.exports.ESTADOS_BLOQUEIAM_NOVA = ESTADOS_BLOQUEIAM_NOVA;

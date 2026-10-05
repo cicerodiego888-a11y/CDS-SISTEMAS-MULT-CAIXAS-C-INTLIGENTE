@@ -1,0 +1,376 @@
+{
+  "sprint": "TEF-DESTAXA-07B",
+  "modo": "preflight",
+  "timestamp": "2026-10-03T21:27:16.393Z",
+  "fim": "2026-10-03T21:27:16.895Z",
+  "tempoTotalMs": 502,
+  "ambiente": "homologacao",
+  "provider": "destaxa",
+  "operacao": "CRT",
+  "valor": {
+    "logicoReais": 1,
+    "internoCentavos": 100,
+    "destaxa": null
+  },
+  "transactionId": null,
+  "idempotencyKey": null,
+  "preCondicoes": [
+    {
+      "item": "tefHabilitado",
+      "ok": false,
+      "valor": "false",
+      "esperado": true
+    },
+    {
+      "item": "tefProvedor",
+      "ok": true,
+      "valor": "destaxa",
+      "esperado": "destaxa"
+    },
+    {
+      "item": "tefAmbiente",
+      "ok": true,
+      "valor": "homologacao",
+      "esperado": "homologacao"
+    },
+    {
+      "item": "pinpadHabilitado",
+      "ok": false,
+      "valor": "false",
+      "esperado": true
+    },
+    {
+      "item": "tef_configuracao.tentativas",
+      "ok": false,
+      "valor": 3,
+      "esperado": 1
+    },
+    {
+      "item": "tef_transacoes pendentes",
+      "ok": true,
+      "valor": 0,
+      "esperado": 0
+    },
+    {
+      "item": "registros status=erro anteriores sem NSU/autorização (não bloqueiam)",
+      "ok": true,
+      "valor": 3,
+      "esperado": "sem NSU/autorização"
+    },
+    {
+      "item": "recuperação de pendências limpa (TefManager)",
+      "ok": true,
+      "valor": null,
+      "esperado": null
+    },
+    {
+      "item": "nenhuma outra instância do CDS em execução (sem transação concorrente)",
+      "ok": true,
+      "valor": [],
+      "esperado": []
+    },
+    {
+      "item": "DLL x64 presente",
+      "ok": true,
+      "valor": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+      "esperado": "win-x64"
+    },
+    {
+      "item": "DLL SHA-256",
+      "ok": true,
+      "valor": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+      "esperado": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279"
+    },
+    {
+      "item": "adapter DestaxaRealAdapter modo real",
+      "ok": true,
+      "valor": "real",
+      "esperado": "real"
+    },
+    {
+      "item": "configuração válida (modo real)",
+      "ok": false,
+      "valor": [
+        "TEF desabilitado na configuração"
+      ],
+      "esperado": []
+    },
+    {
+      "item": "4 exports",
+      "ok": false,
+      "valor": null,
+      "esperado": 4
+    },
+    {
+      "item": "iniciaClientDestaxa = 00",
+      "ok": false,
+      "valor": null,
+      "esperado": "00"
+    },
+    {
+      "item": "VSPague executando",
+      "ok": false,
+      "valor": null,
+      "esperado": true
+    },
+    {
+      "item": "VSPague respondendo",
+      "ok": false,
+      "valor": null,
+      "esperado": true
+    },
+    {
+      "item": "PPC930 detectado",
+      "ok": false,
+      "valor": null,
+      "esperado": "PPC930"
+    },
+    {
+      "item": "COM3 detectada e configurada",
+      "ok": false,
+      "valor": null,
+      "esperado": "COM3"
+    },
+    {
+      "item": "operação CRT",
+      "ok": false,
+      "valor": null,
+      "esperado": "CRT"
+    },
+    {
+      "item": "valor Destaxa transacao_valor=1.00",
+      "ok": false,
+      "valor": null,
+      "esperado": "transacao_valor=1.00"
+    },
+    {
+      "item": "caminho CRT pronto e parado no gate (gate OFF)",
+      "ok": false,
+      "valor": "DESTAXA_INVALID_CONFIGURATION",
+      "esperado": "DESTAXA_REAL_TRANSACTION_DISABLED"
+    },
+    {
+      "item": "Native Host ativo (processo isolado)",
+      "ok": true,
+      "valor": 19212,
+      "esperado": "pid"
+    },
+    {
+      "item": "nenhuma chamada transacional antes da execução",
+      "ok": true,
+      "valor": {
+        "TX_START": 0,
+        "TX_CONTINUE": 0,
+        "TX_FINALIZE": 0,
+        "ENABLE_REAL": 0,
+        "bloqueadas": 0
+      },
+      "esperado": "0/0/0"
+    }
+  ],
+  "registrosErroAnteriores": [
+    {
+      "id": 1,
+      "tipo": "pix_tef",
+      "valor": 1,
+      "status": "erro",
+      "nsu": null,
+      "autorizacao": null,
+      "codigo_resposta": null,
+      "criado_em": "2026-09-28 14:02:10",
+      "classificacao": "erro interno anterior do CDS — sem NSU, sem autorização, sem transação financeira Destaxa"
+    },
+    {
+      "id": 2,
+      "tipo": "pix_tef",
+      "valor": 1,
+      "status": "erro",
+      "nsu": null,
+      "autorizacao": null,
+      "codigo_resposta": null,
+      "criado_em": "2026-09-28 14:02:26",
+      "classificacao": "erro interno anterior do CDS — sem NSU, sem autorização, sem transação financeira Destaxa"
+    },
+    {
+      "id": 3,
+      "tipo": "pix_tef",
+      "valor": 1,
+      "status": "erro",
+      "nsu": null,
+      "autorizacao": null,
+      "codigo_resposta": null,
+      "criado_em": "2026-09-28 14:06:34",
+      "classificacao": "erro interno anterior do CDS — sem NSU, sem autorização, sem transação financeira Destaxa"
+    }
+  ],
+  "clientDestaxa": {
+    "codigoInicial": null
+  },
+  "canalOperador": "OK",
+  "confirmacaoOperador": null,
+  "gate": {
+    "antes": "OFF",
+    "abertoEm": null,
+    "fechadoEm": "2026-10-03T21:27:16.894Z",
+    "depois": "OFF",
+    "hostGateNaExecucao": null
+  },
+  "tripwire": {
+    "antes": {
+      "host": {
+        "dllLoads": 0,
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      },
+      "hostTripwire": true,
+      "chamadas": {
+        "TX_START": 0,
+        "TX_CONTINUE": 0,
+        "TX_FINALIZE": 0,
+        "ENABLE_REAL": 0,
+        "bloqueadas": 0
+      }
+    },
+    "depois": {
+      "chamadas": {
+        "TX_START": 0,
+        "TX_CONTINUE": 0,
+        "TX_FINALIZE": 0,
+        "ENABLE_REAL": 0,
+        "bloqueadas": 0
+      },
+      "em": "2026-10-03T21:27:16.894Z"
+    }
+  },
+  "codigoCrt": null,
+  "sequencia99": [],
+  "resultadoFinal": null,
+  "finalizacao": null,
+  "reconciliacao": null,
+  "nsu": null,
+  "autorizacao": null,
+  "estadoFinanceiro": null,
+  "parametrosRetorno": null,
+  "chamadasNativas": {
+    "iniciaTransacaoDestaxa": 0,
+    "continuaTransacaoDestaxa": 0,
+    "finalizaTransacaoDestaxa": 0,
+    "segundaIniciaBloqueada": 0
+  },
+  "retries": 0,
+  "pinpad": null,
+  "com3": null,
+  "vspaguePid": null,
+  "timeout": null,
+  "banco": {
+    "antes": {
+      "total": 3,
+      "pendentes": 0,
+      "aprovadas": 0,
+      "negadas": 0,
+      "canceladas": 0,
+      "erros": 3,
+      "porStatus": {
+        "erro": 3
+      },
+      "maxId": 3,
+      "errosAnteriores": [
+        {
+          "id": 1,
+          "tipo": "pix_tef",
+          "valor": 1,
+          "status": "erro",
+          "nsu": null,
+          "autorizacao": null,
+          "codigo_resposta": null,
+          "criado_em": "2026-09-28 14:02:10"
+        },
+        {
+          "id": 2,
+          "tipo": "pix_tef",
+          "valor": 1,
+          "status": "erro",
+          "nsu": null,
+          "autorizacao": null,
+          "codigo_resposta": null,
+          "criado_em": "2026-09-28 14:02:26"
+        },
+        {
+          "id": 3,
+          "tipo": "pix_tef",
+          "valor": 1,
+          "status": "erro",
+          "nsu": null,
+          "autorizacao": null,
+          "codigo_resposta": null,
+          "criado_em": "2026-09-28 14:06:34"
+        }
+      ]
+    },
+    "depois": {
+      "total": 3,
+      "pendentes": 0,
+      "aprovadas": 0,
+      "negadas": 0,
+      "canceladas": 0,
+      "erros": 3,
+      "porStatus": {
+        "erro": 3
+      },
+      "maxId": 3,
+      "errosAnteriores": [
+        {
+          "id": 1,
+          "tipo": "pix_tef",
+          "valor": 1,
+          "status": "erro",
+          "nsu": null,
+          "autorizacao": null,
+          "codigo_resposta": null,
+          "criado_em": "2026-09-28 14:02:10"
+        },
+        {
+          "id": 2,
+          "tipo": "pix_tef",
+          "valor": 1,
+          "status": "erro",
+          "nsu": null,
+          "autorizacao": null,
+          "codigo_resposta": null,
+          "criado_em": "2026-09-28 14:02:26"
+        },
+        {
+          "id": 3,
+          "tipo": "pix_tef",
+          "valor": 1,
+          "status": "erro",
+          "nsu": null,
+          "autorizacao": null,
+          "codigo_resposta": null,
+          "criado_em": "2026-09-28 14:06:34"
+        }
+      ]
+    },
+    "registrosCriados": []
+  },
+  "erros": [
+    "pré-condição: tefHabilitado (valor: \"false\")",
+    "pré-condição: pinpadHabilitado (valor: \"false\")",
+    "pré-condição: tef_configuracao.tentativas (valor: 3)",
+    "pré-condição: configuração válida (modo real) (valor: [\"TEF desabilitado na configuração\"])",
+    "pré-condição: 4 exports (valor: null)",
+    "pré-condição: iniciaClientDestaxa = 00 (valor: null)",
+    "pré-condição: VSPague executando (valor: null)",
+    "pré-condição: VSPague respondendo (valor: null)",
+    "pré-condição: PPC930 detectado (valor: null)",
+    "pré-condição: COM3 detectada e configurada (valor: null)",
+    "pré-condição: operação CRT (valor: null)",
+    "pré-condição: valor Destaxa transacao_valor=1.00 (valor: null)",
+    "pré-condição: caminho CRT pronto e parado no gate (gate OFF) (valor: \"DESTAXA_INVALID_CONFIGURATION\")"
+  ],
+  "violacoes": [],
+  "observacoesOperador": [],
+  "result": "BLOCKED",
+  "gateNoFimDoProcesso": "OFF"
+}

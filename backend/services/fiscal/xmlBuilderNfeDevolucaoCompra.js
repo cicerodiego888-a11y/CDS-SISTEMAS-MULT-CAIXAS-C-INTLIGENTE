@@ -43,6 +43,164 @@ function extrairCnpjDaChave(chave) {
   return limpa.length === 44 ? limpa.substring(6, 20) : null;
 }
 
+function textoNodoXml(v) {
+  if (v == null || v === '') return '';
+  if (typeof v === 'object') {
+    if (Array.isArray(v)) return textoNodoXml(v[0]);
+    return String(v._ != null ? v._ : (v.value != null ? v.value : '')).trim();
+  }
+  return String(v).trim();
+}
+
+function pegarNoXml(obj, localName) {
+  if (!obj || typeof obj !== 'object') return undefined;
+  if (obj[localName] != null) return obj[localName];
+  const alvo = String(localName).toLowerCase();
+  const key = Object.keys(obj).find((k) => {
+    const local = String(k).split(':').pop();
+    return local === localName || local.toLowerCase() === alvo;
+  });
+  return key ? obj[key] : undefined;
+}
+
+function ieContribuinte(raw) {
+  const ie = onlyDigits(raw);
+  if (!ie || /^0+$/.test(ie)) return null;
+  return ie;
+}
+
+function tagXmlLocal(bloco, nome) {
+  const re = new RegExp(
+    `<(?:\\w+:)?${nome}(?:\\s[^>]*)?>([\\s\\S]*?)</(?:\\w+:)?${nome}>`,
+    'i'
+  );
+  const m = String(bloco || '').match(re);
+  if (!m) return '';
+  return String(m[1]).replace(/<[^>]+>/g, '').trim();
+}
+
+/**
+ * Lê <emit> direto do XML bruto (fonte da IE quando o xml2js perde namespace/attrs).
+ */
+function extrairEmitenteOriginalDoXmlBruto(xml) {
+  const bruto = String(xml || '');
+  const emitMatch = bruto.match(/<(?:\w+:)?emit\b[^>]*>([\s\S]*?)<\/(?:\w+:)?emit>/i);
+  if (!emitMatch) return null;
+  const emitXml = emitMatch[1];
+  const enderMatch = emitXml.match(/<(?:\w+:)?enderEmit\b[^>]*>([\s\S]*?)<\/(?:\w+:)?enderEmit>/i);
+  const enderXml = enderMatch ? enderMatch[1] : '';
+  return normalizarEmitenteOriginalNfe({
+    CNPJ: tagXmlLocal(emitXml, 'CNPJ'),
+    xNome: tagXmlLocal(emitXml, 'xNome'),
+    xFant: tagXmlLocal(emitXml, 'xFant'),
+    IE: tagXmlLocal(emitXml, 'IE'),
+    CRT: tagXmlLocal(emitXml, 'CRT'),
+    enderEmit: {
+      xLgr: tagXmlLocal(enderXml, 'xLgr'),
+      nro: tagXmlLocal(enderXml, 'nro'),
+      xBairro: tagXmlLocal(enderXml, 'xBairro'),
+      cMun: tagXmlLocal(enderXml, 'cMun'),
+      xMun: tagXmlLocal(enderXml, 'xMun'),
+      UF: tagXmlLocal(enderXml, 'UF'),
+      CEP: tagXmlLocal(enderXml, 'CEP'),
+      cPais: tagXmlLocal(enderXml, 'cPais'),
+      xPais: tagXmlLocal(enderXml, 'xPais'),
+      fone: tagXmlLocal(enderXml, 'fone')
+    }
+  });
+}
+
+function mesclarEmitenteOriginal(primario, secundario) {
+  const a = primario && typeof primario === 'object' ? primario : {};
+  const b = secundario && typeof secundario === 'object' ? secundario : {};
+  const out = { ...a };
+  Object.keys(b).forEach((k) => {
+    if (out[k] == null || out[k] === '') out[k] = b[k];
+  });
+  if (!out.CNPJ && !out.IE && !out.xNome) return null;
+  return out;
+}
+
+/**
+ * Destinatário da devolução de compra = emitente da NF-e original (fornecedor).
+ * Não usa o <dest> da NF original (que é a própria empresa).
+ */
+function normalizarEmitenteOriginalNfe(emit) {
+  if (!emit || typeof emit !== 'object') return null;
+  const nodo = Array.isArray(emit) ? emit[0] : emit;
+  const enderRaw = pegarNoXml(nodo, 'enderEmit') || {};
+  const ender = Array.isArray(enderRaw) ? enderRaw[0] : enderRaw;
+  const cnpj = limparCNPJ(textoNodoXml(pegarNoXml(nodo, 'CNPJ') || nodo.cnpj));
+  return {
+    CNPJ: cnpj,
+    xNome: textoNodoXml(pegarNoXml(nodo, 'xNome')),
+    xFant: textoNodoXml(pegarNoXml(nodo, 'xFant')),
+    IE: ieContribuinte(textoNodoXml(pegarNoXml(nodo, 'IE') || nodo.ie)),
+    CRT: textoNodoXml(pegarNoXml(nodo, 'CRT') || nodo.crt) || null,
+    xLgr: textoNodoXml(pegarNoXml(ender, 'xLgr')),
+    nro: textoNodoXml(pegarNoXml(ender, 'nro')),
+    xBairro: textoNodoXml(pegarNoXml(ender, 'xBairro')),
+    cMun: onlyDigits(textoNodoXml(pegarNoXml(ender, 'cMun'))),
+    xMun: textoNodoXml(pegarNoXml(ender, 'xMun')),
+    UF: textoNodoXml(pegarNoXml(ender, 'UF')).toUpperCase(),
+    CEP: onlyDigits(textoNodoXml(pegarNoXml(ender, 'CEP'))),
+    cPais: onlyDigits(textoNodoXml(pegarNoXml(ender, 'cPais'))) || '1058',
+    xPais: textoNodoXml(pegarNoXml(ender, 'xPais')) || 'BRASIL',
+    fone: onlyDigits(textoNodoXml(pegarNoXml(ender, 'fone')))
+  };
+}
+
+function resolverDestinatarioDevolucaoCompra(compra = {}, config = {}) {
+  const orig = compra.emitenteOriginal || compra.emitente_original || {};
+  const doXml = extrairEmitenteOriginalDoXmlBruto(compra.xmlOrigem || compra.xml_origem || '');
+  const emitente = mesclarEmitenteOriginal(orig, doXml) || orig;
+  const cnpjEmpresa = limparCNPJ(config.cnpj);
+  const candidatos = [
+    { v: limparCNPJ(emitente.CNPJ || emitente.cnpj), origem: 'emitenteOriginal.CNPJ' },
+    { v: extrairCnpjDaChave(compra.chave_acesso || compra.refNFe || ''), origem: 'chave_acesso' },
+    { v: limparCNPJ(compra.fornecedor_cnpj), origem: 'compra.fornecedor_cnpj' },
+    { v: limparCNPJ(compra.fornecedor_doc_cadastro), origem: 'fornecedor_doc_cadastro' },
+    { v: limparCNPJ(compra.cnpj), origem: 'compra.cnpj' },
+    { v: limparCNPJ(compra.cpf_cnpj), origem: 'compra.cpf_cnpj' },
+    { v: limparCNPJ(compra.documento), origem: 'compra.documento' }
+  ].filter((c) => c.v && c.v.length === 14);
+  const escolhido = candidatos.find((c) => c.v !== cnpjEmpresa) || candidatos[0];
+  const cnpj = escolhido ? escolhido.v : '';
+
+  let origemIe = 'ausente';
+  let ie = ieContribuinte(emitente.IE || emitente.ie);
+  if (ie) origemIe = orig.IE || orig.ie ? 'emitenteOriginal.IE' : 'xml_bruto.emit.IE';
+  if (!ie) {
+    ie = ieContribuinte(compra.inscricao_estadual);
+    if (ie) origemIe = 'compra.inscricao_estadual';
+  }
+  const uf = String(emitente.UF || emitente.uf || compra.uf || '').trim().toUpperCase();
+
+  return {
+    cnpj,
+    xNome: emitente.xNome || emitente.nome || compra.fornecedor || 'FORNECEDOR',
+    xLgr: emitente.xLgr || emitente.rua || compra.rua || 'NAO INFORMADO',
+    nro: (emitente.nro || emitente.numero || compra.numero || 'S/N'),
+    xBairro: emitente.xBairro || emitente.bairro || compra.bairro || 'CENTRO',
+    xMun: emitente.xMun || emitente.cidade || compra.cidade || '',
+    UF: uf,
+    CEP: emitente.CEP || emitente.cep || compra.cep || '00000000',
+    cMun: emitente.cMun || emitente.codigo_municipio || compra.codigo_municipio || '',
+    cPais: emitente.cPais || '1058',
+    xPais: emitente.xPais || 'BRASIL',
+    fone: emitente.fone || '',
+    IE: ie,
+    indIEDest: ie ? '1' : '9',
+    origem: {
+      funcao: 'resolverDestinatarioDevolucaoCompra',
+      cnpj: escolhido ? escolhido.origem : 'ausente',
+      ie: origemIe,
+      emitenteOriginalPresente: Boolean(orig && (orig.CNPJ || orig.IE || orig.xNome)),
+      xmlBrutoEmitPresente: Boolean(doXml && (doXml.CNPJ || doXml.IE))
+    }
+  };
+}
+
 function num(v, casas = 2) {
   const n = Number(v);
   if (!Number.isFinite(n)) return 0;
@@ -295,15 +453,20 @@ function buildXmlNFeDevolucaoCompra({ config, compra, itens, numero, observacoes
     });
   }
 
-  let cnpjFornecedor =
-    limparCNPJ(compra.cnpj) ||
-    limparCNPJ(compra.cpf_cnpj) ||
-    limparCNPJ(compra.documento) ||
-    limparCNPJ(compra.fornecedor_cnpj);
+  const dest = resolverDestinatarioDevolucaoCompra(compra, config);
+  const destDiagnostico = {
+    geradoEm: new Date().toISOString(),
+    builder: 'xmlBuilderNfeDevolucaoCompra.buildXmlNFeDevolucaoCompra',
+    funcao: 'resolverDestinatarioDevolucaoCompra',
+    cnpjDestinatario: dest.cnpj,
+    ieDestinatario: dest.IE || null,
+    indIEDest: dest.indIEDest,
+    origem: dest.origem || null,
+    emitenteOriginal: compra.emitenteOriginal || compra.emitente_original || null
+  };
+  console.log('[RC6.2 DEST]', JSON.stringify(destDiagnostico));
+  const cnpjFornecedor = dest.cnpj;
 
-  if (!cnpjFornecedor) {
-    cnpjFornecedor = extrairCnpjDaChave(refNFe);
-  }
   if (!cnpjFornecedor || cnpjFornecedor.length !== 14) {
     throw Object.assign(new Error('Fornecedor da compra sem CNPJ válido.'), {
       code: 'FORNECEDOR_INVALIDO',
@@ -328,7 +491,7 @@ function buildXmlNFeDevolucaoCompra({ config, compra, itens, numero, observacoes
   });
 
   const idDest =
-    String((compra.uf || config.uf || '').toUpperCase()) === String(config.uf || '').toUpperCase()
+    String((dest.UF || '').toUpperCase()) === String(config.uf || '').toUpperCase()
       ? '1'
       : '2';
   const cfopPadrao = onlyDigits(cfopOverride || (idDest === '1' ? '5202' : '6202')).slice(0, 4)
@@ -502,12 +665,12 @@ function buildXmlNFeDevolucaoCompra({ config, compra, itens, numero, observacoes
   };
   const vNF = calcularVNFSefaz(totaisIcms);
 
-  const destUf = String(compra.uf || '').trim().toUpperCase();
-  const destXMun = String(compra.cidade || '').trim();
+  const destUf = dest.UF;
+  const destXMun = dest.xMun;
   const destCMun = resolverMunicipioDestinatario({
     cidade: destXMun,
     uf: destUf,
-    codigoMunicipio: compra.codigo_municipio
+    codigoMunicipio: dest.cMun
   });
   validarMunicipioDestinatario({
     uf: destUf,
@@ -569,20 +732,21 @@ function buildXmlNFeDevolucaoCompra({ config, compra, itens, numero, observacoes
         </emit>
         <dest>
           <CNPJ>${cnpjFornecedor}</CNPJ>
-          <xNome>${xmlEscape(compra.fornecedor || 'FORNECEDOR')}</xNome>
+          <xNome>${xmlEscape(dest.xNome)}</xNome>
           <enderDest>
-            <xLgr>${xmlEscape(compra.rua || 'NAO INFORMADO')}</xLgr>
-            <nro>${xmlEscape(compra.numero || 'S/N')}</nro>
-            <xBairro>${xmlEscape(compra.bairro || 'CENTRO')}</xBairro>
+            <xLgr>${xmlEscape(dest.xLgr)}</xLgr>
+            <nro>${xmlEscape(dest.nro)}</nro>
+            <xBairro>${xmlEscape(dest.xBairro)}</xBairro>
             <cMun>${destCMun}</cMun>
             <xMun>${xmlEscape(destXMun)}</xMun>
             <UF>${xmlEscape(destUf)}</UF>
-            <CEP>${onlyDigits(compra.cep || '00000000')}</CEP>
-            <cPais>1058</cPais>
-            <xPais>BRASIL</xPais>
+            <CEP>${onlyDigits(dest.CEP)}</CEP>
+            <cPais>${dest.cPais || '1058'}</cPais>
+            <xPais>${xmlEscape(dest.xPais || 'BRASIL')}</xPais>
+            ${dest.fone ? `<fone>${onlyDigits(dest.fone)}</fone>` : ''}
           </enderDest>
-          <indIEDest>${compra.inscricao_estadual ? '1' : '9'}</indIEDest>
-          ${compra.inscricao_estadual ? `<IE>${onlyDigits(compra.inscricao_estadual)}</IE>` : ''}
+          <indIEDest>${dest.indIEDest}</indIEDest>
+          ${dest.indIEDest === '1' && dest.IE ? `<IE>${dest.IE}</IE>` : ''}
         </dest>
         ${detXml}
         <total>
@@ -621,6 +785,7 @@ function buildXmlNFeDevolucaoCompra({ config, compra, itens, numero, observacoes
   validarIcmsXmlContraCrt(xmlCompacto, config.crt);
 
   return {
+    destDiagnostico,
     chave,
     serie,
     numero,
@@ -674,10 +839,40 @@ function montarXmlDfeReferenciado(chaveAcesso, nItem) {
   return `<DFeReferenciado><chaveAcesso>${chave}</chaveAcesso><nItem>${n}</nItem></DFeReferenciado>`;
 }
 
+function validarDestinatarioDevolucaoAntesAssinatura({ xml, emitenteOriginal, destDiagnostico } = {}) {
+  const orig = emitenteOriginal && typeof emitenteOriginal === 'object' ? emitenteOriginal : {};
+  const ieOrig = ieContribuinte(orig.IE || orig.ie);
+  const xmlTxt = String(xml || '');
+  const destBloco = xmlTxt.match(/<(?:\w+:)?dest\b[^>]*>([\s\S]*?)<\/(?:\w+:)?dest>/i);
+  const destXml = destBloco ? destBloco[1] : '';
+  const indXml = (destXml.match(/<(?:\w+:)?indIEDest(?:\s[^>]*)?>([^<]*)<\/(?:\w+:)?indIEDest>/i) || [])[1];
+  const ieXml = (destXml.match(/<(?:\w+:)?IE(?:\s[^>]*)?>([^<]*)<\/(?:\w+:)?IE>/i) || [])[1];
+  const ind = String((destDiagnostico && destDiagnostico.indIEDest) || indXml || '').trim();
+  if (ieOrig && ind === '9') {
+    throw Object.assign(
+      new Error(
+        'Destinatário da devolução foi identificado como não contribuinte, mas a NF-e original informa IE válida.'
+      ),
+      { code: 'DEST_IE_INCONSISTENTE', statusCode: 400 }
+    );
+  }
+  return {
+    ok: true,
+    indIEDest: ind || null,
+    ieXml: ieXml || (destDiagnostico && destDiagnostico.ieDestinatario) || null,
+    ieOrigem: ieOrig || null
+  };
+}
+
 module.exports = {
   buildXmlNFeDevolucaoCompra,
   sanitizarInfCplNfe,
   montarImpostoItem,
   montarXmlDfeReferenciado,
-  resolverNItemOrigemItem
+  resolverNItemOrigemItem,
+  resolverDestinatarioDevolucaoCompra,
+  normalizarEmitenteOriginalNfe,
+  extrairEmitenteOriginalDoXmlBruto,
+  mesclarEmitenteOriginal,
+  validarDestinatarioDevolucaoAntesAssinatura
 };

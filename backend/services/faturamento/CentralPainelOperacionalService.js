@@ -147,7 +147,7 @@ async function listarFilaOperacional(query = {}) {
     const parts = [
       `CAST(v.id AS TEXT) LIKE ?`,
       `CAST(v.pedido_id AS TEXT) LIKE ?`,
-      `COALESCE(c.nome, v.cliente_nome, '') LIKE ?`,
+      `COALESCE(c.nome, '') LIKE ?`,
       `CAST(n.numero AS TEXT) LIKE ?`,
       `COALESCE(n.chave_acesso,'') LIKE ?`
     ];
@@ -178,7 +178,7 @@ async function listarFilaOperacional(query = {}) {
     params.push(`%${onlyDigits(query.chave)}%`);
   }
   if (query.cliente) {
-    where.push(`(COALESCE(c.nome, v.cliente_nome, '') LIKE ? OR COALESCE(c.cpf_cnpj,'') LIKE ?)`);
+    where.push(`(COALESCE(c.nome, '') LIKE ? OR COALESCE(c.cpf_cnpj,'') LIKE ?)`);
     const q = `%${query.cliente}%`;
     params.push(q, q);
   }
@@ -199,7 +199,7 @@ async function listarFilaOperacional(query = {}) {
       v.valor_fiscal,
       v.origem,
       v.cliente_id,
-      COALESCE(c.nome, v.cliente_nome, '') AS cliente_nome,
+      COALESCE(c.nome, '') AS cliente_nome,
       c.cpf_cnpj AS cliente_cpf,
       p.status AS pedido_status,
       n.id AS nota_id,
@@ -640,11 +640,11 @@ async function executarAcoesLote(body = {}, ctx = {}) {
 async function obterPainelInicial(query = {}) {
   assertModuloNfe();
   const [dashboard, sefaz, rejeicoes, fila, eventos] = await Promise.all([
-    obterDashboard(),
-    obterStatusSefaz(),
-    obterPainelRejeicoes({ limite: 10 }),
-    listarFilaOperacional(query),
-    listarEventosGlobais({ limite: 30 })
+    obterDashboard().catch((err) => { err.etapaPainel = 'dashboard'; throw err; }),
+    obterStatusSefaz().catch((err) => { err.etapaPainel = 'sefaz'; throw err; }),
+    obterPainelRejeicoes({ limite: 10 }).catch((err) => { err.etapaPainel = 'rejeicoes'; throw err; }),
+    listarFilaOperacional(query).catch((err) => { err.etapaPainel = 'fila'; throw err; }),
+    listarEventosGlobais({ limite: 30 }).catch((err) => { err.etapaPainel = 'eventos'; throw err; })
   ]);
 
   return {

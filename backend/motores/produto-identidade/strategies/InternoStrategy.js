@@ -20,6 +20,7 @@ class InternoStrategy extends IdentidadeStrategyBase {
   canHandle(codigo, contexto, deteccao) {
     const bruto = String(codigo ?? '').trim();
     if (!bruto) return false;
+    if (/\s/.test(bruto)) return false;
     const candidatos = deteccao?.candidatos || [];
     return candidatos.includes(TIPOS_IDENTIFICADOR.INTERNO) || candidatos.length === 0;
   }

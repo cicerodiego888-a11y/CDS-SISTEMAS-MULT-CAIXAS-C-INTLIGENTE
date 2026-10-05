@@ -1,5 +1,5 @@
 /**
- * Renderer térmico do DANFE NFC-e (bobina 80mm / GT710).
+ * Renderer térmico do DANFE NFC-e (bobina 58/80mm, área útil ~48/72mm).
  * Não recalcula tributos, totais ou pagamentos — só apresenta o DTO.
  * Não usa tabela HTML nem CSS de colunas.
  */
@@ -36,10 +36,15 @@ function padLeft(texto, largura) {
 function linhaLabelValor(label, valor, cols) {
   const right = String(valor == null ? '' : valor);
   const left = String(label == null ? '' : label);
+  if (right.length >= cols) {
+    return [...(left ? quebrarTexto(left, cols) : []), ...quebrarTexto(right, cols)].join('\n');
+  }
   const gap = cols - left.length - right.length;
   if (gap >= 1) return left + ' '.repeat(gap) + right;
-  const maxLeft = Math.max(1, cols - right.length - 1);
-  return padRight(left, maxLeft) + ' ' + right;
+  const maxLeft = Math.max(0, cols - right.length - 1);
+  const leftCut = left.slice(0, maxLeft);
+  const espacos = Math.max(1, cols - leftCut.length - right.length);
+  return leftCut + ' '.repeat(espacos) + right;
 }
 
 function centralizar(texto, cols) {
@@ -142,7 +147,11 @@ function montarLinhasItens(itens, cols) {
     const unit = formatarUnitarioTermico(item.precoUnitario);
     const tot = formatarUnitarioTermico(item.subtotal);
     const valores = `${qtd} x ${unit} = ${tot}`;
-    linhas.push(padLeft(valores, cols));
+    if (valores.length <= cols) {
+      linhas.push(padLeft(valores, cols));
+    } else {
+      quebrarTexto(valores, cols).forEach((parte) => linhas.push(padRight(parte, cols)));
+    }
   }
 
   return linhas;
@@ -151,7 +160,7 @@ function montarLinhasItens(itens, cols) {
 function montarLinhasDanfeTermico(dados = {}) {
   const cols = larguraColunas(dados.papelMm);
   const linhas = [];
-  const push = (s) => linhas.push(padRight(s, cols));
+  const push = (s) => linhas.push(String(s ?? ''));
 
   const fantasia = String(dados.nomeFantasia || '').trim();
   const razao = String(dados.razaoSocial || '').trim();
@@ -246,7 +255,12 @@ function montarLinhasDanfeTermico(dados = {}) {
   linhas.push('');
   linhas.push('');
 
-  return linhas.map((l) => (l.length > cols ? l.slice(0, cols) : padRight(l, cols)));
+  return linhas.flatMap((l) => String(l ?? '').split('\n')).flatMap((texto) => {
+    if (texto.length <= cols) return [padRight(texto, cols)];
+    const partes = quebrarTexto(texto, cols);
+    if (!partes.length) return [padRight('', cols)];
+    return partes.map((parte) => padRight(parte, cols));
+  });
 }
 
 function escapeHtml(texto) {
@@ -285,24 +299,26 @@ function montarHtmlTermico(linhas, dados = {}) {
   <meta charset="UTF-8" />
   <title>DANFE NFC-e termico</title>
   <style>
-    @page { size: ${papelMm}mm auto; margin: 0; }
+    @page { margin: 0; }
     html, body {
-      margin: 0; padding: 0; width: ${papelMm}mm; max-width: ${papelMm}mm;
+      margin: 0; padding: 0;
       background: #fff; color: #000;
       -webkit-print-color-adjust: exact; print-color-adjust: exact;
     }
-    pre.termico {
-      font-family: "Consolas", "Courier New", "Lucida Console", monospace;
-      font-size: ${papelMm === 58 ? '10px' : '11px'};
-      line-height: 1.12;
-      white-space: pre;
+    pre.termico, .qr {
       width: ${cols}ch;
       max-width: ${cols}ch;
-      margin: 0 auto;
-      padding: 1.5mm 1mm 2mm;
+      margin: 0;
+    }
+    pre.termico {
+      font-family: "Consolas", "Courier New", "Lucida Console", monospace;
+      font-size: 10px;
+      line-height: 1.12;
+      white-space: pre;
+      padding: 1.5mm 0.5mm 2mm;
       letter-spacing: 0;
     }
-    .qr { text-align: center; margin: 4px 0; }
+    .qr { text-align: center; margin: 4px 0 4px 0; }
     .qr img {
       display: block; margin: 0 auto;
       width: ${papelMm === 58 ? '36mm' : '42mm'};

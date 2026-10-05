@@ -12,6 +12,7 @@ const { gerarQRCodeNFCe } = require('./qrcode');
 const { assinarNFe } = require('./signer');
 const { montarLote } = require('./soapClient');
 const { enviarAutorizacao } = require('./autorizacaoRuntime');
+const { withLock, lockAtivo } = require('./nfeEmissionLockService');
 const { compactarXml, extrairChaveEProtocoloAutorizados } = require('./utils');
 const { validarItensFiscal } = require('./validadorFiscal');
 const { validarXmlFiscal } = require('./validarXmlFiscal');
@@ -204,450 +205,460 @@ function salvarNota(payload) {
 }
 
 async function emitirPorVendaId(vendaId) {
-  console.log('ENTROU NO EMISSOR FISCAL');
-  const { venda, itens } = await carregarVenda(vendaId);
-
-  if (
-    venda.status_pagamento &&
-    venda.status_pagamento !== 'quitada'
-  ) {
-    return {
-      success: false,
-      status: 'aguardando_pagamento',
-      message: 'Venda ainda não está totalmente quitada.'
-    };
+  const escopo = `nfce-venda:${Number(vendaId) || 0}`;
+  if (lockAtivo(escopo)) {
+    const err = new Error('Emissão NFC-e desta venda já está em andamento. Aguarde a conclusão.');
+    err.code = 'EMISSAO_EM_ANDAMENTO';
+    err.statusCode = 409;
+    throw err;
   }
 
-  const itensFiscal = itens.filter(itemEntraNaNfce);
-  const itensDanfe = itens;
+  return withLock(escopo, async () => {
+    console.log('ENTROU NO EMISSOR FISCAL');
+    const { venda, itens } = await carregarVenda(vendaId);
 
-  if (itensFiscal.length === 0) {
-    return {
-      success: true,
-      status: 'sem_itens_fiscais',
-      message: 'Venda sem itens fiscais. NFC-e não necessária.'
-    };
-  }
+    if (
+      venda.status_pagamento &&
+      venda.status_pagamento !== 'quitada'
+    ) {
+      return {
+        success: false,
+        status: 'aguardando_pagamento',
+        message: 'Venda ainda não está totalmente quitada.'
+      };
+    }
 
-  const notaAutorizada = await new Promise((resolve, reject) => {
-    db.get(`
-      SELECT *
-      FROM nfce_notas
-      WHERE venda_id = ?
-        AND status = 'autorizada'
-      ORDER BY id DESC
-      LIMIT 1
-    `, [vendaId], (err, row) => {
-      if (err) return reject(err);
-      resolve(row || null);
-    });
-  });
+    const itensFiscal = itens.filter(itemEntraNaNfce);
+    const itensDanfe = itens;
 
-  if (notaAutorizada) {
-    return {
-      success: true,
-      reused: true,
-      status: notaAutorizada.status,
-      notaId: notaAutorizada.id,
-      numero: notaAutorizada.numero,
-      chaveAcesso: notaAutorizada.chave_acesso,
-      danfeHtml: notaAutorizada.danfe_html
-    };
-  }
+    if (itensFiscal.length === 0) {
+      return {
+        success: true,
+        status: 'sem_itens_fiscais',
+        message: 'Venda sem itens fiscais. NFC-e não necessária.'
+      };
+    }
 
-  const notaPendenteAnterior = await new Promise((resolve, reject) => {
-    db.get(`
-      SELECT *
-      FROM nfce_notas
-      WHERE venda_id = ?
-        AND status IN ('erro_transmissao', 'pendente', 'soap_enviado', 'rejeitada')
-      ORDER BY id DESC
-      LIMIT 1
-    `, [vendaId], (err, row) => {
-      if (err) return reject(err);
-      resolve(row || null);
-    });
-  });
-
-  const config = await getFiscalConfig();
-
-  let numero;
-
-  if (notaPendenteAnterior && notaPendenteAnterior.numero) {
-    // Timeout / erro de transmissão: preserva identidade fiscal (nNF + chave + XML).
-    numero = notaPendenteAnterior.numero;
-    console.log(`[FISCAL][NUMERACAO][NFCe] REUTILIZANDO identidade da tentativa anterior NUMERO=${numero}`);
-  } else {
-    const reserva = await reservarProximaNumeracaoFiscal({
-      cnpj: config.cnpj,
-      ambiente: config.ambiente,
-      modelo: '65',
-      serie: config.serie,
-      origem: 'VENDA'
-    });
-    numero = reserva.numero;
-    console.log(`[FISCAL][NUMERACAO][RESERVA] ORIGEM=VENDA NUMERO=${numero}`);
-  }
-
-  if (!config.nomeEmpresa || !config.cnpj || !config.ie) {
-    const notaId = await salvarNota({
-      venda_id: vendaId,
-      numero,
-      serie: config.serie,
-      chave_acesso: '',
-      ambiente: config.ambiente,
-      status: 'configuracao_pendente',
-      xml_retorno: 'Preencha nome da empresa, CNPJ e IE nas configurações.'
+    const notaAutorizada = await new Promise((resolve, reject) => {
+      db.get(`
+        SELECT *
+        FROM nfce_notas
+        WHERE venda_id = ?
+          AND status = 'autorizada'
+        ORDER BY id DESC
+        LIMIT 1
+      `, [vendaId], (err, row) => {
+        if (err) return reject(err);
+        resolve(row || null);
+      });
     });
 
-    return {
-      success: false,
-      notaId,
-      status: 'configuracao_pendente',
-      message: 'Configuração fiscal incompleta.'
-    };
-  }
+    if (notaAutorizada) {
+      return {
+        success: true,
+        reused: true,
+        status: notaAutorizada.status,
+        notaId: notaAutorizada.id,
+        numero: notaAutorizada.numero,
+        chaveAcesso: notaAutorizada.chave_acesso,
+        danfeHtml: notaAutorizada.danfe_html
+      };
+    }
 
-  if (!config.certificadoPath || !fs.existsSync(config.certificadoPath)) {
-    const caminhoInfo = config.certificadoPath || '(não informado)';
-
-    const notaId = await salvarNota({
-      venda_id: vendaId,
-      numero,
-      serie: config.serie,
-      chave_acesso: '',
-      ambiente: config.ambiente,
-      status: 'configuracao_pendente',
-      xml_retorno: `Certificado A1/PFX não encontrado em: ${caminhoInfo}`
+    const notaPendenteAnterior = await new Promise((resolve, reject) => {
+      db.get(`
+        SELECT *
+        FROM nfce_notas
+        WHERE venda_id = ?
+          AND status IN ('erro_transmissao', 'pendente', 'soap_enviado', 'rejeitada')
+        ORDER BY id DESC
+        LIMIT 1
+      `, [vendaId], (err, row) => {
+        if (err) return reject(err);
+        resolve(row || null);
+      });
     });
 
-    return {
-      success: false,
-      notaId,
-      status: 'configuracao_pendente',
-      message: `Certificado A1/PFX não encontrado em: ${caminhoInfo}`
-    };
-  }
+    const config = await getFiscalConfig();
 
-  const errosFiscais =
-    validarItensFiscal(
-      itensFiscal,
-      config.ambiente
-    );
-  if (errosFiscais.length > 0) {
-    console.warn('Avisos fiscais (homologação):', errosFiscais.join('; '));
-  }
+    let numero;
 
-  // RC5 — validação de equipamentos via IntegrationService (consulta Heartbeat pela fachada).
-  try {
-    const { modulos } = require('../equipamentos-integracao');
-    const ids = String(process.env.FISCAL_EQUIPAMENTOS_OBRIGATORIOS || '')
-      .split(',')
-      .map((s) => Number(String(s).trim()))
-      .filter(Boolean);
-    if (ids.length) {
-      const check = await modulos.fiscal.antesDaEmissao(
-        { perfil: 'SUPER_ADMIN' },
-        { equipamento_ids: ids }
+    if (notaPendenteAnterior && notaPendenteAnterior.numero) {
+      // Timeout / erro de transmissão: preserva identidade fiscal (nNF + chave + XML).
+      numero = notaPendenteAnterior.numero;
+      console.log(`[FISCAL][NUMERACAO][NFCe] REUTILIZANDO identidade da tentativa anterior NUMERO=${numero}`);
+    } else {
+      const reserva = await reservarProximaNumeracaoFiscal({
+        cnpj: config.cnpj,
+        ambiente: config.ambiente,
+        modelo: '65',
+        serie: config.serie,
+        origem: 'VENDA'
+      });
+      numero = reserva.numero;
+      console.log(`[FISCAL][NUMERACAO][RESERVA] ORIGEM=VENDA NUMERO=${numero}`);
+    }
+
+    if (!config.nomeEmpresa || !config.cnpj || !config.ie) {
+      const notaId = await salvarNota({
+        venda_id: vendaId,
+        numero,
+        serie: config.serie,
+        chave_acesso: '',
+        ambiente: config.ambiente,
+        status: 'configuracao_pendente',
+        xml_retorno: 'Preencha nome da empresa, CNPJ e IE nas configurações.'
+      });
+
+      return {
+        success: false,
+        notaId,
+        status: 'configuracao_pendente',
+        message: 'Configuração fiscal incompleta.'
+      };
+    }
+
+    if (!config.certificadoPath || !fs.existsSync(config.certificadoPath)) {
+      const caminhoInfo = config.certificadoPath || '(não informado)';
+
+      const notaId = await salvarNota({
+        venda_id: vendaId,
+        numero,
+        serie: config.serie,
+        chave_acesso: '',
+        ambiente: config.ambiente,
+        status: 'configuracao_pendente',
+        xml_retorno: `Certificado A1/PFX não encontrado em: ${caminhoInfo}`
+      });
+
+      return {
+        success: false,
+        notaId,
+        status: 'configuracao_pendente',
+        message: `Certificado A1/PFX não encontrado em: ${caminhoInfo}`
+      };
+    }
+
+    const errosFiscais =
+      validarItensFiscal(
+        itensFiscal,
+        config.ambiente
       );
-      if (!check.ok) {
-        console.warn('[RC5] Equipamentos indisponíveis na emissão:', JSON.stringify(check.indisponiveis));
-        if (process.env.FISCAL_BLOQUEAR_SEM_EQUIPAMENTO === '1') {
-          return {
-            success: false,
-            status: 'equipamento_indisponivel',
-            message: 'Equipamentos obrigatórios indisponíveis para emissão.',
-            indisponiveis: check.indisponiveis
-          };
+    if (errosFiscais.length > 0) {
+      console.warn('Avisos fiscais (homologação):', errosFiscais.join('; '));
+    }
+
+    // RC5 — validação de equipamentos via IntegrationService (consulta Heartbeat pela fachada).
+    try {
+      const { modulos } = require('../equipamentos-integracao');
+      const ids = String(process.env.FISCAL_EQUIPAMENTOS_OBRIGATORIOS || '')
+        .split(',')
+        .map((s) => Number(String(s).trim()))
+        .filter(Boolean);
+      if (ids.length) {
+        const check = await modulos.fiscal.antesDaEmissao(
+          { perfil: 'SUPER_ADMIN' },
+          { equipamento_ids: ids }
+        );
+        if (!check.ok) {
+          console.warn('[RC5] Equipamentos indisponíveis na emissão:', JSON.stringify(check.indisponiveis));
+          if (process.env.FISCAL_BLOQUEAR_SEM_EQUIPAMENTO === '1') {
+            return {
+              success: false,
+              status: 'equipamento_indisponivel',
+              message: 'Equipamentos obrigatórios indisponíveis para emissão.',
+              indisponiveis: check.indisponiveis
+            };
+          }
         }
       }
+    } catch (eqErr) {
+      console.warn('[RC5] validação equipamentos fiscal:', eqErr.message);
     }
-  } catch (eqErr) {
-    console.warn('[RC5] validação equipamentos fiscal:', eqErr.message);
-  }
 
-  const xmlBase = buildNfceXml({ config, venda, itens: itensFiscal, numero });
+    const xmlBase = buildNfceXml({ config, venda, itens: itensFiscal, numero });
 
-  // RC7.10.4 — aborta emissão se XML inconsistente (antes da assinatura)
-  try {
-    validarXmlFiscal({
-      xml: xmlBase.xmlSemAssinatura,
-      fase: 'pre_assinatura',
-      modeloDoc: '65',
-      validarXsd: false
+    // RC7.10.4 — aborta emissão se XML inconsistente (antes da assinatura)
+    try {
+      validarXmlFiscal({
+        xml: xmlBase.xmlSemAssinatura,
+        fase: 'pre_assinatura',
+        modeloDoc: '65',
+        validarXsd: false
+      });
+    } catch (validErr) {
+      const notaId = await salvarNota({
+        venda_id: vendaId,
+        numero,
+        serie: config.serie,
+        chave_acesso: xmlBase.chave || '',
+        ambiente: config.ambiente,
+        status: 'erro_validacao',
+        xml_enviado: xmlBase.xmlSemAssinatura,
+        xml_retorno: String(validErr.message || validErr)
+      });
+      return {
+        success: false,
+        notaId,
+        status: 'erro_validacao',
+        message: validErr.message || 'XML fiscal inconsistente.',
+        code: validErr.code || 'XML_INVALIDO',
+        detalhes: validErr.detalhes || null
+      };
+    }
+
+    let xmlAssinadoFinal = null;
+    let qrCodeUrl = '';
+    let assinaturaErro = null;
+    let certificado = null;
+
+    try {
+      salvarDebug('01-xml-nfe-original.xml', xmlBase.xmlSemAssinatura);
+
+      certificado = carregarCertificadoPfx(config.certificadoPath, config.certificadoSenha);
+
+      console.log('ANTES DE CHAMAR assinarNFe');
+      console.log('TIPO xmlNfe:', typeof xmlBase.xmlSemAssinatura);
+      console.log('TAMANHO xmlNfe:', xmlBase.xmlSemAssinatura ? xmlBase.xmlSemAssinatura.length : 0);
+      console.log('CHAVE PRIVADA OK:', !!certificado.privateKeyPem);
+      console.log('CERT PEM OK:', !!certificado.certPem);
+
+      salvarDebug('01b-antes-assinatura.txt', [
+        `TIPO xmlNfe: ${typeof xmlBase.xmlSemAssinatura}`,
+        `TAMANHO xmlNfe: ${xmlBase.xmlSemAssinatura ? xmlBase.xmlSemAssinatura.length : 0}`,
+        `CHAVE PRIVADA OK: ${!!certificado.privateKeyPem}`,
+        `CERT PEM OK: ${!!certificado.certPem}`
+      ].join('\n'));
+
+      const xmlParaAssinar = compactarXml(xmlBase.xmlSemAssinatura);
+      salvarDebug('01a-xml-nfe-compactado-antes-assinatura.xml', xmlParaAssinar);
+
+      const assinatura = assinarNFe(
+        xmlParaAssinar,
+        certificado.privateKeyPem,
+        certificado.certPem
+      );
+
+      console.log('DEPOIS DE CHAMAR assinarNFe');
+      console.log('TAMANHO xmlAssinado:', assinatura.xmlAssinado ? assinatura.xmlAssinado.length : 0);
+
+      salvarDebug('01c-depois-assinatura.txt', [
+        `TAMANHO xmlAssinado: ${assinatura.xmlAssinado ? assinatura.xmlAssinado.length : 0}`,
+        `DigestValue: ${assinatura.digestValue || ''}`
+      ].join('\n'));
+
+      const consultaUrlQr = String(config.urls?.consultaQr || '').trim();
+      if (!consultaUrlQr) {
+        throw new Error(
+          Number(config.ambiente) === 1
+            ? 'URL de consulta QR Code em PRODUÇÃO não configurada (fiscal_csc_qrcode_url_producao).'
+            : 'URL de consulta QR Code em HOMOLOGAÇÃO não configurada (fiscal_csc_qrcode_url_homologacao).'
+        );
+      }
+
+      qrCodeUrl = gerarQRCodeNFCe({
+        chave: xmlBase.chave,
+        ambiente: config.ambiente,
+        idCSC: config.idCSC,
+        CSC: config.tokenCSC,
+        consultaUrl: consultaUrlQr,
+        uf: config.uf
+      });
+
+      const urlConsulta = String(config.urls?.consultaChave || '').trim();
+      if (!urlConsulta) {
+        throw new Error(
+          Number(config.ambiente) === 1
+            ? 'URL de consulta por chave em PRODUÇÃO não configurada (fiscal_consulta_chave_url_producao).'
+            : 'URL de consulta por chave em HOMOLOGAÇÃO não configurada (fiscal_consulta_chave_url_homologacao).'
+        );
+      }
+
+      const infNFeSupl = `<infNFeSupl><qrCode><![CDATA[${qrCodeUrl}]]></qrCode><urlChave>${urlConsulta}</urlChave></infNFeSupl>`;
+
+      // Inserir infNFeSupl antes da assinatura (que deve vir apos infNFe)
+      const signatureMatch = assinatura.xmlAssinado.match(/(<Signature[\s>])/);
+      if (signatureMatch) {
+        xmlAssinadoFinal = assinatura.xmlAssinado.replace(signatureMatch[0], `${infNFeSupl}${signatureMatch[0]}`);
+      } else {
+        // Fallback: adicionar antes de </NFe>
+        xmlAssinadoFinal = assinatura.xmlAssinado.replace('</NFe>', `${infNFeSupl}</NFe>`);
+      }
+
+      salvarDebug('02-xml-nfe-assinado.xml', assinatura.xmlAssinado);
+      salvarDebug('02b-qrcode-url.txt', qrCodeUrl);
+      salvarDebug('02c-infNFeSupl.xml', infNFeSupl);
+      salvarDebug('02d-xml-nfe-assinado-final.xml', xmlAssinadoFinal);
+
+      if (!xmlAssinadoFinal.includes('<Signature')) {
+        throw new Error('XML final ficou sem Signature.');
+      }
+
+      console.log('XML final length:', xmlAssinadoFinal.length);
+      console.log('XML includes infNFeSupl:', xmlAssinadoFinal.includes('<infNFeSupl>'));
+      console.log('XML includes infNFeSupl xmlns:', xmlAssinadoFinal.includes('<infNFeSupl xmlns'));
+      if (!xmlAssinadoFinal.includes('<infNFeSupl')) {
+        throw new Error('XML final ficou sem infNFeSupl.');
+      }
+
+      if (!xmlAssinadoFinal.includes('<qrCode>') && !xmlAssinadoFinal.includes('<qrCode><![CDATA[')) {
+        throw new Error('XML final ficou sem qrCode.');
+      }
+    } catch (error) {
+      assinaturaErro = error;
+
+      salvarDebug(
+        '99-erro-assinatura-emissor.txt',
+        error && error.stack ? error.stack : String(error)
+      );
+
+      console.error('ERRO FINAL CAPTURADO NO EMISSOR:', error);
+    }
+
+    const danfeHtml = await gerarDanfeHtml({
+      venda: {
+        ...venda,
+        tpAmb: config.ambiente
+      },
+      itens: itensDanfe,
+      itensFiscal,
+      empresa: {
+        nome: config.nomeEmpresa,
+        nomeFantasia: config.nomeFantasia || config.nomeEmpresa,
+        razaoSocial: config.razaoSocial || config.nomeEmpresa,
+        cnpj: config.cnpj,
+        endereco: config.endereco,
+        telefone: config.telefone,
+        logradouro: config.logradouro,
+        numero: config.numeroEndereco,
+        bairro: config.bairro,
+        municipio: config.municipioNome,
+        uf: config.uf,
+        cep: config.cep,
+        larguraMm: config.danfeLarguraMm || 80
+      },
+      chave: xmlBase.chave,
+      numero,
+      serie: config.serie,
+      qrCodeUrl,
+      tributos: xmlBase.valores,
+      nota: {
+        tpAmb: config.ambiente
+      }
     });
-  } catch (validErr) {
+
+    let status = assinaturaErro ? 'configuracao_pendente' : 'pendente';
+    let xmlRetorno = assinaturaErro ? assinaturaErro.message : null;
+    let soapResponse = null;
+    let chaveAutorizada = xmlBase.chave;
+
+    if (!assinaturaErro) {
+      const loteXml = montarLote(xmlAssinadoFinal, String(numero));
+
+      // Sprint F10 — transporte via Plataforma Fiscal (fallback automático para legado)
+      const envio = await enviarAutorizacao({
+        url: config.urls.autorizacao,
+        loteXml,
+        ambiente: config.ambiente,
+        cUF: config.codigoUf || '23',
+        versaoDados: '4.00',
+        certificadoPath: config.certificadoPath,
+        certificadoSenha: config.certificadoSenha
+      });
+
+      soapResponse = {
+        success: envio.success,
+        status: envio.status || (envio.success ? 'soap_enviado' : 'erro_transmissao'),
+        raw: envio.raw || envio.body || null,
+        message: envio.message || envio.error || null,
+        code: envio.code || null,
+        source: envio.source,
+        fallbackUtilizado: envio.fallbackUtilizado,
+        endpoint: envio.endpoint,
+        cStat: envio.cStat,
+        resultado: envio.resultado
+      };
+
+      salvarDebug('05-soap-resposta.json', JSON.stringify(soapResponse, null, 2));
+      salvarDebug('06-soap-retorno.xml', String(soapResponse.raw || soapResponse.message || ''));
+
+      const raw = String(soapResponse.raw || soapResponse.message || '');
+
+      if (raw.includes('<cStat>100</cStat>')) {
+        status = 'autorizada';
+
+        const authSefaz = extrairChaveEProtocoloAutorizados(raw);
+        if (authSefaz?.chaveAcesso) {
+          chaveAutorizada = authSefaz.chaveAcesso;
+        }
+
+        const protMatch = raw.match(/<nProt>(.*?)<\/nProt>/);
+        if (protMatch) {
+          soapResponse.protocolo = protMatch[1];
+        } else if (authSefaz?.protocolo) {
+          soapResponse.protocolo = authSefaz.protocolo;
+        }
+      } else if (raw.includes('<cStat>539</cStat>') || String(soapResponse.cStat || '') === '539') {
+        status = 'rejeitada_duplicidade';
+        try {
+          const xMotivo539 = (raw.match(/<xMotivo>\s*([^<]+)\s*<\/xMotivo>/i) || [])[1] || null;
+          await aplicarOcupacaoPorRejeicao539Nfce({
+            cnpj: config.cnpj,
+            ambiente: config.ambiente,
+            serie: config.serie,
+            numeroEnviado: numero,
+            chaveEnviada: xmlBase.chave,
+            xMotivo: xMotivo539,
+            xmlRetorno: raw,
+            cStat: '539'
+          });
+        } catch (e539) {
+          console.warn('[FISCAL][NUMERACAO][539] falha ao registrar ocupação:', e539.message || e539);
+        }
+      } else if (raw.includes('<cStat>') || /rejeic/i.test(raw)) {
+        status = 'rejeitada';
+      } else {
+        status = soapResponse.status || 'pendente';
+      }
+
+      xmlRetorno = raw || null;
+    }
+
     const notaId = await salvarNota({
       venda_id: vendaId,
       numero,
       serie: config.serie,
-      chave_acesso: xmlBase.chave || '',
+      chave_acesso: chaveAutorizada,
       ambiente: config.ambiente,
-      status: 'erro_validacao',
-      xml_enviado: xmlBase.xmlSemAssinatura,
-      xml_retorno: String(validErr.message || validErr)
+      status,
+      xml_enviado: xmlAssinadoFinal,
+      xml_retorno: xmlRetorno,
+      protocolo: soapResponse?.protocolo || null,
+      qr_code_url: qrCodeUrl,
+      danfe_html: danfeHtml
     });
+
+    const autorizada = status === 'autorizada';
+    let message = null;
+
+    if (assinaturaErro) {
+      message = assinaturaErro.message;
+    } else if (!autorizada) {
+      message = soapResponse?.message || `NFC-e não autorizada (status: ${status}).`;
+    }
+
     return {
-      success: false,
+      success: autorizada,
       notaId,
-      status: 'erro_validacao',
-      message: validErr.message || 'XML fiscal inconsistente.',
-      code: validErr.code || 'XML_INVALIDO',
-      detalhes: validErr.detalhes || null
+      status,
+      numero,
+      chaveAcesso: chaveAutorizada,
+      qrCodeUrl,
+      danfeHtml,
+      message,
+      soap: soapResponse
     };
-  }
-
-  let xmlAssinadoFinal = null;
-  let qrCodeUrl = '';
-  let assinaturaErro = null;
-  let certificado = null;
-
-  try {
-    salvarDebug('01-xml-nfe-original.xml', xmlBase.xmlSemAssinatura);
-
-    certificado = carregarCertificadoPfx(config.certificadoPath, config.certificadoSenha);
-
-    console.log('ANTES DE CHAMAR assinarNFe');
-    console.log('TIPO xmlNfe:', typeof xmlBase.xmlSemAssinatura);
-    console.log('TAMANHO xmlNfe:', xmlBase.xmlSemAssinatura ? xmlBase.xmlSemAssinatura.length : 0);
-    console.log('CHAVE PRIVADA OK:', !!certificado.privateKeyPem);
-    console.log('CERT PEM OK:', !!certificado.certPem);
-
-    salvarDebug('01b-antes-assinatura.txt', [
-      `TIPO xmlNfe: ${typeof xmlBase.xmlSemAssinatura}`,
-      `TAMANHO xmlNfe: ${xmlBase.xmlSemAssinatura ? xmlBase.xmlSemAssinatura.length : 0}`,
-      `CHAVE PRIVADA OK: ${!!certificado.privateKeyPem}`,
-      `CERT PEM OK: ${!!certificado.certPem}`
-    ].join('\n'));
-
-    const xmlParaAssinar = compactarXml(xmlBase.xmlSemAssinatura);
-    salvarDebug('01a-xml-nfe-compactado-antes-assinatura.xml', xmlParaAssinar);
-
-    const assinatura = assinarNFe(
-      xmlParaAssinar,
-      certificado.privateKeyPem,
-      certificado.certPem
-    );
-
-    console.log('DEPOIS DE CHAMAR assinarNFe');
-    console.log('TAMANHO xmlAssinado:', assinatura.xmlAssinado ? assinatura.xmlAssinado.length : 0);
-
-    salvarDebug('01c-depois-assinatura.txt', [
-      `TAMANHO xmlAssinado: ${assinatura.xmlAssinado ? assinatura.xmlAssinado.length : 0}`,
-      `DigestValue: ${assinatura.digestValue || ''}`
-    ].join('\n'));
-
-    const consultaUrlQr = String(config.urls?.consultaQr || '').trim();
-    if (!consultaUrlQr) {
-      throw new Error(
-        Number(config.ambiente) === 1
-          ? 'URL de consulta QR Code em PRODUÇÃO não configurada (fiscal_csc_qrcode_url_producao).'
-          : 'URL de consulta QR Code em HOMOLOGAÇÃO não configurada (fiscal_csc_qrcode_url_homologacao).'
-      );
-    }
-
-    qrCodeUrl = gerarQRCodeNFCe({
-      chave: xmlBase.chave,
-      ambiente: config.ambiente,
-      idCSC: config.idCSC,
-      CSC: config.tokenCSC,
-      consultaUrl: consultaUrlQr,
-      uf: config.uf
-    });
-
-    const urlConsulta = String(config.urls?.consultaChave || '').trim();
-    if (!urlConsulta) {
-      throw new Error(
-        Number(config.ambiente) === 1
-          ? 'URL de consulta por chave em PRODUÇÃO não configurada (fiscal_consulta_chave_url_producao).'
-          : 'URL de consulta por chave em HOMOLOGAÇÃO não configurada (fiscal_consulta_chave_url_homologacao).'
-      );
-    }
-
-    const infNFeSupl = `<infNFeSupl><qrCode><![CDATA[${qrCodeUrl}]]></qrCode><urlChave>${urlConsulta}</urlChave></infNFeSupl>`;
-
-    // Inserir infNFeSupl antes da assinatura (que deve vir apos infNFe)
-    const signatureMatch = assinatura.xmlAssinado.match(/(<Signature[\s>])/);
-    if (signatureMatch) {
-      xmlAssinadoFinal = assinatura.xmlAssinado.replace(signatureMatch[0], `${infNFeSupl}${signatureMatch[0]}`);
-    } else {
-      // Fallback: adicionar antes de </NFe>
-      xmlAssinadoFinal = assinatura.xmlAssinado.replace('</NFe>', `${infNFeSupl}</NFe>`);
-    }
-
-    salvarDebug('02-xml-nfe-assinado.xml', assinatura.xmlAssinado);
-    salvarDebug('02b-qrcode-url.txt', qrCodeUrl);
-    salvarDebug('02c-infNFeSupl.xml', infNFeSupl);
-    salvarDebug('02d-xml-nfe-assinado-final.xml', xmlAssinadoFinal);
-
-    if (!xmlAssinadoFinal.includes('<Signature')) {
-      throw new Error('XML final ficou sem Signature.');
-    }
-
-    console.log('XML final length:', xmlAssinadoFinal.length);
-    console.log('XML includes infNFeSupl:', xmlAssinadoFinal.includes('<infNFeSupl>'));
-    console.log('XML includes infNFeSupl xmlns:', xmlAssinadoFinal.includes('<infNFeSupl xmlns'));
-    if (!xmlAssinadoFinal.includes('<infNFeSupl')) {
-      throw new Error('XML final ficou sem infNFeSupl.');
-    }
-
-    if (!xmlAssinadoFinal.includes('<qrCode>') && !xmlAssinadoFinal.includes('<qrCode><![CDATA[')) {
-      throw new Error('XML final ficou sem qrCode.');
-    }
-  } catch (error) {
-    assinaturaErro = error;
-
-    salvarDebug(
-      '99-erro-assinatura-emissor.txt',
-      error && error.stack ? error.stack : String(error)
-    );
-
-    console.error('ERRO FINAL CAPTURADO NO EMISSOR:', error);
-  }
-
-  const danfeHtml = await gerarDanfeHtml({
-    venda: {
-      ...venda,
-      tpAmb: config.ambiente
-    },
-    itens: itensDanfe,
-    itensFiscal,
-    empresa: {
-      nome: config.nomeEmpresa,
-      nomeFantasia: config.nomeFantasia || config.nomeEmpresa,
-      razaoSocial: config.razaoSocial || config.nomeEmpresa,
-      cnpj: config.cnpj,
-      endereco: config.endereco,
-      telefone: config.telefone,
-      logradouro: config.logradouro,
-      numero: config.numeroEndereco,
-      bairro: config.bairro,
-      municipio: config.municipioNome,
-      uf: config.uf,
-      cep: config.cep,
-      larguraMm: config.danfeLarguraMm || 80
-    },
-    chave: xmlBase.chave,
-    numero,
-    serie: config.serie,
-    qrCodeUrl,
-    tributos: xmlBase.valores,
-    nota: {
-      tpAmb: config.ambiente
-    }
-  });
-
-  let status = assinaturaErro ? 'configuracao_pendente' : 'pendente';
-  let xmlRetorno = assinaturaErro ? assinaturaErro.message : null;
-  let soapResponse = null;
-  let chaveAutorizada = xmlBase.chave;
-
-  if (!assinaturaErro) {
-    const loteXml = montarLote(xmlAssinadoFinal, String(numero));
-
-    // Sprint F10 — transporte via Plataforma Fiscal (fallback automático para legado)
-    const envio = await enviarAutorizacao({
-      url: config.urls.autorizacao,
-      loteXml,
-      ambiente: config.ambiente,
-      cUF: config.codigoUf || '23',
-      versaoDados: '4.00',
-      certificadoPath: config.certificadoPath,
-      certificadoSenha: config.certificadoSenha
-    });
-
-    soapResponse = {
-      success: envio.success,
-      status: envio.status || (envio.success ? 'soap_enviado' : 'erro_transmissao'),
-      raw: envio.raw || envio.body || null,
-      message: envio.message || envio.error || null,
-      code: envio.code || null,
-      source: envio.source,
-      fallbackUtilizado: envio.fallbackUtilizado,
-      endpoint: envio.endpoint,
-      cStat: envio.cStat,
-      resultado: envio.resultado
-    };
-
-    salvarDebug('05-soap-resposta.json', JSON.stringify(soapResponse, null, 2));
-    salvarDebug('06-soap-retorno.xml', String(soapResponse.raw || soapResponse.message || ''));
-
-    const raw = String(soapResponse.raw || soapResponse.message || '');
-
-    if (raw.includes('<cStat>100</cStat>')) {
-      status = 'autorizada';
-
-      const authSefaz = extrairChaveEProtocoloAutorizados(raw);
-      if (authSefaz?.chaveAcesso) {
-        chaveAutorizada = authSefaz.chaveAcesso;
-      }
-
-      const protMatch = raw.match(/<nProt>(.*?)<\/nProt>/);
-      if (protMatch) {
-        soapResponse.protocolo = protMatch[1];
-      } else if (authSefaz?.protocolo) {
-        soapResponse.protocolo = authSefaz.protocolo;
-      }
-    } else if (raw.includes('<cStat>539</cStat>') || String(soapResponse.cStat || '') === '539') {
-      status = 'rejeitada_duplicidade';
-      try {
-        const xMotivo539 = (raw.match(/<xMotivo>\s*([^<]+)\s*<\/xMotivo>/i) || [])[1] || null;
-        await aplicarOcupacaoPorRejeicao539Nfce({
-          cnpj: config.cnpj,
-          ambiente: config.ambiente,
-          serie: config.serie,
-          numeroEnviado: numero,
-          chaveEnviada: xmlBase.chave,
-          xMotivo: xMotivo539,
-          xmlRetorno: raw,
-          cStat: '539'
-        });
-      } catch (e539) {
-        console.warn('[FISCAL][NUMERACAO][539] falha ao registrar ocupação:', e539.message || e539);
-      }
-    } else if (raw.includes('<cStat>') || /rejeic/i.test(raw)) {
-      status = 'rejeitada';
-    } else {
-      status = soapResponse.status || 'pendente';
-    }
-
-    xmlRetorno = raw || null;
-  }
-
-  const notaId = await salvarNota({
-    venda_id: vendaId,
-    numero,
-    serie: config.serie,
-    chave_acesso: chaveAutorizada,
-    ambiente: config.ambiente,
-    status,
-    xml_enviado: xmlAssinadoFinal,
-    xml_retorno: xmlRetorno,
-    protocolo: soapResponse?.protocolo || null,
-    qr_code_url: qrCodeUrl,
-    danfe_html: danfeHtml
-  });
-
-  const autorizada = status === 'autorizada';
-  let message = null;
-
-  if (assinaturaErro) {
-    message = assinaturaErro.message;
-  } else if (!autorizada) {
-    message = soapResponse?.message || `NFC-e não autorizada (status: ${status}).`;
-  }
-
-  return {
-    success: autorizada,
-    notaId,
-    status,
-    numero,
-    chaveAcesso: chaveAutorizada,
-    qrCodeUrl,
-    danfeHtml,
-    message,
-    soap: soapResponse
-  };
+  }, { titular: `venda-${vendaId}` });
 }
 
 /**

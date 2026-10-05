@@ -13,6 +13,8 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
 const CORE_JS = fs.readFileSync(path.join(ROOT, 'frontend/shared/js/core.js'), 'utf8');
+const MODO_FISCAL_HELPERS_JS = fs.readFileSync(path.join(ROOT, 'frontend/shared/js/modoFiscalHelpers.js'), 'utf8');
+const PDV_JS = fs.readFileSync(path.join(ROOT, 'frontend/pdv/js/pdv.js'), 'utf8');
 const ADMIN_JS = fs.readFileSync(path.join(ROOT, 'frontend/erp/js/f12-admin.js'), 'utf8');
 const CAIXA_JS = fs.readFileSync(path.join(ROOT, 'frontend/shared/js/obterCaixaAtual.js'), 'utf8');
 const ObterCaixaAtual = require('../frontend/shared/js/obterCaixaAtual');
@@ -58,6 +60,17 @@ describe('CENÁRIO 1 — PDV usa F12Policy', () => {
     assert.match(corpo, /F12PolicyResolver\.obterContexto/);
     assert.match(corpo, /F12PolicyResolver\.alternarF12/);
     assert.match(corpo, /podeAlterar/);
+    assert.match(corpo, /aplicarModoFiscalLocal\(novoValor, \{ origemF12: true \}\)/);
+    assert.doesNotMatch(corpo, /aplicarModoFiscalLocal\(novoValor, \{ recarregar: false/);
+  });
+});
+
+describe('CENÁRIO 1 — atualização imediata do modo no PDV', () => {
+  it('recarrega catálogo e resultados sem reinicializar o caixa', () => {
+    assert.match(MODO_FISCAL_HELPERS_JS, /page === 'pdv' && typeof atualizarPdvAposModoFiscal === 'function'[\s\S]*?atualizarPdvAposModoFiscal\(\)/);
+    assert.match(PDV_JS, /function atualizarPdvAposModoFiscal\(\)[\s\S]*?recarregarCatalogoPdv\(\{ forcar: true \}\)/);
+    assert.match(PDV_JS, /resultados\.is\(':visible'\)[\s\S]*?buscarProdutosConsultaPDV\(\)/);
+    assert.doesNotMatch(MODO_FISCAL_HELPERS_JS, /page === 'pdv' && typeof loadPDV === 'function'[\s\S]*?loadPDV\(\)/);
   });
 });
 

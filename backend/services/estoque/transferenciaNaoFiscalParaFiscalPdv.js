@@ -50,9 +50,34 @@ function mensagemEstoqueInsuficiente(estoqueAtual) {
   return `Saldo insuficiente.\n\nDisponível: ${round3(estoqueAtual)}`;
 }
 
+function incluirSemTransferenciaPdv(calc, extra = {}) {
+  return Object.freeze({
+    acao: 'INCLUIR',
+    quantidadeTransferir: 0,
+    devePerguntar: false,
+    mensagemBloqueio: null,
+    calc,
+    ...extra
+  });
+}
+
+function recusarOuLiberarSemEstoquePdv(calc, permitirVendaSemEstoque) {
+  if (permitirVendaSemEstoque) {
+    return incluirSemTransferenciaPdv(calc, { vendaSemEstoque: true });
+  }
+  return Object.freeze({
+    acao: 'RECUSAR',
+    quantidadeTransferir: 0,
+    devePerguntar: false,
+    mensagemBloqueio: mensagemEstoqueInsuficiente(calc.estoqueAtual),
+    calc
+  });
+}
+
 /**
  * Decisão de inclusão APÓS a quantidade (espelho do fluxo PDV).
- * Nunca trata fiscal=0 como erro se o NF cobre o déficit e ainda não houve decisão.
+ * Transferência NF→F só é oferecida com config ATIVADA + F12 (modoFiscal) + NF cobrindo o déficit.
+ * Recusar a transferência não recusa a venda quando F+NF cobre a quantidade.
  */
 function avaliarFluxoInclusaoPdv({
   quantidade,
@@ -61,15 +86,11 @@ function avaliarFluxoInclusaoPdv({
   modoFiscal = false,
   respostaTransferencia = null,
   controlaEstoque = true,
-  permitido = true
+  permitido = true,
+  permitirVendaSemEstoque = false
 } = {}) {
   if (controlaEstoque === false) {
-    return Object.freeze({
-      acao: 'INCLUIR',
-      quantidadeTransferir: 0,
-      devePerguntar: false,
-      mensagemBloqueio: null
-    });
+    return incluirSemTransferenciaPdv(null);
   }
 
   const calc = calcularTransferenciaNaoFiscalParaFiscal({
@@ -78,26 +99,18 @@ function avaliarFluxoInclusaoPdv({
     saldoNaoFiscal
   });
 
-  if (permitido === false) {
+  const oferecerTransferencia = permitido === true
+    && modoFiscal === true
+    && calc.podeTransferir === true;
+
+  if (!oferecerTransferencia) {
     if (calc.estoqueInsuficiente) {
-      return Object.freeze({
-        acao: 'RECUSAR',
-        quantidadeTransferir: 0,
-        devePerguntar: false,
-        mensagemBloqueio: mensagemEstoqueInsuficiente(calc.estoqueAtual),
-        calc
-      });
+      return recusarOuLiberarSemEstoquePdv(calc, permitirVendaSemEstoque);
     }
-    return Object.freeze({
-      acao: 'INCLUIR',
-      quantidadeTransferir: 0,
-      devePerguntar: false,
-      mensagemBloqueio: null,
-      calc
-    });
+    return incluirSemTransferenciaPdv(calc);
   }
 
-  if (calc.devePerguntar && respostaTransferencia == null) {
+  if (respostaTransferencia == null) {
     return Object.freeze({
       acao: 'PERGUNTAR',
       quantidadeTransferir: calc.quantidadeTransferir,
@@ -120,24 +133,10 @@ function avaliarFluxoInclusaoPdv({
   }
 
   if (calc.estoqueInsuficiente) {
-    return Object.freeze({
-      acao: 'RECUSAR',
-      quantidadeTransferir: 0,
-      devePerguntar: false,
-      mensagemBloqueio: mensagemEstoqueInsuficiente(calc.estoqueAtual),
-      calc
-    });
+    return recusarOuLiberarSemEstoquePdv(calc, permitirVendaSemEstoque);
   }
 
-  // NÃO (ou sem transferência): inclui no carrinho se o total F+NF cobre a
-  // quantidade. Modo fiscal não recusa saldo somente não fiscal.
-  return Object.freeze({
-    acao: 'INCLUIR',
-    quantidadeTransferir: 0,
-    devePerguntar: false,
-    mensagemBloqueio: null,
-    calc
-  });
+  return incluirSemTransferenciaPdv(calc);
 }
 
 function podeIniciarInclusaoPdv({ saldoFiscal, saldoNaoFiscal, controlaEstoque = true } = {}) {

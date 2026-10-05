@@ -38,7 +38,10 @@ function coletarDiagnostico(extra = {}) {
     manifestoErros = [err.message || String(err)];
   }
 
-  const integridade = validarIntegridadePacoteLocal(root, { estrito: true });
+  const integridade = validarIntegridadePacoteLocal(root, {
+    estrito: true,
+    modulo: extra.modulo
+  });
   const agora = new Date();
 
   return {
@@ -125,8 +128,8 @@ function formatarDiagnosticoTexto(diag) {
   return linhas.join('\n');
 }
 
-function garantirIntegridadeOuAbortar() {
-  const diag = coletarDiagnostico();
+function garantirIntegridadeOuAbortar(extra = {}) {
+  const diag = coletarDiagnostico(extra);
   console.log(TAG, 'diagnostico', JSON.stringify({
     status: diag.status,
     versaoErp: diag.versaoErp,

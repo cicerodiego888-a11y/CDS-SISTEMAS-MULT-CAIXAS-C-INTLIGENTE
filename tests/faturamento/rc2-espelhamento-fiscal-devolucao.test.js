@@ -17,7 +17,8 @@ const {
   montarPainelTributacaoOriginal,
   montarImpostoXmlEspelhado,
   validarEspelhamentoAntesTransmissao,
-  casarItemOrigem
+  casarItemOrigem,
+  parsearXmlNfeCompraOrigem
 } = require('../../backend/services/fiscal/espelharTributosNfeDevolucaoCompra');
 const { buildXmlNFeDevolucaoCompra } = require('../../backend/services/fiscal/xmlBuilderNfeDevolucaoCompra');
 
@@ -212,6 +213,16 @@ describe('RC2 — Builder XML final com espelhamento', () => {
     );
     assert.equal(out.ok, false);
     assert.ok(out.erros.length > 0);
+  });
+
+  it('retorna emitenteOriginal.IE a partir do XML bruto do emit', async () => {
+    const xml = fs.readFileSync(FIXTURE, 'utf8').replace(
+      '</enderEmit>\n      </emit>',
+      '</enderEmit>\n        <IE>068994613</IE>\n      </emit>'
+    );
+    const parsed = await parsearXmlNfeCompraOrigem(xml);
+    assert.equal(parsed.emitenteOriginal.CNPJ, '12345678000199');
+    assert.equal(parsed.emitenteOriginal.IE, '068994613');
   });
 });
 

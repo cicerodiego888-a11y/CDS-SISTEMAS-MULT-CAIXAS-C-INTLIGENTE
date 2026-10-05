@@ -19,12 +19,14 @@
 const { FILTRO_VENDA_VALIDA } = require('../reportFiscalHelpers');
 const { arredondarMoeda, toCentavos } = require('../fiscal/modeloTotais');
 const { STATUS } = require('./constants');
+const PerformanceMonitor = require('../../observabilidade/performance/PerformanceMonitor');
 const {
   SITUACAO_NFCE,
   classificarSituacoesFiscaisPorVenda
 } = require('./NfceSituacaoFiscalService');
 
 const ORIGEM_LEGADA_AMBIGUA = 'ORIGEM_LEGADA_AMBIGUA';
+const contextoPorResumoDia = new WeakMap();
 
 function promisifyAll(db, sql, params = []) {
   return new Promise((resolve, reject) => {
@@ -136,6 +138,7 @@ async function carregarDevolucoesDoDia(db, dataNorm) {
  */
 async function mapQuantidadesJaUtilizadas(db, dataNorm, excluirFechamentoId = null) {
   const map = new Map();
+  map.porProduto = new Map();
   try {
     const params = [dataNorm, STATUS.CANCELADO];
     let extra = '';
@@ -146,6 +149,7 @@ async function mapQuantidadesJaUtilizadas(db, dataNorm, excluirFechamentoId = nu
     const rows = await promisifyAll(
       db,
       `SELECT pi.venda_item_origem_id AS venda_item_id,
+              pi.produto_id AS produto_id,
               COALESCE(SUM(pi.quantidade), 0) AS qtd_usada
        FROM fechamentos_fiscais_previa_itens pi
        INNER JOIN fechamentos_fiscais f ON f.id = pi.fechamento_fiscal_id
@@ -153,12 +157,17 @@ async function mapQuantidadesJaUtilizadas(db, dataNorm, excluirFechamentoId = nu
          AND f.status != ?
          AND pi.venda_item_origem_id IS NOT NULL
          ${extra}
-       GROUP BY pi.venda_item_origem_id`,
+       GROUP BY pi.venda_item_origem_id, pi.produto_id`,
       params
     );
     for (const r of rows) {
       const id = Number(r.venda_item_id || 0);
-      if (id > 0) map.set(id, Number(r.qtd_usada || 0));
+      const quantidade = Number(r.qtd_usada || 0);
+      if (id !== 0) map.set(id, quantidade);
+      const produtoId = Number(r.produto_id || 0);
+      if (produtoId > 0) {
+        map.porProduto.set(produtoId, (map.porProduto.get(produtoId) || 0) + quantidade);
+      }
     }
   } catch (_) {
     /* schema ainda sem tabelas — ok em testes isolados */
@@ -277,9 +286,33 @@ async function listarLotesElegiveisDoDia(db, data, opts = {}) {
     ? Number(opts.excluirFechamentoId)
     : null;
 
-  const rows = await carregarItensDia(db, dataNorm);
-  const { byItem } = await carregarDevolucoesDoDia(db, dataNorm);
-  const jaUsado = await mapQuantidadesJaUtilizadas(db, dataNorm, excluirFechamentoId);
+  const contextoDia = opts.contextoDia || null;
+  const rows = contextoDia ? contextoDia.rows : await carregarItensDia(db, dataNorm);
+  const devolucoes = contextoDia
+    ? contextoDia.devolucoes
+    : await carregarDevolucoesDoDia(db, dataNorm);
+  const byItem = devolucoes.byItem;
+  const jaUsado = contextoDia
+    ? contextoDia.jaUsado
+    : await mapQuantidadesJaUtilizadas(db, dataNorm, excluirFechamentoId);
+  const produtos = await promisifyAll(
+    db,
+    `SELECT p.id AS produto_id,
+            p.nome AS nome,
+            p.codigo AS codigo,
+            COALESCE(p.item_fiscal, 0) AS item_fiscal,
+            COALESCE(p.saldo_fiscal, 0) AS saldo_fiscal,
+            COALESCE(p.preco_venda, 0) AS preco_venda
+     FROM produtos p
+     WHERE COALESCE(p.item_fiscal, 0) = 1
+       AND COALESCE(p.saldo_fiscal, 0) > 0
+     ORDER BY p.id ASC`
+  );
+  if (contextoDia) contextoDia.produtosFiscais = produtos;
+  const saldoPorProduto = new Map(
+    produtos.map((produto) => [Number(produto.produto_id), max0(produto.saldo_fiscal)])
+  );
+  const produtosComLote = new Set();
 
   const lotes = [];
   for (const r of rows) {
@@ -293,6 +326,9 @@ async function listarLotesElegiveisDoDia(db, data, opts = {}) {
     const usado = Number(jaUsado.get(Number(r.venda_item_id)) || 0);
     qtd = arredondarMoeda(qtd - usado);
     qtd = max0(qtd);
+    const produtoId = Number(r.produto_id);
+    const saldoRestante = Number(saldoPorProduto.get(produtoId) || 0);
+    qtd = arredondarMoeda(Math.min(qtd, saldoRestante));
     if (!(qtd > 0)) continue;
 
     let valor = calcularValorFiscalElegivel(r, qtd);
@@ -335,15 +371,62 @@ async function listarLotesElegiveisDoDia(db, data, opts = {}) {
       situacao_fiscal_nfce: r.situacao_fiscal_nfce,
       origem_distribuicao: classificarOrigemDistribuicao(r)
     });
+    saldoPorProduto.set(produtoId, max0(saldoRestante - qtd));
+    produtosComLote.add(produtoId);
   }
 
-  return lotes;
+  for (const produto of produtos) {
+    const produtoId = Number(produto.produto_id);
+    if (produtosComLote.has(produtoId)) continue;
+
+    const saldoFiscal = max0(produto.saldo_fiscal);
+    const usado = Number(jaUsado.porProduto.get(produtoId) || 0);
+    const quantidade = max0(Number((saldoFiscal - usado).toFixed(3)));
+    const preco = Number(produto.preco_venda || 0);
+    if (!(quantidade > 0) || !(preco > 0)) continue;
+
+    const valor = arredondarMoeda(quantidade * preco);
+    const unitCents = toCentavos(preco);
+    if (!(valor > 0) || !(unitCents > 0)) continue;
+
+    lotes.push({
+      venda_item_id: -produtoId,
+      venda_id: 0,
+      produto_id: produtoId,
+      nome: produto.nome,
+      codigo: produto.codigo,
+      unidade: 'UN',
+      fracionado: !Number.isInteger(quantidade),
+      quantidade_original: quantidade,
+      quantidade_fiscal: quantidade,
+      quantidade_nao_fiscal: 0,
+      valor_original: valor,
+      valor_fiscal: valor,
+      valor_nao_fiscal: 0,
+      preco_unitario: preco,
+      preco_unitario_comercial: preco,
+      valor_unitario_fiscal: preco,
+      quantidade_fiscal_consumida_em_operacao_nao_fiscal: 0,
+      quantidade_disponivel: quantidade,
+      valor_disponivel: valor,
+      unit_cents: unitCents,
+      operacao: 'SALDO_FISCAL_CADASTRO',
+      situacao_fiscal_nfce: null,
+      origem_distribuicao: 'SALDO_FISCAL_CADASTRO'
+    });
+  }
+
+  return lotes.sort((a, b) => {
+    if (a.produto_id !== b.produto_id) return a.produto_id - b.produto_id;
+    return a.venda_item_id - b.venda_item_id;
+  });
 }
 
 function agregarProdutosDosLotes(lotes) {
   const map = new Map();
   for (const l of Array.isArray(lotes) ? lotes : []) {
     const key = Number(l.produto_id);
+    const origemCatalogo = l.origem_distribuicao === 'SALDO_FISCAL_CADASTRO';
     const prev = map.get(key) || {
       produto_id: key,
       nome: l.nome,
@@ -358,7 +441,7 @@ function agregarProdutosDosLotes(lotes) {
       prev.quantidade_disponivel + Number(l.quantidade_disponivel || 0)
     );
     prev.valor_vendido_no_dia = arredondarMoeda(
-      prev.valor_vendido_no_dia + Number(l.valor_disponivel || 0)
+      prev.valor_vendido_no_dia + (origemCatalogo ? 0 : Number(l.valor_disponivel || 0))
     );
     prev.lotes.push(l);
     map.set(key, prev);
@@ -376,13 +459,19 @@ async function listarProdutosElegiveisDoDia(db, data, opts = {}) {
  */
 async function listarMonitoramentoProdutosDoDia(db, data, opts = {}) {
   const dataNorm = String(data || '').trim().slice(0, 10);
-  const rows = await carregarItensDia(db, dataNorm);
-  const { byItem } = await carregarDevolucoesDoDia(db, dataNorm);
-  const jaUsado = await mapQuantidadesJaUtilizadas(
-    db,
-    dataNorm,
-    opts.excluirFechamentoId != null ? Number(opts.excluirFechamentoId) : null
-  );
+  const contextoDia = opts.contextoDia || null;
+  const rows = contextoDia ? contextoDia.rows : await carregarItensDia(db, dataNorm);
+  const devolucoes = contextoDia
+    ? contextoDia.devolucoes
+    : await carregarDevolucoesDoDia(db, dataNorm);
+  const byItem = devolucoes.byItem;
+  const jaUsado = contextoDia
+    ? contextoDia.jaUsado
+    : await mapQuantidadesJaUtilizadas(
+      db,
+      dataNorm,
+      opts.excluirFechamentoId != null ? Number(opts.excluirFechamentoId) : null
+    );
 
   const map = new Map();
   for (const r of rows) {
@@ -457,13 +546,21 @@ async function listarMonitoramentoProdutosDoDia(db, data, opts = {}) {
     .sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
 }
 
-async function obterResumoDia(db, data, opts = {}) {
+async function obterResumoDiaInterno(db, data, opts = {}) {
   const dataNorm = String(data || '').trim().slice(0, 10);
 
   const rows = await carregarItensDia(db, dataNorm);
-  const lotes = await listarLotesElegiveisDoDia(db, dataNorm, opts);
+  const devolucoes = await carregarDevolucoesDoDia(db, dataNorm);
+  const jaUsado = await mapQuantidadesJaUtilizadas(
+    db,
+    dataNorm,
+    opts.excluirFechamentoId != null ? Number(opts.excluirFechamentoId) : null
+  );
+  const contextoDia = { rows, devolucoes, jaUsado };
+
+  const lotes = await listarLotesElegiveisDoDia(db, dataNorm, { ...opts, contextoDia });
   const produtos = agregarProdutosDosLotes(lotes);
-  const monitoramento = await listarMonitoramentoProdutosDoDia(db, dataNorm, opts);
+  const monitoramento = await listarMonitoramentoProdutosDoDia(db, dataNorm, { ...opts, contextoDia });
 
   const vendasIds = new Set();
   const vendasNaoFiscaisIds = new Set();
@@ -525,7 +622,7 @@ async function obterResumoDia(db, data, opts = {}) {
 
   const capacidade = valorFiscalElegivel;
 
-  return {
+  const resumo = {
     data: dataNorm,
     periodo: '00:00 às 23:59',
     // KPIs Sprint 06
@@ -549,16 +646,35 @@ async function obterResumoDia(db, data, opts = {}) {
     lotes,
     monitoramento
   };
+  contextoPorResumoDia.set(resumo, contextoDia);
+  return resumo;
+}
+
+async function obterResumoDia(db, data, opts = {}) {
+  return PerformanceMonitor.measureAsync(
+    'fiscal:preview:T3-eligibility',
+    () => obterResumoDiaInterno(db, data, opts),
+    { data: String(data || '').slice(0, 10) }
+  );
+}
+
+function obterContextoResumoDia(resumo) {
+  return resumo && typeof resumo === 'object'
+    ? contextoPorResumoDia.get(resumo) || null
+    : null;
 }
 
 /**
  * Cobertura fiscal já documentada no dia: operações COM NFC-e autorizada
  * (não usa lotes elegíveis; canceladas já ficam de fora de carregarItensDia).
  */
-async function calcularCoberturaFiscalDoDia(db, data) {
+async function calcularCoberturaFiscalDoDia(db, data, contextoDia = null) {
   const dataNorm = String(data || '').trim().slice(0, 10);
-  const rows = await carregarItensDia(db, dataNorm);
-  const { byItem } = await carregarDevolucoesDoDia(db, dataNorm);
+  const rows = contextoDia ? contextoDia.rows : await carregarItensDia(db, dataNorm);
+  const devolucoes = contextoDia
+    ? contextoDia.devolucoes
+    : await carregarDevolucoesDoDia(db, dataNorm);
+  const { byItem } = devolucoes;
   const vendasCobertas = new Set();
   let total = 0;
 
@@ -633,6 +749,7 @@ module.exports = {
   listarMonitoramentoProdutosDoDia,
   agregarProdutosDosLotes,
   obterResumoDia,
+  obterContextoResumoDia,
   calcularCoberturaFiscalDoDia,
   snapshotComercial,
   calcularValorFiscalElegivel,

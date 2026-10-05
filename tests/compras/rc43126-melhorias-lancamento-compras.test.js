@@ -41,7 +41,6 @@ function extrairMargemCadastradaProduto(produto) {
 
 function resolverDadosComerciaisProdutoCompra(produto, ultimaCompra = null) {
   const cadastro = extrairMargemCadastradaProduto(produto);
-  const margem = cadastro.margem;
   const origemMargem = cadastro.fallback ? ORIGEM.PADRAO : ORIGEM.CADASTRO;
   const precoCadastro = Number(produto?.preco_compra || 0);
   let preco = precoCadastro;
@@ -54,7 +53,8 @@ function resolverDadosComerciaisProdutoCompra(produto, ultimaCompra = null) {
     );
     if (precoHist > 0) preco = precoHist;
   }
-  const venda = preco > 0 ? Number((preco * (1 + margem / 100)).toFixed(2)) : 0;
+  const venda = Number(produto?.preco_venda || 0);
+  const margem = venda > 0 ? Number((((venda - preco) / venda) * 100).toFixed(2)) : 0;
   return {
     preco_unitario: preco,
     margem_lucro: margem,
@@ -94,40 +94,49 @@ test('Fallback do lançamento é 35% (não 30%)', () => {
   assert.doesNotMatch(comprasJs, /MARGEM_PADRAO_FALLBACK_COMPRA = 30/);
 });
 
-test('Produto com margem cadastrada 18%', () => {
-  const r = resolverDadosComerciaisProdutoCompra({ lucro_percentual: 18, preco_compra: 10 }, null);
-  assert.strictEqual(r.margem_lucro, 18);
+test('Preço de venda explícito define margem, não a margem cadastrada', () => {
+  const r = resolverDadosComerciaisProdutoCompra({
+    lucro_percentual: 18,
+    preco_compra: 10,
+    preco_venda: 12.2
+  }, null);
+  assert.strictEqual(r.preco_venda_sugerido, 12.2);
+  assert.strictEqual(r.margem_lucro, 18.03);
   assert.strictEqual(r.origem, ORIGEM.CADASTRO);
   assert.strictEqual(r.fallback, false);
 });
 
-test('Produto com margem cadastrada 28%', () => {
+test('Preço cadastrado ausente permanece zero apesar da margem cadastrada', () => {
   const r = resolverDadosComerciaisProdutoCompra({ lucro_percentual: 28, preco_compra: 10 }, null);
-  assert.strictEqual(r.margem_lucro, 28);
+  assert.strictEqual(r.preco_venda_sugerido, 0);
+  assert.strictEqual(r.margem_lucro, 0);
   assert.strictEqual(r.origem, ORIGEM.CADASTRO);
 });
 
-test('Produto sem margem → campo usa 35%', () => {
+test('Produto sem preço de venda não inventa preço pelo fallback de margem', () => {
   const r = resolverDadosComerciaisProdutoCompra({ nome: 'Sem margem', preco_compra: 10 }, null);
-  assert.strictEqual(r.margem_lucro, 35);
+  assert.strictEqual(r.preco_venda_sugerido, 0);
+  assert.strictEqual(r.margem_lucro, 0);
   assert.strictEqual(r.origem, ORIGEM.PADRAO);
   assert.strictEqual(r.fallback, true);
 });
 
-test('Usuário altera margem para 40% — form preserva valor informado', () => {
-  assert.match(comprasJs, /function marcarMargemManualCompra/);
-  assert.match(comprasJs, /margemInformadaManualCompra/);
-  assert.match(comprasJs, /preservarMargemManual/);
+test('Alterar a margem não altera o preço de venda', () => {
+  const handler = comprasJs.match(/function marcarMargemManualCompra\(\) \{[\s\S]*?\n\}/);
+  assert.ok(handler);
+  assert.match(handler[0], /calcularMargemItem\(\)/);
+  assert.doesNotMatch(handler[0], /calcularValorVendaItem\(\)/);
   assert.match(comprasJs, /oninput="marcarMargemManualCompra\(\)"/);
 });
 
-test('Margem do cadastro prevalece sobre margem da última compra', () => {
+test('A última compra informa o custo, mas o preço de venda vem do cadastro', () => {
   const r = resolverDadosComerciaisProdutoCompra(
-    { lucro_percentual: 22, preco_compra: 8 },
+    { lucro_percentual: 22, preco_compra: 8, preco_venda: 15 },
     { custo: 10, margem_lucro: 18, preco_venda_sugerido: 11.8 }
   );
-  assert.strictEqual(r.margem_lucro, 22);
+  assert.strictEqual(r.margem_lucro, 33.33);
   assert.strictEqual(r.preco_unitario, 10);
+  assert.strictEqual(r.preco_venda_sugerido, 15);
   assert.strictEqual(r.origem, ORIGEM.CADASTRO);
 });
 
@@ -173,12 +182,17 @@ test('Navegação sequencial A→B→C', () => {
   assert.strictEqual(encontrarProximoIndiceLancamentoCompra(itens, 2), null);
 });
 
-test('Venda usa margem exibida (cadastro/35/manual via form)', () => {
-  const r = resolverDadosComerciaisProdutoCompra({ lucro_percentual: 18, preco_compra: 10 }, null);
-  assert.strictEqual(r.preco_venda_sugerido, 11.8);
+test('Venda usa preço explícito e margem é calculada a partir dele', () => {
+  const r = resolverDadosComerciaisProdutoCompra({
+    lucro_percentual: 18,
+    preco_compra: 2,
+    preco_venda: 2.7
+  }, null);
+  assert.strictEqual(r.preco_venda_sugerido, 2.7);
+  assert.strictEqual(r.margem_lucro, 25.93);
   const r35 = resolverDadosComerciaisProdutoCompra({ preco_compra: 10 }, null);
-  assert.strictEqual(r35.preco_venda_sugerido, 13.5);
-  assert.match(comprasJs, /calcularValorVendaItem/);
+  assert.strictEqual(r35.preco_venda_sugerido, 0);
+  assert.match(comprasJs, /calcularMargemEntradaManualCompra/);
 });
 
 console.log(`\n--- Resultado: ${ok} OK, ${falhas} falha(s) ---\n`);

@@ -80,7 +80,12 @@ async function sincronizarSaldoAoAbrir(dbOrDeps, fechamentoId, opts = {}) {
     throw err;
   }
 
-  const saldo = await recalcularSaldoFechamento(db, id, opts);
+  // valor_principal congela na 1ª emissão/transmissão — abrir rascunho/prévia não congela.
+  const antesDaEmissao = ff.status === STATUS.RASCUNHO || ff.status === STATUS.PREVIA;
+  const saldo = await recalcularSaldoFechamento(db, id, {
+    ...opts,
+    congelarPrincipal: opts.congelarPrincipal != null ? opts.congelarPrincipal : !antesDaEmissao
+  });
   const statusNovo = statusOperacionalDoSaldo(saldo, ff.status);
   const statusAnterior = String(ff.status || '');
 
@@ -252,30 +257,45 @@ async function recalcularSaldoFechamento(dbOrDeps, fechamentoId, opts = {}) {
     throw err;
   }
 
-  const principal = await garantirValorPrincipal(
-    db,
-    id,
-    opts.candidatoPrincipal != null
-      ? opts.candidatoPrincipal
-      : (ff.valor_distribuido > 0 ? ff.valor_distribuido : ff.valor_informado)
-  );
+  const candidato = opts.candidatoPrincipal != null
+    ? opts.candidatoPrincipal
+    : (ff.valor_distribuido > 0 ? ff.valor_distribuido : ff.valor_informado);
 
   const { valor: emitido, documentos } = await somarValorAutorizadoDocumentos(db, id);
-  const principalCents = toCentavos(principal);
   const emitidoCents = toCentavos(emitido);
+  // Sem autorização, opts.congelarPrincipal === false apenas deriva o principal (não persiste).
+  const congelarPrincipal = opts.congelarPrincipal !== false || emitidoCents > 0;
+  const principal = congelarPrincipal
+    ? await garantirValorPrincipal(db, id, candidato)
+    : arredondarMoeda(Math.max(0, Number(
+      toCentavos(ff.valor_principal) > 0 ? ff.valor_principal : candidato
+    ) || 0));
+  const principalCents = toCentavos(principal);
   const pendenteCents = calcularPendente(principalCents, emitidoCents);
   const pendente = arredondarMoeda(pendenteCents / 100);
 
-  await run(
-    db,
-    `UPDATE fechamentos_fiscais
-     SET valor_principal = ?,
-         valor_emitido_autorizado = ?,
-         valor_pendente_emissao = ?,
-         atualizado_em = ?
-     WHERE id = ?`,
-    [principal, emitido, pendente, agoraLocal(), id]
-  );
+  if (congelarPrincipal) {
+    await run(
+      db,
+      `UPDATE fechamentos_fiscais
+       SET valor_principal = ?,
+           valor_emitido_autorizado = ?,
+           valor_pendente_emissao = ?,
+           atualizado_em = ?
+       WHERE id = ?`,
+      [principal, emitido, pendente, agoraLocal(), id]
+    );
+  } else {
+    await run(
+      db,
+      `UPDATE fechamentos_fiscais
+       SET valor_emitido_autorizado = ?,
+           valor_pendente_emissao = ?,
+           atualizado_em = ?
+       WHERE id = ?`,
+      [emitido, pendente, agoraLocal(), id]
+    );
+  }
 
   logSaldo('SALDO_FECHAMENTO_RECALCULADO', {
     fechamento_id: id,

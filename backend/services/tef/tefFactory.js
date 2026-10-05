@@ -32,7 +32,52 @@ function provedorReconhecido(provedor) {
   return PROVEDORES.includes(normalizarProvedor(provedor));
 }
 
-function criarAdapter(registro) {
+const AMBIENTES_DESTAXA_REAL = new Set(['homologacao', 'producao', 'produção']);
+
+function erroAdapterDestaxa(codigo, mensagem, detalhes = {}) {
+  const error = new Error(mensagem);
+  error.codigo = codigo;
+  error.code = codigo;
+  error.detalhes = detalhes;
+  return error;
+}
+
+/**
+ * Destaxa não tem fallback silencioso:
+ * - ambiente ausente/"simulacao" → adapter simulado (nunca o real);
+ * - homologacao/producao → DestaxaRealAdapter, ou erro explícito se indisponível;
+ * - qualquer outro valor → erro explícito.
+ */
+function criarAdapterDestaxa(registro, opcoes = {}) {
+  const ambiente = String(registro.ambiente || 'simulacao').trim().toLowerCase();
+
+  if (ambiente === 'simulacao') {
+    return DestaxaAdapter(registro);
+  }
+
+  if (!AMBIENTES_DESTAXA_REAL.has(ambiente)) {
+    throw erroAdapterDestaxa(
+      'DESTAXA_AMBIENTE_INVALIDO',
+      `Ambiente TEF Destaxa inválido: "${registro.ambiente}"`,
+      { ambiente: registro.ambiente }
+    );
+  }
+
+  const verificar = opcoes.verificarDisponibilidadeReal
+    || ((cfg) => DestaxaRealAdapter.verificarDisponibilidade(cfg));
+  const disponibilidade = verificar(registro);
+  if (!disponibilidade || disponibilidade.disponivel !== true) {
+    throw erroAdapterDestaxa(
+      'DESTAXA_REAL_ADAPTER_INDISPONIVEL',
+      `Ambiente "${ambiente}" exige DestaxaRealAdapter, mas ele está indisponível: ${disponibilidade?.mensagem || 'motivo não informado'}`,
+      { ambiente, motivo: disponibilidade?.codigo || null, dllPath: disponibilidade?.dllPath || null }
+    );
+  }
+
+  return new DestaxaRealAdapter(registro, opcoes.adapterOpcoes || {});
+}
+
+function criarAdapter(registro, opcoes = {}) {
   if (!registro) {
     throw new Error('TEF não configurado');
   }
@@ -55,10 +100,7 @@ function criarAdapter(registro) {
   }
 
   if (provedor === 'destaxa') {
-    if (usarReal) {
-      return new DestaxaRealAdapter(registro);
-    }
-    return DestaxaAdapter(registro);
+    return criarAdapterDestaxa(registro, opcoes);
   }
 
   const gateways = {
@@ -85,6 +127,7 @@ async function obterAdapter() {
 module.exports = {
   obterAdapter,
   criarAdapter,
+  criarAdapterDestaxa,
   ambienteUsaMiddlewareReal,
   provedorReconhecido,
   PROVEDORES

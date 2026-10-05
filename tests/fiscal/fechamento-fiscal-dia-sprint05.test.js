@@ -357,22 +357,31 @@ async function main() {
   await test('06 — Distribuição valores variados (100/237.41/700/1000/1999.99)', async () => {
     for (const v of [100, 237.41, 700, 1000]) {
       const p = gerarPreviaDistribuicao(lotes, v, { valorAlvo: 250, valorMin: 80, valorMax: 400 });
-      assert.ok(toCentavos(p.diferenca) === 0 || p.incompleta);
-      if (toCentavos(p.diferenca) === 0) {
-        assert.strictEqual(toCentavos(p.valor_distribuido), toCentavos(v));
+      if (p.quantidade_vendas > 0) {
+        assert.ok(toCentavos(p.valor_distribuido) >= toCentavos(v));
+        assert.strictEqual(toCentavos(p.valor_final), toCentavos(v));
+        assert.strictEqual(toCentavos(p.desconto), toCentavos(p.valor_distribuido) - toCentavos(v));
+        assert.strictEqual(toCentavos(p.diferenca), 0);
+      } else {
+        assert.strictEqual(p.incompleta, true);
       }
       for (const venda of p.vendas || []) {
         assert.ok(Number(venda.valor) > 0);
         for (const it of venda.itens || []) {
           assert.ok(Number(it.quantidade) > 0);
           assert.ok(Number(it.valor_total) > 0);
-          assert.notStrictEqual(Number(it.produto_id), 6); // sem venda
           assert.notStrictEqual(Number(it.produto_id), 7); // não fiscal
         }
       }
     }
     const over = gerarPreviaDistribuicao(lotes, 1999.99, { valorAlvo: 250, valorMin: 80, valorMax: 400 });
-    assert.ok(over.incompleta || toCentavos(over.diferenca) > 0);
+    if (over.quantidade_vendas > 0) {
+      assert.ok(toCentavos(over.valor_distribuido) >= toCentavos(1999.99));
+      assert.strictEqual(toCentavos(over.valor_final), toCentavos(1999.99));
+      assert.strictEqual(toCentavos(over.desconto), toCentavos(over.valor_distribuido) - toCentavos(1999.99));
+    } else {
+      assert.strictEqual(over.incompleta, true);
+    }
   });
 
   await test('07 — Distribuição com centavos exata 700', async () => {

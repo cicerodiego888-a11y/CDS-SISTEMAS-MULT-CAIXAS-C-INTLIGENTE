@@ -127,6 +127,19 @@ function resolverAmbiente(valor) {
   return ambiente;
 }
 
+const AMBIENTES_VALIDOS = Object.freeze(['simulacao', 'homologacao', 'producao']);
+
+function garantirAmbientePersistivel(dados) {
+  const ambiente = dados?.principal?.ambiente;
+  if (ambiente != null && !AMBIENTES_VALIDOS.includes(ambiente)) {
+    const erro = new Error(`Ambiente TEF inválido: "${ambiente}". Use ${AMBIENTES_VALIDOS.join(', ')}.`);
+    erro.statusCode = 400;
+    erro.codigo = 'TEF_AMBIENTE_INVALIDO';
+    throw erro;
+  }
+  return dados;
+}
+
 function resolverModoAdapter(ambiente) {
   const a = String(ambiente || 'simulacao').toLowerCase();
   if (a === 'homologacao' || a === 'producao' || a === 'produção') {
@@ -412,7 +425,7 @@ async function criarConfiguracao(payload) {
       : DEFAULTS_CONFIG.tefTentativas
   };
 
-  const dados = mapearPayloadEntrada(payloadComDefaults);
+  const dados = garantirAmbientePersistivel(mapearPayloadEntrada(payloadComDefaults));
   const registro = await repository.salvarConfiguracaoCompleta(dados, { atualizar: false });
   const config = mapearConfiguracaoSaida(registro);
   logConfig('salva', config);
@@ -421,7 +434,7 @@ async function criarConfiguracao(payload) {
 
 async function atualizarConfiguracao(payload) {
   const existente = await repository.buscarConfiguracaoCompleta();
-  const dados = mapearPayloadEntrada(payload, existente);
+  const dados = garantirAmbientePersistivel(mapearPayloadEntrada(payload, existente));
   const registro = await repository.salvarConfiguracaoCompleta(dados, { atualizar: true });
   const config = mapearConfiguracaoSaida(registro);
   logConfig('atualizada', config);
@@ -448,7 +461,7 @@ async function salvarConfiguracao(payload) {
     }
     : payload;
 
-  const dados = mapearPayloadEntrada(payloadFinal, existente);
+  const dados = garantirAmbientePersistivel(mapearPayloadEntrada(payloadFinal, existente));
   const registro = await repository.salvarConfiguracaoCompleta(dados, {
     atualizar: Boolean(existente?.principal)
   });
@@ -500,6 +513,12 @@ function validarConfiguracao(config = {}, opcoes = {}) {
 
   if (!config.tefAmbiente) {
     pendencias.push('Ambiente TEF não informado');
+  } else if (!AMBIENTES_VALIDOS.includes(ambiente)) {
+    pendencias.push(`Ambiente TEF inválido: ${config.tefAmbiente}`);
+  }
+
+  if (modoAdapter === 'real' && ambiente === 'simulacao') {
+    pendencias.push('Ambiente simulacao não permite adapter real');
   }
 
   // Destaxa 1.83: estabelecimento, loja e terminal são opcionais no iniciaClient.
@@ -780,6 +799,8 @@ module.exports = {
   mapearConfiguracaoSaida,
   mapearPayloadEntrada,
   validarConfiguracao,
+  garantirAmbientePersistivel,
+  AMBIENTES_VALIDOS,
   getConfig: obterConfiguracao,
   saveConfig: salvarConfiguracao,
   updateConfig: atualizarConfiguracao,

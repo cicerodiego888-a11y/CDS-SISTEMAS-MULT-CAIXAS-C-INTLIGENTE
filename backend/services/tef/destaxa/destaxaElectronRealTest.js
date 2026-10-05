@@ -76,7 +76,7 @@ async function executarNoProcessoElectron() {
   const vspague = inspecionarVsPagueClient();
   console.log('[TEF-DESTAXA-ELECTRON-TEST] VSPagueClient', vspague);
 
-  const adapter = new DestaxaRealAdapter({});
+  const adapter = new DestaxaRealAdapter({}, { executionMode: 'in-process' });
   const carregado = adapter.bridge.load();
   const diagLoad = adapter.bridge.getDiagnostics();
 

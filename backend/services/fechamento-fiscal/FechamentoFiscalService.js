@@ -6,18 +6,30 @@
 
 const { arredondarMoeda, toCentavos, somarMoeda } = require('../fiscal/modeloTotais');
 const { STATUS, STATUS_ATIVOS, DEFAULTS_DISTRIBUICAO } = require('./constants');
+const PerformanceMonitor = require('../../observabilidade/performance/PerformanceMonitor');
+const { gerarPreviaDistribuicaoNoWorker } = require('./FechamentoFiscalDistribuicaoWorker');
 const {
   listarProdutosElegiveisDoDia,
   listarLotesElegiveisDoDia,
   listarMonitoramentoProdutosDoDia,
   obterResumoDia,
+  obterContextoResumoDia,
   snapshotComercial,
   agregarProdutosDosLotes
 } = require('./FechamentoFiscalElegibilidadeService');
-const { gerarPreviaDistribuicao } = require('./FechamentoFiscalDistribuicaoService');
+const {
+  gerarPreviaDistribuicao,
+  agruparUnidades,
+  selecionarUnidadesCompactas,
+  empacotarVendaUnicaAgrupada,
+  consolidarPorProduto
+} = require('./FechamentoFiscalDistribuicaoService');
 const complementacao = require('./FechamentoFiscalComplementacaoService');
 const preparacao = require('./FechamentoFiscalPreparacaoService');
 const moduloConfig = require('./fechamentoFiscalModuloConfig');
+const previewsEmAndamento = new Map();
+const dbIdentidades = new WeakMap();
+let proximaIdentidadeDb = 0;
 
 function getDb(dbOverride) {
   if (dbOverride) return dbOverride;
@@ -109,6 +121,39 @@ function logTecnico(evento, payload = {}) {
   console.log(`[FechamentoFiscal] ${evento}`, JSON.stringify(payload));
 }
 
+function iniciarMetrica(nome, detalhes = {}) {
+  return PerformanceMonitor.start(`fiscal:preview:${nome}`, detalhes);
+}
+
+function finalizarMetrica(id, detalhes = {}) {
+  if (id) PerformanceMonitor.end(id, detalhes);
+}
+
+async function medirEtapa(nome, executar, detalhes = {}) {
+  const inicio = performance.now();
+  const id = iniciarMetrica(nome, detalhes);
+  try {
+    return await executar();
+  } finally {
+    finalizarMetrica(id, { elapsed_ms: Number((performance.now() - inicio).toFixed(3)) });
+  }
+}
+
+function normalizarListaComprovantes(comprovantes = []) {
+  const lista = Array.isArray(comprovantes) ? comprovantes : [];
+  const valores = [];
+
+  for (const item of lista) {
+    const valor = item && typeof item === 'object'
+      ? (item.valor ?? item.valor_comprovante ?? item.total ?? item.amount ?? null)
+      : item;
+    const normalizado = normalizarValorMonetarioComprovante(valor);
+    if (normalizado !== null) valores.push({ valor: normalizado, ordem: valores.length + 1 });
+  }
+
+  return valores;
+}
+
 async function resolverCnpjEmpresa(db, cnpjInformado) {
   const digits = normalizarCnpj(cnpjInformado);
   if (digits) return digits;
@@ -143,6 +188,379 @@ async function listarRecebimentos(db, fechamentoId) {
   );
 }
 
+async function listarVendasElegiveisRecebimento(dbOverride, fechamentoId, dataInformada = null) {
+  const db = getDb(dbOverride);
+  const idFechamento = Number(fechamentoId);
+  const fechamento = Number.isInteger(idFechamento) && idFechamento > 0
+    ? await get(
+      db,
+      `SELECT id, data_fechamento FROM fechamentos_fiscais WHERE id = ?`,
+      [idFechamento]
+    )
+    : null;
+  if (!fechamento && !dataInformada) {
+    const err = new Error('Fechamento fiscal não encontrado.');
+    err.statusCode = 404;
+    err.code = 'FECHAMENTO_NAO_ENCONTRADO';
+    throw err;
+  }
+
+  const data = normalizarData(dataInformada || fechamento?.data_fechamento);
+  const lotes = await listarLotesElegiveisDoDia(db, data, {
+    excluirFechamentoId: fechamento ? idFechamento : null
+  });
+  const vendaIds = [...new Set(lotes.map((lote) => Number(lote.venda_id)).filter((id) => Number.isInteger(id) && id > 0))];
+  if (!vendaIds.length) {
+    return {
+      vendas: [],
+      resumo: { quantidade_vendas: 0, total_vendas: 0, quantidade_comprovantes: 0, total_comprovantes: 0, diferenca: 0 }
+    };
+  }
+
+  const dataHoraExpr = 'v.data_venda';
+  const placeholders = vendaIds.map(() => '?').join(', ');
+  const rows = await all(
+    db,
+    `SELECT
+       v.id AS venda_id,
+       v.codigo AS codigo,
+       ${dataHoraExpr} AS data_hora,
+       COALESCE(v.total, 0) AS valor_venda,
+       r.valor_comprovante,
+       r.diferenca,
+       r.id AS recebimento_venda_id
+     FROM vendas v
+     LEFT JOIN fechamentos_fiscais_recebimentos_vendas r
+       ON r.fechamento_fiscal_id = ? AND r.venda_id = v.id
+     WHERE date(${dataHoraExpr}) = date(?)
+       AND v.id IN (${placeholders})
+     ORDER BY ${dataHoraExpr} ASC, v.id ASC`,
+    [idFechamento || null, data, ...vendaIds]
+  );
+
+  const vendas = rows.map((row) => ({
+    venda_id: Number(row.venda_id),
+    codigo: row.codigo == null ? null : String(row.codigo),
+    data_hora: row.data_hora,
+    valor_venda: toCentavos(row.valor_venda || 0) / 100,
+    valor_comprovante: row.valor_comprovante == null ? null : toCentavos(row.valor_comprovante) / 100,
+    diferenca: row.diferenca == null ? null : toCentavos(row.diferenca) / 100,
+    valor_original: toCentavos(row.valor_venda || 0) / 100,
+    recebimento_venda_id: row.recebimento_venda_id != null ? Number(row.recebimento_venda_id) : null
+  }));
+
+  const totalVendasCentavos = vendas.reduce((soma, item) => soma + toCentavos(item.valor_venda), 0);
+  const comprovantes = vendas.filter((item) => item.valor_comprovante != null);
+  const totalComprovantesCentavos = comprovantes.reduce((soma, item) => soma + toCentavos(item.valor_comprovante), 0);
+  const totalVendasComComprovanteCentavos = comprovantes.reduce((soma, item) => soma + toCentavos(item.valor_venda), 0);
+  const diferencaTotalCentavos = totalComprovantesCentavos - totalVendasComComprovanteCentavos;
+
+  return {
+    vendas,
+    resumo: {
+      quantidade_vendas: vendas.length,
+      total_vendas: totalVendasCentavos / 100,
+      quantidade_comprovantes: comprovantes.length,
+      total_comprovantes: totalComprovantesCentavos / 100,
+      diferenca: diferencaTotalCentavos / 100
+    }
+  };
+}
+
+async function listarComprovantesRecebimento(dbOverride, fechamentoId) {
+  const db = getDb(dbOverride);
+  const fechamento = await get(
+    db,
+    `SELECT id, data_fechamento, status, valor_informado FROM fechamentos_fiscais WHERE id = ?`,
+    [Number(fechamentoId)]
+  );
+  if (!fechamento) {
+    const err = new Error('Fechamento fiscal não encontrado.');
+    err.statusCode = 404;
+    err.code = 'FECHAMENTO_NAO_ENCONTRADO';
+    throw err;
+  }
+
+  const rows = await all(
+    db,
+    `SELECT id, valor, ordem, criado_em, atualizado_em
+     FROM fechamentos_fiscais_recebimentos_comprovantes
+     WHERE fechamento_fiscal_id = ?
+     ORDER BY ordem ASC, id ASC`,
+    [Number(fechamentoId)]
+  );
+
+  const comprovantes = rows.map((row) => ({
+    id: Number(row.id),
+    valor: toCentavos(row.valor || 0) / 100,
+    ordem: Number(row.ordem || 0),
+    criado_em: row.criado_em,
+    atualizado_em: row.atualizado_em
+  }));
+  const total = comprovantes.reduce((soma, item) => soma + toCentavos(item.valor), 0) / 100;
+
+  return {
+    comprovantes,
+    total,
+    quantidade: comprovantes.length,
+    valor_informado: fechamento.valor_informado != null ? arredondarMoeda(fechamento.valor_informado) : total
+  };
+}
+
+function normalizarValorMonetarioComprovante(valor) {
+  if (valor === null || valor === undefined || String(valor).trim() === '') return null;
+  if (typeof valor === 'number') {
+    if (!Number.isFinite(valor) || valor < 0) return null;
+    return arredondarMoeda(valor);
+  }
+  const texto = String(valor).trim();
+  if (!texto) return null;
+
+  let normalizado = texto.replace(/\s+/g, '');
+  if (normalizado.includes(',')) {
+    const parteDecimal = normalizado.split(',');
+    if (parteDecimal.length > 2) return null;
+    const inteira = parteDecimal[0].replace(/\./g, '');
+    const decimal = parteDecimal[1].slice(0, 2);
+    if (!/^\d+$/.test(inteira) || !/^\d{1,2}$/.test(decimal)) return null;
+    normalizado = `${inteira}.${decimal}`;
+  } else if (/^\d{1,3}(?:\.\d{3})+$/.test(normalizado)) {
+    normalizado = normalizado.replace(/\./g, '');
+  } else if (!/^\d+(?:\.\d+)?$/.test(normalizado)) {
+    return null;
+  }
+
+  const numero = Number(normalizado);
+  if (!Number.isFinite(numero) || numero < 0) return null;
+  return arredondarMoeda(numero);
+}
+
+async function salvarComprovantesRecebimento(dbOverride, fechamentoId, comprovantes = []) {
+  const db = getDb(dbOverride);
+  const fechamento = await get(
+    db,
+    `SELECT id, data_fechamento, status, valor_informado FROM fechamentos_fiscais WHERE id = ?`,
+    [Number(fechamentoId)]
+  );
+  if (!fechamento) {
+    const err = new Error('Fechamento fiscal não encontrado.');
+    err.statusCode = 404;
+    err.code = 'FECHAMENTO_NAO_ENCONTRADO';
+    throw err;
+  }
+  if (![STATUS.RASCUNHO, STATUS.PREVIA].includes(fechamento.status)) {
+    const err = new Error('Comprovantes só podem ser alterados em RASCUNHO ou PREVIA.');
+    err.statusCode = 400;
+    err.code = 'FECHAMENTO_BLOQUEADO';
+    throw err;
+  }
+
+  const lista = Array.isArray(comprovantes) ? comprovantes : [];
+  const valores = [];
+  for (let idx = 0; idx < lista.length; idx += 1) {
+    const item = lista[idx];
+    const valor = normalizarValorMonetarioComprovante(item?.valor ?? item ?? null);
+    if (valor === null && (item !== null && item !== undefined && String(item).trim() !== '')) {
+      const err = new Error('Valor do comprovante inválido.');
+      err.statusCode = 400;
+      err.code = 'VALOR_COMPROVANTE_INVALIDO';
+      throw err;
+    }
+    if (valor !== null) valores.push({ valor, ordem: idx });
+  }
+
+  await run(db, 'BEGIN IMMEDIATE');
+  try {
+    await run(
+      db,
+      `DELETE FROM fechamentos_fiscais_recebimentos_comprovantes WHERE fechamento_fiscal_id = ?`,
+      [Number(fechamentoId)]
+    );
+    for (const item of valores) {
+      await run(
+        db,
+        `INSERT INTO fechamentos_fiscais_recebimentos_comprovantes
+          (fechamento_fiscal_id, valor, ordem, criado_em, atualizado_em)
+         VALUES (?, ?, ?, datetime('now','localtime'), datetime('now','localtime'))`,
+        [Number(fechamentoId), item.valor, item.ordem]
+      );
+    }
+    const totalCentavos = valores.reduce((soma, item) => soma + toCentavos(item.valor), 0);
+    await run(
+      db,
+      `UPDATE fechamentos_fiscais
+       SET valor_informado = ?, quantidade_maquinas = ?, atualizado_em = ?
+       WHERE id = ?`,
+      [totalCentavos / 100, valores.length, agoraLocal(), Number(fechamentoId)]
+    );
+    await run(db, 'COMMIT');
+  } catch (err) {
+    await run(db, 'ROLLBACK').catch(() => {});
+    throw err;
+  }
+
+  const resultado = await listarComprovantesRecebimento(db, fechamentoId);
+  return {
+    ...resultado,
+    total: resultado.total,
+    valor_informado: arredondarMoeda(resultado.valor_informado)
+  };
+}
+
+async function salvarRecebimentosVendas(dbOverride, fechamentoId, recebimentos = []) {
+  const db = getDb(dbOverride);
+  const fechamento = await get(
+    db,
+    `SELECT id, data_fechamento, status FROM fechamentos_fiscais WHERE id = ?`,
+    [Number(fechamentoId)]
+  );
+  if (!fechamento) {
+    const err = new Error('Fechamento fiscal não encontrado.');
+    err.statusCode = 404;
+    err.code = 'FECHAMENTO_NAO_ENCONTRADO';
+    throw err;
+  }
+
+  const lista = Array.isArray(recebimentos) ? recebimentos : [];
+  if (!lista.length) {
+    return listarVendasElegiveisRecebimento(db, fechamentoId, fechamento.data_fechamento);
+  }
+  if (![STATUS.RASCUNHO, STATUS.PREVIA].includes(fechamento.status)) {
+    const err = new Error('Comprovantes só podem ser alterados em RASCUNHO ou PREVIA.');
+    err.statusCode = 400;
+    err.code = 'FECHAMENTO_BLOQUEADO';
+    throw err;
+  }
+
+  const vendasElegiveis = await listarVendasElegiveisRecebimento(db, fechamentoId, fechamento.data_fechamento);
+  const elegiveisPorId = new Map(vendasElegiveis.vendas.map((venda) => [venda.venda_id, venda]));
+  const idsRecebimento = new Set();
+  const operacoes = [];
+
+  for (const item of lista) {
+    const vendaId = Number(item?.venda_id);
+    if (!Number.isInteger(vendaId) || vendaId <= 0) {
+      const err = new Error('Venda inválida para recebimento por venda.');
+      err.statusCode = 400;
+      err.code = 'VENDA_INVALIDA';
+      throw err;
+    }
+    if (idsRecebimento.has(vendaId)) {
+      const err = new Error(`Venda #${vendaId} foi informada mais de uma vez.`);
+      err.statusCode = 400;
+      err.code = 'VENDA_DUPLICADA';
+      throw err;
+    }
+    idsRecebimento.add(vendaId);
+
+    const venda = elegiveisPorId.get(vendaId);
+    if (!venda) {
+      const err = new Error(`Venda #${vendaId} não é elegível para este fechamento.`);
+      err.statusCode = 400;
+      err.code = 'VENDA_NAO_ELEGIVEL';
+      throw err;
+    }
+
+    const bruto = item?.valor_comprovante;
+    if (bruto === null) {
+      operacoes.push({ vendaId, limpar: true });
+      continue;
+    }
+    if ((typeof bruto !== 'number' && typeof bruto !== 'string') || String(bruto).trim() === '') {
+      const err = new Error(`Valor do comprovante da venda #${vendaId} é inválido.`);
+      err.statusCode = 400;
+      err.code = 'VALOR_COMPROVANTE_INVALIDO';
+      throw err;
+    }
+    let valorComprovanteTexto = String(bruto).trim();
+    if (typeof bruto === 'string') {
+      const ptBr = /^(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d{1,2})?$/;
+      const decimalPonto = /^\d+(?:\.\d{1,2})?$/;
+      if (valorComprovanteTexto.includes(',')) {
+        if (!ptBr.test(valorComprovanteTexto)) valorComprovanteTexto = '';
+        else valorComprovanteTexto = valorComprovanteTexto.replace(/\./g, '').replace(',', '.');
+      } else if (/^\d{1,3}(?:\.\d{3})+$/.test(valorComprovanteTexto)) {
+        valorComprovanteTexto = valorComprovanteTexto.replace(/\./g, '');
+      } else if (!decimalPonto.test(valorComprovanteTexto)) {
+        valorComprovanteTexto = '';
+      }
+    }
+    if (!valorComprovanteTexto) {
+      const err = new Error(`Valor do comprovante da venda #${vendaId} é inválido.`);
+      err.statusCode = 400;
+      err.code = 'VALOR_COMPROVANTE_INVALIDO';
+      throw err;
+    }
+    const valorComprovante = Number(valorComprovanteTexto);
+    if (!Number.isFinite(valorComprovante) || valorComprovante < 0) {
+      const err = new Error(`Valor do comprovante da venda #${vendaId} é inválido.`);
+      err.statusCode = 400;
+      err.code = 'VALOR_COMPROVANTE_INVALIDO';
+      throw err;
+    }
+    const valorComprovanteCentavos = toCentavos(valorComprovante);
+    if (Math.abs((valorComprovante * 100) - valorComprovanteCentavos) > 0.000001) {
+      const err = new Error(`Valor do comprovante da venda #${vendaId} deve ter no máximo duas casas decimais.`);
+      err.statusCode = 400;
+      err.code = 'VALOR_COMPROVANTE_INVALIDO';
+      throw err;
+    }
+    const valorVendaCentavos = toCentavos(venda.valor_venda);
+    if (!Number.isSafeInteger(valorComprovanteCentavos) || !Number.isSafeInteger(valorVendaCentavos)) {
+      const err = new Error(`Valor do comprovante da venda #${vendaId} está fora do limite monetário suportado.`);
+      err.statusCode = 400;
+      err.code = 'VALOR_COMPROVANTE_INVALIDO';
+      throw err;
+    }
+    operacoes.push({
+      vendaId,
+      limpar: false,
+      valorVendaCentavos,
+      valorComprovanteCentavos,
+      diferencaCentavos: valorComprovanteCentavos - valorVendaCentavos
+    });
+  }
+
+  await run(db, 'BEGIN IMMEDIATE');
+  try {
+    for (const operacao of operacoes) {
+      if (operacao.limpar) {
+        await run(
+          db,
+          `DELETE FROM fechamentos_fiscais_recebimentos_vendas
+           WHERE fechamento_fiscal_id = ? AND venda_id = ?`,
+          [Number(fechamentoId), operacao.vendaId]
+        );
+        continue;
+      }
+      await run(
+        db,
+        `INSERT INTO fechamentos_fiscais_recebimentos_vendas (
+          fechamento_fiscal_id, venda_id, valor_venda, valor_comprovante, diferenca, criado_em, atualizado_em
+        ) VALUES (?, ?, ?, ?, ?, datetime('now','localtime'), datetime('now','localtime'))
+        ON CONFLICT(fechamento_fiscal_id, venda_id)
+        DO UPDATE SET valor_venda = excluded.valor_venda,
+                      valor_comprovante = excluded.valor_comprovante,
+                      diferenca = excluded.diferenca,
+                      atualizado_em = datetime('now','localtime')`,
+        [
+          Number(fechamentoId),
+          operacao.vendaId,
+          operacao.valorVendaCentavos / 100,
+          operacao.valorComprovanteCentavos / 100,
+          operacao.diferencaCentavos / 100
+        ]
+      );
+    }
+    await run(db, 'COMMIT');
+  } catch (err) {
+    await run(db, 'ROLLBACK').catch(() => {});
+    throw err;
+  }
+
+  return listarVendasElegiveisRecebimento(db, fechamentoId, fechamento.data_fechamento);
+}
+
 async function recalcularTotaisRecebimentos(db, fechamentoId) {
   const rows = await listarRecebimentos(db, fechamentoId);
   const valorInformado = somarMoeda(rows.map((r) => r.valor));
@@ -158,10 +576,15 @@ async function recalcularTotaisRecebimentos(db, fechamentoId) {
   return { valorInformado, quantidade: rows.length, recebimentos: rows };
 }
 
-async function atualizarComplementacaoDoFechamento(db, fechamentoId) {
+async function atualizarComplementacaoDoFechamento(db, fechamentoId, contextoDia = null) {
   const row = await get(db, `SELECT * FROM fechamentos_fiscais WHERE id = ?`, [Number(fechamentoId)]);
   if (!row) return null;
-  return complementacao.gerarComplementacaoFiscal(row, { db, persistir: true }).catch(() => null);
+  return complementacao.gerarComplementacaoFiscal(row, {
+    db,
+    persistir: true,
+    contextoDia,
+    produtosFiscaisDisponiveis: contextoDia?.produtosFiscais || null
+  }).catch(() => null);
 }
 
 async function montarDetalhe(db, row, opts = {}) {
@@ -199,7 +622,11 @@ async function montarDetalhe(db, row, opts = {}) {
   );
   const previaItens = await all(
     db,
-    `SELECT * FROM fechamentos_fiscais_previa_itens WHERE fechamento_fiscal_id = ? ORDER BY previa_venda_id, ordem, id`,
+    `SELECT fpi.*, p.nome AS produto_nome
+     FROM fechamentos_fiscais_previa_itens fpi
+     LEFT JOIN produtos p ON p.id = fpi.produto_id
+     WHERE fpi.fechamento_fiscal_id = ?
+     ORDER BY fpi.previa_venda_id, fpi.ordem, fpi.id`,
     [row.id]
   ).catch(() => []);
 
@@ -208,14 +635,30 @@ async function montarDetalhe(db, row, opts = {}) {
   const itensPorVenda = new Map();
   for (const it of previaItens) {
     const list = itensPorVenda.get(it.previa_venda_id) || [];
-    list.push(it);
+    list.push({ ...it, nome: it.produto_nome || `Produto ${it.produto_id}` });
     itensPorVenda.set(it.previa_venda_id, list);
   }
+
+  const vendasPreviaDetalhadas = previaVendas.map((v) => ({
+    ...v,
+    valor: arredondarMoeda(v.valor),
+    desconto: arredondarMoeda(v.desconto || 0),
+    valor_final: arredondarMoeda(
+      Number(v.valor_final || 0) > 0 || Number(v.valor || 0) === 0 ? v.valor_final : v.valor
+    ),
+    itens: itensPorVenda.get(v.id) || []
+  }));
+  const descontoPrevia = somarMoeda(vendasPreviaDetalhadas.map((v) => v.desconto));
+  const valorFinalPrevia = vendasPreviaDetalhadas.length
+    ? somarMoeda(vendasPreviaDetalhadas.map((v) => v.valor_final))
+    : arredondarMoeda(row.valor_informado || 0);
 
   return {
     ...row,
     valor_informado: arredondarMoeda(row.valor_informado),
     valor_distribuido: arredondarMoeda(row.valor_distribuido),
+    desconto: descontoPrevia,
+    valor_final: valorFinalPrevia,
     diferenca: arredondarMoeda(row.diferenca),
     valor_principal: arredondarMoeda(row.valor_principal != null ? row.valor_principal : row.valor_informado),
     valor_emitido_autorizado: arredondarMoeda(row.valor_emitido_autorizado || 0),
@@ -230,11 +673,7 @@ async function montarDetalhe(db, row, opts = {}) {
     ),
     recebimentos,
     itens,
-    previa_vendas: previaVendas.map((v) => ({
-      ...v,
-      valor: arredondarMoeda(v.valor),
-      itens: itensPorVenda.get(v.id) || []
-    })),
+    previa_vendas: vendasPreviaDetalhadas,
     documentos,
     complementacao: await complementacao.lerComplementacao(db, row.id),
     transmissao_habilitada: false,
@@ -480,16 +919,38 @@ async function substituirRecebimentos(fechamentoId, lista = [], deps = {}) {
   return obterPorId(id, { db });
 }
 
-async function persistirPrevia(db, fechamento, previa, produtos, opts) {
+async function persistirPrevia(db, fechamento, previa, produtos, opts, metricasPersistencia = null) {
   await run(db, 'BEGIN IMMEDIATE');
   try {
-    await run(db, `DELETE FROM fechamentos_fiscais_previa_itens WHERE fechamento_fiscal_id = ?`, [fechamento.id]);
-    await run(db, `DELETE FROM fechamentos_fiscais_previa_vendas WHERE fechamento_fiscal_id = ?`, [fechamento.id]);
-    await run(db, `DELETE FROM fechamentos_fiscais_itens WHERE fechamento_fiscal_id = ?`, [fechamento.id]);
+    const estadoAtual = await get(
+      db,
+      `SELECT status FROM fechamentos_fiscais WHERE id = ?`,
+      [Number(fechamento.id)]
+    );
+    if (!estadoAtual || String(estadoAtual.status || '').toUpperCase() === STATUS.CANCELADO) {
+      const err = new Error('O fechamento foi cancelado antes de persistir a prévia.');
+      err.statusCode = 409;
+      err.code = 'FECHAMENTO_CANCELADO';
+      throw err;
+    }
 
+    await run(db, `DELETE FROM fechamentos_fiscais_previa_itens WHERE fechamento_fiscal_id = ?`, [fechamento.id]);
+    if (metricasPersistencia) metricasPersistencia.deletes += 1;
+    await run(db, `DELETE FROM fechamentos_fiscais_previa_vendas WHERE fechamento_fiscal_id = ?`, [fechamento.id]);
+    if (metricasPersistencia) metricasPersistencia.deletes += 1;
+    await run(db, `DELETE FROM fechamentos_fiscais_itens WHERE fechamento_fiscal_id = ?`, [fechamento.id]);
+    if (metricasPersistencia) metricasPersistencia.deletes += 1;
+
+    const itensUtilizadosPorProduto = new Map();
+    for (const item of previa.itensUtilizados || []) {
+      const produtoId = Number(item.produto_id);
+      if (!itensUtilizadosPorProduto.has(produtoId)) {
+        itensUtilizadosPorProduto.set(produtoId, item);
+      }
+    }
     let ordem = 0;
     for (const p of produtos) {
-      const usado = (previa.itensUtilizados || []).find((u) => Number(u.produto_id) === Number(p.produto_id));
+      const usado = itensUtilizadosPorProduto.get(Number(p.produto_id));
       await run(
         db,
         `INSERT INTO fechamentos_fiscais_itens
@@ -507,16 +968,26 @@ async function persistirPrevia(db, fechamento, previa, produtos, opts) {
           agoraLocal()
         ]
       );
+      if (metricasPersistencia) metricasPersistencia.inserts += 1;
     }
 
     for (const v of previa.vendas || []) {
       const ins = await run(
         db,
         `INSERT INTO fechamentos_fiscais_previa_vendas
-          (fechamento_fiscal_id, sequencia, valor, quantidade_itens, criado_em)
-         VALUES (?, ?, ?, ?, ?)`,
-        [fechamento.id, v.sequencia, v.valor, (v.itens || []).length, agoraLocal()]
+          (fechamento_fiscal_id, sequencia, valor, desconto, valor_final, quantidade_itens, criado_em)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          fechamento.id,
+          v.sequencia,
+          v.valor,
+          v.desconto || 0,
+          v.valor_final != null ? v.valor_final : v.valor,
+          (v.itens || []).length,
+          agoraLocal()
+        ]
       );
+      if (metricasPersistencia) metricasPersistencia.inserts += 1;
       let oi = 0;
       for (const it of v.itens || []) {
         await run(
@@ -539,6 +1010,7 @@ async function persistirPrevia(db, fechamento, previa, produtos, opts) {
             agoraLocal()
           ]
         );
+        if (metricasPersistencia) metricasPersistencia.inserts += 1;
       }
     }
 
@@ -571,6 +1043,7 @@ async function persistirPrevia(db, fechamento, previa, produtos, opts) {
         fechamento.id
       ]
     );
+    if (metricasPersistencia) metricasPersistencia.updates += 1;
 
     await run(db, 'COMMIT');
   } catch (err) {
@@ -579,23 +1052,140 @@ async function persistirPrevia(db, fechamento, previa, produtos, opts) {
   }
 }
 
+function gerarPreviaPorComprovante(comprovantes, lotes, opts = {}) {
+  const inicio = performance.now();
+  const metricasExecucao = opts.metricasExecucao || {};
+  const gruposOriginais = agruparUnidades(lotes);
+  metricasExecucao.grupos = gruposOriginais.length;
+  let gruposDisponiveis = gruposOriginais.map((grupo) => ({ ...grupo }));
+  const usoPorProduto = new Map();
+  const vendas = [];
+
+  for (let index = 0; index < comprovantes.length; index += 1) {
+    const comprovante = comprovantes[index];
+    const valorAlvoCents = toCentavos(comprovante.valor);
+    const { selecionadasAgrupadas, somaCents } = selecionarUnidadesCompactas(
+      gruposDisponiveis,
+      valorAlvoCents,
+      { usoPorProduto, metricasExecucao }
+    );
+    if (!selecionadasAgrupadas.length || somaCents < valorAlvoCents) continue;
+
+    const [venda] = empacotarVendaUnicaAgrupada(selecionadasAgrupadas, {
+      sequencia: index + 1,
+      valorAlvo: valorAlvoCents / 100
+    });
+    if (!venda) continue;
+
+    venda.sequencia = index + 1;
+    venda.rotulo = `Venda Fiscal ${String(index + 1).padStart(3, '0')}`;
+    venda.ordem = comprovante.ordem || index + 1;
+    vendas.push(venda);
+    for (const item of venda.itens || []) {
+      const produtoId = Number(item.produto_id);
+      usoPorProduto.set(
+        produtoId,
+        (usoPorProduto.get(produtoId) || 0) + Number(item.quantidade || 0)
+      );
+    }
+
+    const utilizadas = new Map(selecionadasAgrupadas.map((grupo) => [
+      `${grupo.produto_id}|${grupo.venda_item_id}|${grupo.key}|${grupo.valor_cents}|${grupo.unit_cents}`,
+      Number(grupo.quantidade_selecionada || 0)
+    ]));
+    gruposDisponiveis = gruposDisponiveis.map((grupo) => {
+      const chave = `${grupo.produto_id}|${grupo.venda_item_id}|${grupo.key}|${grupo.valor_cents}|${grupo.unit_cents}`;
+      return {
+        ...grupo,
+        quantidade_unidades: Math.max(
+          0,
+          Number(grupo.quantidade_unidades || 0) - Number(utilizadas.get(chave) || 0)
+        )
+      };
+    }).filter((grupo) => grupo.quantidade_unidades > 0);
+  }
+
+  const totalInformadoCents = comprovantes.reduce((total, item) => total + toCentavos(item.valor), 0);
+  const totalDistribuidoCents = vendas.reduce((total, venda) => total + toCentavos(venda.valor), 0);
+  const totalFinalCents = vendas.reduce((total, venda) => total + toCentavos(venda.valor_final), 0);
+  const totalDescontoCents = vendas.reduce((total, venda) => total + toCentavos(venda.desconto), 0);
+  const porProduto = consolidarPorProduto(vendas, lotes);
+  const perfeita = vendas.length === comprovantes.length && totalFinalCents === totalInformadoCents;
+  const capacidadeCents = gruposOriginais.reduce(
+    (total, grupo) => total + grupo.quantidade_unidades * grupo.valor_cents,
+    0
+  );
+
+  return {
+    vendas,
+    itensUtilizados: porProduto.map((produto) => ({
+      produto_id: produto.produto_id,
+      nome: produto.nome,
+      quantidade_utilizada: produto.quantidade_utilizada,
+      valor_utilizado: produto.valor_utilizado
+    })),
+    porProduto,
+    valor_informado: arredondarMoeda(totalInformadoCents / 100),
+    valor_distribuido: arredondarMoeda(totalDistribuidoCents / 100),
+    desconto: arredondarMoeda(totalDescontoCents / 100),
+    valor_final: arredondarMoeda(totalFinalCents / 100),
+    diferenca: arredondarMoeda((totalInformadoCents - totalFinalCents) / 100),
+    valor_elegivel: arredondarMoeda(capacidadeCents / 100),
+    quantidade_vendas: vendas.length,
+    perfeita,
+    incompleta: !perfeita,
+    mensagem: perfeita
+      ? 'Por comprovante: cada comprovante gera uma venda fiscal individual com itens fiscais elegíveis.'
+      : capacidadeCents > 0
+        ? `Não foi possível compor integralmente os comprovantes com o estoque fiscal elegível. Diferença: R$ ${((totalInformadoCents - totalDistribuidoCents) / 100).toFixed(2)}`
+        : 'Não há itens fiscais elegíveis para compor os comprovantes informados.',
+    codigo: perfeita ? 'OK' : (capacidadeCents > 0 ? 'DISTRIBUICAO_INCOMPLETA' : 'SEM_ELEGIVEIS'),
+    metricas: {
+      produtos_elegiveis: new Set(lotes.map((lote) => lote.produto_id)).size,
+      linhas_elegiveis: lotes.length,
+      unidades_selecionadas: gruposOriginais.reduce(
+        (total, grupo) => total + grupo.quantidade_unidades,
+        0
+      ) - gruposDisponiveis.reduce((total, grupo) => total + grupo.quantidade_unidades, 0),
+      grupos: gruposOriginais.length,
+      estados_avaliados: metricasExecucao.estadosAvaliados || 0,
+      transicoes_avaliadas: metricasExecucao.transicoesAvaliadas || 0,
+      max_estados: metricasExecucao.maxEstados || 0,
+      tempo_ms: Number((performance.now() - inicio).toFixed(3)),
+      modo: 'por_comprovante'
+    }
+  };
+}
+
 /**
  * Prévia READ-ONLY sobre tabelas comerciais.
  * Regenerar substitui a prévia anterior (idempotente / sem acumular).
  */
-async function gerarPrevia(params = {}, deps = {}) {
+async function gerarPreviaInterna(params = {}, deps = {}) {
+  const inicioTotal = performance.now();
   const db = getDb(deps.db);
   await assertModuloAtivo(db, deps);
 
   let fechamento = null;
   if (params.fechamento_id || params.id) {
     fechamento = await obterPorId(params.fechamento_id || params.id, { db });
+    if (String(fechamento.status || '').toUpperCase() === STATUS.CANCELADO) {
+      const err = new Error('Este fechamento foi cancelado. Crie um novo rascunho para gerar outra prévia.');
+      err.statusCode = 409;
+      err.code = 'FECHAMENTO_CANCELADO';
+      throw err;
+    }
   }
 
   const dataResolvida = resolverDataFechamento(params, fechamento);
   const data = normalizarData(dataResolvida);
   const excluirFechamentoId = params.fechamento_id || params.id || null;
-  const resumo = await obterResumoDia(db, data, { excluirFechamentoId });
+  const resumo = await medirEtapa(
+    'T2-summary',
+    () => obterResumoDia(db, data, { excluirFechamentoId }),
+    { fechamento_id: fechamento?.id || null }
+  );
+  const contextoDia = obterContextoResumoDia(resumo);
   const lotesMonitor = resumo.lotes || [];
 
   let valorInformado = params.valor_informado != null
@@ -633,14 +1223,6 @@ async function gerarPrevia(params = {}, deps = {}) {
     }
   }
 
-  const produtosComp = await complementacao.obterProdutosFiscaisDisponiveisParaComplementacao(db);
-  const lotes = complementacao.mesclarLotesMonitoramentoComComplementacao(
-    lotesMonitor,
-    produtosComp,
-    { valorAlvoCents: toCentavos(valorInformado) }
-  );
-  const produtos = lotes.length ? agregarProdutosDosLotes(lotes) : (resumo.produtos || []);
-
   const opts = {
     valorAlvo: Number(
       params.valor_alvo != null
@@ -659,11 +1241,151 @@ async function gerarPrevia(params = {}, deps = {}) {
     )
   };
 
+  const devePersistir = Boolean(fechamento) && params.persistir !== false;
+
+  let comprovantesPersistidos = [];
+  const temComprovantesExplitos = Array.isArray(params.comprovantes) && params.comprovantes.length > 0;
+  if (temComprovantesExplitos) {
+    comprovantesPersistidos = normalizarListaComprovantes(params.comprovantes);
+  } else if (fechamento && Number.isInteger(Number(fechamento.id)) && Number(fechamento.id) > 0) {
+    const linhas = await all(
+      db,
+      `SELECT valor, ordem FROM fechamentos_fiscais_recebimentos_comprovantes
+       WHERE fechamento_fiscal_id = ?
+       ORDER BY ordem ASC, id ASC`,
+      [Number(fechamento.id)]
+    );
+    comprovantesPersistidos = linhas
+      .map((linha) => ({ valor: normalizarValorMonetarioComprovante(linha.valor), ordem: Number(linha.ordem || 0) || 0 }))
+      .filter((item) => item.valor !== null);
+  }
+
+  if (comprovantesPersistidos.length) {
+    const produtosComp = await complementacao.obterProdutosFiscaisDisponiveisParaComplementacao(
+      db,
+      contextoDia?.produtosFiscais || null
+    );
+    const lotes = complementacao.mesclarLotesMonitoramentoComComplementacao(
+      lotesMonitor,
+      produtosComp,
+      { valorAlvoCents: toCentavos(valorInformado) }
+    );
+    const produtos = lotes.length ? agregarProdutosDosLotes(lotes) : (resumo.produtos || []);
+    const metricasExecucao = {};
+    const poolMetric = {
+      produtos_candidatos: new Set(lotes.map((lote) => Number(lote.produto_id))).size,
+      lotes: lotes.length
+    };
+    PerformanceMonitor.record('fiscal:preview:T4-pool', {
+      produtos_candidatos: poolMetric.produtos_candidatos
+    });
+    PerformanceMonitor.record('fiscal:preview:T5-lotes', { lotes: poolMetric.lotes });
+    const previa = await medirEtapa('T7-distribution', () => gerarPreviaDistribuicaoNoWorker({
+      tipo: 'comprovantes',
+      comprovantes: comprovantesPersistidos,
+      lotes,
+      opcoes: { ...opts, metricasExecucao }
+    }), poolMetric);
+    PerformanceMonitor.record('fiscal:preview:T6-groups', { grupos: previa.metricas.grupos });
+    PerformanceMonitor.record('fiscal:preview:T8-search', {
+      estados_avaliados: previa.metricas.estados_avaliados,
+      transicoes_avaliadas: previa.metricas.transicoes_avaliadas,
+      max_estados: previa.metricas.max_estados
+    });
+
+    const persistencia = { deletes: 0, inserts: 0, updates: 0 };
+    if (devePersistir && fechamento) {
+      await medirEtapa('T9-persistence', () =>
+        persistirPrevia(db, fechamento, previa, produtos, opts, persistencia), {
+          ...poolMetric,
+          vendas: previa.vendas.length
+        });
+      PerformanceMonitor.record('fiscal:preview:T9-persistence-counts', persistencia);
+      fechamento = await obterPorId(fechamento.id, { db });
+      await medirEtapa('T10-complementation', () =>
+        atualizarComplementacaoDoFechamento(db, fechamento.id, contextoDia));
+      fechamento = await obterPorId(fechamento.id, { db });
+    }
+
+    const responseInicio = performance.now();
+    const responseMetric = iniciarMetrica('T11-response-mount');
+    const resultado = {
+      data,
+      resumo,
+      previa,
+      fechamento,
+      complementacao: fechamento && fechamento.complementacao ? fechamento.complementacao : null,
+      indicadores: {
+        produtos_elegiveis: previa.metricas.produtos_elegiveis,
+        linhas_elegiveis: previa.metricas.linhas_elegiveis,
+        quantidade_utilizada: previa.itensUtilizados.reduce((total, item) => total + Number(item.quantidade_utilizada || 0), 0),
+        valor_elegivel: previa.valor_elegivel,
+        valor_distribuido: previa.valor_distribuido,
+        diferenca: previa.diferenca,
+        quantidade_vendas: previa.quantidade_vendas
+      },
+      protecao: {
+        snapshot_antes: null,
+        snapshot_depois: null,
+        comercial_inalterado: true
+      }
+    };
+    finalizarMetrica(responseMetric, {
+      elapsed_ms: Number((performance.now() - responseInicio).toFixed(3))
+    });
+    PerformanceMonitor.record('fiscal:preview:T11-generation-metrics', {
+      fechamento_id: fechamento?.id || null,
+      data,
+      elapsed_ms: Number((performance.now() - inicioTotal).toFixed(3)),
+      ...poolMetric,
+      grupos: previa.metricas.grupos,
+      vendas: previa.vendas.length,
+      itens_fiscais: previa.vendas.reduce((total, venda) => total + (venda.itens || []).length, 0),
+      estados_avaliados: previa.metricas.estados_avaliados,
+      transicoes_avaliadas: previa.metricas.transicoes_avaliadas,
+      deletes: persistencia?.deletes || 0,
+      inserts: persistencia?.inserts || 0,
+      updates: persistencia?.updates || 0
+    });
+    return resultado;
+  }
+
+  const produtosComp = await complementacao.obterProdutosFiscaisDisponiveisParaComplementacao(
+    db,
+    contextoDia?.produtosFiscais || null
+  );
+  const lotes = complementacao.mesclarLotesMonitoramentoComComplementacao(
+    lotesMonitor,
+    produtosComp,
+    { valorAlvoCents: toCentavos(valorInformado) }
+  );
+  const produtos = lotes.length ? agregarProdutosDosLotes(lotes) : (resumo.produtos || []);
+
   const snapshotAntes = deps.capturarSnapshot !== false
-    ? await snapshotComercial(db)
+    ? await medirEtapa('snapshot-before', () => snapshotComercial(db))
     : null;
 
-  const previa = gerarPreviaDistribuicao(lotes.length ? lotes : produtos, valorInformado, opts);
+  const metricasExecucao = {};
+  const poolMetric = {
+    produtos_candidatos: new Set(lotes.map((lote) => Number(lote.produto_id))).size,
+    lotes: lotes.length
+  };
+  PerformanceMonitor.record('fiscal:preview:T4-pool', {
+    produtos_candidatos: poolMetric.produtos_candidatos
+  });
+  PerformanceMonitor.record('fiscal:preview:T5-lotes', { lotes: poolMetric.lotes });
+  const previa = await medirEtapa('T7-distribution', () => gerarPreviaDistribuicaoNoWorker({
+    tipo: 'normal',
+    lotes: lotes.length ? lotes : produtos,
+    valorInformado,
+    opcoes: { ...opts, metricasExecucao }
+  }), poolMetric);
+  PerformanceMonitor.record('fiscal:preview:T6-groups', { grupos: previa.metricas.grupos });
+  PerformanceMonitor.record('fiscal:preview:T8-search', {
+    estados_avaliados: previa.metricas.estados_avaliados,
+    transicoes_avaliadas: previa.metricas.transicoes_avaliadas,
+    max_estados: previa.metricas.max_estados
+  });
 
   logTecnico('previa_gerada', {
     fechamento_id: fechamento?.id || null,
@@ -678,7 +1400,7 @@ async function gerarPrevia(params = {}, deps = {}) {
     codigo: previa.codigo
   });
 
-  const devePersistir = Boolean(fechamento) && params.persistir !== false;
+  const persistencia = { deletes: 0, inserts: 0, updates: 0 };
   if (devePersistir) {
     if ([STATUS.PRONTO_EMISSAO, STATUS.EMITINDO, STATUS.AUTORIZADO, STATUS.VALIDANDO].includes(fechamento.status)) {
       const err = new Error('Não é possível regenerar a prévia após a preparação fiscal. Cancele o fechamento ou corrija pendências em um novo ciclo.');
@@ -691,7 +1413,9 @@ async function gerarPrevia(params = {}, deps = {}) {
       await run(db, 'BEGIN IMMEDIATE');
       try {
         await run(db, `DELETE FROM fechamentos_fiscais_previa_itens WHERE fechamento_fiscal_id = ?`, [fechamento.id]);
+        persistencia.deletes += 1;
         await run(db, `DELETE FROM fechamentos_fiscais_previa_vendas WHERE fechamento_fiscal_id = ?`, [fechamento.id]);
+        persistencia.deletes += 1;
         await run(
           db,
           `UPDATE fechamentos_fiscais
@@ -699,16 +1423,23 @@ async function gerarPrevia(params = {}, deps = {}) {
            WHERE id = ?`,
           [STATUS.RASCUNHO, agoraLocal(), fechamento.id]
         );
+        persistencia.updates += 1;
         await run(db, 'COMMIT');
       } catch (err) {
         try { await run(db, 'ROLLBACK'); } catch (_) { /* ignore */ }
         throw err;
       }
     } else {
-      await persistirPrevia(db, fechamento, previa, produtos, opts);
+      await medirEtapa('T9-persistence', () =>
+        persistirPrevia(db, fechamento, previa, produtos, opts, persistencia), {
+          ...poolMetric,
+          vendas: previa.vendas.length
+        });
+      PerformanceMonitor.record('fiscal:preview:T9-persistence-counts', persistencia);
     }
     fechamento = await obterPorId(fechamento.id, { db });
-    await atualizarComplementacaoDoFechamento(db, fechamento.id);
+    await medirEtapa('T10-complementation', () =>
+      atualizarComplementacaoDoFechamento(db, fechamento.id, contextoDia));
     fechamento = await obterPorId(fechamento.id, { db });
   } else if (fechamento) {
     fechamento.complementacao = await complementacao.gerarComplementacaoFiscal(fechamento, {
@@ -718,10 +1449,12 @@ async function gerarPrevia(params = {}, deps = {}) {
   }
 
   const snapshotDepois = deps.capturarSnapshot !== false
-    ? await snapshotComercial(db)
+    ? await medirEtapa('snapshot-after', () => snapshotComercial(db))
     : null;
 
-  return {
+  const responseInicio = performance.now();
+  const responseMetric = iniciarMetrica('T11-response-mount');
+  const resultado = {
     data,
     resumo,
     previa,
@@ -744,6 +1477,59 @@ async function gerarPrevia(params = {}, deps = {}) {
         : true
     }
   };
+  finalizarMetrica(responseMetric, {
+    elapsed_ms: Number((performance.now() - responseInicio).toFixed(3))
+  });
+  PerformanceMonitor.record('fiscal:preview:T11-generation-metrics', {
+    fechamento_id: fechamento?.id || null,
+    data,
+    elapsed_ms: Number((performance.now() - inicioTotal).toFixed(3)),
+    ...poolMetric,
+    grupos: previa.metricas.grupos,
+    vendas: previa.vendas.length,
+    itens_fiscais: previa.vendas.reduce((total, venda) => total + (venda.itens || []).length, 0),
+    estados_avaliados: previa.metricas.estados_avaliados,
+    transicoes_avaliadas: previa.metricas.transicoes_avaliadas,
+    deletes: persistencia.deletes,
+    inserts: persistencia.inserts,
+    updates: persistencia.updates
+  });
+  return resultado;
+}
+
+function gerarPrevia(params = {}, deps = {}) {
+  const db = getDb(deps.db);
+  let dbId = dbIdentidades.get(db);
+  if (!dbId) {
+    dbId = ++proximaIdentidadeDb;
+    dbIdentidades.set(db, dbId);
+  }
+  const identidade = params.id || params.fechamento_id
+    ? `fechamento:${Number(params.id || params.fechamento_id)}`
+    : `data:${String(params.data || params.data_fechamento || '')}`;
+  const chave = `${dbId}:${identidade}`;
+  const assinatura = JSON.stringify({
+    params,
+    moduloOn: deps.moduloOn,
+    capturarSnapshot: deps.capturarSnapshot,
+    persistir: deps.persistir
+  });
+  const existente = previewsEmAndamento.get(chave);
+  if (existente) {
+    if (existente.assinatura === assinatura) return existente.promise;
+    const erro = new Error('Já existe uma geração de prévia em andamento para este fechamento.');
+    erro.statusCode = 409;
+    erro.code = 'PREVIA_EM_ANDAMENTO';
+    return Promise.reject(erro);
+  }
+
+  const promise = gerarPreviaInterna(params, deps).finally(() => {
+    if (previewsEmAndamento.get(chave)?.promise === promise) {
+      previewsEmAndamento.delete(chave);
+    }
+  });
+  previewsEmAndamento.set(chave, { assinatura, promise });
+  return promise;
 }
 
 async function cancelarFechamento(id, deps = {}) {
@@ -763,6 +1549,102 @@ async function cancelarFechamento(id, deps = {}) {
   );
   logTecnico('fechamento_cancelado', { id: Number(id), status_anterior: ff.status, usuario_id: deps.usuario_id || null });
   return obterPorId(id, { db });
+}
+
+async function limparTudoDoDia(data, deps = {}) {
+  const db = getDb(deps.db);
+  await assertModuloAtivo(db, deps);
+  const dataNorm = normalizarData(data);
+  const dbId = dbIdentidades.get(db);
+  const limpaveis = new Set([
+    STATUS.RASCUNHO,
+    STATUS.PREVIA,
+    STATUS.PRONTO_EMISSAO,
+    STATUS.REJEITADO,
+    STATUS.ERRO,
+    STATUS.CANCELADO
+  ]);
+  let fechamentosLimpos = 0;
+  let fechamentosPreservados = 0;
+
+  await run(db, 'BEGIN IMMEDIATE');
+  try {
+    const fechamentos = await all(
+      db,
+      `SELECT id, status FROM fechamentos_fiscais
+       WHERE data_fechamento = ?
+       ORDER BY id`,
+      [dataNorm]
+    );
+
+    for (const fechamento of fechamentos) {
+      const id = Number(fechamento.id);
+      const status = String(fechamento.status || '').toUpperCase();
+      if (!limpaveis.has(status)) {
+        fechamentosPreservados += 1;
+        continue;
+      }
+
+      const chavePrevia = dbId ? `${dbId}:fechamento:${id}` : null;
+      if (chavePrevia && previewsEmAndamento.has(chavePrevia)) {
+        const erro = new Error('Há uma prévia em andamento para esta data. Aguarde a conclusão antes de limpar.');
+        erro.statusCode = 409;
+        erro.code = 'PREVIA_EM_ANDAMENTO';
+        throw erro;
+      }
+
+      const artefatos = await get(
+        db,
+        `SELECT
+           (SELECT COUNT(*) FROM fechamentos_fiscais_documentos
+            WHERE fechamento_fiscal_id = ?
+              AND (UPPER(status) = 'AUTORIZADO'
+                OR COALESCE(chave_acesso, '') <> ''
+                OR COALESCE(protocolo, '') <> '')) AS documentos_autorizados,
+           (SELECT COUNT(*) FROM fechamentos_fiscais_transmissoes
+            WHERE fechamento_fiscal_id = ?) AS transmissoes`,
+        [id, id]
+      );
+      if (
+        Number(artefatos?.documentos_autorizados || 0) > 0
+        || Number(artefatos?.transmissoes || 0) > 0
+      ) {
+        fechamentosPreservados += 1;
+        continue;
+      }
+
+      await run(db, 'DELETE FROM fechamentos_fiscais_documentos_itens WHERE fechamento_fiscal_id = ?', [id]);
+      await run(db, 'DELETE FROM fechamentos_fiscais_documentos_pagamentos WHERE fechamento_fiscal_id = ?', [id]);
+      await run(db, 'DELETE FROM fechamentos_fiscais_documentos WHERE fechamento_fiscal_id = ?', [id]);
+      await run(db, 'DELETE FROM fechamentos_fiscais_previa_itens WHERE fechamento_fiscal_id = ?', [id]);
+      await run(db, 'DELETE FROM fechamentos_fiscais_previa_vendas WHERE fechamento_fiscal_id = ?', [id]);
+      await run(db, 'DELETE FROM fechamentos_fiscais_itens WHERE fechamento_fiscal_id = ?', [id]);
+      await run(db, 'DELETE FROM fechamentos_fiscais_recebimentos WHERE fechamento_fiscal_id = ?', [id]);
+      await run(db, 'DELETE FROM fechamentos_fiscais_recebimentos_comprovantes WHERE fechamento_fiscal_id = ?', [id]);
+      await run(db, 'DELETE FROM fechamentos_fiscais_recebimentos_vendas WHERE fechamento_fiscal_id = ?', [id]);
+      await run(db, 'DELETE FROM fechamentos_fiscais_complementacao_itens WHERE fechamento_fiscal_id = ?', [id]);
+      await run(db, 'DELETE FROM fechamentos_fiscais_complementacao WHERE fechamento_fiscal_id = ?', [id]);
+      await run(db, 'DELETE FROM fechamentos_fiscais WHERE id = ?', [id]);
+      fechamentosLimpos += 1;
+    }
+
+    await run(db, 'COMMIT');
+  } catch (err) {
+    await run(db, 'ROLLBACK').catch(() => {});
+    throw err;
+  }
+
+  logTecnico('dados_dia_limpos', {
+    data: dataNorm,
+    fechamentos_limpos: fechamentosLimpos,
+    fechamentos_preservados: fechamentosPreservados
+  });
+  return {
+    data: dataNorm,
+    fechamentos_limpos: fechamentosLimpos,
+    fechamentos_preservados: fechamentosPreservados,
+    mensagem: 'Prévia e registros fiscais ainda não autorizados foram removidos. Estoque, vendas originais, documentos autorizados e tentativas de transmissão foram preservados.'
+  };
 }
 
 async function validarFiscal(id, opts = {}, deps = {}) {
@@ -846,12 +1728,18 @@ module.exports = {
   calcularComplementacaoFiscal: complementacao.calcularComplementacaoFiscal,
   gerarPrevia,
   cancelarFechamento,
+  limparTudoDoDia,
   validarFiscal,
   prepararEmissaoFiscal,
   listarDocumentosFiscais,
   transmitirFechamentoFiscal,
   recuperarFechamentoFiscal,
   continuarEmissaoFiscal,
+  listarVendasElegiveisRecebimento,
+  salvarRecebimentosVendas,
+  listarComprovantesRecebimento,
+  salvarComprovantesRecebimento,
+  gerarPreviaPorComprovante,
   listarProdutosElegiveisDoDia,
   listarLotesElegiveisDoDia,
   listarMonitoramentoProdutosDoDia,

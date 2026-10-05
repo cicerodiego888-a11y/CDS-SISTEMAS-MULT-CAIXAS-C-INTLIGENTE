@@ -11,6 +11,7 @@ const service = require('../services/fechamento-fiscal');
 const moduloConfig = require('../services/fechamento-fiscal/fechamentoFiscalModuloConfig');
 const db = require('../database');
 const { contextoAuditoriaRequisicao } = require('../services/auditoria');
+const PerformanceMonitor = require('../observabilidade/performance/PerformanceMonitor');
 
 function usuarioId(req) {
   return req.user?.id || req.usuario?.id || null;
@@ -225,6 +226,16 @@ router.get('/', async (req, res) => {
   }
 });
 
+router.post('/limpar-dia', async (req, res) => {
+  try {
+    const data = req.body?.data || req.body?.data_fechamento;
+    const resultado = await service.limparTudoDoDia(data, { db });
+    res.json(resultado);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
 router.post('/', async (req, res) => {
   try {
     const body = req.body || {};
@@ -241,6 +252,69 @@ router.post('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const item = await service.obterPorId(req.params.id);
+    res.json(item);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+router.get('/:id/recebimentos-vendas', async (req, res) => {
+  try {
+    const data = req.query.data || req.query.data_fechamento;
+    const item = await service.listarVendasElegiveisRecebimento(db, Number(req.params.id), data);
+    res.json(item);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+router.get('/:id/recebimentos-comprovantes', async (req, res) => {
+  try {
+    const item = await service.listarComprovantesRecebimento(db, Number(req.params.id));
+    res.json(item);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+router.post('/:id/recebimentos-vendas', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const lista = Array.isArray(body.recebimentos) ? body.recebimentos : [];
+    const item = await service.salvarRecebimentosVendas(db, Number(req.params.id), lista);
+    res.status(201).json(item);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+router.post('/:id/recebimentos-comprovantes', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const lista = Array.isArray(body.comprovantes) ? body.comprovantes : [];
+    const item = await service.salvarComprovantesRecebimento(db, Number(req.params.id), lista);
+    res.status(201).json(item);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+router.put('/:id/recebimentos-vendas', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const lista = Array.isArray(body.recebimentos) ? body.recebimentos : [];
+    const item = await service.salvarRecebimentosVendas(db, Number(req.params.id), lista);
+    res.json(item);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+router.put('/:id/recebimentos-comprovantes', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const lista = Array.isArray(body.comprovantes) ? body.comprovantes : [];
+    const item = await service.salvarComprovantesRecebimento(db, Number(req.params.id), lista);
     res.json(item);
   } catch (err) {
     sendError(res, err);
@@ -286,8 +360,25 @@ router.post('/:id/complementacao', async (req, res) => {
 });
 
 router.post('/:id/previa', async (req, res) => {
+  const inicio = performance.now();
+  const metrica = PerformanceMonitor.start('fiscal:preview:T0-route', {
+    fechamento_id: Number(req.params.id)
+  });
+  res.once('finish', () => {
+    PerformanceMonitor.end(metrica, {
+      elapsed_ms: Number((performance.now() - inicio).toFixed(3)),
+      response_bytes: Number(res.getHeader('content-length')) || null,
+      status: res.statusCode
+    });
+    PerformanceMonitor.record('fiscal:preview:T12-route-finish', {
+      elapsed_ms: Number((performance.now() - inicio).toFixed(3)),
+      response_bytes: Number(res.getHeader('content-length')) || null,
+      status: res.statusCode
+    });
+  });
   try {
     const body = req.body || {};
+    const comprovantes = Array.isArray(body.comprovantes) ? body.comprovantes : [];
     const result = await service.gerarPrevia({
       id: Number(req.params.id),
       data: body.data,
@@ -296,9 +387,20 @@ router.post('/:id/previa', async (req, res) => {
       valor_alvo: body.valor_alvo != null ? Number(body.valor_alvo) : undefined,
       valor_min: body.valor_min != null ? Number(body.valor_min) : undefined,
       valor_max: body.valor_max != null ? Number(body.valor_max) : undefined,
+      comprovantes,
       persistir: true
     });
-    res.json(result);
+    const response = { ...result };
+    delete response.resumo;
+    delete response.protecao;
+    if (response.fechamento) {
+      response.fechamento = {
+        id: response.fechamento.id,
+        status: response.fechamento.status,
+        complementacao: response.fechamento.complementacao
+      };
+    }
+    res.json(response);
   } catch (err) {
     sendError(res, err);
   }

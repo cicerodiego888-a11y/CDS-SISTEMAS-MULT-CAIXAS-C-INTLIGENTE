@@ -41,6 +41,7 @@ const {
   cancelarNfeDevolucaoOficial,
   consultarSituacaoDevolucao,
   reenviarNfeDevolucao,
+  iniciarNovaTentativaDevolucao,
   listarEventosDevolucao,
   obterPainelStatus,
   obterXmlVersionado
@@ -82,6 +83,10 @@ const {
 } = require('../services/compras/TratamentoFiscalItemCompra');
 const configService = require('../services/configuracaoService');
 const { classificarEntrada } = require('../services/compras/ClassificadorEntradaCompra');
+const {
+  resolverFlagsObrigatoriosCategoria,
+  normalizarNomeCategoria
+} = require('../services/categorias/categoriaPadroes');
 const {
   montarResumoFiscalEntrada,
   normalizarEscrituracaoParaPersistencia
@@ -454,6 +459,7 @@ function ensureProductForItemLegado(item, callback, opcoes = {}) {
   const nome = item.produto_nome || `Produto ${codigo}`;
   const qtds = resolverQuantidadesCompraItem(item);
   const itemFiscal = qtds.quantidade_fiscal > 0 ? 1 : 0;
+  const dbOperacional = opcoes.db || db;
   // Quando MIP já tentou codigo/barras, legado só casa por nome (evita SQL duplicado)
   const apenasNome = opcoes.apenasNome === true;
 
@@ -462,40 +468,92 @@ function ensureProductForItemLegado(item, callback, opcoes = {}) {
     : 'SELECT id FROM produtos WHERE codigo = ? OR codigo_barras = ? OR nome = ? LIMIT 1';
   const params = apenasNome ? [nome] : [codigo, codigo, nome];
 
-  db.get(sql, params, (findErr, existente) => {
+  dbOperacional.get(sql, params, (findErr, existente) => {
     if (findErr) return callback(findErr);
     if (existente) return callback(null, existente.id);
 
-    const precosCadastro = resolverPrecosCadastroAposCompra(item);
+    const origemCentralNfe = String(item.origem_compra || '').toUpperCase() === 'CENTRAL_NFE';
+    const precosCadastro = origemCentralNfe
+      ? {
+        precoCompra: resolverCustoUnitarioCadastro(item),
+        precoVenda: null,
+        lucroPercentual: null,
+        atualizarVenda: false
+      }
+      : resolverPrecosCadastroAposCompra(item);
+    const unidadeProduto = origemCentralNfe
+      ? (item.unidade_tributavel || item.uTrib || item.unidade || 'UN')
+      : (item.unidade || 'UN');
+    const precoVendaProduto = origemCentralNfe
+      ? 0
+      : (precosCadastro.precoVenda ?? precosCadastro.precoCompra);
+    const lucroProduto = origemCentralNfe ? null : precosCadastro.lucroPercentual;
+    const criarProduto = (categoria) => {
+      const flagsObrigatorios = resolverFlagsObrigatoriosCategoria(
+        categoria?.nome || item.categoria_nome || item.categoria
+      );
+      const especial = Boolean(flagsObrigatorios);
+      const categoriaId = especial ? (categoria?.id || null) : null;
+      const controlaEstoque = especial ? flagsObrigatorios.controlaEstoque : 1;
+      const itemFiscalCadastro = especial ? flagsObrigatorios.itemFiscal : itemFiscal;
 
-    db.run(`
+      dbOperacional.run(`
         INSERT INTO produtos (
-          codigo, codigo_barras, nome, unidade, preco_compra, preco_venda,
+          codigo, codigo_barras, nome, categoria_id, unidade, preco_compra, preco_venda,
           lucro_percentual, estoque_atual, estoque_minimo, fornecedor, ncm,
-          saldo_fiscal, saldo_nao_fiscal, item_fiscal, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 0, 0, ?, CURRENT_TIMESTAMP)
+          saldo_fiscal, saldo_nao_fiscal, item_fiscal, controla_estoque, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 0, 0, ?, ?, CURRENT_TIMESTAMP)
       `, [
-      codigo,
-      item.codigo_barras || codigo,
-      nome,
-      item.unidade || 'UN',
-      precosCadastro.precoCompra,
-      precosCadastro.precoVenda ?? precosCadastro.precoCompra,
-      precosCadastro.lucroPercentual,
-      item.fornecedor || null,
-      item.ncm || null,
-      itemFiscal
-    ], function(insertErr) {
-      if (insertErr) return callback(insertErr);
-      const novoId = this.lastID;
-      // Dual-write MIP (silencioso) — mantém produto_identificadores alinhado
-      espelharIdentificadoresSafe(novoId, {
         codigo,
-        codigo_barras: item.codigo_barras || codigo,
-        plu: item.plu !== undefined ? item.plu : undefined
-      }, { db });
-      callback(null, novoId);
-    });
+        item.codigo_barras || codigo,
+        nome,
+        categoriaId,
+          unidadeProduto,
+        precosCadastro.precoCompra,
+          precoVendaProduto,
+        lucroProduto,
+        item.fornecedor || null,
+        item.ncm || null,
+        itemFiscalCadastro,
+        controlaEstoque
+      ], function(insertErr) {
+        if (insertErr) return callback(insertErr);
+        const novoId = this.lastID;
+        espelharIdentificadoresSafe(novoId, {
+          codigo,
+          codigo_barras: item.codigo_barras || codigo,
+          plu: item.plu !== undefined ? item.plu : undefined
+        }, { db: dbOperacional });
+        callback(null, novoId);
+      });
+    };
+
+    const categoriaId = Number(item.categoria_id);
+    if (Number.isInteger(categoriaId) && categoriaId > 0) {
+      return dbOperacional.get(
+        'SELECT id, nome FROM categorias WHERE id = ?',
+        [categoriaId],
+        (categoriaErr, categoria) => {
+          if (categoriaErr) return callback(categoriaErr);
+          criarProduto(categoria || null);
+        }
+      );
+    }
+
+    const nomeCategoria = item.categoria_nome || item.categoria;
+    if (!nomeCategoria) return criarProduto(null);
+    dbOperacional.all(
+      `SELECT id, nome FROM categorias WHERE tipo = 'produto' AND COALESCE(ativo, 1) = 1`,
+      [],
+      (categoriasErr, categorias) => {
+        if (categoriasErr) return callback(categoriasErr);
+        const chaveInformada = normalizarNomeCategoria(nomeCategoria);
+        const categoria = (categorias || []).find(
+          (row) => normalizarNomeCategoria(row.nome) === chaveInformada
+        );
+        criarProduto(categoria || { id: null, nome: nomeCategoria });
+      }
+    );
   });
 }
 
@@ -569,6 +627,13 @@ function ensureProductForItem(item, callback) {
   seguirComMiipOuLegado(false);
 }
 
+function normalizarPrecoCentralParaCentavos(valor) {
+  if (valor === null || valor === undefined || String(valor).trim() === '') return null;
+  const numero = Number(valor);
+  if (!Number.isFinite(numero) || numero < 0) return null;
+  return Math.round((numero + Number.EPSILON) * 100);
+}
+
 function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
   if (typeof opcoes === 'function') {
     done = opcoes;
@@ -576,6 +641,7 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
   }
 
   const fornecedorCnpj = opcoes?.fornecedor_cnpj || null;
+  const origemCentralNfe = String(opcoes?.origem_compra || '').toUpperCase() === 'CENTRAL_NFE';
   let index = 0;
 
   function next() {
@@ -593,9 +659,15 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
       item.quantidade_convertida = obterQuantidadeConvertida(item);
     }
     item.peso_total_compra = obterQuantidadeConvertida(item);
+    if (origemCentralNfe) {
+      item.quantidade_fiscal = Number(item.quantidade_convertida || item.quantidade || 0);
+      item.quantidade_nao_fiscal = 0;
+      item.item_fiscal = 1;
+    }
 
     const itemComContexto = {
       ...item,
+      origem_compra: origemCentralNfe ? 'CENTRAL_NFE' : (item.origem_compra || opcoes?.origem_compra || null),
       fornecedor: item.fornecedor || fornecedor || null,
       fornecedor_cnpj: item.fornecedor_cnpj || fornecedorCnpj || null
     };
@@ -609,16 +681,20 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
         const itemComProduto = { ...itemComContexto, produto_id: produtoId };
         const muc = obterMuc(db);
 
-        muc.processarItemCompra(
-          itemComProduto,
-          produtoRow,
-          {
-            fornecedorCnpj: fornecedorCnpj,
-            origem: item.origem_conversao || opcoes.origem || 'MANUAL',
-            registrarAprendizado: true
-          },
-          (mucErr, resultadoMuc) => {
-            if (mucErr) return done(mucErr);
+        try {
+          muc.processarItemCompra(
+            itemComProduto,
+            produtoRow,
+            {
+              fornecedorCnpj: fornecedorCnpj,
+              origem: origemCentralNfe ? 'CENTRAL_NFE' : (item.origem_conversao || opcoes.origem || 'MANUAL'),
+              registrarAprendizado: true
+            },
+            (mucErr, resultadoMuc) => {
+            if (mucErr) {
+              if (!mucErr.status && !String(mucErr.code || '').startsWith('SQLITE')) mucErr.status = 400;
+              return done(mucErr);
+            }
 
             const qtdsEstoque = {
               quantidade_comercial: obterQuantidadeComercial(itemComProduto),
@@ -639,9 +715,25 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
               _muc_resultado: resultadoMuc
             };
 
+            if (origemCentralNfe) {
+              itemProcessado.unidade = resultadoMuc.unidadeEstoque || produtoRow?.unidade || itemProcessado.unidade;
+              itemProcessado.unidade_comercial = itemComProduto.unidade_comercial || itemComProduto.uCom || itemComProduto.unidade;
+              itemProcessado.quantidade_por_embalagem = resultadoMuc.fatorConversao || itemComProduto.quantidade_por_embalagem || 1;
+              itemProcessado.fator_conversao = resultadoMuc.fatorConversao || itemComProduto.fator_conversao || 1;
+              itemProcessado.produto_apresentacao_id = resultadoMuc.apresentacaoId || itemComProduto.produto_apresentacao_id || null;
+              itemProcessado.preco_unitario = resultadoMuc.custoUnitario;
+              itemProcessado.custo_unitario_final = resultadoMuc.custoUnitario;
+              itemProcessado.custo_por_kg = resultadoMuc.custoUnitario;
+              itemProcessado.subtotal = resultadoMuc.subtotal;
+            }
+
             continuarItem(itemProcessado, qtdsEstoque, produtoId);
-          }
-        );
+            }
+          );
+        } catch (mucErr) {
+          mucErr.status = mucErr.status || 400;
+          return done(mucErr);
+        }
       });
     });
   }
@@ -675,18 +767,66 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
           qtdFiscal = 0;
           qtdNaoFiscal = 0;
         }
-        const precosCadastro = resolverPrecosCadastroAposCompra(itemProcessado);
+        const precoVendaOriginalCentavos = origemCentralNfe
+          ? normalizarPrecoCentralParaCentavos(itemProcessado.precoVendaOriginal)
+          : null;
+        const precoVendaAtualCentavos = origemCentralNfe
+          ? normalizarPrecoCentralParaCentavos(itemProcessado.precoVendaAtual)
+          : null;
+        const camposPrecoCentralInformados = itemProcessado.precoVendaOriginal !== undefined
+          && itemProcessado.precoVendaAtual !== undefined;
+        const precoVendaAtualEmBranco = itemProcessado.precoVendaAtual === null
+          || String(itemProcessado.precoVendaAtual).trim() === '';
+        if (origemCentralNfe && camposPrecoCentralInformados
+          && (precoVendaOriginalCentavos === null
+            || (!precoVendaAtualEmBranco && precoVendaAtualCentavos === null))) {
+          return done(new Error('Preço de venda informado na Central NF-e é inválido.'));
+        }
+        const precoVendaManualCentral = origemCentralNfe
+          && camposPrecoCentralInformados
+          && !precoVendaAtualEmBranco
+          && precoVendaOriginalCentavos !== precoVendaAtualCentavos;
+        const precoVendaAtualCentral = precoVendaAtualCentavos === null
+          ? null
+          : precoVendaAtualCentavos / 100;
+        const precosCadastro = origemCentralNfe
+          ? {
+            precoCompra: resolverCustoUnitarioCadastro(itemProcessado),
+            precoVenda: precoVendaManualCentral ? precoVendaAtualCentral : null,
+            lucroPercentual: precoVendaManualCentral && precoVendaAtualCentral > 0
+              ? Number((((precoVendaAtualCentral - resolverCustoUnitarioCadastro(itemProcessado))
+                / precoVendaAtualCentral) * 100).toFixed(2))
+              : null,
+            atualizarVenda: precoVendaManualCentral
+          }
+          : resolverPrecosCadastroAposCompra(itemProcessado);
         if (!tratamento.atualizarCusto) {
           precosCadastro.precoCompra = Number(produto?.preco_compra || precosCadastro.precoCompra || 0);
           precosCadastro.atualizarVenda = false;
         }
-        const precoUnitarioGravar = fracionado
+        const precoUnitarioGravar = fracionado || origemCentralNfe
           ? precosCadastro.precoCompra
           : moeda(itemProcessado.preco_unitario || precosCadastro.precoCompra || 0);
         const custoFinalGravar = precosCadastro.precoCompra;
-        const precoVendaGravar = precosCadastro.atualizarVenda
-          ? (precosCadastro.precoVenda ?? Number(itemProcessado.preco_venda_sugerido || 0))
-          : Number(itemProcessado.preco_venda_sugerido || 0);
+        const precoVendaGravar = origemCentralNfe
+          ? (precosCadastro.atualizarVenda
+            ? Number(precosCadastro.precoVenda)
+            : Number(produto?.preco_venda || 0))
+          : (precosCadastro.atualizarVenda
+            ? (precosCadastro.precoVenda ?? Number(itemProcessado.preco_venda_sugerido || 0))
+            : Number(itemProcessado.preco_venda_sugerido || 0));
+        const margemBrutaGravar = origemCentralNfe && precoVendaGravar > 0
+          ? Number((((precoVendaGravar - custoFinalGravar) / precoVendaGravar) * 100).toFixed(2))
+          : null;
+        const margemCompraItemGravar = origemCentralNfe
+          ? margemBrutaGravar
+          : Number(itemProcessado.margem_lucro || 30);
+        const precoVendaItemGravar = origemCentralNfe
+          ? precoVendaGravar
+          : Number(precoVendaGravar || 0);
+        const atualizarPrecoVendaGravar = origemCentralNfe
+          ? (precosCadastro.atualizarVenda ? 1 : 0)
+          : Number(itemProcessado.atualizar_preco_venda ?? 1) === 1 ? 1 : 0;
         const subtotalGravar = resultadoMuc
           ? resultadoMuc.subtotal
           : calcularSubtotalFinanceiroItemCompra(itemProcessado);
@@ -715,8 +855,8 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
           subtotalGravar,
           itemProcessado.produto_nome || null,
           itemProcessado.codigo_barras || null,
-          Number(itemProcessado.margem_lucro || 30),
-          Number(precoVendaGravar || 0),
+          margemCompraItemGravar,
+          Number(precoVendaItemGravar || 0),
           itemProcessado.unidade || 'UN',
           itemProcessado.ncm || null,
           Number(itemProcessado.frete_rateado || 0),
@@ -726,7 +866,7 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
           Number(itemProcessado.produto_fracionado ?? itemProcessado.vendido_por_peso ?? 0),
           qtdsEstoque.quantidade_convertida,
           custoFinalGravar,
-          Number(itemProcessado.atualizar_preco_venda ?? 1),
+          atualizarPrecoVendaGravar,
           qtdFiscal > 0 ? 1 : 0,
           qtdFiscal,
           qtdNaoFiscal,
@@ -755,8 +895,8 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
               saldo_nao_fiscal = COALESCE(saldo_nao_fiscal, 0) + ?,
               estoque_atual = (COALESCE(saldo_fiscal, 0) + ?) + (COALESCE(saldo_nao_fiscal, 0) + ?),
               preco_compra = ?,
-              preco_venda = CASE WHEN ? = 1 THEN ? ELSE preco_venda END,
-              lucro_percentual = CASE WHEN ? = 1 THEN ? ELSE lucro_percentual END,
+              preco_venda = CASE WHEN ? = 1 THEN ? ELSE preco_venda END${origemCentralNfe ? '' : `,
+              lucro_percentual = CASE WHEN ? = 1 THEN ? ELSE lucro_percentual END`},
               fornecedor = COALESCE(?, fornecedor),
               ncm = COALESCE(?, ncm),
               codigo_barras = COALESCE(?, codigo_barras),
@@ -774,9 +914,10 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
 
             precosCadastro.atualizarVenda ? 1 : 0,
             precosCadastro.precoVenda ?? Number(itemProcessado.preco_venda_sugerido || 0),
-
-            precosCadastro.atualizarVenda ? 1 : 0,
-            precosCadastro.lucroPercentual,
+            ...(origemCentralNfe ? [] : [
+              precosCadastro.atualizarVenda ? 1 : 0,
+              precosCadastro.lucroPercentual
+            ]),
 
             fornecedor || null,
             itemProcessado.ncm || null,
@@ -1361,6 +1502,7 @@ router.post('/', (req, res) => {
     natureza_operacao_xml,
     escrituracao_motivo,
     xml: xmlBody,
+    origem_compra,
     central_documento_id: centralDocumentoId
   } = req.body;
 
@@ -1657,12 +1799,13 @@ router.post('/', (req, res) => {
           console.log('Processando itens da compra:', compraId, itensComRateio);
           processarItensCompra(compraId, itensComRateio, fornecedor, {
             fornecedor_cnpj,
-            tipo_entrada: tipoEntrada
+            tipo_entrada: tipoEntrada,
+            origem_compra
           }, (itensErr) => {
             if (itensErr) {
               console.error('Erro ao processar itens da compra:', itensErr);
               db.run('ROLLBACK');
-              return res.status(500).json({ error: itensErr.message });
+              return res.status(itensErr.status || 500).json({ error: itensErr.message });
             }
 
             criarFinanceiroCompra({
@@ -2178,6 +2321,24 @@ router.post('/nfe-devolucao/:notaId/reenviar', async (req, res) => {
   }
 });
 
+router.post('/nfe-devolucao/:notaId/nova-tentativa', async (req, res) => {
+  try {
+    const out = await iniciarNovaTentativaDevolucao(Number(req.params.notaId), {
+      usuarioId: req.usuario?.id || req.user?.id || null,
+      usuarioNome: req.usuario?.nome || req.user?.nome || req.usuario?.username || null,
+      ip: req.ip || req.headers['x-forwarded-for'] || null,
+      computador: req.headers['x-computer-name'] || req.headers['x-client-host'] || null
+    });
+    res.json(out);
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message,
+      code: error.code || null
+    });
+  }
+});
+
 router.post('/nfe-devolucao/:notaId/cancelar', async (req, res) => {
   try {
     const out = await cancelarNfeDevolucaoOficial(Number(req.params.notaId), {
@@ -2230,6 +2391,8 @@ router.post('/:id/emitir-nfe-devolucao', async (req, res) => {
       refNFe: body.refNFe || body.chave_referenciada || body.chaveReferenciada,
       origemNfeDevolucaoId: ctxRota.origemDevolucaoId || body.origemNfeDevolucaoId || body.origem_nfe_devolucao_id,
       chaveAnterior: ctxRota.chaveAnterior || body.chaveAnterior,
+      novaIdentidade: body.novaIdentidade === true,
+      origemTentativaId: body.origemTentativaId || body.origem_tentativa_id || null,
       usuarioId: req.usuario?.id || req.user?.id || body.usuarioId || null,
       usuarioNome: req.usuario?.nome || req.user?.nome || req.usuario?.username || body.usuarioNome || null,
       ip: req.ip || req.headers['x-forwarded-for'] || null,

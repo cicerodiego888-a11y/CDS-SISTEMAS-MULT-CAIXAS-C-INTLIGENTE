@@ -178,6 +178,10 @@ function deveBloquearNovaTransmissao(nota) {
   if (st === 'aguardando_retorno' || st === 'lote_enviado' || st === 'processando' || st === 'enviando') {
     return { bloquear: true, motivo: 'Há uma transmissão em andamento. Reconcilie antes de reenviar.' };
   }
+  const { xmlRejeicaoFiscalDefinitiva } = require('./nfeDevolucaoEstados');
+  if (st === 'rejeitada' && xmlRejeicaoFiscalDefinitiva(nota)) {
+    return { bloquear: false };
+  }
   if (nota.protocolo || nota.recibo) {
     return { bloquear: true, motivo: 'Há recibo/protocolo de transmissão anterior. Reconcilie antes de reenviar.' };
   }

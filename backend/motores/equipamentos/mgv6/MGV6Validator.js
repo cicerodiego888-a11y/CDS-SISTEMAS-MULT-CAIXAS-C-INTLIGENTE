@@ -169,7 +169,7 @@ function validarConfiguracao(configRaw, opcoes = {}) {
     });
   }
   if (opcoes.requireFolder) {
-    validarPastaExportacao(cfg.exportFolder, { requireWritable: true });
+    validarPastaExportacao(cfg.exportFolder);
     validarNomeArquivo(cfg.fileName);
   }
   return cfg;
@@ -241,14 +241,13 @@ function validarPastaExportacao(folder, opcoes = {}) {
  */
 function resolverCaminhosExport(exportFolderAbs, fileName) {
   const safeName = validarNomeArquivo(fileName);
-  const folder = validarPastaExportacao(exportFolderAbs, { requireWritable: true });
+  const folder = validarPastaExportacao(exportFolderAbs);
   const finalPath = path.resolve(folder, safeName);
   const rel = path.relative(folder, finalPath);
   if (rel.startsWith('..') || path.isAbsolute(rel)) {
     throw MGV6Error.fromCode(CODES.PATH_TRAVERSAL, 'Path do arquivo sai da pasta de exportação');
   }
-  const tempPath = `${finalPath}.tmp`;
-  return { finalPath, tempPath, fileName: safeName, folder };
+  return { finalPath, fileName: safeName, folder };
 }
 
 /**

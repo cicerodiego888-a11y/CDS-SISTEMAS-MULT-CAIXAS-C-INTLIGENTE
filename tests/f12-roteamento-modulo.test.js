@@ -87,6 +87,8 @@ describe('A — ERP + F12 usa o modo visual legado', () => {
     assert.match(legadoFn, /modo_dashboard_fiscal/);
     assert.match(legadoFn, /aplicarModoFiscalGlobal\(\)/);
     assert.match(legadoFn, /salvarModoFiscalServidor\(novoValor\)/);
+    assert.match(legadoFn, /recarregarModulosModoFiscal/);
+    assert.match(legadoFn, /emitirEventoModoFiscalAlterado/);
     assert.match(legadoFn, /modoFiscalAtivoSistema\(\)\s*\?\s*'0'\s*:\s*'1'/);
   });
 });

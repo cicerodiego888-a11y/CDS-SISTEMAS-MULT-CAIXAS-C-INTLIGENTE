@@ -177,6 +177,76 @@ describe('RC14.15.4 — arquivo físico TXITENS.TXT', () => {
     assert.ok(fs.readFileSync(result.caminho).equals(fs.readFileSync(GOLDEN_TXITENS)));
   });
 
+  it('prepara .tmp em diretório gravável e preserva layout, encoding e CCCCCC', async () => {
+    const folder = path.join(tmpRoot, 'staged');
+    fs.mkdirSync(folder, { recursive: true });
+    const writeFileSync = fs.writeFileSync;
+    let tempPath;
+    fs.writeFileSync = function (filePath, ...args) {
+      if (String(filePath).endsWith('.tmp')) tempPath = String(filePath);
+      return writeFileSync.call(this, filePath, ...args);
+    };
+
+    let result;
+    try {
+      result = await exporter.exportarProdutos([
+        { plu: '10', nome: 'Produto Açaí', preco: 2.7 },
+        { plu: '25', nome: 'Produto B', preco: 3.5 }
+      ], cfgPasta(folder));
+    } finally {
+      fs.writeFileSync = writeFileSync;
+    }
+
+    assert.ok(tempPath);
+    assert.equal(path.dirname(tempPath), os.tmpdir());
+    assert.match(tempPath, /\.tmp$/);
+    assert.equal(result.encoding, 'WINDOWS-1252');
+    assert.equal(result.lineEnding, 'CRLF');
+    assert.equal(result.registroLength, 320);
+    const bytes = fs.readFileSync(result.caminho);
+    const linhas = bytes.toString('latin1').split('\r\n').filter(Boolean);
+    assert.equal(linhas.length, 2);
+    assert.ok(linhas.every((linha) => linha.length === 320));
+    assert.equal(bytes.length, (320 + 2) * 2);
+    assert.equal(linhas[0].slice(5, 11), '000010');
+    assert.equal(linhas[1].slice(5, 11), '000025');
+    assert.ok(bytes.toString('latin1').includes('Produto Açaí'));
+  });
+
+  it('trata EPERM sem truncar o TXITENS existente', async () => {
+    const folder = path.join(tmpRoot, 'denied');
+    fs.mkdirSync(folder, { recursive: true });
+    const finalPath = path.join(folder, 'TXITENS.TXT');
+    const conteudoAnterior = Buffer.from('TXITENS anterior íntegro');
+    fs.writeFileSync(finalPath, conteudoAnterior);
+    const renameSync = fs.renameSync;
+    fs.renameSync = function (source, destination) {
+      if (destination === finalPath) {
+        const error = new Error('operation not permitted');
+        error.code = 'EPERM';
+        throw error;
+      }
+      return renameSync.call(this, source, destination);
+    };
+
+    try {
+      await assert.rejects(
+        () => exporter.exportarProdutos([
+          { plu: '10', nome: 'Produto A', preco: 2.7 }
+        ], cfgPasta(folder)),
+        (error) => error.code === CODES.WRITE_DENIED
+          && error.message.includes('O CDS não possui permissão para gravar o TXITENS na pasta do MGV6.')
+          && error.message.includes(folder)
+          && error.message.includes('Conceda permissão de escrita')
+      );
+    } finally {
+      fs.renameSync = renameSync;
+    }
+
+    assert.deepEqual(fs.readFileSync(finalPath), conteudoAnterior);
+    assert.deepEqual(fs.readdirSync(folder), ['TXITENS.TXT']);
+  });
+
   it('overflow de código no lote não grava arquivo parcialmente inválido', async () => {
     const folder = path.join(tmpRoot, 'overflow');
     fs.mkdirSync(folder, { recursive: true });

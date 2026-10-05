@@ -37,15 +37,87 @@ function temCampo(icms, keys) {
 }
 
 const CAMPOS_ICMS_ORDEM = [
-  ['modBC', 0], ['pRedBC', 4], ['vBC', 2], ['pICMS', 4], ['vICMS', 2],
+  ['modBC', 0], ['vBC', 2], ['pRedBC', 4], ['pICMS', 4], ['vICMS', 2],
   ['modBCST', 0], ['pMVAST', 4], ['pRedBCST', 4], ['vBCST', 2], ['pICMSST', 4], ['vICMSST', 2],
   ['vBCSTRet', 2], ['pST', 4], ['vICMSSubstituto', 2], ['vICMSSTRet', 2],
   ['pCredSN', 4], ['vCredICMSSN', 2],
   ['motDesICMS', 0], ['vICMSDeson', 2],
   ['vBCFCP', 2], ['pFCP', 4], ['vFCP', 2],
   ['vBCFCPST', 2], ['pFCPST', 4], ['vFCPST', 2],
-  ['vBCFCPSTRet', 2], ['pFCPSTRet', 4], ['vFCPSTRet', 2]
+  ['vBCFCPSTRet', 2], ['pFCPSTRet', 4], ['vFCPSTRet', 2],
+  ['vICMSOp', 2], ['pDif', 4], ['vICMSDif', 2], ['pFCPDif', 4], ['vFCPDif', 2], ['vFCPEfet', 2],
+  ['pRedBCEfet', 4], ['vBCEfet', 2], ['pICMSEfet', 4], ['vICMSEfet', 2],
+  ['indDeduzDeson', 0], ['vICMSSTDeson', 2], ['motDesICMSST', 0]
 ];
+const CASAS_CAMPO_ICMS = Object.fromEntries(CAMPOS_ICMS_ORDEM);
+
+/**
+ * Sequência oficial do XSD nfe_v4.00 (prod_leiauteNFe). Não usar ordem de Object.keys.
+ * ICMSSN900 / ICMS90: modBC → vBC → pRedBC
+ * ICMS20 / ICMS51 / ICMS70: modBC → pRedBC → vBC
+ */
+const ORDEM_XML_POR_GRUPO = {
+  ICMS00: ['orig', 'CST', 'modBC', 'vBC', 'pICMS', 'vICMS', 'pFCP', 'vFCP'],
+  ICMS10: [
+    'orig', 'CST', 'modBC', 'vBC', 'pICMS', 'vICMS', 'vBCFCP', 'pFCP', 'vFCP',
+    'modBCST', 'pMVAST', 'pRedBCST', 'vBCST', 'pICMSST', 'vICMSST',
+    'vBCFCPST', 'pFCPST', 'vFCPST', 'vICMSSTDeson', 'motDesICMSST'
+  ],
+  ICMS20: [
+    'orig', 'CST', 'modBC', 'pRedBC', 'vBC', 'pICMS', 'vICMS',
+    'vBCFCP', 'pFCP', 'vFCP', 'vICMSDeson', 'motDesICMS', 'indDeduzDeson'
+  ],
+  ICMS30: [
+    'orig', 'CST', 'modBCST', 'pMVAST', 'pRedBCST', 'vBCST', 'pICMSST', 'vICMSST',
+    'vBCFCPST', 'pFCPST', 'vFCPST', 'vICMSDeson', 'motDesICMS', 'indDeduzDeson'
+  ],
+  ICMS40: ['orig', 'CST', 'vICMSDeson', 'motDesICMS', 'indDeduzDeson'],
+  ICMS51: [
+    'orig', 'CST', 'modBC', 'pRedBC', 'vBC', 'pICMS', 'vICMSOp', 'pDif', 'vICMSDif', 'vICMS',
+    'vBCFCP', 'pFCP', 'vFCP', 'pFCPDif', 'vFCPDif', 'vFCPEfet'
+  ],
+  ICMS60: [
+    'orig', 'CST', 'vBCSTRet', 'pST', 'vICMSSubstituto', 'vICMSSTRet',
+    'vBCFCPSTRet', 'pFCPSTRet', 'vFCPSTRet', 'pRedBCEfet', 'vBCEfet', 'pICMSEfet', 'vICMSEfet'
+  ],
+  ICMS70: [
+    'orig', 'CST', 'modBC', 'pRedBC', 'vBC', 'pICMS', 'vICMS', 'vBCFCP', 'pFCP', 'vFCP',
+    'modBCST', 'pMVAST', 'pRedBCST', 'vBCST', 'pICMSST', 'vICMSST',
+    'vBCFCPST', 'pFCPST', 'vFCPST', 'vICMSDeson', 'motDesICMS', 'indDeduzDeson',
+    'vICMSSTDeson', 'motDesICMSST'
+  ],
+  ICMS90: [
+    'orig', 'CST', 'modBC', 'vBC', 'pRedBC', 'pICMS', 'vICMS', 'vBCFCP', 'pFCP', 'vFCP',
+    'modBCST', 'pMVAST', 'pRedBCST', 'vBCST', 'pICMSST', 'vICMSST',
+    'vBCFCPST', 'pFCPST', 'vFCPST', 'vICMSDeson', 'motDesICMS', 'indDeduzDeson',
+    'vICMSSTDeson', 'motDesICMSST'
+  ],
+  ICMSSN101: ['orig', 'CSOSN', 'pCredSN', 'vCredICMSSN'],
+  ICMSSN102: ['orig', 'CSOSN'],
+  ICMSSN201: [
+    'orig', 'CSOSN', 'modBCST', 'pMVAST', 'pRedBCST', 'vBCST', 'pICMSST', 'vICMSST',
+    'vBCFCPST', 'pFCPST', 'vFCPST', 'pCredSN', 'vCredICMSSN'
+  ],
+  ICMSSN202: [
+    'orig', 'CSOSN', 'modBCST', 'pMVAST', 'pRedBCST', 'vBCST', 'pICMSST', 'vICMSST',
+    'vBCFCPST', 'pFCPST', 'vFCPST'
+  ],
+  ICMSSN203: [
+    'orig', 'CSOSN', 'modBCST', 'pMVAST', 'pRedBCST', 'vBCST', 'pICMSST', 'vICMSST',
+    'vBCFCPST', 'pFCPST', 'vFCPST'
+  ],
+  ICMSSN300: ['orig', 'CSOSN'],
+  ICMSSN400: ['orig', 'CSOSN'],
+  ICMSSN500: [
+    'orig', 'CSOSN', 'vBCSTRet', 'pST', 'vICMSSubstituto', 'vICMSSTRet',
+    'vBCFCPSTRet', 'pFCPSTRet', 'vFCPSTRet', 'pRedBCEfet', 'vBCEfet', 'pICMSEfet', 'vICMSEfet'
+  ],
+  ICMSSN900: [
+    'orig', 'CSOSN', 'modBC', 'vBC', 'pRedBC', 'pICMS', 'vICMS',
+    'modBCST', 'pMVAST', 'pRedBCST', 'vBCST', 'pICMSST', 'vICMSST',
+    'vBCFCPST', 'pFCPST', 'vFCPST', 'pCredSN', 'vCredICMSSN'
+  ]
+};
 
 const CAMPOS_POR_GRUPO_SN = {
   ICMSSN101: ['orig', 'CSOSN', 'pCredSN', 'vCredICMSSN'],
@@ -186,25 +258,85 @@ function montarIcmsXmlResolvido(resolucao) {
       ? resolucao.origem
       : (icms.orig != null ? icms.orig : '0')
   );
-  const tags = [tag('orig', orig, 0)];
-  if (resolucao.regime === 'simples') {
-    tags.push(tag('CSOSN', resolucao.csosn, 0));
-  } else {
-    tags.push(tag('CST', resolucao.cst, 0));
-  }
-
   const permitidos = resolucao.regime === 'simples'
     ? CAMPOS_POR_GRUPO_SN[grupo]
     : null;
   const setPermitidos = permitidos ? new Set(permitidos) : null;
+  const ordem = ORDEM_XML_POR_GRUPO[grupo]
+    || ['orig', resolucao.regime === 'simples' ? 'CSOSN' : 'CST', ...CAMPOS_ICMS_ORDEM.map(([c]) => c)];
 
-  for (const [campo, casas] of CAMPOS_ICMS_ORDEM) {
+  const tags = [];
+  const emitidos = new Set();
+  for (const campo of ordem) {
+    if (emitidos.has(campo)) continue;
+    emitidos.add(campo);
+    if (campo === 'orig') {
+      tags.push(tag('orig', orig, 0));
+      continue;
+    }
+    if (campo === 'CSOSN') {
+      if (resolucao.regime === 'simples') tags.push(tag('CSOSN', resolucao.csosn, 0));
+      continue;
+    }
+    if (campo === 'CST') {
+      if (resolucao.regime !== 'simples') tags.push(tag('CST', resolucao.cst, 0));
+      continue;
+    }
     if (icms[campo] == null || icms[campo] === '') continue;
     if (setPermitidos && !setPermitidos.has(campo)) continue;
+    const casas = CASAS_CAMPO_ICMS[campo] != null ? CASAS_CAMPO_ICMS[campo] : 2;
     tags.push(tag(campo, icms[campo], casas));
   }
 
   return `<ICMS><${grupo}>${tags.join('')}</${grupo}></ICMS>`;
+}
+
+function filhosDiretosGrupoIcms(inner) {
+  const nomes = [];
+  const re = /<([A-Za-z][A-Za-z0-9]*)(?:\s[^>]*)?>/g;
+  let m;
+  while ((m = re.exec(String(inner || ''))) !== null) nomes.push(m[1]);
+  return nomes;
+}
+
+/**
+ * Reprova XML com filhos de ICMS fora da sequência do XSD (ex.: pRedBC antes de vBC no ICMSSN900).
+ */
+function validarOrdemXmlIcms(xml) {
+  const reGrupo = /<(ICMS\d{2}|ICMSSN\d{3})>([\s\S]*?)<\/\1>/g;
+  let m;
+  while ((m = reGrupo.exec(String(xml || ''))) !== null) {
+    const grupo = m[1];
+    const inner = m[2];
+    const ordem = ORDEM_XML_POR_GRUPO[grupo];
+    if (!ordem) continue;
+    if (/<pRedBC>\s*<\/pRedBC>/.test(inner) || /<pRedBC>\s*null\s*<\/pRedBC>/i.test(inner)) {
+      const erro = new Error(`${grupo}: pRedBC vazio ou nulo não é permitido pelo schema.`);
+      erro.code = 'XML_ICMS_PRED_BC_INVALIDO';
+      throw erro;
+    }
+    const filhos = filhosDiretosGrupoIcms(inner);
+    let ultimo = -1;
+    for (const nome of filhos) {
+      const idx = ordem.indexOf(nome);
+      if (idx < 0) {
+        const erro = new Error(`${grupo}: elemento inesperado <${nome}> na sequência do schema.`);
+        erro.code = 'XML_ICMS_ORDEM_INVALIDA';
+        erro.detalhes = { grupo, filhos, ordem };
+        throw erro;
+      }
+      if (idx < ultimo) {
+        const erro = new Error(
+          `${grupo}: ordem XML inválida (${filhos.join(' → ')}). Schema: ${ordem.join(' → ')}.`
+        );
+        erro.code = 'XML_ICMS_ORDEM_INVALIDA';
+        erro.detalhes = { grupo, encontrada: filhos, esperada: ordem };
+        throw erro;
+      }
+      ultimo = idx;
+    }
+  }
+  return true;
 }
 
 function substituirIcmsNoImpostoXml(impostoXml, icmsXmlNovo) {
@@ -430,6 +562,8 @@ module.exports = {
   emitenteSimplesNacional,
   resolverIcmsPorCrtEmitente,
   montarIcmsXmlResolvido,
+  validarOrdemXmlIcms,
+  ORDEM_XML_POR_GRUPO,
   substituirIcmsNoImpostoXml,
   validarIcmsXmlContraCrt,
   adaptarImpostoEspelhadoAoCrt,

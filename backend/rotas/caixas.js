@@ -3,6 +3,10 @@ const router = express.Router();
 const db = require('../database');
 const { gravarAuditoria } = require('../services/auditoria');
 const { verificarPermissaoEspecifica } = require('../middleware/auth');
+const {
+  resolverImpressoraDoCaixa,
+  salvarImpressoraDoCaixa
+} = require('../services/caixa/ImpressoraCaixaService');
 
 function obterColunasCaixas(callback) {
   db.all(`PRAGMA table_info('caixas')`, [], (err, rows) => {
@@ -130,6 +134,41 @@ router.get('/:id', verificarPermissaoEspecifica('caixa'), (req, res) => {
     if (!row) return res.status(404).json({ error: 'Caixa não encontrado' });
     res.json(row);
   });
+});
+
+router.get('/:id/impressora-cupom', verificarPermissaoEspecifica('caixa'), async (req, res) => {
+  try {
+    const impressora = await resolverImpressoraDoCaixa(req.params.id);
+    res.json({ sucesso: true, ...impressora });
+  } catch (erro) {
+    res.status(erro.status || 500).json({ sucesso: false, mensagem: erro.message });
+  }
+});
+
+router.put('/:id/impressora-cupom', verificarPermissaoEspecifica('caixa'), async (req, res) => {
+  const perfil = String(req.user?.perfil || '').toUpperCase();
+  if (req.user?.role !== 'admin' && !['ADMIN', 'SUPER_ADMIN'].includes(perfil)) {
+    return res.status(403).json({ sucesso: false, mensagem: 'Sem permissão para configurar este caixa.' });
+  }
+  if (!Object.prototype.hasOwnProperty.call(req.body || {}, 'impressora_cupom')) {
+    return res.status(400).json({ sucesso: false, mensagem: 'Informe a impressora ou null para limpar.' });
+  }
+
+  try {
+    const impressora = await salvarImpressoraDoCaixa(req.params.id, req.body.impressora_cupom);
+    gravarAuditoria({
+      usuario_id: req.user.id,
+      usuario_nome: req.user.nome || req.user.username,
+      modulo: 'caixas',
+      acao: 'atualizar_impressora_cupom_caixa',
+      referencia_tipo: 'caixa',
+      referencia_id: impressora.caixa_id,
+      detalhes: JSON.stringify({ impressora_cupom: impressora.impressora_cupom })
+    }).catch((erro) => console.error('Erro ao auditar impressora do caixa:', erro));
+    res.json({ sucesso: true, ...impressora });
+  } catch (erro) {
+    res.status(erro.status || 500).json({ sucesso: false, mensagem: erro.message });
+  }
 });
 
 // POST /api/caixas — Criar novo caixa (SUPER_ADMIN | ADMIN)

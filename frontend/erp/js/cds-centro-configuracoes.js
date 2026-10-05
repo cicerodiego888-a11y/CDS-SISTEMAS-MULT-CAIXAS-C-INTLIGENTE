@@ -823,13 +823,13 @@
           <p class="cds-cfg-hint mb-3">
             Somente <strong>Super Usuário</strong>.
             <strong>DESATIVADO</strong> (padrão): bloqueia venda com saldo insuficiente.
-            <strong>ATIVADO</strong>: permite vender mesmo zerado — a baixa e a entrada continuam iguais; o saldo pode ficar negativo.
-            Não desliga o controle de estoque do cadastro.
+            <strong>ATIVADO</strong>: permite saldo insuficiente somente para produtos que controlam estoque das categorias <strong>Açougue</strong> e <strong>Hortifruti</strong>.
+            As demais categorias continuam bloqueadas. Produtos com controle de estoque desativado não validam nem movimentam saldo.
           </p>
           <label class="form-label" for="cfgEmpresaPermiteVendaSemEstoque">Permitir venda sem estoque</label>
           <select class="form-select mb-2" id="cfgEmpresaPermiteVendaSemEstoque" data-cfg-search="venda sem estoque negativo saldo insuficiente permitir">
             <option value="DESATIVADO">DESATIVADO — bloquear saldo insuficiente</option>
-            <option value="ATIVADO">ATIVADO — permitir venda sem estoque</option>
+            <option value="ATIVADO">ATIVADO — somente Açougue e Hortifruti</option>
           </select>
           <div class="cds-cfg-actions">
             <button type="button" class="btn btn-warning btn-sm" id="btnPermitirVendaSemEstoque">
@@ -1258,9 +1258,8 @@
     const valor = sel.value === 'ATIVADO' ? 'ATIVADO' : 'DESATIVADO';
     if (valor === 'ATIVADO') {
       const ok = window.confirm(
-        'A empresa permitirá venda com saldo insuficiente.\n\n'
-        + 'Compra, baixa e relatórios continuam iguais.\n'
-        + 'O estoque poderá ficar negativo.\n\n'
+        'Saldo insuficiente será permitido somente para produtos que controlam estoque das categorias Açougue e Hortifruti.\n\n'
+        + 'Nas demais categorias, a venda continuará bloqueada. Produtos com controle de estoque desativado não terão validação nem baixa.\n\n'
         + 'Confirma?'
       );
       if (!ok) return;

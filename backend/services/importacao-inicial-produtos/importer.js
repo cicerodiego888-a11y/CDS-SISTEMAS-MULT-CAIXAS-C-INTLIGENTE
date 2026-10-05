@@ -33,6 +33,8 @@ const {
   campoTextoFiscalPreenchido
 } = require('./helpers');
 const { chaveCategoriaEquivalente } = require('./classificadorCategoria');
+const { resolverFlagsObrigatoriosCategoria } = require('../categorias/categoriaPadroes');
+const { normalizarProdutoCategoriaEspecial } = require('../categorias/normalizacaoProdutosCategoriaEspecial');
 
 function dbRun(db, sql, params = []) {
   return new Promise((resolve, reject) => {
@@ -507,6 +509,11 @@ async function atualizarProdutoExistente(db, linha, {
     const classif = await garantirEstruturaClassificacao(db, linha, cache);
     await aplicarClassificacaoProdutoExistente(db, produtoId, classif || linha.classificacao);
   }
+  const normalizacao = await normalizarProdutoCategoriaEspecial(db, produtoId);
+  if (normalizacao.categorias.length) {
+    linha.produto.controla_estoque = 0;
+    linha.produto.item_fiscal = 0;
+  }
   await completarClassificacaoFiscalProdutoExistente(db, produtoId, linha);
 
   const mov = await registrarEstoqueInicial(db, {
@@ -544,6 +551,14 @@ async function inserirProduto(db, linha, cache, usuarioId) {
     ? null
     : (Number(linha.classificacao?.subcategoria_id)
       || await findOrCreateSubcategoria(db, p.subcategoria, categoriaId, cache));
+  const categoriaRow = categoriaId
+    ? await dbGet(db, 'SELECT id, nome FROM categorias WHERE id = ?', [categoriaId])
+    : null;
+  const flagsCategoria = resolverFlagsObrigatoriosCategoria(categoriaRow?.nome);
+  if (flagsCategoria) {
+    p.controla_estoque = flagsCategoria.controlaEstoque;
+    p.item_fiscal = flagsCategoria.itemFiscal;
+  }
   const unidade = normalizarUnidadeBaseCadastro(p.unidade_base || 'UN');
   const codigo = p.codigo_origem || null;
 

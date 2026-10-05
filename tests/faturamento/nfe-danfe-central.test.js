@@ -117,7 +117,8 @@ describe('Central DANFE — XML persistido e PDF', () => {
     });
     assert.equal(xml, xmlAssinado);
     const ui = read('frontend/erp/js/nfe-central.js');
-    assert.match(ui, /Download XML[\s\S]*temXml \? '' : 'disabled'/);
+    // Ações compactas: "Baixar XML" só aparece quando há XML (antes: botão "Download XML" desabilitado).
+    assert.match(ui, /if \(temXml\) \{\s*docItems\.push\(nfeMenuItem\('fa-download', 'Baixar XML'/);
   });
 
   it('sem xml_autorizado extrai nfeProc já persistido no retorno', () => {
@@ -234,7 +235,8 @@ describe('Central DANFE — UI pós-autorização e reimpressão', () => {
     const ui = read('frontend/erp/js/nfe-central.js');
     assert.match(svc, /nfe_devolucoes_compra/);
     assert.match(svc, /DEVOLUCAO_COMPRA/);
-    assert.match(ui, /Reimprimir/);
+    // Reimpressão: botão "Imprimir DANFE" das ações compactas chama reimprimirDanfeNfe.
+    assert.match(ui, /title="Imprimir DANFE"\s*onclick="reimprimirDanfeNfe\(/);
     assert.match(ui, /DEVOLUCAO_COMPRA/);
   });
 });

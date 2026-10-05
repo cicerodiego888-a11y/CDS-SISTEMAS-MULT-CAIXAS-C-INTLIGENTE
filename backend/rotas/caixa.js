@@ -24,7 +24,7 @@ function n(valor) {
 
 function obterConfigsEmpresa(callback) {
   db.all(
-    `SELECT chave, valor FROM configuracoes WHERE chave IN ('nome_empresa', 'nome_fantasia', 'razao_social', 'cnpj')`,
+    `SELECT chave, valor FROM configuracoes WHERE chave IN ('nome_empresa', 'nome_fantasia', 'razao_social', 'cnpj', 'fiscal_danfe_largura_mm')`,
     [],
     (err, rows) => {
       if (err) return callback(err);
@@ -32,7 +32,8 @@ function obterConfigsEmpresa(callback) {
       (rows || []).forEach((r) => { map[r.chave] = r.valor; });
       callback(null, {
         empresa_nome: map.nome_fantasia || map.nome_empresa || map.razao_social || 'CDS Sistemas',
-        empresa_cnpj: map.cnpj || ''
+        empresa_cnpj: map.cnpj || '',
+        papel_mm: Number(map.fiscal_danfe_largura_mm) === 58 ? 58 : 80
       });
     }
   );
@@ -886,7 +887,8 @@ router.post('/fechar', verificarToken, validarCaixaAberto, exigirPermissaoOuSenh
                 operador_nome: operadorNome,
                 caixa_id: caixa.id,
                 fechado_em: fechadoEm,
-                reimpressao: false
+                reimpressao: false,
+                papel_mm: meta.papel_mm
               });
 
               const resumoJson = consolidacao ? JSON.stringify(consolidacao) : null;
@@ -1287,7 +1289,8 @@ router.post('/:caixa_id/reimprimir', verificarToken, (req, res) => {
         operador_nome: consolidacao?.operador?.nome || operadorNome,
         caixa_id: caixaId,
         fechado_em: detalhes.caixa.fechado_em || fechamento.data_fechamento,
-        reimpressao: true
+        reimpressao: true,
+        papel_mm: meta.papel_mm
       });
 
       db.run(
@@ -1320,11 +1323,20 @@ router.post('/:caixa_id/reimprimir', verificarToken, (req, res) => {
     };
 
     if (fechamento.resumo_json) {
+      let consolidacaoSalva = null;
       try {
-        const consolidacao = JSON.parse(fechamento.resumo_json);
-        return finalizarComHtml(consolidacao);
+        consolidacaoSalva = JSON.parse(fechamento.resumo_json);
       } catch (parseErr) {
         console.warn('resumo_json inválido no fechamento, recalculando:', parseErr.message);
+      }
+      if (consolidacaoSalva) {
+        return obterConfigsEmpresa((cfgErr, empresa) => {
+          try {
+            finalizarComHtml(consolidacaoSalva, cfgErr ? {} : { papel_mm: empresa.papel_mm });
+          } catch (htmlErr) {
+            res.status(500).json({ error: htmlErr.message });
+          }
+        });
       }
     }
 

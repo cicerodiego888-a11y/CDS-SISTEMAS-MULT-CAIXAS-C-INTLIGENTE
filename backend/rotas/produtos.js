@@ -133,11 +133,6 @@ function obterProximoCodigoInternoProduto(callback) {
 function resolverCodigoInternoCriacao(codigoInformado, callback) {
   const informado = String(codigoInformado == null ? '' : codigoInformado).trim();
   if (informado) {
-    if (/^\d+$/.test(informado) && informado.length > MAX_DIGITOS_CODIGO_INTERNO) {
-      const err = new Error('O código interno deve ter no máximo 5 dígitos.');
-      err.status = 400;
-      return callback(err);
-    }
     return callback(null, { codigo: informado, gerado: false });
   }
 
@@ -168,25 +163,21 @@ function _setPdvIdentificacaoServiceForTests(svc) {
   _pdvIdentificacaoService = svc;
 }
 
-function resolverItemFiscalCadastro(body, saldoFiscal, saldoNaoFiscal) {
-  if (body.item_fiscal !== undefined && body.item_fiscal !== null) {
-    return Number(body.item_fiscal) === 1 ? 1 : 0;
-  }
-  if (Number(saldoNaoFiscal) > 0 && Number(saldoFiscal) === 0) {
-    return 0;
-  }
-  return 1;
-}
+const {
+  resolverItemFiscalCadastro,
+  resolverFlagsNovoProduto,
+  itemFiscalDeControleComercial,
+  campoInformado: campoInformadoCategoria
+} = require('../services/categorias/categoriaPadroes');
+const { normalizarProdutoCategoriaEspecial } = require('../services/categorias/normalizacaoProdutosCategoriaEspecial');
 
 function isModoFiscalQuery(valor) {
   return valor === '1' || valor === true || valor === 'true';
 }
 
 function filtroSqlModoFiscalProduto(modoFiscal, alias = 'p') {
-  if (!modoFiscal) {
-    return '';
-  }
-  return ` AND COALESCE(${alias}.item_fiscal, 1) = 1`;
+  // item_fiscal não define visibilidade do catálogo; apenas contextualiza o saldo/estoque exibido.
+  return '';
 }
 
 function exprEstoqueAlerta(modoFiscal, alias = '') {
@@ -319,7 +310,10 @@ const CAMPOS_PRODUTO_IGNORADOS = new Set([
   'codigo_mgv6',
   'codigoMgv6',
   'produto_pesavel',
-  'identificadores'
+  'identificadores',
+  'controle_comercial',
+  'padrao_controla_estoque',
+  'padrao_controle_comercial'
 ]);
 
 function normalizarMarcaIdOpcional(valor) {
@@ -2407,7 +2401,6 @@ router.post('/', (req, res) => {
     ? normalizarImagemPrincipalOpcional(imagem_principal)
     : null;
 
-  const controlaEstoque = normalizarFlagControlaEstoque(controla_estoque);
   const flagFracionado = resolverFlagProdutoFracionado({
     produto_fracionado,
     vendido_por_peso,
@@ -2438,7 +2431,6 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: saldosErr.message });
   }
 
-  const itemFiscalGravar = resolverItemFiscalCadastro(req.body, saldoFiscalInicial, saldoNaoFiscalInicial);
   const camposVendaUnidade = normalizarCamposVendaUnidade({
     permite_venda_unidade,
     peso_medio_unidade,
@@ -2447,6 +2439,15 @@ router.post('/', (req, res) => {
   const permiteVendaUnidade = camposVendaUnidade.permite_venda_unidade ?? 0;
   const pesoMedioUnidade = camposVendaUnidade.peso_medio_unidade ?? 0;
   const precoUnidade = camposVendaUnidade.preco_unidade ?? 0;
+  const iniciarComFlags = (categoriaRow) => {
+  const flags = resolverFlagsNovoProduto(
+    req.body,
+    categoriaRow,
+    saldoFiscalInicial,
+    saldoNaoFiscalInicial
+  );
+  const controlaEstoque = flags.controlaEstoque;
+  const itemFiscalGravar = flags.itemFiscal;
   console.log('[AUDIT PRODUTO POST] req.body.item_fiscal:', req.body.item_fiscal);
   console.log('[AUDIT PRODUTO POST] item_fiscal gravar INSERT:', itemFiscalGravar);
 
@@ -2645,6 +2646,17 @@ router.post('/', (req, res) => {
       }
     });
   });
+  };
+
+  const catIdNum = Number(categoria_id);
+  if (!Number.isFinite(catIdNum) || catIdNum <= 0) {
+    iniciarComFlags(null);
+  } else {
+    db.get('SELECT * FROM categorias WHERE id = ?', [catIdNum], (errCat, cat) => {
+      if (errCat) return res.status(500).json({ error: errCat.message });
+      iniciarComFlags(cat || null);
+    });
+  }
   });
 });
 
@@ -2847,6 +2859,14 @@ router.put('/:id', (req, res) => {
   if (cfgValidadeEmpresa.cacheHidratado() && !cfgValidadeEmpresa.estaAtivadaSync()) {
     bodyUpdates.controlar_validade = 0;
   }
+
+  if (campoInformadoCategoria(req.body, 'controle_comercial')
+      && !campoInformadoCategoria(req.body, 'item_fiscal')) {
+    bodyUpdates.item_fiscal = itemFiscalDeControleComercial(req.body.controle_comercial);
+  }
+  delete bodyUpdates.controle_comercial;
+  delete bodyUpdates.padrao_controla_estoque;
+  delete bodyUpdates.padrao_controle_comercial;
 
   if (Object.prototype.hasOwnProperty.call(req.body, 'controla_estoque')) {
     bodyUpdates.controla_estoque = normalizarFlagControlaEstoque(req.body.controla_estoque);
@@ -3088,30 +3108,35 @@ router.put('/:id', (req, res) => {
             aplicarSaldosIniciaisSePermitido((saldosErr) => {
               if (saldosErr) return done(saldosErr);
 
-              const deveSincronizarValidade =
-                controlarValidadeInformado !== undefined ||
-                dataValidadeInformada ||
-                diasAlertaInformado !== undefined;
+              const categoriaEfetiva = Object.prototype.hasOwnProperty.call(bodyUpdates, 'categoria_id')
+                ? bodyUpdates.categoria_id
+                : old.categoria_id;
+              normalizarProdutoCategoriaEspecial(db, id, categoriaEfetiva).then(() => {
+                const deveSincronizarValidade =
+                  controlarValidadeInformado !== undefined ||
+                  dataValidadeInformada ||
+                  diasAlertaInformado !== undefined;
 
-              if (!deveSincronizarValidade) {
-                return done(null);
-              }
+                if (!deveSincronizarValidade) {
+                  return done(null);
+                }
 
-              db.get('SELECT * FROM produtos WHERE id = ?', [id], (getErr, atual) => {
-                if (getErr) return done(getErr);
-                if (!atual) return done(new Error('Produto não encontrado após atualização.'));
+                db.get('SELECT * FROM produtos WHERE id = ?', [id], (getErr, atual) => {
+                  if (getErr) return done(getErr);
+                  if (!atual) return done(new Error('Produto não encontrado após atualização.'));
 
-                sincronizarValidadeELoteProduto(id, {
-                  controlarValidade: controlarValidadeInformado !== undefined
-                    ? (controlarValidadeInformado ? 1 : 0)
-                    : atual.controlar_validade,
-                  dataValidade: dataValidadeInformada,
-                  diasAlerta: diasAlertaInformado !== undefined
-                    ? diasAlertaInformado
-                    : atual.dias_alerta_validade,
-                  estoqueTotal: obterEstoqueTotalProduto(atual)
-                }, done);
-              });
+                  sincronizarValidadeELoteProduto(id, {
+                    controlarValidade: controlarValidadeInformado !== undefined
+                      ? (controlarValidadeInformado ? 1 : 0)
+                      : atual.controlar_validade,
+                    dataValidade: dataValidadeInformada,
+                    diasAlerta: diasAlertaInformado !== undefined
+                      ? diasAlertaInformado
+                      : atual.dias_alerta_validade,
+                    estoqueTotal: obterEstoqueTotalProduto(atual)
+                  }, done);
+                });
+              }).catch(done);
             });
           }
         );

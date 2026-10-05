@@ -1,0 +1,82 @@
+{
+  "sprint": "TEF-DESTAXA-06C-PREP",
+  "timestamp": "2026-10-03T21:26:36.282Z",
+  "transactionExecuted": false,
+  "realTransactionGate": {
+    "env": "DESTAXA_REAL_TRANSACTION_ENABLED",
+    "enabled": false
+  },
+  "valueFormat": {
+    "confirmed": true,
+    "format": "1.00",
+    "internalValueCents": 100,
+    "sent": "transacao_valor=1.00",
+    "conversion": "destaxaProtocolo.formatarValorDestaxa (única conversão CDS→Destaxa)",
+    "source": [
+      "docs/06-api-iniciatransacaodestaxa.md: transacao_valor \"Ex: 100.99\"; exemplo \"transacao_valor=99.99\"",
+      "examples/dotnet/Program.cs: \"transacao_valor=100.00\", \"transacao_valor=23.49\"",
+      "examples/java App.java: \"transacao_valor=100.00\", \"transacao_valor=23.49\"",
+      "examples/clang/src/main.c: \"transacao_valor=108.96\", \"transacao_valor=100.00\""
+    ]
+  },
+  "configuration": null,
+  "pinpad": {
+    "model": null,
+    "port": null,
+    "detected": false
+  },
+  "dll": {
+    "loaded": false,
+    "exports": 0,
+    "path": null
+  },
+  "client": {
+    "initialized": false,
+    "code": null
+  },
+  "vspague": {
+    "running": false,
+    "responding": false
+  },
+  "electron": null,
+  "nativeCall": {
+    "synchronous": true,
+    "blockingRisk": true,
+    "finding": "NATIVE_CALL_BLOCKING_RISK",
+    "evidence": [
+      "destaxaKoffiLoader/criarDriverTransacaoNativo chamam as funções Koffi de forma síncrona na thread do processo principal",
+      "docs/07: após DISPLAY a AC deve aguardar o fim da chamada; exemplo clang usa laço síncrono while(resultado == \"99\")",
+      "teste F: event loop congelado durante a chamada; timer do TefManager expira e vence a persistência (00 reportado como TIMEOUT)",
+      "chamada nativa travada não pode ser interrompida no mesmo processo; falha da DLL derruba o processo principal"
+    ],
+    "koffiAsyncAvailable": {
+      "iniciaTransacaoDestaxa": true,
+      "continuaTransacaoDestaxa": true,
+      "finalizaTransacaoDestaxa": true
+    },
+    "recommendedIsolation": "Processo host TEF dedicado (Electron utilityProcess ou fork com ELECTRON_RUN_AS_NODE) dono da DLL, do orquestrador e do transactionId, com IPC e chamadas serializadas; alternativa mínima: Koffi .async (thread libuv) serializado no mesmo processo",
+    "timeoutStrategy": "TIMEOUT → UNKNOWN → SEM RETRY; enquanto houver chamada nativa em voo o lock TEF permanece retido e nenhuma nova cobrança é aceita; resolução somente pelo retorno da DLL ou reconciliação",
+    "mitigationRequiredBefore06C": true
+  },
+  "transaction": {
+    "iniciaCalls": 0,
+    "continuaCalls": 0,
+    "finalizaCalls": 0
+  },
+  "database": {
+    "newTransactions": 0,
+    "window": "24h"
+  },
+  "tests": {
+    "passed": 29,
+    "failed": 5,
+    "failures": [
+      "B: banco persistido com provedor destaxa / ambiente homologacao",
+      "B: processo novo relê o banco e a Factory escolhe DestaxaRealAdapter",
+      "E: configuração oficial Destaxa + PPC930 em COM3, válida para modo real",
+      "I: Node real (banco persistido, sem override) — DLL/Client/VSPague/PPC930 e gate bloqueia antes da DLL",
+      "I: Electron 22.3.27 real — mesma verificação no runtime do CDS"
+    ]
+  },
+  "result": "NOT_READY_FOR_06C"
+}

@@ -552,9 +552,19 @@ async function _finalizarPrestacaoInterno({ vendaId, body = {}, req = {}, contex
     }, contextoAuditoria);
   }
 
+  let papelMm = 80;
+  try {
+    const papelRow = await get(
+      `SELECT valor FROM configuracoes WHERE chave = ?`,
+      ['fiscal_danfe_largura_mm']
+    );
+    if (Number(papelRow && papelRow.valor) === 58) papelMm = 58;
+  } catch (_) { /* bobina padrão 80mm */ }
+
   const comprovanteHtml = montarHtmlComprovantePrestacao({
     empresa: body.empresa_nome || body.empresa?.nome,
     cnpj: body.empresa_cnpj || body.empresa?.cnpj,
+    papel_mm: papelMm,
     pedido: vendaId,
     codigo: venda.codigo,
     cliente: venda.nome_cliente_entrega || venda.cliente_nome || 'Consumidor',

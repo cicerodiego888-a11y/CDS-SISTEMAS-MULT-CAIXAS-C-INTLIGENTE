@@ -124,9 +124,12 @@ test('alterarProdutoItemCompra aplica margem do cadastro', () => {
   assert.match(fn[0], /extrairMargemCadastradaProduto\(produto\)/);
 });
 
-test('adicionarItemCompraAsync usa form → cadastro → fallback', () => {
-  assert.match(comprasJs, /resolverDadosComerciaisProdutoCompra\(produto,\s*ultima\)\.margem_lucro/);
-  assert.match(comprasJs, /RC4\.31\.26 — form \(manual\/cadastro\/35%\) → resolver → fallback 35%/);
+test('adicionarItemCompraAsync usa preço informado ou preço de venda cadastrado', () => {
+  const adicionar = comprasJs.match(/async function adicionarItemCompraAsync\(\) \{[\s\S]*?\n\}/);
+  assert.ok(adicionar);
+  assert.match(adicionar[0], /precoVenda = Number\.isFinite\(precoVendaInput\) \? precoVendaInput : 0/);
+  assert.match(adicionar[0], /calcularMargemEntradaManualCompra\(preco, precoVenda\)/);
+  assert.doesNotMatch(adicionar[0], /preco\s*\*\s*\(1\s*\+\s*margem\s*\/\s*100\)/);
 });
 
 test('onProdutoSelecionado / onProdutoInput / onProdutoKeyDown sem || 30', () => {

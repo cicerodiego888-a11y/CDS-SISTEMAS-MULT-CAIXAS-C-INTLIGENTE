@@ -107,6 +107,29 @@ test('Bobina 100m → LINEAR', () => {
   assert.strictEqual(r.quantidadeEstoque, 200);
 });
 
+test('Entrada Central 2 ROLOS × 100 MT preserva custo unitário', () => {
+  const r = MUC.MotorConversao.converter({
+    produto: { produto_fracionado: 1, unidade: 'mt' },
+    item: {
+      produto_fracionado: 1,
+      quantidade_embalagens: 2,
+      quantidade_por_embalagem: 100,
+      valor_total_embalagem: 350,
+      compra_em: 'ROLO',
+      unidade_comercial: 'ROLO',
+      quantidade_fiscal: 200,
+      quantidade_nao_fiscal: 0,
+      unidade: 'mt'
+    },
+    origem: 'CENTRAL_NFE'
+  });
+  assert.strictEqual(r.quantidadeEstoque, 200);
+  assert.strictEqual(r.quantidadeFiscal, 200);
+  assert.strictEqual(r.quantidadeNaoFiscal, 0);
+  assert.strictEqual(r.fatorConversao, 100);
+  assert.strictEqual(r.custoUnitario, 1.75);
+});
+
 test('Saco 25Kg → PESO', () => {
   assert.strictEqual(inferirTipoConversao('SACO', 'kg'), 'PESO');
 });

@@ -25,11 +25,15 @@ describe('código interno até 5 dígitos', () => {
     assert.equal(String(proximo(['10'])).length <= 5, true);
   });
 
-  it('cadastro tem o botão Gerar e o campo limita a 5 dígitos', () => {
+  it('aceita código manual longo e mantém o Gerar limitado a 5 dígitos', () => {
     const ui = fs.readFileSync(path.join(ROOT, 'frontend/erp/js/produtos.js'), 'utf8');
+    const route = fs.readFileSync(path.join(ROOT, 'backend/rotas/produtos.js'), 'utf8');
     assert.match(ui, /id="btnGerarCodigoInterno"/);
-    assert.match(ui, /maxlength="5"/);
+    assert.doesNotMatch(ui, /id="codigo"[^>]*maxlength="5"/);
+    assert.match(ui, /placeholder="Código interno ou código de barras"/);
     assert.match(ui, /proximo-codigo/);
+    assert.match(ui, /slice\(0, 5\)/);
+    assert.doesNotMatch(route, /informado\.length > MAX_DIGITOS_CODIGO_INTERNO/);
     assert.match(ui, /codigoInternoAvulso/);
   });
 });

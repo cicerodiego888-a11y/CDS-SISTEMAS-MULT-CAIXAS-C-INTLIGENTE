@@ -36,7 +36,9 @@
 
     const style = document.createElement('style');
     style.textContent = `
-      #cdsCopilotoFab{position:fixed;right:16px;bottom:48px;z-index:1050;border-radius:999px;width:52px;height:52px;border:0;background:#0f766e;color:#fff;box-shadow:0 8px 24px rgba(15,118,110,.35);cursor:pointer}
+      #cdsCopilotoFab{position:fixed;right:16px;bottom:48px;z-index:1050;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 18px 0 16px;height:52px;border:0;border-radius:999px;background:linear-gradient(135deg,#0f766e 0%,#115e59 100%);color:#fff;box-shadow:0 10px 24px rgba(15,118,110,.38);cursor:pointer;font-weight:700;font-size:13px;letter-spacing:.02em;white-space:nowrap}
+      #cdsCopilotoFab .cds-copiloto-fab__label{display:inline-block;line-height:1}
+      #cdsCopilotoFab:hover{transform:translateY(-1px);box-shadow:0 14px 28px rgba(15,118,110,.45)}
       #cdsCopilotoPanel{position:fixed;right:16px;bottom:112px;width:min(380px,calc(100vw - 24px));max-height:min(70vh,560px);z-index:1050;display:none;flex-direction:column;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.18);overflow:hidden}
       #cdsCopilotoPanel.open{display:flex}
       #cdsCopilotoPanel .cia-head{padding:10px 12px;background:#0f766e;color:#fff;display:flex;justify-content:space-between;align-items:center}
@@ -57,7 +59,8 @@
     fab.id = 'cdsCopilotoFab';
     fab.type = 'button';
     fab.title = 'CDS Copiloto';
-    fab.innerHTML = '<i class="fas fa-robot"></i>';
+    fab.setAttribute('aria-label', 'CDS Copiloto');
+    fab.innerHTML = '<i class="fas fa-robot"></i><span class="cds-copiloto-fab__label">CDS Copiloto</span>';
 
     const panel = document.createElement('div');
     panel.id = 'cdsCopilotoPanel';

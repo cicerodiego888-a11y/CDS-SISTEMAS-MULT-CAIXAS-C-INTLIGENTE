@@ -63,7 +63,6 @@ class CatalogSnapshot {
     const termoComZeroMedida = !soDigitos && /(?:^|[^0-9])0+\d/.test(termo);
 
     for (const p of base) {
-      if (modoFiscal && Number(p.item_fiscal) !== 1) continue;
       const nb = p.nome_busca || '';
       const codigo = String(p.codigo || '').toLowerCase();
       const barras = String(p.codigo_barras || '').toLowerCase();

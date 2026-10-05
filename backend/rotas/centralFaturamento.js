@@ -26,6 +26,7 @@ router.get('/painel', async (req, res) => {
   try {
     res.json(await Central.obterPainelInicial(req.query || {}));
   } catch (err) {
+    console.error(`[central-faturamento/painel] etapa=${err.etapaPainel || 'desconhecida'}`, err);
     responderErro(res, err);
   }
 });

@@ -177,6 +177,30 @@
   </div>
 </div>
 
+<!-- Configuração de impressora por caixa -->
+<div class="modal fade" id="modalImpressoraCaixa" tabindex="-1" aria-labelledby="modalImpressoraCaixaTitulo" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalImpressoraCaixaTitulo">Impressora de cupom</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-2"><strong id="impressoraCaixaNome"></strong></p>
+        <label for="selectImpressoraCaixa" class="form-label">Impressora</label>
+        <div id="impressoraCaixaControle"></div>
+        <small class="text-muted d-block mt-2">A lista mostra impressoras visíveis neste computador. Sem vínculo, nenhuma configuração por caixa será usada; o motor de impressão permanece inalterado.</small>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="salvarImpressoraCaixa()">
+          <i class="fas fa-save"></i> Salvar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Editar Terminal -->
 <div class="modal fade" id="modalEditarTerminal" tabindex="-1">
   <div class="modal-dialog">

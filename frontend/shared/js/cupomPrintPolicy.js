@@ -142,7 +142,7 @@
 
   function enveloparVia(html, destino) {
     const titulo = rotuloVia(destino);
-    const faixa = `<div class="cds-ui-cupom-via" style="font-family:monospace;font-size:13px;text-align:center;font-weight:900;color:#000;padding:4px 0 8px;">
+    const faixa = `<div class="cds-ui-cupom-via" style="font-family:Consolas,'Courier New',monospace;font-size:10px;text-align:center;font-weight:900;color:#000;padding:4px 0 8px;max-width:100%;white-space:pre-line;overflow-wrap:anywhere;">
 --------------------------------
 ${titulo}
 --------------------------------

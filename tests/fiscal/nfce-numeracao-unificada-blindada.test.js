@@ -81,7 +81,15 @@ describe('NFC-e 65 — numeração unificada e blindada', () => {
 
   it('06 — CStat 539 registra ocupação (código + logs)', () => {
     assert.match(EMISSOR, /aplicarOcupacaoPorRejeicao539Nfce/);
-    assert.match(TX, /aplicarOcupacaoPorRejeicao539Nfce/);
+    // Fechamento delega o 539 à reconciliação, que registra a ocupação como primeiro passo
+    // (cobertura funcional: tests/fiscal/nfce-cstat539-reconciliacao.test.js).
+    const RECON = fs.readFileSync(
+      path.join(ROOT, 'backend/services/fechamento-fiscal/NfceCstat539ReconciliacaoService.js'),
+      'utf8'
+    );
+    assert.match(TX, /reconciliarCstat539Documento/);
+    assert.match(RECON, /const ocupacao = await aplicarOcupacao\(/);
+    assert.match(RECON, /deps\.aplicarOcupacaoPorRejeicao539Nfce \|\| aplicarOcupacaoPorRejeicao539Nfce/);
     assert.match(OCUP, /nfce_numeros_ocupados_sefaz/);
     assert.match(OCUP, /\[FISCAL\]\[NUMERACAO\]\[539\]|logNum\('539'/);
     assert.equal(/setConfiguracao\(\s*['"]fiscal_numero_atual['"].*numeroDuplicado/.test(EMISSOR), false);

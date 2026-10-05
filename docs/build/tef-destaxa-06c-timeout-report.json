@@ -1,0 +1,722 @@
+{
+  "sprint": "TEF-DESTAXA-06C-TIMEOUT",
+  "timestamp": "2026-10-03T21:26:36.330Z",
+  "transactionExecuted": false,
+  "realTransactionGate": {
+    "env": "DESTAXA_REAL_TRANSACTION_ENABLED",
+    "enabled": false
+  },
+  "officialSources": {
+    "package": "Destaxa DLL integração TEF 1.83 (documento \"Biblioteca de Integração Destaxa\" versão 1.1, 09/09/2025)",
+    "location": "C:\\Users\\cicer\\Desktop\\DLL DESTAXA\\1_83-20260831T165940Z-1-001\\1_83",
+    "consulted": [
+      {
+        "source": "docs/00-introducao.md",
+        "found": true
+      },
+      {
+        "source": "docs/01-usando-a-dll-fluxo-simples.md",
+        "found": true
+      },
+      {
+        "source": "docs/02-usando-a-dll-fluxo-multi-transacao.md",
+        "found": true
+      },
+      {
+        "source": "docs/03-usando-a-dll.md",
+        "found": true
+      },
+      {
+        "source": "docs/04-interface-dll-ac.md",
+        "found": true
+      },
+      {
+        "source": "docs/05-api-iniciaclientdestaxa.md",
+        "found": true
+      },
+      {
+        "source": "docs/06-api-iniciatransacaodestaxa.md",
+        "found": true
+      },
+      {
+        "source": "docs/07-api-continuatransacaodestaxa.md",
+        "found": true
+      },
+      {
+        "source": "docs/08-api-finalizatransacaodestaxa.md",
+        "found": true
+      },
+      {
+        "source": "docs/09-tabela-codigos-de-retorno.md",
+        "found": true
+      },
+      {
+        "source": "docs/10-acoes-de-coleta.md",
+        "found": true
+      },
+      {
+        "source": "docs/dll-integracao-tef.html",
+        "found": true
+      },
+      {
+        "source": "examples/clang/src/main.c",
+        "found": true
+      },
+      {
+        "source": "examples/dotnet/Program.cs",
+        "found": true
+      },
+      {
+        "source": "examples/java/app/src/main/java/com/destaxa/example/App.java",
+        "found": true
+      }
+    ],
+    "timeoutOccurrences": [
+      {
+        "arquivo": "docs/09-tabela-codigos-de-retorno.md",
+        "linha": 13,
+        "texto": "| `08` | Tempo limite de espera excedido. |"
+      },
+      {
+        "arquivo": "docs/10-acoes-de-coleta.md",
+        "linha": 20,
+        "texto": "### campo `timeout`"
+      },
+      {
+        "arquivo": "docs/10-acoes-de-coleta.md",
+        "linha": 21,
+        "texto": "Indica o tempo máximo em segundos que o Client aguardará a resposta do AC. Se o tempo for ultrapassado a transação será cancelada."
+      }
+    ]
+  },
+  "officialTimeout": {
+    "global": "DESTAXA_GLOBAL_TIMEOUT_NAO_DOCUMENTADO",
+    "crt": "DESTAXA_GLOBAL_TIMEOUT_NAO_DOCUMENTADO",
+    "longInteractiveOperations": "não documentado; docs/07: após DISPLAY a AC \"deve aguardar o fim da chamada\" (sem limite)",
+    "coletaField": {
+      "campo": "timeout",
+      "unidade": "segundos",
+      "significado": "tempo máximo que o Client aguardará a resposta da AC a uma coleta; ultrapassado, a transação será cancelada pelo Client",
+      "escopo": "resposta da AC à ação de coleta corrente (entre o retorno 99 e a próxima continuaTransacaoDestaxa)",
+      "timeoutTotalDaTransacao": false,
+      "variacaoPorEtapa": "não documentada — o campo é enviado junto de cada ação de coleta",
+      "autoridade": "Client Destaxa",
+      "source": "docs/10-acoes-de-coleta.md: \"campo timeout — Indica o tempo máximo em segundos que o Client aguardará a resposta do AC. Se o tempo for ultrapassado a transação será cancelada.\""
+    },
+    "code08": {
+      "codigo": "08",
+      "significado": "Tempo limite de espera excedido",
+      "source": "docs/09-tabela-codigos-de-retorno.md"
+    },
+    "clientVsPagueConfiguration": "nenhum parâmetro de timeout em iniciaClientDestaxa (docs/05)"
+  },
+  "unit": "segundos (somente campo timeout de COLETA)",
+  "meaning": "tempo máximo que o Client aguardará a resposta da AC a uma coleta; ultrapassado, a transação será cancelada pelo Client",
+  "currentCdsTimeouts": {
+    "tefManagerOperationalMs": 30000,
+    "tefManagerSource": "TEF_TIMEOUT_MS ou 30000 (backend/services/tef/TefManager.js) — inalterado",
+    "tefConfiguracaoTefTimeoutSeconds": "tefTimeout=60 (tefConfigService DEFAULTS) — persistido, não consumido pelo TefManager; inalterado",
+    "hostIpcTransactionalMs": null,
+    "hostIpcNonTransactionalMs": 120000,
+    "hostStartupMs": 20000,
+    "tefLockServiceMs": "timeout operacional + 10000 (lock por venda/idempotency_key)"
+  },
+  "differences": [
+    "Destaxa não define timeout global/CRT; o timeout operacional do CDS (30s) não tem base documental e não é autoridade sobre o resultado.",
+    "O campo timeout de COLETA mede o prazo da AC para responder uma coleta (sem chamada nativa em andamento); não é timeout da chamada nem da transação.",
+    "O timeout de IPC para operações transacionais (120s na 06C-MITIGACAO) foi removido: não havia base documental; perda do host é detectada pela saída do processo."
+  ],
+  "decision": "Nenhum número novo. Contrato baseado em UNKNOWN, host ocupado, resultado tardio, reconciliação e ausência de retry (OBJETIVO 8).",
+  "finalContract": [
+    {
+      "layer": "TefManager (Main)",
+      "timeout": "30000ms (TEF_TIMEOUT_MS) — operacional, sem base documental",
+      "meaning": "prazo de resposta ao chamador (PDV)",
+      "action": "responde TIMEOUT/PENDENTE (UNKNOWN, retryAllowed=false); não cancela a chamada; abre trava de resultado tardio",
+      "authority": "não é autoridade sobre o resultado financeiro"
+    },
+    {
+      "layer": "DestaxaHostBridge / IPC",
+      "timeout": "nenhum para TX_START/TX_CONTINUE/TX_FINALIZE; 120000ms para operações não transacionais",
+      "meaning": "transporte",
+      "action": "espera resposta do host ou queda do processo; timeout explícito → HOST_TIMEOUT UNKNOWN com lock mantido",
+      "authority": "autoridade somente sobre falha de transporte (HOST_CRASHED/OFFLINE/UNAVAILABLE → UNKNOWN)"
+    },
+    {
+      "layer": "TEF Native Host",
+      "timeout": "nenhum",
+      "meaning": "executa a chamada síncrona da DLL até o fim",
+      "action": "nunca interrompe a DLL; uma operação por vez (HOST_BUSY)",
+      "authority": "autoridade sobre serialização"
+    },
+    {
+      "layer": "Destaxa DLL / Client",
+      "timeout": "DESTAXA_GLOBAL_TIMEOUT_NAO_DOCUMENTADO",
+      "meaning": "Client controla os próprios prazos; 08 = tempo limite de espera excedido",
+      "action": "resultado 00/03/04/09/08/A0/A1/99 classificado pela política TEF-05",
+      "authority": "autoridade sobre o resultado financeiro"
+    },
+    {
+      "layer": "COLETA/99",
+      "timeout": "campo timeout (segundos) enviado pelo Client em cada coleta",
+      "meaning": "prazo da AC para responder a coleta; ultrapassado, o Client cancela a transação",
+      "action": "informativo para a UI da coleta; não vira timeout global nem timer do CDS",
+      "authority": "Client Destaxa"
+    },
+    {
+      "layer": "Reconciliação",
+      "timeout": "nenhum",
+      "meaning": "desfecho seguro após UNKNOWN/00 tardio/A0/A1/queda",
+      "action": "TefManager.reconciliarResultadoTardio (usuário + observação) somente após o desfecho da chamada; libera a trava",
+      "authority": "operador"
+    }
+  ],
+  "timeoutBehavior": {
+    "physicalCancellation": false,
+    "cdsResponse": "TIMEOUT / PENDENTE / UNKNOWN / retryAllowed=false com o mesmo transacaoId",
+    "hostKeepsRunning": true,
+    "timeoutBeforeAdapterCall": "autorização não é enviada; linha marcada erro (TEF_TIMEOUT_ANTES_DO_ENVIO)"
+  },
+  "lateResultBehavior": {
+    "00": "CONFIRMED_SUCCESS registrado; linha permanece pendente; SUCCESS somente após reconciliação; nunca nova cobrança",
+    "03/04/09": "CONFIRMED_DENIED; linha negada; trava liberada",
+    "08": "UNKNOWN; reconciliação obrigatória",
+    "A0": "UNCONFIRMED; reconciliação obrigatória",
+    "A1": "BLOCKED; reconciliação obrigatória (confirmar/cancelar pendentes)",
+    "99/erro/queda": "PENDING/UNKNOWN; reconciliação obrigatória",
+    "automaticNewAuthorization": false,
+    "scenarios": {
+      "00": {
+        "respondedWithin": 303,
+        "cdsResult": {
+          "codigo": "TIMEOUT",
+          "status": "pendente",
+          "financialState": "UNKNOWN"
+        },
+        "lateResult": {
+          "code": "00",
+          "financialState": "CONFIRMED_SUCCESS",
+          "resolution": "RECONCILIATION_REQUIRED"
+        },
+        "persistedStatus": "pendente",
+        "lockAfterLateResult": "RECONCILIACAO_PENDENTE",
+        "adapterCalls": 1,
+        "newRows": 1,
+        "mainMaxLoopGapMs": 17
+      },
+      "03": {
+        "respondedWithin": 313,
+        "cdsResult": {
+          "codigo": "TIMEOUT",
+          "status": "pendente",
+          "financialState": "UNKNOWN"
+        },
+        "lateResult": {
+          "code": "03",
+          "financialState": "CONFIRMED_DENIED",
+          "resolution": "FINAL_DENIED"
+        },
+        "persistedStatus": "negado",
+        "lockAfterLateResult": "LIBERADA",
+        "adapterCalls": 2,
+        "newRows": 2,
+        "mainMaxLoopGapMs": 23
+      },
+      "08": {
+        "respondedWithin": 302,
+        "cdsResult": {
+          "codigo": "TIMEOUT",
+          "status": "pendente",
+          "financialState": "UNKNOWN"
+        },
+        "lateResult": {
+          "code": "08",
+          "financialState": "UNKNOWN",
+          "resolution": "RECONCILIATION_REQUIRED"
+        },
+        "persistedStatus": "pendente",
+        "lockAfterLateResult": "RECONCILIACAO_PENDENTE",
+        "adapterCalls": 1,
+        "newRows": 1,
+        "mainMaxLoopGapMs": 17
+      },
+      "A0": {
+        "respondedWithin": 315,
+        "cdsResult": {
+          "codigo": "TIMEOUT",
+          "status": "pendente",
+          "financialState": "UNKNOWN"
+        },
+        "lateResult": {
+          "code": "A0",
+          "financialState": "UNCONFIRMED",
+          "resolution": "RECONCILIATION_REQUIRED"
+        },
+        "persistedStatus": "pendente",
+        "lockAfterLateResult": "RECONCILIACAO_PENDENTE",
+        "adapterCalls": 1,
+        "newRows": 1,
+        "mainMaxLoopGapMs": 20
+      },
+      "A1": {
+        "respondedWithin": 310,
+        "cdsResult": {
+          "codigo": "TIMEOUT",
+          "status": "pendente",
+          "financialState": "UNKNOWN"
+        },
+        "lateResult": {
+          "code": "A1",
+          "financialState": "BLOCKED",
+          "resolution": "RECONCILIATION_REQUIRED"
+        },
+        "persistedStatus": "pendente",
+        "lockAfterLateResult": "RECONCILIACAO_PENDENTE",
+        "adapterCalls": 1,
+        "newRows": 1,
+        "mainMaxLoopGapMs": 17
+      },
+      "crash": {
+        "respondedWithin": 306,
+        "cdsResult": {
+          "codigo": "TIMEOUT",
+          "status": "pendente",
+          "financialState": "UNKNOWN"
+        },
+        "lateResult": {
+          "code": "HOST_CRASHED",
+          "financialState": "UNKNOWN",
+          "resolution": "RECONCILIATION_REQUIRED"
+        },
+        "persistedStatus": "pendente",
+        "lockAfterLateResult": "RECONCILIACAO_PENDENTE",
+        "adapterCalls": 1,
+        "newRows": 1,
+        "mainMaxLoopGapMs": 16
+      }
+    }
+  },
+  "transactionLock": {
+    "tefManager": "trava de resultado tardio (AGUARDANDO_RESULTADO_TARDIO → RECONCILIACAO_PENDENTE); nova autorização → TEF_RESULTADO_PENDENTE antes de criar linha/transactionId",
+    "nativeHost": "cliente mantém a operação em voo até resposta/queda (HOST_BUSY); queda durante TX → reconciliação pendente e reinício só com reconciliado=true",
+    "release": "automática somente em negação confirmada tardia; demais casos por reconciliação explícita",
+    "residualRisk": "trava reconstruída do banco após reinício (TEF-DESTAXA-06C-PERSISTENCIA: linhas tef_transacoes pendente); o host (processo filho) é encerrado junto com o aplicativo; a DLL sinaliza A1 para transação não confirmada"
+  },
+  "reconciliation": {
+    "api": "TefManager.reconciliarResultadoTardio(transacaoId, { financialState: CONFIRMED_SUCCESS|CONFIRMED_DENIED|CANCELLED, usuario, observacao })",
+    "guards": [
+      "TEF_RECONCILIACAO_SEM_TRAVA",
+      "TEF_RECONCILIACAO_PREMATURA",
+      "TEF_RECONCILIACAO_INVALIDA"
+    ],
+    "sendsNewAuthorization": false
+  },
+  "mainProcess": {
+    "pid": 11912,
+    "dllLoads": 0
+  },
+  "hostProcess": {
+    "processType": "child_process",
+    "pid": 23876,
+    "versions": {
+      "node": "24.19.0",
+      "electron": null,
+      "modules": "137"
+    },
+    "tripwire": true,
+    "clientCode": "00"
+  },
+  "realTransactions": 0,
+  "realTransactionalCalls": {
+    "inicia": 0,
+    "continua": 0,
+    "finaliza": 0
+  },
+  "database": {
+    "newTransactions": 0,
+    "window": "24h"
+  },
+  "scope": {
+    "changedFiles": [
+      "PROTOCOLO_TOLEDO.md",
+      "backend/database.js",
+      "backend/motores/comercial/MotorComercialService.js",
+      "backend/motores/equipamentos/mgv6/MGV6Exporter.js",
+      "backend/motores/equipamentos/mgv6/MGV6Validator.js",
+      "backend/motores/mib/SearchEngine.js",
+      "backend/motores/mib/ai/SearchAI.js",
+      "backend/motores/mib/cache/HotCache.js",
+      "backend/motores/mib/catalog/CatalogSnapshot.js",
+      "backend/motores/mib/core/QueryOptimizer.js",
+      "backend/motores/muc/core/MotorConversaoCalculo.js",
+      "backend/motores/muc/index.js",
+      "backend/motores/muc/repositorios/RepositorioApresentacoes.js",
+      "backend/motores/produto-identidade/core/DetectorTipoCodigo.js",
+      "backend/motores/produto-identidade/strategies/InternoStrategy.js",
+      "backend/motores/produto-identidade/strategies/PluStrategy.js",
+      "backend/rotas/caixas.js",
+      "backend/rotas/categorias.js",
+      "backend/rotas/centralFaturamento.js",
+      "backend/rotas/compras.js",
+      "backend/rotas/configuracoes.js",
+      "backend/rotas/fechamento-fiscal.js",
+      "backend/rotas/produtos.js",
+      "backend/server.js",
+      "backend/services/IndicadoresFiscaisService.js",
+      "backend/services/auditoria.js",
+      "backend/services/busca-operacional-produtos/BuscaOperacionalProdutosService.js",
+      "backend/services/categorias/categoriaPadroes.js",
+      "backend/services/distribuidorEstoqueVenda.js",
+      "backend/services/entrega/CriarVendaEntregaService.js",
+      "backend/services/entrega/EntregaService.js",
+      "backend/services/estoque/EstoqueDisponivelService.js",
+      "backend/services/estoque/empresaPermiteVendaSemEstoqueConfig.js",
+      "backend/services/estoque/pdvImprimirCupomConfig.js",
+      "backend/services/estoque/produtoControlaEstoque.js",
+      "backend/services/estoque/transferenciaNaoFiscalParaFiscalPdv.js",
+      "backend/services/faturamento/CentralPainelOperacionalService.js",
+      "backend/services/fechamento-fiscal/FechamentoFiscalComplementacaoService.js",
+      "backend/services/fechamento-fiscal/FechamentoFiscalDistribuicaoService.js",
+      "backend/services/fechamento-fiscal/FechamentoFiscalElegibilidadeService.js",
+      "backend/services/fechamento-fiscal/FechamentoFiscalSaldoService.js",
+      "backend/services/fechamento-fiscal/FechamentoFiscalService.js",
+      "backend/services/fechamento-fiscal/schema/fechamentoFiscalSchema.js",
+      "backend/services/fiscal/classificarResultadoEmissaoNfe.js",
+      "backend/services/fiscal/classificarRetornoSefaz.js",
+      "backend/services/fiscal/core/RegistryBuilder.js",
+      "backend/services/fiscal/emissor.js",
+      "backend/services/fiscal/espelharTributosNfeDevolucaoCompra.js",
+      "backend/services/fiscal/nfeDevolucaoCompra.js",
+      "backend/services/fiscal/nfeDevolucaoEstados.js",
+      "backend/services/fiscal/nfeDevolucaoLifecycleService.js",
+      "backend/services/fiscal/nfeTrace.js",
+      "backend/services/fiscal/nfeXmlAuditoria.js",
+      "backend/services/fiscal/resolverIcmsCrtEmitente.js",
+      "backend/services/fiscal/validarXmlFiscal.js",
+      "backend/services/fiscal/xmlBuilderNfeDevolucaoCompra.js",
+      "backend/services/fiscalNaoFiscal/reservasPublico.js",
+      "backend/services/importacao-inicial-produtos/importer.js",
+      "backend/services/tef/TefManager.js",
+      "backend/services/tef/adapters/DestaxaRealAdapter.js",
+      "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+      "backend/services/tef/destaxa/destaxaConstantes.js",
+      "backend/services/tef/destaxa/destaxaElectronRealTest.js",
+      "backend/services/tef/destaxa/destaxaProtocolo.js",
+      "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js",
+      "backend/services/tef/tefConfigService.js",
+      "backend/services/tef/tefFactory.js",
+      "backend/services/tef/tefFinancialSafetyPolicy.js",
+      "backend/services/tef/tefRepository.js",
+      "backend/services/unidades/MotorUnidadesMedida.js",
+      "backend/services/vendas/VendaPagamentoService.js",
+      "backend/shared/nfe/contracts/NfeItemParseadoDTO.js",
+      "build/electron/afterPack.js",
+      "build/electron/gerar-manifest.js",
+      "docs/build/release-certification-report.json",
+      "docs/build/release-certification-report.md",
+      "docs/build/release-certification-report.pdf",
+      "docs/build/tef-destaxa-06a-real-harness-report.json",
+      "docs/historico/auditorias/rc7104-estabilizacao-nfce/digest-value.txt",
+      "docs/historico/auditorias/rc7104-estabilizacao-nfce/evidencia-assinatura.json",
+      "docs/historico/auditorias/rc7104-estabilizacao-nfce/nfce-assinada-homologacao.xml",
+      "docs/historico/auditorias/rc7104-estabilizacao-nfce/soap-lote-pronto-sem-transmitir.xml",
+      "electron-build-manifest.json",
+      "electron-builder-erp.json",
+      "electron-builder-pdv.json",
+      "electron-common.js",
+      "electron-diagnostico.js",
+      "electron-erp.js",
+      "electron-integrity.js",
+      "electron-janelas-modulo.js",
+      "electron.js",
+      "frontend/css/produtos-cadastro.css",
+      "frontend/css/produtos-listagem.css",
+      "frontend/erp/index.html",
+      "frontend/erp/js/app.js",
+      "frontend/erp/js/caixa.js",
+      "frontend/erp/js/caixas.js",
+      "frontend/erp/js/categorias.js",
+      "frontend/erp/js/cds-centro-configuracoes.js",
+      "frontend/erp/js/central-entradas.js",
+      "frontend/erp/js/compras.js",
+      "frontend/erp/js/fechamento-fiscal-dia.js",
+      "frontend/erp/js/miip-central-revisao-inteligente.js",
+      "frontend/erp/js/motor-unidades-medida.js",
+      "frontend/erp/js/nfe-devolucao-compra.js",
+      "frontend/erp/js/produtos.js",
+      "frontend/erp/js/subcategorias.js",
+      "frontend/erp/pages/caixas.html",
+      "frontend/erp/pages/categorias.html",
+      "frontend/erp/pages/financeiro.html",
+      "frontend/pdv/index.html",
+      "frontend/pdv/js/app.js",
+      "frontend/pdv/js/caixa.js",
+      "frontend/pdv/js/pdv.js",
+      "frontend/shared/design-system/cds-ui-foundation.css",
+      "frontend/shared/js/access-control.js",
+      "frontend/shared/js/cds-copiloto-widget.js",
+      "frontend/shared/js/cds-plataforma-status.js",
+      "frontend/shared/js/core.js",
+      "frontend/shared/js/fiscalImpressao.js",
+      "frontend/shared/js/modoFiscalHelpers.js",
+      "frontend/shared/js/pdvBuscaProduto.js",
+      "frontend/vendor/bootstrap/css/bootstrap.min.css",
+      "frontend/vendor/bootstrap/js/bootstrap.bundle.min.js",
+      "frontend/vendor/chart.js/chart.min.js",
+      "package-lock.json",
+      "package.json",
+      "preload.js",
+      "tests/caixa/rc-fechamento-caixa-conciliacao.test.js",
+      "tests/central-entradas/finalizar-entrada.test.js",
+      "tests/compras/correcao-nf-margem-01.test.js",
+      "tests/compras/rc43119-unificacao-quantidade-comercial.test.js",
+      "tests/compras/rc43122-margem-cadastrada-produto.test.js",
+      "tests/compras/rc43126-melhorias-lancamento-compras.test.js",
+      "tests/equipamentos/rc14154-mgv6-txitens-v1.test.js",
+      "tests/estoque/empresa-permite-venda-sem-estoque.test.js",
+      "tests/estoque/rc80y-controla-estoque.test.js",
+      "tests/estoque/rc80z-produtos-ux.test.js",
+      "tests/f12-isolamento-erp.test.js",
+      "tests/f12-roteamento-modulo.test.js",
+      "tests/faturamento/nfe-danfe-central.test.js",
+      "tests/faturamento/nfe-devolucao-identidade-e-lifecycle.test.js",
+      "tests/faturamento/rc2-espelhamento-fiscal-devolucao.test.js",
+      "tests/faturamento/rc3161-pedido-motor-comercial-mts.test.js",
+      "tests/faturamento/rc4-lifecycle-nfe-devolucao.test.js",
+      "tests/faturamento/rc402-painel-operacional.test.js",
+      "tests/faturamento/rc6-nfe-devolucao-compra-ui.test.js",
+      "tests/fiscal/danfe-termico.test.js",
+      "tests/fiscal/fechamento-fiscal-dia-sprint02.test.js",
+      "tests/fiscal/fechamento-fiscal-dia-sprint04.test.js",
+      "tests/fiscal/fechamento-fiscal-dia-sprint05.test.js",
+      "tests/fiscal/fechamento-fiscal-dia-sprint06.test.js",
+      "tests/fiscal/fechamento-fiscal-dia-sprint07-6.test.js",
+      "tests/fiscal/fechamento-fiscal-dia-sprint07-7.test.js",
+      "tests/fiscal/fechamento-fiscal-dia-sprint07-8.test.js",
+      "tests/fiscal/fechamento-fiscal-dia-sprint07-9.test.js",
+      "tests/fiscal/fiscal-platform.test.js",
+      "tests/fiscal/hotfix-consumo-exclusivo-motor.test.js",
+      "tests/fiscal/hotfix-visao-comercial-pos-nfe.test.js",
+      "tests/fiscal/nfce-numeracao-unificada-blindada.test.js",
+      "tests/fiscal/webservice-registry.test.js",
+      "tests/muc/muc-rc1-certificacao.test.js",
+      "tests/pdv/bloqueio-sem-saldo-inclusao.test.js",
+      "tests/pdv/estoque-busca-f12-duplo-saldo.test.js",
+      "tests/pdv/transferencia-super-usuario-config.test.js",
+      "tests/produtos/codigo-interno-cinco-digitos.test.js",
+      "tests/rc11-4-lazy-erp.test.js",
+      "tests/tef/tef-destaxa-01-fundacao.test.js",
+      "tests/tef/tef-destaxa-06a-real-harness.test.js",
+      "tests/tef/tef-destaxa-prep-04b.test.js",
+      "tests/vendas/hotfix-311a-precalc-pagamentos.test.js",
+      "backend/services/caixa/ImpressoraCaixaService.js",
+      "backend/services/categorias/normalizacaoProdutosCategoriaEspecial.js",
+      "backend/services/estoque/vendaSemEstoqueElegibilidade.js",
+      "backend/services/fechamento-fiscal/FechamentoFiscalDistribuicaoWorker.js",
+      "backend/services/fechamento-fiscal/fechamento-fiscal-distribuicao-worker.js",
+      "backend/services/produto/",
+      "backend/services/tef/destaxa/DestaxaHostBridge.js",
+      "backend/services/tef/destaxa/DestaxaNativeHost.js",
+      "backend/services/tef/destaxa/DestaxaNativeHostClient.js",
+      "backend/services/tef/destaxa/destaxaCrtRealPathVerifier.js",
+      "backend/services/tef/destaxa/destaxaNativeHostProtocolo.js",
+      "backend/services/tef/destaxa/destaxaNativeHostVerifier.js",
+      "diagnostico-produto.js",
+      "diagnostico-venda.js",
+      "diagnostico-vendas.js",
+      "docs/RC6.4_HOMOLOGACAO_CENTRAL.md",
+      "docs/SPRINT17B_RELATORIO_TESTE_ISOLADO.md",
+      "docs/SPRINT17_RELATORIO_FINAL.md",
+      "docs/build/tef-destaxa-06b-crt-real-path-report.json",
+      "docs/build/tef-destaxa-06c-mitigacao-report.json",
+      "docs/build/tef-destaxa-06c-persistencia-report.json",
+      "docs/build/tef-destaxa-06c-prep-report.json",
+      "docs/build/tef-destaxa-06c-timeout-report.json",
+      "docs/build/tef-destaxa-07-exec-report.json",
+      "docs/build/tef-destaxa-07-prep-final-epipe-report.json",
+      "docs/build/tef-destaxa-07-prep-report.json",
+      "docs/build/tef-destaxa-07a-auditoria-pdv-report.json",
+      "docs/build/tef-destaxa-07b-real-crt-report.json",
+      "docs/impressora-por-caixa-configuracao.md",
+      "docs/sprint21-historico-reimpressao-fechamento-caixa.md",
+      "frontend/erp/js/etiquetaProduto.js",
+      "out.txt",
+      "tests/caixa/fechamento-caixa-sem-confirm-print.test.js",
+      "tests/caixa/impressora-por-caixa.test.js",
+      "tests/compras/central-nfe-apresentacao-compra.test.js",
+      "tests/compras/central-nfe-custo-unitario-canonico.test.js",
+      "tests/compras/central-nfe-edicao-linha-qtrib-sqlite-e2e.test.js",
+      "tests/compras/central-nfe-persistencia-sqlite-e2e.test.js",
+      "tests/compras/central-nfe-produto-existente-novo-sqlite-e2e.test.js",
+      "tests/compras/entrada-central-nfe-sqlite-e2e.test.js",
+      "tests/compras/helpers/",
+      "tests/compras/manual-venda-margem.test.js",
+      "tests/electron/csp-source-maps.test.js",
+      "tests/electron/release-composition.test.js",
+      "tests/estoque/disponibilidade-reserva-lista.test.js",
+      "tests/estoque/distribuicao-reserva-fxnf.test.js",
+      "tests/estoque/fiscal-visibilidade-catalogo.test.js",
+      "tests/estoque/sprint11-pdv-disponibilidade-fxnf.test.js",
+      "tests/estoque/sprint3-fonte-unica-disponibilidade.test.js",
+      "tests/estoque/sprint5-venda-sem-estoque-excedente.test.js",
+      "tests/estoque/sprint7-excedente-venda-sem-estoque.test.js",
+      "tests/estoque/sprint8-certificacao-nucleo-fxnf.test.js",
+      "tests/estoque/sprint9-saldo-pdv-consistencia.test.js",
+      "tests/estoque/venda-sem-estoque-categoria.test.js",
+      "tests/estoque/venda-sem-estoque-item-fiscal-controla.test.js",
+      "tests/faturamento/rc6.1-icmssn900-pred-bc.test.js",
+      "tests/faturamento/rc6.2-dest-emitente-original.test.js",
+      "tests/faturamento/rc6.3-nova-tentativa-rejeitada.test.js",
+      "tests/fiscal/fechamento-fiscal-composicao-compacta.test.js",
+      "tests/fiscal/fechamento-fiscal-composicao-desconto.test.js",
+      "tests/fiscal/fechamento-fiscal-dia-por-comprovante-previa.test.js",
+      "tests/fiscal/fechamento-fiscal-dia-por-comprovante-ux.test.js",
+      "tests/fiscal/fechamento-fiscal-dia-por-venda.test.js",
+      "tests/fiscal/fechamento-fiscal-elegibilidade-pool.test.js",
+      "tests/fiscal/fechamento-fiscal-integracao-desconto-persistencia.test.js",
+      "tests/fiscal/fechamento-fiscal-limpar-dia.test.js",
+      "tests/fiscal/fechamento-fiscal-performance-worker.test.js",
+      "tests/fiscal/fechamento-fiscal-principal-nao-congela-rascunho.test.js",
+      "tests/fiscal/fechamento-fiscal-schema-robustez.test.js",
+      "tests/fiscal/sprint2-fechamento-fluxo-fxnf.test.js",
+      "tests/frontend/fechamento-fiscal-previa-timeout.test.js",
+      "tests/pdv/cupom-pdv-permissao-usuario.test.js",
+      "tests/pdv/f12-exibicao-somente-a.test.js",
+      "tests/pdv/f12-transferencia-nao-fiscal-fiscal.test.js",
+      "tests/pdv/pagamento-misto-combinacoes-parcelas.test.js",
+      "tests/pdv/pdv-busca-nome-nao-plu.test.js",
+      "tests/produtos/categoria-padroes-cadastro.test.js",
+      "tests/produtos/etiqueta-sem-codigo-barras.test.js",
+      "tests/produtos/lista-estoque-ux.test.js",
+      "tests/produtos/sprint17-normalizacao-categoria.test.js",
+      "tests/produtos/sprint17b-isolated-normalization.test.js",
+      "tests/seguranca/banco-real-isolado.test.js",
+      "tests/tef/fixtures/",
+      "tests/tef/tef-destaxa-06b-crt-real-path.test.js",
+      "tests/tef/tef-destaxa-06c-mitigacao.test.js",
+      "tests/tef/tef-destaxa-06c-persistencia.test.js",
+      "tests/tef/tef-destaxa-06c-prep.test.js",
+      "tests/tef/tef-destaxa-06c-timeout.test.js",
+      "tests/tef/tef-destaxa-07-prep-final-epipe.test.js",
+      "tests/tef/tef-destaxa-07-prep.test.js",
+      "tests/tef/tef-destaxa-07a-auditoria-pdv.test.js",
+      "tests/tef/tef-destaxa-07b-executor.test.js",
+      "tmp-rc833.txt",
+      "tmp-sprint10-delete-auditoria.js"
+    ],
+    "forbiddenAreasTouched": false
+  },
+  "tests": {
+    "executed": 39,
+    "passed": 33,
+    "failed": 6,
+    "failures": [
+      "banco: tef_configuracao.ambiente permanece homologacao",
+      "escopo: nenhum arquivo de Motores Fiscal/Não Fiscal, PDV, Financeiro, NF-e/NFC-e, Central, MUC, MIIP ou Monitor TEF alterado",
+      "regressão test:tef-destaxa-06a",
+      "regressão test:tef-destaxa-06b",
+      "regressão test:tef-destaxa-06c-prep",
+      "regressão test:tef-destaxa-06c-mitigacao"
+    ]
+  },
+  "regressions": [
+    {
+      "script": "test:tef-01",
+      "exitCode": 0,
+      "durationMs": 856,
+      "summary": [
+        "=== RESULTADO TEF-01: 13 passou, 0 falhou ==="
+      ]
+    },
+    {
+      "script": "test:tef-02",
+      "exitCode": 0,
+      "durationMs": 1974,
+      "summary": [
+        "=== RESULTADO TEF-02 UNITÁRIO: 24 passou, 0 falhou ===",
+        "=== RESULTADO TEF-02 REAL: 3 passou, 0 falhou ==="
+      ]
+    },
+    {
+      "script": "test:tef-fluxo",
+      "exitCode": 0,
+      "durationMs": 342,
+      "summary": [
+        "=== RESULTADO: 13 ok, 0 falhou ==="
+      ]
+    },
+    {
+      "script": "test:tef-destaxa-01",
+      "exitCode": 0,
+      "durationMs": 464,
+      "summary": [
+        "Resultado: 9 ok, 0 falhou"
+      ]
+    },
+    {
+      "script": "test:tef-destaxa-02",
+      "exitCode": 0,
+      "durationMs": 361,
+      "summary": [
+        "RESULTADO: CLIENT_INITIALIZED (00)"
+      ]
+    },
+    {
+      "script": "test:tef-destaxa-03",
+      "exitCode": 0,
+      "durationMs": 356,
+      "summary": [
+        "Resultado: 25 ok, 0 falhou"
+      ]
+    },
+    {
+      "script": "test:tef-destaxa-prep-04b",
+      "exitCode": 0,
+      "durationMs": 416,
+      "summary": [
+        "Resultado: 6 ok, 0 falhou"
+      ]
+    },
+    {
+      "script": "test:tef-destaxa-05",
+      "exitCode": 0,
+      "durationMs": 344,
+      "summary": [
+        "Resultado: 15 ok, 0 falhou"
+      ]
+    },
+    {
+      "script": "test:tef-destaxa-06a",
+      "exitCode": 1,
+      "durationMs": 952,
+      "summary": [
+        "Resultado: 4 ok, 2 falhou"
+      ]
+    },
+    {
+      "script": "test:tef-destaxa-06b",
+      "exitCode": 1,
+      "durationMs": 1218,
+      "summary": [
+        "Resultado: 36 ok, 3 falhou"
+      ]
+    },
+    {
+      "script": "test:tef-destaxa-06c-prep",
+      "exitCode": 1,
+      "durationMs": 2802,
+      "summary": [
+        "Resultado: 29 ok, 5 falhou"
+      ]
+    },
+    {
+      "script": "test:tef-destaxa-06c-mitigacao",
+      "exitCode": 1,
+      "durationMs": 19585,
+      "summary": [
+        "Resultado: 37 ok, 5 falhou"
+      ]
+    }
+  ],
+  "result": "BLOCKED_FOR_REAL_TRANSACTION"
+}

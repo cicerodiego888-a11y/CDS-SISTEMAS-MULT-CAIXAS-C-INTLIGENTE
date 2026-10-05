@@ -1,6 +1,7 @@
 let caixas = [];
 let terminais = [];
 let caixaEmEdicao = null;
+let caixaImpressoraEmEdicao = null;
 let intervaloTerminais = null;
 
 function apiUrlCaixas() {
@@ -189,6 +190,9 @@ function renderizarCaixas() {
     const btnEditar = `<button class="btn btn-sm btn-primary" onclick="editarCaixa(${c.id})" title="Editar">
       <i class="fas fa-edit"></i>
     </button>`;
+    const btnImpressora = `<button class="btn btn-sm btn-outline-secondary" onclick="configurarImpressoraCaixa(${c.id})" title="Impressora de cupom">
+      <i class="fas fa-print"></i>
+    </button>`;
     
     let btnDesativar = '';
     if (c.ativo) {
@@ -211,6 +215,7 @@ function renderizarCaixas() {
       <td>
         <div class="btn-group btn-group-sm">
           ${btnEditar}
+          ${btnImpressora}
           ${btnDesativar}
         </div>
       </td>
@@ -218,6 +223,87 @@ function renderizarCaixas() {
 
     tbody.innerHTML += tr;
   });
+}
+
+async function configurarImpressoraCaixa(caixaId) {
+  try {
+    const [respostaCaixa, impressoras] = await Promise.all([
+      fetch(`${apiUrlCaixas()}/caixas/${caixaId}/impressora-cupom`, {
+        headers: { 'Authorization': 'Bearer ' + tokenCaixas() }
+      }),
+      window.electronAPI?.listarImpressoras
+        ? window.electronAPI.listarImpressoras().catch(() => [])
+        : Promise.resolve([])
+    ]);
+
+    const dados = await respostaCaixa.json().catch(() => ({}));
+    if (!respostaCaixa.ok) {
+      showNotification(dados.mensagem || 'Erro ao carregar a impressora do caixa.', 'danger');
+      return;
+    }
+
+    caixaImpressoraEmEdicao = Number(caixaId);
+    const atual = dados.impressora_cupom || '';
+    const lista = Array.isArray(impressoras) ? impressoras : [];
+    const opcoes = lista.map((impressora) => {
+      const nome = String(impressora.name || '');
+      const rotulo = `${nome}${impressora.isDefault ? ' (padrão deste computador)' : ''}`;
+      return `<option value="${escapeHtmlCaixas(nome)}"${nome === atual ? ' selected' : ''}>${escapeHtmlCaixas(rotulo)}</option>`;
+    });
+    if (atual && !lista.some((impressora) => String(impressora.name || '') === atual)) {
+      opcoes.push(`<option value="${escapeHtmlCaixas(atual)}" selected>${escapeHtmlCaixas(atual)} (não detectada neste computador)</option>`);
+    }
+
+    const controle = document.getElementById('impressoraCaixaControle');
+    if (lista.length || atual) {
+      controle.innerHTML = `
+        <select class="form-select" id="selectImpressoraCaixa">
+          <option value="">Sem vínculo por caixa</option>
+          ${opcoes.join('')}
+        </select>`;
+    } else {
+      controle.innerHTML = `
+        <input class="form-control" id="inputImpressoraCaixa" type="text" maxlength="255" autocomplete="off">
+        <small class="text-muted">Informe o nome exato instalado neste computador.</small>`;
+    }
+
+    document.getElementById('impressoraCaixaNome').textContent =
+      caixas.find((caixa) => Number(caixa.id) === Number(caixaId))?.nome || `Caixa ${caixaId}`;
+    const modal = new bootstrap.Modal(document.getElementById('modalImpressoraCaixa'));
+    modal.show();
+  } catch (erro) {
+    console.error('Erro ao configurar impressora do caixa:', erro);
+    showNotification('Erro ao carregar a configuração da impressora.', 'danger');
+  }
+}
+
+async function salvarImpressoraCaixa() {
+  if (!caixaImpressoraEmEdicao) return;
+  const select = document.getElementById('selectImpressoraCaixa');
+  const input = document.getElementById('inputImpressoraCaixa');
+  const impressora = select ? select.value : (input?.value || '').trim();
+
+  try {
+    const resp = await fetch(`${apiUrlCaixas()}/caixas/${caixaImpressoraEmEdicao}/impressora-cupom`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + tokenCaixas()
+      },
+      body: JSON.stringify({ impressora_cupom: impressora || null })
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      showNotification(data.mensagem || 'Erro ao salvar a impressora do caixa.', 'danger');
+      return;
+    }
+
+    showNotification('Impressora do caixa salva.', 'success');
+    bootstrap.Modal.getInstance(document.getElementById('modalImpressoraCaixa'))?.hide();
+  } catch (erro) {
+    console.error('Erro ao salvar impressora do caixa:', erro);
+    showNotification('Erro ao salvar a impressora do caixa.', 'danger');
+  }
 }
 
 function atualizarResumo() {

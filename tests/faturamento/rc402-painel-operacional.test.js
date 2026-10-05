@@ -60,8 +60,10 @@ describe('RC4.0.2 — Painel Operacional', () => {
 
   it('listarFila delega ao painel operacional', () => {
     const src = read('backend/services/faturamento/CentralFaturamentoService.js');
+    const painel = read('backend/services/faturamento/CentralPainelOperacionalService.js');
     assert.match(src, /CentralPainelOperacionalService/);
     assert.match(src, /listarFilaOperacional/);
     assert.doesNotMatch(src, /v\.data,/);
+    assert.doesNotMatch(painel, /v\.cliente_nome/);
   });
 });

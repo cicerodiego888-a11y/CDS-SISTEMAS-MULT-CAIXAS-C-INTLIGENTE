@@ -32,36 +32,33 @@ exports.default = async function afterPack(context) {
     throw new Error(`[RC3.16.6] afterPack: app.asar não gerado em ${asarPath}`);
   }
 
-  // Integridade byte-a-byte só no pipeline oficial ERP (manifesto + build:erp).
-  // PDV usa o mesmo afterPack principalmente para carimbar o ícone no .exe.
-  if (modulo === 'erp') {
-    const manifesto = lerManifesto(root);
-    const cmp = compararRepoComAsar(root, asarPath, { manifesto, modulo: 'erp' });
+  const manifesto = lerManifesto(root);
+  if (manifesto.modulo !== modulo) {
+    throw new Error(`[RC3.16.6] afterPack: manifesto ${manifesto.modulo} não corresponde ao módulo ${modulo}`);
+  }
 
-    if (!cmp.ok) {
-      const detalhe = [
-        '[RC3.16.6] BUILD ABORTADO — app.asar inconsistente com o repositório (Frontend/Backend/Electron).',
-        ...cmp.erros.map((e) => ` - ${e}`),
-        cmp.porCamada ? `Camadas: ${JSON.stringify(cmp.porCamada)}` : '',
-        cmp.ausentesNoAsar.length ? `Ausentes: ${cmp.ausentesNoAsar.slice(0, 15).join(', ')}` : '',
-        cmp.divergencias.length
-          ? `Hashes: ${cmp.divergencias.slice(0, 10).map((d) => `${d.camada}:${d.arquivo}`).join(', ')}`
-          : ''
-      ].filter(Boolean).join('\n');
+  const cmp = compararRepoComAsar(root, asarPath, { manifesto, modulo });
+  if (!cmp.ok) {
+    const detalhe = [
+      `[RC3.16.6] BUILD ABORTADO — app.asar ${modulo} inconsistente com o repositório.`,
+      ...cmp.erros.map((e) => ` - ${e}`),
+      cmp.porCamada ? `Camadas: ${JSON.stringify(cmp.porCamada)}` : '',
+      cmp.ausentesNoAsar.length ? `Ausentes: ${cmp.ausentesNoAsar.slice(0, 15).join(', ')}` : '',
+      cmp.divergencias.length
+        ? `Hashes: ${cmp.divergencias.slice(0, 10).map((d) => `${d.camada}:${d.arquivo}`).join(', ')}`
+        : ''
+    ].filter(Boolean).join('\n');
 
-      try {
-        fs.rmSync(asarPath, { force: true });
-      } catch (_) {
-        /* ignore */
-      }
-
-      throw new Error(detalhe);
+    try {
+      fs.rmSync(asarPath, { force: true });
+    } catch (_) {
+      /* ignore */
     }
 
-    console.log('[RC3.16.6][afterPack] OK —', cmp.quantidadeValidada, 'arquivo(s)', cmp.porCamada);
-  } else {
-    console.log('[RC3.16.6][afterPack] PDV — pulando validação de manifesto ERP');
+    throw new Error(detalhe);
   }
+
+  console.log('[RC3.16.6][afterPack] OK —', cmp.quantidadeValidada, 'arquivo(s)', cmp.porCamada);
 
   if (context.electronPlatformName === 'win32') {
     const productFilename = context.packager?.appInfo?.productFilename

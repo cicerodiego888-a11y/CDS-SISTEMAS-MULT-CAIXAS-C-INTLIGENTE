@@ -10,7 +10,7 @@ const CHAVE = 'empresa_permite_venda_sem_estoque';
 const ATIVADO = 'ATIVADO';
 const DESATIVADO = 'DESATIVADO';
 const DESCRICAO =
-  'Permitir venda sem estoque (baixa continua; saldo pode ficar negativo)';
+  'Permitir saldo insuficiente somente para produtos controlados de Açougue e Hortifruti';
 
 let cacheValor = DESATIVADO;
 let cacheHidratado = false;

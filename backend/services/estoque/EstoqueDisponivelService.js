@@ -36,7 +36,42 @@ function calcularEstoqueProduto(produto = {}) {
   };
 }
 
+/**
+ * Fonte única de disponibilidade operacional F×NF para venda/distribuição:
+ * A = max(0, saldo_fiscal − reservado_fiscal), B = max(0, saldo_nao_fiscal − reservado_nao_fiscal).
+ * Reserva maior que o saldo resulta em 0 (nunca negativo).
+ * O distribuidor recebe estes valores prontos; saldo físico serve só para exibição/baixa.
+ * Espelho no PDV: pdvSaldosDisponiveisMotorProduto (frontend/pdv/js/pdv.js).
+ */
+function saldosDisponiveisMotorFxNf(produto = {}) {
+  const estoque = calcularEstoqueProduto(produto);
+  return {
+    saldoFiscal: estoque.disponivel_fiscal,
+    saldoNaoFiscal: estoque.disponivel_nao_fiscal,
+    estoque
+  };
+}
+
+/**
+ * E-Comprometido por natureza que a venda não pode consumir.
+ * O crédito do próprio pedido (já somado ao disponível fiscal recebido pelo motor) é descontado;
+ * a transferência Reserva → Padrão aplicada em memória não conta como crédito.
+ */
+function comprometidoMotorFxNf(produto = {}, saldoFiscalMotor = 0, transferidoEmMemoria = 0) {
+  const estoque = calcularEstoqueProduto(produto);
+  const creditoPedido = Math.max(
+    0,
+    toNum(saldoFiscalMotor) - Math.max(0, toNum(transferidoEmMemoria)) - estoque.disponivel_fiscal
+  );
+  return {
+    fiscal: Math.max(0, estoque.reservado_fiscal - creditoPedido),
+    naoFiscal: estoque.reservado_nao_fiscal
+  };
+}
+
 module.exports = {
   calcularEstoqueProduto,
+  saldosDisponiveisMotorFxNf,
+  comprometidoMotorFxNf,
   toNum
 };

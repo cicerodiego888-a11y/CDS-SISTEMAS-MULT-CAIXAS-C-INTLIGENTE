@@ -155,6 +155,15 @@ describe('NF-e devolução — identidade e lifecycle', () => {
     assert.match(mensagemReenvioXmlEstruturalmenteRejeitado({ cstat_retorno: '225' }), /nova emissão/i);
   });
 
+  it('5c. 696 exige nova tentativa e não reenvia XML', () => {
+    const {
+      podeNovaTentativaDevolucao
+    } = require('../../backend/services/fiscal/nfeDevolucaoEstados');
+    assert.equal(classificarRetornoSefaz('696').acao, ACOES.EXIGE_CORRECAO);
+    assert.equal(podeReenviarDevolucao({ status: 'rejeitada', cstat_retorno: '696' }), false);
+    assert.equal(podeNovaTentativaDevolucao({ status: 'rejeitada', cstat_retorno: '696' }), true);
+  });
+
   it('6. 275 bloqueada para reenvio', () => {
     assert.equal(podeReenviarDevolucao({ status: 'rejeitada', rejeicao_codigo: '275' }), false);
     assert.match(mensagemReenvioXmlEstruturalmenteRejeitado({ cstat_retorno: '275' }), /nova emissão/i);

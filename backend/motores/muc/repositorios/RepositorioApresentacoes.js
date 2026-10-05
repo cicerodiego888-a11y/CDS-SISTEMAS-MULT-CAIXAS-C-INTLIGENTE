@@ -38,15 +38,24 @@ class RepositorioApresentacoes {
     );
   }
 
-  resolverPorIdentificador(produtoId, { gtin, codigo_fornecedor, fornecedor_cnpj }, callback) {
+  resolverPorIdentificador(produtoId, { gtin, codigo_fornecedor, fornecedor_cnpj, unidade_comercial }, callback) {
     const cnpj = fornecedor_cnpj ? String(fornecedor_cnpj).replace(/\D/g, '') : null;
     const gtinNorm = gtin ? String(gtin).trim() : null;
     const codForn = codigo_fornecedor ? String(codigo_fornecedor).trim() : null;
+    const unidadeSolicitada = unidade_comercial
+      ? normalizarTipoApresentacao(unidade_comercial)
+      : null;
+
+    const correspondeUnidade = (apresentacao) => !unidadeSolicitada
+      || normalizarTipoApresentacao(apresentacao?.tipo || apresentacao?.unidadeComercial) === unidadeSolicitada;
 
     const fallback = () => {
       this.listarPorProduto(produtoId, (listErr, lista) => {
         if (listErr) return callback(listErr);
         const ativas = (lista || []).filter((a) => a.ativa);
+        if (unidadeSolicitada) {
+          return callback(null, ativas.find((a) => a.compra && correspondeUnidade(a)) || null);
+        }
         callback(null,
           ativas.find((a) => a.principal && a.compra)
           || ativas.find((a) => a.compra)
@@ -63,7 +72,10 @@ class RepositorioApresentacoes {
         [produtoId, gtinNorm],
         (err, row) => {
           if (err) return callback(err);
-          if (row) return callback(null, parseApresentacaoRow(row));
+          if (row) {
+            const apresentacao = parseApresentacaoRow(row);
+            if (correspondeUnidade(apresentacao)) return callback(null, apresentacao);
+          }
           buscarCodigoFornecedor.call(this);
         }
       );
@@ -86,7 +98,10 @@ class RepositorioApresentacoes {
 
       this.db.get(sql, params, (err, row) => {
         if (err) return callback(err);
-        if (row) return callback(null, parseApresentacaoRow(row));
+        if (row) {
+          const apresentacao = parseApresentacaoRow(row);
+          if (correspondeUnidade(apresentacao)) return callback(null, apresentacao);
+        }
         fallback();
       });
     }

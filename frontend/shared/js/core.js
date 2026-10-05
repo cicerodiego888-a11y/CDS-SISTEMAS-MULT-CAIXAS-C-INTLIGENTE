@@ -582,6 +582,18 @@ async function salvarModoFiscalServidor(valor) {
     }
 }
 
+function emitirEventoModoFiscalAlterado(ativo) {
+    const detalhe = { ativo: !!ativo, modo_fiscal: ativo ? '1' : '0' };
+    try {
+        if (typeof document !== 'undefined' && typeof CustomEvent === 'function') {
+            document.dispatchEvent(new CustomEvent('cds:modo-fiscal-alterado', { detail: detalhe }));
+        }
+    } catch (_) { /* ignore */ }
+    if (typeof $ === 'function' && typeof $(document).trigger === 'function') {
+        $(document).trigger('cds:modo-fiscal-alterado', [detalhe]);
+    }
+}
+
 function aplicarModoFiscalLocal(valor, opcoes = {}) {
     const ehPdvF12 = typeof pdvUsaF12PolicyComoFonteOficial === 'function'
         && pdvUsaF12PolicyComoFonteOficial();
@@ -607,6 +619,7 @@ function aplicarModoFiscalLocal(valor, opcoes = {}) {
     localStorage.setItem('pdv_modo_fiscal_ativo', normalizado);
     localStorage.setItem('modo_dashboard_fiscal', normalizado);
     aplicarModoFiscalGlobal();
+    emitirEventoModoFiscalAlterado(normalizado === '1');
 
     if (opcoes.recarregar !== false && typeof recarregarModulosModoFiscal === 'function') {
         recarregarModulosModoFiscal();
@@ -651,7 +664,7 @@ async function carregarModoFiscalInicial() {
                 throw new Error('F12 backend indisponível');
             }
             const novoValor = ativo ? '1' : '0';
-            aplicarModoFiscalLocal(novoValor, { recarregar: false, forcar: true, origemF12: true });
+            aplicarModoFiscalLocal(novoValor, { recarregar: false, origemF12: true, forcar: true });
             return;
         } catch (err) {
             console.warn('[F12] Erro ao resolver F12 inicial via policy:', err);
@@ -735,17 +748,10 @@ async function sincronizarModoFiscalServidor(opcoes = {}) {
     });
 
     if (erpNaTelaProdutos && alterou && typeof loadProdutos === 'function') {
-        const modalAberto = typeof $ === 'function'
-            && $('#produtoModal').length
-            && ($('#produtoModal').hasClass('show') || $('#produtoModal').is(':visible'));
-        const buscaEmFoco = typeof document !== 'undefined'
-            && document.activeElement
-            && document.activeElement.id === 'buscaProduto';
         loadProdutos({
             suave: true,
             forcar: true,
-            motivo: 'f12-sync',
-            somenteCache: !!(modalAberto || buscaEmFoco)
+            motivo: 'f12-sync'
         });
     }
 
@@ -781,7 +787,12 @@ function alternarModoFiscalLegadoSessao() {
     localStorage.setItem('pdv_modo_fiscal_ativo', novoValor);
     localStorage.setItem('modo_dashboard_fiscal', novoValor);
     aplicarModoFiscalGlobal();
+    emitirEventoModoFiscalAlterado(novoValor === '1');
     salvarModoFiscalServidor(novoValor);
+
+    if (typeof recarregarModulosModoFiscal === 'function') {
+        recarregarModulosModoFiscal();
+    }
 
     showNotification(
         novoValor === '1'
@@ -869,7 +880,7 @@ async function alternarModoFiscalComPolitica() {
         
         if (result.success) {
             const novoValor = result.novoEstado ? '1' : '0';
-            aplicarModoFiscalLocal(novoValor, { recarregar: false, origemF12: true });
+            aplicarModoFiscalLocal(novoValor, { origemF12: true });
             
             showNotification(
                 result.novoEstado

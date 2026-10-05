@@ -653,8 +653,8 @@ router.put(
       });
       res.json({
         message: dados.valor === 'ATIVADO'
-          ? 'Venda sem estoque ATIVADA. A baixa continua; o saldo pode ficar negativo.'
-          : 'Venda sem estoque DESATIVADA. Volta a bloquear saldo insuficiente.',
+          ? 'Exceção de saldo insuficiente ATIVADA somente para produtos controlados de Açougue e Hortifruti.'
+          : 'Exceção de saldo insuficiente DESATIVADA. Produtos com saldo insuficiente serão bloqueados.',
         ...dados
       });
     });

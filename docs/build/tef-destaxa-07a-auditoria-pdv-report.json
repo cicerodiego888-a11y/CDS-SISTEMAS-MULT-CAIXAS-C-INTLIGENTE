@@ -1,0 +1,396 @@
+{
+  "sprint": "TEF-DESTAXA-07A",
+  "dataHora": "2026-10-03T21:27:15.376Z",
+  "transactionExecuted": false,
+  "A_fluxo": "PDV finalizar venda (fluxo A/B) → processarVendaFiscalNaoFiscal → processarPagamentoTEF(\"pix\" → \"pix_tef\", 1.00) → POST /api/tef/pagar → tefService.iniciarPagamento → TefManager.autorizar (HEAD) → repository.criarTransacao(pendente) → DestaxaRealAdapter.autorizarPagamento() (HEAD, retorno constante) → atualizarTransacao(status erro) → HTTP 422 → PDV notifica a mensagem → \"Recebimento A não aprovado.\"",
+  "B_cadeia": [
+    {
+      "etapa": "PDV — finalizar venda (fluxo A/B, Recebimento A)",
+      "arquivo": "frontend/pdv/js/pdv.js",
+      "funcao": "handler de finalização",
+      "linha": 6867,
+      "parametros": "dados, fluxoAB.valorA (= 1.00)"
+    },
+    {
+      "etapa": "PDV — Recebimento A",
+      "arquivo": "frontend/pdv/js/pdv.js",
+      "funcao": "processarVendaFiscalNaoFiscal(dadosVenda, totalFiscal)",
+      "linha": 2006,
+      "parametros": "formaFiscal = obterFormaPagamentoFiscal() → forma selecionada no PDV (pix)"
+    },
+    {
+      "etapa": "PDV — forma → tipo TEF",
+      "arquivo": "frontend/shared/js/tefFluxoPagamento.js",
+      "funcao": "normalizarTipoTef",
+      "linha": 31,
+      "parametros": "'pix' → 'pix_tef'"
+    },
+    {
+      "etapa": "PDV — mensagem \"Gerando PIX TEF...\"",
+      "arquivo": "frontend/pdv/js/pdv.js",
+      "funcao": "processarPagamentoTEF(tipo, valor, parcelas, opcoes)",
+      "linha": 1270,
+      "parametros": "tipoTef = pix_tef → ehPixTef = true (notificação local, antes de qualquer chamada ao backend)"
+    },
+    {
+      "etapa": "PDV → backend",
+      "arquivo": "frontend/pdv/js/pdv.js",
+      "funcao": "processarPagamentoTEF → fetch POST /api/tef/pagar",
+      "linha": 1279,
+      "parametros": "{ tipo: \"pix_tef\", valor: 1, parcelas: 1, venda_id: null, idempotency_key: \"pdv-pix_tef-1.00-<ms>\" }"
+    },
+    {
+      "etapa": "Rota",
+      "arquivo": "backend/rotas/tef.js",
+      "funcao": "router.post('/pagar')",
+      "linha": 57,
+      "parametros": "venda_id, tipo, valor, parcelas, idempotency_key"
+    },
+    {
+      "etapa": "Fachada TEF",
+      "arquivo": "backend/services/tef/index.js",
+      "funcao": "iniciarPagamento(dados)",
+      "linha": 9,
+      "parametros": "dados"
+    },
+    {
+      "etapa": "TefManager (versão carregada no processo = HEAD)",
+      "arquivo": "backend/services/tef/TefManager.js@HEAD",
+      "funcao": "TefManager.autorizar → criarTransacao(status pendente) → adapter.autorizarPagamento",
+      "linha": {
+        "autorizar": 100,
+        "criarTransacao": 116,
+        "autorizarPagamento": 153,
+        "atualizarTransacao": 179
+      },
+      "parametros": "dadosNormalizados { tipo: pix_tef, valor: 1, parcelas: 1 }"
+    },
+    {
+      "etapa": "Adapter (versão carregada no processo = HEAD)",
+      "arquivo": "backend/services/tef/adapters/DestaxaRealAdapter.js@HEAD",
+      "funcao": "DestaxaRealAdapter.autorizarPagamento()",
+      "linha": {
+        "autorizarPagamento": 109,
+        "mensagem": 115
+      },
+      "parametros": "nenhum (assinatura sem parâmetros) — retorno constante DESTAXA_TRANSACAO_NAO_IMPLEMENTADA"
+    },
+    {
+      "etapa": "Rota → HTTP 422",
+      "arquivo": "backend/rotas/tef.js",
+      "funcao": "router.post('/pagar')",
+      "linha": 70,
+      "parametros": "sucesso=false, codigo presente, não aprovado"
+    },
+    {
+      "etapa": "PDV — exibe a mensagem do backend",
+      "arquivo": "frontend/pdv/js/pdv.js",
+      "funcao": "processarPagamentoTEF (catch → showNotification(error.message))",
+      "linha": 1307,
+      "parametros": "!response.ok → Error(data.mensagem) → retorna null"
+    },
+    {
+      "etapa": "PDV — \"Recebimento A não aprovado.\"",
+      "arquivo": "frontend/pdv/js/pdv.js",
+      "funcao": "processarVendaFiscalNaoFiscal",
+      "linha": 2009,
+      "parametros": "retorno === null (erro já tratado em processarPagamentoTEF)"
+    }
+  ],
+  "C_gerandoPixTef": {
+    "arquivo": "frontend/pdv/js/pdv.js",
+    "funcao": "processarPagamentoTEF",
+    "linha": 1270,
+    "origem": "notificação local do PDV quando tipoTef === \"pix_tef\"; exibida antes da requisição, não indica comunicação com provider"
+  },
+  "D_mensagemBloqueio": {
+    "arquivo": "backend/services/tef/adapters/DestaxaRealAdapter.js (versão HEAD, commit 336e648, carregada em memória no processo do PDV)",
+    "funcao": "DestaxaRealAdapter.autorizarPagamento()",
+    "linha": {
+      "autorizarPagamento": 109,
+      "mensagem": 115
+    },
+    "codigo": "DESTAXA_TRANSACAO_NAO_IMPLEMENTADA",
+    "observacao": "o texto não existe no working copy atual; o processo do PDV foi iniciado antes das alterações das sprints 06B–07-PREP e mantém o módulo antigo em cache"
+  },
+  "E_motivoTrava": "stub fixo da sprint TEF-DESTAXA-02/03: autorizarPagamento() sem parâmetros retorna sempre erro — não é o gate DESTAXA_REAL_TRANSACTION_ENABLED das sprints 06B/06C; nenhuma validação de operação/valor/DLL/PinPad foi executada",
+  "F_operacaoTentada": {
+    "tipo": "pix_tef",
+    "operacaoDestaxaEquivalente": "PIX",
+    "valor": 1,
+    "parcelas": 1,
+    "vendaId": null,
+    "provider": "Destaxa",
+    "ambiente": "homologacao",
+    "adapter": "DestaxaRealAdapter (modo real, versão HEAD)"
+  },
+  "G_pixOuCrt": "PIX TEF (forma de pagamento PIX selecionada no PDV); NÃO foi CRT",
+  "H_chamadaNativaReal": {
+    "houve": false,
+    "iniciaTransacaoDestaxa": 0,
+    "continuaTransacaoDestaxa": 0,
+    "finalizaTransacaoDestaxa": 0,
+    "prova": "autorizarPagamento HEAD não referencia this.bridge; reproduzido com bridge armadilha (0 acessos); logs sem eventos nativos"
+  },
+  "I_transactionId": {
+    "financeiroReal": null,
+    "nsu": null,
+    "idsInternosCds": [
+      1,
+      2,
+      3
+    ],
+    "observacao": "ids internos de tef_transacoes criados pelo TefManager antes de chamar o adapter; não enviados à Destaxa"
+  },
+  "J_registroBanco": {
+    "transacoesFinanceirasAprovadas": 0,
+    "pendentes": 0,
+    "registrosInternosDeTentativa": [
+      {
+        "id": 1,
+        "status": "erro",
+        "valor": 1,
+        "criado_em": "2026-09-28 14:02:10",
+        "idempotency_key": "pdv-pix_tef-1.00-1790604130439"
+      },
+      {
+        "id": 2,
+        "status": "erro",
+        "valor": 1,
+        "criado_em": "2026-09-28 14:02:26",
+        "idempotency_key": "pdv-pix_tef-1.00-1790604146890"
+      },
+      {
+        "id": 3,
+        "status": "erro",
+        "valor": 1,
+        "criado_em": "2026-09-28 14:06:34",
+        "idempotency_key": "pdv-pix_tef-1.00-1790604394052"
+      }
+    ]
+  },
+  "K_comunicacaoPinPad": {
+    "houve": false,
+    "prova": "caminho HEAD não chama bridge nem sdkDetector; tefEvents.emitirEstado(INSIRA_CARTAO) é evento interno de UI emitido pelo TefManager antes do adapter"
+  },
+  "L_conclusao": "BLOQUEADO PELO CDS (stub do adapter HEAD) — nenhuma chamada real iniciada; NÃO foi o gate 06B/06C",
+  "achados": [
+    "O PDV em execução (npm start, electron.exe) iniciou antes das alterações de DestaxaRealAdapter/TefManager/destaxaConstantes; roda código HEAD e não o código certificado no 07-PREP. Reiniciar o aplicativo antes de qualquer próximo passo.",
+    "A operação acionada foi PIX TEF (forma PIX no Recebimento A), não CRT; no código atual PIX é recusado com DESTAXA_OPERACAO_NAO_PERMITIDA antes de DLL/PinPad/gate.",
+    "Foram registradas 3 tentativas internas (ids 1, 2, 3) com status 'erro' — cada clique gerou nova idempotency_key; nenhuma alcançou a Destaxa.",
+    "O fluxo normal do PDV usa TefManager.autorizar → adapter.autorizarPagamento; não usa iniciarTransacao/continuarTransacao e não tem UI para etapas 99 (DISPLAY/COLETA/OPÇÃO) — precisa ser tratado antes do 07-EXEC via PDV.",
+    "tef_configuracao.tentativas = 3 (07-EXEC exige 1).",
+    "Baseline do relatório 07-EXEC (0 transações) ficou desatualizado: agora há registros internos de tentativa (nenhum pendente)."
+  ],
+  "evidencia": {
+    "processoPdv": {
+      "pid": null,
+      "iniciadoEm": null,
+      "comando": null,
+      "modificacoesPosInicio": {
+        "backend/services/tef/adapters/DestaxaRealAdapter.js": {
+          "mtime": "2026-10-03T03:39:18.933Z",
+          "posteriorAoInicio": null
+        },
+        "backend/services/tef/TefManager.js": {
+          "mtime": "2026-10-03T03:39:18.933Z",
+          "posteriorAoInicio": null
+        },
+        "backend/services/tef/destaxa/destaxaConstantes.js": {
+          "mtime": "2026-10-03T03:39:18.948Z",
+          "posteriorAoInicio": null
+        },
+        "backend/services/tef/tefFactory.js": {
+          "mtime": "2026-10-03T03:39:18.967Z",
+          "posteriorAoInicio": null
+        }
+      }
+    },
+    "reproducaoHead": {
+      "retorno": {
+        "sucesso": false,
+        "status": "erro",
+        "nsu": null,
+        "autorizacao": null,
+        "adquirente": "DESTAXA",
+        "bandeira": null,
+        "comprovanteCliente": null,
+        "comprovanteLoja": null,
+        "transacaoId": null,
+        "codigo": "DESTAXA_TRANSACAO_NAO_IMPLEMENTADA",
+        "mensagem": "Autorização financeira Destaxa bloqueada — use iniciarTransacao/continuarTransacao com mock nesta sprint",
+        "payloadRetorno": null,
+        "modo": "real",
+        "financialState": null,
+        "protocolState": null,
+        "retryAllowed": false,
+        "retryReason": null
+      },
+      "chamadasBridge": []
+    },
+    "respostaHttp": {
+      "status": 422,
+      "corpo": {
+        "sucesso": false,
+        "aprovado": false,
+        "status": "erro",
+        "codigo": "DESTAXA_TRANSACAO_NAO_IMPLEMENTADA",
+        "mensagem": "Autorização financeira Destaxa bloqueada — use iniciarTransacao/continuarTransacao com mock nesta sprint",
+        "nsu": null
+      }
+    },
+    "reproducaoAtual": {
+      "retorno": {
+        "sucesso": false,
+        "status": "erro",
+        "codigo": "DESTAXA_OPERACAO_NAO_PERMITIDA",
+        "mensagem": "Operação PIX não permitida; somente CRT"
+      },
+      "chamadasBridge": []
+    },
+    "banco": {
+      "tefConfiguracao": {
+        "ambiente": "homologacao",
+        "provedor": "destaxa",
+        "tentativas": 3,
+        "atualizado_em": "2026-09-30 01:06:36"
+      },
+      "totalTransacoes": 3,
+      "pendentes": 0,
+      "aprovadas": 0,
+      "tentativas": [
+        {
+          "id": 1,
+          "venda_id": null,
+          "tipo": "pix_tef",
+          "valor": 1,
+          "parcelas": 1,
+          "status": "erro",
+          "provedor": "Destaxa",
+          "adquirente": "DESTAXA",
+          "nsu": null,
+          "autorizacao": null,
+          "codigo_transacao": "1",
+          "codigo_resposta": null,
+          "idempotency_key": "pdv-pix_tef-1.00-1790604130439",
+          "reversao_executada": 0,
+          "criado_em": "2026-09-28 14:02:10",
+          "atualizado_em": "2026-09-28 14:02:10"
+        },
+        {
+          "id": 2,
+          "venda_id": null,
+          "tipo": "pix_tef",
+          "valor": 1,
+          "parcelas": 1,
+          "status": "erro",
+          "provedor": "Destaxa",
+          "adquirente": "DESTAXA",
+          "nsu": null,
+          "autorizacao": null,
+          "codigo_transacao": "2",
+          "codigo_resposta": null,
+          "idempotency_key": "pdv-pix_tef-1.00-1790604146890",
+          "reversao_executada": 0,
+          "criado_em": "2026-09-28 14:02:26",
+          "atualizado_em": "2026-09-28 14:02:26"
+        },
+        {
+          "id": 3,
+          "venda_id": null,
+          "tipo": "pix_tef",
+          "valor": 1,
+          "parcelas": 1,
+          "status": "erro",
+          "provedor": "Destaxa",
+          "adquirente": "DESTAXA",
+          "nsu": null,
+          "autorizacao": null,
+          "codigo_transacao": "3",
+          "codigo_resposta": null,
+          "idempotency_key": "pdv-pix_tef-1.00-1790604394052",
+          "reversao_executada": 0,
+          "criado_em": "2026-09-28 14:06:34",
+          "atualizado_em": "2026-09-28 14:06:34"
+        }
+      ],
+      "logs": [
+        {
+          "id": 9,
+          "transacao_id": 1,
+          "tipo": "INICIO",
+          "mensagem": "Transação TEF iniciada",
+          "criado_em": "2026-09-28 14:02:10"
+        },
+        {
+          "id": 10,
+          "transacao_id": 1,
+          "tipo": "RETORNO",
+          "mensagem": "Autorização financeira Destaxa bloqueada — use iniciarTransacao/continuarTransacao com mock nesta sprint",
+          "criado_em": "2026-09-28 14:02:10"
+        },
+        {
+          "id": 11,
+          "transacao_id": 1,
+          "tipo": "DECISAO_RETRY",
+          "mensagem": "TEF_UNKNOWN_NO_RETRY",
+          "criado_em": "2026-09-28 14:02:10"
+        },
+        {
+          "id": 12,
+          "transacao_id": 2,
+          "tipo": "INICIO",
+          "mensagem": "Transação TEF iniciada",
+          "criado_em": "2026-09-28 14:02:26"
+        },
+        {
+          "id": 13,
+          "transacao_id": 2,
+          "tipo": "RETORNO",
+          "mensagem": "Autorização financeira Destaxa bloqueada — use iniciarTransacao/continuarTransacao com mock nesta sprint",
+          "criado_em": "2026-09-28 14:02:26"
+        },
+        {
+          "id": 14,
+          "transacao_id": 2,
+          "tipo": "DECISAO_RETRY",
+          "mensagem": "TEF_UNKNOWN_NO_RETRY",
+          "criado_em": "2026-09-28 14:02:26"
+        },
+        {
+          "id": 15,
+          "transacao_id": 3,
+          "tipo": "INICIO",
+          "mensagem": "Transação TEF iniciada",
+          "criado_em": "2026-09-28 14:06:34"
+        },
+        {
+          "id": 16,
+          "transacao_id": 3,
+          "tipo": "RETORNO",
+          "mensagem": "Autorização financeira Destaxa bloqueada — use iniciarTransacao/continuarTransacao com mock nesta sprint",
+          "criado_em": "2026-09-28 14:06:34"
+        },
+        {
+          "id": 17,
+          "transacao_id": 3,
+          "tipo": "DECISAO_RETRY",
+          "mensagem": "TEF_UNKNOWN_NO_RETRY",
+          "criado_em": "2026-09-28 14:06:34"
+        }
+      ]
+    }
+  },
+  "gate": {
+    "env": "DESTAXA_REAL_TRANSACTION_ENABLED",
+    "estado": "OFF",
+    "removido": false
+  },
+  "alteracoesFuncionais": "nenhuma",
+  "tests": {
+    "passed": 7,
+    "failed": 0,
+    "failures": []
+  },
+  "result": "READY_FOR_NEXT_TEF_STEP"
+}

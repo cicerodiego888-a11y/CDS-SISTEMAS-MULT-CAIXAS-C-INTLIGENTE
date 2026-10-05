@@ -87,6 +87,8 @@ describe('RC6 — reutiliza APIs RC1–RC4 sem motor paralelo', () => {
     assert.match(ui, /nfe-devolucao\/\$\{notaId\}\/status/);
     assert.match(ui, /nfe-devolucao\/\$\{notaId\}\/consultar/);
     assert.match(ui, /nfe-devolucao\/\$\{notaId\}\/reenviar/);
+    assert.match(ui, /nfe-devolucao\/\$\{notaId\}\/nova-tentativa/);
+    assert.match(ui, /Corrigir e emitir novamente/);
     assert.match(ui, /nfe-devolucao\/\$\{notaId\}\/eventos/);
     assert.doesNotMatch(ui, /assinarNFe|enviarLote|buildXmlNFe/);
   });

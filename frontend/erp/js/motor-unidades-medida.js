@@ -5,6 +5,8 @@
 (function (global) {
   'use strict';
 
+  // Espelho leve da regra oficial. A conversão autoritativa continua no backend MUC.
+
   function num(v, casas) {
     const n = Number(v);
     if (!Number.isFinite(n)) return 0;

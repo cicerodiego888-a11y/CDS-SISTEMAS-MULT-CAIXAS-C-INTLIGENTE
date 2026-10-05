@@ -199,6 +199,30 @@ function classificarResultadoFinanceiro(resultado = {}) {
   );
 }
 
+const LATE_RESULT_RESOLUTIONS = Object.freeze({
+  FINAL_DENIED: 'FINAL_DENIED',
+  RECONCILIATION_REQUIRED: 'RECONCILIATION_REQUIRED'
+});
+
+/**
+ * Resultado que chega depois do timeout operacional do CDS (que já respondeu
+ * UNKNOWN/PENDING). Somente a negação confirmada encerra sozinha; aprovação
+ * tardia e qualquer outro desfecho exigem reconciliação antes de liberar o
+ * lock. Nunca autoriza nova tentativa.
+ */
+function decidirResultadoTardio(resultado = {}) {
+  const d = classificarResultadoFinanceiro(resultado);
+  const negado = d.financialState === FINANCIAL_STATES.CONFIRMED_DENIED;
+  return {
+    ...d,
+    lateResult: true,
+    resolution: negado ? LATE_RESULT_RESOLUTIONS.FINAL_DENIED : LATE_RESULT_RESOLUTIONS.RECONCILIATION_REQUIRED,
+    releaseLock: negado,
+    reconciliationRequired: !negado,
+    newAuthorizationAllowed: false
+  };
+}
+
 function montarLogDecisao({
   transactionId = null,
   provider = null,
@@ -226,5 +250,7 @@ module.exports = {
   classificarCodigoFinanceiro,
   classificarErroFinanceiro,
   classificarResultadoFinanceiro,
+  LATE_RESULT_RESOLUTIONS,
+  decidirResultadoTardio,
   montarLogDecisao
 };

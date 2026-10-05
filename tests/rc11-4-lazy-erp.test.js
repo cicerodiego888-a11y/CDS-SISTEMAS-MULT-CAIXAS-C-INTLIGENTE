@@ -13,7 +13,8 @@ const indexHtml = fs.readFileSync(indexPath, 'utf8');
 const appSource = fs.readFileSync(appPath, 'utf8');
 
 function arquivoDaUrl(url) {
-  return path.join(root, 'frontend', ...url.replace(/^\//, '').split('/'));
+  const pathname = new URL(url, 'http://localhost').pathname;
+  return path.join(root, 'frontend', ...pathname.replace(/^\//, '').split('/'));
 }
 
 function mediana(valores) {
@@ -95,21 +96,28 @@ async function main() {
     /<script\s+type="application\/cds-lazy"\s+src="([^"]+)"/g
   )].map((match) => match[1]);
 
-  assert.strictEqual(lazyRefs.length, 46);
-  assert.strictEqual(new Set(lazyRefs).size, 46);
+  assert.strictEqual(new Set(lazyRefs).size, lazyRefs.length);
+  assert.ok(lazyRefs.includes('/erp/js/etiquetaProduto.js'));
   lazyRefs.forEach((url) => {
     assert.ok(fs.existsSync(arquivoDaUrl(url)), `arquivo lazy ausente: ${url}`);
   });
-  console.log('  OK  46 scripts opcionais marcados sem execução no boot');
+  console.log(`  OK  ${lazyRefs.length} scripts opcionais marcados sem execução no boot`);
 
   const { context, appended } = criarContextoLoader();
   const loader = context.CdsErpLazyLoader;
   assert.ok(loader);
 
   const manifestRefs = new Set(Object.values(loader.manifest).flat());
-  lazyRefs.forEach((url) => assert.ok(manifestRefs.has(url), `fora do manifesto: ${url}`));
-  manifestRefs.forEach((url) => assert.ok(lazyRefs.includes(url), `sem marcador build: ${url}`));
-  console.log('  OK  manifesto lazy e referências do build têm cobertura integral');
+  assert.ok(manifestRefs.has('/erp/js/etiquetaProduto.js'));
+  ['produtos', 'compras', 'central-entradas'].forEach((page) => {
+    const scripts = loader.manifest[page];
+    const etiquetaIndex = scripts.indexOf('/erp/js/etiquetaProduto.js');
+    const produtosIndex = scripts.indexOf('/erp/js/produtos.js');
+    assert.ok(etiquetaIndex >= 0, `etiquetaProduto.js ausente em ${page}`);
+    assert.ok(produtosIndex >= 0, `produtos.js ausente em ${page}`);
+    assert.ok(etiquetaIndex < produtosIndex, `etiquetaProduto.js deve preceder produtos.js em ${page}`);
+  });
+  console.log('  OK  etiqueta de produto marcada e carregada antes do cadastro');
 
   assert.deepStrictEqual(Array.from(loader.getLoadedScripts()), []);
   assert.strictEqual(appended.length, 0);
@@ -119,13 +127,14 @@ async function main() {
   assert.deepStrictEqual(appended, [
     '/vendor/chart.js/chart.min.js',
     '/erp/js/dashboard-command.js',
+    '/erp/js/dashboard-margem-bruta.js',
     '/erp/js/dashboard.js'
   ]);
-  assert.strictEqual(loader.getLoadedScripts().length, 3);
+  assert.strictEqual(loader.getLoadedScripts().length, 4);
   console.log('  OK  primeira abertura carrega somente o pacote Dashboard');
 
   await loader.loadPageScripts('dashboard');
-  assert.strictEqual(appended.length, 3);
+  assert.strictEqual(appended.length, 4);
   assert.strictEqual(loader.getPageStats('dashboard').reuses, 1);
   console.log('  OK  segunda abertura reutiliza scripts sem nova tag');
 

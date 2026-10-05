@@ -103,6 +103,10 @@ describe('RC4 — estados e reenvio seguro', () => {
       rejeicao_codigo: '863',
       cstat_retorno: '863'
     }), false);
+    assert.equal(podeReenviarDevolucao({
+      status: 'rejeitada',
+      cstat_retorno: '696'
+    }), false);
     assert.equal(podeReenviarDevolucao({ status: 'autorizada' }), false);
     assert.equal(podeReenviarDevolucao({ status: 'cancelada' }), false);
     assert.equal(podeReenviarDevolucao({ status: 'denegada' }), false);

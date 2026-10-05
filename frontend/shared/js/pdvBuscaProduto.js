@@ -71,6 +71,15 @@
     return t.length > 0 && /^\d+$/.test(t);
   }
 
+  /** MIP identifica código/PLU/EAN — não o nome digitado na busca. */
+  function termoPareceIdentificadorPdv(termo) {
+    const t = String(termo || '').trim();
+    if (!t) return false;
+    if (ehTermoSomenteDigitos(t)) return true;
+    if (/\s/.test(t)) return false;
+    return t.length <= 32;
+  }
+
   /**
    * Compara identificadores numéricos sem substring
    * (39 ≠ 3; 39 ≠ 390; 3 ≠ 103; 039 ≡ 39).
@@ -191,7 +200,17 @@
   }
 
   function obterModoFiscal() {
-    // Busca/catálogo sempre completo para o motor F+NF. F12 só oculta o rótulo NF.
+    if (typeof global.pdvModoFiscalAtivo === 'function' && global.pdvModoFiscalAtivo()) {
+      return '1';
+    }
+    if (typeof global.modoFiscalAtivoSistema === 'function' && global.modoFiscalAtivoSistema()) {
+      return '1';
+    }
+    try {
+      if (typeof localStorage !== 'undefined' && localStorage.getItem('pdv_modo_fiscal_ativo') === '1') {
+        return '1';
+      }
+    } catch (_) { /* ignore */ }
     return '0';
   }
 
@@ -204,6 +223,9 @@
       return global.pdvEstoqueDisponivel(produto);
     }
     const fiscal = Number(produto?.saldo_fiscal ?? 0);
+    if (obterModoFiscal() === '1') {
+      return fiscal;
+    }
     const naoFiscal = Number(produto?.saldo_nao_fiscal ?? 0);
     const total = fiscal + naoFiscal;
     if (total > 0) return total;
@@ -235,6 +257,10 @@
         : base;
       produto = { ...normalizado, id, match_exato: 1, _fonte: 'mip', _termoOrigem: termo };
     }
+    if (!ehTermoSomenteDigitos(termo) && !produtoCorrespondeAoTermo(produto, termo)) {
+      return null;
+    }
+
     const marcaMip = obterMarcaProdutoPdv(mipProd) || obterMarcaProdutoPdv(produto);
     if (marcaMip) produto.marca = marcaMip;
 
@@ -267,7 +293,7 @@
     const codigo = String(termo || '').trim();
     if (!codigo) return null;
 
-    const contexto = { origem: 'pdv' };
+    const contexto = { origem: 'pdv', modoFiscal: obterModoFiscal() === '1' };
     if (global.PDV_ETIQUETA_LAYOUT) {
       contexto.layoutStrategy = String(global.PDV_ETIQUETA_LAYOUT);
     }
@@ -296,7 +322,7 @@
    * Cancela a requisição HTTP anterior a cada nova digitação.
    */
   async function buscarConsultaNome(termo, signal) {
-    const url = `${obterApiUrl()}/produtos/busca-operacional?q=${encodeURIComponent(termo)}&modo_fiscal=${obterModoFiscal()}&limite=${LIMITE_RESULTADOS}&sugestoes=1`;
+    const url = `${obterApiUrl()}/produtos/busca-operacional?q=${encodeURIComponent(termo)}&modo_fiscal=0&limite=${LIMITE_RESULTADOS}&sugestoes=1`;
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('token') || ''}`
@@ -613,6 +639,9 @@
 
     Promise.resolve()
       .then(() => {
+        if (!termoPareceIdentificadorPdv(termoDaBusca)) {
+          return { encontrado: false };
+        }
         const mgv6 = parseMGV6DoTermo(termoDaBusca);
         if (mgv6 && mgv6.ok === false) {
           return { encontrado: false, _mgv6DvInvalido: true };

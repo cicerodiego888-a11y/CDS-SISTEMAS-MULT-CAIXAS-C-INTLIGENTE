@@ -47,6 +47,10 @@ const ARQUIVOS_ELECTRON = [
   'electron-erp.js',
   'electron-pdv.js',
   'electron-common.js',
+  'electron-icon.js',
+  'electron-janelas-modulo.js',
+  'electron-portal-nfe.js',
+  'electron-registrar-portal-nfe.js',
   'electron-integrity.js',
   'electron-diagnostico.js',
   'electron-auditoria-rc3164.js',
@@ -57,6 +61,26 @@ const ARQUIVOS_ELECTRON = [
   'electron-builder-erp.json',
   'electron-builder-pdv.json'
 ];
+
+const ARQUIVOS_OBRIGATORIOS_PDV = [
+  'frontend/pdv/index.html',
+  'frontend/erp/index.html',
+  'frontend/shared/js/core.js',
+  'backend/server.js',
+  'backend/database.js',
+  'electron-pdv.js',
+  'electron-common.js',
+  'electron-integrity.js',
+  'electron-diagnostico.js',
+  'electron-janelas-modulo.js',
+  'preload.js',
+  'package.json',
+  'electron-builder-pdv.json'
+];
+
+function obterArquivosObrigatorios(modulo = 'erp') {
+  return modulo === 'pdv' ? ARQUIVOS_OBRIGATORIOS_PDV : ARQUIVOS_OBRIGATORIOS;
+}
 
 function toPosix(rel) {
   return String(rel || '').replace(/\\/g, '/').replace(/^\/+/, '');
@@ -108,10 +132,31 @@ function obterVersaoElectronDev(rootDir) {
   }
 }
 
-function deveExcluirDoPacote(relPosix) {
+function deveExcluirDoPacote(relPosix, modulo = null) {
   const rel = toPosix(relPosix);
-  // Alinhado a electron-builder-erp.json (!**/*.md e artefatos git)
+  const lower = rel.toLowerCase();
+  const diretoriosPersistentes = [
+    'backups/', 'backend/banco/', 'backend/storage/', 'dados/', 'docs/',
+    'imagem/', 'logs/', 'scripts/', 'backend/scripts/', 'storage/', 'tests/', 'tmp/'
+  ];
+
+  if (diretoriosPersistentes.some((prefixo) => lower.startsWith(prefixo))) return true;
+  if (lower === 'config/configuracoes.json') return true;
+  if (lower === 'electron-build-manifest.json' || lower === 'package-lock.json') return true;
+  if (lower === 'check-users.js' || /^diagnostico-[^/]+\.js$/i.test(rel)) return true;
+  if (/^tmp-sprint[^/]*\.js$/i.test(rel)) return true;
+  if (lower === 'logo.jpeg' || /\.zip$/i.test(rel)) return true;
+  if (/^backend\/schemas\/nfe_v4\.00\/temp-nfe\//i.test(rel)) return true;
+  if (/^backend\/.+\/debug\//i.test(rel)) return true;
+  if (/^backend\/(?:teste_|test-)[^/]*\.js$/i.test(rel)) return true;
+  if (/\.(?:db|db-shm|db-wal|db-journal|sqlite|sqlite3|pfx|p12|key|log)$/i.test(rel)) return true;
+  if (/\.pem$/i.test(rel) && !/^backend\/certificados\/ICP-Brasil[^/]*\.pem$/i.test(rel)) return true;
+  if (/\.crt$/i.test(rel) && !/^backend\/certificados\/ICP-Brasil[^/]*\.crt$/i.test(rel)) return true;
+  if (modulo === 'erp' && ['electron.js', 'electron-pdv.js', 'electron-builder-pdv.json'].includes(rel)) return true;
+  if (modulo === 'pdv' && ['electron.js', 'electron-erp.js', 'electron-builder-erp.json'].includes(rel)) return true;
+
   if (/\.md$/i.test(rel)) return true;
+  if (/(^|\/)(?:\.gitignore|\.gitattributes|\.cursorignore|\.gitkeep)$/i.test(rel)) return true;
   if (/(^|\/)\.git(?:ignore|attributes)?$/i.test(rel)) return true;
   if (/(^|\/)\.github\//i.test(rel)) return true;
   if (/(^|\/)\.gitkeep$/i.test(rel)) return true;
@@ -142,9 +187,10 @@ function walkFiles(absDir, rootDir, out = [], filtroRel = null) {
 function ignorarBackend(rel) {
   const r = toPosix(rel);
   if (!r.startsWith('backend/')) return true;
-  if (r.includes('/storage/')) return true;
-  if (r.includes('/banco/')) return true;
-  if (/\.(db|db-shm|db-wal|db-journal|pfx|p12|pem|key|crt|log)$/i.test(r)) return true;
+  if (/^backend\/(?:storage|banco)\//i.test(r)) return true;
+  if (/\.(db|db-shm|db-wal|db-journal|sqlite|sqlite3|pfx|p12|key|log)$/i.test(r)) return true;
+  if (/\.pem$/i.test(r) && !/^backend\/certificados\/ICP-Brasil[^/]*\.pem$/i.test(r)) return true;
+  if (/\.crt$/i.test(r) && !/^backend\/certificados\/ICP-Brasil[^/]*\.crt$/i.test(r)) return true;
   if (/\/debug\//i.test(r)) return true;
   return false;
 }
@@ -192,19 +238,27 @@ function listarArquivosBackend(rootDir) {
 }
 
 function listarArquivosRecursos(rootDir) {
-  return walkFiles(path.join(rootDir, 'assets'), rootDir).sort();
+  return [
+    ...walkFiles(path.join(rootDir, 'assets'), rootDir),
+    ...walkFiles(path.join(rootDir, 'resources'), rootDir)
+  ].sort();
 }
 
-function listarArquivosElectron(rootDir) {
+function listarArquivosElectron(rootDir, modulo = 'erp') {
   const set = new Set();
   for (const rel of ARQUIVOS_ELECTRON) {
     const abs = path.join(rootDir, ...toPosix(rel).split('/'));
-    if (fs.existsSync(abs) && fs.statSync(abs).isFile()) set.add(toPosix(rel));
+    if (!deveExcluirDoPacote(rel, modulo) && fs.existsSync(abs) && fs.statSync(abs).isFile()) {
+      set.add(toPosix(rel));
+    }
   }
   return [...set].sort();
 }
 
 function obterConfigBuilderModulo(modulo) {
+  if (modulo !== 'erp' && modulo !== 'pdv') {
+    throw new Error(`Módulo Electron inválido: ${modulo}`);
+  }
   return modulo === 'pdv' ? 'electron-builder-pdv.json' : 'electron-builder-erp.json';
 }
 
@@ -243,6 +297,7 @@ function moduloUsaPackageJsonEfetivo(modulo) {
 function classificarArquivo(relPosix) {
   const rel = toPosix(relPosix);
   if (rel.startsWith('frontend/')) return 'frontend';
+  if (rel.startsWith('resources/')) return 'recursos';
   if (rel.startsWith('backend/')) return 'backend';
   if (rel.startsWith('assets/')) return 'recursos';
   if (ARQUIVOS_ELECTRON.includes(rel) || /^electron[-.].+\.js$/i.test(rel) || rel === 'preload.js') {
@@ -252,8 +307,9 @@ function classificarArquivo(relPosix) {
   return 'outros';
 }
 
-function listarArquivosParaManifesto(rootDir) {
-  const set = new Set(ARQUIVOS_OBRIGATORIOS.map(toPosix));
+function listarArquivosParaManifesto(rootDir, opcoes = {}) {
+  const modulo = opcoes.modulo || 'erp';
+  const set = new Set(obterArquivosObrigatorios(modulo).map(toPosix));
   const indexPath = path.join(rootDir, 'frontend', 'erp', 'index.html');
   if (fs.existsSync(indexPath)) {
     extrairReferenciasIndex(fs.readFileSync(indexPath, 'utf8')).forEach((f) => set.add(f));
@@ -261,8 +317,10 @@ function listarArquivosParaManifesto(rootDir) {
   listarArquivosFrontend(rootDir).forEach((f) => set.add(f));
   listarArquivosBackend(rootDir).forEach((f) => set.add(f));
   listarArquivosRecursos(rootDir).forEach((f) => set.add(f));
-  listarArquivosElectron(rootDir).forEach((f) => set.add(f));
-  return [...set].filter((f) => f !== MANIFEST_REL).sort();
+  listarArquivosElectron(rootDir, modulo).forEach((f) => set.add(f));
+  return [...set]
+    .filter((f) => f !== MANIFEST_REL && !deveExcluirDoPacote(f, modulo))
+    .sort();
 }
 
 function hashArquivos(rootDir, arquivosRel) {
@@ -312,7 +370,9 @@ function calcularHashesPorCamada(arquivosMap) {
 
 function gerarManifesto(rootDir, opcoes = {}) {
   const pkg = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8'));
-  const lista = listarArquivosParaManifesto(rootDir);
+  const modulo = opcoes.modulo || 'erp';
+  obterConfigBuilderModulo(modulo);
+  const lista = listarArquivosParaManifesto(rootDir, { modulo });
   const { arquivos, ausentes } = hashArquivos(rootDir, lista);
   if (ausentes.length) {
     const err = new Error(`Arquivos obrigatórios/ausentes no repositório:\n${ausentes.join('\n')}`);
@@ -321,7 +381,6 @@ function gerarManifesto(rootDir, opcoes = {}) {
     throw err;
   }
 
-  const modulo = opcoes.modulo || 'erp';
   const arquivosComHashes = aplicarHashPackageJsonEfetivo(rootDir, arquivos, modulo);
   const camadas = calcularHashesPorCamada(arquivosComHashes);
   const timestamp = opcoes.timestamp || new Date().toISOString();
@@ -335,7 +394,7 @@ function gerarManifesto(rootDir, opcoes = {}) {
     node: opcoes.node || process.version.replace(/^v/, ''),
     electron: opcoes.electron || obterVersaoElectronDev(rootDir),
     chromium: opcoes.chromium || null,
-    modulo: opcoes.modulo || 'erp',
+    modulo,
     quantidadeArquivos: Object.keys(arquivosComHashes).length,
     quantidadeFrontend: camadas.frontend.quantidade,
     quantidadeBackend: camadas.backend.quantidade,
@@ -381,7 +440,14 @@ function validarEstruturaManifesto(manifesto) {
     return erros;
   }
 
-  for (const obrigatorio of ARQUIVOS_OBRIGATORIOS) {
+  const modulo = manifesto.modulo || 'erp';
+  if (!manifesto.modulo) {
+    erros.push('campo modulo ausente');
+  }
+  if (modulo !== 'erp' && modulo !== 'pdv') {
+    erros.push(`módulo inválido no manifesto: ${modulo}`);
+  }
+  for (const obrigatorio of obterArquivosObrigatorios(modulo)) {
     if (!manifesto.arquivos[obrigatorio]) {
       erros.push(`arquivo obrigatório ausente no manifesto: ${obrigatorio}`);
     }
@@ -439,6 +505,9 @@ function compararRepoComAsar(rootDir, asarPath, opcoes = {}) {
   const modulo = opcoes.modulo || manifesto.modulo || 'erp';
   const erros = [];
   const logs = [];
+  if (manifesto.modulo !== modulo) {
+    erros.push(`módulo do manifesto (${manifesto.modulo}) difere do pacote (${modulo})`);
+  }
   const estrutura = validarEstruturaManifesto(manifesto);
   estrutura.forEach((e) => erros.push(e));
 
@@ -594,6 +663,7 @@ function validarIntegridadePacoteLocal(rootDir, opcoes = {}) {
 
   try {
     const manifesto = lerManifesto(rootDir);
+    const modulo = opcoes.modulo || manifesto.modulo || 'erp';
     resultado.manifesto = manifesto;
     resultado.quantidadeArquivos = manifesto.quantidadeArquivos || Object.keys(manifesto.arquivos || {}).length;
     resultado.hashFrontend = manifesto.hashFrontend || null;
@@ -601,12 +671,18 @@ function validarIntegridadePacoteLocal(rootDir, opcoes = {}) {
     resultado.hashElectron = manifesto.hashElectron || null;
     resultado.hashGlobal = manifesto.hash || null;
 
+    if (modulo !== 'erp' && modulo !== 'pdv') {
+      resultado.erros.push(`módulo solicitado inválido: ${modulo}`);
+    }
+    if (opcoes.modulo && manifesto.modulo !== modulo) {
+      resultado.erros.push(`manifesto ${manifesto.modulo} incompatível com módulo ${modulo}`);
+    }
+
     const estrutura = validarEstruturaManifesto(manifesto);
     if (estrutura.length) {
       resultado.erros.push(...estrutura);
     }
 
-    const modulo = manifesto.modulo || 'erp';
     for (const [rel, hashEsperado] of Object.entries(manifesto.arquivos || {})) {
       if (rel === 'package.json' && moduloUsaPackageJsonEfetivo(modulo)) {
         if (hashPackageJsonEfetivo(rootDir, modulo) !== hashEsperado) {
@@ -876,9 +952,12 @@ module.exports = {
   SCHEMA,
   BUILD_SCHEMA,
   ARQUIVOS_OBRIGATORIOS,
+  ARQUIVOS_OBRIGATORIOS_PDV,
+  obterArquivosObrigatorios,
   ARQUIVOS_ELECTRON,
   MODULOS_SMOKE_ASAR,
   toPosix,
+  deveExcluirDoPacote,
   sha256File,
   sha256Buffer,
   obterCommit,
@@ -887,6 +966,7 @@ module.exports = {
   listarArquivosBackend,
   listarArquivosRecursos,
   listarArquivosElectron,
+  listarArquivosParaManifesto,
   obterConfigBuilderModulo,
   serializarPackageJsonEfetivo,
   hashPackageJsonEfetivo,

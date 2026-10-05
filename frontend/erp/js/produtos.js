@@ -944,6 +944,7 @@ function loadProdutos(opcoes = {}) {
         });
         if (somenteCache) return Promise.resolve(lista);
         if (shellJaMontado && suave && opcoes.atualizarUi !== true) {
+            agendarRevalidacaoSaldosCatalogoProdutos();
             return Promise.resolve(lista);
         }
         if (suave && shellJaMontado && typeof atualizarListagemProdutosSemRemontarShell === 'function') {
@@ -951,6 +952,7 @@ function loadProdutos(opcoes = {}) {
         } else {
             renderProdutos(lista);
         }
+        agendarRevalidacaoSaldosCatalogoProdutos();
         return Promise.resolve(lista);
     }
 
@@ -1005,6 +1007,61 @@ function loadProdutos(opcoes = {}) {
     });
 }
 window.loadProdutos = loadProdutos;
+
+/**
+ * Saldos F/NF mudam fora desta tela (venda/cancelamento no PDV, outros caixas).
+ * O reuso da sessão renderiza na hora, mas os saldos são revalidados com o
+ * mesmo GET /produtos que alimenta a lista (fonte única: produtos.saldo_*).
+ */
+let inflightRevalidacaoSaldosProdutos = null;
+function agendarRevalidacaoSaldosCatalogoProdutos() {
+    if (inflightRevalidacaoSaldosProdutos) return inflightRevalidacaoSaldosProdutos;
+    inflightRevalidacaoSaldosProdutos = new Promise(function (resolve) {
+        setTimeout(function () {
+            if (!shellListagemProdutosMontado()) return resolve(null);
+            Promise.resolve(loadProdutos({ suave: true, forcar: true, motivo: 'revalidar-saldos' }))
+                .catch(function () { return null; })
+                .then(resolve);
+        }, 0);
+    }).finally(function () {
+        inflightRevalidacaoSaldosProdutos = null;
+    });
+    return inflightRevalidacaoSaldosProdutos;
+}
+
+let inflightListagemProdutosModoFiscal = null;
+
+function atualizarListagemProdutosAposModoFiscal() {
+    if (inflightListagemProdutosModoFiscal) {
+        return inflightListagemProdutosModoFiscal;
+    }
+    if (typeof invalidarCatalogoProdutosSessao === 'function') {
+        invalidarCatalogoProdutosSessao('modo-fiscal');
+    }
+    if (typeof loadProdutos !== 'function') {
+        return Promise.resolve([]);
+    }
+    const req = loadProdutos({ suave: true, forcar: true, motivo: 'modo-fiscal' });
+    inflightListagemProdutosModoFiscal = Promise.resolve(req).finally(function () {
+        inflightListagemProdutosModoFiscal = null;
+    });
+    return inflightListagemProdutosModoFiscal;
+}
+window.atualizarListagemProdutosAposModoFiscal = atualizarListagemProdutosAposModoFiscal;
+
+if (typeof window !== 'undefined' && !window.__cdsListaProdutosF12Bound) {
+    window.__cdsListaProdutosF12Bound = true;
+    const ouvir = function () {
+        if (typeof shellListagemProdutosMontado === 'function' && !shellListagemProdutosMontado()) {
+            return;
+        }
+        atualizarListagemProdutosAposModoFiscal();
+    };
+    document.addEventListener('cds:modo-fiscal-alterado', ouvir);
+    if (typeof $ === 'function') {
+        $(document).on('cds:modo-fiscal-alterado.listaProdutos', ouvir);
+    }
+}
 
 /**
  * Atualiza cache + listagem sem destruir #page-content.
@@ -1098,9 +1155,6 @@ function obterQuantidadeEstoqueProduto(p) {
 }
 
 function tituloColunaEstoqueLista() {
-    if (estoqueCadastroSomenteFiscal()) {
-        return 'Estoque Fiscal';
-    }
     return 'Estoque';
 }
 
@@ -1199,11 +1253,52 @@ function formatarEstoqueDetalheProduto(produto) {
 
 
 function resolverItemFiscalParaSalvar(saldosIniciais) {
+    let comercial = '';
+    try {
+        if (typeof $ === 'function') {
+            comercial = String($('input[name="controle_comercial"]:checked').val() || '').toUpperCase();
+        }
+    } catch (_) { /* ambiente de teste sem jQuery */ }
+    if (comercial === 'ALTERNATIVO') return 0;
+    if (comercial === 'PADRAO') return 1;
     // Classificação do produto vem do cadastro — não do F12/PDV.
     if (Number(saldosIniciais.saldo_nao_fiscal_inicial) > 0 && Number(saldosIniciais.saldo_fiscal_inicial) === 0) {
         return 0;
     }
     return 1;
+}
+
+function resolverItemFiscalParaSalvarComControleComercial(saldosIniciais) {
+    return resolverItemFiscalParaSalvar(saldosIniciais);
+}
+
+function sincronizarControleComercialProduto(produto, isEdit) {
+    const alternativo = isEdit && Number(produto && produto.item_fiscal) === 0;
+    $('#controle_comercial_alternativo').prop('checked', alternativo);
+    $('#controle_comercial_padrao').prop('checked', !alternativo);
+}
+
+function aplicarPadraoCategoriaNoNovoProduto(categorias, catId) {
+    const cat = (categorias || []).find((c) => String(c.id) === String(catId));
+    const $switch = $('#controla_estoque');
+    $switch.off('change.rc80zControlaEstoque');
+    if (!cat) {
+        $switch.prop('checked', true);
+        sincronizarControleComercialProduto(null, false);
+        if (typeof inicializarConfirmacaoControlaEstoque === 'function') {
+            inicializarConfirmacaoControlaEstoque();
+        }
+        return;
+    }
+    $switch.prop('checked', Number(cat.padrao_controla_estoque ?? 1) !== 0);
+    const comercial = String(cat.padrao_controle_comercial || 'PADRAO').toUpperCase() === 'ALTERNATIVO'
+        ? 'ALTERNATIVO'
+        : 'PADRAO';
+    $('#controle_comercial_alternativo').prop('checked', comercial === 'ALTERNATIVO');
+    $('#controle_comercial_padrao').prop('checked', comercial === 'PADRAO');
+    if (typeof inicializarConfirmacaoControlaEstoque === 'function') {
+        inicializarConfirmacaoControlaEstoque();
+    }
 }
 
 function obterSaldosIniciaisDoFormulario() {
@@ -1464,24 +1559,31 @@ function formatarEstoqueExibicaoTela(produto) {
 function formatarColunaEstoqueLista(p) {
     const unidade = p.unidade || '';
     const opcoesFormato = { produtoFracionado: produtoUsaConversaoUnidades(p) };
+    const fiscal = Math.max(0, Number(p.saldo_fiscal ?? 0) - Number(p.reservado_fiscal ?? 0));
+    const naoFiscal = Math.max(0, Number(p.saldo_nao_fiscal ?? 0) - Number(p.reservado_nao_fiscal ?? 0));
+    const total = fiscal + naoFiscal;
 
     if (estoqueCadastroSomenteFiscal()) {
-        return formatarEstoqueProduto(Number(p.saldo_fiscal ?? 0), unidade, opcoesFormato);
+        return `
+            <div class="estoque-lista-cell">
+                <div class="estoque-lista-valor fw-semibold">
+                    ${formatarEstoqueProduto(fiscal, unidade, opcoesFormato)}
+                </div>
+            </div>
+        `;
     }
-
-    if (Number(p.reservado_fiscal || 0) > 0 || Number(p.reservado_nao_fiscal || 0) > 0
-        || (typeof obterRecursosImplantacao === 'function' && obterRecursosImplantacao().vendasEntrega)) {
-        return formatarEstoqueCompletoProduto(p);
-    }
-
-    const fiscal = Number(p.saldo_fiscal ?? 0);
-    const naoFiscal = Number(p.saldo_nao_fiscal ?? 0);
-    const total = Number(p.estoque_atual ?? (fiscal + naoFiscal));
 
     return `
-        <div class="small">Fiscal: ${formatarEstoqueProduto(fiscal, unidade, opcoesFormato)}</div>
-        <div class="small">Não Fiscal: ${formatarEstoqueProduto(naoFiscal, unidade, opcoesFormato)}</div>
-        <div class="fw-semibold">Total: ${formatarEstoqueProduto(total, unidade, opcoesFormato)}</div>
+        <div class="estoque-lista-cell">
+            <div class="estoque-lista-valor fw-semibold">
+                ${formatarEstoqueProduto(total, unidade, opcoesFormato)}
+            </div>
+            <div class="estoque-lista-composicao text-muted">
+                A: ${formatarEstoqueProduto(fiscal, unidade, opcoesFormato)}
+                ·
+                B: ${formatarEstoqueProduto(naoFiscal, unidade, opcoesFormato)}
+            </div>
+        </div>
     `;
 }
 
@@ -3119,6 +3221,115 @@ function renderProdutosRows(produtos, opcoes = {}) {
     return produtos.map((p) => renderProdutoRow(p)).join('');
 }
 
+function mostrarPreviaEtiquetaProduto(produto, svgCodigoBarras) {
+    const temCodigoBarras = Boolean(String(produto.codigo_barras || '').trim());
+    const colunaCodigoBarras = temCodigoBarras ? `<aside class="barcode-area">${svgCodigoBarras}</aside>` : '';
+    const classeEtiqueta = temCodigoBarras
+        ? 'etiqueta-preview__label'
+        : 'etiqueta-preview__label etiqueta-preview__label--sem-barras';
+
+        document.getElementById('cdsEtiquetaPreviewModal')?.remove();
+        document.body.insertAdjacentHTML('beforeend', `
+            <div class="modal fade cds-etiqueta-preview" id="cdsEtiquetaPreviewModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-sm">
+                    <div class="modal-content">
+                        <div class="modal-header py-2">
+                            <h2 class="modal-title fs-6">Prévia da etiqueta</h2>
+                        </div>
+                        <div class="modal-body">
+                            <div class="cds-etiqueta-preview__canvas">
+                                <main class="${classeEtiqueta}" aria-label="Etiqueta de prateleira">
+                                    <h1 class="nome">${escapeHtml(String(produto.nome || '').trim())}</h1>
+                                    <section class="dados">
+                                        <p class="preco">${escapeHtml(window.EtiquetaProduto.formatarPreco(produto.preco_venda))}</p>
+                                        <div class="codigo-unidade"><span>CÓD.: ${escapeHtml(produto.codigo || '')}</span><span>UN.: ${escapeHtml(String(produto.unidade || '').toUpperCase())}</span></div>
+                                    </section>
+                                      ${colunaCodigoBarras}
+                                </main>
+                            </div>
+                            <p class="text-muted small mb-0 text-center">A impressão começará em 3 segundos.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `);
+
+        const modalElement = document.getElementById('cdsEtiquetaPreviewModal');
+        const modal = new bootstrap.Modal(modalElement, { backdrop: 'static', keyboard: false });
+        return new Promise((resolve) => {
+                let timer = null;
+                modalElement.addEventListener('shown.bs.modal', () => {
+                        timer = window.setTimeout(() => modal.hide(), 3000);
+                }, { once: true });
+                modalElement.addEventListener('hidden.bs.modal', () => {
+                        if (timer !== null) window.clearTimeout(timer);
+                        modal.dispose();
+                        modalElement.remove();
+                        resolve();
+                }, { once: true });
+                modal.show();
+        });
+}
+
+async function imprimirEtiquetaProdutoCadastro() {
+    const produto = {
+        id: Number($('#produtoId').val()),
+        nome: String($('#nome').val() || '').trim(),
+        preco_venda: Number($('#preco_venda').val()),
+        codigo: String($('#codigo').val() || '').trim(),
+        unidade: String($('#unidade').val() || '').trim(),
+        codigo_barras: String($('#codigo_barras').val() || '').trim()
+    };
+
+    const erroValidacao = window.EtiquetaProduto?.validarProduto(produto);
+    if (erroValidacao) {
+        showNotification(erroValidacao, 'warning');
+        return;
+    }
+    const temCodigoBarras = Boolean(produto.codigo_barras);
+    if (temCodigoBarras && typeof window.electronAPI?.gerarCodigoBarrasEtiqueta !== 'function') {
+        showNotification('Geração do código de barras indisponível neste ambiente.', 'error');
+        return;
+    }
+
+    try {
+        let svgCodigoBarras = '';
+        if (temCodigoBarras) {
+            const barcode = await window.electronAPI.gerarCodigoBarrasEtiqueta(produto.codigo_barras);
+            if (!barcode?.sucesso || !barcode.svg) {
+                showNotification(barcode?.erro || 'Não foi possível gerar o código de barras.', 'error');
+                return;
+            }
+            svgCodigoBarras = barcode.svg;
+        }
+
+        const empresaCupom = typeof obterDadosEmpresaCupom === 'function' ? await obterDadosEmpresaCupom() : null;
+        const html = window.EtiquetaProduto.montarHtml(produto, svgCodigoBarras, { papelMm: empresaCupom?.papel_mm });
+        await mostrarPreviaEtiquetaProduto(produto, svgCodigoBarras);
+
+        if (typeof window.electronAPI?.imprimirDANFESilencioso !== 'function') {
+            showNotification('Impressão térmica indisponível neste ambiente.', 'error');
+            return;
+        }
+        if (typeof obterDeviceNameImpressoraCupom !== 'function') {
+            showNotification('Configure a impressora térmica Goldentec GT710 antes de imprimir.', 'warning');
+            return;
+        }
+        const deviceName = await obterDeviceNameImpressoraCupom();
+        if (!deviceName) {
+            showNotification('Configure a impressora térmica Goldentec GT710 antes de imprimir.', 'warning');
+            return;
+        }
+
+        const resultado = await window.electronAPI.imprimirDANFESilencioso(html, deviceName);
+        if (!resultado?.sucesso) {
+            throw new Error(resultado?.erro || 'A impressora não confirmou a impressão da etiqueta.');
+        }
+        showNotification('Etiqueta enviada para impressão.', 'success');
+    } catch (error) {
+        showNotification(error.message || 'Falha ao imprimir a etiqueta.', 'error');
+    }
+}
 
 // Abre modal de produto
 // RC4.31.27 — opcoes.origem === 'COMPRA' NÃO substitui #modal-container (preserva Lançamento de Compra)
@@ -3161,9 +3372,6 @@ function showProdutoModal(produto = null, opcoes = {}) {
         ? Number(produto.estoque_atual ?? (Number(produto.saldo_fiscal || 0) + Number(produto.saldo_nao_fiscal || 0)))
         : 0;
 
-    const codigoAtualForm = isEdit ? String(produto.codigo || '') : '';
-    const codigoInternoMax5 = !codigoAtualForm || /^\d{1,5}$/.test(codigoAtualForm);
-
     // Remove modais antigos para evitar conflitos de aria-hidden e IDs duplicados
     $('#produtoModal').remove();
     $('#viewProdutoModal').remove();
@@ -3197,12 +3405,12 @@ function showProdutoModal(produto = null, opcoes = {}) {
                                             <div class="col-md-3">
                                                 <label for="codigo" class="form-label">Código Interno</label>
                                                 <div class="input-group">
-                                                    <input type="text" class="form-control" id="codigo" value="${isEdit ? escapeHtml(produto.codigo || '') : ''}" placeholder="Até 5 dígitos" autocomplete="off" inputmode="numeric" ${codigoInternoMax5 ? 'maxlength="5"' : ''}>
+                                                    <input type="text" class="form-control" id="codigo" value="${isEdit ? escapeHtml(produto.codigo || '') : ''}" placeholder="Código interno ou código de barras" autocomplete="off" inputmode="numeric">
                                                     <button type="button" class="btn btn-outline-secondary" id="btnGerarCodigoInterno" title="Gerar código interno de até 5 dígitos para produto sem código de barras">
                                                         Gerar
                                                     </button>
                                                 </div>
-                                                <div class="form-text">Sem código de barras, gere um código de até 5 dígitos.</div>
+                                                <div class="form-text">Informe o código que já vem no produto. Gerar cria um código interno de até 5 dígitos quando não houver código de barras.</div>
                                             </div>
                                             <div class="col-md-3">
                                                 <label for="plu" class="form-label">PLU / Código do item da balança</label>
@@ -3654,6 +3862,20 @@ function showProdutoModal(produto = null, opcoes = {}) {
                                                 </div>
                                             </div>
 
+                                            <div class="col-12" id="areaControleComercialProduto">
+                                                <label class="form-label">Controle comercial</label>
+                                                <div class="d-flex flex-wrap gap-3">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="radio" name="controle_comercial" id="controle_comercial_padrao" value="PADRAO" ${!isEdit || Number(produto.item_fiscal ?? 1) !== 0 ? 'checked' : ''}>
+                                                        <label class="form-check-label" for="controle_comercial_padrao">Padrão</label>
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="radio" name="controle_comercial" id="controle_comercial_alternativo" value="ALTERNATIVO" ${isEdit && Number(produto.item_fiscal) === 0 ? 'checked' : ''}>
+                                                        <label class="form-check-label" for="controle_comercial_alternativo">Alternativo</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+
                                             <div class="col-12">
                                                 <div class="form-check form-switch">
                                                     <input
@@ -3746,6 +3968,9 @@ function showProdutoModal(produto = null, opcoes = {}) {
                     </div>
 
                     <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-dark me-auto" onclick="imprimirEtiquetaProdutoCadastro()">
+                            <i class="fas fa-print" aria-hidden="true"></i> Imprimir Etiqueta
+                        </button>
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                         ${!isEdit && origemCadastro !== 'COMPRA' && origemCadastro !== 'MIIP'
                             ? `<button type="button" class="btn btn-outline-primary" onclick="saveProduto({ continuar: false })">Salvar</button>
@@ -3808,9 +4033,11 @@ function showProdutoModal(produto = null, opcoes = {}) {
     if (isEdit && produto) {
         $('#controlar_validade').prop('checked', produto.controlar_validade == 1);
         $('#controla_estoque').prop('checked', Number(produto.controla_estoque ?? 1) !== 0);
+        sincronizarControleComercialProduto(produto, true);
     } else {
         $('#controlar_validade').prop('checked', false);
         $('#controla_estoque').prop('checked', true);
+        sincronizarControleComercialProduto(null, false);
     }
 
     inicializarConfirmacaoControlaEstoque();
@@ -4637,7 +4864,11 @@ function inicializarCategoriasESubcategorias(produto, isEdit) {
         }
 
         $cat.off('change.cadastroCat').on('change.cadastroCat', function () {
-            carregarSubs($(this).val());
+            const catId = $(this).val();
+            carregarSubs(catId);
+            if (!isEdit) {
+                aplicarPadraoCategoriaNoNovoProduto(categoriasComSubs, catId);
+            }
         });
 
         if (catParaSelecionar) {
@@ -5501,7 +5732,7 @@ async function saveProduto(opcoes) {
         data.saldo_nao_fiscal_inicial = saldosIniciais.saldo_nao_fiscal_inicial;
     }
 
-    data.item_fiscal = resolverItemFiscalParaSalvar(saldosIniciais);
+    data.item_fiscal = resolverItemFiscalParaSalvarComControleComercial(saldosIniciais);
     console.log('[AUDIT PRODUTO] Payload salvar:', JSON.stringify(data, null, 2));
     console.log('[AUDIT PRODUTO] item_fiscal enviado:', data.item_fiscal);
 

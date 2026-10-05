@@ -14,6 +14,7 @@ const MotorComercial = require('../../backend/motores/comercial');
 const fxnfReservas = require('../../backend/services/fiscalNaoFiscal/reservasPublico');
 const fxnfSaldos = require('../../backend/services/fiscalNaoFiscal/estoqueSaldosPublico');
 const { TipoSaldo } = require('../../backend/services/fiscalNaoFiscal/constants');
+const cfgVendaSemEstoque = require('../../backend/services/estoque/empresaPermiteVendaSemEstoqueConfig');
 
 function openDb(file) {
   return new Promise((resolve, reject) => {
@@ -51,10 +52,15 @@ function closeDb(db) {
 async function setupDb(opts = {}) {
   const file = opts.file || ':memory:';
   const db = await openDb(file);
+  await run(db, `CREATE TABLE categorias (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL)`);
+  await run(db, `CREATE TABLE configuracoes (
+    chave TEXT PRIMARY KEY, valor TEXT, tipo TEXT, descricao TEXT, updated_at TEXT
+  )`);
   await run(db, `
     CREATE TABLE produtos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       nome TEXT,
+      categoria_id INTEGER,
       saldo_fiscal REAL DEFAULT 0,
       saldo_nao_fiscal REAL DEFAULT 0,
       reservado_fiscal REAL DEFAULT 0,
@@ -113,11 +119,12 @@ async function setupDb(opts = {}) {
 
   const sf = opts.saldo_fiscal != null ? opts.saldo_fiscal : 100;
   const snf = opts.saldo_nao_fiscal != null ? opts.saldo_nao_fiscal : 50;
+  const categoria = await run(db, 'INSERT INTO categorias (nome) VALUES (?)', [opts.categoria || 'Mercearia']);
   const p = await run(
     db,
-    `INSERT INTO produtos (nome, saldo_fiscal, saldo_nao_fiscal, reservado_fiscal, reservado_nao_fiscal, estoque_atual)
-     VALUES ('Produto RC3161', ?, ?, 0, 0, ?)`,
-    [sf, snf, sf + snf]
+    `INSERT INTO produtos (nome, categoria_id, saldo_fiscal, saldo_nao_fiscal, reservado_fiscal, reservado_nao_fiscal, estoque_atual)
+     VALUES ('Produto RC3161', ?, ?, ?, 0, 0, ?)`,
+    [categoria.lastID, sf, snf, sf + snf]
   );
   return { db, produtoId: p.lastID, file };
 }
@@ -246,6 +253,37 @@ async function testSaldoTotalInsuficiente() {
   const prod = await get(db, 'SELECT * FROM produtos WHERE id = ?', [produtoId]);
   assert.strictEqual(prod.reservado_fiscal, 0);
   await closeDb(db);
+}
+
+async function testVendaSemEstoquePorCategoria() {
+  cfgVendaSemEstoque._resetCacheForTests();
+  try {
+    for (const [categoria, devePermitir] of [
+      ['Açougue', true],
+      ['Hortifruti', true],
+      ['Mercearia', false]
+    ]) {
+      const { db, produtoId } = await setupDb({
+        categoria,
+        saldo_fiscal: 0,
+        saldo_nao_fiscal: 0
+      });
+      await new Promise((resolve, reject) => {
+        cfgVendaSemEstoque.salvar(db, 'ATIVADO', (err) => (err ? reject(err) : resolve()));
+      });
+
+      const analise = await MotorComercial.analisarDisponibilidadeFiscal(
+        [{ produto_id: produtoId, quantidade: 1 }],
+        { db }
+      );
+      assert.strictEqual(analise.bloqueado, !devePermitir, categoria);
+      assert.strictEqual(analise.plano[0].venda_sem_estoque === true, devePermitir, categoria);
+      assert.strictEqual(analise.plano[0].acao, devePermitir ? 'RESERVAR' : 'BLOQUEAR', categoria);
+      await closeDb(db);
+    }
+  } finally {
+    cfgVendaSemEstoque._resetCacheForTests();
+  }
 }
 
 async function testRollback() {
@@ -387,6 +425,7 @@ async function main() {
     ['supervisor aprova + transferência MTS + reserva', testSupervisorAprovaTransferencia],
     ['supervisor rejeita', testSupervisorRejeita],
     ['saldo total insuficiente (bloqueado)', testSaldoTotalInsuficiente],
+    ['venda sem estoque restrita a Açougue/Hortifruti', testVendaSemEstoquePorCategoria],
     ['rollback em falha', testRollback],
     ['concorrência / pedidos simultâneos', testConcorrenciaPedidos],
     ['liberar reserva', testLiberarReserva]

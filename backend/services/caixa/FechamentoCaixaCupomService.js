@@ -1,5 +1,5 @@
 /**
- * Cupom térmico 80mm — Fechamento de Caixa.
+ * Cupom térmico 58/80mm — Fechamento de Caixa.
  */
 
 'use strict';
@@ -38,16 +38,69 @@ function formatarDataHora(valor) {
   return s;
 }
 
-function linha(label, valor, opts = {}) {
-  const cls = opts.strong ? 'strong' : '';
-  return `<div class="linha ${cls}"><span>${escapeHtml(label)}</span><span>${escapeHtml(valor)}</span></div>`;
+function colunasDoPapel(papelMm) {
+  return papelMm === 58 ? 32 : 48;
 }
 
-function linhaForma(label, qtd, valor) {
+function quebrar(texto, largura) {
+  const bruto = String(texto ?? '').trim();
+  if (!bruto) return [''];
+  if (bruto.length <= largura) return [bruto];
+  const linhas = [];
+  let atual = '';
+  for (const palavra of bruto.split(/\s+/)) {
+    if (palavra.length > largura) {
+      if (atual) linhas.push(atual);
+      for (let i = 0; i < palavra.length; i += largura) {
+        linhas.push(palavra.slice(i, i + largura));
+      }
+      atual = '';
+      continue;
+    }
+    const candidato = atual ? `${atual} ${palavra}` : palavra;
+    if (candidato.length <= largura) atual = candidato;
+    else {
+      if (atual) linhas.push(atual);
+      atual = palavra;
+    }
+  }
+  if (atual) linhas.push(atual);
+  return linhas.length ? linhas : [''];
+}
+
+function centro(texto, cols) {
+  const s = String(texto ?? '');
+  if (s.length >= cols) return s.slice(0, cols);
+  return ' '.repeat(Math.floor((cols - s.length) / 2)) + s;
+}
+
+function blocoCentro(texto, cols) {
+  return quebrar(texto, cols).map((parte) => centro(parte, cols));
+}
+
+/**
+ * O valor fica inteiro no fim da linha. Se não couber junto com o rótulo,
+ * o rótulo é que encolhe. Valor maior que a linha quebra na linha seguinte.
+ */
+function comporLinha(label, valor, cols) {
+  const right = String(valor ?? '');
+  const left = String(label ?? '');
+  if (right.length >= cols) {
+    return [...(left ? quebrar(left, cols) : []), ...quebrar(right, cols)];
+  }
+  const gap = cols - left.length - right.length;
+  if (gap >= 1) return [left + ' '.repeat(gap) + right];
+  const maxLeft = Math.max(0, cols - right.length - 1);
+  const leftCut = left.slice(0, maxLeft);
+  const espacos = Math.max(1, cols - leftCut.length - right.length);
+  return [leftCut + ' '.repeat(espacos) + right];
+}
+
+function linhaForma(label, qtd, valor, cols, sempre) {
   const q = Number(qtd || 0);
   const v = n(valor);
-  if (q <= 0 && v <= 0 && !arguments[3]) return '';
-  return `<div class="linha"><span>${escapeHtml(label)} <small>(${q})</small></span><span>${dinheiro(v)}</span></div>`;
+  if (q <= 0 && v <= 0 && !sempre) return [];
+  return comporLinha(`${label} (${q})`, dinheiro(v), cols);
 }
 
 /**
@@ -71,25 +124,123 @@ function gerarHtmlCupomFechamento(consolidacao, extras = {}) {
   const aberturaEm = formatarDataHora(c.abertura?.em || c.periodo?.aberto_em);
   const fechamentoEm = formatarDataHora(c.fechamento?.em || c.periodo?.fechado_em || extras.fechado_em);
   const reimpressao = extras.reimpressao === true;
+  const papelMm = Number(extras.papel_mm) === 58 ? 58 : 80;
+  const cols = colunasDoPapel(papelMm);
   const totalPagamentos = n(c.totais?.recebido_por_pagamentos ?? c.totais?.recebido);
+  const sep = '-'.repeat(cols);
+  const L = (label, valor) => comporLinha(label, valor, cols);
 
   const temEntregas = n(e.quantidade_total) > 0 || n(e.valor_total) > 0;
   const temCancelamentos = n(canc.quantidade) > 0;
 
-  const secoesFormas = [
-    linhaForma('Dinheiro', pc.dinheiro, p.dinheiro, true),
-    linhaForma('PIX', pc.pix, p.pix, true),
-    linhaForma('Débito', pc.debito, p.debito, true),
-    linhaForma('Crédito', pc.credito, p.credito, true),
-    linhaForma('TEF', pc.tef, p.tef, true),
-    linhaForma('Prazo', pc.prazo, p.prazo, true),
-    linhaForma('Outros', pc.outros, p.outros, true)
-  ].join('');
+  const formas = [
+    linhaForma('Dinheiro', pc.dinheiro, p.dinheiro, cols, true),
+    linhaForma('PIX', pc.pix, p.pix, cols, true),
+    linhaForma('Débito', pc.debito, p.debito, cols, true),
+    linhaForma('Crédito', pc.credito, p.credito, cols, true),
+    linhaForma('TEF', pc.tef, p.tef, cols, true),
+    linhaForma('Prazo', pc.prazo, p.prazo, cols, true),
+    linhaForma('Outros', pc.outros, p.outros, cols, true)
+  ].flat();
 
-  const diferenca = d.diferenca;
-  const diffClass = diferenca == null
-    ? ''
-    : (n(diferenca) > 0.009 ? 'diff-pos' : (n(diferenca) < -0.009 ? 'diff-neg' : ''));
+  const linhas = [
+    ...blocoCentro(empresaNome, cols),
+    ...(empresaCnpj ? blocoCentro(`CNPJ ${empresaCnpj}`, cols) : []),
+    sep,
+    centro('FECHAMENTO DE CAIXA', cols),
+    ...(reimpressao ? [centro('*** REIMPRESSÃO ***', cols)] : []),
+    '',
+    ...L('Caixa:', String(caixaId)),
+    ...L('Terminal:', String(terminalNome)),
+    ...L('Operador:', String(operadorNome)),
+    ...L('Abertura:', aberturaEm),
+    ...L('Fechamento:', fechamentoEm),
+    '',
+    centro('RESUMO DO PERÍODO', cols),
+    ...L('Qtd. vendas:', String(v.quantidade || 0)),
+    ...L('Total bruto:', dinheiro(v.bruto)),
+    ...L('Descontos:', dinheiro(v.descontos)),
+    ...L('Acréscimos:', dinheiro(v.acrescimos)),
+    ...L('Total vendido:', dinheiro(c.totais?.vendido != null ? c.totais.vendido : v.total_vendido || v.liquido)),
+    ...L('Total recebido:', dinheiro(c.totais?.recebido)),
+    ...L('Total pendente:', dinheiro(c.totais?.pendente != null ? c.totais.pendente : 0)),
+    '',
+    centro('FORMAS DE PAGAMENTO', cols),
+    ...(formas.length ? formas : ['Sem recebimentos.']),
+    sep,
+    ...L('TOTAL', dinheiro(totalPagamentos)),
+    '',
+    centro('VENDAS PARA ENTREGA', cols),
+    ...(temEntregas
+      ? [
+        ...L('Prestadas:', String(e.quantidade_prestada || 0)),
+        ...L('Recebido:', dinheiro(e.valor_prestado)),
+        ...L('Pendentes:', String(e.quantidade_pendente || 0)),
+        ...L('A receber:', dinheiro(e.valor_pendente)),
+        sep,
+        ...L('Total entregas:', dinheiro(e.valor_total))
+      ]
+      : ['Nenhuma venda para entrega.']),
+    '',
+    centro('MOVIMENTAÇÕES', cols),
+    ...L('Saldo inicial:', dinheiro(d.saldo_inicial)),
+    ...L('Suprimentos:', dinheiro(m.suprimentos)),
+    ...L('Sangrias:', dinheiro(m.sangrias)),
+    '',
+    centro('CONFERÊNCIA DO CAIXA', cols),
+    ...L('Dinheiro recebido:', dinheiro(d.vendas_dinheiro)),
+    ...L('Saldo inicial:', dinheiro(d.saldo_inicial)),
+    ...L('Suprimentos:', dinheiro(d.suprimentos)),
+    ...L('Sangrias:', dinheiro(d.sangrias)),
+    sep,
+    ...L('Dinheiro esperado:', dinheiro(d.esperado)),
+    ...L('Dinheiro conferido:', dinheiro(c.caixa_fisico?.dinheiro_conferido != null ? c.caixa_fisico.dinheiro_conferido : d.informado)),
+    ...L('Diferença:', dinheiro(d.diferenca)),
+    ...L('Retirada fechamento:', dinheiro(c.caixa_fisico?.retirada_fechamento || c.fechamento?.retirada_fechamento || 0)),
+    ...L('Saldo final:', dinheiro(c.caixa_fisico?.saldo_final != null ? c.caixa_fisico.saldo_final : c.fechamento?.saldo_final))
+  ];
+
+  if (c.reconciliacao) {
+    linhas.push(
+      '',
+      centro('RECONCILIAÇÃO', cols),
+      ...L('Vendas OK:', String(c.reconciliacao.vendas_ok || 0)),
+      ...L('Parciais:', String(c.reconciliacao.vendas_parciais || 0)),
+      ...L('Pendentes:', String(c.reconciliacao.vendas_pendentes || 0)),
+      ...L('Inconsistentes:', String(c.reconciliacao.vendas_inconsistentes || 0))
+    );
+  }
+
+  if (temCancelamentos) {
+    linhas.push(
+      '',
+      centro('CANCELAMENTOS', cols),
+      ...L('Quantidade:', String(canc.quantidade)),
+      ...L('Valor:', dinheiro(canc.valor))
+    );
+  }
+
+  if (n(v.fiscal) > 0 || n(v.nao_fiscal) > 0) {
+    linhas.push(
+      '',
+      centro('FISCAL / NÃO FISCAL', cols),
+      ...L('Fiscal:', dinheiro(v.fiscal)),
+      ...L('Não fiscal:', dinheiro(v.nao_fiscal)),
+      ...L('Total:', dinheiro(n(v.fiscal) + n(v.nao_fiscal)))
+    );
+  }
+
+  linhas.push(
+    sep,
+    ...blocoCentro('FECHAMENTO REALIZADO EM', cols),
+    ...blocoCentro(fechamentoEm, cols),
+    '',
+    ...blocoCentro(`Operador: ${operadorNome}`, cols),
+    '',
+    ...blocoCentro('Documento de conferência do caixa.', cols)
+  );
+
+  const corpo = linhas.map((linha) => escapeHtml(linha)).join('\n');
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -97,128 +248,29 @@ function gerarHtmlCupomFechamento(consolidacao, extras = {}) {
   <meta charset="utf-8" />
   <title>Fechamento de Caixa #${escapeHtml(caixaId)}</title>
   <style>
-    @page { size: 80mm auto; margin: 0; }
-    * { box-sizing: border-box; }
-    body {
-      width: 80mm;
-      max-width: 80mm;
-      margin: 0 auto;
-      padding: 3mm 2.5mm;
-      font-family: "Courier New", Courier, monospace;
-      font-size: 12px;
-      line-height: 1.25;
-      color: #000 !important;
-      background: #fff !important;
+    @page { margin: 0; }
+    html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+    pre.cupom-fechamento {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 10px;
       font-weight: 700;
+      line-height: 1.2;
+      color: #000;
+      background: #fff;
+      width: ${cols}ch;
+      max-width: ${cols}ch;
+      margin: 0;
+      padding: 1.5mm 0.5mm 2mm;
+      white-space: pre;
+      letter-spacing: 0;
+      overflow: visible;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
-    h1, h2, h3 { margin: 0; padding: 0; font-weight: 900; text-align: center; color: #000 !important; }
-    h1 { font-size: 14px; margin-bottom: 2px; }
-    h2 { font-size: 13px; margin: 6px 0 4px; }
-    h3 { font-size: 12px; margin: 8px 0 3px; text-align: left; border-bottom: 2px dashed #000; padding-bottom: 2px; }
-    .center { text-align: center; }
-    .muted { color: #000 !important; font-weight: 700; }
-    .sep { border: none; border-top: 2px dashed #000; margin: 6px 0; }
-    .linha {
-      display: flex;
-      justify-content: space-between;
-      gap: 6px;
-      margin: 2px 0;
-      white-space: nowrap;
-      color: #000 !important;
-      font-weight: 700;
-    }
-    .linha span:first-child { overflow: hidden; text-overflow: ellipsis; }
-    .linha.strong { font-weight: 900; }
-    .diff-pos { font-weight: 900; }
-    .diff-neg { font-weight: 900; }
-    small { font-size: 11px; color: #000 !important; font-weight: 700; }
-    .rodape { margin-top: 8px; text-align: center; font-size: 11px; color: #000 !important; font-weight: 700; }
-    .badge { text-align: center; font-weight: 900; margin: 4px 0; color: #000 !important; }
   </style>
 </head>
-<body>
-  <h1>${escapeHtml(empresaNome)}</h1>
-  ${empresaCnpj ? `<div class="center muted">CNPJ ${escapeHtml(empresaCnpj)}</div>` : ''}
-  <div class="sep"></div>
-  <h2>FECHAMENTO DE CAIXA</h2>
-  ${reimpressao ? '<div class="badge">*** REIMPRESSÃO ***</div>' : ''}
-
-  ${linha('Caixa:', String(caixaId))}
-  ${linha('Terminal:', String(terminalNome))}
-  ${linha('Operador:', String(operadorNome))}
-  ${linha('Abertura:', aberturaEm)}
-  ${linha('Fechamento:', fechamentoEm)}
-
-  <h3>RESUMO DO PERÍODO</h3>
-  ${linha('Qtd. vendas:', String(v.quantidade || 0))}
-  ${linha('Total bruto:', dinheiro(v.bruto))}
-  ${linha('Descontos:', dinheiro(v.descontos))}
-  ${linha('Acréscimos:', dinheiro(v.acrescimos))}
-  ${linha('Total vendido:', dinheiro(c.totais?.vendido != null ? c.totais.vendido : v.total_vendido || v.liquido))}
-  ${linha('Total recebido:', dinheiro(c.totais?.recebido), { strong: true })}
-  ${linha('Total pendente:', dinheiro(c.totais?.pendente != null ? c.totais.pendente : 0))}
-
-  <h3>FORMAS DE PAGAMENTO</h3>
-  ${secoesFormas || '<div class="muted">Sem recebimentos.</div>'}
-  <div class="sep"></div>
-  ${linha('TOTAL', dinheiro(totalPagamentos), { strong: true })}
-
-  <h3>VENDAS PARA ENTREGA</h3>
-  ${temEntregas ? `
-    ${linha('Prestadas:', String(e.quantidade_prestada || 0))}
-    ${linha('Recebido:', dinheiro(e.valor_prestado))}
-    ${linha('Pendentes:', String(e.quantidade_pendente || 0))}
-    ${linha('A receber:', dinheiro(e.valor_pendente), { strong: true })}
-    <div class="sep"></div>
-    ${linha('Total entregas:', dinheiro(e.valor_total))}
-  ` : '<div class="muted">Nenhuma venda para entrega.</div>'}
-
-  <h3>MOVIMENTAÇÕES</h3>
-  ${linha('Saldo inicial:', dinheiro(d.saldo_inicial))}
-  ${linha('Suprimentos:', dinheiro(m.suprimentos))}
-  ${linha('Sangrias:', dinheiro(m.sangrias))}
-
-  <h3>CONFERÊNCIA DO CAIXA</h3>
-  ${linha('Dinheiro recebido:', dinheiro(d.vendas_dinheiro))}
-  ${linha('Saldo inicial:', dinheiro(d.saldo_inicial))}
-  ${linha('Suprimentos:', dinheiro(d.suprimentos))}
-  ${linha('Sangrias:', dinheiro(d.sangrias))}
-  <div class="sep"></div>
-  ${linha('Dinheiro esperado:', dinheiro(d.esperado), { strong: true })}
-  ${linha('Dinheiro conferido:', dinheiro(c.caixa_fisico?.dinheiro_conferido != null ? c.caixa_fisico.dinheiro_conferido : d.informado))}
-  <div class="linha ${diffClass}"><span>Diferença:</span><span>${dinheiro(diferenca)}</span></div>
-  ${linha('Retirada fechamento:', dinheiro(c.caixa_fisico?.retirada_fechamento || c.fechamento?.retirada_fechamento || 0))}
-  ${linha('Saldo final:', dinheiro(c.caixa_fisico?.saldo_final != null ? c.caixa_fisico.saldo_final : c.fechamento?.saldo_final), { strong: true })}
-  ${(c.reconciliacao) ? `
-    <h3>RECONCILIAÇÃO</h3>
-    ${linha('Vendas OK:', String(c.reconciliacao.vendas_ok || 0))}
-    ${linha('Parciais:', String(c.reconciliacao.vendas_parciais || 0))}
-    ${linha('Pendentes:', String(c.reconciliacao.vendas_pendentes || 0))}
-    ${linha('Inconsistentes:', String(c.reconciliacao.vendas_inconsistentes || 0))}
-  ` : ''}
-
-  ${temCancelamentos ? `
-    <h3>CANCELAMENTOS</h3>
-    ${linha('Quantidade:', String(canc.quantidade))}
-    ${linha('Valor:', dinheiro(canc.valor))}
-  ` : ''}
-
-  ${(n(v.fiscal) > 0 || n(v.nao_fiscal) > 0) ? `
-    <h3>FISCAL / NÃO FISCAL</h3>
-    ${linha('Fiscal:', dinheiro(v.fiscal))}
-    ${linha('Não fiscal:', dinheiro(v.nao_fiscal))}
-    ${linha('Total:', dinheiro(n(v.fiscal) + n(v.nao_fiscal)))}
-  ` : ''}
-
-  <div class="sep"></div>
-  <div class="rodape">
-    FECHAMENTO REALIZADO EM<br/>
-    ${escapeHtml(fechamentoEm)}<br/><br/>
-    Operador: ${escapeHtml(operadorNome)}<br/><br/>
-    Documento de conferência do caixa.
-  </div>
+<body class="fechamento-caixa-${papelMm}">
+<pre class="cupom-fechamento">${corpo}</pre>
 </body>
 </html>`;
 }

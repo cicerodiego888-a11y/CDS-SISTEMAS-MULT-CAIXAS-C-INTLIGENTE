@@ -15,10 +15,19 @@ const {
   TIMELINE_ORDEM
 } = require('./EntregaAuditoria');
 const { montarHtmlComprovantePrestacao } = require('./ComprovantePrestacao');
-const { montarHtmlComprovanteEntrega } = require('./CriarVendaEntregaService');
 const { montarSnapshotEntrega } = require('./EntregaClienteSnapshot');
-const { gravarAuditoria } = require('../auditoria');
-const db = require('../../database');
+
+function obterDbPadrao() {
+  return require('../../database');
+}
+
+function gravarAuditoriaPadrao(payload) {
+  return require('../auditoria').gravarAuditoria(payload);
+}
+
+function montarHtmlComprovanteEntrega(...args) {
+  return require('./CriarVendaEntregaService').montarHtmlComprovanteEntrega(...args);
+}
 
 const MSG_ENTREGA_JA_INICIADA = 'Esta entrega já foi iniciada e não pode mais ser editada.';
 
@@ -46,8 +55,8 @@ const CAMPOS_EDITAVEIS_ANTES_INICIO = Object.freeze([
 
 function obterEmpresaCupom() {
   return new Promise((resolve) => {
-    db.all(
-      `SELECT chave, valor FROM configuracoes WHERE chave IN ('nome_empresa', 'nome_fantasia', 'razao_social', 'cnpj')`,
+    obterDbPadrao().all(
+      `SELECT chave, valor FROM configuracoes WHERE chave IN ('nome_empresa', 'nome_fantasia', 'razao_social', 'cnpj', 'fiscal_danfe_largura_mm')`,
       [],
       (err, rows) => {
         if (err) {
@@ -59,7 +68,8 @@ function obterEmpresaCupom() {
         });
         resolve({
           nome: map.nome_fantasia || map.nome_empresa || map.razao_social || 'CDS Sistemas',
-          cnpj: map.cnpj || ''
+          cnpj: map.cnpj || '',
+          papel_mm: Number(map.fiscal_danfe_largura_mm) === 58 ? 58 : 80
         });
       }
     );
@@ -69,7 +79,7 @@ function obterEmpresaCupom() {
 function buscarClientePorId(clienteId) {
   return new Promise((resolve, reject) => {
     if (!clienteId) return resolve(null);
-    db.get(
+    obterDbPadrao().get(
       `SELECT id, nome, cpf_cnpj, telefone, email, cep, rua, numero, bairro, cidade, uf, endereco
        FROM clientes WHERE id = ?`,
       [clienteId],
@@ -120,7 +130,7 @@ class EntregaService {
     this.validator = deps.validator || entregaValidator;
     this._buscarCliente = deps.buscarCliente || buscarClientePorId;
     this._obterEmpresaCupom = deps.obterEmpresaCupom || obterEmpresaCupom;
-    this._gravarAuditoria = deps.gravarAuditoria || gravarAuditoria;
+    this._gravarAuditoria = deps.gravarAuditoria || gravarAuditoriaPadrao;
   }
 
   estaHabilitado() {
@@ -229,7 +239,7 @@ class EntregaService {
 
     await this.repository.atualizarStatusEntrega(vendaId, StatusEntrega.EM_ENTREGA);
 
-    await gravarAuditoria(
+    await this._gravarAuditoria(
       montarPayloadAuditoriaEntrega({
         acao: EntregaAuditoriaEventos.ENTREGA_INICIADA,
         vendaId,
@@ -241,7 +251,7 @@ class EntregaService {
       })
     ).catch((e) => console.error(e));
 
-    await gravarAuditoria(
+    await this._gravarAuditoria(
       montarPayloadAuditoriaEntrega({
         acao: EntregaAuditoriaEventos.MUDANCA_STATUS,
         vendaId,
@@ -428,7 +438,7 @@ class EntregaService {
     }
 
     if (alterados.length) {
-      await gravarAuditoria(
+      await this._gravarAuditoria(
         montarPayloadAuditoriaEntrega({
           acao: EntregaAuditoriaEventos.ENTREGA_EDITADA,
           vendaId,
@@ -500,7 +510,7 @@ class EntregaService {
     delete patch._auditoria;
 
     if (Object.prototype.hasOwnProperty.call(patch, 'troco_para')) {
-      await gravarAuditoria(
+      await this._gravarAuditoria(
         montarPayloadAuditoriaEntrega({
           acao: EntregaAuditoriaEventos.TROCO_INFORMADO,
           vendaId,
@@ -511,7 +521,7 @@ class EntregaService {
     }
 
     if (Object.prototype.hasOwnProperty.call(patch, 'leva_maquineta')) {
-      await gravarAuditoria(
+      await this._gravarAuditoria(
         montarPayloadAuditoriaEntrega({
           acao: EntregaAuditoriaEventos.MAQUINETA_INFORMADA,
           vendaId,
@@ -522,7 +532,7 @@ class EntregaService {
     }
 
     if (patch.status_entrega && patch.status_entrega !== atual.status_entrega) {
-      await gravarAuditoria(
+      await this._gravarAuditoria(
         montarPayloadAuditoriaEntrega({
           acao: EntregaAuditoriaEventos.MUDANCA_STATUS,
           vendaId,

@@ -14,6 +14,8 @@ let __ffdEstado = {
   complementacao: null,
   recebimentos: [],
   recebimentosLocais: false,
+  vendasElegiveis: [],
+  vendasElegiveisCarregadas: false,
   vista: 'venda', // venda | produto
   validacao: null,
   documentos: [],
@@ -23,6 +25,18 @@ let __ffdEstado = {
   transmissaoHabilitada: false,
   diagnosticoTx: null,
   transmitindo: false,
+  modoRecebimento: 'por_maquina',
+  comprovantes: [],
+  filaEmissao: {
+    status: 'IDLE',
+    total: 0,
+    indiceAtual: 0,
+    vendaAtualId: null,
+    countdownMs: null,
+    resultados: [],
+    resumo: null,
+    mensagem: null
+  },
   pollTimer: null,
   ultimaAtualizacao: null,
   montado: false,
@@ -31,6 +45,9 @@ let __ffdEstado = {
 };
 
 const FFD_POLL_MS = 10000;
+const FFD_PREVIA_TIMEOUT_MS = 120000;
+let ffdPreviaAttemptCounter = 0;
+let ffdPreviaClickAt = null;
 
 function ffdApi() {
   return (typeof API_URL === 'string' && API_URL.trim() !== '')
@@ -147,7 +164,7 @@ function ffdOpsAtivas() {
 
 async function ffdComLock(chave, botaoSel, rotuloBusy, fn) {
   if (!__ffdEstado.ops) {
-    __ffdEstado.ops = { previa: false, validar: false, preparar: false, salvar: false, transmitir: false, emitir: false };
+    __ffdEstado.ops = { previa: false, validar: false, preparar: false, salvar: false, transmitir: false, emitir: false, limpar: false };
   }
   if (__ffdEstado.ops[chave]) return null;
   __ffdEstado.ops[chave] = true;
@@ -313,6 +330,7 @@ function ffdAbrirModalMaquina() {
   return new Promise((resolve) => {
     const trigger = document.activeElement;
     ffdRemoverModal('ffdMaquinaModal');
+    const modoPorComprovante = __ffdEstado.modoRecebimento === 'por_comprovante';
     const html = `
       <div class="modal fade" id="ffdMaquinaModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -327,11 +345,28 @@ function ffdAbrirModalMaquina() {
                 <input type="text" class="form-control" id="ffdMaqOperadora"
                   placeholder="Ex.: Sicredi, Stone, Mercado Pago" autocomplete="off">
               </div>
-              <div class="mb-3">
-                <label for="ffdMaqValor" class="form-label">Valor recebido *</label>
-                <input type="text" class="form-control" id="ffdMaqValor"
-                  placeholder="Ex.: 400,00" inputmode="decimal" autocomplete="off">
-              </div>
+              ${modoPorComprovante ? `
+                <div class="mb-3">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label mb-0">Valores recebidos *</label>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="ffdMaqAddValor">+ Valor</button>
+                  </div>
+                  <div id="ffdMaqValoresList">
+                    <div class="input-group mb-2" data-ffd-maq-valor-linha>
+                      <input type="text" class="form-control" data-ffd-maq-valor-input
+                        placeholder="Ex.: 400,00" inputmode="decimal" autocomplete="off" aria-label="Valor recebido 1">
+                      <button type="button" class="btn btn-outline-danger" data-ffd-maq-remover-valor aria-label="Remover valor">×</button>
+                    </div>
+                  </div>
+                  <div class="small text-muted">Cada valor informado gera uma venda fiscal individual.</div>
+                </div>
+              ` : `
+                <div class="mb-3">
+                  <label for="ffdMaqValor" class="form-label">Valor recebido *</label>
+                  <input type="text" class="form-control" id="ffdMaqValor"
+                    placeholder="Ex.: 400,00" inputmode="decimal" autocomplete="off">
+                </div>
+              `}
               <div class="mb-0">
                 <label for="ffdMaqCnpj" class="form-label">CNPJ da máquina (opcional)</label>
                 <input type="text" class="form-control" id="ffdMaqCnpj"
@@ -359,6 +394,44 @@ function ffdAbrirModalMaquina() {
       return parsed;
     };
 
+    const montarValores = () => {
+      if (!modoPorComprovante) return [el.querySelector('#ffdMaqValor')?.value || ''];
+      return Array.from(el.querySelectorAll('[data-ffd-maq-valor-input]')).map((input) => input.value);
+    };
+
+    const adicionarLinhaValor = (valor = '') => {
+      const container = el.querySelector('#ffdMaqValoresList');
+      if (!container) return;
+      const linha = document.createElement('div');
+      linha.className = 'input-group mb-2';
+      linha.setAttribute('data-ffd-maq-valor-linha', '1');
+      linha.innerHTML = `
+        <input type="text" class="form-control" data-ffd-maq-valor-input
+          placeholder="Ex.: 400,00" inputmode="decimal" autocomplete="off" aria-label="Valor recebido" value="${ffdEsc(valor)}">
+        <button type="button" class="btn btn-outline-danger" data-ffd-maq-remover-valor aria-label="Remover valor">×</button>
+      `;
+      const remover = linha.querySelector('[data-ffd-maq-remover-valor]');
+      remover.addEventListener('click', () => {
+        linha.remove();
+      });
+      container.appendChild(linha);
+      const input = linha.querySelector('[data-ffd-maq-valor-input]');
+      if (input) input.focus();
+    };
+
+    if (modoPorComprovante) {
+      const botaoAdd = el.querySelector('#ffdMaqAddValor');
+      if (botaoAdd) {
+        botaoAdd.addEventListener('click', () => adicionarLinhaValor());
+      }
+      el.querySelectorAll('[data-ffd-maq-remover-valor]').forEach((botao) => {
+        botao.addEventListener('click', () => {
+          const linha = botao.closest('[data-ffd-maq-valor-linha]');
+          if (linha) linha.remove();
+        });
+      });
+    }
+
     let resultado = null;
     const finalizar = (dados) => {
       if (decidido) return;
@@ -371,13 +444,47 @@ function ffdAbrirModalMaquina() {
 
     el.querySelector('#ffdMaqSalvar').addEventListener('click', () => {
       const operadora = String(el.querySelector('#ffdMaqOperadora').value || '').trim();
-      const valorStr = el.querySelector('#ffdMaqValor').value;
       const cnpj = String(el.querySelector('#ffdMaqCnpj').value || '').replace(/\D/g, '');
       if (!operadora) {
         ffdNotify('Informe a máquina / operadora.', 'warning');
         el.querySelector('#ffdMaqOperadora').focus();
         return;
       }
+
+      if (modoPorComprovante) {
+        const valores = [];
+        for (const valor of montarValores()) {
+          const texto = String(valor || '').trim();
+          if (texto === '') continue;
+          const parsed = parseValor(valor);
+          if (!(parsed > 0)) {
+            ffdNotify('Há um valor inválido na lista.', 'warning');
+            const primeiroInvalido = Array.from(el.querySelectorAll('[data-ffd-maq-valor-input]')).find((input) => {
+              const campo = String(input.value || '').trim();
+              return campo !== '' && !(parseValor(input.value) > 0);
+            });
+            if (primeiroInvalido) primeiroInvalido.focus();
+            return;
+          }
+          valores.push(Math.round(parsed * 100) / 100);
+        }
+
+        if (!valores.length) {
+          ffdNotify('Informe pelo menos um valor recebido.', 'warning');
+          const primeiroInput = el.querySelector('[data-ffd-maq-valor-input]');
+          if (primeiroInput) primeiroInput.focus();
+          return;
+        }
+
+        finalizar({
+          operadora,
+          cnpj,
+          valores: valores.map((valor) => ({ operadora, cnpj, valor }))
+        });
+        return;
+      }
+
+      const valorStr = el.querySelector('#ffdMaqValor').value;
       const parsed = parseValor(valorStr);
       if (!(parsed > 0)) {
         ffdNotify('Valor inválido.', 'warning');
@@ -407,6 +514,13 @@ function ffdAbrirModalMaquina() {
 }
 
 function ffdTotalRecebimentos() {
+  if (__ffdEstado.modoRecebimento === 'por_venda') {
+    const totalCentavos = (__ffdEstado.vendasElegiveis || []).reduce((total, venda) => {
+      const centavos = ffdParseValorCentavos(venda.valor_comprovante);
+      return centavos == null ? total : total + centavos;
+    }, 0);
+    return totalCentavos / 100;
+  }
   return (__ffdEstado.recebimentos || []).reduce((s, r) => s + Number(r.valor || 0), 0);
 }
 
@@ -848,6 +962,8 @@ function loadFechamentoFiscalDoDia() {
     complementacao: null,
     recebimentos: [],
     recebimentosLocais: false,
+    vendasElegiveis: [],
+    vendasElegiveisCarregadas: false,
     vista: 'venda',
     validacao: null,
     documentos: [],
@@ -857,6 +973,17 @@ function loadFechamentoFiscalDoDia() {
     transmissaoHabilitada: false,
     diagnosticoTx: null,
     transmitindo: false,
+    modoRecebimento: 'por_maquina',
+    filaEmissao: {
+      status: 'IDLE',
+      total: 0,
+      indiceAtual: 0,
+      vendaAtualId: null,
+      countdownMs: null,
+      resultados: [],
+      resumo: null,
+      mensagem: null
+    },
     pollTimer: null,
     ultimaAtualizacao: null,
     montado: true,
@@ -916,6 +1043,60 @@ function loadFechamentoFiscalDoDia() {
 
       <div id="ffdAlertaInteligente" class="mb-3"></div>
 
+      <div class="card border-0 shadow-sm mb-3" id="ffdModoRecebimentoCard">
+        <div class="card-header bg-white"><strong>Modo de recebimento do Recebimento Fiscal do Dia</strong></div>
+        <div class="card-body">
+          <div class="d-flex flex-wrap gap-3">
+            <label class="form-check w-100 w-md-auto border rounded p-3 flex-fill mb-0 border-primary bg-primary-subtle" for="ffdModoPorMaquina" style="cursor:pointer; min-width: 16rem;">
+              <input class="form-check-input me-2" type="radio" name="ffdModoRecebimento" id="ffdModoPorMaquina" value="por_maquina" checked>
+              <span class="form-check-label fw-semibold">Por máquina — Relatório Geral</span>
+              <div class="small text-muted mt-1">Informe o total recebido por máquina/operadora.</div>
+            </label>
+            <label class="form-check w-100 w-md-auto border rounded p-3 flex-fill mb-0" for="ffdModoPorComprovante" style="cursor:pointer; min-width: 16rem;">
+              <input class="form-check-input me-2" type="radio" name="ffdModoRecebimento" id="ffdModoPorComprovante" value="por_comprovante">
+              <span class="form-check-label fw-semibold">Por comprovante — Informar comprovantes</span>
+              <div class="small text-muted mt-1">Informe os valores recebidos no dia sem associar a uma venda.</div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm mb-3 d-none" id="ffdSecaoModoVenda">
+        <div class="card-header bg-white"><strong>Vendas elegíveis do dia</strong></div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead class="table-light"><tr><th>Venda</th><th>Data/Hora</th><th class="text-end">Valor da venda</th><th class="text-end">Valor do comprovante</th><th class="text-end">Diferença</th></tr></thead>
+              <tbody id="ffdStatusVendasElegiveis"><tr><td colspan="5" class="text-muted p-3">Selecione Por venda para carregar vendas elegíveis.</td></tr></tbody>
+            </table>
+          </div>
+          <div class="row g-3 p-3 border-top" id="ffdResumoComprovantes">
+            <div class="col-md-4"><div class="small text-muted">Total das vendas</div><strong id="ffdTotalVendasPorVenda">—</strong></div>
+            <div class="col-md-4"><div class="small text-muted">Total dos comprovantes informados</div><strong id="ffdTotalComprovantes">—</strong></div>
+            <div class="col-md-4"><div class="small text-muted">Diferença total</div><strong id="ffdDiferencaComprovantes">—</strong></div>
+          </div>
+          <div class="px-3 pb-3">
+            <button type="button" class="btn btn-primary" id="ffdBtnIniciarEmissaoSequencial" disabled>Iniciar emissão</button>
+            <div class="mt-3 d-none" id="ffdPainelFilaEmissao" aria-live="polite">
+              <div class="fw-semibold" id="ffdFilaTitulo"></div>
+              <div class="small mt-1" id="ffdFilaStatus"></div>
+              <div class="fw-semibold text-primary mt-2" id="ffdFilaCountdown"></div>
+              <div class="small mt-2" id="ffdFilaResumo"></div>
+              <div class="table-responsive mt-2">
+                <table class="table table-sm align-middle mb-0">
+                  <thead class="table-light"><tr><th>Venda</th><th>Status</th><th>Resultado</th><th>Protocolo / Chave</th></tr></thead>
+                  <tbody id="ffdFilaResultados"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="d-flex flex-wrap align-items-center gap-2 px-3 pb-3">
+            <button type="button" class="btn btn-outline-primary btn-sm" id="ffdBtnSalvarComprovantes" disabled>Salvar comprovantes</button>
+            <span class="small text-muted" id="ffdSalvarComprovantesStatus" role="status"></span>
+          </div>
+        </div>
+      </div>
+
       <div class="card border-0 shadow-sm mb-3">
         <div class="card-header bg-white"><strong>Produtos monitorados</strong></div>
         <div class="card-body p-0">
@@ -941,11 +1122,12 @@ function loadFechamentoFiscalDoDia() {
       </div>
 
       <div class="card border-0 shadow-sm mb-3" id="ffdSecaoRecebimentos">
-        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center" id="ffdCabecalhoRecebimentosMaquina">
           <strong>Recebimentos informados</strong>
           <button type="button" class="btn btn-sm btn-outline-success" id="ffdBtnAddMaquina">+ Adicionar máquina</button>
         </div>
         <div class="card-body">
+          <div id="ffdPainelRecebimentosMaquina">
           <div class="table-responsive">
             <table class="table table-sm align-middle">
               <thead><tr><th>Máquina / Operadora</th><th>CNPJ</th><th class="text-end">Valor</th><th></th></tr></thead>
@@ -953,6 +1135,7 @@ function loadFechamentoFiscalDoDia() {
             </table>
           </div>
           <div class="text-end fw-semibold mb-3">TOTAL INFORMADO <span id="ffdTotalInformado">${ffdFmtMoney(0)}</span></div>
+          </div>
           <div id="ffdConciliacao"></div>
           <div id="ffdComplementacaoPainel" class="mt-3"></div>
         </div>
@@ -988,7 +1171,10 @@ function loadFechamentoFiscalDoDia() {
               <button type="button" class="btn btn-outline-secondary active" id="ffdVistaVenda">Por venda</button>
               <button type="button" class="btn btn-outline-secondary" id="ffdVistaProduto">Por produto</button>
             </div>
-            <button type="button" class="btn btn-outline-primary btn-sm" id="ffdBtnAtualizarPrevia">Atualizar Prévia</button>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-outline-danger btn-sm" id="ffdBtnLimparTudo">Limpar tudo do dia</button>
+              <button type="button" class="btn btn-outline-primary btn-sm" id="ffdBtnAtualizarPrevia">Atualizar Prévia</button>
+            </div>
           </div>
           <div id="ffdAlertaPrevia" class="mb-3"></div>
           <div class="row g-3 mb-3" id="ffdIndicadores">
@@ -1067,10 +1253,21 @@ function loadFechamentoFiscalDoDia() {
   $('#ffdBtnCarregarDia').on('click', () => ffdCarregarDia());
   $('#ffdData').on('change', () => ffdCarregarDia());
   $('#ffdBtnAddMaquina').on('click', () => ffdAdicionarMaquinaUi());
-  $('#ffdBtnAtualizarPrevia').on('click', () => ffdAtualizarPrevia());
+  $('#ffdBtnAtualizarPrevia').on('click', () => {
+    ffdPreviaClickAt = performance.now();
+    ffdLogDesenvolvimento('PREVIA CLICK', { timestamp: Date.now() });
+    ffdAtualizarPrevia();
+  });
+  $('#ffdBtnLimparTudo').on('click', () => ffdLimparTudoDoDia());
   $('#ffdBtnSalvarRascunho').on('click', () => ffdSalvarRascunho());
   $('#ffdBtnCancelar').on('click', () => ffdCancelar());
   $('#ffdBtnEmitir').on('click', () => ffdEmitirFechamento());
+  $('input[name="ffdModoRecebimento"]').on('change', function () {
+    __ffdEstado.modoRecebimento = String(this.value || 'por_maquina');
+    ffdAtualizarModoRecebimentoUi();
+  });
+  $('#ffdBtnSalvarComprovantes').on('click', () => ffdSalvarComprovantes());
+  $('#ffdBtnIniciarEmissaoSequencial').on('click', () => ffdIniciarFilaEmissao());
   $('#ffdBtnValidar').on('click', () => ffdValidarFiscal());
   $('#ffdBtnGerarXml').on('click', () => ffdPrepararEmissao(true));
   $('#ffdBtnPreparar').on('click', () => ffdPrepararEmissao(true));
@@ -1090,6 +1287,822 @@ function loadFechamentoFiscalDoDia() {
     ffdCarregarDia();
     ffdIniciarPolling();
   });
+}
+
+function ffdAtualizarModoRecebimentoUi() {
+  const porMaquina = __ffdEstado.modoRecebimento === 'por_maquina';
+  const porComprovante = __ffdEstado.modoRecebimento === 'por_comprovante';
+  const porVenda = __ffdEstado.modoRecebimento === 'por_venda';
+  $('#ffdModoPorMaquina').prop('checked', porMaquina);
+  $('#ffdModoPorComprovante').prop('checked', porComprovante);
+  $('#ffdModoPorVenda').prop('checked', porVenda);
+  $('label[for="ffdModoPorMaquina"], label[for="ffdModoPorComprovante"], label[for="ffdModoPorVenda"]').removeClass('border-primary bg-primary-subtle');
+  const ativo = porMaquina ? $('label[for="ffdModoPorMaquina"]') : (porComprovante ? $('label[for="ffdModoPorComprovante"]') : $('label[for="ffdModoPorVenda"]'));
+  if (ativo && ativo.length) ativo.addClass('border-primary bg-primary-subtle');
+
+  const vendaBox = document.getElementById('ffdSecaoModoVenda');
+  const maquinas = document.getElementById('ffdPainelRecebimentosMaquina');
+  const cabecalhoMaquinas = document.getElementById('ffdCabecalhoRecebimentosMaquina');
+  const complementacaoMaquinas = document.getElementById('ffdComplementacaoPainel');
+  const emitirFechamento = document.getElementById('ffdBtnEmitir');
+  const continuarEmissao = document.getElementById('ffdBtnContinuarEmissao');
+  const detalhesTecnicos = document.getElementById('ffdDetalhesTecnicos');
+  const acaoEmissao = emitirFechamento && emitirFechamento.closest('.d-flex');
+  if (vendaBox) vendaBox.classList.toggle('d-none', !porVenda);
+  if (maquinas) maquinas.classList.toggle('d-none', porVenda);
+  if (cabecalhoMaquinas) cabecalhoMaquinas.classList.toggle('d-none', porVenda);
+  if (complementacaoMaquinas) complementacaoMaquinas.classList.toggle('d-none', porVenda);
+  if (acaoEmissao) acaoEmissao.classList.toggle('d-none', porVenda);
+  if (continuarEmissao) continuarEmissao.classList.toggle('d-none', porVenda);
+  if (detalhesTecnicos) detalhesTecnicos.classList.toggle('d-none', porVenda);
+  if (porVenda) ffdCarregarVendasElegiveis();
+  if (porComprovante) ffdCarregarComprovantes();
+  ffdRenderConciliacaoRecebimentos();
+  ffdAtualizarBotaoFilaEmissao();
+  ffdRenderFilaEmissao();
+}
+
+function ffdParseValorCentavos(valor) {
+  const texto = String(valor == null ? '' : valor).trim();
+  if (!texto) return null;
+
+  const formatoBrasileiro = /^(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d{1,2})?$/;
+  const formatoDecimalPonto = /^\d+\.\d{1,2}$/;
+  let normalizado = texto;
+  if (texto.includes(',')) {
+    if (!formatoBrasileiro.test(texto)) return undefined;
+    normalizado = texto.replace(/\./g, '').replace(',', '.');
+  } else if (formatoBrasileiro.test(texto) && /^\d{1,3}(?:\.\d{3})+$/.test(texto)) {
+    normalizado = texto.replace(/\./g, '');
+  } else if (!/^\d+$/.test(texto) && !formatoDecimalPonto.test(texto)) {
+    return undefined;
+  }
+
+  const [inteiro, fracao = ''] = normalizado.split('.');
+  const reais = Number(inteiro);
+  if (!Number.isSafeInteger(reais)) return undefined;
+  const centavos = reais * 100 + Number((fracao + '00').slice(0, 2));
+  return Number.isSafeInteger(centavos) ? centavos : undefined;
+}
+
+function ffdFormatarCentavos(centavos) {
+  return (Number(centavos || 0) / 100).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+function somarComprovantes(comprovantes = []) {
+  return (Array.isArray(comprovantes) ? comprovantes : []).reduce((soma, item) => {
+    const valor = item && typeof item === 'object' && item.valor != null ? item.valor : item;
+    const centavos = ffdParseValorCentavos(String(valor ?? ''));
+    if (centavos == null || centavos === undefined) return soma;
+    return soma + centavos;
+  }, 0) / 100;
+}
+
+function ffdAdicionarLinhaComprovante(valor = '') {
+  const lista = Array.isArray(__ffdEstado.comprovantes) ? __ffdEstado.comprovantes : [];
+  const item = { id: null, valor: valor, ordem: Date.now() + Math.random() };
+  __ffdEstado.comprovantes = [...lista, item];
+  ffdRenderComprovantes();
+}
+
+function ffdRemoverLinhaComprovante(id) {
+  if (!Array.isArray(__ffdEstado.comprovantes)) return;
+  __ffdEstado.comprovantes = __ffdEstado.comprovantes.filter((item) => item.ordem !== id && item.id !== id);
+  ffdRenderComprovantes();
+}
+
+function ffdRenderComprovantes() {
+  const body = document.getElementById('ffdComprovantesBody');
+  const total = document.getElementById('ffdTotalComprovantesInformados');
+  if (!body || !total) return;
+
+  const lista = Array.isArray(__ffdEstado.comprovantes) && __ffdEstado.comprovantes.length
+    ? __ffdEstado.comprovantes
+    : [{ id: null, valor: '', ordem: Date.now() + Math.random() }];
+
+  body.innerHTML = lista.map((item, idx) => {
+    const id = item.id != null ? item.id : item.ordem ?? idx;
+    const valor = String(item.valor ?? '');
+    const centavos = ffdParseValorCentavos(valor);
+    const invalido = centavos === undefined;
+    const btnId = `ffdBtnRemoverComprovante-${ffdEsc(String(id))}`;
+    return `
+      <div class="d-flex align-items-center gap-2">
+        <div class="flex-grow-1">
+          <input type="text" inputmode="decimal" autocomplete="off" class="form-control form-control-sm ${invalido ? 'is-invalid' : ''}" value="${ffdEsc(valor)}" data-ffd-comprovante-id="${ffdEsc(String(id))}" placeholder="R$ 0,00" aria-label="Comprovante ${idx + 1}">
+        </div>
+        <button type="button" id="${btnId}" class="btn btn-sm btn-outline-danger" data-ffd-remover-comprovante="${ffdEsc(String(id))}" aria-label="Remover comprovante">×</button>
+      </div>`;
+  }).join('');
+
+  body.querySelectorAll('[data-ffd-comprovante-id]').forEach((input) => {
+    input.addEventListener('input', () => {
+      const key = input.getAttribute('data-ffd-comprovante-id');
+      const listaAtual = Array.isArray(__ffdEstado.comprovantes) ? __ffdEstado.comprovantes : [];
+      const atual = listaAtual.find((item) => String(item.id ?? item.ordem) === String(key));
+      if (!atual) return;
+      atual.valor = input.value;
+      const totalAtual = somarComprovantes(listaAtual);
+      total.textContent = ffdFmtMoney(totalAtual);
+    });
+  });
+
+  body.querySelectorAll('[data-ffd-remover-comprovante]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const id = button.getAttribute('data-ffd-remover-comprovante');
+      ffdRemoverLinhaComprovante(id);
+    });
+  });
+
+  total.textContent = ffdFmtMoney(somarComprovantes(lista));
+}
+
+async function ffdSalvarComprovantesPorFechamento() {
+  const fechamentoId = Number(__ffdEstado.fechamentoId || 0);
+  if (!fechamentoId) return false;
+  const lista = (__ffdEstado.recebimentos || []).map((item) => ({
+    operadora: String(item?.operadora || '').trim(),
+    cnpj: String(item?.cnpj || '').trim(),
+    valor: Number(item?.valor ?? 0)
+  })).filter((item) => item.operadora && Number(item.valor) > 0);
+  try {
+    const resp = await fetch(`${ffdApi()}/fiscal/fechamentos/${fechamentoId}/recebimentos`, {
+      method: 'PUT',
+      headers: ffdHeaders(),
+      body: JSON.stringify({ recebimentos: lista })
+    });
+    const resultado = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(resultado.error || `HTTP ${resp.status}`);
+    __ffdEstado.recebimentos = (resultado.recebimentos || []).map((item) => ({
+      id: item.id,
+      operadora: item.operadora,
+      cnpj: item.cnpj || '',
+      valor: Number(item.valor || 0)
+    }));
+    ffdRenderMaquinas();
+    return true;
+  } catch (err) {
+    ffdNotify(err.message || 'Falha ao salvar recebimentos.', 'danger');
+    return false;
+  }
+}
+
+async function ffdCarregarComprovantes() {
+  const fechamentoId = Number(__ffdEstado.fechamentoId || 0);
+  if (!fechamentoId || __ffdEstado.modoRecebimento !== 'por_comprovante') return;
+  try {
+    const resp = await fetch(`${ffdApi()}/fiscal/fechamentos/${fechamentoId}/recebimentos`, { headers: ffdHeaders() });
+    const resultado = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(resultado.error || `HTTP ${resp.status}`);
+    __ffdEstado.recebimentos = (resultado.recebimentos || []).map((item) => ({
+      id: item.id,
+      operadora: item.operadora,
+      cnpj: item.cnpj || '',
+      valor: Number(item.valor || 0)
+    }));
+    ffdRenderMaquinas();
+  } catch (err) {
+    __ffdEstado.recebimentos = [];
+    ffdRenderMaquinas();
+  }
+}
+
+function ffdAtualizarResumoComprovantes() {
+  const body = document.getElementById('ffdStatusVendasElegiveis');
+  if (!body) return;
+  const inputs = [...body.querySelectorAll('[data-ffd-venda-id]')];
+  let totalVendasCentavos = 0;
+  let totalComprovantesCentavos = 0;
+  let totalVendasComComprovanteCentavos = 0;
+  let comprovantesInformados = 0;
+  let possuiInvalido = false;
+  let possuiAlteracao = false;
+
+  for (const input of inputs) {
+    const valorVendaCentavos = Number(input.dataset.ffdValorVendaCentavos || 0);
+    const valorComprovanteCentavos = ffdParseValorCentavos(input.value);
+    const valorPersistido = input.dataset.ffdPersistido || '';
+    totalVendasCentavos += valorVendaCentavos;
+
+    if (valorComprovanteCentavos === undefined) {
+      possuiInvalido = true;
+    } else if (valorComprovanteCentavos === null) {
+      if (valorPersistido !== '') possuiAlteracao = true;
+    } else {
+      totalComprovantesCentavos += valorComprovanteCentavos;
+      totalVendasComComprovanteCentavos += valorVendaCentavos;
+      comprovantesInformados += 1;
+      if (String(valorComprovanteCentavos) !== valorPersistido) possuiAlteracao = true;
+    }
+  }
+
+  const valoresPorVenda = new Map(inputs.map((input) => [
+    Number(input.dataset.ffdVendaId),
+    ffdParseValorCentavos(input.value)
+  ]));
+  __ffdEstado.vendasElegiveis = (__ffdEstado.vendasElegiveis || []).map((venda) => {
+    const centavos = valoresPorVenda.get(Number(venda.venda_id));
+    return centavos == null || centavos === undefined
+      ? { ...venda, valor_comprovante: null }
+      : { ...venda, valor_comprovante: centavos / 100 };
+  });
+
+  const totalVendas = document.getElementById('ffdTotalVendasPorVenda');
+  const totalComprovantes = document.getElementById('ffdTotalComprovantes');
+  const diferencaTotal = document.getElementById('ffdDiferencaComprovantes');
+  if (totalVendas) totalVendas.textContent = ffdFmtMoney(totalVendasCentavos / 100);
+  if (totalComprovantes) {
+    totalComprovantes.textContent = comprovantesInformados
+      ? ffdFmtMoney(totalComprovantesCentavos / 100)
+      : '—';
+  }
+  if (diferencaTotal) {
+    diferencaTotal.textContent = comprovantesInformados
+      ? ffdFmtMoney((totalComprovantesCentavos - totalVendasComComprovanteCentavos) / 100)
+      : '—';
+  }
+
+  const salvar = document.getElementById('ffdBtnSalvarComprovantes');
+  if (salvar) salvar.disabled = !__ffdEstado.fechamentoId || !possuiAlteracao || possuiInvalido;
+  const status = document.getElementById('ffdSalvarComprovantesStatus');
+  if (status && !__ffdEstado.fechamentoId) status.textContent = 'Abra um fechamento para salvar os comprovantes.';
+  ffdRenderConciliacaoRecebimentos();
+  ffdAtualizarBotaoFilaEmissao();
+}
+
+function ffdComprovantesPorVendaValidos() {
+  if (!__ffdEstado.vendasElegiveisCarregadas) return false;
+  const body = document.getElementById('ffdStatusVendasElegiveis');
+  if (!body) return false;
+  const ids = new Set();
+  for (const input of body.querySelectorAll('[data-ffd-venda-id]')) {
+    const id = Number(input.dataset.ffdVendaId);
+    if (!Number.isInteger(id) || id <= 0 || ids.has(id)) return false;
+    ids.add(id);
+    if (ffdParseValorCentavos(input.value) === undefined) return false;
+  }
+  return true;
+}
+
+function ffdAtualizarLinhaComprovante(input) {
+  const linha = input.closest('tr');
+  if (!linha) return;
+  const diferenca = linha.querySelector('[data-ffd-diferenca]');
+  const valorComprovanteCentavos = ffdParseValorCentavos(input.value);
+  const valorVendaCentavos = Number(input.dataset.ffdValorVendaCentavos || 0);
+
+  input.classList.toggle('is-invalid', valorComprovanteCentavos === undefined);
+  input.setAttribute('aria-invalid', valorComprovanteCentavos === undefined ? 'true' : 'false');
+  if (diferenca) {
+    diferenca.textContent = valorComprovanteCentavos == null
+      ? '—'
+      : ffdFmtMoney((valorComprovanteCentavos - valorVendaCentavos) / 100);
+    diferenca.classList.toggle('text-danger', valorComprovanteCentavos != null && valorComprovanteCentavos < valorVendaCentavos);
+    diferenca.classList.toggle('text-success', valorComprovanteCentavos != null && valorComprovanteCentavos > valorVendaCentavos);
+  }
+  ffdAtualizarResumoComprovantes();
+}
+
+function ffdVincularEntradasComprovantes() {
+  const body = document.getElementById('ffdStatusVendasElegiveis');
+  if (!body || body.dataset.ffdComprovantesBound === '1') return;
+  body.dataset.ffdComprovantesBound = '1';
+  body.addEventListener('input', (event) => {
+    const input = event.target.closest('[data-ffd-venda-id]');
+    if (input) ffdAtualizarLinhaComprovante(input);
+  });
+  body.addEventListener('blur', (event) => {
+    const input = event.target.closest('[data-ffd-venda-id]');
+    if (!input) return;
+    const centavos = ffdParseValorCentavos(input.value);
+    if (centavos != null) input.value = ffdFormatarCentavos(centavos);
+    ffdAtualizarLinhaComprovante(input);
+  }, true);
+}
+
+function ffdRenderVendasElegiveis(vendas) {
+  const body = document.getElementById('ffdStatusVendasElegiveis');
+  if (!body) return;
+  ffdVincularEntradasComprovantes();
+  const lista = Array.isArray(vendas) ? vendas : [];
+  __ffdEstado.vendasElegiveis = lista.map((venda) => ({ ...venda }));
+  __ffdEstado.vendasElegiveisCarregadas = true;
+  if (!lista.length) {
+    body.innerHTML = '<tr><td colspan="5" class="text-muted p-3">Nenhuma venda elegível encontrada.</td></tr>';
+    ffdAtualizarResumoComprovantes();
+    ffdAtualizarBotaoFilaEmissao();
+    return;
+  }
+  body.innerHTML = lista.map((venda) => {
+    const identificador = venda.codigo || venda.venda_id;
+    const dataHora = String(venda.data_hora || '').replace('T', ' ').slice(0, 16);
+    const valorVendaCentavos = Math.round((Number(venda.valor_venda || 0) + Number.EPSILON) * 100);
+    const valorPersistidoCentavos = venda.valor_comprovante == null
+      ? ''
+      : String(Math.round((Number(venda.valor_comprovante) + Number.EPSILON) * 100));
+    const valorInicial = valorPersistidoCentavos === '' ? '' : ffdFormatarCentavos(Number(valorPersistidoCentavos));
+    const diferencaInicial = valorPersistidoCentavos === ''
+      ? '—'
+      : ffdFmtMoney((Number(valorPersistidoCentavos) - valorVendaCentavos) / 100);
+    return `<tr>
+      <td>#${ffdEsc(identificador)}</td>
+      <td>${ffdEsc(dataHora)}</td>
+      <td class="text-end">${ffdFmtMoney(valorVendaCentavos / 100)}</td>
+      <td><input type="text" inputmode="decimal" autocomplete="off" class="form-control form-control-sm text-end" aria-label="Valor do comprovante da venda #${ffdEsc(identificador)}" value="${ffdEsc(valorInicial)}" data-ffd-venda-id="${Number(venda.venda_id)}" data-ffd-valor-venda-centavos="${valorVendaCentavos}" data-ffd-persistido="${valorPersistidoCentavos}"></td>
+      <td class="text-end" data-ffd-diferenca>${diferencaInicial}</td>
+    </tr>`;
+  }).join('');
+  ffdAtualizarResumoComprovantes();
+  ffdAtualizarBotaoFilaEmissao();
+}
+
+async function ffdSalvarComprovantes(opcoes = {}) {
+  const silencioso = Boolean(opcoes.silencioso);
+  const body = document.getElementById('ffdStatusVendasElegiveis');
+  const status = document.getElementById('ffdSalvarComprovantesStatus');
+  const fechamentoId = Number(__ffdEstado.fechamentoId || 0);
+  if (!body || !fechamentoId) return false;
+
+  const recebimentos = [];
+  for (const input of body.querySelectorAll('[data-ffd-venda-id]')) {
+    const valorCentavos = ffdParseValorCentavos(input.value);
+    if (valorCentavos === undefined) {
+      input.focus();
+      if (status && !silencioso) status.textContent = 'Revise os valores inválidos antes de salvar.';
+      return false;
+    }
+    const persistido = input.dataset.ffdPersistido || '';
+    if (valorCentavos === null) {
+      if (persistido !== '') {
+        recebimentos.push({ venda_id: Number(input.dataset.ffdVendaId), valor_comprovante: null });
+      }
+    } else if (String(valorCentavos) !== persistido) {
+      recebimentos.push({
+        venda_id: Number(input.dataset.ffdVendaId),
+        valor_comprovante: valorCentavos / 100
+      });
+    }
+  }
+
+  if (!recebimentos.length) {
+    if (status && !silencioso) status.textContent = 'Nenhuma alteração para salvar.';
+    return true;
+  }
+
+  const botao = document.getElementById('ffdBtnSalvarComprovantes');
+  if (botao) botao.disabled = true;
+  if (status && !silencioso) status.textContent = 'Salvando comprovantes...';
+  try {
+    const resp = await fetch(`${ffdApi()}/fiscal/fechamentos/${fechamentoId}/recebimentos-vendas`, {
+      method: 'PUT',
+      headers: ffdHeaders(),
+      body: JSON.stringify({ recebimentos })
+    });
+    const resultado = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(resultado.error || `HTTP ${resp.status}`);
+    ffdRenderVendasElegiveis(resultado.vendas);
+    if (status && !silencioso) status.textContent = 'Comprovantes salvos.';
+    return true;
+  } catch (err) {
+    if (status && !silencioso) status.textContent = err.message || 'Falha ao salvar comprovantes.';
+    return false;
+  } finally {
+    ffdAtualizarResumoComprovantes();
+  }
+}
+
+async function ffdCarregarVendasElegiveis() {
+  const body = document.getElementById('ffdStatusVendasElegiveis');
+  if (!body || __ffdEstado.modoRecebimento !== 'por_venda') return;
+  const data = String($('#ffdData').val() || __ffdEstado.data || '');
+  const fechamentoId = Number(__ffdEstado.fechamentoId || 0);
+  __ffdEstado.vendasElegiveisCarregadas = false;
+  __ffdEstado.vendasElegiveis = [];
+  ffdRenderConciliacaoRecebimentos();
+  body.innerHTML = '<tr><td colspan="5" class="text-muted p-3">Carregando vendas elegíveis...</td></tr>';
+  try {
+    const url = `${ffdApi()}/fiscal/fechamentos/${fechamentoId}/recebimentos-vendas?data=${encodeURIComponent(data)}`;
+    const resp = await fetch(url, { headers: ffdHeaders() });
+    const resultado = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(resultado.error || `HTTP ${resp.status}`);
+    if (__ffdEstado.modoRecebimento !== 'por_venda' || String($('#ffdData').val() || __ffdEstado.data || '') !== data) return;
+    ffdRenderVendasElegiveis(resultado.vendas);
+  } catch (err) {
+    if (__ffdEstado.modoRecebimento === 'por_venda' && String($('#ffdData').val() || __ffdEstado.data || '') === data) {
+      body.innerHTML = `<tr><td colspan="5" class="text-danger p-3">${ffdEsc(err.message || 'Falha ao carregar vendas elegíveis.')}</td></tr>`;
+      ffdRenderConciliacaoRecebimentos();
+    }
+  }
+}
+
+function ffdEscolherIntervaloEmissaoMs(aleatorio = Math.random) {
+  const sorteio = Math.max(0, Math.min(0.999999999, Number(aleatorio()) || 0));
+  return 60000 + Math.floor(sorteio * 240001);
+}
+
+function ffdAguardarCountdown(intervaloMs, aoAtualizar, temporizadores = {}) {
+  return new Promise((resolve) => {
+    const agora = temporizadores.now || Date.now;
+    const criarIntervalo = temporizadores.setInterval || setInterval;
+    const limparIntervalo = temporizadores.clearInterval || clearInterval;
+    const inicio = agora();
+    let timerId = null;
+    const atualizar = () => {
+      const restante = Math.max(0, Number(intervaloMs) - (agora() - inicio));
+      if (typeof aoAtualizar === 'function') aoAtualizar(restante);
+      if (restante <= 0) {
+        if (timerId != null) limparIntervalo(timerId);
+        resolve();
+      }
+    };
+    atualizar();
+    if (Number(intervaloMs) > 0) timerId = criarIntervalo(atualizar, 1000);
+  });
+}
+
+function ffdReservarFilaEmissao(fila) {
+  if (!fila || ['RUNNING', 'WAITING', 'CANCELLED'].includes(String(fila.status || '').toUpperCase())) return false;
+  fila.status = 'RUNNING';
+  return true;
+}
+
+function ffdGuardFilaEmissaoKey() {
+  return 'ffd_fila_emissao_guard';
+}
+
+function ffdAtualizarGuardFilaEmissao(status = null) {
+  const chave = ffdGuardFilaEmissaoKey();
+  if (typeof sessionStorage === 'undefined') return false;
+  const fila = __ffdEstado.filaEmissao || { status: 'IDLE' };
+  const proximoStatus = String(status || fila.status || 'IDLE').toUpperCase();
+  if (!proximoStatus || ['IDLE', 'COMPLETED', 'CANCELLED'].includes(proximoStatus)) {
+    sessionStorage.removeItem(chave);
+    return false;
+  }
+  sessionStorage.setItem(chave, JSON.stringify({
+    fechamentoId: Number(__ffdEstado.fechamentoId || 0) || null,
+    status: proximoStatus,
+    ts: Date.now()
+  }));
+  return true;
+}
+
+function ffdProtegerFilaEmissaoRecarga() {
+  if (typeof sessionStorage === 'undefined') return false;
+  const chave = typeof ffdGuardFilaEmissaoKey === 'function' ? ffdGuardFilaEmissaoKey() : 'ffd_fila_emissao_guard';
+  const raw = sessionStorage.getItem(chave);
+  if (!raw) return false;
+  try {
+    const guard = JSON.parse(raw);
+    if (!guard || !guard.status) {
+      sessionStorage.removeItem(chave);
+      return false;
+    }
+    const status = String(guard.status).toUpperCase();
+    const fechamentoId = Number(guard.fechamentoId || 0);
+    const mesmoFechamento = !fechamentoId || Number(__ffdEstado.fechamentoId || 0) === 0 || fechamentoId === Number(__ffdEstado.fechamentoId || 0);
+    const ativo = ['RUNNING', 'WAITING'].includes(status) && mesmoFechamento && Date.now() - Number(guard.ts || Date.now()) < 30 * 60 * 1000;
+    if (ativo) return true;
+  } catch (_) {
+    sessionStorage.removeItem(chave);
+    return false;
+  }
+  sessionStorage.removeItem(chave);
+  return false;
+}
+
+function ffdCancelarFilaEmissao(opcoes = {}) {
+  const fila = __ffdEstado.filaEmissao || { status: 'IDLE', resultados: [] };
+  if (!fila) return false;
+  if (fila.status === 'COMPLETED') return false;
+  const mensagem = opcoes.mensagem || 'Emissão cancelada pelo usuário.';
+  Object.assign(fila, {
+    status: 'CANCELLED',
+    vendaAtualId: null,
+    proximaVendaId: null,
+    countdownMs: null,
+    mensagem
+  });
+  if (typeof sessionStorage !== 'undefined' && typeof ffdGuardFilaEmissaoKey === 'function') {
+    sessionStorage.removeItem(ffdGuardFilaEmissaoKey());
+  }
+  if (typeof ffdRenderFilaEmissao === 'function') ffdRenderFilaEmissao();
+  return true;
+}
+
+async function ffdExecutarFilaSequencial(vendas, dependencias = {}) {
+  const lista = Array.isArray(vendas) ? vendas : [];
+  const consultarSituacao = dependencias.consultarSituacao;
+  const emitirVenda = dependencias.emitirVenda;
+  const atualizarEstado = dependencias.atualizarEstado || (() => {});
+  const registrarLog = dependencias.registrarLog || (() => {});
+  const escolherIntervalo = dependencias.escolherIntervaloMs || ffdEscolherIntervaloEmissaoMs;
+  const esperarIntervalo = dependencias.esperarIntervalo || ((ms, tick) => ffdAguardarCountdown(ms, tick));
+  const agora = dependencias.agora || (() => new Date().toISOString());
+  const resultados = [];
+
+  atualizarEstado({ status: lista.length ? 'RUNNING' : 'COMPLETED', total: lista.length, indiceAtual: 0, resultados: [] });
+  registrarLog('FILA_INICIADA', { quantidade_vendas: lista.length });
+
+  for (let indice = 0; indice < lista.length; indice += 1) {
+    const venda = lista[indice] || {};
+    const vendaId = Number(venda.venda_id);
+    atualizarEstado({
+      status: 'RUNNING',
+      total: lista.length,
+      indiceAtual: indice + 1,
+      vendaAtualId: vendaId,
+      countdownMs: null,
+      mensagem: 'Verificando situação fiscal...'
+    });
+    registrarLog('VENDA_INICIO', { venda_id: vendaId, indice: indice + 1, total: lista.length });
+
+    let resultado;
+    try {
+      const atual = await consultarSituacao(vendaId);
+      const situacao = String(atual?.nfce_situacao_fiscal || 'DESCONHECIDA').toUpperCase();
+      const cancelada = Number(atual?.cancelada || 0) === 1
+        || String(atual?.status || '').toLowerCase() === 'cancelada'
+        || situacao === 'CANCELADA';
+
+      if (cancelada) {
+        resultado = { venda_id: vendaId, status: 'CANCELADA', mensagem: 'Venda cancelada; NFC-e não emitida.' };
+      } else if (situacao === 'AUTORIZADA') {
+        resultado = {
+          venda_id: vendaId,
+          status: 'JA_AUTORIZADA',
+          mensagem: 'Venda já possui NFC-e autorizada.',
+          protocolo: atual?.nfce_protocolo || null,
+          chave_acesso: atual?.nfce_chave || null
+        };
+      } else if (situacao !== 'SEM_DOCUMENTO') {
+        resultado = {
+          venda_id: vendaId,
+          status: 'BLOQUEADA',
+          mensagem: atual?.nfce_classificacao_motivo || `Situação fiscal ${situacao}; exige análise antes de emitir.`,
+          situacao_fiscal: situacao,
+          cstats: atual?.nfce_cstats || []
+        };
+      } else {
+        atualizarEstado({ mensagem: 'Enviando ao serviço fiscal...' });
+        const resposta = await emitirVenda(vendaId);
+        const statusFiscal = String(resposta?.status || '').toLowerCase();
+        if (resposta?.reused && statusFiscal === 'autorizada') {
+          resultado = {
+            venda_id: vendaId,
+            status: 'JA_AUTORIZADA',
+            mensagem: resposta.message || 'NFC-e já autorizada; emissão existente reutilizada.',
+            nota_id: resposta.notaId || null,
+            chave_acesso: resposta.chaveAcesso || null
+          };
+        } else if (resposta?.success === true && statusFiscal === 'autorizada') {
+          resultado = {
+            venda_id: vendaId,
+            status: 'AUTORIZADA',
+            mensagem: resposta.message || 'NFC-e autorizada.',
+            nota_id: resposta.notaId || null,
+            numero: resposta.numero || null,
+            chave_acesso: resposta.chaveAcesso || null,
+            protocolo: resposta.soap?.protocolo || null
+          };
+        } else {
+          resultado = {
+            venda_id: vendaId,
+            status: 'ERRO',
+            mensagem: resposta?.message || `Emissão não autorizada (${resposta?.status || 'sem status'}).`,
+            codigo: resposta?.code || null,
+            status_fiscal: resposta?.status || null,
+            nota_id: resposta?.notaId || null,
+            chave_acesso: resposta?.chaveAcesso || null,
+            protocolo: resposta?.soap?.protocolo || null
+          };
+        }
+      }
+    } catch (err) {
+      resultado = {
+        venda_id: vendaId,
+        status: 'ERRO',
+        mensagem: err.message || 'Falha ao consultar ou emitir NFC-e.',
+        codigo: err.code || null
+      };
+    }
+
+    resultado.data_hora = agora();
+    resultados.push(resultado);
+    atualizarEstado({ status: 'RUNNING', resultados: resultados.slice(), ultimoResultado: resultado });
+    registrarLog('VENDA_RESULTADO', resultado);
+
+    if (indice < lista.length - 1) {
+      const sorteado = Number(escolherIntervalo());
+      const intervaloMs = Number.isFinite(sorteado) ? Math.max(60000, Math.min(300000, sorteado)) : 60000;
+      const proximaVendaId = Number(lista[indice + 1]?.venda_id);
+      atualizarEstado({ status: 'WAITING', vendaAtualId: vendaId, proximaVendaId, intervaloMs, countdownMs: intervaloMs });
+      registrarLog('INTERVALO_INICIO', { venda_id: vendaId, proxima_venda_id: proximaVendaId, intervalo_ms: intervaloMs });
+      await esperarIntervalo(intervaloMs, (countdownMs) => {
+        atualizarEstado({ status: 'WAITING', vendaAtualId: vendaId, proximaVendaId, intervaloMs, countdownMs });
+      });
+      registrarLog('INTERVALO_FIM', { proxima_venda_id: proximaVendaId, intervalo_ms: intervaloMs });
+    }
+  }
+
+  const resumo = {
+    total: resultados.length,
+    autorizadas: resultados.filter((item) => item.status === 'AUTORIZADA').length,
+    ja_autorizadas: resultados.filter((item) => item.status === 'JA_AUTORIZADA').length,
+    erros: resultados.filter((item) => item.status === 'ERRO').length,
+    bloqueadas: resultados.filter((item) => item.status === 'BLOQUEADA' || item.status === 'CANCELADA').length
+  };
+  atualizarEstado({ status: 'COMPLETED', vendaAtualId: null, proximaVendaId: null, countdownMs: null, resultados: resultados.slice(), resumo });
+  registrarLog('FILA_FINALIZADA', resumo);
+  return { status: 'COMPLETED', resultados, resumo };
+}
+
+function ffdFormatarCountdown(ms) {
+  const totalSegundos = Math.ceil(Math.max(0, Number(ms || 0)) / 1000);
+  const minutos = Math.floor(totalSegundos / 60);
+  const segundos = totalSegundos % 60;
+  return `${String(minutos).padStart(2, '0')}:${String(segundos).padStart(2, '0')}`;
+}
+
+function ffdRenderFilaEmissao() {
+  const fila = __ffdEstado.filaEmissao || {};
+  const painel = document.getElementById('ffdPainelFilaEmissao');
+  const titulo = document.getElementById('ffdFilaTitulo');
+  const status = document.getElementById('ffdFilaStatus');
+  const countdown = document.getElementById('ffdFilaCountdown');
+  const resumo = document.getElementById('ffdFilaResumo');
+  const resultados = document.getElementById('ffdFilaResultados');
+  const botao = document.getElementById('ffdBtnIniciarEmissaoSequencial');
+  const emAndamento = fila.status === 'RUNNING' || fila.status === 'WAITING';
+  if (painel) painel.classList.toggle('d-none', !fila.status || fila.status === 'IDLE');
+  if (botao) botao.disabled = emAndamento || ['CANCELLED'].includes(String(fila.status || '').toUpperCase()) || !ffdFilaEmissaoPodeIniciar();
+
+  if (titulo) {
+    titulo.textContent = fila.status === 'COMPLETED'
+      ? 'EMISSÃO CONCLUÍDA'
+      : (fila.status === 'CANCELLED'
+        ? 'EMISSÃO CANCELADA'
+        : (fila.status === 'WAITING'
+          ? `Emissão ${fila.indiceAtual} de ${fila.total}`
+          : `Emissão ${fila.indiceAtual || 1} de ${fila.total || 0}`));
+  }
+  if (status) {
+    status.textContent = fila.status === 'COMPLETED'
+      ? 'Fila finalizada.'
+      : (fila.status === 'CANCELLED'
+        ? 'Emissão cancelada pelo usuário.'
+        : (fila.vendaAtualId
+          ? `Venda #${fila.vendaAtualId} — ${fila.mensagem || (fila.status === 'WAITING' ? 'Aguardando próxima emissão.' : 'Processando...')}`
+          : (fila.mensagem || '')));
+  }
+  if (countdown) {
+    countdown.textContent = fila.status === 'WAITING' && fila.proximaVendaId
+      ? `Próxima emissão em ${ffdFormatarCountdown(fila.countdownMs)} · Venda #${fila.proximaVendaId}`
+      : '';
+  }
+
+  const totalizador = fila.resumo;
+  if (resumo) {
+    resumo.textContent = totalizador
+      ? `Total: ${totalizador.total} · Autorizadas: ${totalizador.autorizadas} · Já autorizadas: ${totalizador.ja_autorizadas} · Erros: ${totalizador.erros} · Bloqueadas: ${totalizador.bloqueadas}`
+      : '';
+  }
+  if (resultados) {
+    resultados.innerHTML = (fila.resultados || []).map((item) => {
+      const chave = item.protocolo || item.chave_acesso || '—';
+      return `<tr><td>#${ffdEsc(item.venda_id)}</td><td>${ffdEsc(item.status)}</td><td>${ffdEsc(item.mensagem || '—')}</td><td>${ffdEsc(chave)}</td></tr>`;
+    }).join('');
+  }
+}
+
+function ffdFilaEmissaoPodeIniciar() {
+  return __ffdEstado.modoRecebimento === 'por_venda'
+    && Boolean(__ffdEstado.fechamentoId)
+    && __ffdEstado.vendasElegiveisCarregadas === true
+    && (__ffdEstado.vendasElegiveis || []).length > 0
+    && ffdComprovantesPorVendaValidos()
+    && ffdRecebimentosConciliados()
+    && ffdPreviaValida()
+    && !ffdFechamentoFinalizado();
+}
+
+function ffdAtualizarBotaoFilaEmissao() {
+  const botao = document.getElementById('ffdBtnIniciarEmissaoSequencial');
+  if (!botao) return;
+  const status = __ffdEstado.filaEmissao?.status;
+  const bloqueado = ['RUNNING', 'WAITING', 'CANCELLED'].includes(String(status || '').toUpperCase());
+  botao.disabled = bloqueado || !ffdFilaEmissaoPodeIniciar();
+}
+
+async function ffdConsultarSituacaoVendaParaFila(vendaId) {
+  const resp = await fetch(`${ffdApi()}/vendas/${Number(vendaId)}`, { headers: ffdHeaders() });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(body.error || `Falha ao consultar venda #${vendaId} (HTTP ${resp.status}).`);
+  return body;
+}
+
+async function ffdEmitirVendaPeloMotorExistente(vendaId) {
+  const resp = await fetch(`${ffdApi()}/fiscal/emitir/venda/${Number(vendaId)}`, {
+    method: 'POST',
+    headers: ffdHeaders()
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(body.error || `Falha ao emitir venda #${vendaId} (HTTP ${resp.status}).`);
+  return body;
+}
+
+function ffdIniciarFilaEmissao(dependencias = {}) {
+  if (!ffdFilaEmissaoPodeIniciar()) {
+    ffdNotify('Concilie e valide a prévia antes de iniciar a emissão por venda.', 'warning');
+    return Promise.resolve(false);
+  }
+
+  const protegerRecarga = typeof ffdProtegerFilaEmissaoRecarga === 'function' ? ffdProtegerFilaEmissaoRecarga : () => false;
+  if (protegerRecarga()) {
+    ffdNotify('Já existe uma fila de emissão ativa para este fechamento. Recarregou a página ou outra sessão está executando.', 'warning');
+    return Promise.resolve(false);
+  }
+
+  const fila = __ffdEstado.filaEmissao || { status: 'IDLE', resultados: [] };
+  if (!ffdReservarFilaEmissao(fila)) return Promise.resolve(false);
+  Object.assign(fila, {
+    total: __ffdEstado.vendasElegiveis.length,
+    indiceAtual: 0,
+    vendaAtualId: null,
+    proximaVendaId: null,
+    countdownMs: null,
+    resultados: [],
+    resumo: null,
+    mensagem: null
+  });
+  __ffdEstado.filaEmissao = fila;
+  const atualizarGuard = typeof ffdAtualizarGuardFilaEmissao === 'function' ? ffdAtualizarGuardFilaEmissao : () => false;
+  atualizarGuard('RUNNING');
+  ffdRenderFilaEmissao();
+
+  const executar = async () => {
+    try {
+      if (!dependencias.silencioso) {
+        ffdLogDesenvolvimento('FILA_EMISSAO_INICIADA', { fechamento_id: __ffdEstado.fechamentoId, quantidade_vendas: fila.total });
+      }
+      const comprovantesSalvos = await ffdSalvarComprovantes({ silencioso: true });
+      if (!comprovantesSalvos) {
+        Object.assign(fila, { status: 'ERROR', mensagem: 'Não foi possível salvar os comprovantes antes da emissão.' });
+        ffdRenderFilaEmissao();
+        return false;
+      }
+      const resposta = await ffdExecutarFilaSequencial(__ffdEstado.vendasElegiveis.slice(), {
+        consultarSituacao: dependencias.consultarSituacao || ffdConsultarSituacaoVendaParaFila,
+        emitirVenda: dependencias.emitirVenda || ffdEmitirVendaPeloMotorExistente,
+        escolherIntervaloMs: dependencias.escolherIntervaloMs,
+        esperarIntervalo: dependencias.esperarIntervalo,
+        agora: dependencias.agora,
+        registrarLog: (evento, payload) => {
+          console.info(`[FFD][FILA] ${evento}`, payload);
+          if (dependencias.registrarLog) dependencias.registrarLog(evento, payload);
+        },
+        atualizarEstado: (patch) => {
+          Object.assign(fila, patch);
+          if (['RUNNING', 'WAITING'].includes(String((patch && patch.status) || fila.status || '').toUpperCase())) {
+            const atualizarGuardNoEstado = typeof ffdAtualizarGuardFilaEmissao === 'function' ? ffdAtualizarGuardFilaEmissao : () => false;
+            atualizarGuardNoEstado(patch && patch.status ? patch.status : fila.status);
+          }
+          ffdRenderFilaEmissao();
+        }
+      });
+      const atualizarGuardFinal = typeof ffdAtualizarGuardFilaEmissao === 'function' ? ffdAtualizarGuardFilaEmissao : () => false;
+      atualizarGuardFinal(resposta?.status || 'COMPLETED');
+      return resposta;
+    } catch (err) {
+      Object.assign(fila, { status: 'ERROR', vendaAtualId: null, countdownMs: null, mensagem: err.message || 'Falha inesperada na fila.' });
+      const atualizarGuardErro = typeof ffdAtualizarGuardFilaEmissao === 'function' ? ffdAtualizarGuardFilaEmissao : () => false;
+      atualizarGuardErro('ERROR');
+      ffdRenderFilaEmissao();
+      return false;
+    }
+  };
+
+  const locks = dependencias.locks === undefined
+    ? (typeof navigator !== 'undefined' ? navigator.locks : null)
+    : dependencias.locks;
+  if (locks && typeof locks.request === 'function') {
+    return locks.request('fechamento-fiscal-dia-emissao-sequencial', { ifAvailable: true }, (lock) => {
+      if (!lock) {
+        Object.assign(fila, { status: 'IDLE', mensagem: 'Outra fila de emissão já está ativa.' });
+        ffdRenderFilaEmissao();
+        return false;
+      }
+      return executar();
+    }).catch((err) => {
+      Object.assign(fila, { status: 'ERROR', mensagem: err.message || 'Não foi possível adquirir o lock da fila.' });
+      ffdRenderFilaEmissao();
+      return false;
+    });
+  }
+  return executar();
 }
 
 function ffdAtualizarVistaBtns() {
@@ -1144,11 +2157,19 @@ function ffdRemoverMaquinaUi(idx) {
 async function ffdAdicionarMaquinaUi() {
   const dados = await ffdAbrirModalMaquina();
   if (!dados) return;
-  __ffdEstado.recebimentos.push({
-    operadora: dados.operadora,
-    cnpj: dados.cnpj || '',
-    valor: dados.valor
+
+  const linhas = Array.isArray(dados.valores) && dados.valores.length
+    ? dados.valores
+    : [{ operadora: dados.operadora, cnpj: dados.cnpj || '', valor: dados.valor }];
+
+  linhas.forEach((linha) => {
+    __ffdEstado.recebimentos.push({
+      operadora: linha.operadora,
+      cnpj: linha.cnpj || '',
+      valor: linha.valor
+    });
   });
+
   __ffdEstado.recebimentosLocais = true;
   ffdRenderMaquinas();
   await ffdPersistirRecebimentosSeRascunho();
@@ -1160,6 +2181,8 @@ async function ffdCarregarDia(opts = {}) {
   if (__ffdEstado.data && __ffdEstado.data !== data) {
     __ffdEstado.recebimentosLocais = false;
     __ffdEstado.recebimentos = [];
+    __ffdEstado.vendasElegiveis = [];
+    __ffdEstado.vendasElegiveisCarregadas = false;
     __ffdEstado.previa = null;
   }
   __ffdEstado.data = data;
@@ -1218,9 +2241,28 @@ async function ffdCarregarDia(opts = {}) {
         __ffdEstado.valorFechado = Number(ff.valor_distribuido || ff.valor_informado || 0);
       } else {
         if (!silencioso && !__ffdEstado.recebimentosLocais) {
-          __ffdEstado.recebimentos = (ff.recebimentos || []).map((r) => ({
-            id: r.id, operadora: r.operadora, cnpj: r.cnpj, valor: Number(r.valor)
-          }));
+          if (__ffdEstado.modoRecebimento === 'por_comprovante') {
+            try {
+              const resp = await fetch(`${ffdApi()}/fiscal/fechamentos/${ff.id}/recebimentos-comprovantes`, { headers: ffdHeaders() });
+              const body = await resp.json().catch(() => ({}));
+              if (resp.ok) {
+                __ffdEstado.recebimentos = (body.comprovantes || []).map((r, idx) => ({
+                  id: r.id,
+                  operadora: r.operadora || `Comprovante ${idx + 1}`,
+                  cnpj: '',
+                  valor: Number(r.valor || 0)
+                }));
+              } else {
+                __ffdEstado.recebimentos = [];
+              }
+            } catch (_) {
+              __ffdEstado.recebimentos = [];
+            }
+          } else {
+            __ffdEstado.recebimentos = (ff.recebimentos || []).map((r) => ({
+              id: r.id, operadora: r.operadora, cnpj: r.cnpj, valor: Number(r.valor)
+            }));
+          }
           ffdRenderMaquinas();
         }
         if (!silencioso) {
@@ -1324,6 +2366,9 @@ async function ffdCarregarDia(opts = {}) {
     ffdAtualizarBotoesEtapa5(__ffdEstado.previa);
     ffdRenderCabecalhoMonitor();
     ffdAplicarModoSomenteLeituraAutorizado();
+    if (!silencioso && __ffdEstado.modoRecebimento === 'por_venda') {
+      await ffdCarregarVendasElegiveis();
+    }
   } catch (err) {
     if (!silencioso) ffdNotify(err.message || 'Falha ao carregar o dia.', 'danger');
   }
@@ -1358,6 +2403,7 @@ function ffdRenderPrevia(previa) {
     ));
   }
   ffdRenderConciliacaoRecebimentos();
+  ffdAtualizarBotaoFilaEmissao();
   ffdRenderCabecalhoMonitor();
 
   if (alerta) {
@@ -1405,16 +2451,17 @@ function ffdRenderPrevia(previa) {
 
   el.innerHTML = (previa.vendas || []).map((v, idx) => {
     const itens = v.itens || [];
+    const rotulo = ffdEsc(v.rotulo || `Venda Fiscal ${String(v.sequencia || idx + 1).padStart(3, '0')}`);
     return `
-      <div class="border rounded p-3 mb-3 bg-light">
-        <div class="d-flex justify-content-between align-items-start">
-          <div>
-            <div class="fw-semibold">${ffdEsc(v.rotulo || `Venda Fiscal ${String(v.sequencia || idx + 1).padStart(3, '0')}`)}</div>
-            <div class="fs-5">${ffdFmtMoney(v.valor)}</div>
-            <div class="text-muted small">${itens.length} itens</div>
+      <div class="border rounded-3 p-3 mb-3 shadow-sm" style="background: linear-gradient(180deg, #f5f8f6 0%, #edf2ef 100%); border-color: #dfe9e2 !important;">
+        <div class="d-flex justify-content-between align-items-start gap-3">
+          <div class="flex-grow-1">
+            <div class="fw-bold text-dark">${rotulo}</div>
+            <div class="fs-5 fw-semibold mt-1">${ffdFmtMoney(v.valor)}</div>
+            <div class="text-muted small mt-1">${itens.length} itens</div>
           </div>
           <div class="dropdown">
-            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false">⋮</button>
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Detalhes da venda">⋮</button>
             <ul class="dropdown-menu dropdown-menu-end">
               <li><button class="dropdown-item" type="button" data-ffd-detalhe="${idx}">Ver detalhes</button></li>
               <li><button class="dropdown-item disabled" type="button" title="Próxima etapa">Ajustar manualmente</button></li>
@@ -1423,14 +2470,21 @@ function ffdRenderPrevia(previa) {
           </div>
         </div>
         ${itens.length ? `
-          <div class="table-responsive mt-2">
-            <table class="table table-sm mb-0">
+          <div class="table-responsive mt-3">
+            <table class="table table-sm mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th class="border-0">Produto</th>
+                  <th class="text-end border-0">Qtd.</th>
+                  <th class="text-end border-0">Valor</th>
+                </tr>
+              </thead>
               <tbody>
                 ${itens.map((it) => `
                   <tr>
-                    <td>${ffdEsc(it.nome || `Produto ${it.produto_id}`)}</td>
-                    <td class="text-end">${it.quantidade}</td>
-                    <td class="text-end">${ffdFmtMoney(it.valor_total != null ? it.valor_total : it.valor)}</td>
+                    <td class="border-0">${ffdEsc(it.nome || `Produto ${it.produto_id}`)}</td>
+                    <td class="text-end border-0">${it.quantidade}</td>
+                    <td class="text-end border-0">${ffdFmtMoney(it.valor_total != null ? it.valor_total : it.valor)}</td>
                   </tr>`).join('')}
               </tbody>
             </table>
@@ -1478,6 +2532,7 @@ function ffdAtualizarBotoesEtapa5(previa) {
   const producao = Number(__ffdEstado.ambiente) === 1;
   const txOk = Boolean(__ffdEstado.transmissaoHabilitada);
   const ops = __ffdEstado.ops || {};
+  const porVenda = __ffdEstado.modoRecebimento === 'por_venda';
   const aptoEmitir = Boolean(
     moduloOk
     && txOk
@@ -1489,7 +2544,10 @@ function ffdAtualizarBotoesEtapa5(previa) {
     && !ops.emitir
     && !ops.transmitir
   );
-  $('#ffdBtnEmitir').prop('disabled', !aptoEmitir);
+  $('#ffdBtnEmitir').prop('disabled', !aptoEmitir || porVenda);
+  const acaoEmissao = document.getElementById('ffdBtnEmitir')?.closest('.d-flex');
+  if (acaoEmissao) acaoEmissao.classList.toggle('d-none', porVenda);
+  $('#ffdBtnEmitir, #ffdBtnContinuarEmissao, #ffdDetalhesTecnicos').toggleClass('d-none', porVenda);
   if (parcial) {
     $('#ffdBtnEmitir').addClass('d-none');
   } else {
@@ -1531,7 +2589,9 @@ function ffdAtualizarBotoesEtapa5(previa) {
     producao ? 'Produção' : (homolog ? 'Homologação' : '—')
   );
   ffdRenderPainelEmissao();
+  ffdAtualizarBotaoFilaEmissao();
 }
+
 
 function ffdMotivosBloqueioEmissao() {
   const motivos = [];
@@ -2077,7 +3137,7 @@ function ffdMostrarModalCupomFiscal(cupom) {
   if (frame) {
     const doc = frame.contentDocument || frame.contentWindow.document;
     doc.open();
-    doc.write(cupom.html);
+    doc.write((cupom && (cupom.htmlTermico || cupom.html)) || '');
     doc.close();
   }
   const modal = new bootstrap.Modal(el, { backdrop: 'static', keyboard: true });
@@ -2425,18 +3485,35 @@ async function ffdGarantirRascunho() {
 }
 
 async function ffdSincronizarRecebimentos(fechamentoId) {
+  const porComprovante = __ffdEstado.modoRecebimento === 'por_comprovante';
   const lista = (__ffdEstado.recebimentos || []).map((r) => ({
     operadora: r.operadora,
     cnpj: r.cnpj || '',
     valor: Number(r.valor)
   }));
-  const resp = await fetch(`${ffdApi()}/fiscal/fechamentos/${fechamentoId}/recebimentos`, {
+  const endpoint = porComprovante
+    ? `${ffdApi()}/fiscal/fechamentos/${fechamentoId}/recebimentos-comprovantes`
+    : `${ffdApi()}/fiscal/fechamentos/${fechamentoId}/recebimentos`;
+  const payload = porComprovante
+    ? { comprovantes: lista.map((r) => Number(r.valor)).filter((valor) => Number.isFinite(valor) && valor > 0) }
+    : { recebimentos: lista };
+
+  const resp = await fetch(endpoint, {
     method: 'PUT',
     headers: ffdHeaders(),
-    body: JSON.stringify({ recebimentos: lista })
+    body: JSON.stringify(payload)
   });
   const body = await resp.json().catch(() => ({}));
   if (!resp.ok) throw new Error(ffdErroApi(body, 'Falha ao salvar recebimentos'));
+  if (porComprovante) {
+    __ffdEstado.recebimentos = (body.comprovantes || []).map((r, idx) => ({
+      id: r.id,
+      operadora: r.operadora || `Comprovante ${idx + 1}`,
+      cnpj: '',
+      valor: Number(r.valor || 0)
+    }));
+    return;
+  }
   __ffdEstado.recebimentos = (body.recebimentos || []).map((r) => ({
     id: r.id, operadora: r.operadora, cnpj: r.cnpj, valor: Number(r.valor)
   }));
@@ -2446,7 +3523,9 @@ async function ffdSalvarRascunho() {
   return ffdComLock('salvar', '#ffdBtnSalvarRascunho', 'Salvando…', async () => {
     try {
       const id = await ffdGarantirRascunho();
-      await ffdSincronizarRecebimentos(id);
+      if (__ffdEstado.modoRecebimento !== 'por_venda') {
+        await ffdSincronizarRecebimentos(id);
+      }
       ffdNotify('Rascunho salvo.', 'success');
       await ffdCarregarDia();
     } catch (err) {
@@ -2457,9 +3536,17 @@ async function ffdSalvarRascunho() {
 
 async function ffdAtualizarPrevia() {
   return ffdComLock('previa', '#ffdBtnAtualizarPrevia', 'Atualizando prévia…', async () => {
+    const inicioClique = ffdPreviaClickAt || performance.now();
+    ffdPreviaClickAt = null;
+    const tentativa = ++ffdPreviaAttemptCounter;
     try {
+      const porVenda = __ffdEstado.modoRecebimento === 'por_venda';
+      if (porVenda && !ffdComprovantesPorVendaValidos()) {
+        ffdNotify('Aguarde o carregamento das vendas e corrija os valores inválidos antes de conciliar.', 'warning');
+        return;
+      }
       const total = Math.round(ffdTotalRecebimentos() * 100) / 100;
-      if (!(total > 0)) {
+      if (!(total > 0) && !porVenda) {
         ffdRenderPrevia({
           vendas: [],
           valor_informado: 0,
@@ -2475,7 +3562,25 @@ async function ffdAtualizarPrevia() {
       }
       const data = String($('#ffdData').val() || __ffdEstado.data || ffdHojeISO());
       const id = await ffdGarantirRascunho();
-      await ffdSincronizarRecebimentos(id);
+      const inicioSincronizacao = performance.now();
+      try {
+        if (porVenda) {
+          const comprovantesSalvos = await ffdSalvarComprovantes({ silencioso: true });
+          if (!comprovantesSalvos) return;
+        } else {
+          await ffdSincronizarRecebimentos(id);
+        }
+      } finally {
+        ffdLogDesenvolvimento('PREVIA RECEBIMENTOS SINCRONIZADOS', {
+          elapsed_ms: Number((performance.now() - inicioSincronizacao).toFixed(1)),
+          modo: __ffdEstado.modoRecebimento
+        });
+      }
+
+      const comprovantesParaPrevia = __ffdEstado.modoRecebimento === 'por_comprovante'
+        ? (__ffdEstado.recebimentos || []).map((item) => Number(item.valor || 0)).filter((valor) => Number.isFinite(valor) && valor > 0)
+        : [];
+
       const payloadPrevia = {
         data,
         data_fechamento: data,
@@ -2484,33 +3589,77 @@ async function ffdAtualizarPrevia() {
         valor_min: Number($('#ffdValorMin').val() || 8),
         valor_max: Number($('#ffdValorMax').val() || 400),
         distribuicao_automatica: $('#ffdAuto').is(':checked'),
-        modo: __ffdEstado.vista || 'venda'
+        modo: __ffdEstado.vista || 'venda',
+        ...( __ffdEstado.modoRecebimento === 'por_comprovante' && comprovantesParaPrevia.length ? { comprovantes: comprovantesParaPrevia } : {} )
       };
       ffdLogDesenvolvimento('PREVIA REQUEST', {
         fechamento_id: id,
+        elapsed_before_request_ms: Number((performance.now() - inicioClique).toFixed(1)),
         ...payloadPrevia
       });
-      const resp = await fetch(`${ffdApi()}/fiscal/fechamentos/${id}/previa`, {
+      const request = fetch(`${ffdApi()}/fiscal/fechamentos/${id}/previa`, {
         method: 'POST',
         headers: ffdHeaders(),
         body: JSON.stringify(payloadPrevia)
+      }).then(async (resp) => {
+        const body = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(ffdErroApi(body, `HTTP ${resp.status}`));
+        return body;
       });
-      const body = await resp.json().catch(() => ({}));
-      if (!resp.ok) throw new Error(ffdErroApi(body, `HTTP ${resp.status}`));
-      __ffdEstado.indicadores = body.indicadores;
-      if (body.fechamento && body.fechamento.status) {
-        __ffdEstado.statusFiscal = body.fechamento.status;
-      }
-      if (!body.previa) {
-        throw new Error('A API não retornou a prévia. Tente novamente.');
-      }
-      __ffdEstado.complementacao = body.complementacao || (body.fechamento && body.fechamento.complementacao) || null;
-      ffdRenderComplementacao(__ffdEstado.complementacao);
-      ffdRenderPrevia(body.previa);
-      if (body.previa.perfeita) {
-        ffdNotify('Prévia atualizada — distribuição concluída. Conciliação não substitui a validação fiscal.', 'success');
-      } else {
-        ffdNotify(body.previa.mensagem || 'Prévia atualizada com pendência de distribuição.', 'warning');
+      const processarResposta = (body) => {
+        __ffdEstado.indicadores = body.indicadores;
+        if (body.fechamento && body.fechamento.status) {
+          __ffdEstado.statusFiscal = body.fechamento.status;
+        }
+        if (!body.previa) {
+          throw new Error('A API não retornou a prévia. Tente novamente.');
+        }
+        __ffdEstado.complementacao = body.complementacao || (body.fechamento && body.fechamento.complementacao) || null;
+        ffdRenderComplementacao(__ffdEstado.complementacao);
+        ffdRenderPrevia(body.previa);
+        ffdLogDesenvolvimento('PREVIA RENDERIZADA', {
+          elapsed_ms: Number((performance.now() - inicioClique).toFixed(1)),
+          tentativa
+        });
+        if (body.previa.perfeita) {
+          ffdNotify('Prévia atualizada — distribuição concluída. Conciliação não substitui a validação fiscal.', 'success');
+        } else {
+          ffdNotify(body.previa.mensagem || 'Prévia atualizada com pendência de distribuição.', 'warning');
+        }
+      };
+
+      let timeoutId;
+      try {
+        const timeout = new Promise((_, reject) => {
+          timeoutId = setTimeout(() => {
+            const err = new Error(
+              'A prévia ainda pode estar sendo processada no servidor. A interface liberou a tela; repetir o mesmo pedido não inicia uma segunda geração.'
+            );
+            err.code = 'PREVIA_FRONTEND_TIMEOUT';
+            reject(err);
+          }, FFD_PREVIA_TIMEOUT_MS);
+        });
+        const body = await Promise.race([request, timeout]);
+        ffdLogDesenvolvimento('PREVIA RESPONSE', {
+          elapsed_ms: Number((performance.now() - inicioClique).toFixed(1)),
+          tentativa
+        });
+        processarResposta(body);
+      } catch (err) {
+        if (err.code === 'PREVIA_FRONTEND_TIMEOUT') {
+          request.then((body) => {
+            if (tentativa !== ffdPreviaAttemptCounter) return;
+            processarResposta(body);
+            ffdNotify('A prévia terminou após o limite de espera da interface.', 'info');
+          }).catch((erroTardio) => {
+            if (tentativa === ffdPreviaAttemptCounter) {
+              ffdNotify(erroTardio.message || 'Falha tardia ao gerar a prévia.', 'danger');
+            }
+          });
+        }
+        throw err;
+      } finally {
+        clearTimeout(timeoutId);
       }
     } catch (err) {
       ffdNotify(err.message || 'Falha ao atualizar prévia.', 'danger');
@@ -2542,6 +3691,56 @@ async function ffdCancelar() {
   } catch (err) {
     ffdNotify(err.message || 'Falha ao cancelar.', 'danger');
   }
+}
+
+async function ffdLimparTudoDoDia() {
+  return ffdComLock('limpar', '#ffdBtnLimparTudo', 'Limpando…', async () => {
+    const data = String($('#ffdData').val() || __ffdEstado.data || ffdHojeISO());
+    const confirmado = await ffdConfirm(
+      `Isso remove prévias, recebimentos e documentos fiscais ainda não autorizados de ${data}, desde que não exista tentativa de transmissão.\n\n` +
+      'Fechamentos autorizados, tentativas de transmissão, vendas originais e saldo fiscal dos produtos serão preservados. Deseja continuar?',
+      'Limpar dados fiscais do dia',
+      { rotuloConfirmar: 'Limpar tudo', rotuloCancelar: 'Manter dados' }
+    );
+    if (!confirmado) return;
+
+    try {
+      const resp = await fetch(`${ffdApi()}/fiscal/fechamentos/limpar-dia`, {
+        method: 'POST',
+        headers: ffdHeaders(),
+        body: JSON.stringify({ data })
+      });
+      const body = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(ffdErroApi(body, `HTTP ${resp.status}`));
+
+      __ffdEstado.fechamentoId = null;
+      __ffdEstado.statusFiscal = null;
+      __ffdEstado.previa = null;
+      __ffdEstado.indicadores = null;
+      __ffdEstado.complementacao = null;
+      __ffdEstado.recebimentos = [];
+      __ffdEstado.recebimentosLocais = false;
+      __ffdEstado.saldo = null;
+      __ffdEstado.documentos = [];
+      __ffdEstado.validacao = null;
+      ffdRenderMaquinas();
+      ffdRenderPrevia(null);
+      ffdRenderSaldo(null);
+      ffdRenderComplementacao(null);
+      const conteudo = document.getElementById('ffdPreviaConteudo');
+      if (conteudo) conteudo.innerHTML = '<span class="text-muted">Atualize a prévia para visualizar a composição.</span>';
+      await ffdCarregarDia();
+
+      const protegidos = Number(body.fechamentos_preservados || 0);
+      ffdNotify(
+        `${body.fechamentos_limpos || 0} rascunho(s)/prévia(s) limpo(s).` +
+        (protegidos ? ` ${protegidos} fechamento(s) com autorização, processamento ou histórico de transmissão foram preservados.` : ''),
+        'success'
+      );
+    } catch (err) {
+      ffdNotify(err.message || 'Falha ao limpar os dados fiscais do dia.', 'danger');
+    }
+  });
 }
 
 window.loadFechamentoFiscalDoDia = loadFechamentoFiscalDoDia;

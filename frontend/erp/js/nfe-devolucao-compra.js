@@ -164,7 +164,9 @@ if (typeof window === 'undefined' || typeof document === 'undefined') {
       qtdErro: '',
       buscaOrigens: [],
       buscaItens: '',
-      devolucaoRelacionada: null
+      devolucaoRelacionada: null,
+      origemTentativaId: null,
+      bannerNovaTentativa: null
     };
   }
 
@@ -452,6 +454,28 @@ if (typeof window === 'undefined' || typeof document === 'undefined') {
           </div>
           <div id="ndcMsgValidacao" class="mt-2"></div>
         </div>
+      </div>
+      ${renderHistoricoTentativas()}`;
+  }
+
+  function renderHistoricoTentativas() {
+    const tentativas = (estado.prep && estado.prep.nfeDevolucoes) || [];
+    if (!tentativas.length) return '';
+    return `
+      <div class="card shadow-sm mb-3">
+        <div class="card-header fw-semibold">Histórico de tentativas</div>
+        <div class="card-body">
+          <ul class="small mb-2">${tentativas.map((t) => {
+            const st = String(t.status || '').toLowerCase();
+            const podeCorrigir = st === 'rejeitada' || (t.acoes && t.acoes.novaTentativa);
+            return `<li>
+              Tentativa ${escapeHtml(t.numeroTentativa || t.id)} — NF ${escapeHtml(t.numero || '—')} —
+              ${escapeHtml((t.statusUi && t.statusUi.label) || t.status || '—')}
+              ${t.rejeicao ? ` — ${escapeHtml(t.rejeicao)}` : ''}
+              ${podeCorrigir ? `<button type="button" class="btn btn-sm btn-outline-danger ms-2 ndc-nova-tentativa" data-nota-id="${t.id}">Corrigir e emitir novamente</button>` : ''}
+            </li>`;
+          }).join('')}</ul>
+        </div>
       </div>`;
   }
 
@@ -695,8 +719,12 @@ if (typeof window === 'undefined' || typeof document === 'undefined') {
     const tot = totaisLocais();
     const chave = estado.prep.refNFe;
     const qtd = itensSelecionadosPayload().reduce((s, i) => s + Number(i.quantidade), 0);
+    const banner = estado.bannerNovaTentativa
+      ? `<div class="alert alert-info">Nova tentativa a partir da NF ${escapeHtml(estado.bannerNovaTentativa.numero || '')} rejeitada${estado.bannerNovaTentativa.cStat ? ` (cStat ${escapeHtml(estado.bannerNovaTentativa.cStat)})` : ''}. Será gerado XML e assinatura novos. A tentativa anterior permanece no histórico.</div>`
+      : '';
     return `
       <div class="alert alert-warning">Confira os dados antes de transmitir esta NF-e à SEFAZ.</div>
+      ${banner}
       ${renderDevolucaoRelacionada()}
       <div class="card shadow-sm mb-3">
         <div class="card-header fw-semibold">Revisão Fiscal</div>
@@ -770,10 +798,18 @@ if (typeof window === 'undefined' || typeof document === 'undefined') {
       ? `<div>Código SEFAZ: <strong>${escapeHtml(cStat)}</strong></div>`
       : `<div class="small text-muted">Sem cStat da SEFAZ — esta falha ocorreu antes ou fora do retorno fiscal.</div>`;
     const cStatNorm = String(cStat || '').replace(/\D/g, '');
-    const xmlEstruturalmenteInvalido = cStatNorm === '225';
+    const exigeNovaTentativa = cls.classe === 'REJECTED_BY_SEFAZ'
+      || /^(225|275|539|590|591|696|863)$/.test(cStatNorm);
     const podeReenviar = Boolean(notaId)
-      && !xmlEstruturalmenteInvalido
-      && (cls.classe === 'REJECTED_BY_SEFAZ' || cls.classe === 'COMMUNICATION_ERROR');
+      && cls.classe === 'COMMUNICATION_ERROR';
+    const podeNovaTentativa = Boolean(notaId) && exigeNovaTentativa;
+    const tentativas = (estado.prep && estado.prep.nfeDevolucoes) || [];
+    const histHtml = tentativas.length
+      ? `<div class="mt-3"><h6>Histórico de tentativas</h6>
+          <ul class="small mb-0">${tentativas.map((t) =>
+            `<li>Tentativa ${escapeHtml(t.numeroTentativa || t.id)} — NF ${escapeHtml(t.numero || '—')} — ${escapeHtml((t.statusUi && t.statusUi.label) || t.status || '—')}${t.rejeicao ? ` — ${escapeHtml(t.rejeicao)}` : ''}${t.tentativaOrigemId ? ` (origem ${escapeHtml(t.tentativaOrigemId)})` : ''}</li>`
+          ).join('')}</ul></div>`
+      : '';
     return `
       <div class="card shadow-sm">
         <div class="card-body">
@@ -786,8 +822,10 @@ if (typeof window === 'undefined' || typeof document === 'undefined') {
             ${notaId ? `<button type="button" class="btn btn-outline-secondary" id="btnNdcDetalhesRejeicao">Ver detalhes</button>` : ''}
             ${notaId ? `<button type="button" class="btn btn-outline-success" id="btnNdcXml">Baixar XML</button>` : ''}
             <button type="button" class="btn btn-outline-primary" id="btnNdcVoltarRevisao">Voltar para revisão</button>
-            ${podeReenviar ? `<button type="button" class="btn btn-danger" id="btnNdcReenviar">Reenviar</button>` : ''}
+            ${podeNovaTentativa ? `<button type="button" class="btn btn-danger" id="btnNdcNovaTentativa">Corrigir e emitir novamente</button>` : ''}
+            ${podeReenviar ? `<button type="button" class="btn btn-warning" id="btnNdcReenviar">Reenviar</button>` : ''}
           </div>
+          ${histHtml}
           <div id="ndcLifecycleBox" class="mt-3"></div>
         </div>
       </div>`;
@@ -944,6 +982,10 @@ if (typeof window === 'undefined' || typeof document === 'undefined') {
     $('#btnNdcVoltarRevisao').on('click', () => { estado.etapa = 3; renderTela(); });
     $('#btnNdcLifecycle, #btnNdcDetalhesRejeicao').on('click', carregarLifecycle);
     $('#btnNdcReenviar').on('click', reenviar);
+    $('#btnNdcNovaTentativa').on('click', iniciarNovaTentativaUi);
+    $(document).off('click.ndcNovaTent').on('click.ndcNovaTent', '.ndc-nova-tentativa', function () {
+      iniciarNovaTentativaUi(Number($(this).data('nota-id')));
+    });
     $('#btnNdcDanfe').on('click', imprimirDanfeDevolucao);
     $('#btnNdcXml').on('click', baixarXmlDevolucao);
     garantirDelegacaoItens();
@@ -1044,7 +1086,7 @@ if (typeof window === 'undefined' || typeof document === 'undefined') {
     }
   }
 
-  async function carregarCompra(compraId) {
+  async function carregarCompra(compraId, opcoes = {}) {
     try {
       const resp = await fetch(`${API_URL}/compras/${compraId}/nfe-devolucao/preparar`, { headers: headersJson() });
       const prep = await resp.json().catch(() => ({}));
@@ -1060,7 +1102,11 @@ if (typeof window === 'undefined' || typeof document === 'undefined') {
       estado.cfop = (prep.rascunho && prep.rascunho.cfop) || prep.cfopSugerido || '5202';
       estado.observacoes = (prep.rascunho && prep.rascunho.observacoes) || estado.observacoes || '';
       estado.devolucaoRelacionada = prep.devolucaoRelacionada || null;
-      estado.etapa = window.__CDS_NFE_DEVOLUCAO_ABRIR_ITENS && prep.rascunho ? 2 : 1;
+      if (opcoes.etapa) {
+        estado.etapa = opcoes.etapa;
+      } else {
+        estado.etapa = window.__CDS_NFE_DEVOLUCAO_ABRIR_ITENS && prep.rascunho ? 2 : 1;
+      }
       window.__CDS_NFE_DEVOLUCAO_ABRIR_ITENS = false;
       renderTela();
     } catch (err) {
@@ -1342,7 +1388,9 @@ if (typeof window === 'undefined' || typeof document === 'undefined') {
           origemNfeDevolucaoId: (estado.prep.rascunho && (estado.prep.rascunho.origem_nfe_devolucao_id
             || estado.prep.rascunho.documento_original_id)) || null,
           origem_nfe_devolucao_id: (estado.prep.rascunho && estado.prep.rascunho.origem_nfe_devolucao_id) || null,
-          chaveAnterior: estado.devolucaoRelacionada && estado.devolucaoRelacionada.chave
+          chaveAnterior: estado.devolucaoRelacionada && estado.devolucaoRelacionada.chave,
+          novaIdentidade: Boolean(estado.origemTentativaId),
+          origemTentativaId: estado.origemTentativaId || null
         })
       });
       const data = await resp.json().catch(() => ({}));
@@ -1465,6 +1513,29 @@ if (typeof window === 'undefined' || typeof document === 'undefined') {
       a.remove();
     } catch (err) {
       alertar(err.message || 'Falha ao baixar XML.', 'danger');
+    }
+  }
+
+  async function iniciarNovaTentativaUi(notaIdArg) {
+    const notaId = Number(notaIdArg) || (estado.resultado && (estado.resultado.notaId || estado.resultado.idNota));
+    if (!notaId) return;
+    try {
+      const resp = await fetch(`${API_URL}/compras/nfe-devolucao/${notaId}/nova-tentativa`, {
+        method: 'POST',
+        headers: headersJson(),
+        body: '{}'
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || data.success === false) {
+        throw new Error(data.error || data.message || 'Não foi possível iniciar nova tentativa.');
+      }
+      estado.origemTentativaId = data.origemTentativaId || notaId;
+      estado.bannerNovaTentativa = (data.notaOrigem || {});
+      estado.resultado = null;
+      await carregarCompra(data.compraId || estado.compraId, { etapa: 3 });
+      alertar('Nova tentativa: revise os dados fiscais. Será gerado um XML novo (a NF anterior permanece rejeitada).', 'info');
+    } catch (err) {
+      alertar(err.message || 'Falha ao iniciar nova tentativa.', 'danger');
     }
   }
 

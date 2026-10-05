@@ -54,6 +54,16 @@ ipcMain.handle('listar-impressoras', async (event) => {
   }
 });
 
+ipcMain.removeHandler('gerar-codigo-barras-etiqueta');
+ipcMain.handle('gerar-codigo-barras-etiqueta', async (_event, codigoBarras) => {
+  try {
+    const { gerarSvgCodigoBarras } = require('./backend/services/produto/gerarSvgCodigoBarras');
+    return { sucesso: true, svg: gerarSvgCodigoBarras(codigoBarras) };
+  } catch (error) {
+    return { sucesso: false, erro: error.message || 'Falha ao gerar código de barras.' };
+  }
+});
+
 // RC3.5.1 — Portal Nacional da NF-e (npm start usa electron.js como main)
 const { registrarPortalNfeHandlers } = require('./electron-registrar-portal-nfe');
 const { configurarAberturaJanelas, registrarIpcAbrirModulo, registrarIpcForcarReflow, registrarIpcAbrirComprovante, registrarIpcImprimirRelatorioHtml, registrarJanelaPrincipalComoModulo, nomeImpressoraTermicaValido, enriquecerHtmlImpressaoTermica } = require('./electron-janelas-modulo');
@@ -610,6 +620,71 @@ app.whenReady().then(async () => {
     return;
   }
 
+  if (
+    String(process.env.DESTAXA_CRT_PATH_CHECK || '').trim() === '1'
+    && String(process.env.DESTAXA_CRT_PATH_CHECK_ELECTRON || '').trim() === '1'
+  ) {
+    try {
+      const {
+        DestaxaCrtRealPathVerifier,
+        RESULT_READY
+      } = require('./backend/services/tef/destaxa/destaxaCrtRealPathVerifier');
+      const execucao = await new DestaxaCrtRealPathVerifier().executar();
+      console.log('[TEF-DESTAXA-06B-ELECTRON]', JSON.stringify({
+        result: execucao.relatorio.result,
+        runtime: execucao.relatorio.runtime,
+        realTransactionGate: execucao.relatorio.realTransactionGate,
+        transaction: execucao.relatorio.transaction,
+        report: execucao.arquivo
+      }));
+      const dbVerificacao = require('./backend/database');
+      await new Promise((resolve, reject) => {
+        dbVerificacao.whenReady((readyError) => {
+          if (readyError) return reject(readyError);
+          resolve();
+        });
+      });
+      await new Promise((resolve) => setTimeout(resolve, 750));
+      await new Promise((resolve, reject) => {
+        dbVerificacao.close((dbError) => {
+          if (dbError) return reject(dbError);
+          resolve();
+        });
+      });
+      app.exit(execucao.relatorio.result === RESULT_READY ? 0 : 1);
+    } catch (error) {
+      console.error('[TEF-DESTAXA-06B-ELECTRON] FALHA', error.code || 'ERROR', error.message);
+      app.exit(1);
+    }
+    return;
+  }
+
+  if (
+    String(process.env.DESTAXA_NATIVE_HOST_CHECK || '').trim() === '1'
+    && String(process.env.DESTAXA_NATIVE_HOST_CHECK_ELECTRON || '').trim() === '1'
+  ) {
+    try {
+      const verificador = require('./backend/services/tef/destaxa/destaxaNativeHostVerifier');
+      const resultado = await verificador.executarTodas();
+      console.log('[TEF-DESTAXA-06C-MITIGACAO-ELECTRON]', JSON.stringify({
+        runtime: {
+          electron: process.versions.electron,
+          node: process.versions.node,
+          abi: process.versions.modules,
+          processType: process.type
+        },
+        responsividade: resultado.responsividade,
+        crash: resultado.crash,
+        nativo: resultado.nativo
+      }));
+      app.exit(0);
+    } catch (error) {
+      console.error('[TEF-DESTAXA-06C-MITIGACAO-ELECTRON] FALHA', error.code || 'ERROR', error.message);
+      app.exit(1);
+    }
+    return;
+  }
+
   if (String(process.env.TEF_DESTAXA_REAL_TEST || '').trim() === '1') {
     const testeDestaxa = require('./backend/services/tef/destaxa/destaxaElectronRealTest');
     const codigoSaida = await testeDestaxa.executarNoProcessoElectron();
@@ -700,6 +775,16 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
+  try {
+    const { clienteCompartilhadoExistente } = require('./backend/services/tef/destaxa/DestaxaNativeHostClient');
+    const hostTef = clienteCompartilhadoExistente();
+    if (hostTef) {
+      // Com chamada nativa em voo o encerramento é adiado e registrado — nunca tratado como cancelamento.
+      hostTef.encerrar().then((r) => {
+        if (r && r.adiado) console.warn('[TEF-NATIVE-HOST] encerramento adiado: chamada nativa em andamento', JSON.stringify(r.operacaoEmVoo));
+      }).catch(() => {});
+    }
+  } catch (_) { /* ignore */ }
   try {
     const cm = require('./backend/motores/equipamentos/connection/ConnectionManager');
     if (cm && typeof cm.closeAll === 'function') {

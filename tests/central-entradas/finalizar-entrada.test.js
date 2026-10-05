@@ -458,6 +458,7 @@ async function main() {
     assert.ok(central.includes('/finalizar-entrada'));
     assert.ok(central.includes('Finalizar Entrada'));
     assert.ok(central.includes('Retomar Importação'));
+    assert.match(central, /origem:\s*'CENTRAL_NFE'/);
     assert.ok(miip.includes('miipCentralBtnFinalizarEntrada'));
     assert.ok(miip.includes('Finalizar Entrada'));
     assert.ok(rota.includes("router.post('/:id/finalizar-entrada'"));

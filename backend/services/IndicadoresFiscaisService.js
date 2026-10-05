@@ -24,6 +24,10 @@ const dbGet = dbGetFactory(db);
 
 /** Status de entrada equivalentes a cancelada / inválida para contagem de NF-e. */
 const STATUS_EXCLUIDOS_CONTAGEM = Object.freeze([
+  'DESCARTADA',
+  'DUPLICADA',
+  DocumentoFiscalStatus.FINALIZADA,
+  DocumentoFiscalStatus.IMPORTADA,
   DocumentoFiscalStatus.DESCARTADA,
   DocumentoFiscalStatus.DUPLICADA
 ]);

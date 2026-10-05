@@ -77,7 +77,8 @@ class QueryOptimizer {
   }
 
   _filtroFiscal(modoFiscal) {
-    return modoFiscal ? ' AND COALESCE(p.item_fiscal, 1) = 1' : '';
+    // Visibilidade do catálogo não depende de item_fiscal; o contexto fiscal é usado somente no saldo exibido.
+    return '';
   }
 
   _hoje() {

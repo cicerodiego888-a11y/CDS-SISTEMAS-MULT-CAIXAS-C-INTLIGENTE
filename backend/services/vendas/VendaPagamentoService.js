@@ -19,6 +19,10 @@ const {
 const cfgTransferenciaPdv = require('../estoque/pdvTransferenciaNaoFiscalFiscalConfig');
 const cfgVendaSemEstoque = require('../estoque/empresaPermiteVendaSemEstoqueConfig');
 const {
+  deveBloquearExcedentePorCategoria,
+  vendaSemEstoquePermitida
+} = require('../estoque/vendaSemEstoqueElegibilidade');
+const {
   ordenarRecebimentosAB,
   persistirGrupoRecebimento,
   aplicarPoliticaRecebimentosFluxoVenda
@@ -164,10 +168,21 @@ function reduzirEstoqueComFEFO(vendaItemId, produtoId, quantidade, itemFiscal, c
     // Produto controla validade - usar FEFO
     lotesService.consumirLotesFEFO(produtoId, quantidade, (consumoErr, consumoLotes) => {
       if (consumoErr) {
-        if (cfgVendaSemEstoque.estaAtivadaSync()) {
-          return atualizarSaldoProdutoAposBaixa(produtoId, quantidade, itemFiscal, callback);
-        }
-        return callback(consumoErr);
+        if (!cfgVendaSemEstoque.estaAtivadaSync()) return callback(consumoErr);
+        return db.get(
+          `SELECT categorias.nome AS categoria_nome
+           FROM produtos
+           LEFT JOIN categorias ON categorias.id = produtos.categoria_id
+           WHERE produtos.id = ?`,
+          [produtoId],
+          (categoriaErr, produto) => {
+            if (categoriaErr) return callback(categoriaErr);
+            if (!vendaSemEstoquePermitida(produto, cfgVendaSemEstoque.estaAtivadaSync())) {
+              return callback(consumoErr);
+            }
+            return atualizarSaldoProdutoAposBaixa(produtoId, quantidade, itemFiscal, callback);
+          }
+        );
       }
 
       const aposRegistro = (registroErr) => {
@@ -627,7 +642,12 @@ db.all(`
     nome,
     saldo_fiscal,
     saldo_nao_fiscal,
-    COALESCE(controla_estoque, 1) AS controla_estoque
+    estoque_atual,
+    COALESCE(reservado_fiscal, 0) AS reservado_fiscal,
+    COALESCE(reservado_nao_fiscal, 0) AS reservado_nao_fiscal,
+    COALESCE(controla_estoque, 1) AS controla_estoque,
+    COALESCE(item_fiscal, 0) AS item_fiscal,
+    (SELECT c.nome FROM categorias c WHERE c.id = produtos.categoria_id) AS categoria_nome
   FROM produtos
   WHERE id IN (${produtoIds.map(() => '?').join(',')})
 `, produtoIds, (err, produtos) => {
@@ -635,6 +655,7 @@ db.all(`
     return res.status(500).json({ sucesso: false, error: err.message });
   }
 
+  const { saldosDisponiveisMotorFxNf } = require('../estoque/EstoqueDisponivelService');
   const { saldosParaDistribuicaoVenda } = require('../estoque/produtoControlaEstoque');
 
   const produtoMap = produtos.reduce((map, produto) => {
@@ -658,18 +679,31 @@ db.all(`
     const qtdEstoque = item.quantidade_estoque != null && item.quantidade_estoque !== ''
       ? Number(item.quantidade_estoque)
       : Number(item.quantidade || 0);
+    const disponivelMotor = saldosDisponiveisMotorFxNf(produto);
     const saldos = saldosParaDistribuicaoVenda(
       produto,
       qtdEstoque,
-      produto.saldo_fiscal,
-      produto.saldo_nao_fiscal
+      disponivelMotor.saldoFiscal,
+      disponivelMotor.saldoNaoFiscal
     );
+    if (deveBloquearExcedentePorCategoria(
+      produto,
+      qtdEstoque,
+      saldos.saldoFiscal + saldos.saldoNaoFiscal,
+      cfgVendaSemEstoque.estaAtivadaSync()
+    )) {
+      return res.status(400).json({
+        sucesso: false,
+        error: `Saldo insuficiente para ${produto.nome}. Disponível: ${saldos.saldoFiscal + saldos.saldoNaoFiscal}`
+      });
+    }
 
     entradasMotor.push({
       item,
       saldoFiscal: saldos.saldoFiscal,
       saldoNaoFiscal: saldos.saldoNaoFiscal,
       controlaEstoque: Number(produto.controla_estoque) !== 0,
+      itemFiscal: Number(produto.item_fiscal || 0),
       produto
     });
   }
@@ -898,7 +932,9 @@ db.all(`
     estoque_atual,
     COALESCE(reservado_fiscal, 0) AS reservado_fiscal,
     COALESCE(reservado_nao_fiscal, 0) AS reservado_nao_fiscal,
-    COALESCE(controla_estoque, 1) AS controla_estoque
+    COALESCE(controla_estoque, 1) AS controla_estoque,
+    COALESCE(item_fiscal, 0) AS item_fiscal,
+    (SELECT c.nome FROM categorias c WHERE c.id = produtos.categoria_id) AS categoria_nome
   FROM produtos
   WHERE id IN (${produtoIds.map(() => '?').join(',')})
 `, produtoIds, (err, produtos) => {
@@ -907,7 +943,7 @@ db.all(`
     return;
   }
 
-  const { calcularEstoqueProduto } = require('../estoque/EstoqueDisponivelService');
+  const { saldosDisponiveisMotorFxNf } = require('../estoque/EstoqueDisponivelService');
   const { saldosParaDistribuicaoVenda } = require('../estoque/produtoControlaEstoque');
 
   const produtoMap = produtos.reduce((map, produto) => {
@@ -937,7 +973,7 @@ db.all(`
 
   for (const item of itens) {
     const produto = produtoMap[item.produto_id];
-    const calcBase = calcularEstoqueProduto(produto);
+    const calcBase = saldosDisponiveisMotorFxNf(produto).estoque;
     const creditoAplicado = creditoPorProduto[item.produto_id] || 0;
     const calc = creditarDisponibilidadeComReservaPedido(
       calcBase,
@@ -953,12 +989,23 @@ db.all(`
       calc.disponivel_fiscal,
       calc.disponivel_nao_fiscal
     );
+    if (deveBloquearExcedentePorCategoria(
+      produto,
+      qtdEstoque,
+      saldos.saldoFiscal + saldos.saldoNaoFiscal,
+      cfgVendaSemEstoque.estaAtivadaSync()
+    )) {
+      return res.status(400).json({
+        error: `Saldo insuficiente para ${produto.nome}. Disponível: ${saldos.saldoFiscal + saldos.saldoNaoFiscal}`
+      });
+    }
 
     entradasMotor.push({
       item,
       saldoFiscal: saldos.saldoFiscal,
       saldoNaoFiscal: saldos.saldoNaoFiscal,
       controlaEstoque: Number(produto.controla_estoque) !== 0,
+      itemFiscal: Number(produto.item_fiscal || 0),
       produto
     });
   }

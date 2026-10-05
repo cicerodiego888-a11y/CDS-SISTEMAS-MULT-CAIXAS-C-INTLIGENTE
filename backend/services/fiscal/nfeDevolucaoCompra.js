@@ -21,7 +21,7 @@ const { assinarNFe } = require('./signer');
 const { montarLote, enviarLote } = require('./soapClient');
 const { onlyDigits, compactarXml } = require('./utils');
 const { getFiscalSubDir } = require('./paths');
-const { validarXmlFiscal, extrairTotais } = require('./validarXmlFiscal');
+const { validarXmlFiscal, extrairTotais, validarSchemaXsd } = require('./validarXmlFiscal');
 const { auditarNfe, formatarMensagemAuditoria } = require('./auditoriaFiscalNfe');
 const { adquirirLock, liberarLock } = require('./nfeEmissionLockService');
 const { preflightNfeDevolucao, assertPreflightAprovado } = require('./nfeDevolucaoPreflight');
@@ -38,7 +38,7 @@ const {
   deveBloquearNovaTransmissao
 } = require('./classificarResultadoEmissaoNfe');
 const { gerarDanfeNfeHtml } = require('./danfeNfe');
-const { buildXmlNFeDevolucaoCompra } = require('./xmlBuilderNfeDevolucaoCompra');
+const { buildXmlNFeDevolucaoCompra, validarDestinatarioDevolucaoAntesAssinatura } = require('./xmlBuilderNfeDevolucaoCompra');
 const { resolverMunicipioDestinatario } = require('./municipioIbge');
 const { adaptarImpostoEspelhadoAoCrt } = require('./resolverIcmsCrtEmitente');
 const {
@@ -65,6 +65,7 @@ const {
   cancelarNfeDevolucaoOficial,
   consultarSituacaoDevolucao,
   reenviarNfeDevolucao,
+  iniciarNovaTentativaDevolucao,
   listarEventosDevolucao,
   obterPainelStatus,
   obterXmlVersionado
@@ -76,7 +77,8 @@ const {
   mensagemRejeicaoDetalhada,
   podeGerarNovaIdentidadeDevolucao,
   mensagemNovaIdentidadeDevolucao,
-  xmlRejeicaoFiscalDefinitiva
+  xmlRejeicaoFiscalDefinitiva,
+  podeNovaTentativaDevolucao
 } = require('./nfeDevolucaoEstados');
 const {
   obterRascunhoDevolucaoCompra,
@@ -712,6 +714,20 @@ async function montarDocumentoXmlDevolucaoCompra(compraId, opcoes = {}) {
   espelhamento.itens = (espelhamento.itens || []).map((item) =>
     adaptarImpostoEspelhadoAoCrt(item, config.crt)
   );
+  compra.emitenteOriginal = espelhamento.emitenteOriginal || null;
+  if (espelhamento.xmlOrigem) {
+    compra.xmlOrigem = espelhamento.xmlOrigem;
+  }
+  salvarDebug(`${id}-rc6-2-emitente-original.json`, JSON.stringify({
+    geradoEm: new Date().toISOString(),
+    fonteXml: espelhamento.fonteXml || null,
+    emitenteOriginal: compra.emitenteOriginal,
+    xmlOrigemTemEmit: /<(?:\w+:)?emit\b/i.test(String(espelhamento.xmlOrigem || '')),
+    xmlOrigemIe: (() => {
+      const m = String(espelhamento.xmlOrigem || '').match(/<(?:\w+:)?emit\b[\s\S]*?<(?:\w+:)?IE(?:\s[^>]*)?>([^<]*)<\/(?:\w+:)?IE>/i);
+      return m ? m[1] : null;
+    })()
+  }, null, 2));
 
   const numero = opcoes.reservarNumero
     ? await proximoNumeroNFeVenda()
@@ -726,6 +742,9 @@ async function montarDocumentoXmlDevolucaoCompra(compraId, opcoes = {}) {
   });
 
   salvarDebug(`${id}-01-original.xml`, built.xmlSemAssinatura);
+  if (built.destDiagnostico) {
+    salvarDebug(`${id}-rc6-2-dest.json`, JSON.stringify(built.destDiagnostico, null, 2));
+  }
   if (built.diagnosticoIpiDevol) {
     salvarDebug(`${id}-diagnostico-ipi-devol.json`, JSON.stringify(built.diagnosticoIpiDevol, null, 2));
   }
@@ -1120,6 +1139,8 @@ async function prepararNfeDevolucaoCompra(compraId) {
         statusUi: uiDoEstado(n.status),
         numero: n.numero,
         serie: n.serie,
+        tentativaOrigemId: n.tentativa_origem_id || null,
+        numeroTentativa: n.numero_tentativa || null,
         chave_acesso: n.chave_acesso,
         chave_referenciada: n.chave_referenciada || chave,
         protocolo: n.protocolo,
@@ -1145,6 +1166,11 @@ async function prepararNfeDevolucaoCompra(compraId) {
             cstat_retorno: n.cstat_retorno
           }),
           gerarNovaIdentidade: podeGerarNovaIdentidadeDevolucao({
+            status: st,
+            rejeicao_codigo: n.rejeicao_codigo,
+            cstat_retorno: n.cstat_retorno
+          }),
+          novaTentativa: podeNovaTentativaDevolucao({
             status: st,
             rejeicao_codigo: n.rejeicao_codigo,
             cstat_retorno: n.cstat_retorno
@@ -1252,13 +1278,17 @@ function persistirNota(payload) {
         : null;
       db().run(
         `UPDATE nfe_devolucoes_compra
-         SET xml_hash = ?, xml_assinado_hash = ?, cnf = ?, tp_emis = ?, identidade_congelada = 1
+         SET xml_hash = ?, xml_assinado_hash = ?, cnf = ?, tp_emis = ?, identidade_congelada = 1,
+             tentativa_origem_id = COALESCE(?, tentativa_origem_id),
+             numero_tentativa = COALESCE(?, numero_tentativa)
          WHERE id = ?`,
         [
           payload.xml_hash || null,
           payload.xml_assinado_hash || null,
           (parsed && parsed.cNF) || payload.cnf || null,
           (parsed && parsed.tpEmis) || '1',
+          payload.tentativa_origem_id || null,
+          payload.numero_tentativa || null,
           id
         ],
         () => resolve(id)
@@ -1355,11 +1385,15 @@ async function emitirNFeDevolucaoCompra(compraId, opcoes = {}) {
     && String(ultimaNota.created_at || '') >= String(rascunhoAtual.created_at || '')
   );
   const rejeicaoXmlDefinitiva = ultimaNota && xmlRejeicaoFiscalDefinitiva(ultimaNota);
-  if (rejeicaoXmlDefinitiva) {
+  const novaTentativaRecuperavel = ultimaNota && podeNovaTentativaDevolucao(ultimaNota);
+  if (rejeicaoXmlDefinitiva || novaTentativaRecuperavel || opcoes.origemTentativaId) {
     opcoes.novaIdentidade = true;
+    if (!opcoes.origemTentativaId && ultimaNota && novaTentativaRecuperavel) {
+      opcoes.origemTentativaId = ultimaNota.id;
+    }
   }
   const bloqueioTx = (ultimaNota && posteriorAoRascunho && stUltima !== 'autorizada' && stUltima !== 'cancelada'
-    && !rejeicaoXmlDefinitiva && !opcoes.novaIdentidade)
+    && !rejeicaoXmlDefinitiva && !novaTentativaRecuperavel && !opcoes.novaIdentidade)
     ? deveBloquearNovaTransmissao(ultimaNota)
     : { bloquear: false };
   if (bloqueioTx.bloquear) {
@@ -1473,6 +1507,46 @@ async function emitirNFeDevolucaoCompra(compraId, opcoes = {}) {
     observacoes: opcoes.observacoes,
     cfopOverride: cfopPadrao
   });
+  if (built.destDiagnostico) {
+    salvarDebug(`${id}-rc6-2-dest.json`, JSON.stringify({
+      ...built.destDiagnostico,
+      fase: 'pre_assinatura_numerado',
+      numero
+    }, null, 2));
+  }
+  try {
+    validarDestinatarioDevolucaoAntesAssinatura({
+      xml: built.xmlSemAssinatura,
+      emitenteOriginal: compra.emitenteOriginal,
+      destDiagnostico: built.destDiagnostico
+    });
+  } catch (destErr) {
+    registrarDiagnosticoEmissao(id, {
+      numero,
+      serie: built.serie,
+      chave: built.chave,
+      ambiente: config.ambiente,
+      status: 'erro_validacao',
+      classeResultado: 'VALIDATION_ERROR',
+      etapa: 'validacao_destinatario',
+      erroTecnico: destErr.message
+    });
+    return anexarClassificacao({
+      success: false,
+      status: 'erro_validacao',
+      code: destErr.code || 'DEST_IE_INCONSISTENTE',
+      message: destErr.message
+    });
+  }
+
+  const tentativaMeta = {
+    tentativa_origem_id: opcoes.origemTentativaId
+      ? Number(opcoes.origemTentativaId)
+      : (ultimaNota && podeNovaTentativaDevolucao(ultimaNota) ? Number(ultimaNota.id) : null),
+    numero_tentativa: ultimaNota && podeNovaTentativaDevolucao(ultimaNota)
+      ? Number(ultimaNota.numero_tentativa || 1) + 1
+      : 1
+  };
 
   const auditoria = auditarNfe({
     tipoDocumento: 'DEVOLUCAO_COMPRA',
@@ -1555,6 +1629,43 @@ async function emitirNFeDevolucaoCompra(compraId, opcoes = {}) {
     qtdItens: espelhamento.itens.length
   });
   salvarDebug(`${id}-01-original.xml`, built.xmlSemAssinatura);
+  try {
+    validarXmlFiscal({
+      xml: built.xmlSemAssinatura,
+      fase: 'pre_assinatura',
+      modeloDoc: '55',
+      validarXsd: false
+    });
+    const xsdPre = validarSchemaXsd(built.xmlSemAssinatura, { exigirAssinatura: false });
+    salvarDebug(`${id}-rc6-1-xsd-pre-assinatura.json`, JSON.stringify({
+      status: xsdPre.status,
+      ok: xsdPre.ok,
+      erros: (xsdPre.erros || []).slice(0, 15)
+    }, null, 2));
+    if (xsdPre.ok === false && xsdPre.status !== 'XSD_FERRAMENTA_INDISPONIVEL' && xsdPre.status !== 'XSD_AUSENTE') {
+      throw Object.assign(new Error(`Validação XSD falhou (${xsdPre.status})`), {
+        code: 'XML_XSD_INVALIDO',
+        detalhes: xsdPre
+      });
+    }
+  } catch (validErr) {
+    registrarDiagnosticoEmissao(id, {
+      numero,
+      serie: built.serie,
+      chave: built.chave,
+      ambiente: config.ambiente,
+      status: 'erro_validacao',
+      classeResultado: 'VALIDATION_ERROR',
+      etapa: 'validacao_xsd_pre_assinatura',
+      erroTecnico: validErr.message
+    });
+    return anexarClassificacao({
+      success: false,
+      status: 'erro_validacao',
+      message: validErr.message || 'XML inválido no schema (antes da assinatura).',
+      code: validErr.code || 'XML_INVALIDO'
+    });
+  }
   if (built.diagnosticoIpiDevol) {
     salvarDebug(`${id}-diagnostico-ipi-devol.json`, JSON.stringify(built.diagnosticoIpiDevol, null, 2));
   }
@@ -1608,7 +1719,8 @@ async function emitirNFeDevolucaoCompra(compraId, opcoes = {}) {
       cfop: built.cfop,
       xml_enviado: built.xmlSemAssinatura,
       xml_retorno: rawMsg,
-      danfe_html: null
+      danfe_html: null,
+      ...tentativaMeta
     });
     await aposPersistirEmissao(notaId, {
       status: 'erro_assinatura',
@@ -1672,7 +1784,8 @@ async function emitirNFeDevolucaoCompra(compraId, opcoes = {}) {
       cfop: built.cfop,
       xml_enviado: xmlAssinado,
       xml_retorno: String(commErr.message || commErr),
-      danfe_html: null
+      danfe_html: null,
+      ...tentativaMeta
     });
     await aposPersistirEmissao(notaId, {
       status: 'erro_comunicacao',
@@ -1775,7 +1888,8 @@ async function emitirNFeDevolucaoCompra(compraId, opcoes = {}) {
     xml_retorno: raw,
     danfe_html: danfeHtml,
     xml_hash: calcularHashXml(built.xmlSemAssinatura),
-    xml_assinado_hash: calcularHashXml(xmlAssinado)
+    xml_assinado_hash: calcularHashXml(xmlAssinado),
+    ...tentativaMeta
   });
 
   const notaLifecycle = await aposPersistirEmissao(notaId, {
@@ -1843,6 +1957,12 @@ async function emitirNFeDevolucaoCompra(compraId, opcoes = {}) {
     statusUi: uiDoEstado(status),
     numero,
     serie: built.serie,
+    origemTentativaId: tentativaMeta.tentativa_origem_id || null,
+    numeroTentativa: tentativaMeta.numero_tentativa || 1,
+    acoes: {
+      reenviar: podeReenviarDevolucao({ status, cstat_retorno: parsed.cStat, rejeicao_codigo: parsed.cStat }),
+      novaTentativa: podeNovaTentativaDevolucao({ status, cstat_retorno: parsed.cStat, rejeicao_codigo: parsed.cStat })
+    },
     chave: chaveFinal,
     chaveAcesso: chaveFinal,
     protocolo: (notaLifecycle && notaLifecycle.protocolo) || protocolo,
@@ -1919,6 +2039,8 @@ async function listarHistoricoDevolucaoCompra(compraId) {
         id: n.id,
         numero: n.numero,
         serie: n.serie,
+        tentativaOrigemId: n.tentativa_origem_id || null,
+        numeroTentativa: n.numero_tentativa || null,
         chave_acesso: n.chave_acesso,
         chave_referenciada: n.chave_referenciada,
         protocolo: n.protocolo,
@@ -1957,6 +2079,11 @@ async function listarHistoricoDevolucaoCompra(compraId) {
             rejeicao_codigo: n.rejeicao_codigo,
             cstat_retorno: n.cstat_retorno
           }),
+          novaTentativa: podeNovaTentativaDevolucao({
+            status: st,
+            rejeicao_codigo: n.rejeicao_codigo,
+            cstat_retorno: n.cstat_retorno
+          }),
           mensagemNovaIdentidade: podeGerarNovaIdentidadeDevolucao({
             status: st,
             rejeicao_codigo: n.rejeicao_codigo,
@@ -1979,6 +2106,7 @@ module.exports = {
   carregarSaldosComExcecao210240,
   emitirNFeDevolucaoCompra,
   criarNovaEmissaoDevolucao,
+  iniciarNovaTentativaDevolucao,
   previaNfeDevolucaoCompra,
   montarResumoPreviaDevolucao,
   montarDocumentoXmlDevolucaoCompra,

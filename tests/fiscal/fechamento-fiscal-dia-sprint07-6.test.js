@@ -318,8 +318,10 @@ describe('Sprint 07.6 — classificação fiscal canônica NFC-e', { concurrency
     assert.match(FFD_SRC, /duplicidade pendente de recuperação/);
     assert.match(FFD_SRC, /não foram incluídas nem classificadas como autorizadas/);
 
+    // Fotografia do banco operacional da época do sprint: estado persistente muda com o uso,
+    // então só roda como auditoria explícita (CDS_AUDITAR_BANCO_REAL=1). Cobertura determinística: testes 13/15/16/17.
     const operacional = 'C:/ProgramData/MercantilFiscal/dados/mercadao.db';
-    if (fs.existsSync(operacional)) {
+    if (process.env.CDS_AUDITAR_BANCO_REAL === '1' && fs.existsSync(operacional)) {
       const realDb = await openDb(operacional, sqlite3.OPEN_READONLY);
       try {
         const mapa = await classificarSituacoesFiscaisPorVenda(realDb, [3, 4, 5, 6, 7, 8, 9]);

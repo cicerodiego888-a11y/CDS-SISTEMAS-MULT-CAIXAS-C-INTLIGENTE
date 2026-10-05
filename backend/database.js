@@ -1,14 +1,40 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const bcrypt = require('bcryptjs');
 const { validateInsertAlignment, analisarInsertSql, tabelaMonitorada } = require('./lib/validateInsertAlignment');
 const { aplicarCertificacaoSql } = require('./lib/sqlCertification');
+const { normalizarProdutosCategoriaEspecial } = require('./services/categorias/normalizacaoProdutosCategoriaEspecial');
 
-// BANCO OFICIAL DEFINITIVO
-// Prioridade 1: variável DB_DIR
-// Prioridade 2: pasta padrão profissional do Windows
-const DB_DIR = process.env.DB_DIR || path.join(process.env.PROGRAMDATA || 'C:\\ProgramData', 'MercantilFiscal', 'dados');
+const DB_DIR_PADRAO_REAL = path.join(process.env.PROGRAMDATA || 'C:\\ProgramData', 'MercantilFiscal', 'dados');
+const EXECUCAO_EM_TESTE = process.argv.includes('--test')
+  || process.argv.some((arg) => /(?:^|[\\/])tests?(?:[\\/]|$)/.test(arg))
+  || process.env.NODE_ENV === 'test';
+
+if (EXECUCAO_EM_TESTE) {
+  process.env.CDS_TEST_ISOLAR_BANCO = process.env.CDS_TEST_ISOLAR_BANCO || '1';
+}
+
+function resolverDirBanco() {
+  const dirExplicito = process.env.DB_DIR && process.env.DB_DIR.trim();
+  if (dirExplicito) return dirExplicito;
+
+  if (process.env.CDS_TEST_ISOLAR_BANCO === '1' || EXECUCAO_EM_TESTE) {
+    return path.join(os.tmpdir(), 'cds-sistemas-test-db');
+  }
+
+  return DB_DIR_PADRAO_REAL;
+}
+
+const DB_DIR = resolverDirBanco();
+
+if (process.env.CDS_TEST_ISOLAR_BANCO === '1'
+    && path.resolve(DB_DIR) === path.resolve(DB_DIR_PADRAO_REAL)) {
+  throw new Error(
+    'Isolamento de teste ativo: recusado abrir o banco real. Defina DB_DIR para um diretório temporário.'
+  );
+}
 
 if (!fs.existsSync(DB_DIR)) {
   fs.mkdirSync(DB_DIR, { recursive: true });
@@ -140,8 +166,11 @@ function migrarColunaTefConfiguracaoId(tabela) {
 
 function aplicarAlteracoesPosCriacao() {
   aplicarAlteracaoSegura('categorias', `ALTER TABLE categorias ADD COLUMN tipo TEXT DEFAULT 'produto'`);
+  aplicarAlteracaoSegura('categorias', `ALTER TABLE categorias ADD COLUMN padrao_controla_estoque INTEGER DEFAULT 1`);
+  aplicarAlteracaoSegura('categorias', `ALTER TABLE categorias ADD COLUMN padrao_controle_comercial TEXT DEFAULT 'PADRAO'`);
   aplicarAlteracaoSegura('caixa', `ALTER TABLE caixa ADD COLUMN status TEXT DEFAULT 'aberto'`);
   aplicarAlteracaoSegura('caixa', `ALTER TABLE caixa ADD COLUMN terminal_id INTEGER REFERENCES terminais(id)`);
+  aplicarAlteracaoSegura('caixas', `ALTER TABLE caixas ADD COLUMN impressora_cupom TEXT`);
   aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN caixa_id INTEGER REFERENCES caixa(id)`);
   aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN terminal_id INTEGER REFERENCES terminais(id)`);
   aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN operador_id INTEGER REFERENCES usuarios(id)`);
@@ -491,6 +520,10 @@ function aplicarAlteracoesPosCriacao() {
   aplicarAlteracaoSegura(
     'vendas',
     `CREATE INDEX IF NOT EXISTS idx_vendas_data_venda ON vendas(data_venda)`
+  );
+  aplicarAlteracaoSegura(
+    'vendas',
+    `CREATE INDEX IF NOT EXISTS idx_vendas_data_calendario ON vendas(date(data_venda))`
   );
 
   // Sprint 3.2 — campos fiscais do Pedido / NF-e
@@ -1453,6 +1486,8 @@ function criarTabelas() {
         descricao TEXT,
         tipo TEXT NOT NULL DEFAULT 'produto',
         ativo INTEGER DEFAULT 1,
+        padrao_controla_estoque INTEGER NOT NULL DEFAULT 1,
+        padrao_controle_comercial TEXT NOT NULL DEFAULT 'PADRAO',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
@@ -1909,7 +1944,13 @@ function criarTabelas() {
       )
     `, (err) => {
       if (err) console.error('Erro ao criar tabela vendas_itens:', err);
-      else console.log('Tabela vendas_itens criada/verificada');
+      else {
+        console.log('Tabela vendas_itens criada/verificada');
+        aplicarAlteracaoSegura(
+          'vendas_itens',
+          `CREATE INDEX IF NOT EXISTS idx_vendas_itens_venda ON vendas_itens(venda_id)`
+        );
+      }
     });
 
     // Tabela de pagamentos de venda (para pagamento misto)
@@ -2735,6 +2776,15 @@ function inicializarBanco() {
     garantirColunasFinanceiro();
     recuperarItemFiscalComprasItens();
     recuperarQuantidadesFiscaisComprasItens();
+    normalizarProdutosCategoriaEspecial(db)
+      .then((resultado) => {
+        if (resultado?.produtosAlterados > 0) {
+          console.log(`[LEGACY] Normalização de categorias especiais aplicada em ${resultado.produtosAlterados} produtos.`);
+        }
+      })
+      .catch((err) => {
+        console.error('[LEGACY] Erro ao normalizar produtos de categorias especiais no banco legado:', err?.message || err);
+      });
     
     // F12 Policy Migration — Adiciona suporte a políticas de F12 por caixa
     executarMigracaoF12Policy(db, (migErr) => {
@@ -3107,7 +3157,9 @@ function inserirConfiguracoesPadrao() {
     ,['cupom_impressao_politica', '{"modo":"PERGUNTAR","max_vias":4,"fiscal":{"modo":"PERGUNTAR","vias":2,"destinos":["CLIENTE","ESTABELECIMENTO"]},"nao_fiscal":{"modo":"PERGUNTAR","vias":2,"destinos":["CLIENTE","ESTABELECIMENTO"]}}', 'json', 'Política de impressão de cupons fiscal e não fiscal']
     ,['pdv_composicao_itens', 'UNIFICAR', 'string', 'Composição de itens no carrinho do PDV: UNIFICAR, SEPARAR ou AUTOMATICO']
     ,['empresa_controla_validade', 'ATIVADO', 'string', 'Empresa controla validade de produtos (lotes/FEFO/alertas)']
-    ,['empresa_permite_venda_sem_estoque', 'DESATIVADO', 'string', 'Permitir venda sem estoque (baixa continua; saldo pode ficar negativo)']
+    ,['empresa_permite_venda_sem_estoque', 'DESATIVADO', 'string', 'Permitir saldo insuficiente somente para produtos controlados de Açougue e Hortifruti']
+    ,['equipamentos_ativo', 'true', 'boolean', 'Motor de Equipamentos habilitado']
+    ,['produto_identidade_enabled', 'false', 'boolean', 'MIP: Motor de Identificação de Produtos (default OFF)']
   ];
 
   configs.forEach(config => {
@@ -3277,6 +3329,7 @@ db.serialize(() => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       nome TEXT NOT NULL,
       descricao TEXT,
+      impressora_cupom TEXT,
       ativo INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -3636,22 +3689,6 @@ db.serialize(() => {
         VALUES (?, ?, ?, ?, ?, ?, 1)
       `, [codigo, fabricante, modelo, nome, transportes, descricao]);
     });
-
-    db.run(`
-      INSERT OR IGNORE INTO configuracoes (chave, valor, descricao)
-      VALUES ('equipamentos_ativo', 'true', 'Motor de Equipamentos habilitado')
-    `);
-
-    // MIP Sprint 02 — feature flag OFF por padrão (nenhum módulo consome ainda)
-    db.run(`
-      INSERT OR IGNORE INTO configuracoes (chave, valor, tipo, descricao)
-      VALUES (
-        'produto_identidade_enabled',
-        'false',
-        'boolean',
-        'MIP: Motor de Identificação de Produtos (default OFF)'
-      )
-    `);
 
     db.run(`
       CREATE TABLE IF NOT EXISTS auditoria (

@@ -1,7 +1,7 @@
 {
   "sprint": "TEF-DESTAXA-06A",
-  "timestamp": "2026-09-22T11:48:37.808Z",
-  "harnessRunId": "harness-0202cf2472a18ad7",
+  "timestamp": "2026-09-29T17:58:41.468Z",
+  "harnessRunId": "harness-5b465deb14b9e833",
   "financialTransactionId": null,
   "gates": {
     "harness": true,
@@ -58,7 +58,7 @@
     "found": true,
     "running": true,
     "responding": true,
-    "pid": "8508",
+    "pid": "10940",
     "path": "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
     "startedByHarness": false
   },
@@ -84,7 +84,7 @@
   "result": "READY_FOR_REAL_PINPAD",
   "runs": {
     "node": {
-      "timestamp": "2026-09-22T11:48:35.278Z",
+      "timestamp": "2026-09-29T17:58:36.812Z",
       "environment": {
         "platform": "win32",
         "arch": "x64",
@@ -120,7 +120,7 @@
         "found": true,
         "running": true,
         "responding": true,
-        "pid": "8508",
+        "pid": "10940",
         "path": "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
         "startedByHarness": false
       },
@@ -146,7 +146,7 @@
       "result": "READY_FOR_REAL_PINPAD"
     },
     "electron": {
-      "timestamp": "2026-09-22T11:48:37.808Z",
+      "timestamp": "2026-09-29T17:58:41.468Z",
       "environment": {
         "platform": "win32",
         "arch": "x64",
@@ -182,7 +182,7 @@
         "found": true,
         "running": true,
         "responding": true,
-        "pid": "8508",
+        "pid": "10940",
         "path": "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
         "startedByHarness": false
       },

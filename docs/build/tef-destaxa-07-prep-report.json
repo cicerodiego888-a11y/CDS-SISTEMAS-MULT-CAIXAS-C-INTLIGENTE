@@ -1,0 +1,8 @@
+{
+  "sprint": "TEF-DESTAXA-07-PREP",
+  "dataHora": "2026-10-03T21:27:14.800Z",
+  "transactionExecuted": false,
+  "erro": "coleta falhou no Electron: TEF não configurado",
+  "checklist": [],
+  "result": "BLOCKED_FOR_REAL_TRANSACTION"
+}

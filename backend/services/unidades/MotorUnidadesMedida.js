@@ -57,6 +57,8 @@ const MAPA_UCOM_XML = Object.freeze({
   UN: 'UN',
   UND: 'UN',
   UNI: 'UN',
+  UNID: 'UN',
+  UNIDADE: 'UN',
   PC: 'PACOTE',
   PCT: 'PACOTE',
   PACOTE: 'PACOTE',
@@ -243,6 +245,198 @@ function identificarUnidadeDoXml(uCom) {
   return normalizarUnidadeComercial(uCom);
 }
 
+function normalizarUnidadeEntradaNfe(valor) {
+  const raw = String(valor || '').trim().toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '');
+  return MAPA_UCOM_XML[raw] || raw;
+}
+
+function primeiroNumeroPositivo(...valores) {
+  for (const valor of valores) {
+    const numero = num(valor, 4);
+    if (numero > 0) return numero;
+  }
+  return 0;
+}
+
+function precoComercialDaNota(item = {}, quantidadeComercial = 0) {
+  const explicito = primeiroNumeroPositivo(
+    item.preco_unitario_comercial,
+    item.vUnCom,
+    item.preco_apresentacao
+  );
+  if (explicito > 0) return explicito;
+  const total = primeiroNumeroPositivo(
+    item.valor_total_embalagem,
+    item.subtotal,
+    item.valor_total
+  );
+  if (total > 0 && quantidadeComercial > 0) return num(total / quantidadeComercial, 4);
+  return num(item.preco_unitario, 4);
+}
+
+/**
+ * NF-e lançada na unidade de estoque, mas no preço do pacote cadastrado.
+ * Ex.: 1 UN a R$ 615, com pacote ×100 e custo unitário R$ 6,15 → 100 UN a R$ 6,15.
+ * Não vale para CX/FD/KG nem quando qTrib já informa outra quantidade de estoque.
+ */
+function fatorPacotePeloPrecoDaEmbalagem(item, produto, unidadeComercial, unidadeEstoque, quantidadeComercial, quantidadeTributavel) {
+  if (Number(produto?.compra_por_embalagem || 0) !== 1) return 0;
+  const fator = num(produto?.quantidade_por_embalagem, 4);
+  const precoPacote = num(produto?.valor_compra_embalagem, 4);
+  const precoUnitario = num(produto?.preco_compra, 4);
+  if (!(fator > 1) || !(precoPacote > 0) || !Number.isFinite(Number(produto?.preco_compra))) return 0;
+
+  const unidadePacote = normalizarUnidadeEntradaNfe(produto?.unidade_comercial || 'PACOTE');
+  const unidadeCompativel = unidadeComercial === unidadeEstoque
+    || unidadeComercial === unidadePacote
+    || unidadeComercial === 'PACOTE';
+  if (!unidadeCompativel) return 0;
+  if (quantidadeTributavel > 0 && quantidadeComercial > 0
+      && Math.abs(quantidadeTributavel - quantidadeComercial) > 0.001) {
+    return 0;
+  }
+
+  const precoXml = precoComercialDaNota(item, quantidadeComercial);
+  if (!(precoXml > 0)) return 0;
+  if (!(Math.abs(precoXml - precoPacote) < Math.abs(precoXml - precoUnitario))) return 0;
+  return fator;
+}
+
+function resolverQuantidadeEntradaNfe(item = {}, produto = {}, apresentacao = null) {
+  const quantidadeComercial = num(
+    item.quantidade_comercial ?? item.quantidade_embalagens ?? item.quantidade ?? item.qCom,
+    4
+  );
+  const unidadeComercialRaw = item.unidade_comercial || item.uCom || item.unidade || 'UN';
+  const unidadeTributavelRaw = item.unidade_tributavel || item.uTrib || '';
+  const unidadeComercial = normalizarUnidadeEntradaNfe(unidadeComercialRaw);
+  const apresentacoes = Array.isArray(produto?.embalagens) ? produto.embalagens : [];
+  const apresentacaoCorrespondente = apresentacao || apresentacoes.find((opcao) =>
+    Number(opcao?.ativa ?? 1) === 1
+      && Number(opcao?.compra ?? 1) === 1
+      && normalizarUnidadeEntradaNfe(opcao.tipo || opcao.unidade_comercial) === unidadeComercial
+  ) || null;
+  const unidadeEstoqueRaw = apresentacaoCorrespondente?.unidade
+    || produto?.unidade
+    || item.unidade_estoque
+    || item.unidade
+    || unidadeComercialRaw;
+  const unidadeTributavel = normalizarUnidadeEntradaNfe(unidadeTributavelRaw);
+  const unidadeEstoque = normalizarUnidadeEntradaNfe(unidadeEstoqueRaw);
+  const quantidadeTributavel = num(
+    item.quantidade_tributavel ?? item.qTrib,
+    4
+  );
+
+  let fator = num(
+    apresentacaoCorrespondente?.quantidade
+      ?? apresentacaoCorrespondente?.quantidade_por_embalagem
+      ?? item.quantidade_por_embalagem
+      ?? item.fator_conversao
+      ?? 0,
+    4
+  );
+
+  if (!(fator > 0) && produto && normalizarUnidadeEntradaNfe(produto.unidade_comercial) === unidadeComercial) {
+    fator = num(produto.quantidade_por_embalagem, 4);
+  }
+
+  const fatorPacote = fatorPacotePeloPrecoDaEmbalagem(
+    item,
+    produto,
+    unidadeComercial,
+    unidadeEstoque,
+    quantidadeComercial,
+    quantidadeTributavel
+  );
+  if (!(fator > 1) && fatorPacote > 1) {
+    fator = fatorPacote;
+  }
+  const pacotePeloPreco = fatorPacote > 1 && Math.abs(fator - fatorPacote) < 0.001;
+  const qTribRepeteQuantidadeComercial = quantidadeComercial > 0
+    && quantidadeTributavel > 0
+    && Math.abs(quantidadeTributavel - quantidadeComercial) <= 0.001;
+
+  if (unidadeComercial === unidadeEstoque && !pacotePeloPreco) {
+    return {
+      ok: true,
+      origem: 'QCOM_UNIDADE_ESTOQUE',
+      quantidadeComercial,
+      quantidadeEstoque: quantidadeComercial,
+      unidadeComercial,
+      unidadeEstoque,
+      fatorConversao: 1,
+      apresentacaoId: apresentacaoCorrespondente?.id || null
+    };
+  }
+
+  if (fator > 0) {
+    const divisor = String(apresentacaoCorrespondente?.tipoConversao || item.tipo_conversao || '').toUpperCase() === 'DIVISOR';
+    const quantidadeConvertida = num(
+      divisor ? quantidadeComercial / fator : quantidadeComercial * fator,
+      4
+    );
+
+    if (quantidadeTributavel > 0 && unidadeTributavel === unidadeEstoque
+        && !(pacotePeloPreco && qTribRepeteQuantidadeComercial)
+        && Math.abs(quantidadeConvertida - quantidadeTributavel) > 0.001) {
+      return {
+        ok: false,
+        codigo: 'DIVERGENCIA_QTRIB_FATOR',
+        erro: `qTrib (${quantidadeTributavel} ${unidadeTributavel}) diverge da conversão cadastrada (${quantidadeConvertida} ${unidadeEstoque}).`,
+        quantidadeComercial,
+        quantidadeTributavel,
+        quantidadeConvertida,
+        unidadeComercial,
+        unidadeEstoque,
+        fatorConversao: fator,
+        apresentacaoId: apresentacaoCorrespondente?.id || null
+      };
+    }
+
+    return {
+      ok: true,
+      origem: 'FATOR_APRESENTACAO',
+      quantidadeComercial,
+      quantidadeEstoque: quantidadeConvertida,
+      unidadeComercial,
+      unidadeEstoque,
+      fatorConversao: fator,
+      apresentacaoId: apresentacaoCorrespondente?.id || null
+    };
+  }
+
+  if (quantidadeTributavel > 0 && unidadeTributavel === unidadeEstoque) {
+    return {
+      ok: true,
+      origem: 'QTRIB_UNIDADE_ESTOQUE',
+      quantidadeComercial,
+      quantidadeEstoque: quantidadeTributavel,
+      unidadeComercial,
+      unidadeEstoque,
+      fatorConversao: quantidadeComercial > 0
+        ? num(quantidadeTributavel / quantidadeComercial, 4)
+        : 0,
+      apresentacaoId: null
+    };
+  }
+
+  return {
+    ok: false,
+    codigo: 'FATOR_CONVERSAO_AUSENTE',
+    erro: `Não há conversão confirmada de ${unidadeComercial} para ${unidadeEstoque}; informe uma apresentação/fator ou um qTrib compatível.`,
+    quantidadeComercial,
+    quantidadeTributavel,
+    unidadeComercial,
+    unidadeEstoque,
+    fatorConversao: 0,
+    apresentacaoId: null
+  };
+}
+
 function listarUnidadesComerciais() {
   return UNIDADES_COMERCIAIS.map((codigo) => ({
     codigo,
@@ -260,6 +454,8 @@ module.exports = {
   calcularCompraEmbalagem,
   calcularFormacaoPrecoCadastro,
   identificarUnidadeDoXml,
+  normalizarUnidadeEntradaNfe,
+  resolverQuantidadeEntradaNfe,
   listarUnidadesComerciais,
   num,
   moeda

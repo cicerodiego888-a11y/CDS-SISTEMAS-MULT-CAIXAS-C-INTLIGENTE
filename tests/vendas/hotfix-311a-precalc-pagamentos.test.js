@@ -26,8 +26,12 @@ describe('Hotfix 3.11A — pré-cálculo com pagamentos', () => {
 
   it('não altera assinatura do ramo TEF (3.11B fora de escopo)', () => {
     const src = fs.readFileSync(PDV, 'utf8');
-    assert.match(src, /processarVendaFiscalNaoFiscal\(dados,\s*totalFiscal\)/);
-    assert.match(src, /deveUsarTefAutomatico && totalFiscal > 0/);
+    assert.match(src, /async function processarVendaFiscalNaoFiscal\(dadosVenda,\s*totalFiscal\)/);
+    assert.match(
+      src,
+      /if \(fluxoAB\.abrirA\) \{\s*if \(deveUsarTefAutomatico && !ehPagamentoMisto\) \{\s*const resultadoProcessamento = await processarVendaFiscalNaoFiscal\(dados,\s*fluxoAB\.valorA\)/
+    );
+    assert.match(src, /const abrirA = a > 0;/);
   });
 
   it('backend do pré-cálculo já consome req.body.pagamentos', () => {

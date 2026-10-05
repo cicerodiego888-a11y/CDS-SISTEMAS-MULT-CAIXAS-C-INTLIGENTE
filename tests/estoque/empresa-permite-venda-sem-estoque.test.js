@@ -84,24 +84,24 @@ describe('empresa_permite_venda_sem_estoque', () => {
     }
   });
 
-  it('motor distribui extra no saldo prioritário sem bloquear', () => {
+  it('motor permite vender acima do disponível sem converter excedente em A ou B', () => {
     const faixaOff = obterFaixaQuantidadeFiscal(10, 2, 3);
     assert.equal(faixaOff.sucesso, false);
 
     const faixa = obterFaixaQuantidadeFiscal(10, 2, 3, { permitirVendaSemEstoque: true });
     assert.equal(faixa.sucesso, true);
     assert.equal(faixa.quantidadeFiscalMin, 2);
-    assert.equal(faixa.quantidadeFiscalMax, 7);
+    assert.equal(faixa.quantidadeFiscalMax, 2);
 
     const fiscal = distribuirQuantidadeVenda(10, 2, 3, true, { permitirVendaSemEstoque: true });
     assert.equal(fiscal.sucesso, true);
-    assert.equal(fiscal.quantidadeFiscal, 7);
+    assert.equal(fiscal.quantidadeFiscal, 2);
     assert.equal(fiscal.quantidadeNaoFiscal, 3);
 
     const naoFiscal = distribuirQuantidadeVenda(10, 2, 3, false, { permitirVendaSemEstoque: true });
     assert.equal(naoFiscal.sucesso, true);
     assert.equal(naoFiscal.quantidadeFiscal, 2);
-    assert.equal(naoFiscal.quantidadeNaoFiscal, 8);
+    assert.equal(naoFiscal.quantidadeNaoFiscal, 3);
   });
 
   it('seed e UI existem no Centro de Configurações', () => {

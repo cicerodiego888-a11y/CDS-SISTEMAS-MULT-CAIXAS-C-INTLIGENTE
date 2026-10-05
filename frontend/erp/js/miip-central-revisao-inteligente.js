@@ -479,12 +479,17 @@
 
   function normalizarPaineis(raw) {
     const src = raw && typeof raw === 'object' ? raw : {};
-    return {
+    const painel = {
       dashboardComercial: src.dashboardComercial !== false,
       historicoComercial: src.historicoComercial !== false,
-      ultimasCompras: src.ultimasCompras !== false,
-      identificadores: src.identificadores !== false
+      ultimasCompras: src.ultimasCompras !== false
     };
+
+    if (Object.prototype.hasOwnProperty.call(src, 'identificadores')) {
+      painel.identificadores = src.identificadores !== false;
+    }
+
+    return painel;
   }
 
   function painelExpandido(paineis, id) {
@@ -504,27 +509,33 @@
    * @returns {{ modoFoco: boolean, paineis: Object, _focoSnapshot: Object|null }}
    */
   function aplicarModoFocoLayout(estadoLayout, ativar) {
-    const paineis = normalizarPaineis(estadoLayout?.paineis);
+    const paineisRaw = estadoLayout?.paineis && typeof estadoLayout.paineis === 'object'
+      ? { ...estadoLayout.paineis }
+      : {};
+    const paineis = normalizarPaineis(paineisRaw);
     const modoAtual = estadoLayout?.modoFoco === true;
     const snapshot = estadoLayout?._focoSnapshot || null;
 
     if (ativar && !modoAtual) {
       return {
         modoFoco: true,
-        paineis: { ...paineis },
-        _focoSnapshot: { paineis: { ...paineis } }
+        paineis: { ...paineisRaw },
+        _focoSnapshot: { paineis: { ...paineisRaw } }
       };
     }
     if (!ativar && modoAtual) {
+      const restaurar = snapshot?.paineis && typeof snapshot.paineis === 'object'
+        ? { ...snapshot.paineis }
+        : { ...paineisRaw };
       return {
         modoFoco: false,
-        paineis: normalizarPaineis(snapshot?.paineis || paineis),
+        paineis: restaurar,
         _focoSnapshot: null
       };
     }
     return {
       modoFoco: modoAtual,
-      paineis,
+      paineis: { ...paineisRaw },
       _focoSnapshot: snapshot
     };
   }

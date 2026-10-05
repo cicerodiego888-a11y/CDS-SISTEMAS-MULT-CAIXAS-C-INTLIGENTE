@@ -22,11 +22,16 @@ class PluStrategy extends IdentidadeStrategyBase {
   }
 
   canHandle(codigo, contexto, deteccao) {
-    const candidatos = deteccao?.candidatos || [];
-    if (candidatos.includes(TIPOS_IDENTIFICADOR.PLU)) return true;
     if (contexto?.tipoForcado === TIPOS_IDENTIFICADOR.PLU) return true;
-    const digitos = deteccao?.digitos || String(codigo || '').replace(/\D/g, '');
-    // PLU curto (1–6); não compete com etiqueta 13 dígitos
+    const candidatos = deteccao?.candidatos || [];
+    const bruto = String(codigo ?? deteccao?.bruto ?? '').trim();
+    const digitos = String(deteccao?.digitos || bruto.replace(/\D/g, ''));
+    const soDigitos = digitos.length > 0 && digitos === bruto.replace(/\s/g, '');
+    // Nome comercial ("Tipo 1 Pop 1 kg") junta dígitos → "11". Isso NÃO é PLU.
+    if (!soDigitos && !candidatos.includes(TIPOS_IDENTIFICADOR.PLU)) {
+      return false;
+    }
+    if (candidatos.includes(TIPOS_IDENTIFICADOR.PLU)) return true;
     return digitos.length >= 1 && digitos.length <= 6 && !/^2\d{12}$/.test(digitos);
   }
 

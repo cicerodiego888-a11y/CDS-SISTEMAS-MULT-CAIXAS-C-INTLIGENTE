@@ -45,9 +45,10 @@ function test(nome, fn) {
 async function main() {
   console.log('\n=== Testes WebServiceRegistry — Sprint F2 ===\n');
 
-  await test('OFFICIAL_SERVICE_COUNT é 24', async () => {
-    assert.strictEqual(OFFICIAL_SERVICE_COUNT, 24);
-    assert.strictEqual(RegistryBuilder.getOfficialCount(), 24);
+  await test('OFFICIAL_SERVICE_COUNT é 26 (24 + NF-e Cancelamento × 2 ambientes)', async () => {
+    assert.strictEqual(OFFICIAL_SERVICE_COUNT, 26);
+    assert.strictEqual(RegistryBuilder.getOfficialCount(), 26);
+    assert.strictEqual(RegistryBuilder.listOfficialDefinitions().length, OFFICIAL_SERVICE_COUNT);
   });
 
   await test('RegistryBuilder popula quantidade oficial', async () => {
@@ -303,7 +304,7 @@ async function main() {
     assert.strictEqual(platform.getRegistry().size(), OFFICIAL_SERVICE_COUNT);
     const status = platform.getStatus();
     assert.strictEqual(status.registryEmpty, false);
-    assert.strictEqual(status.officialCount, 24);
+    assert.strictEqual(status.officialCount, 26);
     assert.strictEqual(status.transportEnabled, true);
     assert.strictEqual(status.active, true);
   });

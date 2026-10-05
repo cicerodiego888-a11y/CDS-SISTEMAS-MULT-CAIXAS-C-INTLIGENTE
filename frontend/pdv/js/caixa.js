@@ -769,8 +769,6 @@ function fecharModalDetalhesFechamento() {
 }
 
 function reimprimirFechamento(caixaId) {
-  if (!confirm('Deseja reimprimir o fechamento deste caixa?')) return;
-
   $.ajax({
     url: `${API_URL}/caixa/${caixaId}/reimprimir`,
     method: 'POST',

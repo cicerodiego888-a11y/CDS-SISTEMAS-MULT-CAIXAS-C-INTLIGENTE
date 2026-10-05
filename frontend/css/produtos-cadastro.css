@@ -53,6 +53,103 @@
   max-width: 7.5rem;
 }
 
+.cds-etiqueta-preview .modal-dialog {
+  max-width: 370px;
+}
+
+.cds-etiqueta-preview .modal-body {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+}
+
+.cds-etiqueta-preview__canvas {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 0.25rem;
+  background: #f8f9fa;
+}
+
+.etiqueta-preview__label {
+  width: 80mm;
+  max-width: 100%;
+  min-height: 31mm;
+  padding: 2mm;
+  border: 0.25mm solid #000;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 29mm;
+  grid-template-rows: auto 1fr;
+  column-gap: 2mm;
+  color: #000;
+  background: #fff;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.etiqueta-preview__label--sem-barras {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.etiqueta-preview__label .nome {
+  grid-column: 1;
+  grid-row: 1;
+  max-width: 100%;
+  margin: 0 0 1.5mm;
+  text-align: center;
+  font-size: 10pt;
+  line-height: 1.08;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.etiqueta-preview__label .dados {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.etiqueta-preview__label .preco {
+  margin: 0;
+  font-size: 22pt;
+  line-height: 1;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.etiqueta-preview__label .codigo-unidade {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 4mm;
+  row-gap: 1mm;
+  font-size: 9pt;
+  line-height: 1.1;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.etiqueta-preview__label .barcode-area {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-left: 0.2mm solid #000;
+  padding-left: 1mm;
+}
+
+.etiqueta-preview__label .barcode-area svg {
+  display: block;
+  width: 100%;
+  max-height: 25mm;
+  height: auto;
+}
+
 .cds-prod-cadastro__nome {
   width: 100%;
 }

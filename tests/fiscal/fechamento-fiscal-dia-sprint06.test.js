@@ -390,7 +390,16 @@ async function main() {
     assert.strictEqual(toCentavos(somarMoeda([125.89, 98.25, 360, 115.86])), 70000);
     const lotes = await listarLotesElegiveisDoDia(db, DATA);
     const previa = gerarPreviaDistribuicao(lotes, 100, { valorAlvo: 250, valorMin: 80, valorMax: 400 });
-    assert.ok(toCentavos(previa.valor_distribuido) <= toCentavos(previa.valor_informado) + 0);
+    const brutoCents = toCentavos(previa.valor_distribuido);
+    const informadoCents = toCentavos(previa.valor_informado);
+    if (previa.quantidade_vendas > 0) {
+      assert.ok(brutoCents >= informadoCents);
+      assert.strictEqual(toCentavos(previa.valor_final), informadoCents);
+      assert.strictEqual(toCentavos(previa.desconto), brutoCents - informadoCents);
+    } else {
+      assert.strictEqual(brutoCents, 0);
+      assert.strictEqual(previa.incompleta, true);
+    }
     assert.ok(previa.valor_distribuido >= 0);
   });
 

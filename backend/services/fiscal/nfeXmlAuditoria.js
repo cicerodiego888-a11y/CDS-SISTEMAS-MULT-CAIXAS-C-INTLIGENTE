@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const { onlyDigits } = require('./utils');
 const { resolverNomeDestinatarioNfe } = require('./nfeRetornoAutorizacao');
+const { getFiscalSubDir } = require('./paths');
 
 /** Ordem oficial dos filhos diretos de <dest> no schema NF-e 4.00. */
 const DEST_ORDEM_SCHEMA = [
@@ -24,16 +25,8 @@ const DEST_ORDEM_SCHEMA = [
 
 const DEST_TAGS_DOC = new Set(['CPF', 'CNPJ', 'idEstrangeiro']);
 
-function getProjectRoot() {
-  return path.resolve(__dirname, '../../..');
-}
-
 function getXmlEnviadoDir() {
-  const dir = path.join(getProjectRoot(), 'logs', 'nfe', 'xml-enviado');
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  return dir;
+  return getFiscalSubDir('xml-enviado');
 }
 
 function timestampArquivo(date = new Date()) {

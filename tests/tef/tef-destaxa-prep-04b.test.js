@@ -144,7 +144,9 @@ async function main() {
     const adapter = new DestaxaRealAdapter({}, { bridge });
     const resposta = await adapter.autorizarPagamento();
     assert.strictEqual(resposta.sucesso, false);
-    assert.strictEqual(resposta.codigo, 'DESTAXA_TRANSACAO_NAO_IMPLEMENTADA');
+    // TEF-DESTAXA-06B: sem provider Destaxa a pré-condição bloqueia antes da DLL.
+    assert.strictEqual(resposta.codigo, 'DESTAXA_PROVIDER_INVALIDO');
+    assert.strictEqual(resposta.transactionAttempted, false);
     assert.strictEqual(chamadaTransacional, false);
   });
 

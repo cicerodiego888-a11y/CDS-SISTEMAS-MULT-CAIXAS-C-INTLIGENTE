@@ -190,7 +190,6 @@ class SearchEngine {
       if (!interpretado.preferidoId || !this.config.get('ativarAprendizado')) return null;
       const pref = this.catalog.atomic.get(interpretado.preferidoId);
       if (!pref) return null;
-      if (modoFiscal && Number(pref.item_fiscal) !== 1) return null;
       return pref;
     };
 

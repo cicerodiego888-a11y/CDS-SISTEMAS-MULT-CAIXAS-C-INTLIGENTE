@@ -361,7 +361,8 @@ async function main() {
         throw e;
       }
     }));
-    assert.strictEqual(r.status, STATUS.EMITINDO);
+    // Timeout com possível processamento → fechamento aguarda recuperação (montarStatusFechamento).
+    assert.strictEqual(r.status, STATUS.PENDENTE_RECUPERACAO);
     const docAntes = await get(db2, `SELECT * FROM fechamentos_fiscais_documentos WHERE fechamento_fiscal_id = ? LIMIT 1`, [ff.id]);
     assert.strictEqual(docAntes.status, DOC_STATUS.ERRO_COM_POSSIVEL_PROCESSAMENTO);
 
@@ -405,9 +406,11 @@ async function main() {
       .map((d) => d.id);
     assert.ok(authIds.length >= 1);
 
-    // reprocessa: autorizados não devem ser reenviados
+    // reprocessa integral: bloqueado (AUTORIZAÇÃO PARCIAL) — autorizados não são reenviados
     let enviados = 0;
-    await transmitirFechamento(ff.id, {}, depsTx(db2, {
+    let erroReenvio = null;
+    try {
+      await transmitirFechamento(ff.id, {}, depsTx(db2, {
       enviarAutorizacao: async () => {
         enviados += 1;
         return {
@@ -417,14 +420,18 @@ async function main() {
           protocolo: '222'
         };
       }
-    }));
-    // se ainda houver rejeitados, podem ser reenviados; autorizados não incrementam call além dos rejeitados
-    const aindaAuth = await all(db2, `SELECT id, protocolo FROM fechamentos_fiscais_documentos WHERE id IN (${authIds.map(() => '?').join(',')})`, authIds);
+      }));
+    } catch (e) { erroReenvio = e; }
+    assert.ok(erroReenvio);
+    assert.strictEqual(erroReenvio.code, 'FECHAMENTO_AUTORIZACAO_PARCIAL');
+    const aindaAuth = await all(db2, `SELECT id, protocolo, status FROM fechamentos_fiscais_documentos WHERE id IN (${authIds.map(() => '?').join(',')})`, authIds);
+    assert.strictEqual(aindaAuth.length, authIds.length);
     for (const a of aindaAuth) {
-      assert.ok(a.protocolo === '111' || a.protocolo); // protocolo original preservado se não retransmitiu
+      assert.strictEqual(a.status, DOC_STATUS.AUTORIZADO);
+      assert.strictEqual(String(a.protocolo), '111');
     }
     assert.ok(docs.length >= 2);
-    assert.ok(enviados <= docs.length - authIds.length + 1);
+    assert.strictEqual(enviados, 0);
   });
 
   await test('16-21 — Estoque/financeiro/caixa/vendas/dashboard/margem inalterados', async () => {
@@ -438,8 +445,13 @@ async function main() {
   });
 
   await test('22 — Data de referência preservada', async () => {
+    await run(db2, `UPDATE fechamentos_fiscais SET status = 'CANCELADO'`);
+    const pronto = await montarProntoEmissao(db2);
+    const tx = await transmitirFechamento(pronto.id, {}, depsTx(db2));
+    assert.strictEqual(tx.status, STATUS.AUTORIZADO);
     const ff = await get(db2, `SELECT * FROM fechamentos_fiscais WHERE status = 'AUTORIZADO' ORDER BY id DESC LIMIT 1`);
     assert.ok(ff);
+    assert.strictEqual(Number(ff.id), Number(pronto.id));
     assert.strictEqual(ff.data_referencia_comercial || ff.data_fechamento, '2026-09-11');
   });
 

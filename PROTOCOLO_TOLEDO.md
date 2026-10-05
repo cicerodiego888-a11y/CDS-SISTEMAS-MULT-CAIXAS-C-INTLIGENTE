@@ -3,7 +3,7 @@
 > **Aviso:** Documento gerado automaticamente pelo CDS. Não constitui especificação oficial.
 > Baseado em capturas TCP entre MGV7 e balança. Hipóteses devem ser validadas.
 
-**Última atualização:** 2026-07-10T19:35:49.959Z
+**Última atualização:** 2026-09-30T03:32:44.022Z
 
 ---
 
@@ -21,11 +21,11 @@
 
 ### Frame #0 (TX) — categoria: `ping`
 
-- HEX: `02 50 4E 1C 7B 22 74 73 22 3A 31 37 38 33 37 31 32 31 34 39 39 32 35 7D 03`
+- HEX: `02 50 4E 1C 7B 22 74 73 22 3A 31 37 39 30 37 33 39 31 36 33 39 32 39 7D 03`
 
 ### Frame #1 (RX) — categoria: `desconhecido`
 
-- HEX: `02 41 4B 1C 7B 22 6F 6B 22 3A 74 72 75 65 2C 22 63 6F 6D 61 6E 64 6F 22 3A 22 50 4E 22 2C 22 72 65 66 65 72 65 6E 63 69 61 22 3A 7B 22 74 73 22 3A 31 37 38 33 37 31 32 31 34 39 39 32 35 7D 7D 03`
+- HEX: `02 41 4B 1C 7B 22 6F 6B 22 3A 74 72 75 65 2C 22 63 6F 6D 61 6E 64 6F 22 3A 22 50 4E 22 2C 22 72 65 66 65 72 65 6E 63 69 61 22 3A 7B 22 74 73 22 3A 31 37 39 30 37 33 39 31 36 33 39 32 39 7D 7D 03`
 
 ## Comandos identificados (hipótese)
 

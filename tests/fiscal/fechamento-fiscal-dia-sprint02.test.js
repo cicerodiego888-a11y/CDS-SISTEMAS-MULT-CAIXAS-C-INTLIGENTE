@@ -165,9 +165,9 @@ async function main() {
     assert.ok(pastel.quantidade_utilizada <= pastel.quantidade_vendida + 0.0001);
   });
 
-  await test('Teste 06 — Produto não vendido não utilizado', async () => {
+  await test('Teste 06 — Produto fiscal não vendido pode participar', async () => {
     const previa = gerarPreviaDistribuicao(lotes, 700, { valorAlvo: 250 });
-    assert.ok(!(previa.itensUtilizados || []).some((p) => p.produto_id === 6));
+    assert.ok(previa.porProduto.some((p) => p.produto_id === 6));
   });
 
   await test('Teste 07 — Produto não fiscal não utilizado', async () => {
@@ -182,7 +182,8 @@ async function main() {
     const lotesSemCaro = lotes.filter((l) => l.produto_id !== 8);
     const previa = gerarPreviaDistribuicao(lotesSemCaro, 10000, { valorAlvo: 250 });
     assert.strictEqual(previa.incompleta, true);
-    assert.strictEqual(previa.codigo, 'CAPACIDADE_INSUFICIENTE');
+    assert.ok(['CAPACIDADE_INSUFICIENTE', 'ABAIXO_DO_ALVO'].includes(previa.codigo));
+    assert.strictEqual(previa.quantidade_vendas, 0);
     assert.ok(previa.mensagem.includes('Valor máximo elegível'));
     assert.ok(toCentavos(previa.valor_distribuido) <= toCentavos(previa.valor_elegivel));
   });
@@ -193,12 +194,15 @@ async function main() {
     assert.strictEqual(previa.vendas.length, 0);
   });
 
-  await test('Teste 10 — Produto unitário superior ao alvo total não quebra unidade', async () => {
+  await test('Teste 10 — Produto unitário acima do alvo mantém desconto sem fracionar', async () => {
     const soCaro = lotes.filter((l) => l.produto_id === 8);
     const previa = gerarPreviaDistribuicao(soCaro, 700, { valorAlvo: 250 });
-    assert.ok(['CAPACIDADE_INSUFICIENTE', 'UNIDADE_SUPERIOR'].includes(previa.codigo));
-    assert.strictEqual(toCentavos(previa.valor_distribuido), 0);
-    assert.strictEqual(previa.vendas.length, 0);
+    assert.strictEqual(previa.valor_informado, 700);
+    assert.strictEqual(previa.valor_distribuido, 1000);
+    assert.strictEqual(previa.desconto, 300);
+    assert.strictEqual(previa.valor_final, 700);
+    assert.strictEqual(previa.vendas.length, 1);
+    assert.strictEqual(previa.vendas[0].itens[0].quantidade, 1);
   });
 
   let fechamentoId;

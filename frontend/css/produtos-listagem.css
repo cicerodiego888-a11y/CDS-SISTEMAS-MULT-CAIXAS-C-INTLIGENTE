@@ -47,7 +47,25 @@
 
 .cds-prod-lista .cds-prod-tree__table-wrap .table tbody tr,
 .cds-prod-lista #tabela-produtos-container .table tbody tr {
-  height: var(--cds-prod-row);
+  height: auto;
+  min-height: var(--cds-prod-row);
+}
+
+.cds-prod-lista .estoque-lista-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.05rem;
+  line-height: 1.25;
+}
+
+.cds-prod-lista .estoque-lista-valor {
+  white-space: nowrap;
+}
+
+.cds-prod-lista .estoque-lista-composicao {
+  font-size: 0.92em;
+  white-space: nowrap;
 }
 
 .cds-prod-lista .cds-prod-tree__table-wrap .table td .btn,

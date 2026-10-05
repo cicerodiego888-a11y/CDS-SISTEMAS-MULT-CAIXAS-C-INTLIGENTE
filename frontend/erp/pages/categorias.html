@@ -22,6 +22,8 @@
         <th>Nome</th>
         <th>Tipo</th>
         <th>Descrição</th>
+        <th>Estoque</th>
+        <th>Comercial</th>
         <th>Ações</th>
       </tr>
     </thead>
@@ -76,6 +78,31 @@
             <option value="despesa">Despesa</option>
           </select>
         </div>
+        <div class="mb-3" id="area-padroes-categoria">
+          <label class="form-label">Controle de estoque</label>
+          <div class="d-flex flex-wrap gap-3 mb-2">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="categoria-padrao-estoque" id="categoria-estoque-controlado" value="1" checked>
+              <label class="form-check-label" for="categoria-estoque-controlado">Controlado</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="categoria-padrao-estoque" id="categoria-estoque-nao-controlado" value="0">
+              <label class="form-check-label" for="categoria-estoque-nao-controlado">Não controlado</label>
+            </div>
+          </div>
+          <label class="form-label">Controle comercial</label>
+          <div class="d-flex flex-wrap gap-3">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="categoria-padrao-comercial" id="categoria-comercial-padrao" value="PADRAO" checked>
+              <label class="form-check-label" for="categoria-comercial-padrao">Padrão</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="categoria-padrao-comercial" id="categoria-comercial-alternativo" value="ALTERNATIVO">
+              <label class="form-check-label" for="categoria-comercial-alternativo">Alternativo</label>
+            </div>
+          </div>
+          <div class="form-text">Define apenas o valor inicial de produtos novos. Produtos já cadastrados não são alterados.</div>
+        </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -111,150 +138,3 @@
   </div>
 </div>
 <script src="js/subcategorias.js"></script>
-<script>
-
-  // Atualizar select de categorias ao abrir o modal de subcategoria
-  $(document).ready(function() {
-    $('#modal-subcategoria').on('show.bs.modal', function () {
-      if (typeof atualizarSelectCategoriasSubcategoria === 'function') {
-        atualizarSelectCategoriasSubcategoria();
-      }
-    });
-
-    // Listener para filtro de tipo de categoria
-    $('#filtro-tipo-categoria').on('change', function() {
-      const tipoSelecionado = $(this).val();
-      
-      // Esconder subcategorias se estiver selecionado "despesa"
-      if (tipoSelecionado === 'despesa') {
-        $('#subcategorias-section').hide();
-        // Desabilitar botão de nova subcategoria também
-        $('button[data-bs-target="#modal-subcategoria"]').prop('disabled', true);
-      } else {
-        $('#subcategorias-section').show();
-        // Habilitar botão de nova subcategoria
-        $('button[data-bs-target="#modal-subcategoria"]').prop('disabled', false);
-      }
-      
-      loadCategorias();
-    });
-
-    // Inicializar visibilidade das subcategorias
-    const tipoInicial = $('#filtro-tipo-categoria').val();
-    if (tipoInicial === 'despesa') {
-      $('#subcategorias-section').hide();
-      $('button[data-bs-target="#modal-subcategoria"]').prop('disabled', true);
-    }
-  });
-
-  function atualizarSelectCategoriasSubcategoria() {
-    categoriasAPI.listar('produto').done(function(categorias) {
-      let options = '';
-      categorias.forEach(cat => {
-        options += `<option value="${cat.id}">${cat.nome}</option>`;
-      });
-      $('#subcategoria-categoria-id').html(options);
-    });
-  }
-
-  function loadCategoriasAndSubcategorias() {
-    loadCategorias();
-    loadSubcategorias();
-    atualizarSelectCategoriasSubcategoria();
-  }
-
-  function loadSubcategorias() {
-    // Buscar categorias para mapear id -> nome
-    categoriasAPI.listar('produto').done(function(categorias) {
-      const mapCat = {};
-      categorias.forEach(cat => { mapCat[cat.id] = cat.nome; });
-      subcategoriasAPI.listar().done(function(subcats) {
-        let html = '';
-        subcats.forEach(sub => {
-          html += `<tr>
-            <td>${sub.id}</td>
-            <td>${sub.nome}</td>
-            <td>${mapCat[sub.categoria_id] || '-'}</td>
-            <td>
-              <button class="btn btn-sm btn-primary" onclick="editarSubcategoria(${sub.id})">Editar</button>
-              <button class="btn btn-sm btn-danger" onclick="excluirSubcategoria(${sub.id})">Excluir</button>
-            </td>
-          </tr>`;
-        });
-        $('#subcategorias-tbody').html(html);
-      });
-    });
-  }
-
-  function criarOuSalvarSubcategoria() {
-    const id = $('#subcategoria-id').val();
-    const nome = $('#subcategoria-nome').val().trim();
-    const categoria_id = $('#subcategoria-categoria-id').val();
-    if (!nome || !categoria_id) {
-      alert('Nome e categoria são obrigatórios!');
-      return;
-    }
-    if (id) {
-      subcategoriasAPI.atualizar(id, { nome, categoria_id }).done(() => {
-        $('#modal-subcategoria').modal('hide');
-        $('#subcategoria-nome').val('');
-        $('#subcategoria-id').val('');
-        loadSubcategorias();
-      }).fail(err => {
-        alert('Erro ao atualizar subcategoria: ' + (err.responseJSON?.erro || err.statusText));
-      });
-    } else {
-      subcategoriasAPI.criar({ nome, categoria_id }).done(() => {
-        $('#modal-subcategoria').modal('hide');
-        $('#subcategoria-nome').val('');
-        $('#subcategoria-id').val('');
-        loadSubcategorias();
-      }).fail(err => {
-        alert('Erro ao criar subcategoria: ' + (err.responseJSON?.erro || err.statusText));
-      });
-    }
-  }
-
-  function editarSubcategoria(id) {
-    subcategoriasAPI.listar().done(function(subcats) {
-      const sub = subcats.find(s => s.id == id);
-      if (!sub) return;
-      $('#subcategoria-nome').val(sub.nome);
-      $('#subcategoria-categoria-id').val(sub.categoria_id);
-      $('#subcategoria-id').val(sub.id);
-      $('#modal-subcategoria').modal('show');
-    });
-  }
-
-  function excluirSubcategoria(id) {
-    if (!confirm('Deseja realmente excluir esta subcategoria?')) return;
-    subcategoriasAPI.excluir(id).done(() => {
-      loadSubcategorias();
-    }).fail(err => {
-      alert('Erro ao excluir subcategoria: ' + (err.responseJSON?.erro || err.statusText));
-    });
-  }
-
-  $(document).ready(function() {
-    // Adiciona campo hidden para id da subcategoria se não existir
-    if ($('#subcategoria-id').length === 0) {
-      $('<input type="hidden" id="subcategoria-id">').prependTo($('#modal-subcategoria .modal-body'));
-    }
-    // Botão salvar categoria: decide se cria ou atualiza
-    $('#btn-salvar-categoria').off('click').on('click', function() {
-      const id = $('#categoria-id').val();
-      if (id) {
-        salvarCategoria();
-      } else {
-        criarCategoria();
-      }
-    });
-    // Botão salvar subcategoria: decide se cria ou atualiza
-    $('#btn-salvar-subcategoria').off('click').on('click', criarOuSalvarSubcategoria);
-    var shellHost = document.getElementById('categorias-page-shell');
-    if (shellHost && window.CdsPageShell && typeof CdsPageShell.renderHeader === 'function') {
-      shellHost.innerHTML = CdsPageShell.renderHeader({ page: 'categorias' });
-    }
-    loadCategoriasAndSubcategorias();
-  });
-</script>

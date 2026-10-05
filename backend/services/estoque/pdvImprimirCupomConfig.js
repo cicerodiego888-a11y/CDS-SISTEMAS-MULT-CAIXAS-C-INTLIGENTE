@@ -128,13 +128,25 @@ function salvar(db, valorEntrada, callback) {
 }
 
 function exigirSuperAdminAlteracao(req, res, next) {
-  const perfilLogado = String(req.user?.perfil || '').toUpperCase();
-  if (perfilLogado !== 'SUPER_ADMIN') {
-    return res.status(403).json({
-      error: 'Apenas SUPER USUÁRIO pode alterar esta configuração.',
-      erro: 'Apenas SUPER USUÁRIO pode alterar esta configuração.'
+  if (!req || !req.user) {
+    return res.status(401).json({
+      error: 'Usuário não autenticado.',
+      erro: 'Usuário não autenticado.'
     });
   }
+
+  const perfilLogado = String(req.user?.perfil || req.user?.nivel || '').toUpperCase();
+  const roleLogado = String(req.user?.role || '').toLowerCase();
+  const permite = ['SUPER_ADMIN', 'ADMIN', 'OPERADOR'].includes(perfilLogado)
+    || ['admin', 'operador'].includes(roleLogado);
+
+  if (!permite) {
+    return res.status(403).json({
+      error: 'Apenas SUPER ADMIN, ADMIN ou OPERADOR podem alterar esta configuração.',
+      erro: 'Apenas SUPER ADMIN, ADMIN ou OPERADOR podem alterar esta configuração.'
+    });
+  }
+
   return next();
 }
 

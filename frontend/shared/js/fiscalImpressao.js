@@ -44,17 +44,73 @@ ${qtd} x R$ ${preco.toFixed(2).replace('.', ',')} = R$ ${subtotal.toFixed(2).rep
 `;
 }
 
-async function obterDeviceNameImpressoraCupom() {
+async function obterCaixaAtualParaResolucaoImpressora() {
     try {
-        const token = localStorage.getItem('token');
-        const resp = await fetch(`${API_URL}/configuracoes/impressora_cupom`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await resp.json();
-        return data.caminho || null;
+        const api = (typeof window !== 'undefined' && window.ObterCaixaAtual)
+            || (typeof globalThis !== 'undefined' && globalThis.ObterCaixaAtual);
+        if (api && typeof api.obterCaixaAtual === 'function') {
+            const resultado = await api.obterCaixaAtual();
+            if (resultado && resultado.ok && resultado.caixaId) {
+                return Number(resultado.caixaId);
+            }
+        }
+
+        if (typeof globalThis !== 'undefined' && typeof globalThis.obterCaixaAtual === 'function') {
+            const resultado = await globalThis.obterCaixaAtual();
+            if (resultado && resultado.ok && resultado.caixaId) {
+                return Number(resultado.caixaId);
+            }
+        }
     } catch (e) {
-        return null;
+        // Mantém fallback legado sem quebrar o fluxo atual.
     }
+    return null;
+}
+
+async function resolverImpressoraDoCaixa(caixaId = null) {
+    const caixaAtualId = caixaId || await obterCaixaAtualParaResolucaoImpressora();
+    const token = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || '';
+    const headers = { Authorization: `Bearer ${token}` };
+
+    if (caixaAtualId) {
+        try {
+            const resp = await fetch(`${API_URL}/caixas/${caixaAtualId}/impressora-cupom`, {
+                headers
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (resp.ok && data && Object.prototype.hasOwnProperty.call(data, 'deviceName')) {
+                return {
+                    configurada: data.configurada === true,
+                    deviceName: data.deviceName || null,
+                    fallback: data.fallback || null
+                };
+            }
+        } catch (e) {
+            // Preserva o fallback legado se a API do caixa estiver indisponível.
+        }
+
+        return { configurada: false, deviceName: null };
+    }
+
+    try {
+        const resp = await fetch(`${API_URL}/configuracoes/impressora_cupom`, {
+            headers
+        });
+        const data = await resp.json().catch(() => ({}));
+        const legado = data && data.caminho ? data.caminho : null;
+        if (legado) {
+            return { configurada: false, deviceName: legado, fallback: legado };
+        }
+    } catch (e) {
+        // Sem impressora global e sem caixa configurado.
+    }
+
+    return { configurada: false, deviceName: null };
+}
+
+async function obterDeviceNameImpressoraCupom() {
+    const resolucao = await resolverImpressoraDoCaixa();
+    return resolucao?.deviceName || null;
 }
 
 async function obterDadosEmpresaCupom() {
@@ -84,7 +140,8 @@ async function obterDadosEmpresaCupom() {
 
         return {
             nome_empresa: map.nome_empresa || (typeof BrandService !== 'undefined' ? BrandService.NOME : 'CDS Sistemas'),
-            endereco: partes.join(', ')
+            endereco: partes.join(', '),
+            papel_mm: Number(map.fiscal_danfe_largura_mm) === 58 ? 58 : 80
         };
     } catch (e) {
         return { nome_empresa: (typeof BrandService !== 'undefined' ? BrandService.NOME : 'CDS Sistemas'), endereco: '' };
@@ -143,7 +200,12 @@ function montarHtmlCupomNaoFiscal(vendaId, venda, total, desconto) {
     }[venda.forma_pagamento] || venda.forma_pagamento || '-';
 
     const clienteNome = venda.cliente_nome || '';
-    const linha = '------------------------------------------------';
+    const papelMm = Number(venda.papel_mm) === 58 ? 58 : 80;
+    const colunas = papelMm === 58 ? 32 : 48;
+    const linha = '-'.repeat(colunas);
+    const cabecalhoItens = papelMm === 58
+        ? 'Item         Qtd Vl.Unit Total'
+        : 'Item                 Qtd Vl.Unit Total';
     const itensHtml = (venda.itens || []).map((item) => formatarHtmlItemCupom(item)).join('');
 
     const totalNum = Number(total || 0);
@@ -165,19 +227,32 @@ Troco: R$ ${troco.toFixed(2).replace('.', ',')}
 `
         : '';
 
-    return `
-<pre style="
-  font-family: monospace;
-  font-size: 13px;
-  font-weight: 700;
-  color: #000;
-  background: #fff;
-  width: 300px;
-  margin: 0 auto;
-  white-space: pre-wrap;
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
-">
+    return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<style>
+  @page { margin: 0; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  pre.cupom-nao-fiscal {
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: #000;
+    background: #fff;
+    width: ${colunas}ch;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 1.5mm 0 2mm;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+</style>
+</head>
+<body class="cupom-nao-fiscal-${papelMm}">
+<pre class="cupom-nao-fiscal">
         ${escapeHtmlCupom(venda.nome_empresa || (typeof BrandService !== 'undefined' ? BrandService.NOME : 'CDS Sistemas'))}
 ${escapeHtmlCupom(venda.endereco || '')}
 
@@ -186,7 +261,7 @@ Venda #${vendaId}
 ${dataHora}
 
 ${linha}
-Item                 Qtd Vl.Unit Total
+${cabecalhoItens}
 ${itensHtml}
 ${linha}
 Total: R$ ${totalNum.toFixed(2).replace('.', ',')}
@@ -198,7 +273,8 @@ ESTE COMPROVANTE NÃO POSSUI VALOR FISCAL
 OBRIGADO PELA PREFERÊNCIA!
 VOLTE SEMPRE.
 </pre>
-`;
+</body>
+</html>`;
 }
 
 async function apresentarCupomNaTela(htmlTela, htmlImpressao, opcoes) {
@@ -343,7 +419,8 @@ async function imprimirDANFEFiscal(vendaId, opcoes) {
 
         const automatico = !!(opcoes && opcoes.automatico);
         const reimpressao = !!(opcoes && opcoes.reimpressao) || (!automatico && deveEnviarCupomParaImpressora(opcoes));
-        await apresentarCupomNaTela(htmlDanfe, htmlTermico || htmlDanfe, {
+        const htmlCupom = htmlTermico || htmlDanfe;
+        await apresentarCupomNaTela(htmlCupom, htmlCupom, {
             tipo: 'FISCAL',
             vendaId,
             automatico,
@@ -419,6 +496,7 @@ async function reimprimirCupomNaoFiscalHistorico(vendaId) {
     }
 }
 
+window.resolverImpressoraDoCaixa = resolverImpressoraDoCaixa;
 window.obterDeviceNameImpressoraCupom = obterDeviceNameImpressoraCupom;
 window.imprimirDANFEFiscal = imprimirDANFEFiscal;
 window.imprimirCupomNaoFiscal = imprimirCupomNaoFiscal;

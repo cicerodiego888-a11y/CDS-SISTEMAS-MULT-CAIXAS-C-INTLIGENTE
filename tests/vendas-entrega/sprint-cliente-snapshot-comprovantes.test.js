@@ -294,11 +294,11 @@ describe('Sprint Entrega — comprovantes', () => {
     assert.match(html, /ENDEREÇO DA ENTREGA/);
     assert.match(html, /63000-000/);
     assert.match(html, /Rua das Flores/);
-    assert.match(html, /Número:<\/strong> 50/);
+    assert.match(html, /Número:\s+50/);
     assert.match(html, /Casa/);
     assert.match(html, /Centro/);
     assert.match(html, /Juazeiro do Norte/);
-    assert.match(html, /UF:<\/strong> CE/);
+    assert.match(html, /UF:\s+CE/);
     assert.match(html, /Próximo à praça/);
     assert.match(html, /Bolacha/);
     assert.match(html, /Subtotal/);

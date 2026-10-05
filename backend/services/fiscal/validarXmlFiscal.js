@@ -7,7 +7,7 @@
 const path = require('path');
 const { validarIdentidadeICMSTot, round2, toCentavos, arredondarMoeda } = require('./modeloTotais');
 const { validarMunicipioDestinatario } = require('./municipioIbge');
-const { validarIcmsXmlContraCrt } = require('./resolverIcmsCrtEmitente');
+const { validarIcmsXmlContraCrt, validarOrdemXmlIcms } = require('./resolverIcmsCrtEmitente');
 
 function tag(xml, name) {
   const m = String(xml || '').match(new RegExp(`<${name}(?:\\s[^>]*)?>([^<]*)</${name}>`));
@@ -241,6 +241,8 @@ function validarXmlFiscal({
     resultado.checks.destCmunUf = 'PASSOU';
     validarIcmsXmlContraCrt(xml);
     resultado.checks.icmsCrt = 'PASSOU';
+    validarOrdemXmlIcms(xml);
+    resultado.checks.icmsOrdemXsd = 'PASSOU';
   }
 
   const totais = extrairTotais(xml);

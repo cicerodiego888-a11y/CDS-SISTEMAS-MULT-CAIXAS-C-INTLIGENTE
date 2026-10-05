@@ -36,6 +36,7 @@ function carregarRegras() {
     function pdvPermitirVendaSemEstoque() { return flagVendaSemEstoque === true; }
     function pdvModoFiscalAtivo() { return false; }
     ${extract(pdv, 'function produtoControlaEstoquePdv', 'function formatarSaldoPdvMensagem')}
+    ${extract(pdv, 'function pdvCategoriaElegivelVendaSemEstoque', 'function validarEstoqueVenda')}
     ${extract(pdv, 'function validarEstoqueVenda', 'function pdvNotificarBloqueioInclusaoProduto')}
     return {
       setFlag(v) { flagVendaSemEstoque = v === true; },
@@ -48,7 +49,100 @@ function carregarRegras() {
   return factory();
 }
 
+function carregarFluxoInicializacaoPdv() {
+  let inicializacoes = 0;
+  let produtosDisponiveis = [];
+  let resultadoInclusao = null;
+  const controleResposta = { resolver: null };
+  const $ = {
+    ajax(opcoes) {
+      opcoes.success([{
+        id: 611,
+        nome: 'Acém Bovino',
+        categoria: 'Açougue',
+        controla_estoque: 1,
+        item_fiscal: 0,
+        saldo_fiscal: 0,
+        saldo_nao_fiscal: 0,
+        reservado_fiscal: 0,
+        reservado_nao_fiscal: 0
+      }]);
+      return {};
+    }
+  };
+  const fetch = () => new Promise((resolve) => {
+    controleResposta.resolver = resolve;
+  });
+  const factory = new Function('$', 'fetch', 'localStorage', 'API_URL', 'window', 'controleResposta', `
+    let pdvFlagVendaSemEstoque = false;
+    let produtosDisponiveis = [];
+    const produtoTeste = {
+      id: 611,
+      nome: 'Acém Bovino',
+      categoria: 'Açougue',
+      controla_estoque: 1,
+      item_fiscal: 0,
+      saldo_fiscal: 0,
+      saldo_nao_fiscal: 0,
+      reservado_fiscal: 0,
+      reservado_nao_fiscal: 0
+    };
+    function pdvPermitirVendaSemEstoque() { return pdvFlagVendaSemEstoque === true; }
+    function pdvModoFiscalAtivo() { return false; }
+    function urlProdutosPdv() { return '/produtos'; }
+    function autoRegistrarTerminal() {}
+    function inicializarSincronizacaoCatalogoPdv() {}
+    function carregarFlagTransferenciaNaoFiscalFiscalPdv() {}
+    function carregarFlagEditarPrecoUnitarioPdv() {}
+    function carregarFlagExigirNcmCadastroPdv() {}
+    function carregarFlagImprimirCupomPdv() {}
+    function carregarFlagComposicaoItensPdv() {}
+    function definirCatalogoPdv(produtos) { produtosDisponiveis = produtos; }
+    let inicializacoes = 0;
+    let produtoIncluido = null;
+    function inicializarPDV() {
+      inicializacoes += 1;
+      adicionarProdutoConsultaPDV(produtoTeste.id);
+    }
+    ${extract(pdv, 'function carregarFlagVendaSemEstoquePdv', 'function carregarFlagExigirNcmCadastroPdv')}
+    ${extract(pdv, 'function pdvResolverSaldosProduto', 'function round3TransferenciaPdv')}
+    ${extract(pdv, 'function pdvSaldosDisponiveisMotorProduto', 'function pdvProdutoSemSaldoControlado')}
+    ${extract(pdv, 'function produtoControlaEstoquePdv', 'function formatarSaldoPdvMensagem')}
+    ${extract(pdv, 'function pdvCategoriaElegivelVendaSemEstoque', 'function validarEstoqueVenda')}
+    ${extract(pdv, 'function validarEstoqueVenda', 'function pdvNotificarBloqueioInclusaoProduto')}
+    function garantirProdutoNoCatalogoPdv(id) { return Promise.resolve(Number(id) === produtoTeste.id ? produtoTeste : null); }
+    function buscarPromocaoAtivaProduto() { return Promise.resolve(null); }
+    function iniciarFluxoAdicionarProdutoPdv(produto) { produtoIncluido = produto; }
+    function showNotification() {}
+    ${extract(pdv, 'function adicionarProdutoConsultaPDV', 'function buscarProdutosConsultaPDV')}
+    ${extract(pdv, 'function loadPDV', '/**\n * Sprint 09 — flag global não controla mais o PDV')}
+    return {
+      loadPDV,
+      inicializacoes: () => inicializacoes,
+      produtoIncluido: () => produtoIncluido,
+      resolverRespostaFlag: (valor) => controleResposta.resolver(valor)
+    };
+  `);
+  return factory($, fetch, { getItem: () => 'token' }, '/api', {}, controleResposta);
+}
+
 describe('PDV — bloqueio de inclusão sem saldo F+NF', () => {
+  it('aguarda a configuração VENDA SEM ESTOQUE antes de inicializar o fluxo de inclusão', async () => {
+    const fluxo = carregarFluxoInicializacaoPdv();
+    fluxo.loadPDV();
+
+    assert.equal(fluxo.inicializacoes(), 0, 'não deve liberar inclusão antes da resposta da configuração');
+
+    fluxo.resolverRespostaFlag({
+      ok: true,
+      json: async () => ({ permitido: true })
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.equal(fluxo.inicializacoes(), 1, 'deve inicializar depois de carregar a flag ativa');
+    assert.equal(fluxo.produtoIncluido()?.nome, 'Acém Bovino', 'Acém Bovino elegível deve alcançar o fluxo de inclusão');
+  });
+
   it('F=0 NF=0 e controla estoque bloqueia antes de inserir', () => {
     const api = carregarRegras();
     const produto = {
@@ -72,21 +166,22 @@ describe('PDV — bloqueio de inclusão sem saldo F+NF', () => {
     assert.equal(validacao.confirmarSemEstoque, undefined);
   });
 
-  it('flag venda sem estoque NÃO abre confirmação quando F e NF estão zerados', () => {
+  it('flag venda sem estoque ATIVADA permite inclusão com F e NF zerados', () => {
     const api = carregarRegras();
     api.setFlag(true);
     const produto = {
       nome: 'Farinha',
+      categoria: 'Açougue',
       controla_estoque: 1,
       saldo_fiscal: 0,
       saldo_nao_fiscal: 0
     };
     const inicio = api.pdvPodeIniciarInclusaoProduto(produto);
-    assert.equal(inicio.sucesso, false);
-    assert.equal(inicio.semSaldoTotal, true);
+    assert.equal(inicio.sucesso, true);
     const validacao = api.validarEstoqueVenda(produto, 2);
-    assert.equal(validacao.confirmarSemEstoque, undefined);
-    assert.equal(validacao.semSaldoTotal, true);
+    assert.equal(validacao.sucesso, false);
+    assert.equal(validacao.confirmarSemEstoque, true);
+    assert.equal(validacao.semSaldoTotal, undefined);
   });
 
   it('só NF > 0 continua podendo iniciar inclusão (F12 não bloqueia)', () => {
@@ -122,6 +217,7 @@ describe('PDV — bloqueio de inclusão sem saldo F+NF', () => {
     api.setFlag(true);
     const produto = {
       nome: 'Arroz',
+      categoria: 'Açougue',
       controla_estoque: 1,
       saldo_fiscal: 2,
       saldo_nao_fiscal: 0
@@ -133,6 +229,68 @@ describe('PDV — bloqueio de inclusão sem saldo F+NF', () => {
     assert.equal(validacao.semSaldoTotal, undefined);
   });
 
+  it('flag ON permite saldo insuficiente somente para Açougue e Hortifruti', () => {
+    const api = carregarRegras();
+
+    api.setFlag(false);
+    for (const categoria of ['Açougue', 'Hortifruti']) {
+      const produto = {
+        nome: 'Produto sem estoque',
+        categoria,
+        controla_estoque: 1,
+        saldo_fiscal: 0,
+        saldo_nao_fiscal: 0
+      };
+      const bloqueio = api.pdvPodeIniciarInclusaoProduto(produto);
+      assert.equal(bloqueio.sucesso, false, `${categoria}: flag OFF deve bloquear`);
+      assert.equal(bloqueio.semSaldoTotal, true, `${categoria}: bloqueio por saldo zerado`);
+    }
+
+    api.setFlag(true);
+
+    for (const categoria of ['Açougue', 'Hortifruti']) {
+      const produto = {
+        nome: 'Produto elegível',
+        categoria,
+        controla_estoque: 1,
+        saldo_fiscal: 0,
+        saldo_nao_fiscal: 0
+      };
+      assert.equal(api.pdvPodeIniciarInclusaoProduto(produto).sucesso, true, categoria);
+      assert.equal(api.validarEstoqueVenda(produto, 1).confirmarSemEstoque, true, categoria);
+    }
+
+    for (const categoria of ['Mercearia', 'Bebidas', 'Limpeza', '']) {
+      const produto = {
+        nome: 'Produto inelegível',
+        categoria,
+        controla_estoque: 1,
+        saldo_fiscal: 0,
+        saldo_nao_fiscal: 0
+      };
+      const inicio = api.pdvPodeIniciarInclusaoProduto(produto);
+      assert.equal(inicio.sucesso, false, categoria || 'sem categoria');
+      assert.equal(inicio.semSaldoTotal, true, categoria || 'sem categoria');
+      assert.equal(api.validarEstoqueVenda(produto, 1).confirmarSemEstoque, undefined, categoria);
+    }
+  });
+
+  it('flag ON não oferece confirmação a Mercearia com saldo parcial insuficiente', () => {
+    const api = carregarRegras();
+    api.setFlag(true);
+    const produto = {
+      nome: 'Arroz',
+      categoria: 'Mercearia',
+      controla_estoque: 1,
+      saldo_fiscal: 1,
+      saldo_nao_fiscal: 0
+    };
+
+    const validacao = api.validarEstoqueVenda(produto, 2);
+    assert.equal(validacao.sucesso, false);
+    assert.equal(validacao.confirmarSemEstoque, undefined);
+  });
+
   it('MIP, etiqueta, legado e F1 avisam na inclusão', () => {
     assert.match(pdv, /function pdvProdutoSemSaldoControlado/);
     assert.match(pdv, /function pdvMensagemProdutoSemSaldo/);
@@ -141,7 +299,8 @@ describe('PDV — bloqueio de inclusão sem saldo F+NF', () => {
 
     const validar = extract(pdv, 'function validarEstoqueVenda', 'function pdvValidarEstoqueVenda');
     assert.match(validar, /saldoFiscal <= 1e-9 && saldoNaoFiscal <= 1e-9/);
-    assert.doesNotMatch(validar, /semSaldoTotal[\s\S]{0,80}confirmarSemEstoque/);
+    assert.match(validar, /pdvVendaSemEstoquePermitida\(produto\)/);
+    assert.match(pdv, /return pdvPermitirVendaSemEstoque\(\) && pdvCategoriaElegivelVendaSemEstoque\(produto\)/);
 
     const legado = extract(
       pdv,

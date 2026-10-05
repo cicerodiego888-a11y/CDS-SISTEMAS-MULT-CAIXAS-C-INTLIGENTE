@@ -89,7 +89,26 @@ function enriquecerProdutoComCacheEstoque(produto) {
         saldo_fiscal: saldoFiscal,
         saldo_nao_fiscal: saldoNaoFiscal,
         estoque_atual: estoqueAtual > 0 ? estoqueAtual : (saldoFiscal + saldoNaoFiscal),
+        reservado_fiscal: Number(produto.reservado_fiscal ?? cached.reservado_fiscal ?? 0),
+        reservado_nao_fiscal: Number(produto.reservado_nao_fiscal ?? cached.reservado_nao_fiscal ?? 0),
         unidade: produto.unidade || cached.unidade
+    };
+}
+
+function calcularDisponibilidadeEstoqueProduto(produto) {
+    if (!produto) return { fiscal: 0, naoFiscal: 0, total: 0 };
+
+    const fiscal = Number(produto.saldo_fiscal ?? 0);
+    const naoFiscal = Number(produto.saldo_nao_fiscal ?? 0);
+    const reservadoFiscal = Number(produto.reservado_fiscal ?? 0);
+    const reservadoNaoFiscal = Number(produto.reservado_nao_fiscal ?? 0);
+    const disponivelFiscal = Math.max(0, fiscal - reservadoFiscal);
+    const disponivelNaoFiscal = Math.max(0, naoFiscal - reservadoNaoFiscal);
+
+    return {
+        fiscal: disponivelFiscal,
+        naoFiscal: disponivelNaoFiscal,
+        total: disponivelFiscal + disponivelNaoFiscal
     };
 }
 
@@ -97,34 +116,25 @@ function obterEstoqueExibicaoSimplesProduto(produto) {
     if (!produto) return 0;
 
     const item = enriquecerProdutoComCacheEstoque(produto);
+    const disponivel = calcularDisponibilidadeEstoqueProduto(item);
 
     if (isModoFiscalVisualizacaoAtivo()) {
-        if (item.saldo_fiscal !== undefined && item.saldo_fiscal !== null) {
-            return Number(item.saldo_fiscal || 0);
-        }
-        return Number(item.estoque_atual || 0);
+        return disponivel.fiscal;
     }
 
-    return Number(item.estoque_atual ?? 0);
+    return disponivel.total;
 }
 
 function obterEstoqueDisponivelProduto(produto) {
     if (!produto) return 0;
+    const item = enriquecerProdutoComCacheEstoque(produto);
+    const disponivel = calcularDisponibilidadeEstoqueProduto(item);
 
     if (isModoFiscalVisualizacaoAtivo()) {
-        return Number(produto.saldo_fiscal ?? 0);
+        return disponivel.fiscal;
     }
 
-    if (produto.estoque_atual !== undefined && produto.estoque_atual !== null && !isModoFiscalVisualizacaoAtivo()) {
-        const fiscal = Number(produto.saldo_fiscal ?? 0);
-        const naoFiscal = Number(produto.saldo_nao_fiscal ?? 0);
-        if (fiscal + naoFiscal > 0) {
-            return fiscal + naoFiscal;
-        }
-        return Number(produto.estoque_atual || 0);
-    }
-
-    return Number(produto.saldo_fiscal || 0) + Number(produto.saldo_nao_fiscal || 0);
+    return disponivel.total;
 }
 
 function recarregarModulosModoFiscal() {
@@ -136,26 +146,29 @@ function recarregarModulosModoFiscal() {
         && $modalProduto.length
         && ($modalProduto.hasClass('show') || $modalProduto.is(':visible'))
     );
-    const $buscaProduto = $ ? $('#buscaProduto') : null;
-    const buscaProdutoEmFoco = !!(
-        $buscaProduto
-        && $buscaProduto.length
-        && typeof document !== 'undefined'
-        && document.activeElement === $buscaProduto[0]
+    const listaProdutosMontada = !!(
+        (typeof shellListagemProdutosMontado === 'function' && shellListagemProdutosMontado())
+        || (typeof document !== 'undefined' && (
+            document.getElementById('produtos-tbody')
+            || document.getElementById('categorias-container')
+        ))
     );
 
     if (page === 'vendas' && typeof loadVendas === 'function') {
         loadVendas();
-    } else if (page === 'produtos' && typeof loadProdutos === 'function') {
-        // Com PDV aberto, o sync de modo fiscal dispara com frequência.
-        // Nunca remontar o shell; se o usuário está digitando/editando, só atualiza o cache.
-        if (modalProdutoAberto || buscaProdutoEmFoco) {
-            loadProdutos({ suave: true, somenteCache: true, forcar: true, motivo: 'modo-fiscal' });
+    } else if ((page === 'produtos' || listaProdutosMontada) && typeof loadProdutos === 'function') {
+        if (typeof invalidarCatalogoProdutosSessao === 'function') {
+            invalidarCatalogoProdutosSessao('modo-fiscal');
+        }
+        if (typeof atualizarListagemProdutosAposModoFiscal === 'function') {
+            atualizarListagemProdutosAposModoFiscal();
         } else {
             loadProdutos({ suave: true, forcar: true, motivo: 'modo-fiscal' });
         }
-    } else if (page === 'pdv' && typeof loadPDV === 'function') {
-        loadPDV();
+    } else if (page === 'pdv' && typeof atualizarPdvAposModoFiscal === 'function') {
+        atualizarPdvAposModoFiscal();
+    } else if (page === 'pdv' && typeof recarregarCatalogoPdv === 'function') {
+        recarregarCatalogoPdv();
     } else if (typeof recarregarCatalogoPdv === 'function') {
         recarregarCatalogoPdv();
     } else if (page === 'dashboard' && typeof carregarDashboardComFiltro === 'function') {

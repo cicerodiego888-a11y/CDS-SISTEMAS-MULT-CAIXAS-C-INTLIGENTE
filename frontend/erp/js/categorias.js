@@ -49,6 +49,53 @@ function textoTipoCategoria(tipo) {
   return tipo === 'despesa' ? 'Despesa' : 'Produto';
 }
 
+function textoPadraoEstoqueCategoria(valor) {
+  return Number(valor) === 0 ? 'Não controlado' : 'Controlado';
+}
+
+function textoPadraoComercialCategoria(valor) {
+  return String(valor || 'PADRAO').toUpperCase() === 'ALTERNATIVO' ? 'Alternativo' : 'Padrão';
+}
+
+function categoriaNomeSugereHortifrutiAcougue(nome) {
+  const n = String(nome || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+  return n === 'hortifruti' || n === 'horti fruti' || n === 'acougue'
+    || n.startsWith('hortifruti ') || n.startsWith('acougue ');
+}
+
+function lerPadroesFormularioCategoria() {
+  return {
+    padrao_controla_estoque: Number($('input[name="categoria-padrao-estoque"]:checked').val() || 1) === 0 ? 0 : 1,
+    padrao_controle_comercial: String($('input[name="categoria-padrao-comercial"]:checked').val() || 'PADRAO').toUpperCase() === 'ALTERNATIVO'
+      ? 'ALTERNATIVO'
+      : 'PADRAO'
+  };
+}
+
+function preencherPadroesFormularioCategoria(cat) {
+  const estoque = Number(cat && cat.padrao_controla_estoque) === 0 ? 0 : 1;
+  const comercial = String((cat && cat.padrao_controle_comercial) || 'PADRAO').toUpperCase() === 'ALTERNATIVO'
+    ? 'ALTERNATIVO'
+    : 'PADRAO';
+  $('#categoria-estoque-nao-controlado').prop('checked', estoque === 0);
+  $('#categoria-estoque-controlado').prop('checked', estoque === 1);
+  $('#categoria-comercial-alternativo').prop('checked', comercial === 'ALTERNATIVO');
+  $('#categoria-comercial-padrao').prop('checked', comercial === 'PADRAO');
+}
+
+function aplicarSugestaoPadraoPorNomeCategoria() {
+  if ($('#categoria-id').val()) return;
+  const sugerido = categoriaNomeSugereHortifrutiAcougue($('#categoria-nome').val());
+  preencherPadroesFormularioCategoria({
+    padrao_controla_estoque: sugerido ? 0 : 1,
+    padrao_controle_comercial: sugerido ? 'ALTERNATIVO' : 'PADRAO'
+  });
+}
+
 function loadCategorias() {
   const tipoFiltro = $('#filtro-tipo-categoria').val();
   categoriasAPI.listar(tipoFiltro).done(function(categorias) {
@@ -61,6 +108,8 @@ function loadCategorias() {
           <td>${cat.nome}</td>
           <td>${textoTipoCategoria(cat.tipo)}</td>
           <td>${cat.descricao || ''}</td>
+          <td>${textoPadraoEstoqueCategoria(cat.padrao_controla_estoque)}</td>
+          <td>${textoPadraoComercialCategoria(cat.padrao_controle_comercial)}</td>
           <td>
             <button class="btn btn-sm btn-primary" onclick="editarCategoria(${cat.id})">Editar</button>
             <button class="btn btn-sm btn-danger" onclick="excluirCategoria(${cat.id})">Excluir</button>
@@ -78,12 +127,14 @@ function criarCategoria() {
   const descricao = $('#categoria-descricao').val().trim();
   const tipo = $('#categoria-tipo').val();
 
+  const padroes = lerPadroesFormularioCategoria();
+
   if (!nome) {
     alert('Nome é obrigatório!');
     return;
   }
 
-  categoriasAPI.criar({ nome, descricao, tipo }).done(() => {
+  categoriasAPI.criar({ nome, descricao, tipo, ...padroes }).done(() => {
     limparFormularioCategoria();
     loadCategorias();
 
@@ -103,6 +154,7 @@ function editarCategoria(id) {
     $('#categoria-nome').val(cat.nome);
     $('#categoria-descricao').val(cat.descricao || '');
     $('#categoria-tipo').val(cat.tipo || 'produto');
+    preencherPadroesFormularioCategoria(cat);
     $('#modal-categoria').modal('show');
   });
 }
@@ -113,12 +165,14 @@ function salvarCategoria() {
   const descricao = $('#categoria-descricao').val().trim();
   const tipo = $('#categoria-tipo').val();
 
+  const padroes = lerPadroesFormularioCategoria();
+
   if (!nome) {
     alert('Nome é obrigatório!');
     return;
   }
 
-  categoriasAPI.atualizar(id, { nome, descricao, tipo }).done(() => {
+  categoriasAPI.atualizar(id, { nome, descricao, tipo, ...padroes }).done(() => {
     limparFormularioCategoria();
     $('#modal-categoria').modal('hide');
     loadCategorias();
@@ -146,6 +200,10 @@ function limparFormularioCategoria() {
   $('#categoria-nome').val('');
   $('#categoria-descricao').val('');
   $('#categoria-tipo').val('produto');
+  preencherPadroesFormularioCategoria({
+    padrao_controla_estoque: 1,
+    padrao_controle_comercial: 'PADRAO'
+  });
 }
 
 window.loadCategorias = loadCategorias;
@@ -154,3 +212,7 @@ window.editarCategoria = editarCategoria;
 window.salvarCategoria = salvarCategoria;
 window.excluirCategoria = excluirCategoria;
 window.categoriasAPI = categoriasAPI;
+
+if (typeof window !== 'undefined' && typeof window.$ === 'function') {
+  $(document).on('input.padraoCategoriaNome', '#categoria-nome', aplicarSugestaoPadraoPorNomeCategoria);
+}

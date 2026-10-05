@@ -7,11 +7,12 @@
 const { tipoParaUnidadeComercial } = require('../constants/tiposApresentacao');
 const { num } = require('../dto/ConversaoDTO');
 const LegacyMotor = require('../../../lib/motorConversaoUnidades');
+const MotorUM = require('../../../services/unidades/MotorUnidadesMedida');
 
 function montarItemLegado(dto, inferido) {
   const fracionado = LegacyMotor.produtoUsaConversaoUnidades(dto.produto || dto.item);
   const uc = tipoParaUnidadeComercial(inferido.tipoApresentacao);
-  return {
+  const itemLegado = {
     ...(dto.item || {}),
     produto_id: dto.produtoId,
     produto_fracionado: fracionado ? 1 : 0,
@@ -29,6 +30,53 @@ function montarItemLegado(dto, inferido) {
     subtotal: dto.valorTotalCompra,
     margem_lucro: dto.item?.margem_lucro
   };
+
+  if (dto.origem !== 'CENTRAL_NFE') return itemLegado;
+
+  const apresentacao = inferido.apresentacao || null;
+  const quantidadeNfe = MotorUM.resolverQuantidadeEntradaNfe(
+    { ...dto.item, unidade_comercial: dto.item?.unidade_comercial || dto.item?.uCom || dto.unidadeCompra },
+    dto.produto,
+    apresentacao
+  );
+  if (!quantidadeNfe.ok) {
+    const erro = new Error(quantidadeNfe.erro || 'Conversão da unidade da NF-e não está resolvida.');
+    erro.code = quantidadeNfe.codigo || 'CONVERSAO_ENTRADA_NFE_INVALIDA';
+    throw erro;
+  }
+
+  const totalNfe = Number(dto.valorTotalCompra) > 0
+    ? Number(dto.valorTotalCompra)
+    : Number(dto.item?.subtotal || 0);
+  const frete = Number(dto.item?.frete_rateado || 0);
+  const desconto = Number(dto.item?.desconto_rateado || 0);
+  const outrasDespesas = Number(dto.item?.outras_despesas_rateado || 0);
+  const totalCusto = LegacyMotor.moeda(totalNfe + frete + outrasDespesas - desconto);
+  const custoUnitario = quantidadeNfe.quantidadeEstoque > 0
+    ? LegacyMotor.custoUnitarioVenda(totalCusto / quantidadeNfe.quantidadeEstoque)
+    : 0;
+
+  Object.assign(itemLegado, {
+    unidade: quantidadeNfe.unidadeEstoque,
+    unidade_comercial: dto.item?.unidade_comercial || dto.item?.uCom || dto.unidadeCompra,
+    quantidade_comercial: quantidadeNfe.quantidadeComercial,
+    quantidade_embalagens: quantidadeNfe.quantidadeComercial,
+    quantidade_por_embalagem: quantidadeNfe.fatorConversao,
+    fator_conversao: quantidadeNfe.fatorConversao,
+    quantidade_convertida: quantidadeNfe.quantidadeEstoque,
+    quantidade: quantidadeNfe.quantidadeEstoque,
+    quantidade_fiscal: quantidadeNfe.quantidadeEstoque,
+    quantidade_nao_fiscal: 0,
+    peso_total_compra: quantidadeNfe.quantidadeEstoque,
+    preco_unitario: custoUnitario,
+    custo_unitario_final: custoUnitario,
+    valor_total_embalagem: totalNfe,
+    subtotal: totalNfe,
+    _custoTotalEntrada: totalCusto,
+    _quantidade_entrada_nfe: quantidadeNfe
+  });
+
+  return itemLegado;
 }
 
 function executar(ctx) {
@@ -41,11 +89,16 @@ function executar(ctx) {
     ...qtdsEstoque,
     quantidade: qtdsEstoque.quantidade
   });
-  const subtotal = LegacyMotor.calcularSubtotalFinanceiroItemCompra({
-    ...itemLegado,
-    ...qtdsEstoque,
-    quantidade: qtdsEstoque.quantidade
-  });
+  const subtotal = dto.origem === 'CENTRAL_NFE'
+    ? LegacyMotor.moeda(itemLegado._subtotalEntradaNfe ?? itemLegado.subtotal)
+    : LegacyMotor.calcularSubtotalFinanceiroItemCompra({
+      ...itemLegado,
+      ...qtdsEstoque,
+      quantidade: qtdsEstoque.quantidade
+    });
+  const custoTotal = dto.origem === 'CENTRAL_NFE'
+    ? LegacyMotor.moeda(itemLegado._custoTotalEntrada ?? subtotal)
+    : LegacyMotor.moeda(subtotal);
 
   return Object.freeze({
     ...ctx,
@@ -61,7 +114,7 @@ function executar(ctx) {
       quantidadeNaoFiscal: num(qtdsEstoque.quantidade_nao_fiscal, 4),
       unidadeEstoque: inferido.unidadeEstoque,
       custoUnitario,
-      custoTotal: LegacyMotor.moeda(subtotal),
+      custoTotal,
       subtotal: LegacyMotor.moeda(subtotal),
       tipoConversao: inferido.tipoConversao,
       confianca: inferido.confianca,

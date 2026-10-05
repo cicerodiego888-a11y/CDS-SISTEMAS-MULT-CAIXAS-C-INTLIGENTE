@@ -8,9 +8,13 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
+const vm = require('node:vm');
 
 const { montarDadosDanfe, gerarDanfeHtml } = require('../../backend/services/fiscal/danfe');
 const DanfeTermicoRenderer = require('../../backend/services/fiscal/DanfeTermicoRenderer');
+const { enriquecerHtmlImpressaoTermica } = require('../../electron-janelas-modulo');
+const { gerarHtmlCupomFechamento } = require('../../backend/services/caixa/FechamentoCaixaCupomService');
+const EtiquetaProduto = require('../../frontend/erp/js/etiquetaProduto');
 
 const empresaBase = {
   nomeFantasia: 'Mercadão do Cícero',
@@ -54,7 +58,7 @@ async function dto(opcoes = {}) {
     },
     itens: opcoes.itens || [itemBase()],
     itensFiscal: opcoes.itens || [itemBase()],
-    empresa: empresaBase,
+    empresa: opcoes.empresa || empresaBase,
     chave: chave44,
     numero: 100,
     serie: 1,
@@ -289,5 +293,168 @@ describe('DanfeTermicoRenderer — arquivos da sprint', () => {
     assert.match(front, /pacote=1/);
     assert.match(front, /htmlImpressao/);
     assert.match(front, /htmlTermico/);
+    assert.match(front, /const htmlCupom = htmlTermico \|\| htmlDanfe/);
+    assert.match(front, /apresentarCupomNaTela\(htmlCupom, htmlCupom/);
+  });
+});
+
+describe('Impressão térmica compartilhada — largura segura', () => {
+  const PAGE_SO_MARGEM = /@page\s*\{\s*margin:\s*0;\s*\}/;
+  const PAGE_COM_SIZE = /@page\b[^{}]*\{[^}]*\bsize\s*:/i;
+
+  function cupomNaoFiscal(venda) {
+    const codigoFiscal = fs.readFileSync(
+      path.join(__dirname, '../../frontend/shared/js/fiscalImpressao.js'),
+      'utf8'
+    );
+    const contexto = { console, Date, window: null, globalThis: null };
+    contexto.window = contexto;
+    contexto.globalThis = contexto;
+    vm.runInNewContext(`${codigoFiscal}\nwindow.__gerarCupom = montarHtmlCupomNaoFiscal;`, contexto);
+    return contexto.__gerarCupom(42, { nome_empresa: 'CDS', itens: [], ...venda }, 10, 0);
+  }
+
+  it('fallback declara só @page margin 0, sem size e sem forçar a largura do documento', () => {
+    const html = enriquecerHtmlImpressaoTermica(
+      '<html><head></head><body><pre style="width:300px">Cupom</pre></body></html>'
+    );
+    assert.match(html, PAGE_SO_MARGEM);
+    assert.doesNotMatch(html, PAGE_COM_SIZE);
+    assert.match(html, /width:300px/);
+    assert.doesNotMatch(html, /\b(?:height|max-height|pageSize)\s*:/i);
+  });
+
+  it('marcador 58mm não gera size inválido nem reduz o body', () => {
+    const html = enriquecerHtmlImpressaoTermica(
+      '<html><head></head><body class="danfe-termico-58">DANFE</body></html>'
+    );
+    assert.match(html, PAGE_SO_MARGEM);
+    assert.doesNotMatch(html, PAGE_COM_SIZE);
+    assert.ok(html.includes('<body class="danfe-termico-58">DANFE</body>'));
+  });
+
+  it('largura inline do documento é preservada sem virar @page size', () => {
+    const final = enriquecerHtmlImpressaoTermica('<html><head></head><body style="width:58mm">Cupom</body></html>');
+    assert.match(final, PAGE_SO_MARGEM);
+    assert.doesNotMatch(final, PAGE_COM_SIZE);
+    assert.match(final, /body style="width:58mm"/);
+  });
+
+  it('@page existente é preservado como está e não recebe segunda regra', () => {
+    const original = '<html><head><style>@page { size: auto; margin: 0; } body { width: 58mm; }</style></head><body>Cupom</body></html>';
+    const final = enriquecerHtmlImpressaoTermica(original);
+    assert.equal((final.match(/@page\b/g) || []).length, 1);
+    assert.match(final, /@page \{ size: auto; margin: 0; \}/);
+    assert.doesNotMatch(final, /\d+mm auto/);
+  });
+
+  it('DANFE 58mm: 32 colunas dentro de ~48mm úteis, sem size e sem body na largura do papel', async () => {
+    const original = render(await dto({ empresa: { ...empresaBase, larguraMm: 58 } })).html;
+    const final = enriquecerHtmlImpressaoTermica(original);
+
+    assert.match(original, PAGE_SO_MARGEM);
+    assert.doesNotMatch(final, PAGE_COM_SIZE);
+    assert.match(final, /width:\s*32ch/);
+    assert.match(final, /padding:\s*1\.5mm 0\.5mm 2mm/);
+    assert.match(final, /font-size:\s*10px/);
+    assert.doesNotMatch(final, /width:\s*58mm/);
+    assert.match(final, /danfe-termico-58/);
+  });
+
+  it('DANFE 80mm: 48 colunas a 10px dentro de ~72mm úteis, sem body na largura do papel', async () => {
+    const original = render(await dto({ empresa: { ...empresaBase, larguraMm: 80 } })).html;
+    const final = enriquecerHtmlImpressaoTermica(original);
+
+    assert.match(original, PAGE_SO_MARGEM);
+    assert.doesNotMatch(final, PAGE_COM_SIZE);
+    assert.match(final, /width:\s*48ch/);
+    assert.match(final, /font-size:\s*10px/);
+    assert.doesNotMatch(final, /width:\s*80mm/);
+    assert.match(final, /danfe-termico-80/);
+  });
+
+  it('preserva o conteúdo final de cupom curto, incluindo QR e rodapé', () => {
+    const html = enriquecerHtmlImpressaoTermica(`
+      <html><head></head><body>
+        <pre>1 produto\nTotal: R$ 32,00\nPagamento: PIX</pre>
+        <img class="qr" src="data:image/png;base64,AA==" />
+        <footer>RODAPE DO CUPOM</footer>
+      </body></html>
+    `);
+
+    for (const trecho of ['1 produto', 'R$ 32,00', 'PIX', 'class="qr"', 'RODAPE DO CUPOM']) {
+      assert.ok(html.includes(trecho), `conteúdo ausente: ${trecho}`);
+    }
+    assert.match(html, PAGE_SO_MARGEM);
+  });
+
+  it('preserva itens e rodapé após conteúdo longo variável', () => {
+    const itens = Array.from({ length: 120 }, (_, indice) => `PRODUTO ${indice + 1}`);
+    const html = enriquecerHtmlImpressaoTermica(`
+      <html><head></head><body>
+        <pre>${itens.join('\n')}\nSUBTOTAL: R$ 3.840,00\nTOTAL: R$ 3.840,00\nPAGAMENTO: PIX</pre>
+        <img class="qr" src="data:image/png;base64,AA==" />
+        <div>CHAVE DE ACESSO: 1234567890</div>
+        <footer>RODAPE DO CUPOM LONGO</footer>
+      </body></html>
+    `);
+
+    for (const trecho of ['PRODUTO 120', 'SUBTOTAL:', 'TOTAL:', 'PAGAMENTO: PIX', 'class="qr"', 'CHAVE DE ACESSO', 'RODAPE DO CUPOM LONGO']) {
+      assert.ok(html.includes(trecho), `conteúdo ausente: ${trecho}`);
+    }
+    assert.match(html, PAGE_SO_MARGEM);
+    assert.doesNotMatch(html, /\b(?:height|max-height|pageSize)\s*:/i);
+  });
+
+  it('cupom não fiscal: documento completo, margem zerada, 48 colunas (80mm) ou 32 colunas (58mm)', () => {
+    const cupom80 = enriquecerHtmlImpressaoTermica(cupomNaoFiscal({}));
+    const cupom58 = enriquecerHtmlImpressaoTermica(cupomNaoFiscal({ papel_mm: 58 }));
+
+    for (const html of [cupom80, cupom58]) {
+      assert.match(html, /<!DOCTYPE html>[\s\S]*<html>[\s\S]*<head>[\s\S]*<body/);
+      assert.match(html, PAGE_SO_MARGEM);
+      assert.doesNotMatch(html, PAGE_COM_SIZE);
+      assert.match(html, /html, body \{ margin: 0; padding: 0;/);
+      assert.doesNotMatch(html, /width:\s*300px/);
+      assert.ok(html.includes('ESTE COMPROVANTE NÃO POSSUI VALOR FISCAL'));
+    }
+    assert.match(cupom80, /width:\s*48ch/);
+    assert.ok(cupom80.includes('-'.repeat(48)));
+    assert.ok(cupom80.includes('Item                 Qtd Vl.Unit Total'));
+    assert.match(cupom58, /width:\s*32ch/);
+    assert.ok(cupom58.includes(`\n${'-'.repeat(32)}\n`));
+    assert.ok(!cupom58.includes('-'.repeat(33)));
+  });
+
+  it('fechamento e etiqueta: só @page margin 0, área útil 72mm/48mm e barcode preservado', () => {
+    const fechamento80 = enriquecerHtmlImpressaoTermica(gerarHtmlCupomFechamento({}));
+    const fechamento58 = enriquecerHtmlImpressaoTermica(gerarHtmlCupomFechamento({}, { papel_mm: 58 }));
+    const produto = {
+      id: 1,
+      nome: 'Produto de teste',
+      codigo: '123',
+      unidade: 'UN',
+      codigo_barras: '1234567890123',
+      preco_venda: 10
+    };
+    const etiqueta80 = enriquecerHtmlImpressaoTermica(EtiquetaProduto.montarHtml(produto, '<svg viewBox="0 0 100 30"></svg>'));
+    const etiqueta58 = enriquecerHtmlImpressaoTermica(EtiquetaProduto.montarHtml(produto, '<svg viewBox="0 0 100 30"></svg>', { papelMm: 58 }));
+
+    for (const html of [fechamento80, fechamento58, etiqueta80, etiqueta58]) {
+      assert.match(html, PAGE_SO_MARGEM);
+      assert.doesNotMatch(html, PAGE_COM_SIZE);
+      assert.doesNotMatch(html, /width:\s*80mm/);
+    }
+    assert.match(fechamento80, /width:\s*48ch/);
+    assert.match(fechamento80, /fechamento-caixa-80/);
+    assert.match(fechamento58, /width:\s*32ch/);
+    assert.match(fechamento58, /fechamento-caixa-58/);
+    assert.match(etiqueta80, /\.etiqueta \{ width: 72mm/);
+    assert.match(etiqueta58, /\.etiqueta \{ width: 48mm/);
+    for (const etiqueta of [etiqueta80, etiqueta58]) {
+      assert.match(etiqueta, /min-height:\s*31mm/);
+      assert.match(etiqueta, /max-height:\s*25mm/);
+      assert.match(etiqueta, /<svg viewBox="0 0 100 30"><\/svg>/);
+    }
   });
 });

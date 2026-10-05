@@ -1,0 +1,57 @@
+{
+  "sprint": "TEF-DESTAXA-07-EXEC",
+  "dataHora": "2026-09-28T13:57:00.000Z",
+  "transactionExecuted": false,
+  "ambiente": "homologacao",
+  "provider": "destaxa",
+  "adapter": "DestaxaRealAdapter",
+  "pinpad": "PPC930",
+  "com": "COM3",
+  "valorInterno": 100,
+  "valorDestaxa": "1.00",
+  "operacao": "CRT",
+  "preCondicoes": {
+    "fonte": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db (somente leitura)",
+    "tefConfiguracao": {
+      "ambiente": "homologacao",
+      "provedor": "destaxa",
+      "tentativas": 3,
+      "atualizado_em": "2026-09-28 12:21:25"
+    },
+    "tentativasExigido": 1,
+    "tentativasAtende": false,
+    "pendentes": 0,
+    "demaisVerificacoesRuntime": "não executadas — bloqueio obrigatório detectado antes (spec §1: tentativas diferente de 1 → NÃO executar)"
+  },
+  "transactionId": null,
+  "codigoInicial": null,
+  "etapas99": [],
+  "codigoFinal": null,
+  "finalizacao": null,
+  "nsu": null,
+  "statusFinanceiro": "NENHUMA_COBRANCA",
+  "chamadasNativas": {
+    "iniciaClientDestaxa": 0,
+    "iniciaTransacaoDestaxa": 0,
+    "continuaTransacaoDestaxa": 0,
+    "finalizaTransacaoDestaxa": 0
+  },
+  "tempoTotalMs": null,
+  "timeout": null,
+  "bancoAntes": { "total": 0, "pendentes": 0, "aprovadas": 0, "negadas": 0, "canceladas": 0, "erros": 0 },
+  "bancoDepois": { "total": 0, "pendentes": 0, "aprovadas": 0, "negadas": 0, "canceladas": 0, "erros": 0 },
+  "gateAntes": "OFF",
+  "gateDepois": "OFF",
+  "gateAberto": false,
+  "erros": [
+    "PRECONDICAO_FALHOU: tef_configuracao.tentativas = 3 (exigido 1)"
+  ],
+  "configuracaoAlterada": false,
+  "reconciliacaoNecessaria": false,
+  "observacoes": [
+    "A configuração não foi alterada pelo agente: nenhuma sprint autorizou mudar tef_configuracao.tentativas (restrição anterior: 'Não alterar configuração').",
+    "Para liberar: um responsável deve definir tentativas = 1 pela tela/serviço oficial de configuração TEF e solicitar nova execução.",
+    "A execução real exige operador presencial no PPC930 (cartão, senha, respostas a COLETA/OPÇÃO); deve ser disparada com o operador pronto no terminal."
+  ],
+  "result": "BLOCKED_FOR_REAL_TRANSACTION"
+}

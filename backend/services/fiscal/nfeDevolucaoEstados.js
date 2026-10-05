@@ -72,7 +72,7 @@ const BLOQUEIO_REENVIO = new Set([
 ]);
 
 /** cStat cujo XML é inválido: reenviar o mesmo arquivo só repete a rejeição. */
-const CSTAT_XML_INVALIDO_DEFINITIVO = new Set(['225', '275', '539', '590', '591', '863']);
+const CSTAT_XML_INVALIDO_DEFINITIVO = new Set(['225', '275', '539', '590', '591', '696', '863']);
 
 const EVENTOS = Object.freeze({
   XML_GERADO: 'xml_gerado',
@@ -90,6 +90,7 @@ const EVENTOS = Object.freeze({
   CANCELAMENTO_CONFIRMADO_SEFAZ: 'CANCELAMENTO_CONFIRMADO_SEFAZ',
   CANCELAMENTO_REJEITADO: 'cancelamento_rejeitado',
   REENVIO: 'reenvio',
+  NOVA_TENTATIVA: 'nova_tentativa',
   ERRO: 'erro'
 });
 
@@ -143,6 +144,22 @@ function podeGerarNovaIdentidadeDevolucao(nota = {}) {
   return xmlRejeicaoFiscalDefinitiva(nota);
 }
 
+/**
+ * Rejeitada/erro de validação: nova tentativa com XML novo.
+ * Autorizada, denegada, cancelada ou em processamento: não.
+ */
+function podeNovaTentativaDevolucao(nota = {}) {
+  const st = String(nota.status || '').toLowerCase();
+  if (BLOQUEIO_REENVIO.has(st) && st !== ESTADOS.CONFLITO_IDENTIDADE) return false;
+  if (st === ESTADOS.AUTORIZADA || st === ESTADOS.DENEGADA || st === ESTADOS.CANCELADA) return false;
+  if (st === ESTADOS.PROCESSANDO || st === ESTADOS.LOTE_ENVIADO || st === ESTADOS.ENVIANDO) return false;
+  if (xmlRejeicaoFiscalDefinitiva(nota)) return true;
+  if (st === ESTADOS.REJEITADA || st === ESTADOS.ERRO_VALIDACAO || st === ESTADOS.CONFLITO_IDENTIDADE) {
+    return true;
+  }
+  return false;
+}
+
 function mensagemNovaIdentidadeDevolucao(nota = {}) {
   const cls = classificarRetornoSefaz(codigoRejeicaoNota(nota));
   if (cls.acao === ACOES.EXIGE_NOVA_IDENTIDADE) {
@@ -178,5 +195,6 @@ module.exports = {
   mensagemRejeicaoDetalhada,
   mensagemReenvioXmlEstruturalmenteRejeitado,
   podeGerarNovaIdentidadeDevolucao,
+  podeNovaTentativaDevolucao,
   mensagemNovaIdentidadeDevolucao
 };

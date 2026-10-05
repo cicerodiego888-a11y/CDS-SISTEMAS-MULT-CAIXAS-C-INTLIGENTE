@@ -17,6 +17,23 @@ const {
   numOrNull
 } = require('../../shared/nfe/mappers/extrairTributosCompletosItemNfe');
 const NFeParser = require('../../shared/nfe/NFeParser');
+const { montarIcmsXmlResolvido } = require('./resolverIcmsCrtEmitente');
+const {
+  normalizarEmitenteOriginalNfe,
+  extrairEmitenteOriginalDoXmlBruto,
+  mesclarEmitenteOriginal
+} = require('./xmlBuilderNfeDevolucaoCompra');
+
+function pegarNoXml(obj, localName) {
+  if (!obj || typeof obj !== 'object') return undefined;
+  if (obj[localName] != null) return obj[localName];
+  const alvo = String(localName).toLowerCase();
+  const key = Object.keys(obj).find((k) => {
+    const local = String(k).split(':').pop();
+    return local === localName || local.toLowerCase() === alvo;
+  });
+  return key ? obj[key] : undefined;
+}
 
 const parseString = promisify(xml2js.parseString);
 
@@ -187,7 +204,7 @@ async function carregarXmlNfeVendaOrigem({ vendaId, chave }) {
   return { xml: null, fonte: null, chave: chaveLimpa };
 }
 
-async function parsearDetsDoXml(xml) {
+async function parsearXmlNfeCompraOrigem(xml) {
   const result = await parseString(String(xml || ''), {
     explicitArray: false,
     ignoreAttrs: false
@@ -199,8 +216,20 @@ async function parsearDetsDoXml(xml) {
       statusCode: 400
     });
   }
-  const dets = Array.isArray(infNFe.det) ? infNFe.det : [infNFe.det].filter(Boolean);
-  return dets.map((d, i) => extrairDetCompleto(d, i));
+  const detsRaw = pegarNoXml(infNFe, 'det');
+  const dets = Array.isArray(detsRaw) ? detsRaw : [detsRaw].filter(Boolean);
+  const emitJs = normalizarEmitenteOriginalNfe(pegarNoXml(infNFe, 'emit'));
+  const emitBruto = extrairEmitenteOriginalDoXmlBruto(xml);
+  return {
+    infNFe,
+    dets: dets.map((d, i) => extrairDetCompleto(d, i)),
+    emitenteOriginal: mesclarEmitenteOriginal(emitJs, emitBruto)
+  };
+}
+
+async function parsearDetsDoXml(xml) {
+  const parsed = await parsearXmlNfeCompraOrigem(xml);
+  return parsed.dets;
 }
 
 function normalizarCodigo(c) {
@@ -366,28 +395,15 @@ function casarItemOrigem(itemDev, detsOrigem, usados) {
 
 function montarIcmsXml(grupoIcms, icms, origem) {
   if (!grupoIcms || !icms) return '';
-  const orig = origem != null ? String(origem) : String(icms.orig != null ? icms.orig : '0');
-  const tags = [];
-  tags.push(tag('orig', orig, 0));
-  if (icms.CST != null && icms.CST !== '') tags.push(tag('CST', String(icms.CST).padStart(2, '0'), 0));
-  if (icms.CSOSN != null && icms.CSOSN !== '') tags.push(tag('CSOSN', String(icms.CSOSN).padStart(3, '0'), 0));
-
-  const ordem = [
-    ['modBC', 0], ['pRedBC', 4], ['vBC', 2], ['pICMS', 4], ['vICMS', 2],
-    ['modBCST', 0], ['pMVAST', 4], ['pRedBCST', 4], ['vBCST', 2], ['pICMSST', 4], ['vICMSST', 2],
-    ['vBCSTRet', 2], ['pST', 4], ['vICMSSubstituto', 2], ['vICMSSTRet', 2],
-    ['pCredSN', 4], ['vCredICMSSN', 2],
-    ['motDesICMS', 0], ['vICMSDeson', 2],
-    ['vBCFCP', 2], ['pFCP', 4], ['vFCP', 2],
-    ['vBCFCPST', 2], ['pFCPST', 4], ['vFCPST', 2],
-    ['vBCFCPSTRet', 2], ['pFCPSTRet', 4], ['vFCPSTRet', 2]
-  ];
-  for (const [campo, casas] of ordem) {
-    if (icms[campo] == null || icms[campo] === '') continue;
-    tags.push(tag(campo, icms[campo], casas));
-  }
-
-  return `<ICMS><${grupoIcms}>${tags.join('')}</${grupoIcms}></ICMS>`;
+  const simples = /^ICMSSN/.test(String(grupoIcms));
+  return montarIcmsXmlResolvido({
+    grupoIcms,
+    icms,
+    origem,
+    regime: simples ? 'simples' : 'normal',
+    csosn: icms.CSOSN,
+    cst: icms.CST
+  });
 }
 
 function montarIpiXml(ipi) {
@@ -680,7 +696,8 @@ async function espelharTributosNfeDevolucaoCompra({
     };
   }
 
-  const dets = await parsearDetsDoXml(carregado.xml);
+  const parsed = await parsearXmlNfeCompraOrigem(carregado.xml);
+  const dets = parsed.dets;
   logEspelhamento('tributacao_carregada', {
     compraId,
     fonte: carregado.fonte,
@@ -751,7 +768,9 @@ async function espelharTributosNfeDevolucaoCompra({
     compraId,
     itens: itensOut.length,
     ajustes: ajustes.length,
-    resumo: `espelhados=${itensOut.length} ajustes=${ajustes.length}`
+    emitCnpj: parsed.emitenteOriginal && parsed.emitenteOriginal.CNPJ,
+    emitIe: parsed.emitenteOriginal && parsed.emitenteOriginal.IE,
+    resumo: `espelhados=${itensOut.length} ajustes=${ajustes.length} emitIE=${(parsed.emitenteOriginal && parsed.emitenteOriginal.IE) || 'ausente'}`
   });
 
   return {
@@ -769,7 +788,9 @@ async function espelharTributosNfeDevolucaoCompra({
       NCM: d.NCM,
       CFOP: d.CFOP,
       existe: d.tributos?.existe
-    }))
+    })),
+    emitenteOriginal: parsed.emitenteOriginal,
+    xmlOrigem: carregado.xml
   };
 }
 
@@ -925,5 +946,6 @@ module.exports = {
   flattenParaItem,
   montarPainelTributacaoOriginal,
   parsearDetsDoXml,
+  parsearXmlNfeCompraOrigem,
   casarItemOrigem
 };

@@ -237,6 +237,10 @@ function usuarioTemPermissao(page) {
         return podeGerenciarUsuariosSistema();
     }
 
+    if (page === 'configuracao-impressora-pdv') {
+        return role === 'admin' || ['ADMIN', 'SUPER_ADMIN'].includes(obterPermissoesUsuario().perfil);
+    }
+
     if (page === 'configuracoes-avancadas' || page === 'importacao-inicial-produtos' || page === 'configuracao-rede' || page === 'nome-terminal-pdv' || page === 'observabilidade' || page === 'mib-analytics' || page === 'enterprise-search' || page === 'knowledge-center' || page === 'cip-insights' || page === 'cds-copiloto') {
         return isSuperAdminUser();
     }

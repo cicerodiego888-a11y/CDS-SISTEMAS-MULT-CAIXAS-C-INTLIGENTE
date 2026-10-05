@@ -8,6 +8,8 @@
 
 const fs = require('fs');
 const crypto = require('crypto');
+const os = require('os');
+const path = require('path');
 const { normalizar } = require('./MGV6Configuration');
 const { buildProdutos } = require('./MGV6FileBuilder');
 const {
@@ -26,10 +28,7 @@ function escreverAtomico(buffer, tempPath, finalPath) {
     throw MGV6Error.fromCode(CODES.EXPORT_FAILED, 'Conteúdo de exportação deve ser Buffer');
   }
   try {
-    if (fs.existsSync(tempPath)) {
-      fs.unlinkSync(tempPath);
-    }
-    fs.writeFileSync(tempPath, buffer);
+    fs.writeFileSync(tempPath, buffer, { flag: 'wx' });
     // validação básica do temp
     const st = fs.statSync(tempPath);
     if (!st.isFile() || st.size !== buffer.length) {
@@ -42,15 +41,38 @@ function escreverAtomico(buffer, tempPath, finalPath) {
     // eslint-disable-next-line no-console
     console.log('[MGV6] Arquivo validado');
 
-    if (fs.existsSync(finalPath)) {
-      fs.unlinkSync(finalPath);
+    try {
+      fs.renameSync(tempPath, finalPath);
+    } catch (err) {
+      if (err.code !== 'EXDEV') throw err;
+
+      const entregaTemp = `${finalPath}.${process.pid}.${crypto.randomBytes(8).toString('hex')}.tmp`;
+      try {
+        fs.copyFileSync(tempPath, entregaTemp, fs.constants.COPYFILE_EXCL);
+        const entregue = fs.readFileSync(entregaTemp);
+        if (!entregue.equals(buffer)) {
+          throw MGV6Error.fromCode(CODES.EXPORT_FAILED, 'Conteúdo do arquivo de entrega diverge do buffer');
+        }
+        fs.renameSync(entregaTemp, finalPath);
+      } finally {
+        try {
+          if (fs.existsSync(entregaTemp)) fs.unlinkSync(entregaTemp);
+        } catch (_) { /* ignore */ }
+      }
     }
-    fs.renameSync(tempPath, finalPath);
   } catch (err) {
     try {
       if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
     } catch (_) { /* ignore */ }
     if (err instanceof MGV6Error) throw err;
+    if (['EPERM', 'EACCES', 'EROFS'].includes(err.code)) {
+      const pasta = path.dirname(finalPath);
+      throw MGV6Error.fromCode(
+        CODES.WRITE_DENIED,
+        `O CDS não possui permissão para gravar o TXITENS na pasta do MGV6.\nPasta: ${pasta}\nConceda permissão de escrita ao usuário/serviço responsável ou solicite uma configuração administrativa para esta pasta.`,
+        { statusCode: 403, cause: err.code, pasta }
+      );
+    }
     throw MGV6Error.fromCode(CODES.EXPORT_FAILED, err.message || 'Falha na exportação atômica', {
       statusCode: 500,
       cause: err.message
@@ -81,7 +103,11 @@ async function exportarProdutos(lista, configuracao) {
   console.log(`[MGV6] Registros: ${built.quantidade} | Tamanho do registro: ${built.registroLength} | Layout: ${built.layout || 'MGV6-REAL-CLIENT-V1'}`);
 
   const paths = resolverCaminhosExport(cfg.exportFolder, cfg.fileName);
-  escreverAtomico(built.buffer, paths.tempPath, paths.finalPath);
+  const tempPath = path.join(
+    os.tmpdir(),
+    `cds-mgv6-${process.pid}-${crypto.randomBytes(12).toString('hex')}-${paths.fileName}.tmp`
+  );
+  escreverAtomico(built.buffer, tempPath, paths.finalPath);
   // eslint-disable-next-line no-console
   console.log('[MGV6] Arquivo exportado');
 

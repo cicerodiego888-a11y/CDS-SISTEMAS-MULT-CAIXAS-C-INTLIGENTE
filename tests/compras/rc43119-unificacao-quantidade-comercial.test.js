@@ -10,6 +10,8 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '../..');
 const motor = require('../../backend/lib/motorConversaoUnidades');
+const { obterMuc } = require('../../backend/motores/muc');
+const { mapearInfNFe } = require('../../backend/shared/nfe/mappers/nfeXmlMapper');
 const comprasJs = fs.readFileSync(path.join(ROOT, 'frontend/erp/js/compras.js'), 'utf8');
 const motorFront = fs.readFileSync(path.join(ROOT, 'frontend/shared/js/motor-quantidade-compra.js'), 'utf8');
 const conversaoDto = fs.readFileSync(
@@ -80,6 +82,71 @@ test('Cenário Caixa — 2 CX × 24 UN = 48 UN', () => {
   assert.strictEqual(motor.obterQuantidadeConvertida(item), 48);
 });
 
+test('Entrada Central — qCom 2 CX × fator 12 = 24 UN, custo total preservado', () => {
+  const nfe = mapearInfNFe({
+    ide: {},
+    emit: {},
+    det: [{
+      prod: {
+        xProd: 'Produto em caixa',
+        cProd: 'CX-12',
+        uCom: 'CX',
+        qCom: '2',
+        vUnCom: '120',
+        vProd: '240',
+        uTrib: 'UN',
+        qTrib: '24',
+        vUnTrib: '10'
+      },
+      imposto: {}
+    }],
+    total: { ICMSTot: { vProd: '240', vNF: '240' } }
+  });
+  const itemXml = nfe.itens[0].toJSON();
+  const produto = {
+    id: 7,
+    produto_fracionado: 0,
+    compra_por_embalagem: 1,
+    unidade: 'UN',
+    unidade_comercial: 'CAIXA',
+    quantidade_por_embalagem: 12
+  };
+  const itemCompra = {
+    ...itemXml,
+    produto_id: 7,
+    produto_fracionado: 0,
+    unidade_comercial: 'CAIXA',
+    quantidade_comercial: itemXml.quantidade,
+    quantidade_embalagens: itemXml.quantidade,
+    quantidade_por_embalagem: 12,
+    quantidade_convertida: itemXml.quantidade,
+    quantidade_fiscal: itemXml.quantidade,
+    quantidade_nao_fiscal: 0,
+    tipo_origem_compra: 'EMBALAGEM_COMERCIAL',
+    valor_total_embalagem: Number(itemXml.subtotal),
+    custo_unitario_final: Number(itemXml.preco_unitario),
+    subtotal: Number(itemXml.subtotal)
+  };
+  const resultado = obterMuc(null).converter({
+    produtoId: 7,
+    produto,
+    item: itemCompra,
+    quantidadeCompra: 2,
+    unidadeCompra: 'CAIXA',
+    quantidadePorApresentacao: 12,
+    valorTotalCompra: 240,
+    unidadeEstoque: 'UN',
+    origem: 'CENTRAL_NFE'
+  });
+
+  assert.equal(itemXml.quantidade, 2);
+  assert.equal(itemXml.quantidade_tributavel, 24);
+  assert.equal(resultado.quantidadeEstoque, 24);
+  assert.equal(resultado.unidadeEstoque, 'un');
+  assert.equal(resultado.custoUnitario, 10);
+  assert.equal(resultado.subtotal, 240);
+});
+
 test('Cenário Pacote — 3 PCT × 10 UN = 30 UN', () => {
   const item = {
     quantidade_comercial: 3,
@@ -144,8 +211,10 @@ test('Importação Central — qCom não vira estoque direto (peso_total = conve
   const prep = comprasJs.match(/function prepararItemQuantidadesImportacaoCentral[\s\S]*?\n\}/);
   assert.ok(prep);
   assert.match(prep[0], /quantidade_comercial/);
-  assert.match(prep[0], /quantidade_embalagens/);
-  assert.doesNotMatch(prep[0], /item\.quantidade =/);
+  assert.doesNotMatch(prep[0], /resolverQuantidadeEntradaNfe|quantidade_convertida\s*=|quantidade_fiscal\s*=/);
+  assert.doesNotMatch(motorFront, /resolverQuantidadeEntradaNfe/);
+  assert.match(prep[0], /item\.quantidade_tributavel = Number\(item\.quantidade_tributavel \?\? item\.qTrib/);
+  assert.match(prep[0], /item\.origem_conversao = 'CENTRAL_NFE'/);
 });
 
 test('obterTotalConvertidoItemCompra delega a obterQuantidadeConvertida', () => {

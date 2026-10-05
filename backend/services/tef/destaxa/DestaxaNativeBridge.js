@@ -13,6 +13,11 @@ const {
   ESTADOS,
   ERROS,
   CODIGO_CLIENT_OK,
+  BUFFER_RESULTADO_BYTES,
+  BUFFER_SAIDA_BYTES_SUGERIDO,
+  ENCODING_DESTAXA,
+  REAL_TRANSACTION_ENV,
+  transacaoRealHabilitada,
   interpretarCodigoResultado,
   criarErro
 } = require('./destaxaConstantes');
@@ -76,6 +81,73 @@ function lerCodigoBuffer(buffer) {
     ? buffer.toString('latin1')
     : String(buffer);
   return texto.replace(/\0/g, '').trim().slice(0, 2).toUpperCase();
+}
+
+function montarBufferEntrada(texto) {
+  const bytes = Buffer.from(String(texto || ''), ENCODING_DESTAXA);
+  const buffer = Buffer.alloc(bytes.length + 1);
+  bytes.copy(buffer);
+  return { buffer, tamanho: bytes.length };
+}
+
+function lerSaidaBuffer(buffer, tamanhoInformado) {
+  const fimNulo = buffer.indexOf(0);
+  const limite = Number.isInteger(tamanhoInformado) && tamanhoInformado > 0 && tamanhoInformado <= buffer.length
+    ? tamanhoInformado
+    : (fimNulo >= 0 ? fimNulo : buffer.length);
+  return buffer.toString(ENCODING_DESTAXA, 0, limite).replace(/\0[\s\S]*$/, '').trim();
+}
+
+/**
+ * Driver transacional sobre os exports reais da DLL (contrato docs/04):
+ * resultado 2 bytes; saida sugerida 99000 bytes; tamanho_saida int* (entrada/saída).
+ */
+function criarDriverTransacaoNativo(exportsNativos, opcoes = {}) {
+  const capacidadeSaida = opcoes.capacidadeSaida || BUFFER_SAIDA_BYTES_SUGERIDO;
+
+  function exigirExport(nome) {
+    const fn = exportsNativos?.[nome];
+    if (typeof fn !== 'function') {
+      throw criarErro(ERROS.DESTAXA_EXPORT_MISSING, `Export ${nome} não disponível`);
+    }
+    return fn;
+  }
+
+  function chamarComSaida(nome, montarArgs) {
+    const fn = exigirExport(nome);
+    const resultado = Buffer.alloc(BUFFER_RESULTADO_BYTES + 1);
+    const saida = Buffer.alloc(capacidadeSaida);
+    const tamanhoSaida = new Int32Array([capacidadeSaida]);
+    fn(...montarArgs(resultado, saida, tamanhoSaida));
+    return {
+      codigo: lerCodigoBuffer(resultado) || 'FF',
+      saida: lerSaidaBuffer(saida, tamanhoSaida[0]),
+      tamanhoSaida: tamanhoSaida[0]
+    };
+  }
+
+  return {
+    nome: 'native',
+    capacidadeSaida,
+    iniciaTransacaoDestaxa(operacao, entrada) {
+      const e = montarBufferEntrada(entrada);
+      return chamarComSaida('iniciaTransacaoDestaxa', (resultado, saida, tamanhoSaida) => [
+        resultado, String(operacao), e.buffer, e.tamanho, saida, tamanhoSaida
+      ]);
+    },
+    continuaTransacaoDestaxa(entrada) {
+      const e = montarBufferEntrada(entrada);
+      return chamarComSaida('continuaTransacaoDestaxa', (resultado, saida, tamanhoSaida) => [
+        resultado, e.buffer, e.tamanho, saida, tamanhoSaida
+      ]);
+    },
+    finalizaTransacaoDestaxa(confirmacao) {
+      const fn = exigirExport('finalizaTransacaoDestaxa');
+      const resultado = Buffer.alloc(BUFFER_RESULTADO_BYTES + 1);
+      fn(resultado, Number(confirmacao));
+      return { codigo: lerCodigoBuffer(resultado) || 'FF', saida: '', tamanhoSaida: 0 };
+    }
+  };
 }
 
 class DestaxaNativeBridge {
@@ -379,6 +451,7 @@ class DestaxaNativeBridge {
     this._orquestrador.reset();
     this._mockTransacaoDriver = null;
     this._orquestrador.definirDriver(null);
+    this._orquestrador.definirPermissaoTransacaoReal(false);
   }
 
   getTransacaoContexto() {
@@ -390,11 +463,34 @@ class DestaxaNativeBridge {
   }
 
   /**
-   * Protocolo Destaxa — nesta sprint só executa via driver mock injetado.
-   * Não chama iniciaTransacaoDestaxa na DLL real.
+   * Instala o driver nativo no orquestrador. Recusa sem o gate financeiro
+   * (DESTAXA_REAL_TRANSACTION_ENABLED=1) ou sem Client inicializado.
+   * Não chama nenhuma função transacional da DLL.
    */
-  iniciarTransacaoDestaxa(operacao, camposEntrada = {}) {
-    return this._orquestrador.iniciarTransacao(operacao, camposEntrada);
+  habilitarTransacaoReal() {
+    if (!transacaoRealHabilitada()) {
+      return {
+        sucesso: false,
+        codigo: ERROS.DESTAXA_REAL_TRANSACTION_DISABLED,
+        mensagem: `Transação Destaxa real desabilitada: ${REAL_TRANSACTION_ENV} != 1`
+      };
+    }
+    if (!this._dllLoaded || !this._exportsValid || !this._clientInitialized) {
+      return {
+        sucesso: false,
+        codigo: ERROS.DESTAXA_CLIENT_INIT_FAILED,
+        mensagem: 'DLL/Client Destaxa não inicializados — driver nativo não instalado'
+      };
+    }
+    this._mockTransacaoDriver = null;
+    this._orquestrador.definirDriver(criarDriverTransacaoNativo(this._nativo.exports));
+    this._orquestrador.definirPermissaoTransacaoReal(true);
+    destaxaLogger.registrar('transacao.real.driver.habilitado', { dllPath: this._dllPath });
+    return { sucesso: true };
+  }
+
+  iniciarTransacaoDestaxa(operacao, camposEntrada = {}, opcoes = {}) {
+    return this._orquestrador.iniciarTransacao(operacao, camposEntrada, opcoes);
   }
 
   continuarTransacaoDestaxa(respostaEntrada = {}) {
@@ -433,3 +529,6 @@ module.exports = DestaxaNativeBridge;
 module.exports.montarEntradaClient = montarEntradaClient;
 module.exports.obterVersaoAplicacao = obterVersaoAplicacao;
 module.exports.lerCodigoBuffer = lerCodigoBuffer;
+module.exports.lerSaidaBuffer = lerSaidaBuffer;
+module.exports.montarBufferEntrada = montarBufferEntrada;
+module.exports.criarDriverTransacaoNativo = criarDriverTransacaoNativo;

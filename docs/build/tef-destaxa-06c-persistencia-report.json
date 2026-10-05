@@ -1,0 +1,518 @@
+{
+  "sprint": "TEF-DESTAXA-06C-PERSISTENCIA",
+  "timestamp": "2026-09-28T13:55:46.721Z",
+  "transactionExecuted": false,
+  "realTransactionGate": {
+    "env": "DESTAXA_REAL_TRANSACTION_ENABLED",
+    "enabled": false
+  },
+  "existingModelUsed": {
+    "table": "tef_transacoes (sem nova tabela, sem nova coluna)",
+    "blockingColumn": "status = 'pendente'",
+    "ownerMetadata": "payload_retorno (criptografado) na criação: { execucao: { instancia, pid, iniciadoEm } }",
+    "auditTrail": "tef_logs: TRAVA_RESULTADO_TARDIO, RESULTADO_TARDIO, TEF_RESULTADO_PENDENTE_RECUPERADO, RECONCILIACAO_RESULTADO_TARDIO",
+    "stateMachine": "nenhuma nova: status do tefContrato (pendente/aprovado/negado/cancelado/erro) + ESTADOS_TRAVA_RESULTADO_TARDIO existente (TEF-06C-TIMEOUT)"
+  },
+  "blockingStates": {
+    "persistedStatus": "pendente",
+    "financialStates": [
+      "UNKNOWN",
+      "PENDING",
+      "UNCONFIRMED",
+      "BLOCKED",
+      "CONFIRMED_SUCCESS tardio aguardando reconciliação"
+    ],
+    "protocolStates": [
+      "STARTING",
+      "WAITING_ACTION",
+      "DISPLAY",
+      "COLLECT",
+      "OPTION",
+      "FINALIZING",
+      "TIMEOUT",
+      "UNKNOWN",
+      "PENDING",
+      "UNCONFIRMED",
+      "BLOCKED"
+    ],
+    "source": "DestaxaRealAdapter STATUS_POR_CLASSIFICACAO (ACTION_REQUIRED/TIMEOUT/UNKNOWN/UNCONFIRMED/BLOCKED → pendente) e TefManager._registrarResultadoTardio"
+  },
+  "finalStates": {
+    "statuses": [
+      "aprovado",
+      "negado",
+      "cancelado",
+      "erro"
+    ],
+    "note": "erro inclui TEF_TIMEOUT_ANTES_DO_ENVIO (transactionAttempted=false) e códigos FF/F0/F1/F2/FE/05/06/07; nunca bloqueiam"
+  },
+  "recoveryStrategy": {
+    "trigger": "construtor do TefManager (setImmediate) + garantirRecuperacao() aguardada em autorizar(); falha na leitura → TEF_RECUPERACAO_PENDENCIAS_FALHOU (fail-closed)",
+    "query": "tefRepository.listarTransacoesPendentes(): SELECT … FROM tef_transacoes WHERE status = 'pendente'",
+    "classification": {
+      "AGUARDANDO_RESULTADO_TARDIO": "linha criada por processo ainda vivo (process.kill(pid, 0)) ou chamada em andamento nesta instância",
+      "RECONCILIACAO_PENDENTE": "processo dono encerrado/reiniciado ou desfecho pendente já recebido"
+    },
+    "log": {
+      "tipo": "TEF_RESULTADO_PENDENTE_RECUPERADO",
+      "campos": [
+        "transactionId",
+        "status",
+        "estado",
+        "financialState",
+        "resultCode",
+        "provider",
+        "criadoEm",
+        "execucaoOrigemAtiva",
+        "retryAllowed"
+      ],
+      "dadosSensiveis": false
+    },
+    "sourceOfTruth": "banco; mapa em memória é espelho recarregado antes de cada autorização enquanto houver pendência",
+    "atomicInsert": "tefRepository.criarTransacaoExclusiva(): INSERT … SELECT … WHERE NOT EXISTS (status = 'pendente') — exclusão mútua entre processos",
+    "inProcessMutex": "TEF_AUTORIZACAO_EM_ANDAMENTO para autorizações simultâneas no mesmo processo"
+  },
+  "behaviorAfterRestart": {
+    "txA": "1",
+    "cdsResult": {
+      "codigo": "TIMEOUT",
+      "status": "pendente",
+      "financialState": "UNKNOWN"
+    },
+    "workerExitCode": 137,
+    "rowsAfterCrash": [
+      {
+        "id": 1,
+        "status": "pendente"
+      }
+    ],
+    "recoveredLock": {
+      "transacaoId": "1",
+      "provedor": "Destaxa",
+      "operacao": "credito",
+      "estado": "RECONCILIACAO_PENDENTE",
+      "desde": "2026-09-28 13:52:40",
+      "origem": "persistida",
+      "financialState": "UNKNOWN",
+      "codigo": null,
+      "resultadoTardio": null,
+      "pendentes": [
+        "1"
+      ]
+    },
+    "blockedAttempt": {
+      "codigo": "TEF_RESULTADO_PENDENTE",
+      "transacaoId": null,
+      "linhasAntes": 1,
+      "linhasDepois": 1,
+      "adapterCalls": 0
+    },
+    "reconciliation": {
+      "transacaoId": "1",
+      "status": "cancelado",
+      "financialState": "CANCELLED",
+      "travaLiberada": true
+    },
+    "afterReconciliation": {
+      "status": "aprovado",
+      "transacaoId": 2,
+      "adapterCalls": 1
+    },
+    "finalRows": [
+      {
+        "id": 1,
+        "status": "cancelado"
+      },
+      {
+        "id": 2,
+        "status": "aprovado"
+      }
+    ]
+  },
+  "reconciliationBehavior": {
+    "api": "TefManager.reconciliarResultadoTardio(transacaoId, { financialState, usuario, observacao })",
+    "releasesLock": true,
+    "prematureRefused": {
+      "sameProcessReconciliation": "TEF_RECONCILIACAO_PREMATURA",
+      "otherProcessWhileOwnerAlive": {
+        "estado": "AGUARDANDO_RESULTADO_TARDIO",
+        "reconciliation": "TEF_RECONCILIACAO_PREMATURA"
+      },
+      "afterOwnerDied": {
+        "estado": "RECONCILIACAO_PENDENTE",
+        "reconciliation": true,
+        "newAuthorization": "aprovado"
+      }
+    },
+    "multiplePending": {
+      "pending": [
+        "2",
+        "3"
+      ],
+      "recovered": [
+        "2",
+        "3"
+      ],
+      "finalRows": [
+        {
+          "id": 1,
+          "status": "aprovado"
+        },
+        {
+          "id": 2,
+          "status": "cancelado"
+        },
+        {
+          "id": 3,
+          "status": "aprovado"
+        },
+        {
+          "id": 4,
+          "status": "aprovado"
+        }
+      ]
+    },
+    "sendsNewAuthorization": false
+  },
+  "scenarios": {
+    "unknownRestart": {
+      "txA": "1",
+      "cdsResult": {
+        "codigo": "TIMEOUT",
+        "status": "pendente",
+        "financialState": "UNKNOWN"
+      },
+      "workerExitCode": 137,
+      "rowsAfterCrash": [
+        {
+          "id": 1,
+          "status": "pendente"
+        }
+      ],
+      "recoveredLock": {
+        "transacaoId": "1",
+        "provedor": "Destaxa",
+        "operacao": "credito",
+        "estado": "RECONCILIACAO_PENDENTE",
+        "desde": "2026-09-28 13:52:40",
+        "origem": "persistida",
+        "financialState": "UNKNOWN",
+        "codigo": null,
+        "resultadoTardio": null,
+        "pendentes": [
+          "1"
+        ]
+      },
+      "blockedAttempt": {
+        "codigo": "TEF_RESULTADO_PENDENTE",
+        "transacaoId": null,
+        "linhasAntes": 1,
+        "linhasDepois": 1,
+        "adapterCalls": 0
+      },
+      "reconciliation": {
+        "transacaoId": "1",
+        "status": "cancelado",
+        "financialState": "CANCELLED",
+        "travaLiberada": true
+      },
+      "afterReconciliation": {
+        "status": "aprovado",
+        "transacaoId": 2,
+        "adapterCalls": 1
+      },
+      "finalRows": [
+        {
+          "id": 1,
+          "status": "cancelado"
+        },
+        {
+          "id": 2,
+          "status": "aprovado"
+        }
+      ]
+    },
+    "inTimePending": {
+      "99": {
+        "estado": "RECONCILIACAO_PENDENTE",
+        "financialState": "PENDING",
+        "codigo": "99"
+      },
+      "A0": {
+        "estado": "RECONCILIACAO_PENDENTE",
+        "financialState": "UNCONFIRMED",
+        "codigo": "A0"
+      },
+      "A1": {
+        "estado": "RECONCILIACAO_PENDENTE",
+        "financialState": "BLOCKED",
+        "codigo": "A1"
+      },
+      "08": {
+        "estado": "RECONCILIACAO_PENDENTE",
+        "financialState": "UNKNOWN",
+        "codigo": "08"
+      }
+    },
+    "history": {
+      "seeded": [
+        "aprovado",
+        "negado",
+        "cancelado",
+        "erro"
+      ],
+      "lockAfterRestart": null,
+      "newAuthorization": "aprovado"
+    },
+    "multiplePending": {
+      "pending": [
+        "2",
+        "3"
+      ],
+      "recovered": [
+        "2",
+        "3"
+      ],
+      "finalRows": [
+        {
+          "id": 1,
+          "status": "aprovado"
+        },
+        {
+          "id": 2,
+          "status": "cancelado"
+        },
+        {
+          "id": 3,
+          "status": "aprovado"
+        },
+        {
+          "id": 4,
+          "status": "aprovado"
+        }
+      ]
+    },
+    "concurrency": {
+      "twoProcessesAuthorizing": [
+        "aprovado",
+        "TEF_RESULTADO_PENDENTE"
+      ],
+      "twoProcessesStarting": [
+        "TEF_RESULTADO_PENDENTE",
+        "TEF_RESULTADO_PENDENTE"
+      ],
+      "sameProcessParallel": [
+        "aprovado",
+        "TEF_AUTORIZACAO_EM_ANDAMENTO",
+        "TEF_AUTORIZACAO_EM_ANDAMENTO"
+      ]
+    },
+    "activeNativeCall": {
+      "sameProcessReconciliation": "TEF_RECONCILIACAO_PREMATURA",
+      "otherProcessWhileOwnerAlive": {
+        "estado": "AGUARDANDO_RESULTADO_TARDIO",
+        "reconciliation": "TEF_RECONCILIACAO_PREMATURA"
+      },
+      "afterOwnerDied": {
+        "estado": "RECONCILIACAO_PENDENTE",
+        "reconciliation": true,
+        "newAuthorization": "aprovado"
+      }
+    }
+  },
+  "residualRisks": [
+    "Reuso de PID pelo Windows pode fazer um dono morto parecer vivo: efeito conservador (reconciliação recusada como prematura), nunca libera cobrança.",
+    "Reconciliação continua manual (operador) — nenhuma liberação automática exceto negação confirmada tardia."
+  ],
+  "nativeHost": {
+    "architectureChanged": false,
+    "files": {
+      "backend/services/tef/destaxa/DestaxaNativeHost.js": "a19be487dd920b01757293764dbf36b27b1f288927ad293ba9896f7629b9d1c7",
+      "backend/services/tef/destaxa/DestaxaNativeHostClient.js": "e70821e2a892d492b1825a8f9722049e4da57bb185482a1004df4f38cfe5143f",
+      "backend/services/tef/destaxa/DestaxaHostBridge.js": "2ecb40424152bb7c2405bdf5e27f76598245693fde5c214368cf6bc53ccded59",
+      "backend/services/tef/destaxa/destaxaNativeHostProtocolo.js": "8b1f3a31bfad753105b73a8631d49f7d694f12ecfb7f5a033e268759eb2a35e5"
+    }
+  },
+  "hostProcess": {
+    "processType": "child_process",
+    "pid": 12448,
+    "tripwire": true,
+    "clientCode": "00"
+  },
+  "realTransactionalCalls": {
+    "inicia": 0,
+    "continua": 0,
+    "finaliza": 0
+  },
+  "workersDllLoadAttempts": 0,
+  "database": {
+    "official": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+    "tefTransacoesBefore": 0,
+    "tefTransacoesAfter": 0,
+    "newTransactions": 0,
+    "tefConfiguracaoAmbiente": "homologacao",
+    "configurationChanged": false,
+    "testDatabases": "temporários (schema copiado do oficial, sem dados), removidos ao final"
+  },
+  "scope": {
+    "changedFiles": [
+      "backend/services/tef/TefManager.js",
+      "backend/services/tef/adapters/DestaxaRealAdapter.js",
+      "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+      "backend/services/tef/destaxa/destaxaConstantes.js",
+      "backend/services/tef/destaxa/destaxaElectronRealTest.js",
+      "backend/services/tef/destaxa/destaxaProtocolo.js",
+      "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js",
+      "backend/services/tef/tefConfigService.js",
+      "backend/services/tef/tefFactory.js",
+      "backend/services/tef/tefFinancialSafetyPolicy.js",
+      "backend/services/tef/tefRepository.js",
+      "docs/build/release-certification-report.json",
+      "docs/build/release-certification-report.md",
+      "docs/build/release-certification-report.pdf",
+      "docs/build/tef-destaxa-06a-real-harness-report.json",
+      "electron-build-manifest.json",
+      "electron.js",
+      "package.json",
+      "tests/tef/tef-destaxa-01-fundacao.test.js",
+      "tests/tef/tef-destaxa-06a-real-harness.test.js",
+      "tests/tef/tef-destaxa-prep-04b.test.js",
+      "backend/services/tef/destaxa/DestaxaHostBridge.js",
+      "backend/services/tef/destaxa/DestaxaNativeHost.js",
+      "backend/services/tef/destaxa/DestaxaNativeHostClient.js",
+      "backend/services/tef/destaxa/destaxaCrtRealPathVerifier.js",
+      "backend/services/tef/destaxa/destaxaNativeHostProtocolo.js",
+      "backend/services/tef/destaxa/destaxaNativeHostVerifier.js",
+      "docs/build/tef-destaxa-06b-crt-real-path-report.json",
+      "docs/build/tef-destaxa-06c-mitigacao-report.json",
+      "docs/build/tef-destaxa-06c-persistencia-report.json",
+      "docs/build/tef-destaxa-06c-prep-report.json",
+      "docs/build/tef-destaxa-06c-timeout-report.json",
+      "docs/build/tef-destaxa-07-prep-final-epipe-report.json",
+      "docs/build/tef-destaxa-07-prep-report.json",
+      "tests/tef/fixtures/",
+      "tests/tef/tef-destaxa-06b-crt-real-path.test.js",
+      "tests/tef/tef-destaxa-06c-mitigacao.test.js",
+      "tests/tef/tef-destaxa-06c-persistencia.test.js",
+      "tests/tef/tef-destaxa-06c-prep.test.js",
+      "tests/tef/tef-destaxa-06c-timeout.test.js",
+      "tests/tef/tef-destaxa-07-prep-final-epipe.test.js",
+      "tests/tef/tef-destaxa-07-prep.test.js"
+    ],
+    "forbiddenAreasTouched": false
+  },
+  "tests": {
+    "executed": 42,
+    "passed": 42,
+    "failed": 0,
+    "failures": []
+  },
+  "regressions": [
+    {
+      "script": "test:tef-01",
+      "exitCode": 0,
+      "durationMs": 880,
+      "summary": [
+        "=== RESULTADO TEF-01: 13 passou, 0 falhou ==="
+      ]
+    },
+    {
+      "script": "test:tef-02",
+      "exitCode": 0,
+      "durationMs": 2381,
+      "summary": [
+        "=== RESULTADO TEF-02 UNITÁRIO: 24 passou, 0 falhou ===",
+        "=== RESULTADO TEF-02 REAL: 4 passou, 0 falhou ==="
+      ]
+    },
+    {
+      "script": "test:tef-fluxo",
+      "exitCode": 0,
+      "durationMs": 370,
+      "summary": [
+        "=== RESULTADO: 13 ok, 0 falhou ==="
+      ]
+    },
+    {
+      "script": "test:tef-destaxa-01",
+      "exitCode": 0,
+      "durationMs": 532,
+      "summary": [
+        "Resultado: 9 ok, 0 falhou"
+      ]
+    },
+    {
+      "script": "test:tef-destaxa-02",
+      "exitCode": 0,
+      "durationMs": 408,
+      "summary": [
+        "RESULTADO: CLIENT_INITIALIZED (00)"
+      ]
+    },
+    {
+      "script": "test:tef-destaxa-03",
+      "exitCode": 0,
+      "durationMs": 424,
+      "summary": [
+        "Resultado: 25 ok, 0 falhou"
+      ]
+    },
+    {
+      "script": "test:tef-destaxa-prep-04b",
+      "exitCode": 0,
+      "durationMs": 506,
+      "summary": [
+        "Resultado: 6 ok, 0 falhou"
+      ]
+    },
+    {
+      "script": "test:tef-destaxa-05",
+      "exitCode": 0,
+      "durationMs": 441,
+      "summary": [
+        "Resultado: 15 ok, 0 falhou"
+      ]
+    },
+    {
+      "script": "test:tef-destaxa-06a",
+      "exitCode": 0,
+      "durationMs": 7042,
+      "summary": [
+        "Resultado: 13 ok, 0 falhou"
+      ]
+    },
+    {
+      "script": "test:tef-destaxa-06b",
+      "exitCode": 0,
+      "durationMs": 7218,
+      "summary": [
+        "Resultado: 46 ok, 0 falhou"
+      ]
+    },
+    {
+      "script": "test:tef-destaxa-06c-prep",
+      "exitCode": 0,
+      "durationMs": 8314,
+      "summary": [
+        "Resultado: 34 ok, 0 falhou"
+      ]
+    },
+    {
+      "script": "test:tef-destaxa-06c-mitigacao",
+      "exitCode": 0,
+      "durationMs": 37202,
+      "summary": [
+        "Resultado: 42 ok, 0 falhou"
+      ]
+    },
+    {
+      "script": "test:tef-destaxa-06c-timeout",
+      "exitCode": 0,
+      "durationMs": 72698,
+      "summary": [
+        "Resultado: 39 ok, 0 falhou"
+      ]
+    }
+  ],
+  "result": "READY_FOR_REAL_R$1"
+}

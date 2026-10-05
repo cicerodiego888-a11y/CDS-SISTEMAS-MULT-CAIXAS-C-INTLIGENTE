@@ -59,6 +59,16 @@ ipcMain.handle('listar-impressoras', async (event) => {
   }
 });
 
+ipcMain.removeHandler('gerar-codigo-barras-etiqueta');
+ipcMain.handle('gerar-codigo-barras-etiqueta', async (_event, codigoBarras) => {
+  try {
+    const { gerarSvgCodigoBarras } = require('./backend/services/produto/gerarSvgCodigoBarras');
+    return { sucesso: true, svg: gerarSvgCodigoBarras(codigoBarras) };
+  } catch (error) {
+    return { sucesso: false, erro: error.message || 'Falha ao gerar código de barras.' };
+  }
+});
+
 ipcMain.removeHandler('selecionar-pasta-backup');
 ipcMain.handle('selecionar-pasta-backup', async (event) => {
   const { selecionarPastaBackup: abrirSeletorPasta } = require('./backend/services/electronDialogoService');
@@ -539,7 +549,7 @@ function iniciarAplicacaoElectron(options = {}) {
       await invalidarCachesSessao();
 
       // RC3.16.5 — manifesto/hashes: pacote inconsistente não inicia o ERP (asar)
-      const integridade = garantirIntegridadeOuAbortar();
+      const integridade = garantirIntegridadeOuAbortar({ modulo: appModuloAtual });
       if (!integridade.ok) {
         app.quit();
         return;

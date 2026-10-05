@@ -40,7 +40,9 @@ test('RC8.0.Z: busca inteligente cobre PLU e código de barras', () => {
 
 test('lista de categoria/subcategoria não fecha sozinha no cadastro', () => {
   assert.match(produtosJs, /function selectClassificacaoEmUso/);
-  assert.match(produtosJs, /blur\.cadastroCatSync/);
+  // Mecanismo de blur substituído pelo CdsStableDropdown (tests/produtos/cds-stable-dropdown-classificacao.test.js).
+  assert.doesNotMatch(produtosJs, /blur\.cadastroCatSync/);
+  assert.match(produtosJs, /CdsStableDropdown\.mount/);
   assert.match(produtosJs, /change\.cadastroCat/);
 });
 

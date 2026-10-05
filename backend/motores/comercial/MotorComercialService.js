@@ -16,6 +16,7 @@ const mts = require('../mts');
 const auditoria = require('./PedidoEstoqueAuditoria');
 const { TipoSaldo } = require('../../services/fiscalNaoFiscal/constants');
 const cfgVendaSemEstoque = require('../../services/estoque/empresaPermiteVendaSemEstoqueConfig');
+const { deveBloquearExcedentePorCategoria } = require('../../services/estoque/vendaSemEstoqueElegibilidade');
 
 function round3(n) {
   return Math.round(Number(n || 0) * 1000) / 1000;
@@ -24,6 +25,19 @@ function round3(n) {
 function getDb(dbInjected) {
   if (dbInjected) return dbInjected;
   return require('../../database');
+}
+
+function obterCategoriaEControleProduto(db, produtoId) {
+  return new Promise((resolve, reject) => {
+    db.get(
+      `SELECT COALESCE(p.controla_estoque, 1) AS controla_estoque, c.nome AS categoria_nome
+       FROM produtos p
+       LEFT JOIN categorias c ON c.id = p.categoria_id
+       WHERE p.id = ?`,
+      [produtoId],
+      (err, row) => (err ? reject(err) : resolve(row || {}))
+    );
+  });
 }
 
 function erro(codigo, mensagem, extra = {}) {
@@ -187,7 +201,41 @@ async function analisarDisponibilidadeFiscal(itensBrutos, opts = {}) {
       continue;
     }
 
-    if (cfgVendaSemEstoque.estaAtivadaSync()) {
+    const permitirVendaSemEstoque = cfgVendaSemEstoque.estaAtivadaSync();
+    if (permitirVendaSemEstoque) {
+      const produtoRegra = await obterCategoriaEControleProduto(db, item.produto_id);
+      if (deveBloquearExcedentePorCategoria(
+        produtoRegra,
+        item.quantidade,
+        disp.disponivel_total,
+        permitirVendaSemEstoque
+      )) {
+        bloqueado = true;
+        plano.push({
+          produto_id: item.produto_id,
+          quantidade: item.quantidade,
+          acao: 'BLOQUEAR',
+          transferir: 0,
+          linhas: item.linhas,
+          disponivel_fiscal: disp.disponivel_fiscal,
+          disponivel_nao_fiscal: disp.disponivel_nao_fiscal,
+          disponivel_total: disp.disponivel_total
+        });
+        await auditoria.registrar(db, {
+          pedido_id: opts.pedidoId || null,
+          produto_id: item.produto_id,
+          evento: auditoria.Evento.BLOQUEADO,
+          quantidade: item.quantidade,
+          saldo_fiscal: disp.saldo_fiscal,
+          saldo_nao_fiscal: disp.saldo_nao_fiscal,
+          disponivel_fiscal: disp.disponivel_fiscal,
+          disponivel_nao_fiscal: disp.disponivel_nao_fiscal,
+          detalhes: { mensagem: 'Saldo insuficiente para esta categoria.' },
+          usuario_id: opts.usuarioId || null
+        });
+        continue;
+      }
+
       plano.push({
         produto_id: item.produto_id,
         quantidade: item.quantidade,

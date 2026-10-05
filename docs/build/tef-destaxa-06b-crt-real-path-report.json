@@ -1,0 +1,326 @@
+{
+  "sprint": "TEF-DESTAXA-06B",
+  "timestamp": "2026-09-29T17:59:00.029Z",
+  "provider": "destaxa",
+  "environment": "homologacao",
+  "adapterMode": "real",
+  "runtime": {
+    "platform": "win32",
+    "arch": "x64",
+    "electron": "22.3.27",
+    "node": "16.17.1",
+    "abi": "110",
+    "koffi": "3.3.1"
+  },
+  "architectureChain": {
+    "manager": "TefManager.autorizar",
+    "factory": "TefFactory.obterAdapter",
+    "adapter": "DestaxaRealAdapter.prepararAutorizacao",
+    "orchestrator": "DestaxaTransacaoOrquestrador",
+    "bridge": "DestaxaNativeBridge",
+    "loader": "destaxaKoffiLoader"
+  },
+  "configuration": {
+    "valid": true,
+    "pendencias": [],
+    "provider": "destaxa",
+    "pinpadEnabled": true,
+    "configuredPort": "COM3"
+  },
+  "nativeHost": {
+    "used": true,
+    "pid": 6576,
+    "processType": "utilityProcess",
+    "versions": {
+      "node": "16.17.1",
+      "electron": "22.3.27",
+      "modules": "110"
+    },
+    "tripwire": true,
+    "counters": {
+      "dllLoads": 1,
+      "inicia": 0,
+      "continua": 0,
+      "finaliza": 0
+    },
+    "error": null,
+    "mainProcessDllLoads": 0,
+    "adapterExecution": "native-host"
+  },
+  "dll": {
+    "loaded": true,
+    "exports": 4,
+    "path": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll"
+  },
+  "client": {
+    "initialized": true,
+    "code": "00"
+  },
+  "vspague": {
+    "running": true,
+    "responding": true,
+    "pid": "10940"
+  },
+  "pinpad": {
+    "model": "PPC930",
+    "port": null,
+    "detected": false,
+    "usb": false
+  },
+  "crt": {
+    "implemented": true,
+    "operation": "CRT",
+    "valueCents": null,
+    "input": null,
+    "operationParameterSeparate": true,
+    "valueFormat": {
+      "sent": null,
+      "confirmed": true,
+      "format": "reais com ponto decimal e 2 casas (100 centavos → \"1.00\")",
+      "source": [
+        "docs/06-api-iniciatransacaodestaxa.md: transacao_valor \"Ex: 100.99\"; exemplo \"transacao_valor=99.99\"",
+        "examples/dotnet/Program.cs: \"transacao_valor=100.00\", \"transacao_valor=23.49\"",
+        "examples/java App.java: \"transacao_valor=100.00\", \"transacao_valor=23.49\"",
+        "examples/clang/src/main.c: \"transacao_valor=108.96\", \"transacao_valor=100.00\""
+      ]
+    }
+  },
+  "realTransactionGate": {
+    "env": "DESTAXA_REAL_TRANSACTION_ENABLED",
+    "enabled": false,
+    "blockedCode": "DESTAXA_PINPAD_NAO_DETECTADO"
+  },
+  "transaction": {
+    "attempted": false,
+    "financialTransactionId": null,
+    "clientInitializationCode": "00",
+    "transactionCode": null,
+    "iniciaCalls": 0,
+    "continuaCalls": 0,
+    "finalizaCalls": 0
+  },
+  "retry": {
+    "tentativas": 1,
+    "retry": false,
+    "policy": "tefRetryService.autorizarComRetry + tefFinancialSafetyPolicy (TEF-DESTAXA-05)"
+  },
+  "result": "NOT_READY_FOR_REAL_TRANSACTION",
+  "runs": {
+    "node": {
+      "sprint": "TEF-DESTAXA-06B",
+      "timestamp": "2026-09-29T17:58:56.368Z",
+      "provider": "destaxa",
+      "environment": "homologacao",
+      "adapterMode": "real",
+      "runtime": {
+        "platform": "win32",
+        "arch": "x64",
+        "electron": null,
+        "node": "24.19.0",
+        "abi": "137",
+        "koffi": "3.3.1"
+      },
+      "architectureChain": {
+        "manager": "TefManager.autorizar",
+        "factory": "TefFactory.obterAdapter",
+        "adapter": "DestaxaRealAdapter.prepararAutorizacao",
+        "orchestrator": "DestaxaTransacaoOrquestrador",
+        "bridge": "DestaxaNativeBridge",
+        "loader": "destaxaKoffiLoader"
+      },
+      "configuration": {
+        "valid": true,
+        "pendencias": [],
+        "provider": "destaxa",
+        "pinpadEnabled": true,
+        "configuredPort": "COM3"
+      },
+      "nativeHost": {
+        "used": true,
+        "pid": 1536,
+        "processType": "child_process",
+        "versions": {
+          "node": "24.19.0",
+          "electron": null,
+          "modules": "137"
+        },
+        "tripwire": true,
+        "counters": {
+          "dllLoads": 1,
+          "inicia": 0,
+          "continua": 0,
+          "finaliza": 0
+        },
+        "error": null,
+        "mainProcessDllLoads": 0,
+        "adapterExecution": "native-host"
+      },
+      "dll": {
+        "loaded": true,
+        "exports": 4,
+        "path": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll"
+      },
+      "client": {
+        "initialized": true,
+        "code": "00"
+      },
+      "vspague": {
+        "running": true,
+        "responding": true,
+        "pid": "10940"
+      },
+      "pinpad": {
+        "model": "PPC930",
+        "port": null,
+        "detected": false,
+        "usb": false
+      },
+      "crt": {
+        "implemented": true,
+        "operation": "CRT",
+        "valueCents": null,
+        "input": null,
+        "operationParameterSeparate": true,
+        "valueFormat": {
+          "sent": null,
+          "confirmed": true,
+          "format": "reais com ponto decimal e 2 casas (100 centavos → \"1.00\")",
+          "source": [
+            "docs/06-api-iniciatransacaodestaxa.md: transacao_valor \"Ex: 100.99\"; exemplo \"transacao_valor=99.99\"",
+            "examples/dotnet/Program.cs: \"transacao_valor=100.00\", \"transacao_valor=23.49\"",
+            "examples/java App.java: \"transacao_valor=100.00\", \"transacao_valor=23.49\"",
+            "examples/clang/src/main.c: \"transacao_valor=108.96\", \"transacao_valor=100.00\""
+          ]
+        }
+      },
+      "realTransactionGate": {
+        "env": "DESTAXA_REAL_TRANSACTION_ENABLED",
+        "enabled": false,
+        "blockedCode": "DESTAXA_PINPAD_NAO_DETECTADO"
+      },
+      "transaction": {
+        "attempted": false,
+        "financialTransactionId": null,
+        "clientInitializationCode": "00",
+        "transactionCode": null,
+        "iniciaCalls": 0,
+        "continuaCalls": 0,
+        "finalizaCalls": 0
+      },
+      "retry": {
+        "tentativas": 1,
+        "retry": false,
+        "policy": "tefRetryService.autorizarComRetry + tefFinancialSafetyPolicy (TEF-DESTAXA-05)"
+      },
+      "result": "NOT_READY_FOR_REAL_TRANSACTION"
+    },
+    "electron": {
+      "sprint": "TEF-DESTAXA-06B",
+      "timestamp": "2026-09-29T17:59:00.029Z",
+      "provider": "destaxa",
+      "environment": "homologacao",
+      "adapterMode": "real",
+      "runtime": {
+        "platform": "win32",
+        "arch": "x64",
+        "electron": "22.3.27",
+        "node": "16.17.1",
+        "abi": "110",
+        "koffi": "3.3.1"
+      },
+      "architectureChain": {
+        "manager": "TefManager.autorizar",
+        "factory": "TefFactory.obterAdapter",
+        "adapter": "DestaxaRealAdapter.prepararAutorizacao",
+        "orchestrator": "DestaxaTransacaoOrquestrador",
+        "bridge": "DestaxaNativeBridge",
+        "loader": "destaxaKoffiLoader"
+      },
+      "configuration": {
+        "valid": true,
+        "pendencias": [],
+        "provider": "destaxa",
+        "pinpadEnabled": true,
+        "configuredPort": "COM3"
+      },
+      "nativeHost": {
+        "used": true,
+        "pid": 6576,
+        "processType": "utilityProcess",
+        "versions": {
+          "node": "16.17.1",
+          "electron": "22.3.27",
+          "modules": "110"
+        },
+        "tripwire": true,
+        "counters": {
+          "dllLoads": 1,
+          "inicia": 0,
+          "continua": 0,
+          "finaliza": 0
+        },
+        "error": null,
+        "mainProcessDllLoads": 0,
+        "adapterExecution": "native-host"
+      },
+      "dll": {
+        "loaded": true,
+        "exports": 4,
+        "path": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll"
+      },
+      "client": {
+        "initialized": true,
+        "code": "00"
+      },
+      "vspague": {
+        "running": true,
+        "responding": true,
+        "pid": "10940"
+      },
+      "pinpad": {
+        "model": "PPC930",
+        "port": null,
+        "detected": false,
+        "usb": false
+      },
+      "crt": {
+        "implemented": true,
+        "operation": "CRT",
+        "valueCents": null,
+        "input": null,
+        "operationParameterSeparate": true,
+        "valueFormat": {
+          "sent": null,
+          "confirmed": true,
+          "format": "reais com ponto decimal e 2 casas (100 centavos → \"1.00\")",
+          "source": [
+            "docs/06-api-iniciatransacaodestaxa.md: transacao_valor \"Ex: 100.99\"; exemplo \"transacao_valor=99.99\"",
+            "examples/dotnet/Program.cs: \"transacao_valor=100.00\", \"transacao_valor=23.49\"",
+            "examples/java App.java: \"transacao_valor=100.00\", \"transacao_valor=23.49\"",
+            "examples/clang/src/main.c: \"transacao_valor=108.96\", \"transacao_valor=100.00\""
+          ]
+        }
+      },
+      "realTransactionGate": {
+        "env": "DESTAXA_REAL_TRANSACTION_ENABLED",
+        "enabled": false,
+        "blockedCode": "DESTAXA_PINPAD_NAO_DETECTADO"
+      },
+      "transaction": {
+        "attempted": false,
+        "financialTransactionId": null,
+        "clientInitializationCode": "00",
+        "transactionCode": null,
+        "iniciaCalls": 0,
+        "continuaCalls": 0,
+        "finalizaCalls": 0
+      },
+      "retry": {
+        "tentativas": 1,
+        "retry": false,
+        "policy": "tefRetryService.autorizarComRetry + tefFinancialSafetyPolicy (TEF-DESTAXA-05)"
+      },
+      "result": "NOT_READY_FOR_REAL_TRANSACTION"
+    }
+  }
+}

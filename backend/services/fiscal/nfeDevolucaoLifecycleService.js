@@ -28,6 +28,7 @@ const {
   uiDoEstado,
   podeReenviarDevolucao,
   podeCancelarDevolucao,
+  podeNovaTentativaDevolucao,
   mensagemRejeicaoDetalhada,
   xmlRejeicaoFiscalDefinitiva,
   codigoRejeicaoNota,
@@ -147,7 +148,9 @@ async function garantirSchemaLifecycle() {
     `ALTER TABLE nfe_devolucoes_compra ADD COLUMN xml_assinado_hash TEXT`,
     `ALTER TABLE nfe_devolucoes_compra ADD COLUMN cnf TEXT`,
     `ALTER TABLE nfe_devolucoes_compra ADD COLUMN tp_emis TEXT`,
-    `ALTER TABLE nfe_devolucoes_compra ADD COLUMN identidade_congelada INTEGER DEFAULT 0`
+    `ALTER TABLE nfe_devolucoes_compra ADD COLUMN identidade_congelada INTEGER DEFAULT 0`,
+    `ALTER TABLE nfe_devolucoes_compra ADD COLUMN tentativa_origem_id INTEGER`,
+    `ALTER TABLE nfe_devolucoes_compra ADD COLUMN numero_tentativa INTEGER`
   ];
   for (const sql of alters) {
     try {
@@ -1417,6 +1420,80 @@ function gerarDanfeCanceladoHtml(nota, protocoloCancelamento, motivo) {
 }
 
 /**
+ * Abre nova tentativa a partir de NF rejeitada. Não altera XML/status da tentativa anterior.
+ */
+async function iniciarNovaTentativaDevolucao(notaId, ctx = {}) {
+  await garantirSchemaLifecycle();
+  const nota = await obterNota(notaId);
+  if (!nota) {
+    throw Object.assign(new Error('NF-e de devolução não encontrada.'), {
+      code: 'NOTA_NAO_ENCONTRADA',
+      statusCode: 404
+    });
+  }
+  if (!podeNovaTentativaDevolucao(nota)) {
+    throw Object.assign(
+      new Error(
+        String(nota.status || '').toLowerCase() === ESTADOS.AUTORIZADA
+          ? 'NF-e autorizada não pode iniciar nova tentativa neste documento. Use duplicar devolução se necessário.'
+          : `Nova tentativa não permitida para status "${nota.status}".`
+      ),
+      { code: 'NOVA_TENTATIVA_BLOQUEADA', statusCode: 400 }
+    );
+  }
+  const xmlAssinado = nota.xml_assinado || nota.xml_enviado || '';
+  const xmlHash = nota.xml_assinado_hash || nota.xml_hash || null;
+  await registrarEvento({
+    notaId: nota.id,
+    compraId: nota.compra_id,
+    evento: EVENTOS.NOVA_TENTATIVA,
+    status: nota.status,
+    cStat: nota.cstat_retorno,
+    xMotivo: nota.xmotivo_retorno,
+    mensagem: 'Nova tentativa iniciada sem reutilizar XML/assinatura desta NF-e.',
+    usuarioId: ctx.usuarioId,
+    usuarioNome: ctx.usuarioNome,
+    ip: ctx.ip,
+    computador: ctx.computador,
+    detalhes: {
+      preservarNotaId: nota.id,
+      numero: nota.numero,
+      chave: nota.chave_acesso,
+      xmlPreservado: Boolean(xmlAssinado),
+      xmlHashPreservado: xmlHash,
+      reutilizaXml: false,
+      reutilizaAssinatura: false
+    }
+  });
+  appendLog('rc6-3-nova-tentativa.log', {
+    origemTentativaId: nota.id,
+    compraId: nota.compra_id,
+    numero: nota.numero,
+    status: nota.status,
+    cStat: nota.cstat_retorno
+  });
+  return {
+    success: true,
+    acao: 'NOVA_TENTATIVA',
+    proximaEtapa: 'revisao_fiscal',
+    compraId: Number(nota.compra_id),
+    origemTentativaId: Number(nota.id),
+    numeroTentativaOrigem: nota.numero_tentativa != null ? Number(nota.numero_tentativa) : 1,
+    notaOrigem: {
+      id: Number(nota.id),
+      numero: nota.numero,
+      serie: nota.serie,
+      status: nota.status,
+      cStat: nota.cstat_retorno || null,
+      xMotivo: nota.xmotivo_retorno || nota.rejeicao_motivo || null,
+      chave: nota.chave_acesso,
+      xmlPreservado: Boolean(xmlAssinado),
+      xmlHash: xmlHash
+    }
+  };
+}
+
+/**
  * Reenvio seguro: reenvia XML assinado já persistido (sem nova numeração).
  */
 async function reenviarNfeDevolucao(notaId, ctx = {}) {
@@ -1580,6 +1657,7 @@ async function obterPainelStatus(notaId) {
     acoes: {
       consultar: Boolean(nota.chave_acesso),
       reenviar: podeReenviarDevolucao(nota),
+      novaTentativa: podeNovaTentativaDevolucao(nota),
       cancelar: podeCancelarDevolucao(nota)
     },
     timeline: eventos
@@ -1603,6 +1681,7 @@ module.exports = {
   consultarSituacaoDevolucao,
   cancelarNfeDevolucaoOficial,
   reenviarNfeDevolucao,
+  iniciarNovaTentativaDevolucao,
   listarEventosDevolucao,
   obterPainelStatus,
   obterXmlVersionado,

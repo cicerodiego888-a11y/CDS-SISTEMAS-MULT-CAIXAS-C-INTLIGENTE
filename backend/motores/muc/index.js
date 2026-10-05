@@ -58,14 +58,18 @@ class MotorUniversalConversao {
     const produtoId = item.produto_id || produto?.id;
     const apresentacaoId = item.produto_apresentacao_id || item.embalagem_id;
 
-    const executar = (apresentacao) => {
+    const calcular = (apresentacao) => {
+      const origem = opcoes.origem === 'CENTRAL_NFE'
+        ? 'CENTRAL_NFE'
+        : (item.origem_conversao || opcoes.origem || 'MANUAL');
       const resultado = self.converter({
         produtoId,
         apresentacaoId: apresentacao?.id ?? apresentacaoId,
         apresentacao,
         produto,
         item,
-        origem: item.origem_conversao || opcoes.origem || 'MANUAL',
+        origem,
+        unidadeEstoque: opcoes.origem === 'CENTRAL_NFE' ? produto?.unidade : undefined,
         origemDados: 'COMPRA_ITEM'
       }, {
         fornecedorCnpj: opcoes.fornecedorCnpj || item.fornecedor_cnpj,
@@ -101,6 +105,17 @@ class MotorUniversalConversao {
         });
       }
 
+      return resultado;
+    };
+
+    const executar = (apresentacao) => {
+      let resultado;
+      try {
+        resultado = calcular(apresentacao);
+      } catch (erro) {
+        if (!callback) throw erro;
+        return callback(erro);
+      }
       if (callback) callback(null, resultado);
       return resultado;
     };
@@ -112,13 +127,14 @@ class MotorUniversalConversao {
       });
     }
 
-    if (produtoId && (item.codigo_barras || item.codigo_fornecedor)) {
+    if (produtoId && (item.codigo_barras || item.codigo_fornecedor || (opcoes.origem === 'CENTRAL_NFE' && item.unidade_comercial))) {
       return this.apresentacoes.resolverPorIdentificador(
         produtoId,
         {
           gtin: item.codigo_barras,
           codigo_fornecedor: item.codigo_fornecedor,
-          fornecedor_cnpj: opcoes.fornecedorCnpj || item.fornecedor_cnpj
+          fornecedor_cnpj: opcoes.fornecedorCnpj || item.fornecedor_cnpj,
+          unidade_comercial: opcoes.origem === 'CENTRAL_NFE' ? item.unidade_comercial : null
         },
         (err, ap) => {
           if (err && callback) return callback(err);

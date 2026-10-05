@@ -26,25 +26,30 @@ test('RC8.0.Y: controla_estoque=0 desliga controle', () => {
   assert.equal(normalizarFlagControlaEstoque(0), 0);
 });
 
-test('RC8.0.Y: saldos virtuais permitem venda sem estoque físico', () => {
+test('RC8.0.Y: controla_estoque=0 não inventa saldo virtual', () => {
   const saldos = saldosParaDistribuicaoVenda(
     { controla_estoque: 0 },
     2.5,
     0,
     0
   );
-  assert.equal(saldos.saldoFiscal, 2.5);
-  assert.equal(saldos.saldoNaoFiscal, 2.5);
+  assert.equal(saldos.saldoFiscal, 0);
+  assert.equal(saldos.saldoNaoFiscal, 0);
 
-  const faixa = obterFaixaQuantidadeFiscal(2.5, saldos.saldoFiscal, saldos.saldoNaoFiscal);
-  assert.equal(faixa.sucesso, true);
-
-  const distFiscal = distribuirQuantidadeVenda(2.5, saldos.saldoFiscal, saldos.saldoNaoFiscal, true);
+  const distFiscal = distribuirQuantidadeVenda(2.5, 0, 0, true, {
+    semControleEstoque: true,
+    itemFiscal: 1
+  });
   assert.equal(distFiscal.sucesso, true);
   assert.equal(distFiscal.quantidadeFiscal, 2.5);
   assert.equal(distFiscal.quantidadeNaoFiscal, 0);
+  assert.equal(saldos.saldoFiscal, 0);
+  assert.equal(saldos.saldoNaoFiscal, 0);
 
-  const distNf = distribuirQuantidadeVenda(2.5, saldos.saldoFiscal, saldos.saldoNaoFiscal, false);
+  const distNf = distribuirQuantidadeVenda(2.5, 0, 0, false, {
+    semControleEstoque: true,
+    itemFiscal: 0
+  });
   assert.equal(distNf.sucesso, true);
   assert.equal(distNf.quantidadeFiscal, 0);
   assert.equal(distNf.quantidadeNaoFiscal, 2.5);

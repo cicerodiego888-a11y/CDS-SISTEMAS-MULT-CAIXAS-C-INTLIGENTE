@@ -1,4 +1,6 @@
-const db = require('../database');
+function obterDb() {
+  return require('../database');
+}
 
 function obterIpRequisicao(req) {
   if (!req) return null;
@@ -28,6 +30,8 @@ function gravarAuditoria({
   detalhes = null,
   ip_requisicao = null
 }) {
+  const db = obterDb();
+
   return new Promise((resolve, reject) => {
     db.run(
       `INSERT INTO auditoria (
@@ -61,6 +65,7 @@ function gravarAuditoria({
 }
 
 function obterAuditoria({ modulo, acao, usuario_nome, inicio, fim, limite = 100 }) {
+  const db = obterDb();
   const filtros = [];
   const params = [];
 
@@ -105,6 +110,7 @@ module.exports = {
 };
 
 function obterAuditoriaPaginada({ modulo, acao, usuario_nome, inicio, fim, page = 1, pageSize = 50 }) {
+  const db = obterDb();
   const filtros = [];
   const params = [];
 

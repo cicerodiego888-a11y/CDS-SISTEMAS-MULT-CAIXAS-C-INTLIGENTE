@@ -59,7 +59,8 @@ async function schema(db) {
     valor_nao_fiscal REAL DEFAULT 0, cancelada INTEGER DEFAULT 0, status TEXT DEFAULT 'finalizada'
   )`);
   await run(db, `CREATE TABLE produtos (
-    id INTEGER PRIMARY KEY, nome TEXT, codigo TEXT, item_fiscal INTEGER, estoque REAL DEFAULT 0
+    id INTEGER PRIMARY KEY, nome TEXT, codigo TEXT, item_fiscal INTEGER, estoque REAL DEFAULT 0,
+    saldo_fiscal REAL DEFAULT 0, saldo_nao_fiscal REAL DEFAULT 0, preco_venda REAL DEFAULT 0
   )`);
   await run(db, `CREATE TABLE vendas_itens (
     id INTEGER PRIMARY KEY, venda_id INTEGER, produto_id INTEGER, quantidade REAL,
@@ -264,7 +265,8 @@ test.describe('Sprint 07.7 — recuperação segura de duplicidade NFC-e cStat 5
   test('11 — Venda 5 autorizada sai e Venda 6 sem autorização volta à elegibilidade', async () => {
     const db = openDb();
     await schema(db);
-    await run(db, `INSERT INTO produtos (id,nome,codigo,item_fiscal,estoque) VALUES (1,'Produto','P1',1,100)`);
+    // Elegibilidade exige item_fiscal=1 AND saldo_fiscal>0 (FechamentoFiscalElegibilidadeService).
+    await run(db, `INSERT INTO produtos (id,nome,codigo,item_fiscal,estoque,saldo_fiscal) VALUES (1,'Produto','P1',1,100,100)`);
     for (const vendaId of [5, 6]) {
       await run(db, `INSERT INTO vendas
         (id,data_venda,total,valor_fiscal,valor_nao_fiscal,cancelada,status)

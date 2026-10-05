@@ -14,6 +14,28 @@ const PerformanceMonitor = require('./observabilidade/performance/PerformanceMon
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+const ERP_CONTENT_SECURITY_POLICY = [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'self'",
+    "form-action 'self'",
+    "script-src 'self' 'sha256-qKDmMQvRGZK66GlOmyXzOaLvGPRIwWXUQZ9LT4ghpIA=' 'sha256-GDaEWQiEkn5Z0G7IFVExjDPclCn7ocXXyy6Mbb+0E4k='",
+    "script-src-attr 'unsafe-inline'",
+    "style-src 'self' 'sha256-UHAKAsPuf7oJdV0wDlffZS+BW+E7XsM/IDy2cCUln9w='",
+    "style-src-attr 'unsafe-inline'",
+    "img-src 'self' data:",
+    "font-src 'self'",
+    "connect-src 'self' https://viacep.com.br"
+].join('; ');
+
+app.use((req, res, next) => {
+    if (req.path === '/login' || req.path === '/erp' || req.path === '/erp/') {
+        res.setHeader('Content-Security-Policy', ERP_CONTENT_SECURITY_POLICY);
+    }
+    next();
+});
+
 // Middleware
 app.use((req, res, next) => {
   cors({

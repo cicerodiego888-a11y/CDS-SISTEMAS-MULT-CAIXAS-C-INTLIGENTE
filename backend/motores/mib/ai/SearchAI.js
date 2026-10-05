@@ -123,7 +123,6 @@ class SearchAI {
     const candidatos = [];
     const first = termoNorm.slice(0, 1);
     for (const p of lista) {
-      if (modoFiscal && Number(p.item_fiscal) !== 1) continue;
       const nb = p.nome_busca || '';
       if (!nb) continue;
       // evita scan total: mesma inicial OU tamanho próximo OU contém 2 primeiras letras
@@ -201,7 +200,6 @@ class SearchAI {
     const out = [];
 
     for (const p of lista) {
-      if (modoFiscal && Number(p.item_fiscal) !== 1) continue;
       let hits = 0;
       let sinonimo = false;
       let ok = true;

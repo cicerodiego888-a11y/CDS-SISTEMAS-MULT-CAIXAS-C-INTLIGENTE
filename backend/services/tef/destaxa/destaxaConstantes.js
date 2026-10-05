@@ -45,7 +45,90 @@ const ERROS = Object.freeze({
   DESTAXA_TRANSACAO_EM_ANDAMENTO: 'DESTAXA_TRANSACAO_EM_ANDAMENTO',
   DESTAXA_TRANSACAO_NAO_ENCONTRADA: 'DESTAXA_TRANSACAO_NAO_ENCONTRADA',
   DESTAXA_TRANSACAO_REAL_BLOQUEADA: 'DESTAXA_TRANSACAO_REAL_BLOQUEADA',
-  DESTAXA_TRANSACAO_SEM_CONTEXTO: 'DESTAXA_TRANSACAO_SEM_CONTEXTO'
+  DESTAXA_TRANSACAO_SEM_CONTEXTO: 'DESTAXA_TRANSACAO_SEM_CONTEXTO',
+  DESTAXA_REAL_TRANSACTION_DISABLED: 'DESTAXA_REAL_TRANSACTION_DISABLED',
+  DESTAXA_OPERACAO_NAO_PERMITIDA: 'DESTAXA_OPERACAO_NAO_PERMITIDA',
+  DESTAXA_VALOR_NAO_PERMITIDO: 'DESTAXA_VALOR_NAO_PERMITIDO',
+  DESTAXA_AMBIENTE_NAO_PERMITIDO: 'DESTAXA_AMBIENTE_NAO_PERMITIDO',
+  DESTAXA_PROVIDER_INVALIDO: 'DESTAXA_PROVIDER_INVALIDO',
+  DESTAXA_VSPAGUE_INDISPONIVEL: 'DESTAXA_VSPAGUE_INDISPONIVEL',
+  DESTAXA_PINPAD_NAO_DETECTADO: 'DESTAXA_PINPAD_NAO_DETECTADO',
+  DESTAXA_REAL_ADAPTER_INDISPONIVEL: 'DESTAXA_REAL_ADAPTER_INDISPONIVEL'
+});
+
+/**
+ * Gate financeiro: somente DESTAXA_REAL_TRANSACTION_ENABLED=1 libera
+ * iniciaTransacaoDestaxa/continuaTransacaoDestaxa/finalizaTransacaoDestaxa reais.
+ */
+const REAL_TRANSACTION_ENV = 'DESTAXA_REAL_TRANSACTION_ENABLED';
+
+function transacaoRealHabilitada() {
+  return String(process.env[REAL_TRANSACTION_ENV] || '').trim() === '1';
+}
+
+/** Única operação real permitida até nova sprint. */
+const OPERACOES_REAIS_PERMITIDAS = Object.freeze(['CRT']);
+
+/** Homologação real: valor único R$1,00. */
+const VALOR_HOMOLOGACAO_CENTAVOS = 100;
+const AMBIENTE_TRANSACAO_REAL = 'homologacao';
+
+/** Formato de `transacao_valor` confirmado na documentação oficial Destaxa 1.83. */
+const FORMATO_VALOR_DESTAXA = Object.freeze({
+  confirmed: true,
+  format: 'reais com ponto decimal e 2 casas (100 centavos → "1.00")',
+  source: Object.freeze([
+    'docs/06-api-iniciatransacaodestaxa.md: transacao_valor "Ex: 100.99"; exemplo "transacao_valor=99.99"',
+    'examples/dotnet/Program.cs: "transacao_valor=100.00", "transacao_valor=23.49"',
+    'examples/java App.java: "transacao_valor=100.00", "transacao_valor=23.49"',
+    'examples/clang/src/main.c: "transacao_valor=108.96", "transacao_valor=100.00"'
+  ])
+});
+
+const DESTAXA_GLOBAL_TIMEOUT_NAO_DOCUMENTADO = 'DESTAXA_GLOBAL_TIMEOUT_NAO_DOCUMENTADO';
+
+/**
+ * Timeouts na documentação oficial Destaxa 1.83. Não existe timeout global/CRT
+ * documentado; nenhum valor numérico do CDS deriva desta documentação.
+ */
+const CONTRATO_TIMEOUT_DESTAXA = Object.freeze({
+  globalTimeout: DESTAXA_GLOBAL_TIMEOUT_NAO_DOCUMENTADO,
+  coleta: Object.freeze({
+    campo: 'timeout',
+    unidade: 'segundos',
+    significado: 'tempo máximo que o Client aguardará a resposta da AC a uma coleta; ultrapassado, a transação será cancelada pelo Client',
+    escopo: 'resposta da AC à ação de coleta corrente (entre o retorno 99 e a próxima continuaTransacaoDestaxa)',
+    timeoutTotalDaTransacao: false,
+    variacaoPorEtapa: 'não documentada — o campo é enviado junto de cada ação de coleta',
+    autoridade: 'Client Destaxa',
+    source: 'docs/10-acoes-de-coleta.md: "campo timeout — Indica o tempo máximo em segundos que o Client aguardará a resposta do AC. Se o tempo for ultrapassado a transação será cancelada."'
+  }),
+  codigo08: Object.freeze({
+    codigo: '08',
+    significado: 'Tempo limite de espera excedido',
+    source: 'docs/09-tabela-codigos-de-retorno.md'
+  }),
+  chamadaEmAndamento: Object.freeze({
+    limite: null,
+    source: 'docs/07-api-continuatransacaodestaxa.md: "a AC deve aguardar o fim da chamada"'
+  }),
+  sources: Object.freeze([
+    'docs/00-introducao.md',
+    'docs/01-usando-a-dll-fluxo-simples.md',
+    'docs/02-usando-a-dll-fluxo-multi-transacao.md',
+    'docs/03-usando-a-dll.md',
+    'docs/04-interface-dll-ac.md',
+    'docs/05-api-iniciaclientdestaxa.md',
+    'docs/06-api-iniciatransacaodestaxa.md',
+    'docs/07-api-continuatransacaodestaxa.md',
+    'docs/08-api-finalizatransacaodestaxa.md',
+    'docs/09-tabela-codigos-de-retorno.md',
+    'docs/10-acoes-de-coleta.md',
+    'docs/dll-integracao-tef.html',
+    'examples/clang/src/main.c',
+    'examples/dotnet/Program.cs',
+    'examples/java/app/src/main/java/com/destaxa/example/App.java'
+  ])
 });
 
 /**
@@ -92,7 +175,7 @@ const OPERACOES = Object.freeze({
 const CAMPOS_ENTRADA_CRT_DOCUMENTADOS = Object.freeze({
   transacao_pagamento: 'A vista | Parcelado | Pré-datado',
   transacao_tipo_cartao: 'Débito | Credito',
-  transacao_valor: 'maior que zero; exemplo 100.99'
+  transacao_valor: 'maior que zero; reais com ponto e 2 casas; exemplo 100.99'
 });
 
 /** Chaves do adapter que NÃO entram no parâmetro `entrada` da DLL. */
@@ -209,6 +292,14 @@ module.exports = {
   ESTADOS,
   ESTADOS_PREPARACAO,
   ERROS,
+  REAL_TRANSACTION_ENV,
+  transacaoRealHabilitada,
+  OPERACOES_REAIS_PERMITIDAS,
+  VALOR_HOMOLOGACAO_CENTAVOS,
+  AMBIENTE_TRANSACAO_REAL,
+  FORMATO_VALOR_DESTAXA,
+  DESTAXA_GLOBAL_TIMEOUT_NAO_DOCUMENTADO,
+  CONTRATO_TIMEOUT_DESTAXA,
   CODIGOS_RESULTADO,
   CODIGO_CLIENT_OK,
   CODIGO_ACAO_SOLICITADA,

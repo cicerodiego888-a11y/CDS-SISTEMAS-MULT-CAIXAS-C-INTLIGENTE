@@ -518,8 +518,27 @@ function atualizarPreviewVendaUnidadeModal(produto) {
     }
 }
 
+function pdvModoFiscalQueryParam() {
+    return pdvModoFiscalAtivo() ? '1' : '0';
+}
+
+/** B = item_fiscal explícito 0. Ausência/null segue o padrão A (COALESCE=1). */
+function pdvProdutoEhNaoFiscal(produto) {
+    if (!produto) return false;
+    const bruto = produto.item_fiscal;
+    if (bruto === undefined || bruto === null || bruto === '') return false;
+    return Number(bruto) === 0;
+}
+
+function pdvProdutoPermitidoNoModoAtual(produto) {
+    return !!produto;
+}
+
+function filtrarCatalogoPdvModoAtual(lista) {
+    return (Array.isArray(lista) ? lista : []).filter(pdvProdutoPermitidoNoModoAtual);
+}
+
 function urlProdutosPdv() {
-    // Catálogo e motores sempre com F+NF. F12 só oculta o rótulo NF na UI.
     return `${API_URL}/produtos?modo_fiscal=0`;
 }
 
@@ -530,7 +549,7 @@ function sincronizarProdutosDisponiveisGlobal() {
 let catalogoVersaoPdvAtual = null;
 
 function definirCatalogoPdv(produtos) {
-    produtosDisponiveis = normalizarProdutoPdvLista(produtos);
+    produtosDisponiveis = filtrarCatalogoPdvModoAtual(normalizarProdutoPdvLista(produtos));
     sincronizarProdutosDisponiveisGlobal();
     const maxId = (produtosDisponiveis || []).reduce((m, p) => Math.max(m, Number(p.id) || 0), 0);
     catalogoVersaoPdvAtual = String(maxId);
@@ -554,15 +573,22 @@ function pdvTotalSaldosProduto(produto) {
 
 /**
  * Busca F1/MIB às vezes devolve saldos zerados. Não pode sobrescrever
- * catálogo que já tem F ou NF positivo.
+ * catálogo que já tem F ou NF positivo — exceto quando o incoming vem de
+ * GET /produtos/:id (saldosOficiais), cujo zero é real (ex.: após baixa).
  */
-function mesclarProdutoCatalogoPdv(existente, incoming) {
+function mesclarProdutoCatalogoPdv(existente, incoming, opcoes = {}) {
     if (!existente) return incoming;
     if (!incoming) return existente;
     const base = { ...existente, ...incoming };
     const totalIn = pdvTotalSaldosProduto(incoming);
     const totalEx = pdvTotalSaldosProduto(existente);
-    if (totalIn <= 1e-9 && totalEx > 1e-9) {
+    if (opcoes && opcoes.saldosOficiais === true) {
+        base.saldo_fiscal = Number(incoming.saldo_fiscal ?? 0);
+        base.saldo_nao_fiscal = Number(incoming.saldo_nao_fiscal ?? 0);
+        base.estoque_atual = base.saldo_fiscal + base.saldo_nao_fiscal;
+        base.reservado_fiscal = Number(incoming.reservado_fiscal ?? existente.reservado_fiscal ?? 0);
+        base.reservado_nao_fiscal = Number(incoming.reservado_nao_fiscal ?? existente.reservado_nao_fiscal ?? 0);
+    } else if (totalIn <= 1e-9 && totalEx > 1e-9) {
         base.saldo_fiscal = Number(existente.saldo_fiscal ?? 0);
         base.saldo_nao_fiscal = Number(existente.saldo_nao_fiscal ?? 0);
         base.estoque_atual = Number(existente.estoque_atual ?? totalEx);
@@ -570,18 +596,30 @@ function mesclarProdutoCatalogoPdv(existente, incoming) {
         base.saldo_fiscal = Number(incoming.saldo_fiscal ?? 0);
         base.saldo_nao_fiscal = Number(incoming.saldo_nao_fiscal ?? 0);
         base.estoque_atual = totalIn;
+        if (incoming.reservado_fiscal !== undefined || incoming.reservado_nao_fiscal !== undefined) {
+            base.reservado_fiscal = Number(incoming.reservado_fiscal ?? existente.reservado_fiscal ?? 0);
+            base.reservado_nao_fiscal = Number(incoming.reservado_nao_fiscal ?? existente.reservado_nao_fiscal ?? 0);
+        }
     }
     return base;
 }
 
-function upsertProdutoNoCatalogoPdv(produto) {
+function upsertProdutoNoCatalogoPdv(produto, opcoes = {}) {
     if (!produto || produto.id == null) return null;
     const [normalizado] = normalizarProdutoPdvLista([produto]);
     const lista = Array.isArray(produtosDisponiveis) ? produtosDisponiveis.slice() : [];
     const idx = lista.findIndex((p) => Number(p.id) === Number(normalizado.id));
+    if (!pdvProdutoPermitidoNoModoAtual(normalizado)) {
+        if (idx >= 0) {
+            lista.splice(idx, 1);
+            produtosDisponiveis = lista;
+            sincronizarProdutosDisponiveisGlobal();
+        }
+        return null;
+    }
     if (idx >= 0) {
         const [mesclado] = normalizarProdutoPdvLista([
-            mesclarProdutoCatalogoPdv(lista[idx], normalizado)
+            mesclarProdutoCatalogoPdv(lista[idx], normalizado, opcoes)
         ]);
         lista[idx] = mesclado;
     } else {
@@ -599,19 +637,51 @@ function upsertProdutoNoCatalogoPdv(produto) {
 let recarregarCatalogoPdvInflight = null;
 let recarregarCatalogoPdvTimer = null;
 
-function recarregarCatalogoPdv() {
-    if (recarregarCatalogoPdvInflight) return recarregarCatalogoPdvInflight;
-    recarregarCatalogoPdvInflight = $.ajax({
+function recarregarCatalogoPdv(opcoes = {}) {
+    if (recarregarCatalogoPdvInflight && opcoes.forcar !== true) {
+        return recarregarCatalogoPdvInflight;
+    }
+    if (recarregarCatalogoPdvInflight && opcoes.forcar === true) {
+        recarregarCatalogoPdvInflight.abort();
+    }
+
+    const requisicao = $.ajax({
         url: urlProdutosPdv(),
         method: 'GET',
         cache: false
     }).done(function (produtos) {
         definirCatalogoPdv(produtos);
     }).always(function () {
-        recarregarCatalogoPdvInflight = null;
+        if (recarregarCatalogoPdvInflight === requisicao) {
+            recarregarCatalogoPdvInflight = null;
+        }
     });
-    return recarregarCatalogoPdvInflight;
+    recarregarCatalogoPdvInflight = requisicao;
+    return requisicao;
 }
+
+function atualizarPdvAposModoFiscal() {
+    const atualizarResultadosVisiveis = function () {
+        if (typeof atualizarCarrinho === 'function') {
+            atualizarCarrinho();
+        }
+
+        const resultados = $('#resultadoConsultaProdutosPDV');
+        if (resultados.length && resultados.is(':visible')) {
+            buscarProdutosConsultaPDV();
+        }
+    };
+
+    const requisicao = typeof recarregarCatalogoPdv === 'function'
+        ? recarregarCatalogoPdv({ forcar: true })
+        : null;
+    if (requisicao && typeof requisicao.done === 'function') {
+        requisicao.done(atualizarResultadosVisiveis);
+    } else {
+        atualizarResultadosVisiveis();
+    }
+}
+window.atualizarPdvAposModoFiscal = atualizarPdvAposModoFiscal;
 
 function agendarRecarregarCatalogoPdv() {
     clearTimeout(recarregarCatalogoPdvTimer);
@@ -635,7 +705,7 @@ async function garantirProdutoNoCatalogoPdv(produtoOuId, opcoes = {}) {
         && pdvTotalSaldosProduto(cached) > 1e-9;
 
     // Cache com saldos zerados (poluído pela busca F1) não serve — hidratar de novo.
-    if (!forcar && cacheComEstoque) {
+    if (!forcar && cacheComEstoque && pdvProdutoPermitidoNoModoAtual(cached)) {
         return cached;
     }
 
@@ -649,7 +719,10 @@ async function garantirProdutoNoCatalogoPdv(produtoOuId, opcoes = {}) {
         if (response.ok) {
             const completo = await response.json();
             if (completo && completo.id) {
-                upsertProdutoNoCatalogoPdv(completo);
+                if (!pdvProdutoPermitidoNoModoAtual(completo)) {
+                    return null;
+                }
+                upsertProdutoNoCatalogoPdv(completo, { saldosOficiais: true });
                 return encontrarProdutoPorIdPdv(completo.id) || completo;
             }
         }
@@ -658,8 +731,14 @@ async function garantirProdutoNoCatalogoPdv(produtoOuId, opcoes = {}) {
     }
 
     if (produtoOuId && typeof produtoOuId === 'object' && produtoOuId.id) {
+        if (!pdvProdutoPermitidoNoModoAtual(produtoOuId)) {
+            return null;
+        }
         upsertProdutoNoCatalogoPdv(produtoOuId);
         return encontrarProdutoPorIdPdv(produtoOuId.id) || produtoOuId;
+    }
+    if (cached && !pdvProdutoPermitidoNoModoAtual(cached)) {
+        return null;
     }
     return cached || null;
 }
@@ -744,7 +823,7 @@ function loadPDV() {
     inicializarSincronizacaoCatalogoPdv();
     carregarFlagTransferenciaNaoFiscalFiscalPdv();
     carregarFlagEditarPrecoUnitarioPdv();
-    carregarFlagVendaSemEstoquePdv();
+    const vendaSemEstoquePronta = carregarFlagVendaSemEstoquePdv();
     carregarFlagExigirNcmCadastroPdv();
     carregarFlagImprimirCupomPdv();
     carregarFlagComposicaoItensPdv();
@@ -754,15 +833,19 @@ function loadPDV() {
         method: 'GET',
         cache: false,
         success: function(produtos) {
-            definirCatalogoPdv(produtos);
-            console.log('[PDV] Identificação: MIP oficial → fallback legado');
-            inicializarPDV();
+            Promise.resolve(vendaSemEstoquePronta).then(function () {
+                definirCatalogoPdv(produtos);
+                console.log('[PDV] Identificação: MIP oficial → fallback legado');
+                inicializarPDV();
+            });
         },
         error: function(xhr) {
             console.error('Erro ao carregar produtos:', xhr);
-            definirCatalogoPdv([]);
-            inicializarPDV();
-            showNotification('Erro ao carregar produtos do PDV.', 'danger');
+            Promise.resolve(vendaSemEstoquePronta).then(function () {
+                definirCatalogoPdv([]);
+                inicializarPDV();
+                showNotification('Erro ao carregar produtos do PDV.', 'danger');
+            });
         }
     });
 }
@@ -788,7 +871,7 @@ function carregarFlagMipPdv() {
  */
 async function identificarProdutoViaMip(codigo, opcoes = {}) {
     const token = localStorage.getItem('token') || '';
-    const contexto = { origem: 'pdv' };
+    const contexto = { origem: 'pdv', modoFiscal: pdvModoFiscalAtivo() };
 
     if (!opcoes.aposMotorEquipamentos) {
         if (window.PDV_ETIQUETA_LAYOUT) {
@@ -819,6 +902,10 @@ async function identificarProdutoViaMip(codigo, opcoes = {}) {
 
     if (!response.ok) {
         throw new Error(body.error || ('HTTP ' + statusHttp));
+    }
+
+    if (pdvModoFiscalAtivo() && pdvProdutoEhNaoFiscal(body.produto)) {
+        return { ...body, encontrado: false, produto: null, produtoId: null, fallbackLegado: true };
     }
 
     return body;
@@ -1680,36 +1767,39 @@ if (typeof window !== 'undefined') {
     window.decidirFluxoRecebimentosAB = decidirFluxoRecebimentosAB;
 }
 
-function distribuirQuantidadeVendaLocal(quantidadeVendida, saldoFiscal, saldoNaoFiscal, vendaFiscal = false) {
+function distribuirQuantidadeVendaLocal(quantidadeVendida, saldoFiscal, saldoNaoFiscal, vendaFiscal = false, opcoes = {}) {
     quantidadeVendida = Number(quantidadeVendida || 0);
     saldoFiscal = Number(saldoFiscal || 0);
     saldoNaoFiscal = Number(saldoNaoFiscal || 0);
     const priorizarFiscal = vendaFiscal === true;
+    const opts = opcoes && typeof opcoes === 'object' ? opcoes : {};
+    const itemFiscal = Number(opts.itemFiscal) !== 0;
+
+    if (opts.semControleEstoque === true) {
+        const quantidadeFiscal = itemFiscal ? quantidadeVendida : 0;
+        return {
+            sucesso: true,
+            quantidadeFiscal,
+            quantidadeNaoFiscal: quantidadeVendida - quantidadeFiscal,
+            estoqueTotal: 0
+        };
+    }
 
     const estoqueTotal = saldoFiscal + saldoNaoFiscal;
     let quantidadeFiscal;
     let quantidadeNaoFiscal;
 
     if (quantidadeVendida > estoqueTotal) {
-        if (!pdvPermitirVendaSemEstoque()) {
+        if (!pdvVendaSemEstoquePermitida(opts.produto)) {
             return {
                 sucesso: false,
                 estoqueTotal
             };
         }
-        const nfDisponivel = Math.max(0, saldoNaoFiscal);
-        const fDisponivel = Math.max(0, saldoFiscal);
-        if (priorizarFiscal) {
-            quantidadeFiscal = Math.max(fDisponivel, quantidadeVendida - nfDisponivel);
-            quantidadeNaoFiscal = quantidadeVendida - quantidadeFiscal;
-        } else {
-            quantidadeNaoFiscal = Math.max(nfDisponivel, quantidadeVendida - fDisponivel);
-            quantidadeFiscal = quantidadeVendida - quantidadeNaoFiscal;
-        }
+        // Excedente da venda sem estoque (item_fiscal + E-Comprometido) só é decidido pelo motor do backend.
         return {
-            sucesso: true,
-            quantidadeFiscal,
-            quantidadeNaoFiscal,
+            sucesso: false,
+            distribuicaoOficialNecessaria: true,
             estoqueTotal
         };
     }
@@ -1738,14 +1828,14 @@ function calcularDistribuicaoFiscalLocal(itens, vendaFiscal = false) {
         const produto = produtosDisponiveis.find(
             (p) => Number(p.id) === Number(item.produto_id || item.id)
         );
-        const saldos = pdvResolverSaldosProduto(produto || {});
+        const disponivel = pdvSaldosDisponiveisMotorProduto(produto || {});
         const qtdVenda = Number(item.quantidade || 0);
         const qtdEstoque = item.quantidade_estoque != null && item.quantidade_estoque !== ''
             ? Number(item.quantidade_estoque)
             : qtdVenda;
         const controlaEstoque = produtoControlaEstoquePdv(produto);
-        let saldoFiscalMotor = controlaEstoque ? saldos.saldo_fiscal : qtdEstoque;
-        let saldoNaoFiscalMotor = controlaEstoque ? saldos.saldo_nao_fiscal : qtdEstoque;
+        let saldoFiscalMotor = disponivel.saldo_fiscal;
+        let saldoNaoFiscalMotor = disponivel.saldo_nao_fiscal;
         const intentTransf = Number(item.transferencia_nao_fiscal_para_fiscal || 0);
         if (controlaEstoque && intentTransf > 0) {
             const prep = calcularTransferenciaNaoFiscalParaFiscalPdv({
@@ -1762,13 +1852,20 @@ function calcularDistribuicaoFiscalLocal(itens, vendaFiscal = false) {
             qtdEstoque,
             saldoFiscalMotor,
             saldoNaoFiscalMotor,
-            vendaFiscal
+            vendaFiscal,
+            {
+                semControleEstoque: !controlaEstoque,
+                itemFiscal: Number(produto && produto.item_fiscal) !== 0,
+                produto
+            }
         );
 
         if (!resultado.sucesso) {
             return {
                 sucesso: false,
-                error: `Saldo insuficiente para ${produto?.nome || 'produto'}. Disponível: ${resultado.estoqueTotal}`
+                error: resultado.distribuicaoOficialNecessaria
+                    ? `Não foi possível obter a distribuição fiscal oficial para ${produto?.nome || 'produto'} (venda sem estoque). Verifique a conexão com o servidor e tente novamente.`
+                    : `Saldo insuficiente para ${produto?.nome || 'produto'}. Disponível: ${resultado.estoqueTotal}`
             };
         }
 
@@ -2237,7 +2334,9 @@ async function processarPagamentosMistosTEF(pagamentos) {
             continue;
         }
 
-        const parcelasTef = formaNormalizada.includes('credito') ? 1 : 1;
+        const parcelasTef = formaNormalizada.includes('credito')
+            ? Math.max(1, Math.trunc(Number(pagamento.parcelas) || 1))
+            : 1;
 
         const retornoTef = await processarPagamentoTEF(
             TefFluxoPagamento.normalizarTipoTef(formaNormalizada),
@@ -2385,6 +2484,7 @@ function pdvModoFiscalAtivo() {
     }
     return localStorage.getItem('pdv_modo_fiscal_ativo') === '1';
 }
+window.pdvModoFiscalAtivo = pdvModoFiscalAtivo;
 
 let pdvFlagTransferenciaNaoFiscalFiscal = false;
 let pdvFlagEditarPrecoUnitario = false;
@@ -2488,9 +2588,9 @@ function carregarFlagVendaSemEstoquePdv() {
     const token = localStorage.getItem('token') || '';
     if (!token || typeof API_URL === 'undefined') {
         pdvFlagVendaSemEstoque = false;
-        return;
+        return Promise.resolve(false);
     }
-    fetch(`${API_URL}/configuracoes/empresa_permite_venda_sem_estoque`, {
+    return fetch(`${API_URL}/configuracoes/empresa_permite_venda_sem_estoque`, {
         method: 'GET',
         cache: 'no-store',
         headers: { Authorization: 'Bearer ' + token }
@@ -2499,8 +2599,10 @@ function carregarFlagVendaSemEstoquePdv() {
         return response.json();
     }).then(function (data) {
         pdvFlagVendaSemEstoque = data && data.permitido === true;
+        return pdvFlagVendaSemEstoque;
     }).catch(function () {
         pdvFlagVendaSemEstoque = false;
+        return false;
     });
 }
 
@@ -2897,7 +2999,7 @@ function calcularTransferenciaNaoFiscalParaFiscalPdv({ quantidade, saldoFiscal, 
 }
 
 function pdvSaldosComTransferenciasPendentes(produto, excluirIndex) {
-    const base = pdvResolverSaldosProduto(produto);
+    const base = pdvSaldosDisponiveisMotorProduto(produto);
     let sf = Number(base.saldo_fiscal || 0);
     let snf = Number(base.saldo_nao_fiscal || 0);
     const produtoId = Number(produto?.id ?? produto?.produto_id);
@@ -2918,23 +3020,24 @@ function pdvSaldosComTransferenciasPendentes(produto, excluirIndex) {
 }
 
 function pdvAnalisarTransferenciaEstoque(produto, quantidadeEstoque, opcoes = {}) {
+    const semPergunta = {
+        quantidade: Number(quantidadeEstoque || 0),
+        devePerguntar: false,
+        podeTransferir: false,
+        quantidadeTransferir: 0,
+        deficitFiscal: 0
+    };
     if (!pdvPermitirTransferenciaNaoFiscalFiscal()) {
-        return {
-            quantidade: Number(quantidadeEstoque || 0),
-            devePerguntar: false,
-            podeTransferir: false,
-            quantidadeTransferir: 0,
-            deficitFiscal: 0
-        };
+        return semPergunta;
+    }
+    const modoFiscal = Object.prototype.hasOwnProperty.call(opcoes || {}, 'modoFiscal')
+        ? opcoes.modoFiscal === true
+        : (typeof pdvModoFiscalAtivo === 'function' && pdvModoFiscalAtivo());
+    if (!modoFiscal) {
+        return semPergunta;
     }
     if (!produtoControlaEstoquePdv(produto)) {
-        return {
-            quantidade: Number(quantidadeEstoque || 0),
-            devePerguntar: false,
-            podeTransferir: false,
-            quantidadeTransferir: 0,
-            deficitFiscal: 0
-        };
+        return semPergunta;
     }
     const saldos = pdvSaldosComTransferenciasPendentes(produto, opcoes.excluirIndex);
     return calcularTransferenciaNaoFiscalParaFiscalPdv({
@@ -3022,6 +3125,38 @@ function produtoControlaEstoquePdv(produto) {
         return true;
     }
     return Number(produto.controla_estoque) !== 0;
+}
+
+/**
+ * Disponibilidade operacional A/B (espelho de saldosDisponiveisMotorFxNf no backend):
+ * disponível = max(0, saldo − reservado). Saldo físico continua em pdvResolverSaldosProduto
+ * (exibição F12 / bloqueio "zerados").
+ */
+function pdvSaldosDisponiveisMotorProduto(produto) {
+    const item = produto || {};
+    const fisico = pdvResolverSaldosProduto(item);
+    let reservadoFiscal = item.reservado_fiscal;
+    let reservadoNaoFiscal = item.reservado_nao_fiscal;
+    if ((reservadoFiscal == null || reservadoNaoFiscal == null)
+        && typeof produtosDisponiveis !== 'undefined' && Array.isArray(produtosDisponiveis)) {
+        const cached = produtosDisponiveis.find(
+            (p) => String(p.id) === String(item.id ?? item.produto_id)
+        );
+        if (cached) {
+            if (reservadoFiscal == null) reservadoFiscal = cached.reservado_fiscal;
+            if (reservadoNaoFiscal == null) reservadoNaoFiscal = cached.reservado_nao_fiscal;
+        }
+    }
+    const resF = Math.max(0, Number(reservadoFiscal || 0));
+    const resNf = Math.max(0, Number(reservadoNaoFiscal || 0));
+    const saldoFiscal = Math.max(0, Number(fisico.saldo_fiscal || 0) - resF);
+    const saldoNaoFiscal = Math.max(0, Number(fisico.saldo_nao_fiscal || 0) - resNf);
+    return {
+        saldo_fiscal: saldoFiscal,
+        saldo_nao_fiscal: saldoNaoFiscal,
+        estoque_atual: saldoFiscal + saldoNaoFiscal,
+        fisico
+    };
 }
 
 function pdvProdutoSemSaldoControlado(produto) {
@@ -3118,18 +3253,38 @@ function abrirModalVendaSemEstoquePdv(produto, detalhe, callback) {
     modal.show();
 }
 
+function pdvCategoriaElegivelVendaSemEstoque(produto) {
+    let nome = produto && (produto.categoria_nome || produto.categoria);
+    if (nome && typeof nome === 'object') nome = nome.nome;
+    const categoria = String(nome || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase();
+    return categoria === 'acougue'
+        || categoria.startsWith('acougue ')
+        || categoria === 'hortifruti'
+        || categoria === 'horti fruti'
+        || categoria.startsWith('hortifruti ');
+}
+
+function pdvVendaSemEstoquePermitida(produto) {
+    return pdvPermitirVendaSemEstoque() && pdvCategoriaElegivelVendaSemEstoque(produto);
+}
+
 function validarEstoqueVenda(produto, quantidade, modoFiscal) {
     if (!produtoControlaEstoquePdv(produto)) {
         return { sucesso: true };
     }
 
-    const saldos = pdvResolverSaldosProduto(produto);
+    const disponivel = pdvSaldosDisponiveisMotorProduto(produto);
+    const saldos = disponivel.fisico;
     const saldoFiscal = Number(saldos.saldo_fiscal || 0);
     const saldoNaoFiscal = Number(saldos.saldo_nao_fiscal || 0);
-    const saldoTotal = Number(saldos.estoque_atual || 0);
+    const saldoTotal = Number(disponivel.estoque_atual || 0);
 
-    // F=0 e NF=0 + controla estoque: bloqueio duro na inclusão, sem modal de continuar.
-    if (saldoFiscal <= 1e-9 && saldoNaoFiscal <= 1e-9) {
+    // F=0 e NF=0: bloqueia só se VENDA SEM ESTOQUE estiver desativada.
+    if (saldoFiscal <= 1e-9 && saldoNaoFiscal <= 1e-9 && !pdvVendaSemEstoquePermitida(produto)) {
         return {
             sucesso: false,
             semSaldoTotal: true,
@@ -3148,7 +3303,7 @@ function validarEstoqueVenda(produto, quantidade, modoFiscal) {
 
 Disponível: ${saldoTotal}`
         };
-        if (pdvPermitirVendaSemEstoque()) {
+        if (pdvVendaSemEstoquePermitida(produto)) {
             resultado.confirmarSemEstoque = true;
         }
         return resultado;
@@ -3165,7 +3320,7 @@ function pdvPodeIniciarInclusaoProduto(produto) {
     if (!produtoControlaEstoquePdv(produto)) {
         return { sucesso: true };
     }
-    if (pdvProdutoSemSaldoControlado(produto)) {
+    if (pdvProdutoSemSaldoControlado(produto) && !pdvVendaSemEstoquePermitida(produto)) {
         return {
             sucesso: false,
             semSaldoTotal: true,
@@ -3214,6 +3369,9 @@ function pdvNotificarEstoqueInsuficiente(produto, quantidade) {
 
 function pdvEstoqueDisponivel(produto) {
     const saldos = pdvResolverSaldosProduto(produto);
+    if (pdvModoFiscalAtivo()) {
+        return Number(saldos.saldo_fiscal || 0);
+    }
     return Number(saldos.estoque_atual || 0);
 }
 
@@ -3256,6 +3414,10 @@ function aplicarModoFiscalPdv() {
 
     if (typeof atualizarBarraModoFiscalSidebar === 'function') {
         atualizarBarraModoFiscalSidebar();
+    }
+
+    if (typeof recarregarCatalogoPdv === 'function') {
+        recarregarCatalogoPdv();
     }
 }
 
@@ -4347,7 +4509,9 @@ function adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExt
             : Number(quantidadeTotalPrevistaBruta.toFixed(2)));
     const quantidadeEstoqueValidacao = obterQuantidadeEstoqueParaVenda(produto, quantidadeTotalPrevista, tipoVenda);
 
-    const analiseTransferencia = pdvAnalisarTransferenciaEstoque(produto, quantidadeEstoqueValidacao);
+    const analiseTransferencia = pdvAnalisarTransferenciaEstoque(produto, quantidadeEstoqueValidacao, {
+        modoFiscal: pdvModoFiscalAtivo()
+    });
     if (analiseTransferencia.devePerguntar && opcoes.transferenciaResposta == null) {
         abrirModalTransferirEstoquePdv(function (sim) {
             adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExtra, promocao, {
@@ -4821,7 +4985,7 @@ function adicionarProdutoPorCodigoLegado(codigoDigitado) {
 
     const produtoEncontrado = encontrarProdutoPorCodigoExato(codigoDigitado);
 
-    if (!produtoEncontrado) {
+    if (!produtoEncontrado || !pdvProdutoPermitidoNoModoAtual(produtoEncontrado)) {
         showNotification(`Produto não encontrado: ${codigoDigitado}`, 'danger');
         return;
     }
@@ -5090,6 +5254,16 @@ async function adicionarProdutoPorCodigoViaMip(codigoDigitado) {
             return;
         }
         adicionarProdutoPorCodigoLegado(codigoDigitado);
+        return;
+    }
+
+    if (!pdvProdutoPermitidoNoModoAtual(produtoFinal)) {
+        showNotification(
+            ehEtiqueta
+                ? `Produto não encontrado: PLU ${codigoParaMip}`
+                : `Produto não encontrado: ${codigoDigitado}`,
+            'danger'
+        );
         return;
     }
 
@@ -6004,8 +6178,21 @@ function abrirPagamentoMisto() {
         dinheiro_credito: [
             { id: 'pgDinheiro', label: 'Dinheiro', forma: 'dinheiro' },
             { id: 'pgCredito', label: 'Cartão de Crédito', forma: 'cartao_credito' }
+        ],
+        pix_debito: [
+            { id: 'pgPix', label: 'Pix', forma: 'pix' },
+            { id: 'pgDebito', label: 'Cartão de Débito', forma: 'cartao_debito' }
+        ],
+        pix_credito: [
+            { id: 'pgPix', label: 'Pix', forma: 'pix' },
+            { id: 'pgCredito', label: 'Cartão de Crédito', forma: 'cartao_credito' }
+        ],
+        debito_credito: [
+            { id: 'pgDebito', label: 'Cartão de Débito', forma: 'cartao_debito' },
+            { id: 'pgCredito', label: 'Cartão de Crédito', forma: 'cartao_credito' }
         ]
     };
+    const PARCELAS_CREDITO_MISTO_MAX = 12;
 
     $('#modal-container').html(`
         <div class="modal fade" id="pagamentoMistoModal" tabindex="-1">
@@ -6048,6 +6235,9 @@ function abrirPagamentoMisto() {
                                 <option value="dinheiro_pix">Dinheiro + Pix</option>
                                 <option value="dinheiro_debito">Dinheiro + Cartão de Débito</option>
                                 <option value="dinheiro_credito">Dinheiro + Cartão de Crédito</option>
+                                <option value="pix_debito">Pix + Cartão de Débito</option>
+                                <option value="pix_credito">Pix + Cartão de Crédito</option>
+                                <option value="debito_credito">Cartão de Débito + Cartão de Crédito</option>
                             </select>
                         </div>
 
@@ -6094,9 +6284,20 @@ function abrirPagamentoMisto() {
                     >
                 </div>
             </div>
-        `).join(''));
+        `).join('') + (campos.some(campo => campo.forma === 'cartao_credito') ? `
+            <div class="bg-white rounded shadow-sm p-3 mb-3">
+                <label class="fw-bold mb-2" for="parcelasCreditoMisto">Parcelamento do crédito</label>
+                <select id="parcelasCreditoMisto" class="form-select form-select-lg">
+                    <option value="">-- Selecione as parcelas --</option>
+                    ${Array.from({ length: PARCELAS_CREDITO_MISTO_MAX }, (_, i) => i + 1)
+                        .map(n => `<option value="${n}"${n === 1 ? ' selected' : ''}>${n}x</option>`).join('')}
+                </select>
+                <div id="resumoParcelasCreditoMisto" class="mt-2 text-muted"></div>
+            </div>
+        ` : ''));
 
         $('.pagamento-misto-input').on('input', atualizarTotais);
+        $('#parcelasCreditoMisto').on('change', atualizarTotais);
 
         const $inputs = $('.pagamento-misto-input');
         // Completa o 2º campo só no blur e só se estiver vazio —
@@ -6121,6 +6322,13 @@ function abrirPagamentoMisto() {
         atualizarTotais();
     }
 
+    function obterParcelasCreditoMisto() {
+        const parcelas = Number($('#parcelasCreditoMisto').val());
+        return Number.isInteger(parcelas) && parcelas >= 1 && parcelas <= PARCELAS_CREDITO_MISTO_MAX
+            ? parcelas
+            : null;
+    }
+
     function atualizarTotais() {
         let informado = 0;
 
@@ -6129,20 +6337,34 @@ function abrirPagamentoMisto() {
         });
 
         const falta = totalVenda - informado;
-        const correto = Math.abs(falta) <= 0.01;
+        const somaCorreta = Math.abs(falta) <= 0.01;
+        const valorCredito = Number($('#pgCredito').val() || 0);
+        const parcelasCredito = obterParcelasCreditoMisto();
+        const parcelasCorretas = valorCredito <= 0 || parcelasCredito != null;
+        const correto = somaCorreta && parcelasCorretas;
+        const mensagem = !somaCorreta
+            ? 'A soma dos pagamentos precisa ser igual ao total da venda.'
+            : 'Selecione a quantidade de parcelas do cartão de crédito.';
 
         $('#totalInformado').text(moeda(informado));
         $('#totalFalta').text(moeda(falta));
+        $('#resumoParcelasCreditoMisto').text(valorCredito > 0 && parcelasCredito != null
+            ? `Crédito: ${moeda(valorCredito)} — ${parcelasCredito}x de ${moeda(valorCredito / parcelasCredito)}`
+            : '');
 
         $('#btnConfirmarPagamentoMisto').prop('disabled', !correto);
 
         if (correto) {
             $('#alertaPagamentoMisto').addClass('d-none');
+        } else {
+            $('#alertaPagamentoMisto').text(mensagem).removeClass('d-none');
+        }
+        if (somaCorreta) {
             $('#totalFalta').removeClass('text-danger').addClass('text-success');
         } else {
-            $('#alertaPagamentoMisto').removeClass('d-none');
             $('#totalFalta').removeClass('text-success').addClass('text-danger');
         }
+        return { correto, mensagem, parcelasCredito };
     }
 
     $('#tipoPagamentoMisto').on('change', function () {
@@ -6172,6 +6394,12 @@ function abrirPagamentoMisto() {
             }
         }
 
+        const validacao = atualizarTotais();
+        if (!validacao.correto) {
+            showNotification(validacao.mensagem, 'warning');
+            return;
+        }
+
         pagamentosMistos = [];
 
         $('.pagamento-misto-input').each(function () {
@@ -6181,7 +6409,8 @@ function abrirPagamentoMisto() {
             if (valor > 0) {
                 pagamentosMistos.push({
                     forma_pagamento: forma,
-                    valor
+                    valor,
+                    ...(forma === 'cartao_credito' ? { parcelas: validacao.parcelasCredito } : {})
                 });
             }
         });
@@ -8388,7 +8617,9 @@ function buscarProdutosConsultaPDV() {
         method: 'GET',
         cache: false,
         success: function (produtos) {
-            const lista = (produtos || []).map(function (p) {
+            const lista = (produtos || []).filter(function (p) {
+                return typeof pdvProdutoPermitidoNoModoAtual !== 'function' || pdvProdutoPermitidoNoModoAtual(p);
+            }).map(function (p) {
                 // Upsert com merge: não zera estoque bom do catálogo
                 return (typeof upsertProdutoNoCatalogoPdv === 'function'
                     ? upsertProdutoNoCatalogoPdv(p)

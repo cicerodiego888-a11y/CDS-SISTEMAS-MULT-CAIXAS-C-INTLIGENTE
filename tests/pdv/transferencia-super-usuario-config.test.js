@@ -212,6 +212,7 @@ describe('Configuração pdv_permitir_transferencia_nao_fiscal_fiscal', () => {
       pdv.indexOf('function abrirModalTransferirEstoquePdv')
     );
     assert.match(fn, /pdvPermitirTransferenciaNaoFiscalFiscal\(\)/);
+    assert.match(fn, /pdvModoFiscalAtivo/);
     assert.match(pdv, /function carregarFlagTransferenciaNaoFiscalFiscalPdv/);
 
     const centro = fs.readFileSync(path.join(ROOT, 'frontend/erp/js/cds-centro-configuracoes.js'), 'utf8');

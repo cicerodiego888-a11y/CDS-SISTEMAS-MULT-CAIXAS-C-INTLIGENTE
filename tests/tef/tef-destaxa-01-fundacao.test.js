@@ -225,7 +225,9 @@ async function executar() {
     });
     const r = await adapter.autorizarPagamento();
     assert.strictEqual(r.sucesso, false);
-    assert.strictEqual(r.codigo, 'DESTAXA_TRANSACAO_NAO_IMPLEMENTADA');
+    // TEF-DESTAXA-06B: sem provider Destaxa a pré-condição bloqueia antes da DLL.
+    assert.strictEqual(r.codigo, 'DESTAXA_PROVIDER_INVALIDO');
+    assert.strictEqual(r.transactionAttempted, false);
   });
 
   await test('provedores existentes continuam reconhecidos', () => {

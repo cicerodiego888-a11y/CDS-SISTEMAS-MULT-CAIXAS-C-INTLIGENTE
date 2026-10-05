@@ -33,6 +33,7 @@ class DetectorTipoCodigo {
     }
 
     const soDigitos = digitos.length > 0 && digitos === bruto.replace(/\s/g, '');
+    const pareceCodigoInterno = bruto.length > 0 && bruto.length <= 32 && !/\s/.test(bruto);
 
     // Etiqueta de balança (prefixo 2 + 12 dígitos) — prioridade sobre EAN comercial
     if (soDigitos && /^2\d{12}$/.test(digitos)) {
@@ -49,8 +50,10 @@ class DetectorTipoCodigo {
       candidatos.push(TIPOS_IDENTIFICADOR.EAN8);
     }
 
-    // Interno antes de ID: códigos curtos ("67") priorizam codigo cadastral
-    candidatos.push(TIPOS_IDENTIFICADOR.INTERNO);
+    // Interno: só identificador (sem espaços). Nome de produto não é código interno.
+    if (pareceCodigoInterno) {
+      candidatos.push(TIPOS_IDENTIFICADOR.INTERNO);
+    }
 
     // PLU tipado (cadastro balança) — códigos curtos numéricos
     if (soDigitos && digitos.length >= 1 && digitos.length <= 6) {

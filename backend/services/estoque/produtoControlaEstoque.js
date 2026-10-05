@@ -18,15 +18,15 @@ function produtoControlaEstoque(produto) {
   return Number(produto.controla_estoque) !== 0;
 }
 
+function produtoItemFiscal(produto) {
+  return Number(produto && produto.item_fiscal) !== 0;
+}
+
 /**
- * Saldos virtuais para o motor F×NF quando o produto não controla estoque.
- * Ambos = quantidade permite 100% fiscal ou 100% não fiscal conforme prioridade da venda.
+ * Saldos reais para o motor F×NF.
+ * controla_estoque=0 NÃO inventa saldo virtual: a natureza da venda vem de item_fiscal.
  */
 function saldosParaDistribuicaoVenda(produto, quantidade, disponivelFiscal, disponivelNaoFiscal) {
-  if (!produtoControlaEstoque(produto)) {
-    const q = Math.max(Number(quantidade) || 0, 0);
-    return { saldoFiscal: q, saldoNaoFiscal: q };
-  }
   return {
     saldoFiscal: Number(disponivelFiscal || 0),
     saldoNaoFiscal: Number(disponivelNaoFiscal || 0)
@@ -38,11 +38,12 @@ function normalizarFlagControlaEstoque(valor) {
   return Number(valor) === 0 ? 0 : 1;
 }
 
-/** Quantidade virtual “infinita” para consultas de disponibilidade sem controle. */
-const SALDO_VIRTUAL_SEM_CONTROLE = 1e12;
+/** @deprecated não usar para simular estoque; controla_estoque=0 não tem saldo virtual. */
+const SALDO_VIRTUAL_SEM_CONTROLE = 0;
 
 module.exports = {
   produtoControlaEstoque,
+  produtoItemFiscal,
   saldosParaDistribuicaoVenda,
   normalizarFlagControlaEstoque,
   SALDO_VIRTUAL_SEM_CONTROLE

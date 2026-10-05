@@ -71,6 +71,49 @@ function buildTransactionInput(campos = {}) {
   };
 }
 
+/**
+ * Converte valor em reais (número ou texto "1.00"/"1,00") para centavos inteiros.
+ * Retorna null quando o valor não é um montante monetário positivo com até 2 casas.
+ */
+function valorReaisParaCentavos(valor) {
+  if (valor == null || typeof valor === 'object') return null;
+  const texto = String(valor).trim().replace(',', '.');
+  if (!/^\d+(\.\d{1,2})?$/.test(texto)) return null;
+  const [inteiro, fracao = ''] = texto.split('.');
+  const centavos = Number(inteiro) * 100 + Number(fracao.padEnd(2, '0'));
+  return Number.isSafeInteger(centavos) && centavos > 0 ? centavos : null;
+}
+
+function erroValorNaoPermitido() {
+  const erro = new Error('valorCentavos deve ser inteiro positivo');
+  erro.codigo = 'DESTAXA_VALOR_NAO_PERMITIDO';
+  return erro;
+}
+
+/**
+ * Conversão única valor interno CDS (centavos inteiros) → `transacao_valor` Destaxa.
+ * Formato oficial (docs/06 "Ex: 100.99"; exemplos dotnet/java/clang "100.00", "23.49"):
+ * reais com ponto decimal e 2 casas. 100 centavos → "1.00".
+ */
+function formatarValorDestaxa(valorCentavos) {
+  if (!Number.isSafeInteger(valorCentavos) || valorCentavos <= 0) {
+    throw erroValorNaoPermitido();
+  }
+  const reais = Math.floor(valorCentavos / 100);
+  const centavos = String(valorCentavos % 100).padStart(2, '0');
+  return `${reais}.${centavos}`;
+}
+
+/**
+ * Entrada CRT (parâmetro `entrada` de iniciaTransacaoDestaxa).
+ * Somente `transacao_valor` (campo documentado em docs/06); tipo de cartão e
+ * forma de pagamento são solicitados pelo Client via retorno 99.
+ * `operacao=CRT` NÃO entra aqui — é parâmetro separado da DLL.
+ */
+function buildCrtInput({ valorCentavos } = {}) {
+  return buildTransactionInput({ transacao_valor: formatarValorDestaxa(valorCentavos) });
+}
+
 function classificarCodigoTransacao(codigo) {
   const chave = String(codigo || '').trim().toUpperCase();
   const meta = CODIGOS_RESULTADO[chave] || null;
@@ -242,6 +285,9 @@ module.exports = {
   parseParametrosDestaxa,
   buildTransactionInput,
   buildContinuaInput,
+  buildCrtInput,
+  formatarValorDestaxa,
+  valorReaisParaCentavos,
   classificarCodigoTransacao,
   parseAcaoSolicitada,
   estadoPorAcao

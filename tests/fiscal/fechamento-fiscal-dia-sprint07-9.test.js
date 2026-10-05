@@ -185,7 +185,8 @@ describe('Sprint 07.9 — simplificação UX emissão', () => {
   it('07 — polling e recuperação 539 / Motor Fiscal fora do escopo de alteração deste sprint', () => {
     assert.match(FRONT, /silencioso:\s*true/);
     assert.match(FRONT, /!__ffdEstado\.previa/);
-    assert.match(FRONT, /!\(__ffdEstado\.recebimentos \|\| \[\]\)\.length/);
+    // Reidratação não sobrescreve recebimentos editados localmente (flag substituiu o teste de lista vazia).
+    assert.match(FRONT, /if \(!silencioso && !__ffdEstado\.recebimentosLocais\) \{\s*__ffdEstado\.recebimentos = \(ff\.recebimentos/);
     assert.doesNotMatch(FRONT, /enviarAutorizacao|assinarNFe|autorizarNFe/);
     // Serviço 539 não deve ser reescrito neste arquivo de UX
     const recup = path.join(ROOT, 'backend/services/fechamento-fiscal/NfceDuplicidadeRecuperacaoService.js');

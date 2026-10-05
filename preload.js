@@ -43,6 +43,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   imprimirDANFESilencioso: (html, deviceName) =>
     ipcRenderer.invoke('imprimir-danfe-silencioso', html, deviceName),
 
+  gerarCodigoBarrasEtiqueta: (codigoBarras) =>
+    ipcRenderer.invoke('gerar-codigo-barras-etiqueta', codigoBarras),
+
   fecharJanela: () => window.close(),
 
   obterModoEstacao: () => ipcRenderer.invoke('rede-obter-modo-estacao'),
