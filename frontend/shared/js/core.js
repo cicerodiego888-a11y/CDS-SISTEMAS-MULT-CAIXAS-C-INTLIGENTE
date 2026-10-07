@@ -1076,6 +1076,19 @@ async function carregarLogoSidebar() {
             ? `${API_URL.replace('/api', '')}${logoPath}`
             : logoPath;
 
+        let logoDisponivel = false;
+        try {
+            const arquivo = await fetch(logoUrl, { method: 'HEAD' });
+            logoDisponivel = arquivo.ok;
+        } catch (_) {
+            logoDisponivel = false;
+        }
+
+        if (!logoDisponivel) {
+            renderSidebarBrandPadrao();
+            return;
+        }
+
         brandContent.innerHTML = `
             <img
                 src="${logoUrl}"
@@ -1083,6 +1096,12 @@ async function carregarLogoSidebar() {
                 class="img-fluid brand-sidebar-logo"
             >
         `;
+        const imgLogo = brandContent.querySelector('img.brand-sidebar-logo');
+        if (imgLogo) {
+            imgLogo.addEventListener('error', () => {
+                renderSidebarBrandPadrao();
+            }, { once: true });
+        }
     } catch (error) {
         console.error('Erro ao carregar logo da sidebar:', error);
         renderSidebarBrandPadrao();

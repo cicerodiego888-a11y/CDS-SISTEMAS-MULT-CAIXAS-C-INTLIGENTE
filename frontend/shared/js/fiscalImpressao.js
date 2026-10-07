@@ -20,28 +20,21 @@ function itemVendaPorUnidadeCupom(item) {
     return normalizarTipoVendaItemCupom(item) === 'UNIDADE';
 }
 
+function moedaCupom(valor) {
+    return `R$ ${Number(valor || 0).toFixed(2).replace('.', ',')}`;
+}
+
 function formatarHtmlItemCupom(item) {
     const nome = escapeHtmlCupom(item.produto_nome || item.nome || 'Produto');
     const subtotal = Number(item.subtotal || 0);
-
-    if (itemVendaPorUnidadeCupom(item)) {
-        const qtd = Math.round(Number(item.quantidade || 0));
-        const preco = Number(item.preco_unitario || item.preco || 0);
-        return `
-${nome}
-${qtd} UN
-R$ ${preco.toFixed(2).replace('.', ',')}
-Total
-${subtotal.toFixed(2).replace('.', ',')}
-`;
-    }
-
-    const qtd = Number(item.quantidade || 0);
     const preco = Number(item.preco_unitario || item.preco || 0);
-    return `
-${nome}
-${qtd} x R$ ${preco.toFixed(2).replace('.', ',')} = R$ ${subtotal.toFixed(2).replace('.', ',')}
-`;
+    const qtd = itemVendaPorUnidadeCupom(item)
+        ? Math.round(Number(item.quantidade || 0))
+        : Number(item.quantidade || 0);
+    const detalhe = itemVendaPorUnidadeCupom(item)
+        ? `${qtd} UN x ${moedaCupom(preco)}`
+        : `${qtd} x ${moedaCupom(preco)}`;
+    return `<div class="item"><div class="item-nome">${nome}</div><div class="item-linha"><span class="rotulo">${detalhe}</span><span class="valor">${moedaCupom(subtotal)}</span></div></div>`;
 }
 
 async function obterCaixaAtualParaResolucaoImpressora() {
@@ -201,11 +194,7 @@ function montarHtmlCupomNaoFiscal(vendaId, venda, total, desconto) {
 
     const clienteNome = venda.cliente_nome || '';
     const papelMm = Number(venda.papel_mm) === 58 ? 58 : 80;
-    const colunas = papelMm === 58 ? 32 : 48;
-    const linha = '-'.repeat(colunas);
-    const cabecalhoItens = papelMm === 58
-        ? 'Item         Qtd Vl.Unit Total'
-        : 'Item                 Qtd Vl.Unit Total';
+    const estreito = papelMm === 58;
     const itensHtml = (venda.itens || []).map((item) => formatarHtmlItemCupom(item)).join('');
 
     const totalNum = Number(total || 0);
@@ -222,57 +211,63 @@ function montarHtmlCupomNaoFiscal(vendaId, venda, total, desconto) {
     const mostrarTrocoDinheiro = troco > 0.009 && (valorRecebido > 0 || formaEhDinheiro);
     const valorEntregueExibir = valorRecebido > 0 ? valorRecebido : (totalNum + troco);
     const linhasTroco = mostrarTrocoDinheiro
-        ? `Valor entregue: R$ ${Number(valorEntregueExibir).toFixed(2).replace('.', ',')}
-Troco: R$ ${troco.toFixed(2).replace('.', ',')}
-`
+        ? `<div class="row"><span class="rotulo">Valor entregue:</span><span class="valor">${moedaCupom(valorEntregueExibir)}</span></div><div class="row"><span class="rotulo">Troco:</span><span class="valor">${moedaCupom(troco)}</span></div>`
         : '';
 
     return `<!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8" />
+<title>Comprovante não fiscal</title>
 <style>
-  @page { margin: 0; }
-  html, body { margin: 0; padding: 0; background: #fff; }
-  pre.cupom-nao-fiscal {
-    font-family: "Consolas", "Courier New", monospace;
-    font-size: 10px;
-    font-weight: 700;
-    color: #000;
-    background: #fff;
-    width: ${colunas}ch;
-    max-width: 100%;
+  @page { size: ${papelMm}mm auto; margin: 0; }
+  html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+  .cds-cupom-termico {
+    width: ${papelMm}mm; max-width: ${papelMm}mm;
     margin: 0 auto;
-    padding: 1.5mm 0 2mm;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    padding: ${estreito ? '1.2mm 2mm 1.6mm' : '1.5mm 2.5mm 2mm'};
+    box-sizing: border-box;
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: ${estreito ? '9px' : '11px'};
+    line-height: 1.22; font-weight: 600; color: #000; background: #fff;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
+  .cds-cupom-termico * { box-sizing: border-box; }
+  .empresa { font-size: ${estreito ? '13px' : '18px'}; font-weight: 800; text-align: center; text-transform: uppercase; overflow-wrap: anywhere; line-height: 1.15; }
+  .meta, .txt { text-align: center; overflow-wrap: anywhere; }
+  .titulo { font-size: ${estreito ? '12px' : '16px'}; font-weight: 800; text-align: center; }
+  .sec { font-size: ${estreito ? '10px' : '12px'}; font-weight: 800; text-align: center; margin: 1.2mm 0 0.4mm; }
+  .aviso { text-align: center; font-weight: 800; overflow-wrap: anywhere; }
+  .sep { border: 0; border-top: 1px solid #000; margin: 0.8mm 0; }
+  .row, .item-linha { display: flex; justify-content: space-between; align-items: baseline; gap: 2mm; width: 100%; }
+  .rotulo, .item-nome, .txt { min-width: 0; overflow-wrap: anywhere; }
+  .valor { flex: 0 1 auto; max-width: 58%; text-align: right; font-weight: 700; overflow-wrap: anywhere; }
+  .item { margin: 0 0 0.8mm; width: 100%; }
+  .item-nome { font-weight: 700; }
+  .total .rotulo, .total .valor { font-size: ${estreito ? '12px' : '16px'}; font-weight: 700; }
 </style>
 </head>
 <body class="cupom-nao-fiscal-${papelMm}">
-<pre class="cupom-nao-fiscal">
-        ${escapeHtmlCupom(venda.nome_empresa || (typeof BrandService !== 'undefined' ? BrandService.NOME : 'CDS Sistemas'))}
-${escapeHtmlCupom(venda.endereco || '')}
-
-COMPROVANTE NÃO FISCAL
-Venda #${vendaId}
-${dataHora}
-
-${linha}
-${cabecalhoItens}
+<main class="cds-cupom-termico">
+<div class="empresa">${escapeHtmlCupom(venda.nome_empresa || (typeof BrandService !== 'undefined' ? BrandService.NOME : 'CDS Sistemas'))}</div>
+<div class="meta">${escapeHtmlCupom(venda.endereco || '')}</div>
+<div class="titulo">COMPROVANTE NÃO FISCAL</div>
+<div class="txt">Venda #${escapeHtmlCupom(vendaId)}</div>
+<div class="txt">${escapeHtmlCupom(dataHora)}</div>
+<hr class="sep">
+<div class="sec">ITENS</div>
 ${itensHtml}
-${linha}
-Total: R$ ${totalNum.toFixed(2).replace('.', ',')}
-Desconto: R$ ${Number(desconto || 0).toFixed(2).replace('.', ',')}
-Forma pag.: ${formaPagamentoTexto}
-${linhasTroco}${clienteNome ? `Cliente: ${escapeHtmlCupom(clienteNome)}` : ''}
-${linha}
-ESTE COMPROVANTE NÃO POSSUI VALOR FISCAL
-OBRIGADO PELA PREFERÊNCIA!
-VOLTE SEMPRE.
-</pre>
+<hr class="sep">
+<div class="row total"><span class="rotulo">Total:</span><span class="valor">${moedaCupom(totalNum)}</span></div>
+<div class="row"><span class="rotulo">Desconto:</span><span class="valor">${moedaCupom(desconto || 0)}</span></div>
+<div class="row"><span class="rotulo">Forma pag.:</span><span class="valor">${escapeHtmlCupom(formaPagamentoTexto)}</span></div>
+${linhasTroco}
+${clienteNome ? `<div class="txt">Cliente: ${escapeHtmlCupom(clienteNome)}</div>` : ''}
+<hr class="sep">
+<div class="aviso">ESTE COMPROVANTE NÃO POSSUI VALOR FISCAL</div>
+<div class="aviso">OBRIGADO PELA PREFERÊNCIA!</div>
+<div class="aviso">VOLTE SEMPRE.</div>
+</main>
 </body>
 </html>`;
 }
@@ -400,10 +395,13 @@ async function imprimirDANFEFiscal(vendaId, opcoes) {
         if (contentType.includes('application/json')) {
             const pacote = await resposta.json();
             htmlDanfe = pacote.html || '';
-            htmlTermico = pacote.htmlTermico || pacote.html || '';
+            htmlTermico = pacote.htmlTermico || '';
+            if (!/danfe-termico/.test(htmlTermico) && /danfe-termico/.test(String(pacote.html || ''))) {
+                htmlTermico = pacote.html;
+            }
         } else {
             htmlDanfe = await resposta.text();
-            htmlTermico = htmlDanfe;
+            htmlTermico = /danfe-termico/.test(htmlDanfe) ? htmlDanfe : '';
         }
 
         if (!resposta.ok) {
@@ -417,9 +415,16 @@ async function imprimirDANFEFiscal(vendaId, opcoes) {
             return;
         }
 
+        const htmlCupom = htmlTermico;
+        if (!htmlCupom) {
+            if (typeof showNotification === 'function') {
+                showNotification('Cupom NFC-e oficial indisponível.', 'danger');
+            }
+            return;
+        }
+
         const automatico = !!(opcoes && opcoes.automatico);
         const reimpressao = !!(opcoes && opcoes.reimpressao) || (!automatico && deveEnviarCupomParaImpressora(opcoes));
-        const htmlCupom = htmlTermico || htmlDanfe;
         await apresentarCupomNaTela(htmlCupom, htmlCupom, {
             tipo: 'FISCAL',
             vendaId,

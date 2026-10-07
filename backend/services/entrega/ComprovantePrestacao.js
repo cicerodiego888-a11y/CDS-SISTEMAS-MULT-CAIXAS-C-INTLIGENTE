@@ -5,13 +5,12 @@
 const { agoraLocalBrasil } = require('../vendas/VendaFinanceiroService');
 const { resolverDadosClienteEntrega } = require('./EntregaClienteSnapshot');
 const {
-  colunas,
+  linha,
   centro,
-  blocoCentro,
-  comporLinha,
-  linhaSe,
-  documento
-} = require('./comprovanteTermicoLayout');
+  sep,
+  documento,
+  papelMmDe
+} = require('../termico/geometriaCupom80');
 
 function fmt(n) {
   return Number(n || 0).toFixed(2).replace('.', ',');
@@ -43,67 +42,64 @@ function montarHtmlComprovantePrestacao(dados = {}) {
     : (snap.cep || '');
   const temEnderecoEstruturado = !!(snap.numero || snap.complemento || snap.bairro || snap.cidade || snap.uf || snap.cep);
   const formas = Array.isArray(dados.formas_pagamento) ? dados.formas_pagamento : [];
-  const papelMm = Number(dados.papel_mm) === 58 ? 58 : 80;
-  const cols = colunas(papelMm);
-  const sep = '-'.repeat(cols);
-  const L = (label, valor) => comporLinha(label, valor, cols);
+  const papelMm = papelMmDe(dados.papel_mm);
+  const campo = (rotulo, valor) => {
+    const v = String(valor ?? '').trim();
+    return v ? linha(`${rotulo}:`, v) : '';
+  };
   const endereco = temEnderecoEstruturado
     ? [
-      ...linhaSe('CEP', cepFmt, cols),
-      ...linhaSe('Endereço', snap.endereco, cols),
-      ...linhaSe('Número', snap.numero, cols),
-      ...linhaSe('Complemento', snap.complemento, cols),
-      ...linhaSe('Bairro', snap.bairro, cols),
-      ...linhaSe('Cidade', snap.cidade, cols),
-      ...linhaSe('UF', snap.uf, cols),
-      ...linhaSe('Referência', snap.referencia, cols)
-    ]
-    : [
-      ...L('Endereço:', snap.endereco_linha || '—'),
-      ...linhaSe('Referência', snap.referencia, cols)
-    ];
+      campo('CEP', cepFmt),
+      campo('Endereço', snap.endereco),
+      campo('Número', snap.numero),
+      campo('Complemento', snap.complemento),
+      campo('Bairro', snap.bairro),
+      campo('Cidade', snap.cidade),
+      campo('UF', snap.uf),
+      campo('Referência', snap.referencia)
+    ].join('')
+    : `${linha('Endereço:', snap.endereco_linha || '—')}${campo('Referência', snap.referencia)}`;
   const linhasFormas = formas.length
-    ? formas.flatMap((p) => L(String(p.forma_pagamento || '').toUpperCase(), `R$ ${fmt(p.valor)}`))
-    : L(String(dados.pagamento_recebido || '—'), `R$ ${fmt(dados.valor)}`);
+    ? formas.map((p) => linha(String(p.forma_pagamento || '').toUpperCase(), `R$ ${fmt(p.valor)}`)).join('')
+    : linha(String(dados.pagamento_recebido || '—'), `R$ ${fmt(dados.valor)}`);
 
-  const linhas = [
-    ...blocoCentro('COMPROVANTE DE PRESTAÇÃO', cols),
-    ...blocoCentro(dados.empresa || dados.nome_empresa || 'CDS Sistemas', cols),
-    ...(dados.cnpj ? blocoCentro(`CNPJ ${dados.cnpj}`, cols) : []),
-    sep,
-    centro('CLIENTE / CONSUMIDOR', cols),
-    ...L('Nome:', snap.nome || '—'),
-    ...linhaSe('CPF/CNPJ', snap.cpf_cnpj, cols),
-    ...linhaSe('Telefone', snap.telefone, cols),
-    ...linhaSe('E-mail', snap.email, cols),
-    '',
-    centro('ENDEREÇO DA ENTREGA', cols),
-    ...endereco,
-    '',
-    centro('PRESTAÇÃO', cols),
-    ...L('Pedido:', String(dados.pedido || dados.codigo || '—')),
-    ...L('Venda:', String(dados.codigo || dados.pedido || '—')),
-    ...L('Valor:', `R$ ${fmt(dados.valor)}`),
-    ...L('Pagamento previsto:', dados.pagamento_previsto || '—'),
-    ...L('Pagamento recebido:', dados.pagamento_recebido || '—'),
-    ...linhasFormas,
-    ...L('Documento:', dados.documento || 'NAO_FISCAL'),
-    ...L('Troco levado:', `R$ ${fmt(dados.troco_levado)}`),
-    ...L('Troco devolvido:', `R$ ${fmt(dados.troco_devolvido)}`),
-    ...L('Maquineta:', dados.maquineta || 'NÃO'),
-    ...L('Entregador:', dados.entregador || '—'),
-    ...L('Operador:', dados.operador || '—'),
-    ...L('Data:', data),
-    ...L('Hora:', hora),
-    ...linhaSe('Observações', dados.observacao_entrega || dados.observacoes, cols),
-    sep,
-    ...blocoCentro('PRESTAÇÃO DE CONTAS FINALIZADA', cols)
-  ];
+  const corpo = [
+    centro('COMPROVANTE DE PRESTAÇÃO', 'titulo'),
+    centro(dados.empresa || dados.nome_empresa || 'CDS Sistemas', 'empresa'),
+    dados.cnpj ? centro(`CNPJ ${dados.cnpj}`, 'meta') : '',
+    sep(),
+    centro('CLIENTE / CONSUMIDOR'),
+    linha('Nome:', snap.nome || '—'),
+    campo('CPF/CNPJ', snap.cpf_cnpj),
+    campo('Telefone', snap.telefone),
+    campo('E-mail', snap.email),
+    centro('ENDEREÇO DA ENTREGA'),
+    endereco,
+    centro('PRESTAÇÃO'),
+    linha('Pedido:', String(dados.pedido || dados.codigo || '—')),
+    linha('Venda:', String(dados.codigo || dados.pedido || '—')),
+    linha('Valor:', `R$ ${fmt(dados.valor)}`),
+    linha('Pagamento previsto:', dados.pagamento_previsto || '—'),
+    linha('Pagamento recebido:', dados.pagamento_recebido || '—'),
+    centro('FORMAS DE PAGAMENTO'),
+    linhasFormas,
+    linha('Documento:', dados.documento || 'NAO_FISCAL'),
+    linha('Troco levado:', `R$ ${fmt(dados.troco_levado)}`),
+    linha('Troco devolvido:', `R$ ${fmt(dados.troco_devolvido)}`),
+    linha('Maquineta:', dados.maquineta || 'NÃO'),
+    linha('Entregador:', dados.entregador || '—'),
+    linha('Operador:', dados.operador || '—'),
+    linha('Data:', data),
+    linha('Hora:', hora),
+    campo('Observações', dados.observacao_entrega || dados.observacoes),
+    sep(),
+    centro('PRESTAÇÃO DE CONTAS FINALIZADA', 'aviso')
+  ].join('');
 
   return documento({
     titulo: 'Comprovante de Prestação',
     classe: `comprovante-prestacao-${papelMm}`,
-    linhas,
+    corpo,
     papelMm
   });
 }

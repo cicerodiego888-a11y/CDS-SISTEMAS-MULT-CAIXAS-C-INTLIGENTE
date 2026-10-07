@@ -6,7 +6,8 @@
 (function (global) {
   'use strict';
 
-  let statusFiltro = '';
+  const STATUS_FILTRO_PADRAO = 'AGUARDANDO_ENTREGA';
+  let statusFiltro = STATUS_FILTRO_PADRAO;
   let modoVisualizacao = 'agrupado'; // agrupado | lista
 
   function fmtMoney(n) {
@@ -80,71 +81,150 @@
     return `<span class="badge bg-warning text-dark">Troco p/ ${fmtMoney(trocoPara)} · Nec. ${fmtMoney(item.troco_necessario)}</span>`;
   }
 
+  function fmtDataHoraPedido(v) {
+    const criado = String(v.created_at || v.data_venda || '');
+    const m = criado.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)/);
+    if (!m) {
+      return { data: criado.slice(0, 10) || '—', hora: criado.slice(11, 19) || '—' };
+    }
+    const hora = m[4].length === 5 ? `${m[4]}:00` : m[4];
+    return { data: `${m[3]}/${m[2]}/${m[1]}`, hora };
+  }
+
+  function marcarControlesModo() {
+    const agrupado = modoVisualizacao === 'agrupado';
+    $('#btnModoAgrupado').toggleClass('ent-modo--ativo', agrupado);
+    $('#btnModoLista').toggleClass('ent-modo--ativo', !agrupado);
+  }
+
+  function blocoStatusCard(st) {
+    if (st === 'AGUARDANDO_ENTREGA') {
+      return `<div class="ent-status ent-status--espera"><span class="ent-status__nome">🟡 NÃO INICIADA</span><span class="ent-status__sub">Aguardando saída do entregador</span></div>`;
+    }
+    if (st === 'EM_ENTREGA') {
+      return `<div class="ent-status ent-status--rota"><span class="ent-status__nome">🔵 EM ENTREGA</span><span class="ent-status__sub">Entregador em rota</span></div>`;
+    }
+    if (st === 'AGUARDANDO_PRESTACAO') {
+      return `<div class="ent-status ent-status--prestacao"><span class="ent-status__nome">🔵 AGUARDANDO PRESTAÇÃO</span></div>`;
+    }
+    if (st === 'CONCLUIDA' || st === 'FINALIZADA') {
+      return `<div class="ent-status ent-status--ok"><span class="ent-status__nome">🟢 CONCLUÍDA</span></div>`;
+    }
+    if (st === 'CANCELADA') {
+      return `<div class="ent-status ent-status--off"><span class="ent-status__nome">CANCELADA</span></div>`;
+    }
+    return `<div class="ent-status"><span class="ent-status__nome">${escapeHtml(st || '—')}</span></div>`;
+  }
+
+  function blocoStatusVendaCard(st) {
+    const s = st || 'ABERTA';
+    const mod = s === 'FINALIZADA' ? 'ok' : (s === 'CANCELADA' ? 'off' : 'aberta');
+    return `<span class="ent-venda ent-venda--${mod}">${escapeHtml(s)}</span>`;
+  }
+
+  const ENTREGAS_V2_CSS = `
+    #telaEntregasOperacional { color: #1f2933; max-width: 100%; }
+    #telaEntregasOperacional * { box-sizing: border-box; }
+    #telaEntregasOperacional .ent-topo { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+    #telaEntregasOperacional .ent-topo h4 { font-weight: 700; letter-spacing: -0.02em; }
+    #telaEntregasOperacional .ent-controles { display: flex; flex-wrap: wrap; gap: 8px; }
+    #telaEntregasOperacional .ent-modo { border-radius: 8px; background: #fff; border: 1px solid #d5dbe3; color: #334155; }
+    #telaEntregasOperacional .ent-modo--ativo { background: #1e3a5f; border-color: #1e3a5f; color: #fff; }
+    #telaEntregasOperacional .ent-kpis { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+    #telaEntregasOperacional .ent-kpis__grupo { background: #fff; border: 1px solid #e6ebf1; border-radius: 12px; padding: 10px 12px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
+    #telaEntregasOperacional .ent-kpis__rotulo { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #64748b; margin-bottom: 8px; }
+    #telaEntregasOperacional .ent-kpis__linha { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+    #telaEntregasOperacional .ent-kpi { min-width: 0; padding: 6px 4px; }
+    #telaEntregasOperacional .ent-kpi span { display: block; font-size: 12px; color: #64748b; }
+    #telaEntregasOperacional .ent-kpi strong { display: block; font-size: 22px; line-height: 1.15; color: #0f172a; overflow-wrap: anywhere; }
+    #telaEntregasOperacional #filtrosStatusEntrega .btn { border-radius: 999px; }
+    #telaEntregasOperacional #filtrosStatusEntrega .btn-primary { background: #1e3a5f; border-color: #1e3a5f; }
+    #telaEntregasOperacional .ent-grupo { background: #fff; border: 1px solid #e6ebf1; border-radius: 12px; margin-bottom: 14px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
+    #telaEntregasOperacional .ent-grupo__head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; padding: 12px 14px; background: #f8fafc; border-bottom: 1px solid #e6ebf1; }
+    #telaEntregasOperacional .ent-grupo__nome { font-weight: 700; }
+    #telaEntregasOperacional .ent-grupo__sub { font-size: 13px; color: #64748b; }
+    #telaEntregasOperacional .ent-grupo__totais { text-align: right; font-size: 13px; color: #334155; }
+    #telaEntregasOperacional .ent-grupo__totais strong { font-size: 16px; }
+    #telaEntregasOperacional .ent-lista { display: flex; flex-direction: column; }
+    #telaEntregasOperacional .ent-pedido { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(180px, 0.9fr) auto; grid-template-areas: "ident status valor" "meta meta meta" "acoes acoes acoes"; gap: 8px 16px; padding: 14px; border-top: 1px solid #eef2f6; min-width: 0; }
+    #telaEntregasOperacional .ent-lista > .ent-pedido:first-child { border-top: 0; }
+    #telaEntregasOperacional .ent-pedido__ident { grid-area: ident; min-width: 0; }
+    #telaEntregasOperacional .ent-pedido__id { font-weight: 700; color: #1e3a5f; text-decoration: none; }
+    #telaEntregasOperacional .ent-pedido__cliente { font-size: 16px; font-weight: 700; overflow-wrap: anywhere; }
+    #telaEntregasOperacional .ent-pedido__status { grid-area: status; min-width: 0; }
+    #telaEntregasOperacional .ent-pedido__valor { grid-area: valor; font-size: 20px; font-weight: 700; text-align: right; }
+    #telaEntregasOperacional .ent-status__nome { display: block; font-weight: 800; font-size: 13px; letter-spacing: 0.02em; }
+    #telaEntregasOperacional .ent-status__sub { display: block; font-size: 12px; color: #64748b; }
+    #telaEntregasOperacional .ent-status--espera .ent-status__nome { color: #92400e; }
+    #telaEntregasOperacional .ent-status--rota .ent-status__nome,
+    #telaEntregasOperacional .ent-status--prestacao .ent-status__nome { color: #1d4ed8; }
+    #telaEntregasOperacional .ent-status--ok .ent-status__nome { color: #166534; }
+    #telaEntregasOperacional .ent-status--off .ent-status__nome { color: #64748b; }
+    #telaEntregasOperacional .ent-venda { display: inline-block; margin-top: 4px; font-size: 11px; font-weight: 700; border: 1px solid #cbd5e1; border-radius: 999px; padding: 1px 8px; color: #475569; }
+    #telaEntregasOperacional .ent-venda--aberta { color: #92400e; border-color: #f5d0a8; }
+    #telaEntregasOperacional .ent-venda--ok { color: #166534; border-color: #bbf7d0; }
+    #telaEntregasOperacional .ent-pedido__meta { grid-area: meta; display: flex; flex-wrap: wrap; gap: 8px 14px; min-width: 0; }
+    #telaEntregasOperacional .ent-campo { min-width: 0; }
+    #telaEntregasOperacional .ent-campo span { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; }
+    #telaEntregasOperacional .ent-campo strong { font-size: 14px; overflow-wrap: anywhere; }
+    #telaEntregasOperacional .ent-campo--troco strong { color: #92400e; }
+    #telaEntregasOperacional .ent-campo--reserva { font-size: 12px; color: #64748b; align-self: flex-end; }
+    #telaEntregasOperacional .ent-campo--reserva strong { font-size: 12px; font-weight: 600; color: #64748b; }
+    #telaEntregasOperacional .ent-pedido__acoes { grid-area: acoes; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    #telaEntregasOperacional .ent-acao { border-radius: 8px; }
+    #telaEntregasOperacional .ent-acao--primaria { background: #1e3a5f; border-color: #1e3a5f; color: #fff; font-weight: 700; padding: 8px 14px; }
+    #telaEntregasOperacional .ent-acao--primaria:hover { background: #16304f; color: #fff; }
+    @media (max-width: 900px) {
+      #telaEntregasOperacional .ent-kpis__linha { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #telaEntregasOperacional .ent-pedido { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "ident valor" "status status" "meta meta" "acoes acoes"; }
+      #telaEntregasOperacional .ent-grupo__totais { text-align: left; }
+    }
+  `;
+
   async function loadEntregas() {
     if (typeof obterRecursosImplantacao === 'function' && !obterRecursosImplantacao().vendasEntrega) {
       $('#page-content').html('<div class="alert alert-warning m-3">Módulo Vendas para Entrega desabilitado.</div>');
       return;
     }
+    statusFiltro = STATUS_FILTRO_PADRAO;
 
     $('#page-content').html(`
       <div class="container-fluid py-3" id="telaEntregasOperacional">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <style>${ENTREGAS_V2_CSS}</style>
+        <div class="ent-topo">
           <div>
             <h4 class="mb-0"><i class="fas fa-motorcycle me-2"></i>Vendas para Entrega</h4>
             <small class="text-muted">Reserva operacional — efetivação na Prestação de Contas</small>
           </div>
-          <div class="btn-group" role="group">
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnModoAgrupado">Por entregador</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnModoLista">Lista</button>
+          <div class="ent-controles">
+            <button type="button" class="btn btn-sm ent-modo" id="btnModoAgrupado">Por entregador</button>
+            <button type="button" class="btn btn-sm ent-modo" id="btnModoLista">Lista</button>
             <button type="button" class="btn btn-sm btn-outline-primary" id="btnAtualizarEntregas">
-              <i class="fas fa-sync"></i>
+              <i class="fas fa-sync"></i> Atualizar
             </button>
           </div>
         </div>
 
-        <div class="row g-3 mb-3" id="cardsDashboardEntrega">
-          <div class="col-6 col-md"><div class="card border-0 shadow-sm h-100"><div class="card-body py-3 text-center">
-            <div class="text-muted small">Entregas Hoje</div>
-            <div class="fs-3 fw-bold" data-dash="entregas_hoje">—</div>
-          </div></div></div>
-          <div class="col-6 col-md"><div class="card border-0 shadow-sm h-100"><div class="card-body py-3 text-center">
-            <div class="text-muted small">Aguardando</div>
-            <div class="fs-3 fw-bold" data-dash="aguardando_entrega">—</div>
-          </div></div></div>
-          <div class="col-6 col-md"><div class="card border-0 shadow-sm h-100"><div class="card-body py-3 text-center">
-            <div class="text-muted small">Em Entrega</div>
-            <div class="fs-3 fw-bold text-primary" data-dash="em_entrega">—</div>
-          </div></div></div>
-          <div class="col-6 col-md"><div class="card border-0 shadow-sm h-100"><div class="card-body py-3 text-center">
-            <div class="text-muted small">Prestação Pendente</div>
-            <div class="fs-3 fw-bold text-info" data-dash="prestacao_pendente">—</div>
-          </div></div></div>
-          <div class="col-6 col-md"><div class="card border-0 shadow-sm h-100"><div class="card-body py-3 text-center">
-            <div class="text-muted small">Concluídas Hoje</div>
-            <div class="fs-3 fw-bold text-success" data-dash="concluidas_hoje">—</div>
-          </div></div></div>
-          <div class="col-6 col-md"><div class="card border-0 shadow-sm h-100"><div class="card-body py-3 text-center">
-            <div class="text-muted small">Canceladas</div>
-            <div class="fs-3 fw-bold text-secondary" data-dash="canceladas">—</div>
-          </div></div></div>
-          <div class="col-6 col-md"><div class="card border-0 shadow-sm h-100"><div class="card-body py-3 text-center">
-            <div class="text-muted small">Valor Total Hoje</div>
-            <div class="fs-5 fw-bold" data-dash="valor_total_hoje">—</div>
-          </div></div></div>
-          <div class="col-6 col-md"><div class="card border-0 shadow-sm h-100"><div class="card-body py-3 text-center">
-            <div class="text-muted small">Ticket Médio</div>
-            <div class="fs-5 fw-bold" data-dash="ticket_medio">—</div>
-          </div></div></div>
-          <div class="col-6 col-md"><div class="card border-0 shadow-sm h-100"><div class="card-body py-3 text-center">
-            <div class="text-muted small">Tempo Médio (h)</div>
-            <div class="fs-5 fw-bold" data-dash="tempo_medio_horas">—</div>
-          </div></div></div>
+        <div id="cardsDashboardEntrega">
+          <div class="ent-kpis">
+            <div class="ent-kpis__grupo">
+              <div class="ent-kpis__rotulo">Operação</div>
+              <div class="ent-kpis__linha">
+                <div class="ent-kpi"><span>Entregas Hoje</span><strong data-dash="entregas_hoje">—</strong></div>
+                <div class="ent-kpi"><span>Aguardando</span><strong data-dash="aguardando_entrega">—</strong></div>
+                <div class="ent-kpi"><span>Em Entrega</span><strong data-dash="em_entrega">—</strong></div>
+                <div class="ent-kpi"><span>Prestação Pendente</span><strong data-dash="prestacao_pendente">—</strong></div>
+                <div class="ent-kpi"><span>Concluídas Hoje</span><strong data-dash="concluidas_hoje">—</strong></div>
+                <div class="ent-kpi"><span>Canceladas</span><strong data-dash="canceladas">—</strong></div>
+              </div>
+            </div>
+          </div>
         </div>
         <div id="alertasEntregaBox" class="mb-3"></div>
 
         <div class="d-flex flex-wrap gap-2 mb-3" id="filtrosStatusEntrega">
-          <button type="button" class="btn btn-sm btn-primary active" data-status="">Todos</button>
-          <button type="button" class="btn btn-sm btn-outline-primary" data-status="AGUARDANDO_ENTREGA">Não Iniciada</button>
+          <button type="button" class="btn btn-sm btn-outline-primary" data-status="">Todos</button>
+          <button type="button" class="btn btn-sm btn-primary active" data-status="AGUARDANDO_ENTREGA">Não Iniciada</button>
           <button type="button" class="btn btn-sm btn-outline-primary" data-status="EM_ENTREGA">Em Entrega</button>
           <button type="button" class="btn btn-sm btn-outline-primary" data-status="AGUARDANDO_PRESTACAO">Aguardando Prestação</button>
           <button type="button" class="btn btn-sm btn-outline-primary" data-status="CONCLUIDA">Concluídas</button>
@@ -177,6 +257,7 @@
   }
 
   async function atualizarTela() {
+    marcarControlesModo();
     await Promise.all([carregarDashboard(), carregarConteudo()]);
   }
 
@@ -245,25 +326,26 @@
       return;
     }
 
-    $box.html(grupos.map((g) => `
-      <div class="card border-0 shadow-sm mb-3">
-        <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+    $box.html(grupos.map((g) => {
+      const semEntregador = g.chave === '__sem_entregador__';
+      const subtitulo = semEntregador
+        ? `${g.quantidade} pedido(s) aguardando operação`
+        : `${g.quantidade} pedido(s)`;
+      return `
+      <section class="ent-grupo">
+        <header class="ent-grupo__head">
           <div>
-            <strong><i class="fas fa-user me-1"></i>${escapeHtml(g.entregador)}</strong>
-            <span class="badge bg-primary ms-2">${g.quantidade}</span>
-            ${g.pendente_prestacao ? `<span class="badge bg-info text-dark ms-1">${g.pendente_prestacao} prest. pendente</span>` : ''}
+            <div class="ent-grupo__nome"><i class="fas fa-user me-1"></i>${escapeHtml(g.entregador)}</div>
+            <div class="ent-grupo__sub">${subtitulo}${g.pendente_prestacao ? ` · ${g.pendente_prestacao} prest. pendente` : ''}</div>
           </div>
-          <div class="small text-muted">
-            ${fmtMoney(g.valor_total)}
-            · Reservado: ${fmtQtd(g.total_reservado)}
-            (F ${fmtQtd(g.reservado_fiscal)} / NF ${fmtQtd(g.reservado_nao_fiscal)})
+          <div class="ent-grupo__totais">
+            <strong>${fmtMoney(g.valor_total)}</strong>
+            <div>Reservado: ${fmtQtd(g.total_reservado)} (F ${fmtQtd(g.reservado_fiscal)} / NF ${fmtQtd(g.reservado_nao_fiscal)})</div>
           </div>
-        </div>
-        <div class="card-body p-0">
-          ${tabelaPedidos(g.pedidos || [])}
-        </div>
-      </div>
-    `).join(''));
+        </header>
+        ${tabelaPedidos(g.pedidos || [])}
+      </section>`;
+    }).join(''));
 
     bindAcoesPedidos();
   }
@@ -285,78 +367,62 @@
       return;
     }
 
-    $box.html(`<div class="card border-0 shadow-sm">${tabelaPedidos(data.items)}</div>`);
+    $box.html(`<section class="ent-grupo">${tabelaPedidos(data.items)}</section>`);
     bindAcoesPedidos();
   }
 
   function tabelaPedidos(items) {
-    return `
-      <div class="table-responsive">
-        <table class="table table-hover mb-0 align-middle">
-          <thead class="table-light">
-            <tr>
-              <th>Pedido</th>
-              <th>Cliente</th>
-              <th>Valor</th>
-              <th>Reservado</th>
-              <th>Entregador</th>
-              <th>Status Entrega</th>
-              <th>Status Venda</th>
-              <th>Pagamento</th>
-              <th>Maquineta / Troco</th>
-              <th>Data</th>
-              <th>Hora</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            ${(items || []).map(linhaPedido).join('')}
-          </tbody>
-        </table>
-      </div>`;
+    return `<div class="ent-lista">${(items || []).map(linhaPedido).join('')}</div>`;
   }
 
   function linhaPedido(v) {
-    const criado = String(v.created_at || v.data_venda || '');
-    const dataPart = criado.slice(0, 10);
-    const horaPart = criado.includes('T') ? criado.slice(11, 19) : (criado.slice(11, 19) || '—');
+    const quando = fmtDataHoraPedido(v);
     const podeIniciar = v.status_entrega === 'AGUARDANDO_ENTREGA';
     const podeEditar = v.status_entrega === 'AGUARDANDO_ENTREGA';
+    const trocoPara = Number(v.troco_para || 0);
+    const troco = trocoPara > 0
+      ? `<div class="ent-campo ent-campo--troco"><span>Troco para</span><strong>${fmtMoney(trocoPara)}</strong></div>
+         <div class="ent-campo ent-campo--troco"><span>Necessário</span><strong>${fmtMoney(v.troco_necessario)}</strong></div>`
+      : `<div class="ent-campo"><span>Troco</span><strong>Sem troco</strong></div>`;
     return `
-      <tr>
-        <td><a href="#" class="btn-detalhe-entrega" data-id="${v.id}">#${v.id}</a></td>
-        <td>${escapeHtml(v.cliente_nome || 'Consumidor')}</td>
-        <td>${fmtMoney(v.total)}</td>
-        <td class="small">
-          F ${fmtQtd(v.reservado_fiscal)} · NF ${fmtQtd(v.reservado_nao_fiscal)}
-          <div class="text-muted">Σ ${fmtQtd(v.total_reservado)}</div>
-        </td>
-        <td>${escapeHtml(v.entregador || 'Sem Entregador')}</td>
-        <td>${badgeStatusEntrega(v.status_entrega)}</td>
-        <td>${badgeStatusVenda(v.status_venda)}</td>
-        <td>${escapeHtml(v.pagamento_previsto || '—')}</td>
-        <td class="small">${chipMaquineta(v.leva_maquineta)} ${chipTroco(v)}</td>
-        <td>${dataPart}</td>
-        <td>${horaPart}</td>
-        <td class="text-nowrap">
-          <button type="button" class="btn btn-sm btn-outline-secondary btn-reimprimir-entrega" data-id="${v.id}" title="Reimprimir comprovante de entrega">
-            <i class="fas fa-print"></i> Reimprimir
-          </button>
+      <article class="ent-pedido">
+        <div class="ent-pedido__ident">
+          <a href="#" class="btn-detalhe-entrega ent-pedido__id" data-id="${v.id}">#${v.id}</a>
+          <div class="ent-pedido__cliente">${escapeHtml(v.cliente_nome || 'Consumidor')}</div>
+        </div>
+        <div class="ent-pedido__status">
+          ${blocoStatusCard(v.status_entrega)}
+          ${blocoStatusVendaCard(v.status_venda)}
+        </div>
+        <div class="ent-pedido__valor">${fmtMoney(v.total)}</div>
+        <div class="ent-pedido__meta">
+          <div class="ent-campo"><span>Pagamento</span><strong>${escapeHtml(v.pagamento_previsto || '—')}</strong></div>
+          <div class="ent-campo"><span>Maquineta</span><strong>${v.leva_maquineta ? 'SIM' : 'NÃO'}</strong></div>
+          ${troco}
+          <div class="ent-campo"><span>Entregador</span><strong>${escapeHtml(v.entregador || 'Sem Entregador')}</strong></div>
+          <div class="ent-campo"><span>Data</span><strong>${quando.data}</strong></div>
+          <div class="ent-campo"><span>Hora</span><strong>${quando.hora}</strong></div>
+          <div class="ent-campo ent-campo--reserva"><span>Reservado</span><strong>${fmtQtd(v.total_reservado)} · F ${fmtQtd(v.reservado_fiscal)} · NF ${fmtQtd(v.reservado_nao_fiscal)}</strong></div>
+        </div>
+        <div class="ent-pedido__acoes">
+          ${podeIniciar
+            ? `<button type="button" class="btn btn-iniciar-entrega ent-acao ent-acao--primaria" data-id="${v.id}">
+                <i class="fas fa-truck"></i> Iniciar Entrega
+              </button>`
+            : ''}
           ${podeEditar
-            ? `<button type="button" class="btn btn-sm btn-outline-warning btn-editar-entrega" data-id="${v.id}" title="Editar entrega">
+            ? `<button type="button" class="btn btn-sm btn-outline-secondary btn-editar-entrega ent-acao" data-id="${v.id}" title="Editar entrega">
                 <i class="fas fa-pen"></i> Editar
               </button>`
             : ''}
-          <button type="button" class="btn btn-sm btn-outline-secondary btn-detalhe-entrega" data-id="${v.id}" title="Timeline">
-            <i class="fas fa-history"></i>
+          <button type="button" class="btn btn-sm btn-outline-secondary btn-reimprimir-entrega ent-acao" data-id="${v.id}" title="Reimprimir comprovante de entrega">
+            <i class="fas fa-print"></i> Reimprimir
           </button>
-          ${podeIniciar
-            ? `<button type="button" class="btn btn-sm btn-outline-primary btn-iniciar-entrega" data-id="${v.id}">
-                <i class="fas fa-play"></i> Iniciar Entrega
-              </button>`
-            : ''}
-        </td>
-      </tr>`;
+          <button type="button" class="btn btn-sm btn-outline-secondary btn-detalhe-entrega ent-acao" data-id="${v.id}" title="Histórico">
+            <i class="fas fa-history"></i> Histórico
+          </button>
+        </div>
+      </article>`;
   }
 
   function bindAcoesPedidos() {

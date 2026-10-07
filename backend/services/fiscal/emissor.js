@@ -16,7 +16,7 @@ const { withLock, lockAtivo } = require('./nfeEmissionLockService');
 const { compactarXml, extrairChaveEProtocoloAutorizados } = require('./utils');
 const { validarItensFiscal } = require('./validadorFiscal');
 const { validarXmlFiscal } = require('./validarXmlFiscal');
-const { gerarDanfeHtml, montarDadosDanfe } = require('./danfe');
+const { montarDadosDanfe } = require('./danfe');
 const DanfeTermicoRenderer = require('./DanfeTermicoRenderer');
 const { getFiscalSubDir } = require('./paths');
 
@@ -515,7 +515,7 @@ async function emitirPorVendaId(vendaId) {
       console.error('ERRO FINAL CAPTURADO NO EMISSOR:', error);
     }
 
-    const danfeHtml = await gerarDanfeHtml({
+    const cupomOficial = await renderCupomNfceOficial({
       venda: {
         ...venda,
         tpAmb: config.ambiente
@@ -546,6 +546,7 @@ async function emitirPorVendaId(vendaId) {
         tpAmb: config.ambiente
       }
     });
+    const danfeHtml = cupomOficial.html;
 
     let status = assinaturaErro ? 'configuracao_pendente' : 'pendente';
     let xmlRetorno = assinaturaErro ? assinaturaErro.message : null;
@@ -725,9 +726,8 @@ async function obterDanfeHtmlAtualizado(vendaId) {
     }
   };
 
-  const dadosDanfe = await montarDadosDanfe(payloadDanfe);
-  const danfeHtml = await gerarDanfeHtml(dadosDanfe);
-  const termico = DanfeTermicoRenderer.gerar(dadosDanfe);
+  const cupomOficial = await renderCupomNfceOficial(payloadDanfe);
+  const danfeHtml = cupomOficial.html;
 
   if (nota.id && danfeHtml) {
     db.run(
@@ -743,9 +743,18 @@ async function obterDanfeHtmlAtualizado(vendaId) {
 
   return {
     html: danfeHtml,
-    htmlTermico: termico.html,
-    textoTermico: termico.texto,
+    htmlTermico: danfeHtml,
+    textoTermico: cupomOficial.texto,
     nota
+  };
+}
+
+async function renderCupomNfceOficial(payload) {
+  const dadosDanfe = await montarDadosDanfe(payload);
+  const termico = DanfeTermicoRenderer.gerar(dadosDanfe);
+  return {
+    html: termico.html,
+    texto: termico.texto || ''
   };
 }
 

@@ -36,14 +36,13 @@ const {
   resolverDadosClienteEntrega
 } = require('./EntregaClienteSnapshot');
 const {
-  colunas,
+  linha,
   centro,
-  blocoCentro,
-  comporLinha,
-  linhaSe,
-  quebrar,
-  documento
-} = require('./comprovanteTermicoLayout');
+  texto,
+  sep,
+  documento,
+  papelMmDe
+} = require('../termico/geometriaCupom80');
 
 const { agoraLocalBrasil } = VendaFinanceiroService;
 
@@ -67,75 +66,68 @@ function montarHtmlComprovanteEntrega(venda, itens, empresa = {}) {
 
   const subtotalItens = (itens || []).reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
   const taxa = Number(venda.taxa_entrega || 0);
-  const papelMm = Number(empresa.papel_mm) === 58 ? 58 : 80;
-  const cols = colunas(papelMm);
-  const sep = '-'.repeat(cols);
-  const L = (label, valor) => comporLinha(label, valor, cols);
+  const papelMm = papelMmDe(empresa.papel_mm);
+  const campo = (rotulo, valor) => {
+    const v = String(valor ?? '').trim();
+    return v ? linha(`${rotulo}:`, v) : '';
+  };
 
   const endereco = temEnderecoEstruturado
     ? [
-      ...linhaSe('CEP', cepFmt, cols),
-      ...linhaSe('Endereço', snap.endereco, cols),
-      ...linhaSe('Número', snap.numero, cols),
-      ...linhaSe('Complemento', snap.complemento, cols),
-      ...linhaSe('Bairro', snap.bairro, cols),
-      ...linhaSe('Cidade', snap.cidade, cols),
-      ...linhaSe('UF', snap.uf, cols),
-      ...linhaSe('Referência', snap.referencia, cols)
-    ]
-    : [
-      ...L('Endereço:', snap.endereco_linha || '—'),
-      ...linhaSe('Referência', snap.referencia, cols)
-    ];
+      campo('CEP', cepFmt),
+      campo('Endereço', snap.endereco),
+      campo('Número', snap.numero),
+      campo('Complemento', snap.complemento),
+      campo('Bairro', snap.bairro),
+      campo('Cidade', snap.cidade),
+      campo('UF', snap.uf),
+      campo('Referência', snap.referencia)
+    ].join('')
+    : `${linha('Endereço:', snap.endereco_linha || '—')}${campo('Referência', snap.referencia)}`;
 
-  const itensLinhas = (itens || []).flatMap((item) => {
+  const itensHtml = (itens || []).map((item) => {
     const nome = String(item.nome || item.produto_nome || item.produto_id || '');
-    const valores = `${fmt(item.quantidade)} x ${fmt(item.preco_unitario)} = ${fmt(item.subtotal)}`;
-    return [...(nome ? quebrar(nome, cols) : []), ...L('', valores)];
-  });
+    return `<div class="item">${texto(nome, 'item-nome')}<div class="item-linha"><span class="rotulo">${fmt(item.quantidade)} x R$ ${fmt(item.preco_unitario)}</span><span class="valor">R$ ${fmt(item.subtotal)}</span></div></div>`;
+  }).join('');
 
-  const linhas = [
-    ...blocoCentro('COMPROVANTE DE ENTREGA', cols),
-    ...(venda && venda.reimpressao ? blocoCentro('*** REIMPRESSÃO ***', cols) : []),
-    ...blocoCentro(empresa.nome || empresa.nome_empresa || 'CDS Sistemas', cols),
-    ...(empresa.cnpj ? blocoCentro(`CNPJ ${empresa.cnpj}`, cols) : []),
-    sep,
-    centro('DADOS DO CLIENTE/CONSUMIDOR', cols),
-    ...L('Nome:', snap.nome || '—'),
-    ...linhaSe('CPF/CNPJ', snap.cpf_cnpj, cols),
-    ...linhaSe('Telefone', snap.telefone, cols),
-    ...linhaSe('E-mail', snap.email, cols),
-    '',
-    centro('ENDEREÇO DA ENTREGA', cols),
-    ...endereco,
-    '',
-    centro('DADOS DA ENTREGA', cols),
-    ...L('Pedido:', String(venda.id || '—')),
-    ...L('Data:', data),
-    ...L('Hora:', hora),
-    ...L('Entregador:', venda.entregador || '—'),
-    ...L('Taxa de entrega:', `R$ ${fmt(taxa)}`),
-    ...L('Pagamento previsto:', venda.pagamento_previsto || 'NAO_INFORMADO'),
-    ...L('Levar maquineta:', Number(venda.leva_maquineta || 0) === 1 ? 'SIM' : 'NÃO'),
-    ...(Number(venda.troco_para || 0) > 0 ? L('Troco para:', `R$ ${fmt(venda.troco_para)}`) : []),
-    ...L('Observações:', venda.observacao_entrega || '—'),
-    '',
-    centro('ITENS', cols),
-    ...itensLinhas,
-    sep,
-    ...L('Subtotal:', `R$ ${fmt(subtotalItens)}`),
-    ...(taxa > 0 ? L('Taxa:', `R$ ${fmt(taxa)}`) : []),
-    ...L('Total:', `R$ ${fmt(venda.total)}`),
-    sep,
-    ...blocoCentro('ESTE DOCUMENTO NÃO POSSUI VALOR FISCAL', cols),
-    ...blocoCentro('Venda sujeita à confirmação', cols),
-    ...blocoCentro('na prestação de contas.', cols)
-  ];
+  const corpo = [
+    centro('COMPROVANTE DE ENTREGA', 'titulo'),
+    venda && venda.reimpressao ? centro('*** REIMPRESSÃO ***', 'aviso') : '',
+    centro(empresa.nome || empresa.nome_empresa || 'CDS Sistemas', 'empresa'),
+    empresa.cnpj ? centro(`CNPJ ${empresa.cnpj}`, 'meta') : '',
+    sep(),
+    centro('DADOS DO CLIENTE/CONSUMIDOR'),
+    linha('Nome:', snap.nome || '—'),
+    campo('CPF/CNPJ', snap.cpf_cnpj),
+    campo('Telefone', snap.telefone),
+    campo('E-mail', snap.email),
+    centro('ENDEREÇO DA ENTREGA'),
+    endereco,
+    centro('DADOS DA ENTREGA'),
+    linha('Pedido:', String(venda.id || '—')),
+    linha('Data:', data),
+    linha('Hora:', hora),
+    linha('Entregador:', venda.entregador || '—'),
+    linha('Taxa de entrega:', `R$ ${fmt(taxa)}`),
+    linha('Pagamento previsto:', venda.pagamento_previsto || 'NAO_INFORMADO'),
+    linha('Levar maquineta:', Number(venda.leva_maquineta || 0) === 1 ? 'SIM' : 'NÃO'),
+    Number(venda.troco_para || 0) > 0 ? linha('Troco para:', `R$ ${fmt(venda.troco_para)}`) : '',
+    texto(venda.observacao_entrega ? `Observações: ${venda.observacao_entrega}` : 'Observações: —', 'txt'),
+    centro('ITENS'),
+    itensHtml,
+    sep(),
+    linha('Subtotal:', `R$ ${fmt(subtotalItens)}`),
+    taxa > 0 ? linha('Taxa:', `R$ ${fmt(taxa)}`) : '',
+    linha('Total:', `R$ ${fmt(venda.total)}`, 'total'),
+    sep(),
+    centro('ESTE DOCUMENTO NÃO POSSUI VALOR FISCAL', 'aviso'),
+    centro('Venda sujeita à confirmação na prestação de contas.', 'aviso')
+  ].join('');
 
   return documento({
     titulo: 'Comprovante de Entrega',
     classe: `comprovante-entrega-${papelMm}`,
-    linhas,
+    corpo,
     papelMm
   });
 }
@@ -536,17 +528,15 @@ function criarVendaEntrega(req, res) {
                     prestacao_realizada: 0
                   };
 
-                  db.get(
-                    `SELECT valor FROM configuracoes WHERE chave = 'fiscal_danfe_largura_mm'`,
-                    [],
-                    (cfgErr, cfgRow) => {
-                      const papelMm = !cfgErr && Number(cfgRow && cfgRow.valor) === 58 ? 58 : 80;
+                  const { obterEmpresaCupom } = require('./EntregaService');
+                  obterEmpresaCupom().then((empresaCadastrada) => {
+                      const papelMm = Number(empresaCadastrada.papel_mm) === 58 ? 58 : 80;
                       const html = montarHtmlComprovanteEntrega(
                         vendaResp,
                         distribuicaoItens,
                         {
-                          nome: body.empresa_nome,
-                          cnpj: body.empresa_cnpj,
+                          nome: body.empresa_nome || empresaCadastrada.nome,
+                          cnpj: body.empresa_cnpj || empresaCadastrada.cnpj,
                           papel_mm: papelMm
                         }
                       );

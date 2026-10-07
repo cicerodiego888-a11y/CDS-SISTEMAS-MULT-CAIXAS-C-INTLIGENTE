@@ -108,10 +108,27 @@ const DEPS_DANFE = {
     }
   },
   DanfeTermicoRenderer: {
-    gerar: (dados) => ({
-      html: `<pre>TERMICO ${dados.numero} ${dados.chave}</pre>`,
-      texto: `TERMICO ${dados.numero}`
-    })
+    gerar: (dados) => {
+      const n = dados.numero || dados.nota?.numero;
+      const s = dados.serie;
+      const ch = dados.chave;
+      const p = dados.nota?.protocolo;
+      const tot = dados.venda?.total;
+      const qr = dados.qrCodeUrl || '';
+      const html = [
+        '<!DOCTYPE html><html><body class="danfe-termico danfe-termico-80">',
+        '<header class="header"></header>',
+        `<section class="documento">NUMERO:${n} SERIE:${s}</section>`,
+        '<section class="itens"><div class="item"></div></section>',
+        `<section class="totais">VALOR:${Number(tot).toFixed(2)}</section>`,
+        '<section class="pagamentos"></section>',
+        `<section class="chave">CHAVE:${ch}</section>`,
+        qr ? `<div class="qr"><img alt="QR Code NFC-e" src="${qr}"></div>` : '<div class="qr"></div>',
+        `<footer class="rodape">PROTOCOLO:${p}</footer>`,
+        '</body></html>'
+      ].join('');
+      return { html, texto: `NUMERO:${n}` };
+    }
   }
 };
 
@@ -228,25 +245,25 @@ describe('Sprint 08.1 — Cupom Fiscal após autorização', () => {
   });
 
   it('B — cupom apresenta número correto', async () => {
-    const pacote = await obterDanfeHtmlPorNfceId(db, nfceId);
+    const pacote = await obterDanfeHtmlPorNfceId(db, nfceId, DEPS_DANFE);
     assert.equal(Number(pacote.nota.numero), NUMERO);
     assert.match(pacote.html, new RegExp(`NUMERO:${NUMERO}`));
   });
 
   it('C — cupom apresenta série correta', async () => {
-    const pacote = await obterDanfeHtmlPorNfceId(db, nfceId);
+    const pacote = await obterDanfeHtmlPorNfceId(db, nfceId, DEPS_DANFE);
     assert.equal(Number(pacote.nota.serie), SERIE);
     assert.match(pacote.html, new RegExp(`SERIE:${SERIE}`));
   });
 
   it('D — cupom apresenta chave correta', async () => {
-    const pacote = await obterDanfeHtmlPorNfceId(db, nfceId);
+    const pacote = await obterDanfeHtmlPorNfceId(db, nfceId, DEPS_DANFE);
     assert.equal(pacote.nota.chave_acesso, CHAVE);
     assert.match(pacote.html, new RegExp(`CHAVE:${CHAVE}`));
   });
 
   it('E — cupom apresenta protocolo correto', async () => {
-    const pacote = await obterDanfeHtmlPorNfceId(db, nfceId);
+    const pacote = await obterDanfeHtmlPorNfceId(db, nfceId, DEPS_DANFE);
     assert.equal(pacote.nota.protocolo, PROTOCOLO);
     assert.match(pacote.html, new RegExp(`PROTOCOLO:${PROTOCOLO}`));
   });
@@ -260,8 +277,8 @@ describe('Sprint 08.1 — Cupom Fiscal após autorização', () => {
   });
 
   it('G — cupom inclui QR Code quando disponível no XML/persistido', async () => {
-    const pacote = await obterDanfeHtmlPorNfceId(db, nfceId);
-    assert.ok(pacote.nota.qr_code_url || /qrcode/i.test(pacote.html));
+    const pacote = await obterDanfeHtmlPorNfceId(db, nfceId, DEPS_DANFE);
+    assert.ok(pacote.nota.qr_code_url || /class="qr"/.test(pacote.html));
     assert.match(HIST_SRC, /extrairQrCodeUrlDoXml/);
   });
 
@@ -270,7 +287,7 @@ describe('Sprint 08.1 — Cupom Fiscal após autorização', () => {
     assert.match(FRONT_FFD, /imprimirHtmlFiscal/);
     assert.match(FRONT_FISCAL, /function imprimirHtmlFiscal/);
     assert.match(ROTA_FISCAL, /\/notas\/:id\/danfe/);
-    assert.match(HIST_SRC, /gerarDanfeHtml/);
+    assert.doesNotMatch(HIST_SRC, /gerarDanfeHtml/);
     assert.match(HIST_SRC, /DanfeTermicoRenderer/);
     // não cria segundo gerador de DANFE no frontend do fechamento
     assert.doesNotMatch(FRONT_FFD, /function gerarDanfeHtml|montarDadosDanfe/);
@@ -301,8 +318,8 @@ describe('Sprint 08.1 — Cupom Fiscal após autorização', () => {
   it('K — reabrir cupom oficial via endpoint (sem item novo no menu de ações)', async () => {
     assert.match(ROTA_FISCAL, /\/notas\/:id\/danfe/);
     assert.doesNotMatch(FRONT_FISCAL, /abrirDanfeNfceEmitida|title=\"Cupom Fiscal\"/);
-    const pacote1 = await obterDanfeHtmlPorNfceId(db, nfceId);
-    const pacote2 = await obterDanfeHtmlPorNfceId(db, nfceId);
+    const pacote1 = await obterDanfeHtmlPorNfceId(db, nfceId, DEPS_DANFE);
+    const pacote2 = await obterDanfeHtmlPorNfceId(db, nfceId, DEPS_DANFE);
     assert.equal(pacote1.nota.id, pacote2.nota.id);
     assert.equal(pacote1.nota.chave_acesso, pacote2.nota.chave_acesso);
     assert.equal(pacote1.nota.protocolo, pacote2.nota.protocolo);
@@ -320,20 +337,20 @@ describe('Sprint 08.1 — Cupom Fiscal após autorização', () => {
 
   it('M — abrir/imprimir cupom não gera nova venda', async () => {
     const antes = (await get(db, `SELECT COUNT(*) AS c FROM vendas`)).c;
-    await obterDanfeHtmlPorNfceId(db, nfceId);
+    await obterDanfeHtmlPorNfceId(db, nfceId, DEPS_DANFE);
     await gerarEPersistirDanfeNfce(db, nfceId, DEPS_DANFE);
     assert.equal((await get(db, `SELECT COUNT(*) AS c FROM vendas`)).c, antes);
   });
 
   it('N — abrir/imprimir cupom não gera novo financeiro', async () => {
     const antes = (await get(db, `SELECT COUNT(*) AS c FROM financeiro`)).c;
-    await obterDanfeHtmlPorNfceId(db, nfceId);
+    await obterDanfeHtmlPorNfceId(db, nfceId, DEPS_DANFE);
     assert.equal((await get(db, `SELECT COUNT(*) AS c FROM financeiro`)).c, antes);
   });
 
   it('O — abrir/imprimir cupom não altera estoque', async () => {
     const antes = (await get(db, `SELECT estoque FROM produtos WHERE id=1`)).estoque;
-    await obterDanfeHtmlPorNfceId(db, nfceId);
+    await obterDanfeHtmlPorNfceId(db, nfceId, DEPS_DANFE);
     await gerarEPersistirDanfeNfce(db, nfceId, DEPS_DANFE);
     assert.equal((await get(db, `SELECT estoque FROM produtos WHERE id=1`)).estoque, antes);
   });

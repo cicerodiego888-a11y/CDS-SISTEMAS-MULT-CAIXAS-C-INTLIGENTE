@@ -342,19 +342,23 @@ function registrarHandlersIpc() {
   ipcMain.removeHandler('imprimir-danfe-silencioso');
   ipcMain.handle('imprimir-danfe-silencioso', async (event, html, deviceName) => {
     const printWindow = new BrowserWindow({
-      width: 420,
+      width: 380,
       height: 720,
       show: false,
       webPreferences: { nodeIntegration: false, contextIsolation: true }
     });
     await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(enriquecerHtmlImpressaoTermica(html))}`);
-    await new Promise(resolve => setTimeout(resolve, 500));
     const device = nomeImpressoraTermicaValido(deviceName);
     if (!device) {
       if (!printWindow.isDestroyed()) printWindow.close();
       return { sucesso: false, motivo: 'sem-impressora-termica' };
     }
-    const printOptions = { silent: true, printBackground: true, deviceName: device, margins: { marginType: 'none' } };
+    const printOptions = {
+      silent: true,
+      printBackground: true,
+      deviceName: device,
+      margins: { marginType: 'none' }
+    };
     return new Promise((resolve, reject) => {
       printWindow.webContents.print(printOptions, (success, errorType) => {
         if (!printWindow.isDestroyed()) printWindow.close();

@@ -561,9 +561,11 @@ async function _finalizarPrestacaoInterno({ vendaId, body = {}, req = {}, contex
     if (Number(papelRow && papelRow.valor) === 58) papelMm = 58;
   } catch (_) { /* bobina padrão 80mm */ }
 
+  const { obterEmpresaCupom } = require('./EntregaService');
+  const empresaCadastrada = await obterEmpresaCupom();
   const comprovanteHtml = montarHtmlComprovantePrestacao({
-    empresa: body.empresa_nome || body.empresa?.nome,
-    cnpj: body.empresa_cnpj || body.empresa?.cnpj,
+    empresa: body.empresa_nome || body.empresa?.nome || empresaCadastrada.nome,
+    cnpj: body.empresa_cnpj || body.empresa?.cnpj || empresaCadastrada.cnpj,
     papel_mm: papelMm,
     pedido: vendaId,
     codigo: venda.codigo,

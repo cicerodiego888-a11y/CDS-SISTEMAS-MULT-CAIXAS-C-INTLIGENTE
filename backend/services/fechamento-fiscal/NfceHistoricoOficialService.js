@@ -287,11 +287,11 @@ function extrairQrCodeUrlDoXml(xml) {
 }
 
 /**
- * Gera DANFE NFC-e reutilizando danfe.js / DanfeTermicoRenderer.
+ * Gera o cupom NFC-e pelo DanfeTermicoRenderer.
  * Fonte: nfce_notas + snapshot do documento do fechamento (itens/pagamentos persistidos).
- * Não transmite. Não cria venda.
+ * Não transmite. Não cria venda. Não reaproveita danfe_html antigo como cupom.
  */
-async function obterDanfeHtmlPorNfceId(db, nfceId) {
+async function obterDanfeHtmlPorNfceId(db, nfceId, deps = {}) {
   await garantirColunasHistorico(db);
   const id = Number(nfceId);
   const nota = await get(db, `SELECT * FROM nfce_notas WHERE id = ?`, [id]);
@@ -311,34 +311,13 @@ async function obterDanfeHtmlPorNfceId(db, nfceId) {
     throw err;
   }
 
-  if (nota.danfe_html && String(nota.danfe_html).length > 50) {
-    let totalCache = null;
-    if (nota.fechamento_documento_id) {
-      const rowTot = await get(
-        db,
-        `SELECT COALESCE(SUM(valor_total), 0) AS total
-         FROM fechamentos_fiscais_documentos_itens WHERE documento_id = ?`,
-        [nota.fechamento_documento_id]
-      );
-      totalCache = rowTot ? Number(rowTot.total || 0) : null;
-    }
-    return {
-      html: nota.danfe_html,
-      htmlTermico: nota.danfe_html,
-      textoTermico: '',
-      nota,
-      total: totalCache,
-      cache: true
-    };
-  }
-
-  return gerarEPersistirDanfeNfce(db, id);
+  return gerarEPersistirDanfeNfce(db, id, deps);
 }
 
 async function gerarEPersistirDanfeNfce(db, nfceId, deps = {}) {
   const getFiscalConfig = deps.getFiscalConfig
     || require('../fiscal/configService').getFiscalConfig;
-  const { gerarDanfeHtml, montarDadosDanfe } = deps.danfe
+  const { montarDadosDanfe } = deps.danfe
     || require('../fiscal/danfe');
   const DanfeTermicoRenderer = deps.DanfeTermicoRenderer
     || require('../fiscal/DanfeTermicoRenderer');
@@ -428,25 +407,25 @@ async function gerarEPersistirDanfeNfce(db, nfceId, deps = {}) {
   };
 
   const dadosDanfe = await montarDadosDanfe(payloadDanfe);
-  const danfeHtml = await gerarDanfeHtml(dadosDanfe);
-  let termico = { html: danfeHtml, texto: '' };
-  try {
-    termico = DanfeTermicoRenderer.gerar(dadosDanfe);
-  } catch (_) { /* termico opcional */ }
-
-  if (danfeHtml) {
-    await run(
-      db,
-      `UPDATE nfce_notas
-       SET danfe_html = ?, qr_code_url = COALESCE(?, qr_code_url), updated_at = datetime('now', 'localtime')
-       WHERE id = ?`,
-      [danfeHtml, qrCodeUrl || null, nota.id]
-    );
+  const termico = DanfeTermicoRenderer.gerar(dadosDanfe);
+  const danfeHtml = termico && termico.html ? termico.html : '';
+  if (!danfeHtml || !/danfe-termico/.test(danfeHtml)) {
+    const err = new Error('Cupom NFC-e oficial indisponível.');
+    err.statusCode = 500;
+    throw err;
   }
+
+  await run(
+    db,
+    `UPDATE nfce_notas
+     SET danfe_html = ?, qr_code_url = COALESCE(?, qr_code_url), updated_at = datetime('now', 'localtime')
+     WHERE id = ?`,
+    [danfeHtml, qrCodeUrl || null, nota.id]
+  );
 
   return {
     html: danfeHtml,
-    htmlTermico: termico.html || danfeHtml,
+    htmlTermico: danfeHtml,
     textoTermico: termico.texto || '',
     nota: { ...nota, danfe_html: danfeHtml, qr_code_url: qrCodeUrl || nota.qr_code_url },
     total,

@@ -3077,10 +3077,16 @@ async function ffdAbrirCupomAposAutorizacao(body) {
       throw new Error(pacote.error || `HTTP ${resp.status}`);
     }
     const notaMeta = pacote.nota || {};
+    const htmlOficial = /danfe-termico/.test(String(pacote.htmlTermico || ''))
+      ? pacote.htmlTermico
+      : (/danfe-termico/.test(String(pacote.html || '')) ? pacote.html : '');
+    if (!htmlOficial) {
+      throw new Error('Cupom NFC-e oficial indisponível.');
+    }
     __ffdEstado.ultimoCupom = {
       nfceId,
-      html: pacote.html,
-      htmlTermico: pacote.htmlTermico || pacote.html,
+      html: htmlOficial,
+      htmlTermico: htmlOficial,
       meta: {
         numero: notaMeta.numero || auth.numero || auth.numero_provisorio,
         serie: notaMeta.serie || auth.serie || '1',
@@ -3137,7 +3143,7 @@ function ffdMostrarModalCupomFiscal(cupom) {
   if (frame) {
     const doc = frame.contentDocument || frame.contentWindow.document;
     doc.open();
-    doc.write((cupom && (cupom.htmlTermico || cupom.html)) || '');
+    doc.write((cupom && cupom.htmlTermico) || '');
     doc.close();
   }
   const modal = new bootstrap.Modal(el, { backdrop: 'static', keyboard: true });
@@ -3155,7 +3161,7 @@ function ffdMostrarModalCupomFiscal(cupom) {
 }
 
 function ffdAmpliarCupomFiscal(cupom) {
-  const html = (cupom && (cupom.htmlTermico || cupom.html)) || '';
+  const html = (cupom && cupom.htmlTermico) || '';
   if (!html) return;
   if (typeof imprimirHtmlFiscal === 'function') {
     // abre em janela (sem print automático se usuário só quer visualizar)
@@ -3174,7 +3180,7 @@ function ffdAmpliarCupomFiscal(cupom) {
 }
 
 function ffdImprimirCupomFiscal(cupom) {
-  const html = (cupom && (cupom.htmlTermico || cupom.html)) || '';
+  const html = (cupom && cupom.htmlTermico) || '';
   if (!html) return;
   // Reutiliza o mesmo mecanismo de impressão do módulo fiscal.
   if (typeof imprimirHtmlFiscal === 'function') {

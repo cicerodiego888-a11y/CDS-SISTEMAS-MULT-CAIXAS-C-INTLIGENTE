@@ -304,6 +304,7 @@ function injetarEstiloImpressao(html, estilo) {
  */
 function enriquecerHtmlImpressaoTermica(html) {
   const src = String(html || '');
+  if (/id=["']cds-print-density["']/i.test(src)) return src;
   const regraPaginaFallback = /@page\b[^{}]*\{[^{}]*\}/i.test(src)
     ? ''
     : '@page { margin: 0; }';
@@ -320,7 +321,6 @@ function enriquecerHtmlImpressaoTermica(html) {
     color: #000;
     opacity: 1;
     -webkit-font-smoothing: none;
-    text-shadow: 0.25px 0 0 #000, -0.25px 0 0 #000, 0 0.18px 0 #000;
   }
   .muted, .text-muted, .center.muted, [style*="color:#222"], [style*="color: #222"],
   [style*="color:#333"], [style*="color: #333"], [style*="color:#444"], [style*="color: #444"],
@@ -328,8 +328,7 @@ function enriquecerHtmlImpressaoTermica(html) {
     color: #000;
     opacity: 1;
   }
-  img:not(.qr img), .qr img {
-    filter: contrast(1.45) brightness(0.78);
+  img, .qr img {
     image-rendering: pixelated;
   }
   hr, .sep { border-color: #000; }

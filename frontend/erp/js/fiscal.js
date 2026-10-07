@@ -16,6 +16,13 @@ function formatarDataHoraBrasil(data) {
     });
 }
 
+function dinheiro(v) {
+    if (typeof formatCurrency === 'function') {
+        return formatCurrency(Number(v || 0));
+    }
+    return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
 function loadFiscal() {
     renderFiscal();
     carregarFiscalNotas();
@@ -992,7 +999,9 @@ function emitirFiscalManual() {
         url: `${API_URL}/fiscal/emitir/venda/${vendaId}`,
         method: 'POST',
         success: function(resp) {
-            if (resp?.danfeHtml) {
+            if (vendaId && typeof imprimirDANFEFiscal === 'function') {
+                imprimirDANFEFiscal(vendaId);
+            } else if (resp?.danfeHtml && /danfe-termico/.test(resp.danfeHtml)) {
                 imprimirHtmlFiscal(resp.danfeHtml);
             }
 
@@ -1095,7 +1104,9 @@ function emitirNFCeDaVenda() {
         url: `${API_URL}/fiscal/emitir/venda/${vendaId}`,
         method: 'POST',
         success: function(resp) {
-            if (resp?.danfeHtml) {
+            if (vendaId && typeof imprimirDANFEFiscal === 'function') {
+                imprimirDANFEFiscal(vendaId);
+            } else if (resp?.danfeHtml && /danfe-termico/.test(resp.danfeHtml)) {
                 imprimirHtmlFiscal(resp.danfeHtml);
             }
 

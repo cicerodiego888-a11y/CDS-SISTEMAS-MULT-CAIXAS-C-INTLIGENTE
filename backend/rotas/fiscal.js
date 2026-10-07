@@ -279,7 +279,10 @@ router.get('/danfe/venda/:vendaId', async (req, res) => {
 
   try {
     const { html, htmlTermico, textoTermico } = await obterDanfeHtmlAtualizado(vendaId);
-    if (!html) {
+    const htmlOficial = /danfe-termico/.test(String(htmlTermico || ''))
+      ? htmlTermico
+      : (/danfe-termico/.test(String(html || '')) ? html : '');
+    if (!htmlOficial) {
       return res.status(404).send('DANFE não gerado para esta NFC-e.');
     }
 
@@ -289,8 +292,8 @@ router.get('/danfe/venda/:vendaId', async (req, res) => {
     if (pacote) {
       res.setHeader('Cache-Control', 'no-store');
       return res.json({
-        html,
-        htmlTermico: htmlTermico || html,
+        html: htmlOficial,
+        htmlTermico: htmlOficial,
         textoTermico: textoTermico || ''
       });
     }
@@ -298,12 +301,12 @@ router.get('/danfe/venda/:vendaId', async (req, res) => {
     if (formato === 'termico') {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store');
-      return res.send(htmlTermico || html);
+      return res.send(htmlOficial);
     }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
-    return res.send(html);
+    return res.send(htmlOficial);
   } catch (error) {
     console.error('Erro ao gerar DANFE atualizado:', error);
     const msg = error?.message || 'Erro interno ao buscar DANFE.';
@@ -556,7 +559,10 @@ router.get('/notas/:id/danfe', async (req, res) => {
       obterDanfeHtmlPorNfceId
     } = require('../services/fechamento-fiscal/NfceHistoricoOficialService');
     const pacote = await obterDanfeHtmlPorNfceId(db, id);
-    if (!pacote || !pacote.html) {
+    const htmlOficial = /danfe-termico/.test(String(pacote?.htmlTermico || ''))
+      ? pacote.htmlTermico
+      : (/danfe-termico/.test(String(pacote?.html || '')) ? pacote.html : '');
+    if (!htmlOficial) {
       return res.status(404).json({ error: 'DANFE não disponível para esta NFC-e.' });
     }
 
@@ -565,8 +571,8 @@ router.get('/notas/:id/danfe', async (req, res) => {
     if (asPacote) {
       res.setHeader('Cache-Control', 'no-store');
       return res.json({
-        html: pacote.html,
-        htmlTermico: pacote.htmlTermico || pacote.html,
+        html: htmlOficial,
+        htmlTermico: htmlOficial,
         textoTermico: pacote.textoTermico || '',
         nota: {
           id: pacote.nota?.id,
@@ -585,7 +591,7 @@ router.get('/notas/:id/danfe', async (req, res) => {
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
-    return res.send(pacote.html);
+    return res.send(htmlOficial);
   } catch (error) {
     const status = error.statusCode || (/não encontrada/i.test(error.message || '') ? 404 : 500);
     return res.status(status).json({ error: error.message || 'Erro ao obter DANFE.' });

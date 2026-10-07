@@ -683,5 +683,6 @@ class EntregaService {
 module.exports = {
   EntregaService,
   entregaService: new EntregaService(),
-  moduloHabilitado
+  moduloHabilitado,
+  obterEmpresaCupom
 };

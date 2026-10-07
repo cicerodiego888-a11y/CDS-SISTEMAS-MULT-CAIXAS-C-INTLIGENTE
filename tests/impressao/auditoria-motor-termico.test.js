@@ -44,6 +44,7 @@ function sizeValidoPelaGramatica(valor) {
   const partes = v.split(/\s+/);
   const ehComprimento = (p) => /^\d+(\.\d+)?(mm|cm|in|px|pt|pc|q)$/.test(p);
   if (partes.length >= 1 && partes.length <= 2 && partes.every(ehComprimento)) return true;
+  if (partes.length === 2 && partes[1] === 'auto' && ehComprimento(partes[0])) return true;
   const nomes = ['a5', 'a4', 'a3', 'b5', 'b4', 'letter', 'legal', 'ledger', 'portrait', 'landscape'];
   return partes.length <= 2 && partes.every((p) => nomes.includes(p));
 }
@@ -129,10 +130,11 @@ describe('Motor térmico — 10 cenários HTML original × final', () => {
     assert.ok(final.includes(longo));
   });
 
-  it('9. QR Code: <img> preservada; enhancer só aplica filtro de contraste', () => {
+  it('9. QR Code: <img> preservada, sem filtro de contraste', () => {
     const final = enriquecerHtmlImpressaoTermica('<html><head></head><body><div class="qr"><img src="data:image/png;base64,AA==" style="width:42mm"></div></body></html>');
     assert.match(final, /<img src="data:image\/png;base64,AA==" style="width:42mm">/);
-    assert.match(final, /filter:\s*contrast\(1\.45\)\s*brightness\(0\.78\)/);
+    assert.doesNotMatch(final, /filter:\s*contrast/);
+    assert.doesNotMatch(final, /text-shadow/);
   });
 
   it('10. rodapé: preservado ao final do documento', () => {
@@ -165,7 +167,11 @@ describe('Motor térmico — contrato do enhancer', () => {
     for (const original of documentos) {
       const final = enriquecerHtmlImpressaoTermica(original);
       assert.equal(regrasPage(final).length, 1);
-      assert.match(final, PAGE_SO_MARGEM);
+      if (/danfe-termico|cupom-nao-fiscal|fechamento-caixa/.test(original)) {
+        assert.match(final, /@page \{ size: (80|58)mm auto; margin: 0; \}/);
+      } else {
+        assert.match(final, PAGE_SO_MARGEM);
+      }
       for (const size of sizeDasRegras(final)) {
         if (size !== null) assert.equal(sizeValidoPelaGramatica(size), true, `size "${size}" inválido`);
       }
@@ -174,41 +180,45 @@ describe('Motor térmico — contrato do enhancer', () => {
 });
 
 describe('Motor térmico — geometria dos templates reais', () => {
-  it('cupom não fiscal 80mm: documento completo, 48 colunas a 10px (~69,8mm ≤ 72mm)', () => {
+  it('cupom não fiscal 80mm: papel 80mm, sem largura em px ou ch', () => {
     const final = enriquecerHtmlImpressaoTermica(gerarCupomNaoFiscal());
     assert.match(final, /<body class="cupom-nao-fiscal-80">/);
-    assert.match(final, /width:\s*48ch/);
-    assert.match(final, /font-size:\s*10px/);
-    assert.ok(48 * CONSOLAS_CH_MM <= 72);
-    assert.doesNotMatch(final, /width:\s*300px/);
+    assert.match(final, /@page \{ size: 80mm auto; margin: 0; \}/);
+    assert.match(final, /width:\s*80mm/);
+    assert.match(final, /font-size:\s*11px/);
+    assert.doesNotMatch(final, /width:\s*(?:300|280|380)px|48ch|32ch|76mm|overflow-x\s*:\s*hidden/);
   });
 
-  it('cupom não fiscal 58mm: 32 colunas (~46,5mm ≤ 48mm) e textos preservados', () => {
+  it('cupom não fiscal 58mm: papel 58mm e textos preservados', () => {
     const final = enriquecerHtmlImpressaoTermica(gerarCupomNaoFiscal({ papel_mm: 58 }));
     assert.match(final, /<body class="cupom-nao-fiscal-58">/);
-    assert.match(final, /width:\s*32ch/);
-    assert.ok(32 * CONSOLAS_CH_MM <= 48);
-    for (const trecho of ['COMPROVANTE NÃO FISCAL', 'Venda #42', 'PRODUTO TESTE', 'Total: R$ 10,00', 'ESTE COMPROVANTE NÃO POSSUI VALOR FISCAL', 'VOLTE SEMPRE.']) {
+    assert.match(final, /@page \{ size: 58mm auto; margin: 0; \}/);
+    assert.match(final, /width:\s*58mm/);
+    for (const trecho of ['COMPROVANTE NÃO FISCAL', 'Venda #42', 'PRODUTO TESTE', 'Total:', 'R$ 10,00', 'ESTE COMPROVANTE NÃO POSSUI VALOR FISCAL', 'VOLTE SEMPRE.']) {
       assert.ok(final.includes(trecho), `conteúdo ausente: ${trecho}`);
     }
-    assert.ok(final.includes('Item         Qtd Vl.Unit Total'));
+    assert.doesNotMatch(final, /DANFE|chave de acesso|protocolo/i);
   });
 
-  it('DANFE térmico: 48/32 colunas a 10px com padding lateral 0,5mm cabem em 72/48mm', () => {
-    for (const [papel, cols, util] of [[80, 48, 72], [58, 32, 48]]) {
-      const final = enriquecerHtmlImpressaoTermica(DanfeTermicoRenderer.gerar(dadosDanfeTermico(papel)).html);
-      assert.match(final, new RegExp(`width:\\s*${cols}ch`));
-      assert.match(final, /font-size:\s*10px/);
-      assert.match(final, /padding:\s*1\.5mm 0\.5mm 2mm/);
-      assert.match(final, /pre\.termico,\s*\.qr\s*\{[^}]*margin:\s*0;/);
-      assert.doesNotMatch(final, /pre\.termico\s*\{[^}]*margin:\s*0\s+auto/);
-      assert.doesNotMatch(final, new RegExp(`width:\\s*${papel}mm`));
-      assert.ok(cols * CONSOLAS_CH_MM + 1 <= util, `${papel}mm excede a área útil`);
+  it('DANFE térmico: papel 80/58mm, margem interna e um único tamanho de QR', () => {
+    for (const [papel, qr] of [[80, 42], [58, 26]]) {
+      const original = DanfeTermicoRenderer.gerar(dadosDanfeTermico(papel));
+      const final = enriquecerHtmlImpressaoTermica(original.html);
+      assert.match(final, new RegExp(`@page \\{ size: ${papel}mm auto; margin: 0; \\}`));
+      assert.match(final, new RegExp(`width:\\s*${papel}mm`));
+      assert.match(final, new RegExp(`--qr:\\s*${qr}mm`));
+      assert.match(original.html, /\.qr img\s*\{[^}]*width:\s*var\(--qr\)/);
+      assert.equal((original.html.match(/\.qr img\s*\{/g) || []).length, 1);
+      assert.doesNotMatch(final, /<img\b[^>]*\swidth\s*=/i);
+      assert.doesNotMatch(final, /<pre\b/i);
+      assert.doesNotMatch(final, /48ch|76mm|overflow-x\s*:\s*hidden/i);
+      assert.doesNotMatch(original.texto, /\n\n\n/);
+      assert.match(final, /font-size:\s*1[12368]px/);
       assert.match(final, /QR Code NFC-e/);
     }
   });
 
-  it('fechamento de caixa: pre na área útil, valor inteiro e nenhuma linha maior que a coluna', () => {
+  it('fechamento de caixa: papel 80/58mm, valor inteiro e rótulo longo sem corte', () => {
     const amostra = {
       totais: { recebido: 1234.56, vendido: 1234.56 },
       pagamentos: { dinheiro: 1234.56 },
@@ -218,25 +228,18 @@ describe('Motor térmico — geometria dos templates reais', () => {
     };
     const f80 = gerarHtmlCupomFechamento(amostra);
     const f58 = gerarHtmlCupomFechamento(amostra, { papel_mm: 58 });
-    assert.match(f80, /width:\s*48ch/);
-    assert.match(f80, /max-width:\s*48ch/);
-    assert.match(f80, /font-size:\s*10px/);
-    assert.match(f80, /white-space:\s*pre;/);
-    assert.match(f80, /margin:\s*0;/);
-    assert.match(f58, /width:\s*32ch/);
-    assert.doesNotMatch(f80, /display:\s*flex/);
-    assert.doesNotMatch(f80, /text-overflow:\s*ellipsis/);
-    assert.doesNotMatch(f80, /width:\s*72mm/);
-    assert.doesNotMatch(f80, /width:\s*80mm/);
-    for (const [html, cols] of [[f80, 48], [f58, 32]]) {
+    assert.match(f80, /@page \{ size: 80mm auto; margin: 0; \}/);
+    assert.match(f80, /width:\s*80mm/);
+    assert.match(f80, /max-width:\s*80mm/);
+    assert.match(f80, /padding:\s*1\.5mm 2\.5mm 2mm/);
+    assert.match(f58, /@page \{ size: 58mm auto; margin: 0; \}/);
+    assert.match(f58, /width:\s*58mm/);
+    assert.doesNotMatch(f80, /48ch|32ch|76mm|overflow-x\s*:\s*hidden|text-overflow:\s*ellipsis|<pre\b/);
+    for (const html of [f80, f58]) {
       assert.ok(html.includes('FECHAMENTO DE CAIXA'));
       assert.ok(html.includes('1.234,56'), 'valor monetário preservado');
-      const pre = html.match(/<pre[^>]*>([\s\S]*?)<\/pre>/)[1]
-        .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
-      for (const linha of pre.split('\n')) {
-        assert.ok(linha.length <= cols, `linha com ${linha.length} cols: ${linha}`);
-      }
-      assert.ok(pre.split('\n').some((linha) => linha.endsWith('1.234,56')));
+      assert.ok(html.includes('Operador Com Nome Grande Demais Para Uma Linha Estreita'));
+      assert.match(html, /class="valor"[^>]*>[^<]*1\.234,56/);
     }
   });
 
@@ -302,19 +305,40 @@ describe('Motor térmico — largura configurada (fiscal_danfe_largura_mm)', () 
 });
 
 describe('Motor térmico — preparação no Electron e via', () => {
-  it('abrir-comprovante injeta só @page margin 0 e área útil 72/48mm no DANFE de tela', () => {
+  it('abrir-comprovante não redefine a geometria do DANFE térmico nem aplica zoom', () => {
     const src = fs.readFileSync(path.join(ROOT, 'electron-janelas-modulo.js'), 'utf8');
-    assert.match(src, /const utilMm = papelMm === '58' \? '48' : '72';/);
     assert.match(src, /const htmlTela = papelMatch/);
-    assert.doesNotMatch(src, /mm auto/);
-    assert.doesNotMatch(src, /\bsize\s*:\s*\$\{/);
+    assert.doesNotMatch(src, /setZoomFactor/);
+    assert.doesNotMatch(src, /zoomFactor/);
+    assert.doesNotMatch(src, /scaleFactor/);
+    assert.doesNotMatch(src, /electron-danfe-pagesize/);
   });
 
-  it('webContents.print continua sem pageSize (Sprint 2)', () => {
-    for (const arquivo of ['electron.js', 'electron-janelas-modulo.js', 'electron-common.js']) {
-      const src = fs.readFileSync(path.join(ROOT, arquivo), 'utf8');
-      assert.doesNotMatch(src.replace(/^\s*\/\/.*$/gm, ''), /pageSize/, arquivo);
+  it('webContents.print do DANFE silencioso não envia pageSize, zoom nem escala', () => {
+    const janelas = fs.readFileSync(path.join(ROOT, 'electron-janelas-modulo.js'), 'utf8')
+      .replace(/^\s*\/\/.*$/gm, '');
+    assert.doesNotMatch(janelas, /pageSize/);
+    assert.doesNotMatch(janelas, /usePrinterDefaultPageSize/);
+    assert.doesNotMatch(janelas, /scaleFactor/);
+    assert.doesNotMatch(janelas, /setZoomFactor/);
+
+    for (const arquivo of ['electron.js', 'electron-common.js']) {
+      const src = fs.readFileSync(path.join(ROOT, arquivo), 'utf8').replace(/^\s*\/\/.*$/gm, '');
+      assert.match(src, /silent:\s*true/);
+      assert.match(src, /marginType:\s*'none'/);
+      assert.doesNotMatch(src, /pageSize/);
+      assert.doesNotMatch(src, /usePrinterDefaultPageSize/);
+      assert.doesNotMatch(src, /scaleFactor/);
+      assert.doesNotMatch(src, /zoomFactor/);
+      assert.doesNotMatch(src, /electron-danfe-pagesize/);
     }
+
+    const comum = fs.readFileSync(path.join(ROOT, 'electron-common.js'), 'utf8');
+    const oculto = comum.slice(
+      comum.indexOf('function imprimirHtmlEmJanelaOculta'),
+      comum.indexOf('function registrarHandlersIpc')
+    );
+    assert.doesNotMatch(oculto, /pageSize/);
   });
 
   it('faixa da via: três linhas preservadas, 32 traços em Consolas 10px (~46,5mm ≤ 48mm)', () => {

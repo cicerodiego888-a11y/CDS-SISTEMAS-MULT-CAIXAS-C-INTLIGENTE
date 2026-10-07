@@ -423,9 +423,9 @@ function criarMainWindow(opcoes = {}) {
   ipcMain.removeHandler('imprimir-danfe-silencioso');
   ipcMain.handle('imprimir-danfe-silencioso', async (event, html, deviceName) => {
     const printWindow = new BrowserWindow({
-      width: 420,
+      width: 380,
       height: 720,
-      show: false, // Janela invisível
+      show: false,
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true
@@ -433,9 +433,6 @@ function criarMainWindow(opcoes = {}) {
     });
 
     await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(enriquecerHtmlImpressaoTermica(html))}`);
-
-    // Aguardar renderização
-    await new Promise(resolve => setTimeout(resolve, 500));
 
     const device = nomeImpressoraTermicaValido(deviceName);
     if (!device) {

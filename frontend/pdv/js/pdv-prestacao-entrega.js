@@ -731,15 +731,6 @@
       // NFC-e já emitida na prestação — imprimir DANFE (não reemitir).
       // Bug anterior: processarFiscalPosPagamentoPosVenda(data) passava o
       // objeto inteiro como vendaId → /fiscal/emitir/venda/[object Object].
-      if (fiscal.danfeHtml) {
-        await imprimirHtml(fiscal.danfeHtml, {
-          tipo: 'FISCAL',
-          vendaId,
-          titulo: 'danfe_prestacao'
-        });
-        return;
-      }
-
       if (vendaId && typeof imprimirDANFEFiscal === 'function') {
         try {
           await imprimirDANFEFiscal(vendaId, { automatico: true });

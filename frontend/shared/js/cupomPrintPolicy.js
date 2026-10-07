@@ -148,6 +148,7 @@ ${titulo}
 --------------------------------
 </div>`;
     const src = String(html || '');
+    if (/cds-ui-cupom-via/.test(src)) return src;
     if (/<body[^>]*>/i.test(src)) {
       return src.replace(/<body([^>]*)>/i, `<body$1>${faixa}`);
     }
