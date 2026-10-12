@@ -996,6 +996,21 @@ body.pdv-mode .cds-ui-fc {
   font-variant-numeric: tabular-nums;
 }
 
+.cds-ui-fc-saldo.is-troco {
+  background: #ecfdf5;
+  border-color: #10b981;
+}
+
+.cds-ui-fc-saldo.is-troco strong {
+  font-size: 1.6rem;
+  color: #047857;
+}
+
+.cds-ui-fc-saldo.is-troco .cds-ui-fc-status__hint {
+  display: block;
+  color: #065f46;
+}
+
 .cds-ui-fc-mov {
   display: flex;
   flex-direction: column;

@@ -34,15 +34,44 @@ function montarItemLegado(dto, inferido) {
   if (dto.origem !== 'CENTRAL_NFE') return itemLegado;
 
   const apresentacao = inferido.apresentacao || null;
+  const itemOrigem = dto.item || {};
   const quantidadeNfe = MotorUM.resolverQuantidadeEntradaNfe(
-    { ...dto.item, unidade_comercial: dto.item?.unidade_comercial || dto.item?.uCom || dto.unidadeCompra },
+    {
+      ...itemOrigem,
+      unidade_comercial: itemOrigem.unidade_comercial || itemOrigem.uCom || dto.unidadeCompra,
+      quantidade_comercial: itemOrigem.quantidade_comercial ?? itemOrigem.qCom ?? itemOrigem.quantidade_embalagens,
+      quantidade_tributavel: itemOrigem.quantidade_tributavel ?? itemOrigem.qTrib
+    },
     dto.produto,
     apresentacao
   );
-  if (!quantidadeNfe.ok) {
-    const erro = new Error(quantidadeNfe.erro || 'Conversão da unidade da NF-e não está resolvida.');
-    erro.code = quantidadeNfe.codigo || 'CONVERSAO_ENTRADA_NFE_INVALIDA';
-    throw erro;
+
+  const confirmada = Number(itemOrigem.quantidade_estoque_confirmada);
+  const jaConvertida = itemOrigem.conversao_aplicada === true && confirmada > 0;
+  if (jaConvertida) {
+    quantidadeNfe.ok = true;
+    quantidadeNfe.quantidadeEstoque = confirmada;
+    quantidadeNfe.quantidadeComercial = Number(
+      itemOrigem.quantidade_comercial ?? itemOrigem.qCom ?? quantidadeNfe.quantidadeComercial ?? 0
+    );
+    quantidadeNfe.fatorConversao = Number(itemOrigem.fator_conversao_confirmado || quantidadeNfe.fatorConversao || 1);
+    quantidadeNfe.origem = itemOrigem.origem_conversao_confirmada || quantidadeNfe.origem || 'CONFIRMADA_OPERADOR';
+  } else if (!quantidadeNfe.ok) {
+    if (itemOrigem.decisao_conversao === true && confirmada > 0) {
+      quantidadeNfe.ok = true;
+      quantidadeNfe.quantidadeEstoque = confirmada;
+      quantidadeNfe.origem = itemOrigem.origem_conversao_confirmada || 'QTRIB_UNIDADE_ESTOQUE';
+      quantidadeNfe.fatorConversao = Number(itemOrigem.fator_conversao_confirmado || 0);
+    } else {
+      const erro = new Error(quantidadeNfe.erro || 'Conversão da unidade da NF-e não está resolvida.');
+      erro.code = quantidadeNfe.codigo || 'CONVERSAO_ENTRADA_NFE_INVALIDA';
+      throw erro;
+    }
+  } else if (confirmada > 0 && Math.abs(confirmada - Number(quantidadeNfe.quantidadeEstoque)) > 0.001
+      && itemOrigem.decisao_conversao === true
+      && itemOrigem.origem_conversao_confirmada === 'QTRIB_UNIDADE_ESTOQUE') {
+    quantidadeNfe.quantidadeEstoque = confirmada;
+    quantidadeNfe.origem = 'QTRIB_UNIDADE_ESTOQUE';
   }
 
   const totalNfe = Number(dto.valorTotalCompra) > 0

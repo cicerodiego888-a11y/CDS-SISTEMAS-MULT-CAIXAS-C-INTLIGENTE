@@ -1298,7 +1298,11 @@ async function executarImportacaoInicialProdutos() {
         ${data.backup ? `<p class="small text-muted mb-0">Backup: ${escapeHtmlImport(data.backup.arquivo || data.backup.caminho || '')}</p>` : ''}
       `);
       $btn.text('Importação concluída');
-      showNotification('Importação concluída com sucesso.', 'success');
+      if (data.aviso) {
+        showNotification(data.aviso, 'warning');
+      } else {
+        showNotification('Importação concluída com sucesso.', 'success');
+      }
     }
 
     // V1.0.13 — após sucesso, atualiza snapshot da Lista de Produtos (GET /produtos).

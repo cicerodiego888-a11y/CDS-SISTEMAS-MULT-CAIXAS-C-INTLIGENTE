@@ -182,9 +182,17 @@ class MotorGTIN extends IMotorIdentificacao {
     if (!gtin) return [];
 
     const snapshot = await this._produtoRepository.buscarPorGtin(gtin);
-    if (!snapshot) return [];
+    const snapshots = snapshot ? [snapshot] : [];
 
-    return [this._montarCandidato(snapshot, gtin)];
+    // Código repetido em vários cadastros: todos viram candidatos, a política decide.
+    if (typeof this._produtoRepository.listarPorGtin === 'function') {
+      const todos = await this._produtoRepository.listarPorGtin(gtin);
+      (todos || []).forEach((s) => {
+        if (s?.id && !snapshots.some((x) => Number(x.id) === Number(s.id))) snapshots.push(s);
+      });
+    }
+
+    return snapshots.map((s) => this._montarCandidato(s, gtin));
   }
 
   /**

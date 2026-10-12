@@ -106,6 +106,38 @@ function obterFaixaQtdFiscalItem(item) {
   };
 }
 
+/**
+ * Valor comercial da linha. O subtotal do PDV (ex.: etiqueta de valor) só vale quando
+ * reproduz quantidade × preço interno (6 casas) arredondado a centavos; senão, legado
+ * quantidade × preço unitário.
+ */
+function valorComercialLinhaItem(item = {}) {
+  const quantidade = Number(item.quantidade || 0);
+  const precoUnitario = Number(item.preco_unitario || 0);
+  const legado = { valor: Number((quantidade * precoUnitario).toFixed(2)), preco: precoUnitario };
+  const interno = Number(item.preco_unitario_interno);
+  const subtotal = Number(item.subtotal);
+  if (item.subtotal == null || item.subtotal === '' || !Number.isFinite(subtotal)
+    || item.preco_unitario_interno == null || item.preco_unitario_interno === ''
+    || !Number.isFinite(interno) || interno <= 0) {
+    return legado;
+  }
+  // Meio centavo do arredondamento da linha + erro do preço interno em 6 casas.
+  const limite = 0.005 + Math.abs(quantidade) * 5e-7 + 1e-9;
+  if (Math.abs(subtotal - quantidade * interno) > limite) return legado;
+  return { valor: round2(subtotal), preco: interno };
+}
+
+/** A/B da linha em centavos: A + B = linha, nenhum negativo, sem valor no lado sem quantidade. */
+function partilharValorLinha(valorLinha, qFiscal, qNaoFiscal, valorFiscalProposto) {
+  const linha = Math.max(0, Math.round(round2(valorLinha) * 100));
+  let fiscal;
+  if (qNaoFiscal <= 1e-9) fiscal = linha;
+  else if (qFiscal <= 1e-9) fiscal = 0;
+  else fiscal = Math.max(0, Math.min(linha, Math.round(Number(valorFiscalProposto.toFixed(2)) * 100)));
+  return { valorFiscal: fiscal / 100, valorNaoFiscal: (linha - fiscal) / 100 };
+}
+
 function aplicarQuantidadeFiscalNoItem(item, qFiscalNova) {
   const { qEstoque, qMin, qMax } = obterFaixaQtdFiscalItem(item);
   let qF = Number(qFiscalNova);
@@ -120,28 +152,18 @@ function aplicarQuantidadeFiscalNoItem(item, qFiscalNova) {
   }
 
   const qNf = Number((qEstoque - qF).toFixed(6));
-  const preco = Number(item.preco_unitario || 0);
-  const subtotal = item.subtotal != null && item.subtotal !== ''
-    ? Number(item.subtotal)
-    : round2(qEstoque * preco);
-
-  let vF;
-  let vNf;
-  if (qEstoque > 0 && Math.abs(qEstoque - Number(item.quantidade || qEstoque)) > 1e-9) {
-    // quantidade_estoque ≠ quantidade venda: rateia subtotal
-    vF = round2(subtotal * (qF / qEstoque));
-    vNf = round2(subtotal - vF);
-  } else {
-    vF = round2(qF * preco);
-    vNf = round2(subtotal - vF);
-  }
+  // Total corrente da linha no Motor (já líquido de desconto/acréscimo comercial).
+  const linha = item.valor_fiscal != null || item.valor_nao_fiscal != null
+    ? round2(Number(item.valor_fiscal || 0) + Number(item.valor_nao_fiscal || 0))
+    : valorComercialLinhaItem(item).valor;
+  const partilha = partilharValorLinha(linha, qF, qNf, qEstoque > 0 ? linha * (qF / qEstoque) : 0);
 
   item.quantidade_fiscal = itemPermiteQuantidadeFracionada(item)
     ? Number(qF.toFixed(6))
     : qF;
   item.quantidade_nao_fiscal = qNf;
-  item.valor_fiscal = vF;
-  item.valor_nao_fiscal = vNf;
+  item.valor_fiscal = partilha.valorFiscal;
+  item.valor_nao_fiscal = partilha.valorNaoFiscal;
   return item;
 }
 
@@ -591,20 +613,16 @@ function calcularValoresFiscaisItem(item, quantidadeFiscal, quantidadeNaoFiscal)
   const qtdEstoque = item.quantidade_estoque != null && item.quantidade_estoque !== ''
     ? Number(item.quantidade_estoque)
     : qtdVenda;
-  const precoUnitario = Number(item.preco_unitario || 0);
-  const subtotalVenda = Number((qtdVenda * precoUnitario).toFixed(2));
-
-  let valorFiscal;
-  let valorNaoFiscal;
-
-  if (qtdEstoque > 0 && qtdEstoque !== qtdVenda) {
-    const ratioFiscal = quantidadeFiscal / qtdEstoque;
-    valorFiscal = Number((subtotalVenda * ratioFiscal).toFixed(2));
-    valorNaoFiscal = Number((subtotalVenda - valorFiscal).toFixed(2));
-  } else {
-    valorFiscal = Number((quantidadeFiscal * precoUnitario).toFixed(2));
-    valorNaoFiscal = Number((quantidadeNaoFiscal * precoUnitario).toFixed(2));
-  }
+  const { valor: subtotalVenda, preco: precoUnitario } = valorComercialLinhaItem(item);
+  const proposto = qtdEstoque > 0 && qtdEstoque !== qtdVenda
+    ? subtotalVenda * (quantidadeFiscal / qtdEstoque)
+    : quantidadeFiscal * precoUnitario;
+  const { valorFiscal, valorNaoFiscal } = partilharValorLinha(
+    subtotalVenda,
+    Number(quantidadeFiscal || 0),
+    Number(quantidadeNaoFiscal || 0),
+    proposto
+  );
 
   return { valorFiscal, valorNaoFiscal, subtotalVenda, qtdEstoque };
 }

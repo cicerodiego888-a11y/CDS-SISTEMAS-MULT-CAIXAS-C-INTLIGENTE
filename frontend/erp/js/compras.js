@@ -96,6 +96,35 @@ function clonarNestedMiipItemCompra(valor) {
     return clonarDadosItemCompra(valor);
 }
 
+function formatarSugestaoConversao(fator, unidadeComercial, unidadeEstoque) {
+    const uCom = String(unidadeComercial || '').trim().toUpperCase();
+    const uEstoque = String(unidadeEstoque || '').trim().toUpperCase();
+    const fatorNumero = Number(fator);
+    if (!Number.isFinite(fatorNumero) || fatorNumero <= 0) return 'Conversão não encontrada';
+    return `1 ${uCom} = ${fatorNumero} ${uEstoque}`;
+}
+
+function mostrarPendenciasConversaoEntrada(pendencias = [], data = {}) {
+    if (!Array.isArray(pendencias) || pendencias.length === 0) return null;
+    const mensagem = pendencias.map((pendencia) => {
+        const produto = pendencia.produto_nome || pendencia.produtoNome || 'Produto';
+        const nf = pendencia.unidade_nf || pendencia.unidadeComercial || pendencia.unidade_nf || 'NF';
+        const estoque = pendencia.unidade_estoque || pendencia.unidadeEstoque || 'Estoque';
+        const sugerida = pendencia.conversao_sugerida || pendencia.conversaoSugerida
+            || formatarSugestaoConversao(
+                pendencia.fator_sugerido ?? pendencia.fatorSugerido,
+                pendencia.unidade_nf || pendencia.unidadeComercial,
+                pendencia.unidade_estoque || pendencia.unidadeEstoque
+            );
+        return `${produto}\nNF: ${nf}\nEstoque: ${estoque}\nSugestão: ${sugerida}`;
+    }).join('\n\n');
+
+    if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+        window.alert(`Conversões de unidades precisam de confirmação\n\n${mensagem}`);
+    }
+    return { mensagem };
+}
+
 const MIIP_MOTOR_LABELS_COMPRA = Object.freeze({
     motor_gtin: 'GTIN / Código de Barras',
     motor_associacao_fornecedor: 'Associação Fornecedor',
@@ -136,11 +165,22 @@ function extrairProdutoIdSugestaoMiip(sugestao, item = null) {
     return Number.isFinite(id) && id > 0 ? id : null;
 }
 
+/**
+ * Na entrada vinda da Central, o produto da linha já foi decidido na revisão.
+ * A sugestão gravada no miip_resultado é anterior a essa decisão e pode apontar outro produto.
+ */
+function itemCompraJaDecididoNaCentral(item) {
+    return isOrigemCompraCentralNfe() && Number(item?.produto_id) > 0;
+}
+
 function obterSugestaoMiipItemCompra(item) {
     if (!item) return null;
+    const decididoNaCentral = itemCompraJaDecididoNaCentral(item);
     if (item.miip_sugestao && extrairProdutoIdSugestaoMiip(item.miip_sugestao, item)) {
+        if (decididoNaCentral && item.miip_sugestao.status === 'pendente') return null;
         return item.miip_sugestao;
     }
+    if (decididoNaCentral) return null;
     return montarSugestaoMiipCompraFromResultado(item.miip_resultado);
 }
 
@@ -2018,7 +2058,9 @@ async function classificarEntradaCompraApi(dadosCompra) {
             tipoEntrada: TIPOS_ENTRADA_COMPRA.REVENDA,
             confianca: 55,
             motivo: 'Classificação indisponível — sugestão padrão Revenda.',
-            label: 'Compra para Revenda'
+            label: 'Compra para Revenda',
+            requerConfirmacao: true,
+            conflitos: []
         };
     }
 }
@@ -2026,10 +2068,19 @@ async function classificarEntradaCompraApi(dadosCompra) {
 function mostrarDialogoPoliticaEntrada(callback, classificacao) {
     const modalId = 'politicaEntradaModal';
     $(`#${modalId}`).remove();
-    const sugestao = classificacao?.tipoEntrada || TIPOS_ENTRADA_COMPRA.USO_CONSUMO;
+    const sugestao = classificacao ? (classificacao.tipoEntrada || null) : TIPOS_ENTRADA_COMPRA.USO_CONSUMO;
+    const devolucao = classificacao?.naturezaDetectada === 'DEVOLUCAO';
     const confianca = Number(classificacao?.confianca || 0);
     const motivo = classificacao?.motivo || '';
+    const conflitos = Array.isArray(classificacao?.conflitos) ? classificacao.conflitos : [];
+    const requerConfirmacao = Boolean(classificacao?.requerConfirmacao) || !sugestao;
     const check = (tipo) => (tipo === sugestao ? ' checked' : '');
+    const linhaSugestao = sugestao
+        ? `<div><strong>Tipo sugerido:</strong> ${escapeHtml(rotuloTipoEntradaCompra(sugestao))}</div>`
+        : `<div><strong>Natureza identificada:</strong> ${escapeHtml(devolucao ? 'Devolução recebida' : 'Não identificada')} — sem sugestão de tratamento operacional.</div>`;
+    const avisoDevolucao = devolucao
+        ? '<div class="small mt-1">O sistema não possui tratamento próprio para devolução recebida. A opção escolhida define estoque, custo e financeiro desta entrada como compra; em caso de dúvida, consulte o contador.</div>'
+        : '';
     const html = `
         <div class="modal fade" id="${modalId}" tabindex="-1" data-bs-backdrop="static">
             <div class="modal-dialog">
@@ -2039,10 +2090,13 @@ function mostrarDialogoPoliticaEntrada(callback, classificacao) {
                     </div>
                     <div class="modal-body">
                         ${classificacao ? `
-                        <div class="alert alert-info py-2">
-                            <div><strong>Tipo sugerido:</strong> ${escapeHtml(rotuloTipoEntradaCompra(sugestao))}</div>
-                            <div><strong>Confiança:</strong> ${confianca}%</div>
+                        <div class="alert ${requerConfirmacao ? 'alert-warning' : 'alert-info'} py-2">
+                            ${linhaSugestao}
+                            <div><strong>Confiança:</strong> ${confianca}% <span class="small text-muted">(pontuação heurística, não probabilidade)</span></div>
                             <div class="small mt-1">${escapeHtml(motivo)}</div>
+                            ${conflitos.length ? `<div class="small mt-1"><strong>Sinais divergentes:</strong> ${conflitos.map((c) => escapeHtml(c)).join('<br>')}</div>` : ''}
+                            ${avisoDevolucao}
+                            ${requerConfirmacao ? `<div class="small mt-1"><strong>${sugestao ? 'Confirme a natureza da entrada antes de continuar.' : 'Escolha a natureza da entrada para continuar.'}</strong></div>` : ''}
                         </div>` : ''}
                         <div class="form-check mb-2">
                             <input class="form-check-input" type="radio" name="politica_entrada_import" id="politica_revenda" value="REVENDA"${check(TIPOS_ENTRADA_COMPRA.REVENDA)}>
@@ -2073,9 +2127,11 @@ function mostrarDialogoPoliticaEntrada(callback, classificacao) {
     const el = document.getElementById(modalId);
     const modal = new bootstrap.Modal(el);
     $('#politicaEntradaConfirmar').on('click', () => {
-        const tipo = $('input[name="politica_entrada_import"]:checked').val()
-            || sugestao
-            || TIPOS_ENTRADA_COMPRA.REVENDA;
+        const tipo = $('input[name="politica_entrada_import"]:checked').val() || sugestao;
+        if (!tipo) {
+            showNotification('Escolha a natureza da entrada para continuar.', 'warning');
+            return;
+        }
         modal.hide();
         el.addEventListener('hidden.bs.modal', () => {
             $(`#${modalId}`).remove();
@@ -3775,6 +3831,8 @@ function normalizeItemCompra(itemBruto = {}) {
         unidade: (origemCentralNfe ? unidadeEstoqueCentral : item.unidade) || 'UN',
         unidade_comercial: item.unidade_comercial || item.unidadeComercial || 'UN',
         ...(origemCentralNfe ? {
+            ...extrairOrigemLinhaNfeCompra(item),
+            ...extrairOrigemLinhaNfeCompra(itemBruto),
             preco_apresentacao: precoApresentacaoCentral,
             quantidade_apresentacao: quantidadeApresentacaoCentral,
             preco_unitario_trib: Number(item.preco_unitario_trib || item.preco_unitario_tributavel || 0),
@@ -4195,9 +4253,12 @@ function renderCfopColunaItemCompra(item, index) {
         : { bonificacao: Number(item.bonificacao) === 1, tooltip: '' };
     const tooltip = escapeHtml(item._tooltip_fiscal || trat.tooltip || 'Tratamento fiscal do item');
     const ehBonif = trat.bonificacao || Number(item.bonificacao) === 1;
-    const badge = ehBonif
+    const badge = (ehBonif
         ? `<span class="badge bg-warning text-dark mt-1" title="${tooltip}">BONIFICAÇÃO</span>`
-        : '';
+        : '')
+        + (trat.conflitoCabecalho
+            ? `<span class="badge bg-light text-dark border mt-1" title="${escapeHtml(trat.tooltip || '')}">CFOP difere da natureza</span>`
+            : '');
     const tipos = (typeof TratamentoFiscalItemCompra !== 'undefined')
         ? Object.values(TratamentoFiscalItemCompra.TIPOS)
         : Object.values(TIPOS_ENTRADA_COMPRA);
@@ -4567,6 +4628,7 @@ function aplicarMiipImportacaoXml(data) {
                 aplicarMargemDoProdutoNoItemCompra(draft, resultado.produtoEncontrado, { forcar: true });
             }
             if (resultado.precisaConfirmacao) {
+                if (itemCompraJaDecididoNaCentral(draft)) return;
                 const sugestaoUi = montarSugestaoMiipCompraFromResultado(resultado)
                     || (draft.miip_sugestao
                         ? { ...clonarNestedMiipItemCompra(draft.miip_sugestao), status: 'pendente' }
@@ -4952,7 +5014,10 @@ function abrirCadastroProdutoDesdeCompra(opcoes = {}) {
             $('#codigo_barras').val(prefill.codigo_barras).trigger('input.espelhoCodigo');
         }
         if (prefill.ncm && $('#ncm').length) $('#ncm').val(prefill.ncm);
-        if (prefill.unidade && $('#unidade').length) $('#unidade').val(prefill.unidade).trigger('change');
+        if (prefill.unidade && $('#unidade').length) {
+            selecionarUnidadeCadastroProduto($('#unidade'), prefill.unidade);
+            $('#unidade').trigger('change');
+        }
         const custo = Number(prefill.preco_unitario ?? prefill.valor_unitario ?? 0);
         const margemInfo = itemCompraTemMargemGravada(prefill)
             ? { margem: Number(prefill.margem_lucro) }
@@ -5572,8 +5637,14 @@ async function adicionarItemCompraAsync() {
         distribuicao_fiscal_editada_manual: Boolean(itemDraftCompra?.distribuicao_fiscal_editada_manual
             || itemExistente?.distribuicao_fiscal_editada_manual),
         origem_compra: isOrigemCompraCentralNfe() ? ORIGEM_COMPRA.CENTRAL_NFE : ORIGEM_COMPRA.MANUAL,
-        ...dadosEmbalagem
+        ...dadosEmbalagem,
+        ...(isOrigemCompraCentralNfe() ? extrairOrigemLinhaNfeCompra(itemExistente || itemDraftCompra || {}) : {})
     });
+
+    if (isOrigemCompraCentralNfe() && itemExistente
+        && Number(itemExistente.produto_id || 0) !== Number(itemDraftCompra.produto_id || 0)) {
+        invalidarConfirmacaoConversaoLinhaCompra(itemExistente);
+    }
 
     const indiceAntesCommit = indiceEditandoCompra;
     const idxCommit = commitItemCompraNoArray(itemDraftCompra, {
@@ -6719,11 +6790,17 @@ function saveCompra() {
         valor_ipi: Number($('#valor_ipi').val()) || 0,
         valor_total_nota: Number($('#valor_total_nota').val()) || 0,
         total,
-        itens: entradaSimplificada ? [] : itensCompraAtual.map((item) => {
+        itens: entradaSimplificada ? [] : itensCompraAtual.map((item, index) => {
             const sincronizado = sincronizarQuantidadesEstoqueItemCompra(
                 sincronizarPrecosCadastroItemCompra(clonarDadosItemCompra(item))
             );
+            const itemKey = gerarChaveItemConversaoCompra(sincronizado, index);
             return {
+            item_key: String(itemKey),
+            nItem: isOrigemCompraCentralNfe()
+                ? (sincronizado.nItem ?? sincronizado.nitem ?? null)
+                : (sincronizado.nItem ?? sincronizado.nitem ?? index),
+            ...(isOrigemCompraCentralNfe() ? serializarOrigemLinhaNfeCompra(sincronizado) : {}),
             produto_id: sincronizado.produto_id || null,
             produto_nome: sincronizado.produto_nome,
             codigo_barras: sincronizado.codigo_barras,
@@ -6809,7 +6886,16 @@ function saveCompra() {
         tipo_entrada_confianca: classificacaoEntradaAtual?.confianca ?? null,
         tipo_entrada_motivo: classificacaoEntradaAtual?.motivo || null,
         origem_compra: isOrigemCompraCentralNfe() ? ORIGEM_COMPRA.CENTRAL_NFE : ORIGEM_COMPRA.MANUAL,
-        xml: compraImportadaXml?.xml || null
+        xml: compraImportadaXml?.xml || null,
+        confirmacoes_conversao: isOrigemCompraCentralNfe()
+            ? (Array.isArray(compraImportadaXml?.confirmacoes_conversao) ? compraImportadaXml.confirmacoes_conversao : itensCompraAtual.map((item, index) => ({
+                item_key: gerarChaveItemConversaoCompra(item, index),
+                indice: item.central_item_indice ?? index,
+                nItem: item.nItem ?? item.nitem ?? null,
+                documento_id: centralDocumentoIdAtual || null,
+                confirmacao: item.confirmacao ?? item.conversao_decisao ?? item.conversao?.confirmacao ?? null
+            })))
+            : undefined
     };
 
     if (centralDocumentoIdAtual) {
@@ -6965,13 +7051,208 @@ async function mostrarResumoFiscalObrigatorio(data, isUsoConsumo, isNotaAvulsa) 
     modal.show();
 }
 
+/**
+ * Identidade e valores originais da linha da NF-e vinda da Central.
+ * São copiados do item de origem, nunca recalculados a partir da edição.
+ * uCom/qCom/uTrib/qTrib ficam em `linha_nfe_origem`: com os nomes crus, a renormalização
+ * da tela os usaria como quantidade de estoque.
+ */
+function extrairOrigemLinhaNfeCompra(item = {}) {
+    const origem = {};
+    const preenchido = (valor) => valor !== undefined && valor !== null && String(valor).trim() !== '';
+    const indice = item.central_item_indice ?? item.centralItemIndice;
+    if (preenchido(indice) && Number.isInteger(Number(indice))) origem.central_item_indice = Number(indice);
+    const nItem = item.nItem ?? item.nitem;
+    if (preenchido(nItem)) origem.nItem = nItem;
+    const linha = {};
+    const fonte = item.linha_nfe_origem || item;
+    ['uCom', 'qCom', 'uTrib', 'qTrib'].forEach((campo) => {
+        if (preenchido(fonte[campo])) linha[campo] = fonte[campo];
+    });
+    if (Object.keys(linha).length) origem.linha_nfe_origem = linha;
+    return origem;
+}
+
+/** Payload da API: identidade da linha + valores originais do XML com os nomes oficiais. */
+function serializarOrigemLinhaNfeCompra(item = {}) {
+    const origem = extrairOrigemLinhaNfeCompra(item);
+    const { linha_nfe_origem: linha = {}, ...identidade } = origem;
+    return { ...identidade, ...linha };
+}
+
+/** Troca de produto na linha muda a base da conversão: a decisão anterior deixa de valer. */
+function invalidarConfirmacaoConversaoLinhaCompra(item = {}) {
+    const lista = compraImportadaXml?.confirmacoes_conversao;
+    if (!Array.isArray(lista)) return;
+    const chave = gerarChaveItemConversaoCompra(item, 0);
+    lista.forEach((decisao) => {
+        if (!decisao) return;
+        const mesmaLinha = (item.nItem != null && String(decisao.nItem) === String(item.nItem))
+            || (decisao.item_key && String(decisao.item_key) === chave);
+        if (mesmaLinha) {
+            decisao.confirmacao = null;
+            decisao.selo_conversao = null;
+        }
+    });
+}
+
+function gerarChaveItemConversaoCompra(item = {}, fallbackIndex = 0) {
+    const nItem = item.nItem ?? item.nitem ?? item.linha_xml;
+    if (nItem !== undefined && nItem !== null && String(nItem).trim() !== '') {
+        return `linha:${String(nItem).trim()}`;
+    }
+    const explicit = [
+        item.item_key,
+        item.itemKey,
+        item.linha_id,
+        item.linhaId
+    ].find((valor) => valor !== undefined && valor !== null && String(valor).trim() !== '');
+    if (explicit !== undefined) {
+        const raw = String(explicit).trim();
+        if (raw.startsWith('item:') || raw.startsWith('linha:') || raw.startsWith('produto:')) return raw;
+        return `linha:${raw}`;
+    }
+    const produtoRef = [item.produto_id, item.produtoId].find(
+        (valor) => valor !== undefined && valor !== null && String(valor).trim() !== ''
+    );
+    return produtoRef !== undefined ? `produto:${String(produtoRef)}:idx:${fallbackIndex}` : `idx:${fallbackIndex}`;
+}
+
+function abrirModalConfirmacaoConversaoPendencias(pendencias, payloadOriginal, isUsoConsumo, isNotaAvulsa) {
+    const modalId = 'confirmacaoConversaoUnidadesModal';
+    const pendenciasComChave = (Array.isArray(pendencias) ? pendencias : []).map((pendencia, index) => ({
+        ...pendencia,
+        item_key: pendencia.item_key || pendencia.itemKey || gerarChaveItemConversaoCompra(pendencia, index)
+    }));
+    const decisoes = new Map();
+
+    const renderLinha = (itemKey, item, index) => {
+        const decisaoAtual = decisoes.get(itemKey);
+        const itemLabel = item?.produto_nome || item?.produto_nome || item?.codigo_barras || `Item ${index + 1}`;
+        const sugestao = item?.conversao_sugerida || item?.conversaoSugerida || item?.fator_sugerido || item?.fatorSugerido;
+        const detalhe = item?.unidade_nf && item?.unidade_estoque
+            ? `${item.unidade_nf} → ${item.unidade_estoque}`
+            : 'Revisar unidade do item';
+        return `
+            <div class="conversion-confirm-row border rounded p-3 mb-3" data-item-key="${escapeHtml(String(itemKey))}">
+                <div class="d-flex justify-content-between align-items-center gap-3 mb-2">
+                    <strong>${escapeHtml(itemLabel)}</strong>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn ${decisaoAtual === true ? 'btn-success' : 'btn-outline-success'} decisao-conversao-btn" data-item-key="${escapeHtml(String(itemKey))}" data-decisao="true">SIM</button>
+                        <button type="button" class="btn ${decisaoAtual === false ? 'btn-danger' : 'btn-outline-danger'} decisao-conversao-btn" data-item-key="${escapeHtml(String(itemKey))}" data-decisao="false">NÃO</button>
+                    </div>
+                </div>
+                        <div class="small text-muted mb-1">${escapeHtml(detalhe)}</div>
+                        <div class="small">
+                            Origem: ${escapeHtml(String(item?.quantidade_nf ?? item?.quantidade_comercial ?? '—'))} ${escapeHtml(String(item?.unidade_nf || item?.unidade_comercial || ''))}
+                            · Estoque: ${escapeHtml(String(item?.unidade_estoque || '—'))}
+                            · Resultado: ${escapeHtml(String(item?.quantidade_resultante_proposta ?? '—'))}
+                        </div>
+                        <div class="small">
+                            ${sugestao ? `<strong>Sugestão:</strong> ${escapeHtml(String(sugestao))}` : '<span class="text-warning">Sugestão de conversão pendente.</span>'}
+                        </div>
+                        ${item?.justificativa ? `<div class="small text-warning mt-1">${escapeHtml(String(item.justificativa))}</div>` : ''}
+            </div>
+        `;
+    };
+
+    const modalHtml = `
+        <div class="modal fade" id="${modalId}" tabindex="-1" data-bs-backdrop="static">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning-subtle">
+                        <h5 class="modal-title"><i class="fas fa-exchange-alt me-2"></i>Confirmação de conversão de unidade</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-warning small mb-3">
+                            Há itens da NF-e com unidade em conversão pendente. Defina a ação para cada linha antes de gravar a compra.
+                        </div>
+                        <div id="${modalId}-body">
+                            ${pendenciasComChave.map((pendencia, index) => renderLinha(pendencia.item_key, pendencia, index)).join('')}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" id="${modalId}-confirmar" disabled>Confirmar decisões</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
+    $(`#${modalId}`).remove();
+    $('body').append(modalHtml);
+    const el = document.getElementById(modalId);
+    const modal = new bootstrap.Modal(el);
+
+    const atualizarBotaoConfirmar = () => {
+        const total = pendenciasComChave.length;
+        const respondidas = pendenciasComChave.filter((p) => decisoes.has(p.item_key) && decisoes.get(p.item_key) !== undefined && decisoes.get(p.item_key) !== null).length;
+        $('#'+modalId+'-confirmar').prop('disabled', respondidas !== total);
+    };
+
+    $(`#${modalId}`).on('click', '.decisao-conversao-btn', function() {
+        const itemKey = String($(this).data('item-key') || '');
+        const decisao = $(this).data('decisao') === true || $(this).data('decisao') === 'true';
+        decisoes.set(itemKey, decisao);
+        atualizarBotaoConfirmar();
+        $(this).closest('.conversion-confirm-row').find('.decisao-conversao-btn').removeClass('btn-success btn-outline-success btn-danger btn-outline-danger').addClass((decisao ? 'btn-success' : 'btn-danger'));
+        $(this).siblings('.decisao-conversao-btn').not(this).removeClass('btn-success btn-danger').addClass(decisao ? 'btn-outline-danger' : 'btn-outline-success');
+        $(this).removeClass('btn-outline-success btn-outline-danger').addClass(decisao ? 'btn-success' : 'btn-danger');
+    });
+
+    $('#'+modalId+'-confirmar').on('click', () => {
+        if (window.__cdsGravandoCompraConversao) return;
+        const faltando = pendenciasComChave.filter((pendencia) => decisoes.get(pendencia.item_key) === undefined || decisoes.get(pendencia.item_key) === null);
+        if (faltando.length > 0) {
+            showNotification('Defina SIM ou NÃO para todos os itens pendentes antes de continuar.', 'warning');
+            return;
+        }
+
+        const confirmacoes = pendenciasComChave.map((pendencia) => ({
+            item_key: pendencia.item_key,
+            indice: pendencia.indice ?? pendencia.nItem ?? null,
+            nItem: pendencia.nItem,
+            documento_id: payloadOriginal?.central_documento_id || centralDocumentoIdAtual || null,
+            confirmacao: Boolean(decisoes.get(pendencia.item_key)),
+            selo_conversao: pendencia.selo_conversao || null
+        }));
+        const respondida = (c) => confirmacoes.some((n) => String(n.item_key) === String(c?.item_key)
+            || (n.nItem != null && String(n.nItem) === String(c?.nItem)));
+        const anteriores = (Array.isArray(payloadOriginal?.confirmacoes_conversao) ? payloadOriginal.confirmacoes_conversao : [])
+            .filter((c) => c && !respondida(c));
+        const payloadConfirmado = {
+            ...payloadOriginal,
+            confirmacoes_conversao: [...anteriores, ...confirmacoes],
+            itens: Array.isArray(payloadOriginal?.itens) ? payloadOriginal.itens.map((item, index) => {
+                const itemKey = gerarChaveItemConversaoCompra(item, index);
+                const decisaoItem = decisoes.get(itemKey);
+                return { ...item, item_key: itemKey, confirmacao: decisaoItem !== undefined ? decisaoItem : null };
+            }) : []
+        };
+
+        window.__cdsGravandoCompraConversao = true;
+        modal.hide();
+        el.addEventListener('hidden.bs.modal', () => {
+            $(`#${modalId}`).remove();
+            executarGravacaoCompra(payloadConfirmado, isUsoConsumo, isNotaAvulsa);
+            window.__cdsGravandoCompraConversao = false;
+        }, { once: true });
+    });
+
+    modal.show();
+}
+
 function executarGravacaoCompra(data, isUsoConsumo, isNotaAvulsa) {
+    if (window.__cdsExecutandoGravacaoCompra) return;
+    window.__cdsExecutandoGravacaoCompra = true;
     $.ajax({
         url: `${API_URL}/compras`,
         method: 'POST',
         contentType: 'application/json',
         data: JSON.stringify(data)
     }).done(function(resp) {
+        window.__cdsExecutandoGravacaoCompra = false;
         const docCentral = centralDocumentoIdAtual;
         centralDocumentoIdAtual = null;
         origemCompraAtual = ORIGEM_COMPRA.MANUAL;
@@ -6999,7 +7280,132 @@ function executarGravacaoCompra(data, isUsoConsumo, isNotaAvulsa) {
             sessionStorage.setItem('central_pos_gravacao', String(docCentral));
         }
     }).fail(function(xhr) {
-        showNotification(xhr.responseJSON?.error || 'Erro ao registrar compra.', 'danger');
+        window.__cdsExecutandoGravacaoCompra = false;
+        const payload = xhr.responseJSON || {};
+        if (xhr.status === 422 && payload.code === 'PENDENCIAS_CONVERSAO' && Array.isArray(payload.pendencias)) {
+            abrirModalConfirmacaoConversaoPendencias(payload.pendencias, data, isUsoConsumo, isNotaAvulsa);
+            return;
+        }
+        if (xhr.status === 422 && payload.code === 'PRODUTO_DIFERENTE_DA_DECISAO_CENTRAL' && Array.isArray(payload.linhas)) {
+            oferecerCorrecaoProdutoCentral(payload, data, isUsoConsumo, isNotaAvulsa).catch((err) => {
+                showNotification(`Compra não gravada: ${err?.message || 'falha ao trocar o produto na Central'}.`, 'danger');
+            });
+            return;
+        }
+        showNotification(payload.error || 'Erro ao registrar compra.', 'danger');
+    });
+}
+
+function postarJsonCompra(url, corpo) {
+    return new Promise((resolve) => {
+        $.ajax({ url, method: 'POST', contentType: 'application/json', data: JSON.stringify(corpo) })
+            .done((body) => resolve({ ok: true, body: body || {} }))
+            .fail((xhr) => resolve({ ok: false, status: xhr?.status, body: xhr?.responseJSON || {} }));
+    });
+}
+
+/**
+ * O backend recusou a compra porque o produto de uma linha não é o decidido na Central.
+ * Só segue se o operador confirmar a troca e informar o motivo; a correção é gravada na Central
+ * (que revalida) e a confirmação de conversão dessas linhas é pedida de novo.
+ */
+async function oferecerCorrecaoProdutoCentral(resposta, data, isUsoConsumo, isNotaAvulsa) {
+    const documentoId = data?.central_documento_id || centralDocumentoIdAtual;
+    const linhas = resposta.linhas.filter((l) => Number(l?.produto_id_enviado) > 0
+        && Number(l?.produto_id_decidido) > 0
+        && Number.isInteger(Number(l?.central_item_indice)));
+    if (!documentoId || !linhas.length || linhas.length !== resposta.linhas.length) {
+        showNotification(resposta.error || 'O produto da linha é diferente do decidido na Central.', 'danger');
+        return;
+    }
+
+    const nomeProduto = (id) => produtosCompraList.find((p) => Number(p.id) === Number(id))?.nome || `produto #${id}`;
+    const motivo = await pedirMotivoTrocaProdutoCentral(linhas.map((l) => ({
+        linha: l.produto_nome || `Linha ${l.nItem ?? Number(l.central_item_indice) + 1}`,
+        naCentral: nomeProduto(l.produto_id_decidido),
+        aqui: nomeProduto(l.produto_id_enviado)
+    })));
+    if (!motivo) {
+        showNotification('Compra não gravada. Volte ao produto escolhido na Central ou confirme a troca.', 'warning');
+        return;
+    }
+
+    const r = await postarJsonCompra(`${API_URL}/central-entradas/${documentoId}/corrigir-produtos`, {
+        linhas: linhas.map((l) => ({
+            indice: Number(l.central_item_indice),
+            produto_id: Number(l.produto_id_enviado),
+            produto_anterior_id: Number(l.produto_id_decidido)
+        })),
+        motivo,
+        chave_acesso: data?.chave_acesso || null
+    });
+    if (!r.ok) {
+        showNotification(`A troca não foi gravada; nada foi alterado na Central. ${r.body.error || ''}`.trim(), 'danger');
+        return;
+    }
+
+    const corrigidas = linhas.map((l) => ({ indice: Number(l.central_item_indice), nItem: l.nItem }));
+    const mesmaLinha = (c) => corrigidas.some((l) => Number(c?.indice) === l.indice
+        || (l.nItem != null && String(c?.nItem) === String(l.nItem)));
+    const payload = {
+        ...data,
+        confirmacoes_conversao: Array.isArray(data?.confirmacoes_conversao)
+            ? data.confirmacoes_conversao.map((c) => (mesmaLinha(c) ? { ...c, confirmacao: null, selo_conversao: null } : c))
+            : data?.confirmacoes_conversao
+    };
+    showNotification('Produto trocado na Central. Gravando a compra...', 'info');
+    executarGravacaoCompra(payload, isUsoConsumo, isNotaAvulsa);
+}
+
+/**
+ * Pede a confirmação da troca e o motivo num modal (o Electron não suporta window.prompt).
+ * Resolve com o motivo (mínimo 10 caracteres) ou null se o operador cancelar ou fechar.
+ */
+function pedirMotivoTrocaProdutoCentral(trocas) {
+    return new Promise((resolve) => {
+        const modalId = 'trocaProdutoCentralModal';
+        $(`#${modalId}`).remove();
+        const itens = trocas.map((t) => `<li><strong>${escapeHtml(t.linha)}</strong>: na Central "${escapeHtml(t.naCentral)}", aqui "${escapeHtml(t.aqui)}"</li>`).join('');
+        const html = `
+        <div class="modal fade" id="${modalId}" tabindex="-1" data-bs-backdrop="static">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Trocar também na Central?</h5>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-2">O produto foi trocado depois da conferência na Central:</p>
+                        <ul class="mb-3">${itens}</ul>
+                        <label class="form-label" for="trocaProdutoCentralMotivo">Por que o produto está sendo trocado? (mínimo 10 caracteres)</label>
+                        <textarea class="form-control" id="trocaProdutoCentralMotivo" rows="2" maxlength="500"></textarea>
+                        <div class="text-danger small mt-1 d-none" id="trocaProdutoCentralErro">Explique o motivo com pelo menos 10 caracteres.</div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" id="trocaProdutoCentralCancelar">Cancelar</button>
+                        <button type="button" class="btn btn-primary" id="trocaProdutoCentralConfirmar">Trocar também na Central</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        $('body').append(html);
+        const el = document.getElementById(modalId);
+        const modal = new bootstrap.Modal(el);
+        let motivo = null;
+        $('#trocaProdutoCentralConfirmar').on('click', () => {
+            const texto = String($('#trocaProdutoCentralMotivo').val() || '').trim();
+            if (texto.length < 10) {
+                $('#trocaProdutoCentralErro').removeClass('d-none');
+                return;
+            }
+            motivo = texto;
+            modal.hide();
+        });
+        $('#trocaProdutoCentralCancelar').on('click', () => modal.hide());
+        el.addEventListener('hidden.bs.modal', () => {
+            $(`#${modalId}`).remove();
+            resolve(motivo);
+        }, { once: true });
+        modal.show();
     });
 }
 
@@ -7313,7 +7719,10 @@ function abrirCadastroProdutoCentralMiip(item, callback) {
         $('#nome').val(item.produto_nome || '');
         if ($('#codigo_barras').length) $('#codigo_barras').val(item.codigo_barras || '').trigger('input.espelhoCodigo');
         if ($('#ncm').length) $('#ncm').val(item.ncm || '');
-        if ($('#unidade').length) $('#unidade').val(item.unidade || 'UN').trigger('change');
+        if ($('#unidade').length) {
+            selecionarUnidadeCadastroProduto($('#unidade'), item.unidade || 'UN');
+            $('#unidade').trigger('change');
+        }
         const custo = Number(item.preco_unitario ?? item.valor_unitario ?? 0);
         const margemInfo = itemCompraTemMargemGravada(item)
             ? { margem: Number(item.margem_lucro) }

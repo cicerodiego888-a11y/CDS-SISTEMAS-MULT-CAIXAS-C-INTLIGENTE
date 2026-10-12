@@ -1,7 +1,7 @@
 'use strict';
 
 const { tokenizar } = require('../core/tokenizer');
-const { levenshtein, similaridade } = require('../core/levenshtein');
+const { levenshtein } = require('../core/levenshtein');
 const { normalizarNomeBusca } = require('../core/normalizarNomeBusca');
 const CatalogSnapshot = require('../catalog/CatalogSnapshot');
 const { textoContemToken, haystackBuscaProduto } = require('../core/compararTextoBusca');
@@ -22,6 +22,23 @@ function tokensSignificativos(tokens) {
   }
   const fortes = unicos.filter((t) => t.length >= 3 || (t.length >= 2 && /\d/.test(t)));
   return { unicos, fortes, exigidos: fortes.length ? fortes : unicos };
+}
+
+/** Palavras (3+ letras) do nome por produto do snapshot; o snapshot é imutável, a chave some no próximo swap. */
+const TOKENS_NOME_POR_PRODUTO = new WeakMap();
+
+function tokensDoNome(produto) {
+  let tokens = TOKENS_NOME_POR_PRODUTO.get(produto);
+  if (!tokens) {
+    tokens = String(produto?.nome || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((t) => t.length >= 3);
+    TOKENS_NOME_POR_PRODUTO.set(produto, tokens);
+  }
+  return tokens;
 }
 
 /**
@@ -116,8 +133,6 @@ class SearchAI {
     const modoFiscal = opcoes.modoFiscal === true;
     const snapshot = this.catalog.ativo ? this.catalog.ativo() : null;
     const lista = snapshot?.lista || [];
-    const out = [];
-    const sugestoes = new Set();
 
     // amostra: prefixo aproximado (1ª letra) + janelas de tamanho do termo
     const candidatos = [];
@@ -135,49 +150,54 @@ class SearchAI {
       if (candidatos.length >= 4000) break;
     }
 
+    const outrasJanelas = [...new Set([
+      termoNorm.length + 1,
+      Math.max(1, termoNorm.length - 1),
+      termoNorm.length + maxDist
+    ])].filter((len) => len !== termoNorm.length);
+
+    // Examina todos os pré-selecionados e guarda só os `limite` mais próximos (empate: ordem do catálogo).
+    // Parar nos primeiros aceitos descartava itens mais próximos do fim do catálogo (produtos recém-cadastrados).
+    const melhores = [];
     for (const p of candidatos) {
       const nb = p.nome_busca || '';
-      let d = Infinity;
-      const lens = new Set([
-        termoNorm.length,
-        termoNorm.length + 1,
-        Math.max(1, termoNorm.length - 1),
-        termoNorm.length + maxDist
-      ]);
-      for (const len of lens) {
+      const prefixo = nb.slice(0, termoNorm.length);
+      const dPrefixo = levenshtein(termoNorm, prefixo);
+      let d = dPrefixo;
+      for (const len of outrasJanelas) {
         d = Math.min(d, levenshtein(termoNorm, nb.slice(0, len)));
       }
-      if (nb.length <= termoNorm.length + 4) {
+      // levenshtein(a, b) >= |a.length - b.length|: comparações que não podem reduzir `d` são puladas.
+      if (nb.length <= termoNorm.length + 4 && Math.abs(nb.length - termoNorm.length) < d) {
         d = Math.min(d, levenshtein(termoNorm, nb));
       }
       // tokens do nome original (espaços) — cobre "COKA" ↔ "COCA" em "COCA COLA 2L"
-      const nomeTok = String(p.nome || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .split(/[^a-z0-9]+/)
-        .filter((t) => t.length >= 3);
-      for (const tok of nomeTok) {
+      for (const tok of tokensDoNome(p)) {
+        if (Math.abs(tok.length - termoNorm.length) >= d) continue;
         d = Math.min(d, levenshtein(termoNorm, tok));
       }
 
-      if (d <= maxDist || similaridade(termoNorm, nb.slice(0, termoNorm.length)) >= 0.72) {
-        out.push({
-          ...p,
-          preco_venda: p.preco,
-          _matchTipo: { fuzzy: true },
-          _fuzzyDist: d,
-          match_exato: 0
-        });
-        if (p.nome) sugestoes.add(p.nome);
-      }
-      if (out.length >= limite * 3) break;
+      const maxLenPrefixo = Math.max(termoNorm.length, prefixo.length);
+      const similaridadePrefixo = maxLenPrefixo ? 1 - (dPrefixo / maxLenPrefixo) : 1;
+      if (d > maxDist && similaridadePrefixo < 0.72) continue;
+      if (melhores.length >= limite && d >= melhores[melhores.length - 1]._fuzzyDist) continue;
+
+      let pos = melhores.length;
+      while (pos > 0 && melhores[pos - 1]._fuzzyDist > d) pos -= 1;
+      melhores.splice(pos, 0, {
+        ...p,
+        preco_venda: p.preco,
+        _matchTipo: { fuzzy: true },
+        _fuzzyDist: d,
+        match_exato: 0
+      });
+      if (melhores.length > limite) melhores.pop();
+      if (melhores.length >= limite && melhores[limite - 1]._fuzzyDist === 0) break;
     }
 
-    out.sort((a, b) => (a._fuzzyDist || 9) - (b._fuzzyDist || 9));
     return {
-      itens: out.slice(0, limite),
-      sugestoes: [...sugestoes].slice(0, 5)
+      itens: melhores,
+      sugestoes: [...new Set(melhores.map((p) => p.nome).filter(Boolean))].slice(0, 5)
     };
   }
 

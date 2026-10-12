@@ -17,6 +17,7 @@ class MiipImportacaoResultado {
     this.nivelCerteza = dados.nivelCerteza ?? 'NENHUMA';
     this.acao = dados.acao ?? null;
     this.motivos = Array.isArray(dados.motivos) ? [...dados.motivos] : [];
+    this.motivoIdentificacao = dados.motivoIdentificacao ?? null;
     this.candidatoSelecionado = dados.candidatoSelecionado ?? null;
     this.precisaConfirmacao = Boolean(dados.precisaConfirmacao);
     this.precisaCadastro = Boolean(dados.precisaCadastro);
@@ -27,6 +28,7 @@ class MiipImportacaoResultado {
     this.mie = dados.mie ?? null;
     this.candidatos = Array.isArray(dados.candidatos) ? [...dados.candidatos] : [];
     this.diagnosticoBusca = dados.diagnosticoBusca ?? null;
+    this.regraIdentificacao = dados.regraIdentificacao ?? null;
   }
 
   /**
@@ -48,6 +50,7 @@ class MiipImportacaoResultado {
       nivelCerteza: this.nivelCerteza,
       acao: this.acao,
       motivos: this.motivos,
+      motivoIdentificacao: this.motivoIdentificacao,
       candidatoSelecionado: this.candidatoSelecionado,
       precisaConfirmacao: this.precisaConfirmacao,
       precisaCadastro: this.precisaCadastro,
@@ -57,7 +60,8 @@ class MiipImportacaoResultado {
       operacaoId: this.operacaoId,
       mie: this.mie,
       candidatos: this.candidatos,
-      diagnosticoBusca: this.diagnosticoBusca
+      diagnosticoBusca: this.diagnosticoBusca,
+      regraIdentificacao: this.regraIdentificacao
     };
   }
 }

@@ -14,7 +14,7 @@ const CDS_ERP_PAGE_SCRIPTS = Object.freeze({
     monitoring: ['/erp/js/cds-monitoring-engine.js'],
     produtos: ['/shared/js/SearchSDK.js', '/shared/js/buscaProdutoTexto.js', '/shared/js/resolverBuscaCadastroProdutos.js', '/erp/js/categorias.js', '/erp/js/subcategorias.js', '/erp/js/motor-unidades-medida.js', '/erp/js/produto-apresentacao-resolver.js', '/erp/js/produto-embalagens.js', '/shared/js/motor-preco-atacado.js', '/erp/js/formacao-preco-margem.js', '/shared/js/cds-stable-dropdown.js', '/erp/js/etiquetaProduto.js', '/erp/js/produtos.js'],
     clientes: ['/erp/js/clientes.js'],
-    compras: ['/erp/js/categorias.js', '/erp/js/subcategorias.js', '/erp/js/produto-apresentacao-resolver.js', '/erp/js/produto-embalagens.js', '/shared/js/motor-preco-atacado.js', '/erp/js/formacao-preco-margem.js', '/shared/js/buscaProdutoTexto.js', '/shared/js/resolverBuscaCadastroProdutos.js', '/shared/js/cds-stable-dropdown.js', '/erp/js/etiquetaProduto.js', '/erp/js/produtos.js', '/erp/js/motor-unidades-medida.js', '/shared/js/motor-quantidade-compra.js', '/erp/js/compra-muc-client.js', '/erp/js/tratamento-fiscal-item-compra.js', '/erp/js/miip-central-revisao.js', '/erp/js/compras-fornecedor-cnpj-rc831.js', '/shared/js/nfeDanfeViewer.js', '/erp/js/compras.js'],
+    compras: ['/erp/js/categorias.js', '/erp/js/subcategorias.js', '/erp/js/produto-apresentacao-resolver.js', '/erp/js/produto-embalagens.js', '/shared/js/motor-preco-atacado.js', '/erp/js/formacao-preco-margem.js', '/shared/js/buscaProdutoTexto.js', '/shared/js/resolverBuscaCadastroProdutos.js', '/shared/js/cds-stable-dropdown.js', '/erp/js/etiquetaProduto.js', '/erp/js/produtos.js', '/erp/js/motor-unidades-medida.js', '/shared/js/motor-quantidade-compra.js', '/erp/js/compra-muc-client.js', '/erp/js/tratamento-fiscal-item-compra.js', '/erp/js/miip-central-revisao-inteligente.js', '/erp/js/miip-central-revisao.js', '/erp/js/compras-fornecedor-cnpj-rc831.js', '/shared/js/nfeDanfeViewer.js', '/erp/js/compras.js'],
     'central-entradas': [
         '/erp/js/central-entradas-ux.js',
         '/erp/js/categorias.js',
@@ -30,6 +30,7 @@ const CDS_ERP_PAGE_SCRIPTS = Object.freeze({
         '/erp/js/etiquetaProduto.js',
         '/erp/js/produtos.js',
         '/erp/js/tratamento-fiscal-item-compra.js',
+        '/erp/js/miip-central-revisao-inteligente.js',
         '/erp/js/miip-central-revisao.js',
         '/erp/js/central-recuperacao-xml.js',
         '/erp/js/central-entradas-review-ux.js',
@@ -44,10 +45,12 @@ const CDS_ERP_PAGE_SCRIPTS = Object.freeze({
         '/shared/js/vendasHistoricoUi.js',
         '/erp/js/vendas.js'
     ],
+    'ranking-produtos': ['/erp/js/ranking-produtos.js'],
     entregas: [
         '/shared/js/cupomPrintPolicy.js',
         '/shared/js/fiscalImpressao.js',
-        '/pdv/js/entregas.js'
+        '/pdv/js/entregas.js',
+        '/erp/js/entregas-erp-ux.js'
     ],
     faturamento: ['/shared/js/nfeDanfeViewer.js', '/erp/js/faturamento.js'],
     'central-faturamento': ['/shared/js/nfeDanfeViewer.js', '/erp/js/central-faturamento.js'],
@@ -62,7 +65,7 @@ const CDS_ERP_PAGE_SCRIPTS = Object.freeze({
         '/erp/js/financeiro.js'
     ],
     licenca: ['/erp/js/licenca.js'],
-    caixa: ['/erp/js/caixa.js'],
+    caixa: ['/shared/js/cupomPrintPolicy.js', '/shared/js/fiscalImpressao.js', '/erp/js/caixa.js'],
     configuracoes: [
         '/shared/js/cupomPrintPolicy.js',
         '/shared/js/fiscalImpressao.js',
@@ -420,9 +423,13 @@ async function loadPage(page) {
             return typeof loadVendas === 'function'
                 ? loadVendas()
                 : $('#page-content').html('<div class="alert alert-danger">Erro ao carregar histórico de vendas.</div>');
+        case 'ranking-produtos':
+            return typeof loadRankingProdutos === 'function'
+                ? loadRankingProdutos()
+                : $('#page-content').html('<div class="alert alert-danger">Erro ao carregar Ranking de Produtos.</div>');
         case 'entregas':
-            return typeof loadEntregas === 'function'
-                ? loadEntregas()
+            return typeof loadEntregasErp === 'function'
+                ? loadEntregasErp()
                 : $('#page-content').html('<div class="alert alert-danger">Erro ao carregar vendas para entrega.</div>');
         case 'faturamento':
             return typeof loadFaturamento === 'function'

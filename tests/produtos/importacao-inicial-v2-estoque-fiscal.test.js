@@ -67,7 +67,7 @@ async function criarSchema(db) {
   await run(db, `CREATE TABLE configuracoes (chave TEXT PRIMARY KEY, valor TEXT)`);
   await run(db, `CREATE TABLE produtos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    codigo TEXT, nome TEXT, categoria_id INTEGER, subcategoria_id INTEGER, unidade TEXT,
+    codigo TEXT, nome TEXT, nome_busca TEXT, categoria_id INTEGER, subcategoria_id INTEGER, unidade TEXT,
     preco_compra REAL, lucro_percentual REAL, preco_venda REAL,
     estoque_atual REAL DEFAULT 0, estoque_minimo REAL DEFAULT 0, fornecedor TEXT,
     ncm TEXT, cfop TEXT, csosn TEXT, origem INTEGER, cest TEXT, codigo_barras TEXT,

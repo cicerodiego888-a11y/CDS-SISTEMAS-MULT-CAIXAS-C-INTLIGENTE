@@ -15,6 +15,8 @@ function renderRelatoriosFinanceiros(periodo) {
         <label for="tipoRelatorio">Tipo de Relatório:</label>
         <select id="tipoRelatorio" class="form-control">
           <option value="resumo">Resumo Financeiro</option>
+          <option value="fiscal_a">Relatório Fiscal A</option>
+          <option value="fiscal_b">Relatório Fiscal B</option>
           <option value="receber">Contas a Receber</option>
           <option value="pagar">Contas a Pagar</option>
           <option value="fluxo">Fluxo Financeiro</option>
@@ -53,6 +55,77 @@ function renderRelatoriosFinanceiros(periodo) {
 
 async function gerarRelatorio() {
   return carregarRelatorioSelecionado();
+}
+
+function renderizarRelatorioFiscal(tipo, dados, periodo) {
+  const tipoLetra = String(tipo || 'A').toUpperCase();
+  const titulo = tipoLetra === 'B' ? 'Relatório Fiscal B' : 'Relatório Fiscal A';
+  const resumo = dados?.resumo || {};
+  const vendas = Array.isArray(dados?.vendas) ? dados.vendas : [];
+  const valorTotal = Number(resumo.valor_periodo ?? 0);
+  const quantidadeItens = Number(resumo.itens ?? 0);
+  const quantidadeVendas = Number(resumo.vendas ?? 0);
+
+  const rows = vendas.map(venda => [
+    formatarDataHora(venda.data_venda || venda.dataVenda || venda.data_venda || ''),
+    venda.codigo || venda.id || '-',
+    venda.cliente_nome || '-',
+    venda.operador_nome || '-',
+    venda.forma_pagamento || '-',
+    formatarMoeda(Number(venda.valor_relatorio ?? 0)),
+    venda.documento || venda.codigo || '-'
+  ]);
+
+  const html = `
+    <div class="card">
+      <div class="card-header">
+        <h4 class="mb-0">${titulo}</h4>
+        <small class="text-muted">Período: ${formatarData(periodo.dataInicio)} a ${formatarData(periodo.dataFim)}</small>
+      </div>
+      <div class="card-body">
+        <div class="row mb-3">
+          <div class="col-md-4">
+            <div class="dashboard-card recebido">
+              <h5>Vendas</h5>
+              <p class="valor">${quantidadeVendas}</p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="dashboard-card recebido">
+              <h5>Itens</h5>
+              <p class="valor">${quantidadeItens}</p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="dashboard-card saldo">
+              <h5>Valor do período</h5>
+              <p class="valor">${formatarMoeda(valorTotal)}</p>
+            </div>
+          </div>
+        </div>
+        <div class="financeiro-tabela">
+          <table>
+            <thead>
+              <tr>
+                <th>Data/Hora</th>
+                <th>Venda</th>
+                <th>Cliente</th>
+                <th>Operador</th>
+                <th>Forma de pagamento</th>
+                <th>Valor</th>
+                <th>Documento</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.length ? rows.map(row => `<tr>${row.map(valor => `<td>${valor}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="7" class="text-center text-muted">Nenhuma venda encontrada no período informado.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('relatorioContainer').innerHTML = html;
 }
 
 function renderizarRelatorio(tipo, titulo, dados, periodo) {
@@ -383,6 +456,10 @@ function carregarRelatorioSelecionado() {
   switch (tipo) {
     case 'resumo':
       return gerarRelatorioResumo(coletarFiltrosRelatorios(periodo));
+    case 'fiscal_a':
+      return gerarRelatorioFiscalTipo('A', periodosParaApi(periodo));
+    case 'fiscal_b':
+      return gerarRelatorioFiscalTipo('B', periodosParaApi(periodo));
     case 'receber':
       return gerarRelatorioReceber(coletarFiltrosRelatorios(periodo));
     case 'pagar':
@@ -393,6 +470,51 @@ function carregarRelatorioSelecionado() {
       return gerarRelatorioInadimplencia(coletarFiltrosRelatorios(periodo));
     default:
       return Promise.resolve();
+  }
+}
+
+function periodosParaApi(periodo) {
+  return {
+    dataInicio: periodo?.dataInicio || '',
+    dataFim: periodo?.dataFim || ''
+  };
+}
+
+async function gerarRelatorioFiscalTipo(tipo, filtros) {
+  try {
+    const params = new URLSearchParams({
+      tipo,
+      data_inicio: filtros.dataInicio,
+      data_fim: filtros.dataFim
+    });
+
+    const response = await fetch(`/api/vendas/relatorio/fiscal?${params.toString()}`, {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer ' + localStorage.getItem('token')
+      }
+    });
+
+    if (response.status === 401) {
+      throw new Error('Sessão expirada. Faça login novamente.');
+    }
+
+    const dados = await response.json();
+
+    if (!response.ok) {
+      throw new Error(dados.error || 'Erro ao gerar relatório fiscal');
+    }
+
+    renderizarRelatorioFiscal(tipo, dados, {
+      dataInicio: filtros.dataInicio,
+      dataFim: filtros.dataFim
+    });
+  } catch (error) {
+    console.error('Erro ao gerar relatório fiscal:', error);
+    const container = document.getElementById('relatorioContainer');
+    if (container) {
+      container.innerHTML = `<div class="alert alert-danger">${error.message || 'Erro ao gerar relatório fiscal.'}</div>`;
+    }
   }
 }
 
@@ -583,7 +705,23 @@ function formatarMoeda(valor) {
   }).format(valor);
 }
 
+function formatarDataHora(data) {
+  if (!data) return '-';
+  const valor = String(data).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(valor)) {
+    const [ano, mes, dia] = valor.split('-').map(Number);
+    return new Date(Date.UTC(ano, mes - 1, dia)).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+  }
+  return new Date(valor).toLocaleString('pt-BR');
+}
+
 function formatarData(data) {
+  if (!data) return '-';
+  const valor = String(data).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(valor)) {
+    const [ano, mes, dia] = valor.split('-').map(Number);
+    return new Date(Date.UTC(ano, mes - 1, dia)).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+  }
   return new Date(data).toLocaleDateString('pt-BR');
 }
 
@@ -598,13 +736,3 @@ function coletarFiltrosRelatorios(periodo) {
   };
 }
 
-function formatarData(data) {
-  return new Date(data).toLocaleDateString('pt-BR');
-}
-
-function formatarMoeda(valor) {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL'
-  }).format(valor);
-}

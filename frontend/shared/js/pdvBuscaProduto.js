@@ -173,19 +173,11 @@
     return String(produto?.marca || produto?.marca_nome || '').trim();
   }
 
-  /**
-   * Nome da lista do PDV: marca na frente quando existir e ainda não iniciar o nome.
-   */
+  /** Nome exibido no PDV: "NOME — MARCA" (regra comum de CdsBuscaProdutoTexto). */
   function nomeExibicaoProdutoPdv(produto) {
-    const nome = String(produto?.nome || '').trim() || '-';
-    const marca = obterMarcaProdutoPdv(produto);
-    if (!marca) return nome;
-    const nomeNorm = nome.toLowerCase();
-    const marcaNorm = marca.toLowerCase();
-    if (nomeNorm === marcaNorm || nomeNorm.startsWith(`${marcaNorm} `)) {
-      return nome;
-    }
-    return `${marca} ${nome}`;
+    const formatar = global.CdsBuscaProdutoTexto?.formatarNomeProdutoComMarca;
+    const nome = formatar ? formatar(produto) : String(produto?.nome || '').trim();
+    return nome || '-';
   }
 
   function formatarPrecoProduto(produto) {
@@ -413,12 +405,7 @@
     const esc = typeof global.escapeHtml === 'function'
       ? global.escapeHtml
       : (v) => String(v == null ? '' : v);
-    const marca = obterMarcaProdutoPdv(produto);
-    const nomeBase = String(produto.nome || '-');
-    const nomeHtml = esc(nomeBase);
-    const marcaHtml = marca
-      ? `<span class="pdv-autocomplete-marca">${esc(marca)}</span> `
-      : '';
+    const nomeHtml = esc(nomeExibicaoProdutoPdv(produto));
     const termoOrigemAttr = produto._termoOrigem != null
       ? String(produto._termoOrigem)
       : (termoDosResultados != null ? String(termoDosResultados) : '');
@@ -433,7 +420,7 @@
           ${extraClass ? 'data-sugestao="1"' : ''}
           tabindex="-1"
         >
-          <span class="pdv-autocomplete-nome">${marcaHtml}${nomeHtml}${semEstoque ? ' <small class="pdv-autocomplete-sem-estoque">Verificar estoque</small>' : ''}${promocao ? ' <small class="pdv-autocomplete-promo">PROMO</small>' : ''}</span>
+          <span class="pdv-autocomplete-nome">${nomeHtml}${semEstoque ? ' <small class="pdv-autocomplete-sem-estoque">Verificar estoque</small>' : ''}${promocao ? ' <small class="pdv-autocomplete-promo">PROMO</small>' : ''}</span>
           <span class="pdv-autocomplete-meta">
             <span class="pdv-autocomplete-codigo">${codigoExibicao}</span>
             <strong class="pdv-autocomplete-preco">${formatarPrecoProduto(produto)}</strong>
@@ -958,6 +945,7 @@
       filtrarResultadosParaTermo,
       termoIdentificacaoPdv,
       nomeExibicaoProdutoPdv,
+      renderizarItemAutocomplete,
       DEBOUNCE_MS
     }
   };

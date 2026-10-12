@@ -139,13 +139,13 @@ async function main() {
     assert.strictEqual(r.bloqueado, false);
   });
 
-  await test('12. código fornecedor exato → não bloqueia', () => {
+  await test('12. código do fornecedor sem mapeamento → continua sujeito à compatibilidade', () => {
     const r = Guard.avaliar({
       semanticXml: semantic('FACA'),
       semanticCds: semantic('PASSA FIO'),
       motivosMatch: ['codigo_fornecedor']
     });
-    assert.strictEqual(r.compativel, true);
+    assert.strictEqual(r.bloqueado, true);
   });
 
   await test('13. GTIN parcial → continua sujeito à compatibilidade', () => {

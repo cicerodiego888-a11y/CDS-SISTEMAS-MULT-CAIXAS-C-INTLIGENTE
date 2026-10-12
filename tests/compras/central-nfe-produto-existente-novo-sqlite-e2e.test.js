@@ -133,6 +133,8 @@ const CASOS_NOVO = [
     codigo: 'SPRINT3-NV-FD-SEMEMB', gtin: '7891234593157',
     nome: 'BISCOITO SPRINT3 FARDO 10UN',
     cadastrarEmbalagem: false,
+    // Sem fator cadastrado, a quantidade vem da proposta qTrib/uTrib: exige SIM do operador (Sprint 2).
+    conversoes: [{ indice: 0, decisao: 'SIM' }],
     esperado: { ...ESPERADO_FARDO, fator: null }
   }
 ];
@@ -338,8 +340,13 @@ test('Sprint 3 — produto existente × produto novo pela Central NF-e até o SQ
         produtoId: async (itemParse) => {
           cadastro = await cadastrarProdutoNovoPelaRota(app, caso, itemParse);
           return cadastro.produtoId;
-        }
+        },
+        conversoes: caso.conversoes
       });
+      for (const conv of recebimento.conversoes) {
+        assert.equal(conv.confirmada, true, `SIM deve ser confirmado pelo backend: ${JSON.stringify(conv)}`);
+        assert.equal(Number(conv.resultado_backend?.quantidade_estoque), caso.esperado.quantidade, 'SIM: quantidade validada no backend');
+      }
       t.diagnostic(`${caso.rotulo}: status inicial ${recebimento.statusInicial}; custo pré-preenchido no cadastro ${cadastro?.payload.preco_compra}`);
       assert.equal(recebimento.statusInicial, DocumentoFiscalStatus.EM_REVISAO, 'produto desconhecido deve cair na revisão');
       assert.ok(cadastro, 'decisão CADASTRAR deve criar o produto pelo cadastro');
@@ -383,7 +390,7 @@ test('Sprint 3 — produto existente × produto novo pela Central NF-e até o SQ
     });
   }
 
-  await t.test('conversão impossível no backend responde 400, faz ROLLBACK e libera a conexão', async () => {
+  await t.test('conversão impossível no backend é bloqueada antes da transação (422) e libera a conexão', async () => {
     const base = gravacoesPorNf.get(9315);
     assert.ok(base, 'depende do caso NOVO — FARDO sem embalagem');
     const corpo = JSON.parse(JSON.stringify(base.corpo));
@@ -396,9 +403,16 @@ test('Sprint 3 — produto existente × produto novo pela Central NF-e até o SQ
     const comprasAntes = await getDb('SELECT COUNT(*) AS total FROM compras');
     const produtoAntes = await getDb('SELECT saldo_fiscal, estoque_atual FROM produtos WHERE id = ?', [base.produtoId]);
     const resposta = await request(app).post('/api/compras').send(corpo).timeout({ response: 15000 });
-    assert.equal(resposta.status, 400, JSON.stringify(resposta.body));
+    // Sprint 2: a validação de conversão roda antes do BEGIN. O SIM gravado para a proposta qTrib
+    // não autoriza a linha sem qTrib: o backend revalida e mantém a linha pendente.
+    assert.equal(resposta.status, 422, JSON.stringify(resposta.body));
+    assert.equal(resposta.body.code, 'PENDENCIAS_CONVERSAO');
     t.diagnostic(`conversão impossível: ${resposta.body.error}`);
     assert.match(String(resposta.body.error || ''), /fator|convers|unidade/i, 'erro deve vir da conversão da NF-e');
+    const pendencia = resposta.body.pendencias?.[0];
+    assert.ok(pendencia, 'pendência por linha deve ser devolvida');
+    assert.equal(pendencia.bloqueia_efetivacao, true);
+    assert.equal(pendencia.aprendizado_permanente, false);
 
     const comprasDepois = await getDb('SELECT COUNT(*) AS total FROM compras');
     assert.equal(Number(comprasDepois.total), Number(comprasAntes.total), 'compra não pode ser gravada');

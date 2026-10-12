@@ -138,6 +138,22 @@ class CentralEntradasService {
     return this._orchestrator.salvarDecisaoRevisao(id, itemIndex, dados);
   }
 
+  avaliarConversoesRevisao(id) {
+    return this._orchestrator.avaliarConversoesRevisao(id);
+  }
+
+  salvarDecisaoConversaoRevisao(id, itemIndex, dados = {}) {
+    return this._orchestrator.salvarDecisaoConversaoRevisao(id, itemIndex, dados);
+  }
+
+  corrigirProdutoLinha(id, itemIndex, dados = {}) {
+    return this._orchestrator.corrigirProdutoLinha(id, itemIndex, dados);
+  }
+
+  corrigirProdutosLinhas(id, dados = {}) {
+    return this._orchestrator.corrigirProdutosLinhas(id, dados);
+  }
+
   reiniciarSessaoRevisao(id, opcoes = {}) {
     return this._orchestrator.reiniciarSessaoRevisao(id, opcoes);
   }

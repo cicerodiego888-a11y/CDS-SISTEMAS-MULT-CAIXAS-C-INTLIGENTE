@@ -42,6 +42,9 @@ async function enriquecerItensComMip(parsed, deps = {}) {
 
   for (const item of parsed.itens || []) {
     if (!item || item.produto_id) continue;
+    // Item já decidido pela identificação V2 (pergunta, sugestão ou cadastro) não pode
+    // ser preenchido aqui: o MIP pega o 1º código de barras repetido e compara cProd com código interno.
+    if (item.miip_resultado) continue;
     tentados += 1;
 
     try {

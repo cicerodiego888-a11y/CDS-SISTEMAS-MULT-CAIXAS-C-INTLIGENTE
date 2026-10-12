@@ -6,7 +6,7 @@
  * @module observabilidade/eventSanitizer
  */
 
-const SENSITIVE_KEY_RE = /^(csc|token_csc|fiscal_token_csc|senha|password|pwd|pass|secret|private[_-]?key|certificado[_-]?senha|fiscal_certificado_senha|jwt|authorization|bearer|pan|cvv|card[_-]?number|numero[_-]?cartao|access[_-]?token|refresh[_-]?token|api[_-]?key|master[_-]?key|encryption[_-]?key)$/i;
+const SENSITIVE_KEY_RE = /^(csc|token_csc|fiscal_token_csc|fiscal_token_csc_homologacao|senha|password|pwd|pass|secret|private[_-]?key|certificado[_-]?senha|fiscal_certificado_senha|jwt|authorization|bearer|pan|cvv|card[_-]?number|numero[_-]?cartao|access[_-]?token|refresh[_-]?token|api[_-]?key|master[_-]?key|encryption[_-]?key)$/i;
 
 const SENSITIVE_SUBSTRING_RE = /(csc|senha|password|token|jwt|privatekey|pfx|bearer|pan\b|cvv)/i;
 

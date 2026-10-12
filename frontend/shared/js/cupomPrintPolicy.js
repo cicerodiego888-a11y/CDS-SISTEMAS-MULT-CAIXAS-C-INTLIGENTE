@@ -400,6 +400,24 @@ ${titulo}
     const reimpressao = opts.reimpressao === true;
     const automatico = opts.automatico === true;
 
+    // Documentos com pergunta obrigatória ignoram o modo configurado.
+    if (opts.perguntaObrigatoria === true && !reimpressao) {
+      const sim = await perguntarImpressao();
+      if (!sim) {
+        estadoAtual = ESTADOS.NAO_IMPRIMIR;
+        registrarEvento({
+          tipo: decisao.tipo,
+          venda_id: opts.vendaId,
+          decisao: 'NAO',
+          quantidade_solicitada: 0,
+          quantidade_impressa: 0,
+          resultado: 'NAO_IMPRIMIR'
+        });
+        return { estado: estadoAtual, impressas: 0 };
+      }
+      return executarImpressao(html, decisao, opts);
+    }
+
     if (!decisao.imprimir && opts.forcarImpressora !== true) {
       estadoAtual = ESTADOS.NAO_IMPRIMIR;
       return { estado: estadoAtual, impressas: 0 };

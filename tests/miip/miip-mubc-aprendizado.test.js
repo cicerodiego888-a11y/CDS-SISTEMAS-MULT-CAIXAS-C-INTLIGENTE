@@ -28,7 +28,7 @@ function test(nome, fn) {
 async function main() {
   console.log('\n=== Testes RC9.3 aprendizado auto ===\n');
 
-  await test('_aprenderAutoVinculo grava em AUTO_VINCULAR', async () => {
+  await test('Sprint 2.4 — _aprenderAutoVinculo em AUTO_VINCULAR não grava, só sugere', async () => {
     const calls = [];
     const learning = {
       async registrarConfirmacao(dados) {
@@ -71,11 +71,16 @@ async function main() {
       { origem: 'compra' }
     );
 
-    assert.strictEqual(result.gravado, true);
-    assert.strictEqual(calls.length, 1);
-    assert.strictEqual(calls[0].confirmado, true);
-    assert.strictEqual(calls[0].produtoId, 10);
-    assert.ok(String(calls[0].origem).startsWith('auto_'));
+    assert.strictEqual(result.gravado, false);
+    assert.strictEqual(calls.length, 0, 'identificação automática não chama o aprendizado');
+    assert.strictEqual(result.requerConfirmacaoManual, true);
+    assert.strictEqual(result.motivo, 'aprendizado_requer_confirmacao_manual');
+    assert.deepStrictEqual(result.sugestaoMapeamento, {
+      produtoId: 10,
+      fornecedorCnpj: '12345678000199',
+      codigoFornecedor: 'ABC',
+      criterio: null
+    });
   });
 
   await test('_aprenderAutoVinculo ignora não-auto', async () => {
@@ -103,17 +108,22 @@ async function main() {
     assert.strictEqual(r.gravado, false);
   });
 
-  await test('Learning auto_* substitui associação conflitante', async () => {
+  await test('Sprint 2.4 — Learning auto_* é rejeitado e não substitui associação conflitante', async () => {
+    const escritas = [];
     const repo = {
       async buscarAssociacao() {
         return { id: 1, produtoId: 5, status: 'ativa' };
       },
-      async desativarAssociacao() { return true; },
+      async desativarAssociacao(id) { escritas.push(['desativar', id]); return true; },
       async salvarAssociacao(dados) {
+        escritas.push(['salvar', dados]);
         return { id: 2, ...dados };
       }
     };
-    const svc = new MiipLearningService({ associacoesRepository: repo });
+    const svc = new MiipLearningService({
+      associacoesRepository: repo,
+      produtoRepository: { async buscarPorId(id) { return { id, ativo: 1 }; } }
+    });
     const r = await svc.registrarConfirmacao({
       confirmado: true,
       produtoId: 10,
@@ -121,8 +131,10 @@ async function main() {
       codigoFornecedor: 'X1',
       origem: 'auto_motor_gtin'
     });
-    assert.strictEqual(r.gravado, true);
-    assert.strictEqual(r.substituida, true);
+    assert.strictEqual(r.gravado, false);
+    assert.strictEqual(r.rejeitado, true);
+    assert.strictEqual(r.motivo, 'aprendizado_automatico_nao_permitido');
+    assert.strictEqual(escritas.length, 0);
   });
 
   console.log(`\nResultado: ${passou} ok, ${falhou} falhou\n`);

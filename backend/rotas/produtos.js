@@ -52,13 +52,18 @@ function obterPdvIdentificacaoService() {
 /**
  * Após gravar produto: limpa cache MIP e publica no MIB imediatamente
  * (PDV com venda em aberto precisa achar o SKU sem esperar rebuild).
+ * Chamar somente depois do COMMIT. Também usado por Compras (rotas/compras.js).
+ * @returns {{ mip: boolean, mib: boolean, erros: string[] }}
  */
 function publicarProdutoNoCatalogoOperacional(produto) {
-  if (!produto || produto.id == null) return;
+  const resultado = { mip: false, mib: false, erros: [] };
+  if (!produto || produto.id == null) return resultado;
   try {
     obterPdvIdentificacaoService().limparCacheCatalogo();
+    resultado.mip = true;
   } catch (err) {
     console.warn('[MIP] limpar cache após gravar produto:', err.message);
+    resultado.erros.push(`MIP: ${err.message}`);
   }
   try {
     obterMibService().notificarProdutoCriado({
@@ -73,9 +78,36 @@ function publicarProdutoNoCatalogoOperacional(produto) {
       item_fiscal: produto.item_fiscal,
       status: produto.ativo
     });
+    resultado.mib = true;
   } catch (err) {
     console.warn('[MIB] notificar produto após gravar:', err.message);
+    resultado.erros.push(`MIB: ${err.message}`);
   }
+  return resultado;
+}
+
+/**
+ * Após o COMMIT de um lote da importação inicial: limpa cache MIP e agenda um
+ * único rebuild do catálogo MIB (em vez de um evento por produto).
+ * @returns {{ mip: boolean, mib: boolean, erros: string[] }}
+ */
+function publicarImportacaoNoCatalogoOperacional(info = {}) {
+  const resultado = { mip: false, mib: false, erros: [] };
+  try {
+    obterPdvIdentificacaoService().limparCacheCatalogo();
+    resultado.mip = true;
+  } catch (err) {
+    console.warn('[MIP] limpar cache após importação:', err.message);
+    resultado.erros.push(`MIP: ${err.message}`);
+  }
+  try {
+    obterMibService().notificarProdutoImportado(info);
+    resultado.mib = true;
+  } catch (err) {
+    console.warn('[MIB] notificar importação:', err.message);
+    resultado.erros.push(`MIB: ${err.message}`);
+  }
+  return resultado;
 }
 
 const MAX_DIGITOS_CODIGO_INTERNO = 5;
@@ -492,7 +524,7 @@ function inserirFaixasAtacadoProduto(produtoId, faixas, callback) {
   inserirProxima();
 }
 
-function salvarEmbalagensProduto(produtoId, embalagens, unidadeProduto, usuario, callback) {
+function salvarEmbalagensProduto(produtoId, embalagens, unidadeProduto, usuario, callback, opcoes = {}) {
   if (!Array.isArray(embalagens)) {
     return callback(null, []);
   }
@@ -501,7 +533,8 @@ function salvarEmbalagensProduto(produtoId, embalagens, unidadeProduto, usuario,
     embalagens,
     unidadeProduto,
     usuario,
-    callback
+    callback,
+    opcoes
   );
 }
 
@@ -2448,18 +2481,50 @@ router.post('/', (req, res) => {
   );
   const controlaEstoque = flags.controlaEstoque;
   const itemFiscalGravar = flags.itemFiscal;
+  const nomeBuscaGravar = normalizarNomeBusca(nome);
   console.log('[AUDIT PRODUTO POST] req.body.item_fiscal:', req.body.item_fiscal);
   console.log('[AUDIT PRODUTO POST] item_fiscal gravar INSERT:', itemFiscalGravar);
 
+  if (controlarValidade && estoqueInicial > 0 && !data_validade_inicial) {
+    return res.status(400).json({
+      error: 'Data de validade é obrigatória para o estoque inicial.'
+    });
+  }
+
+  db.run('BEGIN IMMEDIATE', (beginErr) => {
+    const transacaoPropria = !(beginErr && /within a transaction/i.test(String(beginErr.message || '')));
+    if (beginErr && transacaoPropria) {
+      return res.status(500).json({ error: beginErr.message });
+    }
+    const abortarCadastro = (status, body) => {
+      const enviar = () => res.status(status).json(body);
+      if (!transacaoPropria) return enviar();
+      db.run('ROLLBACK', () => enviar());
+    };
+    const concluirCadastro = (row) => {
+      const responder = () => {
+        publicarProdutoNoCatalogoOperacional(row);
+        res.json({
+          ...row,
+          message: 'Produto criado com sucesso'
+        });
+      };
+      if (!transacaoPropria) return responder();
+      db.run('COMMIT', (commitErr) => {
+        if (commitErr) return res.status(500).json({ error: commitErr.message });
+        responder();
+      });
+    };
+
   resolverCodigoInternoCriacao(codigo, (codigoErr, resolvido) => {
     if (codigoErr) {
-      return res.status(codigoErr.status || 500).json({ error: codigoErr.message || 'Falha ao gerar código interno.' });
+      return abortarCadastro(codigoErr.status || 500, { error: codigoErr.message || 'Falha ao gerar código interno.' });
     }
     const codigoFinal = resolvido.codigo;
 
   db.run(`
     INSERT INTO produtos (
-      codigo, nome, categoria_id, subcategoria_id, unidade,
+      codigo, nome, nome_busca, ativo, categoria_id, subcategoria_id, unidade,
       preco_compra, lucro_percentual, preco_venda,
       estoque_atual, estoque_minimo, fornecedor,
       ncm, cfop, csosn, origem, cest, codigo_barras,
@@ -2471,12 +2536,12 @@ router.post('/', (req, res) => {
       permite_venda_unidade, peso_medio_unidade, preco_unidade,
       marca_id, observacoes, imagem_principal
     )
-    VALUES (${Array(37).fill('?').join(', ')})
+    VALUES (${Array(39).fill('?').join(', ')})
   `, [
-    codigoFinal, nome, categoria_id, subcategoria_id, unidade,
+    codigoFinal, nome, nomeBuscaGravar, 1, categoria_id, subcategoria_id, unidade,
     preco_compra, lucro_percentual, preco_venda,
     estoqueInicial, estoque_minimo || 0, fornecedor,
-    ncm, cfop, csosn, origem, cest, codigo_barras,
+    ncm, cfop, csosn, origem, cest, codigo_barras == null ? null : String(codigo_barras),
     aliquota_icms, aliquota_pis, aliquota_cofins,
     controlarValidade,
     controlaEstoque,
@@ -2501,10 +2566,9 @@ router.post('/', (req, res) => {
         console.error('Erro ao criar produto:', err.message);
         const msg = String(err.message || '');
         if (/UNIQUE|unique/i.test(msg) && /codigo/i.test(msg)) {
-          return res.status(400).json({ error: 'Já existe um produto com este código interno.' });
+          return abortarCadastro(400, { error: 'Já existe um produto com este código interno.' });
         }
-        res.status(500).json({ error: err.message });
-        return;
+        return abortarCadastro(500, { error: err.message });
       }
 
       const produtoId = this.lastID;
@@ -2562,12 +2626,6 @@ router.post('/', (req, res) => {
 
         // Se controlar validade, persistir validade e criar lote inicial quando houver estoque
         if (controlarValidade) {
-          if (estoqueInicial > 0 && !data_validade_inicial) {
-            return res.status(400).json({
-              error: 'Data de validade é obrigatória para o estoque inicial.'
-            });
-          }
-
           sincronizarValidadeELoteProduto(produtoId, {
             controlarValidade: true,
             dataValidade: data_validade_inicial,
@@ -2576,8 +2634,8 @@ router.post('/', (req, res) => {
           }, (syncErr) => {
             if (syncErr) {
               console.error('Erro ao sincronizar validade/lote inicial:', syncErr.message);
-              return res.status(500).json({
-                error: `Produto criado, mas falhou ao registrar validade/lote: ${syncErr.message}`
+              return abortarCadastro(500, {
+                error: `Falha ao registrar validade/lote: ${syncErr.message}`
               });
             }
             continuarCriacaoProduto();
@@ -2593,7 +2651,7 @@ router.post('/', (req, res) => {
         inserirFaixasAtacadoProduto(produtoId, atacado_faixas, (faixaErr) => {
           if (faixaErr) {
             console.error('Erro ao salvar faixas de atacado do produto:', faixaErr.message);
-            return res.status(500).json({ error: 'Produto criado, mas houve erro ao salvar faixas de atacado.' });
+            return abortarCadastro(500, { error: 'Erro ao salvar faixas de atacado.' });
           }
 
           salvarEmbalagensProduto(
@@ -2604,20 +2662,13 @@ router.post('/', (req, res) => {
             (embErr) => {
               if (embErr) {
                 console.error('Erro ao salvar apresentações do produto:', embErr.message);
-                return res.status(500).json({ error: `Produto criado, mas houve erro ao salvar apresentações: ${embErr.message}` });
+                return abortarCadastro(500, { error: `Erro ao salvar apresentações: ${embErr.message}` });
               }
 
               buscarProdutoCompleto(produtoId, (err2, row) => {
                 if (err2 || !row) {
-                  return res.status(500).json({ error: err2?.message || 'Erro ao buscar produto criado' });
+                  return abortarCadastro(500, { error: err2?.message || 'Erro ao buscar produto criado' });
                 }
-
-                publicarProdutoNoCatalogoOperacional(row);
-
-                res.json({
-                  ...row,
-                  message: 'Produto criado com sucesso'
-                });
 
                 gravarAuditoria({
                   usuario_id: req.user?.id || null,
@@ -2639,12 +2690,16 @@ router.post('/', (req, res) => {
                   },
                   ip_requisicao: req.ip || null
                 }).catch((auditErr) => console.error('Erro ao gravar auditoria de criação de produto:', auditErr));
+                concluirCadastro(row);
               });
-            }
+            },
+            // O POST já abriu BEGIN IMMEDIATE: apresentações entram na mesma transação do cadastro.
+            { usarTransacao: false }
           );
         });
       }
     });
+  });
   });
   };
 
@@ -3473,3 +3528,5 @@ module.exports = router;
 module.exports._proximoCodigoInternoCincoDigitos = proximoCodigoInternoCincoDigitos;
 module.exports._setPdvIdentificacaoServiceForTests = _setPdvIdentificacaoServiceForTests;
 module.exports._obterPdvIdentificacaoService = obterPdvIdentificacaoService;
+module.exports.publicarProdutoNoCatalogoOperacional = publicarProdutoNoCatalogoOperacional;
+module.exports.publicarImportacaoNoCatalogoOperacional = publicarImportacaoNoCatalogoOperacional;

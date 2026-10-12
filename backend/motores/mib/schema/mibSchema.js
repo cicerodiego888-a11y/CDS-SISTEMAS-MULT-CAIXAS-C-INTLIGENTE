@@ -141,22 +141,36 @@ function backfillNomeBusca(db, opcoes, callback) {
     [limite],
     (err, rows) => {
       if (err) return cb(err);
-      if (!rows || !rows.length) return cb(null, { atualizados: 0 });
+      if (!rows || !rows.length) {
+        return cb(null, { atualizados: 0, corrigidos: 0, falhas: 0, lidos: 0 });
+      }
 
       let pendentes = rows.length;
       let atualizados = 0;
+      let falhas = 0;
       let falha = null;
 
       rows.forEach((row) => {
         const nb = normalizarNomeBusca(row.nome);
         db.run(
-          `UPDATE produtos SET nome_busca = ? WHERE id = ?`,
+          `UPDATE produtos SET nome_busca = ? WHERE id = ? AND (nome_busca IS NULL OR TRIM(COALESCE(nome_busca, '')) = '')`,
           [nb, row.id],
-          (upErr) => {
-            if (upErr && !falha) falha = upErr;
-            else if (!upErr) atualizados += 1;
+          function onUp(upErr) {
+            if (upErr) {
+              falhas += 1;
+              if (!falha) falha = upErr;
+            } else if (this.changes > 0) {
+              atualizados += 1;
+            }
             pendentes -= 1;
-            if (pendentes === 0) cb(falha, { atualizados });
+            if (pendentes === 0) {
+              cb(falha, {
+                atualizados,
+                corrigidos: atualizados,
+                falhas,
+                lidos: rows.length
+              });
+            }
           }
         );
       });

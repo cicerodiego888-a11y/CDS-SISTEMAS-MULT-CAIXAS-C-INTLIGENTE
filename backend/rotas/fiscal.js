@@ -197,6 +197,22 @@ router.put('/config', carregarPerfilUsuario, async (req, res) => {
       await setConfiguracao(chave, String(valor ?? ''), 'string', `Configuração fiscal: ${chave}`);
     }
 
+    if (payload.fiscal_numero_atual !== undefined) {
+      try {
+        const { salvarProximaNumeracaoFiscal } = require('../services/fiscal/numeracaoFiscalService');
+        const cfgAtual = await getFiscalConfig({ validarUrls: false });
+        await salvarProximaNumeracaoFiscal({
+          cnpj: payload.cnpj || cfgAtual.cnpj,
+          ambiente: payload.fiscal_ambiente || cfgAtual.ambiente,
+          modelo: '65',
+          serie: payload.fiscal_serie || cfgAtual.serie,
+          proximoNumero: parseInt(payload.fiscal_numero_atual, 10) + 1
+        });
+      } catch (numErr) {
+        return res.status(400).json({ error: numErr.message, code: numErr.code });
+      }
+    }
+
     if (payload.fiscal_serie_nfe !== undefined || payload.fiscal_numero_atual_nfe !== undefined) {
       try {
         const { salvarProximaNumeracaoFiscal } = require('../services/fiscal/numeracaoFiscalService');

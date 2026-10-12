@@ -14,6 +14,10 @@ const CentralNsuService = require('./services/CentralNsuService');
 const { listarPresets } = require('./utils/filtrosRapidosCentral');
 const { paraDetalheCompletoDTO } = require('./utils/centralEntradasMapper');
 const { gravarAuditoria } = require('../../services/auditoria');
+const {
+  revalidarParseMiipPersistido,
+  revalidarBlocoMiipPersistido
+} = require('../miip/utils/MiipRevalidacaoResultadoPersistido');
 
 const CentralDocumentosRepository = require('./repositories/CentralDocumentosRepository');
 const CentralHistoricoRepository = require('./repositories/CentralHistoricoRepository');
@@ -545,14 +549,37 @@ class CentralEntradasOrchestrator {
     const documento = await this._documentosRepository.buscarPorId(id);
     if (!documento) return null;
 
+    const fornecedorCnpj = documento.parseJson?.fornecedor_cnpj || null;
     return {
       id: documento.id,
       chave: documento.chave,
       parseDisponivel: Boolean(documento.parseJson),
-      parse: documento.parseJson || null,
-      miipResumo: documento.miipResumoJson || null,
+      parse: revalidarParseMiipPersistido(documento.parseJson || null),
+      miipResumo: revalidarBlocoMiipPersistido(documento.miipResumoJson || null, { fornecedorCnpj }),
+      classificacaoEntrada: await this._classificarEntradaDocumento(documento, fornecedorCnpj),
       processadoEm: documento.processadoEm || null
     };
+  }
+
+  /** Sugestão de natureza (somente leitura); a confirmação ocorre ao abrir a compra. */
+  async _classificarEntradaDocumento(documento, fornecedorCnpj) {
+    if (!documento?.xml || !['PROC_NFE', 'NFE'].includes(documento.tipoDocumento)) return null;
+    try {
+      const { classificarEntrada } = require('../../services/compras/ClassificadorEntradaCompra');
+      const r = await classificarEntrada({ xml: documento.xml, fornecedor_cnpj: fornecedorCnpj });
+      return {
+        tipoEntrada: r.tipoEntrada,
+        naturezaDetectada: r.naturezaDetectada,
+        label: r.label,
+        confianca: r.confianca,
+        motivo: r.motivo,
+        forca: r.forca,
+        requerConfirmacao: r.requerConfirmacao,
+        conflitos: r.conflitos
+      };
+    } catch {
+      return null;
+    }
   }
 
   async processarDocumento(id, opcoes = {}) {
@@ -632,6 +659,22 @@ class CentralEntradasOrchestrator {
 
   salvarDecisaoRevisao(id, itemIndex, dados = {}) {
     return this._revisaoPersistenteService.salvarDecisao(id, itemIndex, dados);
+  }
+
+  avaliarConversoesRevisao(id) {
+    return this._revisaoPersistenteService.avaliarConversoes(id);
+  }
+
+  salvarDecisaoConversaoRevisao(id, itemIndex, dados = {}) {
+    return this._revisaoPersistenteService.salvarDecisaoConversao(id, itemIndex, dados);
+  }
+
+  corrigirProdutoLinha(id, itemIndex, dados = {}) {
+    return this._revisaoPersistenteService.corrigirProdutoLinha(id, itemIndex, dados);
+  }
+
+  corrigirProdutosLinhas(id, dados = {}) {
+    return this._revisaoPersistenteService.corrigirProdutosLinhas(id, dados);
   }
 
   reiniciarSessaoRevisao(id, opcoes = {}) {

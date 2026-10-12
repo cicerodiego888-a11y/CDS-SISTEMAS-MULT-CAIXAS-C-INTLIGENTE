@@ -7,6 +7,8 @@
  */
 
 const { normalizarNomeBusca, normalizarTermoBusca } = require('../../motores/mib/core/normalizarNomeBusca');
+const { levenshtein } = require('../../motores/mib/core/levenshtein');
+const { tokenizar } = require('../../motores/mib/core/tokenizer');
 
 const LIMITE_PADRAO = 20;
 const LIMITE_MAXIMO = 30;
@@ -90,6 +92,81 @@ function prioridadeDeMatch(tipo) {
   if (tipo === 'MARCA_PREFIXO') return PRIORIDADE.MARCA_PREFIXO;
   if (tipo === 'MARCA_CONTEM') return PRIORIDADE.MARCA_CONTEM;
   return 99;
+}
+
+function distanciaPermitidaSugestao(token) {
+  if (token.length <= 4) return 0;
+  if (token.length <= 6) return 1;
+  return 2;
+}
+
+function palavrasDoNome(nome) {
+  return String(nome || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+function distanciaPalavraToken(palavra, token) {
+  if (palavra.startsWith(token)) return 0;
+  const inteira = levenshtein(token, palavra);
+  if (palavra.length <= token.length) return inteira;
+  return Math.min(inteira, levenshtein(token, palavra.slice(0, token.length)));
+}
+
+function palavraCompativelComToken(palavra, token) {
+  if (palavra.startsWith(token)) return true;
+  if (palavra[0] !== token[0]) return false;
+  return distanciaPalavraToken(palavra, token) <= distanciaPermitidaSugestao(token);
+}
+
+/**
+ * Relevância de uma sugestão MIB para o termo, ou null se ela não passa na regra estrita
+ * (cada palavra significativa do termo precisa casar com o nome do produto).
+ * `distancia`: soma, por palavra do termo, da menor distância a uma palavra compatível do nome.
+ * `posicao`: soma dos índices dessas palavras no nome; nomes de cadastro abrem pelo produto principal.
+ * Recalcula a partir do nome: `_fuzzyDist` só existe nos itens da etapa fuzzy
+ * e chega obsoleto pela etapa incremental.
+ */
+function avaliarSugestao(produto, termoRaw) {
+  if (!produto) return null;
+  if (pareceIdentificador(termoRaw)) {
+    return produtoBateIdentificador(produto, termoRaw) ? { distancia: 0, posicao: 0 } : null;
+  }
+  const { tokensNorm } = tokenizar(termoRaw);
+  const fortes = tokensNorm.filter((t) => t.length >= 3 || /\d/.test(t));
+  const exigidos = fortes.length ? fortes : tokensNorm;
+  if (!exigidos.length) return null;
+  const palavras = palavrasDoNome(produto.nome);
+  const compacto = nomeNormalizado(produto);
+  let distancia = 0;
+  let posicao = 0;
+  for (const t of exigidos) {
+    let melhor = null;
+    if (compacto.includes(t)) {
+      const i = palavras.findIndex((w) => w.includes(t));
+      melhor = { d: 0, i: i >= 0 ? i : palavras.length };
+    } else if (/^\d+$/.test(t)) {
+      const i = palavras.indexOf(t);
+      if (i >= 0) melhor = { d: 0, i };
+    } else {
+      palavras.forEach((w, i) => {
+        if (!palavraCompativelComToken(w, t)) return;
+        const d = distanciaPalavraToken(w, t);
+        if (!melhor || d < melhor.d) melhor = { d, i };
+      });
+    }
+    if (!melhor) return null;
+    distancia += melhor.d;
+    posicao += melhor.i;
+  }
+  return { distancia, posicao };
+}
+
+function sugestaoCompativelComTermo(produto, termoRaw) {
+  return avaliarSugestao(produto, termoRaw) !== null;
 }
 
 function deveIgnorarRespostaBusca(seqResposta, seqAtual) {
@@ -347,6 +424,7 @@ class BuscaOperacionalProdutosService {
 
     let sugestoes = [];
     let mibConsultado = false;
+    let sugestoesDescartadas = 0;
     if (isolados.length === 0 && incluirSugestoes && this.buscarSugestoesMib) {
       mibConsultado = true;
       try {
@@ -354,8 +432,18 @@ class BuscaOperacionalProdutosService {
           limite,
           modoFiscal
         });
-        sugestoes = (Array.isArray(mibItens) ? mibItens : [])
-          .filter((p) => p != null)
+        const recebidas = (Array.isArray(mibItens) ? mibItens : []).filter((p) => p != null);
+        const avaliadas = [];
+        for (const p of recebidas) {
+          const relevancia = avaliarSugestao(p, termoRaw);
+          if (relevancia) avaliadas.push({ p, relevancia });
+        }
+        sugestoesDescartadas = recebidas.length - avaliadas.length;
+        // Sort estável: empate total mantém a ordem do MIB.
+        avaliadas.sort((a, b) => (a.relevancia.distancia - b.relevancia.distancia)
+          || (a.relevancia.posicao - b.relevancia.posicao));
+        sugestoes = avaliadas
+          .map((x) => x.p)
           .slice(0, limite)
           .map((p) => ({
             ...p,
@@ -376,6 +464,7 @@ class BuscaOperacionalProdutosService {
         limite,
         total_operacional: isolados.length,
         total_sugestoes: sugestoes.length,
+        sugestoes_descartadas: sugestoesDescartadas,
         mib_consultado: mibConsultado,
         prioridade: ['IDENTIFICADOR_EXATO', 'NOME_EXATO', 'NOME_PREFIXO', 'NOME_CONTEM', 'MARCA_EXATO', 'MARCA_PREFIXO', 'MARCA_CONTEM']
       }
@@ -399,6 +488,8 @@ module.exports = {
   classificarMatchNome,
   classificarMatchMarca,
   produtoBateIdentificador,
+  sugestaoCompativelComTermo,
+  avaliarSugestao,
   deveIgnorarRespostaBusca,
   limitarResultados
 };

@@ -11,7 +11,7 @@ class ItemIdentificavelDTO {
   constructor(dados = {}) {
     this.produtoNome = dados.produtoNome ?? dados.produto_nome ?? '';
     this.codigoBarras = dados.codigoBarras ?? dados.codigo_barras ?? null;
-    this.codigoFornecedor = dados.codigoFornecedor ?? dados.codigo_fornecedor ?? null;
+    this.codigoFornecedor = dados.codigoFornecedor ?? dados.codigo_fornecedor ?? dados.cProd ?? dados.cprod ?? null;
     this.ncm = dados.ncm ?? null;
     this.cest = dados.cest ?? null;
     this.unidade = dados.unidade ?? null;
@@ -19,7 +19,7 @@ class ItemIdentificavelDTO {
     this.marcaNome = this.marca;
     this.embalagem = dados.embalagem ?? dados.unidadeEmbalagem ?? null;
     this.plu = dados.plu ?? null;
-    this.codigoInterno = dados.codigoInterno ?? dados.codigo_interno ?? dados.codigo ?? null;
+    this.codigoInterno = dados.codigoInterno ?? dados.codigo_interno ?? dados.codigo_interno_cds ?? null;
     this.codigo = dados.codigo ?? this.codigoInterno;
     this.fornecedorCnpj = dados.fornecedorCnpj ?? dados.fornecedor_cnpj ?? null;
     this.fornecedorNome = dados.fornecedorNome ?? dados.fornecedor_nome ?? null;

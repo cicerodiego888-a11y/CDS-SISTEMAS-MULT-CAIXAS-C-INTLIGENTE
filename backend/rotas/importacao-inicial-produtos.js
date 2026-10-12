@@ -82,7 +82,9 @@ router.post('/importar', express.json(), async (req, res) => {
     const resultado = await importacao.importarSessao(db, sessaoId, {
       usuarioId: req.user?.id || null,
       usuarioNome: req.user?.nome || null,
-      politica_pendentes: req.body?.politica_pendentes
+      politica_pendentes: req.body?.politica_pendentes,
+      // Mesmo publicador do cadastro de Produtos (cache MIP do PDV + MIB), chamado após o COMMIT.
+      publicarCatalogo: (info) => require('./produtos').publicarImportacaoNoCatalogoOperacional(info)
     });
     const modoQtd = resultado.modo === 'ATUALIZAR_QUANTIDADES';
     return res.json({

@@ -4,7 +4,7 @@
 
 # **NÃO**
 
-Gerado em: 2026-10-03T22:19:22.605Z
+Gerado em: 2026-10-10T11:57:57.665Z
 
 > Auditoria somente leitura. Nenhum comportamento do sistema foi alterado.
 
@@ -100,11 +100,11 @@ Frontend → SearchSDK → SearchService → ProductProvider → MIB → MemoryC
 
 ## Etapa 7 — Benchmark (simulação do filtro client-side, 10k itens × 100)
 
-- **A**: média 5.0368 ms · max 9.6082 · min 4.7362 · origem=`client_side_Array.filter` · cacheHit=false · MIB/HotCache=false
-- **AR**: média 5.0149 ms · max 5.4413 · min 4.8581 · origem=`client_side_Array.filter` · cacheHit=false · MIB/HotCache=false
-- **ARR**: média 6.3546 ms · max 7.2017 · min 6.1712 · origem=`client_side_Array.filter` · cacheHit=false · MIB/HotCache=false
-- **ARRO**: média 6.2838 ms · max 6.5215 · min 6.1168 · origem=`client_side_Array.filter` · cacheHit=false · MIB/HotCache=false
-- **ARROZ**: média 6.2383 ms · max 6.537 · min 6.0824 · origem=`client_side_Array.filter` · cacheHit=false · MIB/HotCache=false
+- **A**: média 7.8587 ms · max 13.6085 · min 6.7771 · origem=`client_side_Array.filter` · cacheHit=false · MIB/HotCache=false
+- **AR**: média 7.7304 ms · max 14.577 · min 6.9765 · origem=`client_side_Array.filter` · cacheHit=false · MIB/HotCache=false
+- **ARR**: média 9.5734 ms · max 11.7873 · min 8.7757 · origem=`client_side_Array.filter` · cacheHit=false · MIB/HotCache=false
+- **ARRO**: média 9.7823 ms · max 12.849 · min 8.6985 · origem=`client_side_Array.filter` · cacheHit=false · MIB/HotCache=false
+- **ARROZ**: média 9.6409 ms · max 19.0911 · min 8.633 · origem=`client_side_Array.filter` · cacheHit=false · MIB/HotCache=false
 
 Nota: A tela real não chama API a cada tecla; filtra window.produtosCache carregado via GET /api/produtos
 

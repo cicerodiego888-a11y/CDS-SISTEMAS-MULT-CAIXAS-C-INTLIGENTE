@@ -143,6 +143,14 @@ class MotorAssociacaoFornecedor extends IMotorIdentificacao {
         peso: 0,
         valor: 'miip_associacoes+ProdutoRepository',
         score: 0
+      }),
+      MiipEvidence.agora({
+        motor: MOTOR_CODIGO,
+        tipo: 'origem_associacao',
+        descricao: 'Como a associação foi registrada (auto_* = gravada sem confirmação humana)',
+        peso: 0,
+        valor: associacao.origem ?? null,
+        score: 0
       })
     ];
   }

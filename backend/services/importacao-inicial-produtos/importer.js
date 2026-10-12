@@ -35,6 +35,7 @@ const {
 const { chaveCategoriaEquivalente } = require('./classificadorCategoria');
 const { resolverFlagsObrigatoriosCategoria } = require('../categorias/categoriaPadroes');
 const { normalizarProdutoCategoriaEspecial } = require('../categorias/normalizacaoProdutosCategoriaEspecial');
+const { normalizarNomeBusca } = require('../../motores/mib/core/normalizarNomeBusca');
 
 function dbRun(db, sql, params = []) {
   return new Promise((resolve, reject) => {
@@ -565,7 +566,7 @@ async function inserirProduto(db, linha, cache, usuarioId) {
   const ins = await dbRun(
     db,
     `INSERT INTO produtos (
-      codigo, nome, categoria_id, subcategoria_id, unidade,
+      codigo, nome, nome_busca, categoria_id, subcategoria_id, unidade,
       preco_compra, lucro_percentual, preco_venda,
       estoque_atual, estoque_minimo, fornecedor,
       ncm, cfop, csosn, origem, cest, codigo_barras,
@@ -576,10 +577,11 @@ async function inserirProduto(db, linha, cache, usuarioId) {
       saldo_fiscal, saldo_nao_fiscal, item_fiscal,
       permite_venda_unidade, peso_medio_unidade, preco_unidade,
       marca_id, observacoes, imagem_principal
-    ) VALUES (${Array(37).fill('?').join(', ')})`,
+    ) VALUES (${Array(38).fill('?').join(', ')})`,
     [
       codigo,
       p.nome,
+      normalizarNomeBusca(p.nome),
       categoriaId,
       subcategoriaId,
       unidade,
@@ -808,7 +810,8 @@ async function executarImportacao(db, validacao, {
   forcarFalhaEstoque,
   forcarFalhaApresentacao,
   forcarFalhaCustoPreco,
-  politica_pendentes
+  politica_pendentes,
+  publicarCatalogo
 } = {}) {
   const linhasNovas = (validacao.linhas || []).filter((l) => l.status === STATUS.PRONTO);
   const linhasEnriquecer = (validacao.linhas || []).filter(
@@ -1020,6 +1023,13 @@ async function executarImportacao(db, validacao, {
     throw e;
   }
 
+  const catalogoOperacional = publicarLoteNoCatalogoOperacional(publicarCatalogo, {
+    import_id: refImportacao,
+    ids_criados: criados,
+    ids_enriquecidos: enriquecidos,
+    ids_atualizados: atualizadosCadastro
+  });
+
   const importadosClassificados = linhasNovas.length
     + linhasEnriquecer.length
     + linhasAtualizar.length
@@ -1053,8 +1063,32 @@ async function executarImportacao(db, validacao, {
       ids_enriquecidos: enriquecidos,
       ids_atualizados: atualizadosCadastro,
       import_id: refImportacao
-    }
+    },
+    catalogo_operacional: catalogoOperacional,
+    ...(catalogoOperacional.status === 'FALHA'
+      ? { aviso: 'Produtos gravados, mas a publicação no catálogo de pesquisa (MIB/PDV) falhou. '
+        + 'Se algum produto não aparecer na pesquisa, reabra a tela.' }
+      : {})
   };
+}
+
+/**
+ * Publicação única do lote, depois do COMMIT. A gravação já está confirmada: falha aqui
+ * não desfaz a importação, mas precisa ser informada (sem sucesso enganoso).
+ */
+function publicarLoteNoCatalogoOperacional(publicarCatalogo, info) {
+  const total = info.ids_criados.length + info.ids_enriquecidos.length + info.ids_atualizados.length;
+  if (total === 0) return { status: 'SEM_ALTERACOES', erros: [] };
+  if (typeof publicarCatalogo !== 'function') return { status: 'NAO_CONFIGURADO', erros: [] };
+  try {
+    const r = publicarCatalogo(info) || {};
+    const erros = Array.isArray(r.erros) ? r.erros : [];
+    if (erros.length) console.warn('[IMPORTACAO-INICIAL] publicação no catálogo operacional incompleta', erros);
+    return { status: erros.length ? 'FALHA' : 'PUBLICADO', mip: r.mip === true, mib: r.mib === true, erros };
+  } catch (err) {
+    console.warn('[IMPORTACAO-INICIAL] publicação no catálogo operacional falhou:', err.message);
+    return { status: 'FALHA', mip: false, mib: false, erros: [err.message] };
+  }
 }
 
 module.exports = {

@@ -49,9 +49,6 @@ function criarRepoMock(produtos) {
           && String(p.codigo_barras).endsWith(String(filtros.gtin).slice(-8))) {
           motivos.push('gtin_parcial');
         }
-        if (filtros.codigoFornecedor && p.codigo === filtros.codigoFornecedor) {
-          motivos.push('codigo_fornecedor');
-        }
         if (filtros.codigoInterno && p.codigo === filtros.codigoInterno) {
           motivos.push('codigo_interno');
         }
@@ -189,17 +186,23 @@ async function main() {
     assert.ok(Array.isArray(cands));
   });
 
-  await test('Código fornecedor / interno', async () => {
+  await test('Código do fornecedor não é código interno; código interno explícito pontua', async () => {
     const motor = criarMotor(CATALOGO);
-    const cands = await motor.identificar({
-      produtoNome: 'ESCADA',
+    const porCprod = await motor.identificar({
+      produtoNome: 'TINTA',
       codigoFornecedor: '13680',
       unidade: 'UN'
     });
-    assert.ok(cands.some((c) => c.produtoId === 4));
-    const ev = (cands.find((c) => c.produtoId === 4)?.evidencias || [])
-      .some((e) => e.tipo === 'codigo_fornecedor');
-    assert.ok(ev);
+    assert.ok(!porCprod.some((c) => c.produtoId === 4));
+
+    const porInterno = await motor.identificar({
+      produtoNome: 'ESCADA',
+      codigoInterno: '13680',
+      unidade: 'UN'
+    });
+    const ev = (porInterno.find((c) => c.produtoId === 4)?.evidencias || []).map((e) => e.tipo);
+    assert.ok(ev.includes('codigo_interno'));
+    assert.ok(!ev.includes('codigo_fornecedor'));
   });
 
   await test('NCM e marca aumentam relevância', async () => {

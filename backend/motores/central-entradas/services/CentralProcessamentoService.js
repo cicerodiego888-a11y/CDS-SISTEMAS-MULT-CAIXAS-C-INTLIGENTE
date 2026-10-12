@@ -9,6 +9,10 @@
 const NFeParserService = require('../../../shared/nfe/NFeParserService');
 const NFeParserError = require('../../../shared/nfe/errors/NFeParserError');
 const { enriquecerParseComMiip } = require('../../../shared/nfe/enriquecerParseComMiip');
+const {
+  revalidarParseMiipPersistido,
+  revalidarBlocoMiipPersistido
+} = require('../../miip/utils/MiipRevalidacaoResultadoPersistido');
 const ProcessamentoResultadoDTO = require('../contracts/ProcessamentoResultadoDTO');
 const { DocumentoFiscalStatus, normalizarStatus } = require('../core/DocumentoFiscalStatus');
 const { paraDocumentoDetalheDTO } = require('../utils/centralEntradasMapper');
@@ -70,8 +74,10 @@ class CentralProcessamentoService {
           sucesso: true,
           reutilizado: true,
           documento: paraDocumentoDetalheDTO(atualizado),
-          parse: documento.parseJson,
-          miipImportacao: documento.miipResumoJson,
+          parse: revalidarParseMiipPersistido(documento.parseJson),
+          miipImportacao: revalidarBlocoMiipPersistido(documento.miipResumoJson, {
+            fornecedorCnpj: documento.parseJson.fornecedor_cnpj || null
+          }),
           possuiPendencias: documento.status === DocumentoFiscalStatus.AGUARDANDO_REVISAO,
           proximaAcao: documento.status === DocumentoFiscalStatus.AGUARDANDO_REVISAO
             ? 'revisar_produtos'

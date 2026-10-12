@@ -163,6 +163,33 @@ test('isolamento: alterar A não muda B (simulação)', () => {
   }
 });
 
+test('normaliza CENTO corretamente na entrada da NF-e', () => {
+  assert.strictEqual(MotorUM.normalizarUnidadeEntradaNfe('CENTO'), 'CENTO');
+  assert.strictEqual(MotorUM.normalizarUnidadeEntradaNfe('CEN'), 'CENTO');
+  assert.strictEqual(MotorUM.normalizarUnidadeEntradaNfe('CT'), 'CENTO');
+});
+
+test('qTrib em unidade de estoque resolve 5 CENTO = 500 M com fator 100', () => {
+  const resultado = MotorUM.resolverQuantidadeEntradaNfe({
+    qCom: 5,
+    uCom: 'CENTO',
+    qTrib: 500,
+    uTrib: 'M'
+  }, {
+    id: 93,
+    nome: 'CABO PP 2 X 2,50',
+    unidade: 'M'
+  });
+
+  assert.strictEqual(resultado.ok, true);
+  assert.strictEqual(resultado.unidadeComercial, 'CENTO');
+  assert.strictEqual(resultado.unidadeEstoque, 'M');
+  assert.strictEqual(resultado.quantidadeComercial, 5);
+  assert.strictEqual(resultado.quantidadeEstoque, 500);
+  assert.strictEqual(resultado.fatorConversao, 100);
+  assert.strictEqual(resultado.origem, 'QTRIB_UNIDADE_ESTOQUE');
+});
+
 test('estoque conversão comercial no motorConversaoUnidades', () => {
   const src = ler('backend/lib/motorConversaoUnidades.js');
   assert.match(src, /usaEmbalagemComercial|unidade_comercial/);

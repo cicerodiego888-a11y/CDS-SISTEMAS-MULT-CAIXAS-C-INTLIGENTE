@@ -112,9 +112,18 @@ function criarRepositoryMock(estado = {}) {
   };
 }
 
+function criarProdutoRepositoryMock(produtos = { 42: { id: 42, ativo: 1 }, 10: { id: 10, ativo: 1 } }) {
+  return {
+    async buscarPorId(id) {
+      return produtos[Number(id)] ?? null;
+    }
+  };
+}
+
 function criarService(opcoes = {}) {
   return new MiipLearningService({
     associacoesRepository: opcoes.repository ?? criarRepositoryMock(),
+    produtoRepository: opcoes.produtoRepository ?? criarProdutoRepositoryMock(),
     metricsCollector: opcoes.metrics ?? new MiipLearningMetricsCollector(),
     logService: opcoes.logs ?? new MiipAprendizadoLogService()
   });
@@ -387,6 +396,49 @@ async function main() {
     assert.strictEqual(resultado.gravado, false);
     assert.strictEqual(resultado.motivo, 'confirmacao_usuario_obrigatoria');
     assert.strictEqual(repo.salvos.length, 0);
+  });
+
+  await test('Sprint 2.4 — origem auto_* é rejeitada mesmo com confirmado=true', async () => {
+    const repo = criarRepositoryMock();
+    const service = criarService({ repository: repo });
+    const resultado = await service.registrarConfirmacao({ ...CONFIRMACAO_VALIDA, origem: 'auto_motor_gtin' });
+    assert.strictEqual(resultado.gravado, false);
+    assert.strictEqual(resultado.rejeitado, true);
+    assert.strictEqual(resultado.motivo, 'aprendizado_automatico_nao_permitido');
+    assert.strictEqual(repo.salvos.length, 0);
+  });
+
+  await test('Sprint 2.4 — produto inexistente ou inativo não vira mapeamento', async () => {
+    const repo = criarRepositoryMock();
+    const service = criarService({
+      repository: repo,
+      produtoRepository: criarProdutoRepositoryMock({ 43: { id: 43, ativo: 0 } })
+    });
+    const inexistente = await service.registrarConfirmacao(CONFIRMACAO_VALIDA);
+    assert.strictEqual(inexistente.motivo, 'produto_inexistente');
+    const inativo = await service.registrarConfirmacao({ ...CONFIRMACAO_VALIDA, produtoId: 43 });
+    assert.strictEqual(inativo.motivo, 'produto_inativo');
+    assert.strictEqual(repo.salvos.length, 0);
+  });
+
+  await test('Sprint 2.4 — confirmação manual registra origem e tipo de confirmação', async () => {
+    const repo = criarRepositoryMock();
+    const service = criarService({ repository: repo });
+    await service.registrarConfirmacao(CONFIRMACAO_VALIDA);
+    assert.strictEqual(repo.salvos[0].origem, 'xml');
+    assert.strictEqual(repo.salvos[0].fonte, 'aprendizado');
+    assert.strictEqual(repo.salvos[0].confirmadoPorUsuarioId, 7);
+    assert.strictEqual(repo.salvos[0].decisaoOperacaoId, 'req-test-001');
+    assert.strictEqual(repo.salvos[0].metadados.tipo_confirmacao, 'manual_operador');
+  });
+
+  await test('Sprint 2.4 — repetir a confirmação não duplica o mapeamento', async () => {
+    const repo = criarRepositoryMock();
+    const service = criarService({ repository: repo });
+    await service.registrarConfirmacao(CONFIRMACAO_VALIDA);
+    const segunda = await service.registrarConfirmacao(CONFIRMACAO_VALIDA);
+    assert.strictEqual(segunda.reutilizacao, true);
+    assert.strictEqual(repo.salvos.length, 1);
   });
 
   console.log(`\nResultado: ${passou} passou, ${falhou} falhou\n`);

@@ -8,7 +8,7 @@ const {
   TIPO_ENTRADA,
   normalizarTipoEntrada
 } = require('./PoliticaEntradaCompra');
-const { classificarPorCfopItem } = require('./ClassificadorEntradaCompra');
+const { classificarPorCfopItem, EXCECAO_ITEM } = require('./ClassificadorEntradaCompra');
 const { getPadraoFiscal } = require('../configuracaoService');
 
 /** Sufixos CFOP típicos de bonificação (últimos 3 dígitos). */
@@ -40,14 +40,21 @@ function normalizarConfigBonificacao(config = {}) {
 }
 
 /**
- * Classifica tipo fiscal do item (prioridade: manual > CFOP > padrão compra).
+ * Classifica tipo fiscal do item. Precedência:
+ * 1. tipo manual do item; 2. flag de bonificação;
+ * 3. CFOP com exceção específica (bonificação x910/1949, uso/consumo 155x, 5552/5557) — sempre;
+ * 4. CFOP de entrada de compra (1101, 1102…) — só sem cabeçalho ou com cabeçalho Bonificação (nota mista);
+ * 5. natureza do cabeçalho confirmada pelo operador; 6. Revenda.
+ * Quando o CFOP sugere tipo diferente do cabeçalho, `conflitoCabecalho` fica explícito.
+ * Não altera o CFOP nem outros dados fiscais do item.
  * @param {Object} item
  * @param {string} [tipoEntradaCompra]
- * @returns {{ tipoFiscal: string, bonificacao: boolean, cfop: string|null, origem: string }}
+ * @returns {{ tipoFiscal: string, bonificacao: boolean, cfop: string|null, origem: string, conflitoCabecalho: boolean, motivo: string|null }}
  */
 function classificarTratamentoFiscalItem(item = {}, tipoEntradaCompra = null) {
   const cfop = digitsOnly(item.cfop || item.CFOP || '').slice(0, 4) || null;
   const tipoManual = item.tipo_fiscal_item || item.tipoFiscalItem || null;
+  const tipoCompra = tipoEntradaCompra ? normalizarTipoEntrada(tipoEntradaCompra) : null;
 
   if (tipoManual) {
     const tipo = normalizarTipoEntrada(tipoManual === 'BONIFICACAO' ? 'BONIFICACAO' : tipoManual);
@@ -55,7 +62,9 @@ function classificarTratamentoFiscalItem(item = {}, tipoEntradaCompra = null) {
       tipoFiscal: tipo,
       bonificacao: tipo === TIPO_ENTRADA.BONIFICACAO || Number(item.bonificacao) === 1,
       cfop,
-      origem: 'manual'
+      origem: 'manual',
+      conflitoCabecalho: false,
+      motivo: null
     };
   }
 
@@ -64,29 +73,37 @@ function classificarTratamentoFiscalItem(item = {}, tipoEntradaCompra = null) {
       tipoFiscal: TIPO_ENTRADA.BONIFICACAO,
       bonificacao: true,
       cfop,
-      origem: 'flag'
+      origem: 'flag',
+      conflitoCabecalho: false,
+      motivo: null
     };
   }
 
-  if (cfop) {
-    const porCfop = classificarPorCfopItem(cfop);
-    if (porCfop) {
-      return {
-        tipoFiscal: porCfop.tipo,
-        bonificacao: porCfop.tipo === TIPO_ENTRADA.BONIFICACAO,
-        cfop,
-        origem: 'cfop'
-      };
-    }
+  const porCfop = cfop ? classificarPorCfopItem(cfop) : null;
+  const excecaoAplica = porCfop?.excecaoItem === EXCECAO_ITEM.ESPECIFICA
+    || (porCfop?.excecaoItem === EXCECAO_ITEM.COMPRA && (!tipoCompra || tipoCompra === TIPO_ENTRADA.BONIFICACAO));
+  if (excecaoAplica) {
+    return {
+      tipoFiscal: porCfop.tipo,
+      bonificacao: porCfop.tipo === TIPO_ENTRADA.BONIFICACAO,
+      cfop,
+      origem: 'cfop',
+      conflitoCabecalho: Boolean(tipoCompra && tipoCompra !== porCfop.tipo),
+      motivo: porCfop.motivo
+    };
   }
 
-  if (tipoEntradaCompra) {
-    const tipo = normalizarTipoEntrada(tipoEntradaCompra);
+  if (tipoCompra) {
+    const conflito = Boolean(porCfop?.excecaoItem && porCfop.tipo !== tipoCompra);
     return {
-      tipoFiscal: tipo,
-      bonificacao: tipo === TIPO_ENTRADA.BONIFICACAO,
+      tipoFiscal: tipoCompra,
+      bonificacao: tipoCompra === TIPO_ENTRADA.BONIFICACAO,
       cfop,
-      origem: 'compra'
+      origem: 'compra',
+      conflitoCabecalho: conflito,
+      motivo: conflito
+        ? `${porCfop.motivo} Mantida a natureza confirmada da entrada.`
+        : null
     };
   }
 
@@ -94,7 +111,9 @@ function classificarTratamentoFiscalItem(item = {}, tipoEntradaCompra = null) {
     tipoFiscal: TIPO_ENTRADA.REVENDA,
     bonificacao: false,
     cfop,
-    origem: 'padrao'
+    origem: 'padrao',
+    conflitoCabecalho: false,
+    motivo: null
   };
 }
 

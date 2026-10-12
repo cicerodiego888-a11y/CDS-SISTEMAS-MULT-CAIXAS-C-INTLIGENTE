@@ -7,13 +7,33 @@ const { cancelarFiscal } = require('../tef/ReversaoFiscal');
 const VendaDevolucaoService = require('./VendaDevolucaoService');
 const VendaFiscalService = require('./VendaFiscalService');
 const { cancelarFinanceiroVenda } = require('./VendaFinanceiroService');
+const { avaliarCancelamentoVenda } = require('./VendaCancelamentoAvaliacaoService');
 const mpfc = require('../mpfc');
 
 const { devolverEstoqueItensVenda } = VendaDevolucaoService;
-const {
-  buscarNfceAutorizadaVenda,
-  cancelarNfceAutorizadaVenda
-} = VendaFiscalService;
+const { cancelarNfceAutorizadaVenda } = VendaFiscalService;
+
+/**
+ * Executa `prosseguir(avaliacao)` só quando a situação fiscal permite cancelar a venda.
+ * Bloqueios respondem antes de qualquer estorno TEF, estoque ou financeiro.
+ */
+function comAvaliacaoCancelamento(vendaId, res, formato, prosseguir) {
+  avaliarCancelamentoVenda(vendaId)
+    .then((avaliacao) => {
+      if (avaliacao.bloqueio) {
+        const corpo = formato === 'put'
+          ? { error: avaliacao.mensagem, codigo: avaliacao.bloqueio.codigo, avaliacao }
+          : { sucesso: false, mensagem: avaliacao.mensagem, codigo: avaliacao.bloqueio.codigo, avaliacao };
+        return res.status(409).json(corpo);
+      }
+      return prosseguir(avaliacao);
+    })
+    .catch((err) => {
+      const status = err.statusCode || 500;
+      const msg = err.message || 'Erro ao avaliar o cancelamento.';
+      res.status(status).json(formato === 'put' ? { error: msg } : { sucesso: false, mensagem: msg });
+    });
+}
 
 /**
  * RC8.2.2 — política operacional da venda via snapshot (nunca configuração atual).
@@ -177,12 +197,8 @@ db.get('SELECT * FROM vendas WHERE id = ?', [id], (err, venda) => {
   });
   };
 
-  buscarNfceAutorizadaVenda(id, (nfceErr, nfce) => {
-    if (nfceErr) {
-      return res.status(500).json({ error: nfceErr.message });
-    }
-
-    if (!nfce) {
+  comAvaliacaoCancelamento(id, res, 'put', (avaliacao) => {
+    if (!avaliacao.cancelar_nfce) {
       return executarCancelamentoVenda();
     }
 
@@ -195,7 +211,7 @@ db.get('SELECT * FROM vendas WHERE id = ?', [id], (err, venda) => {
 
     cancelarNfceAutorizadaVenda(id, motivo)
       .then(() => executarCancelamentoVenda())
-      .catch((cancelErr) => res.status(400).json({ error: cancelErr.message }));
+      .catch((cancelErr) => res.status(400).json({ error: cancelErr.message, sefaz: cancelErr.sefaz || null }));
   });
 });
 }
@@ -219,15 +235,7 @@ db.get(
       });
     }
 
-    const prosseguirCancelamento = () => {
-      buscarNfceAutorizadaVenda(vendaId, (errNfce, nfceAutorizada) => {
-        if (errNfce) {
-          return res.status(500).json({
-            sucesso: false,
-            mensagem: 'Erro ao verificar NFC-e.'
-          });
-        }
-
+    const prosseguirCancelamento = (avaliacao) => {
         const executarCancelamentoLocal = () => {
           db.serialize(() => {
             db.run('BEGIN IMMEDIATE');
@@ -316,7 +324,11 @@ db.get(
                             }).catch((auditErr) => console.error('Erro ao gravar auditoria de cancelamento de venda:', auditErr));
                             res.json({
                               sucesso: true,
-                              mensagem: 'Venda cancelada com sucesso.'
+                              mensagem: avaliacao.cancelar_nfce
+                                ? 'NFC-e cancelada na SEFAZ e venda cancelada com sucesso.'
+                                : 'Venda cancelada com sucesso.',
+                              nfce_cancelada: avaliacao.cancelar_nfce === true,
+                              sefaz: avaliacao.retornoCancelamento || null
                             });
                           })
                           .catch((finCancelErr) => {
@@ -335,27 +347,33 @@ db.get(
           });
         };
 
-        if (!nfceAutorizada) {
+        if (!avaliacao.cancelar_nfce) {
           return executarCancelamentoLocal();
         }
 
         const justificativa = motivo || '';
-        const validacaoNfceLocal = validarMotivoTexto(justificativa);
-        if (!validacaoNfceLocal.valido) {
-          return res.status(400).json({
-            sucesso: false,
-            mensagem: `${validacaoNfceLocal.erro} (obrigatório para cancelar NFC-e autorizada)`
-          });
-        }
-
         cancelarNfceAutorizadaVenda(vendaId, justificativa)
-          .then(() => executarCancelamentoLocal())
+          .then((retorno) => {
+            avaliacao.retornoCancelamento = retorno || null;
+            executarCancelamentoLocal();
+          })
           .catch((cancelErr) => res.status(400).json({
             sucesso: false,
-            mensagem: cancelErr.message
+            mensagem: cancelErr.message,
+            sefaz: cancelErr.sefaz || null
           }));
-      });
     };
+
+    const iniciarCancelamento = (avaliacao) => {
+    if (avaliacao.cancelar_nfce) {
+      const validacaoNfceLocal = validarMotivoTexto(motivo || '');
+      if (!validacaoNfceLocal.valido) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: `${validacaoNfceLocal.erro} (obrigatório para cancelar NFC-e autorizada)`
+        });
+      }
+    }
 
     if (
       venda.status_pagamento === 'fiscal_pago' ||
@@ -366,7 +384,7 @@ db.get(
         : Promise.resolve();
 
       estornarFiscal
-        .then(() => prosseguirCancelamento())
+        .then(() => prosseguirCancelamento(avaliacao))
         .catch((tefErr) => {
           console.error('Erro ao estornar TEF do Recebimento A:', tefErr);
           return res.status(500).json({
@@ -377,7 +395,10 @@ db.get(
       return;
     }
 
-    prosseguirCancelamento();
+    prosseguirCancelamento(avaliacao);
+    };
+
+    comAvaliacaoCancelamento(vendaId, res, 'post', iniciarCancelamento);
   }
 );
 }

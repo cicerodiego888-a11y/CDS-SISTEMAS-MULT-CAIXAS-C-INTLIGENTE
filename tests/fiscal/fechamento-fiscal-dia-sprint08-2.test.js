@@ -72,12 +72,13 @@ describe('Sprint 08.2 — menu original NFC-e Emitidas', () => {
   });
 
   it('E — cada opção chama o fluxo existente correspondente', () => {
-    assert.match(FRONT_FISCAL, /viewVenda\(/);
+    // vendas.js é lazy (não carregado na tela fiscal): detalhe usa o mesmo modal após carregá-lo sob demanda
+    assert.match(FRONT_FISCAL, /garantirScriptsVendasNaTelaFiscal\(\)[\s\S]*showVendaModal\(venda\)/);
     assert.match(FRONT_FISCAL, /verDetalheFiscal\(/);
     assert.match(FRONT_FISCAL, /visualizarXmlNfce\(/);
     assert.match(FRONT_FISCAL, /verResumoVendaFiscalTEF\(/);
     assert.match(FRONT_FISCAL, /abrirDevolucaoVenda\(/);
-    assert.match(FRONT_FISCAL, /cancelarVendaNaoFiscal\(/);
+    assert.match(FRONT_FISCAL, /\/vendas\/cancelar\/\$\{Number\(vendaId\)\}/);
     assert.match(FRONT_FISCAL, /function cancelarNfce/);
     assert.doesNotMatch(FRONT_FISCAL, /function abrirDanfeNfceEmitida/);
   });

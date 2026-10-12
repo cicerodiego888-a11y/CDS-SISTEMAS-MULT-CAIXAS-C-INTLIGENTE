@@ -1,6 +1,6 @@
 # RC6.4 — Homologação do Fluxo Completo da Central Inteligente
 
-**Data:** 2026-10-03T20:39:51.200Z  
+**Data:** 2026-10-09T22:31:02.092Z  
 **Suite:** `npm run test:central-entradas-rc6.4`  
 **Resultado dos testes:** 11 ok / 2 falha(s)  
 **Parecer técnico:** **REPROVADO**
@@ -30,7 +30,7 @@ SEFAZ (simulado via fixtures)
 |---------|-------|
 | Documentos criados (aprox.) | 3 |
 | Compras vinculadas | 1 |
-| Tempo médio C1/C2 | 146.0 ms |
+| Tempo médio C1/C2 | 100.0 ms |
 | Duplicidade de chave | ausente (C1/C3) |
 | Históricos órfãos (amostra) | 0 |
 

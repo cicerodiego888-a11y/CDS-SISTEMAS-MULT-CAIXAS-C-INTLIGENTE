@@ -1,6 +1,6 @@
 {
   "codigo": "INTEGRITY-AUDIT",
-  "geradoEm": "2026-08-04T14:27:36.578Z",
+  "geradoEm": "2026-10-11T23:29:00.031Z",
   "checks": [
     {
       "id": "mib.dir",
@@ -320,7 +320,7 @@
     {
       "id": "script.test:mib",
       "ok": true,
-      "detalhe": "node tests/mib/mib-rc10-motor-busca.test.js && node tests/mib/mib-rc11-catalogo-atomico.test.js && node tests/mib/mib-rc20-motor-cognitivo.test.js && node tests/mib/mib-rc30-enterprise-search.test.js && node tests/mib/mib-rc40-knowledge-graph.test.js"
+      "detalhe": "node tests/mib/mib-rc10-motor-busca.test.js && node tests/mib/mib-rc11-catalogo-atomico.test.js && node tests/mib/mib-rc20-motor-cognitivo.test.js && node tests/mib/mib-rc30-enterprise-search.test.js && node tests/mib/mib-rc40-knowledge-graph.test.js && node tests/mib/mib-busca-tokens-and.test.js && node tests/mib/mib-sprint01-precisao-exata.test.js"
     },
     {
       "id": "script.test:cip",
@@ -393,77 +393,77 @@
       "nome": "mib-rc10",
       "script": "tests/mib/mib-rc10-motor-busca.test.js",
       "exitCode": 0,
-      "ms": 544,
+      "ms": 668,
       "ok": true
     },
     {
       "nome": "mib-rc11",
       "script": "tests/mib/mib-rc11-catalogo-atomico.test.js",
       "exitCode": 0,
-      "ms": 971,
+      "ms": 1127,
       "ok": true
     },
     {
       "nome": "mib-rc20",
       "script": "tests/mib/mib-rc20-motor-cognitivo.test.js",
       "exitCode": 0,
-      "ms": 679,
+      "ms": 836,
       "ok": true
     },
     {
       "nome": "mib-rc30",
       "script": "tests/mib/mib-rc30-enterprise-search.test.js",
       "exitCode": 0,
-      "ms": 1184,
+      "ms": 1336,
       "ok": true
     },
     {
       "nome": "mib-rc40",
       "script": "tests/mib/mib-rc40-knowledge-graph.test.js",
       "exitCode": 0,
-      "ms": 2665,
+      "ms": 2869,
       "ok": true
     },
     {
       "nome": "cip-rc10",
       "script": "tests/cip/cip-rc10-intelligence.test.js",
       "exitCode": 0,
-      "ms": 880,
+      "ms": 1692,
       "ok": true
     },
     {
       "nome": "cia-rc10",
       "script": "tests/cia/cia-rc10-agent.test.js",
       "exitCode": 0,
-      "ms": 1011,
+      "ms": 1329,
       "ok": true
     },
     {
       "nome": "cia-apps-rc10",
       "script": "tests/cia-apps/cia-apps-rc10-plugins.test.js",
       "exitCode": 0,
-      "ms": 1098,
+      "ms": 1307,
       "ok": true
     },
     {
       "nome": "smart-dashboard",
       "script": "tests/cia-apps/smart-dashboard-rc10.test.js",
       "exitCode": 0,
-      "ms": 954,
+      "ms": 1166,
       "ok": true
     },
     {
       "nome": "business-monitor",
       "script": "tests/cia-apps/business-monitor-rc10.test.js",
       "exitCode": 0,
-      "ms": 1613,
+      "ms": 1972,
       "ok": true
     },
     {
       "nome": "stable-10",
       "script": "tests/stable/stable-10-certificacao.test.js",
       "exitCode": 0,
-      "ms": 2394,
+      "ms": 3041,
       "ok": true
     }
   ],

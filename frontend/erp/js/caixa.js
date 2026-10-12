@@ -380,6 +380,7 @@ async function imprimirCupomFechamentoCaixa(html) {
         tipo: 'NAO_FISCAL',
         html,
         automatico: true,
+        perguntaObrigatoria: true,
         vias: 1,
         destinos: ['ESTABELECIMENTO']
       });

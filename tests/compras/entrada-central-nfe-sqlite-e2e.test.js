@@ -331,23 +331,44 @@ test('Central NF-e mantém preço de venda e ignora payload legado de autorizaç
     assert.equal(upload.importados, 1, JSON.stringify(upload));
     const documentoId = Number(upload.itens[0].documentoId);
     const documento = await central.obterDocumento(documentoId);
-    if (normalizarStatus(documento.status) === DocumentoFiscalStatus.EM_REVISAO) {
-      const sessao = await central.obterOuCriarSessaoRevisao(documentoId, { usuarioId: null });
-      assert.equal(Number(sessao.sessao.totalItens), 1);
-      await central.salvarDecisaoRevisao(documentoId, 0, {
-        decisao: 'CADASTRAR',
-        item: {}
-      });
-    }
+    assert.equal(normalizarStatus(documento.status), DocumentoFiscalStatus.EM_REVISAO, 'produto desconhecido cai na revisão');
+    const sessao = await central.obterOuCriarSessaoRevisao(documentoId, { usuarioId: null });
+    assert.equal(Number(sessao.sessao.totalItens), 1);
+
+    // Sprint 1: CENTRAL_NFE não cria produto em silêncio. O operador cadastra (unidade base UN,
+    // sem apresentação CX) e a revisão associa o produto_id real à linha.
+    const cadastro = await runDb(
+      `INSERT INTO produtos (
+        nome, unidade, preco_compra, preco_venda, estoque_atual, produto_fracionado, vendido_por_peso,
+        saldo_fiscal, saldo_nao_fiscal, codigo, categoria_id, fornecedor, ativo
+      ) VALUES (?, 'UN', 0, 0, 0, 0, 0, 0, 0, ?, 1, 'Fornecedor Sprint 1G', 1)`,
+      [name, code]
+    );
+    const produtoId = Number(cadastro.lastID);
+    await central.salvarDecisaoRevisao(documentoId, 0, {
+      decisao: 'CADASTRAR',
+      produtoId,
+      item: { produto_id: produtoId }
+    });
+
+    // Sprint 2: 1 CX sem fator cadastrado → proposta qTrib 12 UN exige SIM, validado no backend.
+    const conversoes = await central.avaliarConversoesRevisao(documentoId);
+    assert.equal(conversoes.bloqueia_efetivacao, true, JSON.stringify(conversoes));
+    assert.equal(Number(conversoes.pendencias[0].quantidade_resultante_proposta), 12);
+    const aprendizadoAntes = await getDb('SELECT COUNT(*) AS total FROM muc_aprendizado WHERE produto_id = ?', [produtoId]);
+    const sim = await central.salvarDecisaoConversaoRevisao(documentoId, 0, { decisao: 'SIM', documento_id: documentoId });
+    assert.equal(sim.confirmada, true, JSON.stringify(sim));
+    assert.equal(Number(sim.resultado_backend.quantidade_estoque), 12);
 
     const entrada = await central.finalizarEntrada(documentoId, { usuarioId: null });
     const itemCentral = entrada.dadosCompra.itens[0];
+    assert.equal(Number(itemCentral.produto_id), produtoId);
     assert.equal(Number(itemCentral.quantidade ?? itemCentral.qCom), 1);
     assert.equal(Number(itemCentral.quantidade_tributavel ?? itemCentral.qTrib), 12);
     assert.equal(itemCentral.quantidade_fiscal, undefined);
     assert.equal(itemCentral.quantidade_nao_fiscal, undefined);
 
-    const resposta = await request(app).post('/api/compras').send({
+    const corpo = {
       ...entrada.dadosCompra,
       data_compra: '2026-10-02',
       fornecedor: 'Fornecedor Sprint 1G',
@@ -360,8 +381,30 @@ test('Central NF-e mantém preço de venda e ignora payload legado de autorizaç
       observacao: 'sprint1g-produto-novo',
       xml,
       itens: [montarItemParaSave(itemCentral)]
+    };
+
+    // Sem a decisão no payload, o backend bloqueia antes da transação: nada é gravado.
+    const comprasAntes = await getDb('SELECT COUNT(*) AS total FROM compras');
+    // A decisão viaja em confirmacoes_conversao e no próprio item; remove dos dois canais.
+    const itemSemDecisao = { ...corpo.itens[0] };
+    ['conversao', 'conversao_decisao', 'confirmacao_conversao', 'decisao_conversao', 'confirmacao']
+      .forEach((campo) => delete itemSemDecisao[campo]);
+    const semDecisao = await request(app).post('/api/compras').send({
+      ...corpo,
+      confirmacoes_conversao: [],
+      itens: [itemSemDecisao]
     });
+    assert.equal(semDecisao.status, 422, JSON.stringify(semDecisao.body));
+    assert.equal(semDecisao.body.code, 'PENDENCIAS_CONVERSAO');
+    assert.equal(Number((await getDb('SELECT COUNT(*) AS total FROM compras')).total), Number(comprasAntes.total));
+    assert.equal(Number((await consultarProduto(produtoId)).estoque_atual), 0, 'estoque intocado sem decisão');
+
+    const resposta = await request(app).post('/api/compras').send(corpo);
     assert.equal(resposta.status, 200, JSON.stringify(resposta.body));
+    const aprendizadoDepois = await getDb('SELECT COUNT(*) AS total FROM muc_aprendizado WHERE produto_id = ?', [produtoId]);
+    assert.equal(Number(aprendizadoDepois.total), Number(aprendizadoAntes.total), 'SIM não gera aprendizado permanente');
+    const embalagensDepois = await getDb('SELECT COUNT(*) AS total FROM produto_embalagens WHERE produto_id = ? AND ativa = 1', [produtoId]);
+    assert.equal(Number(embalagensDepois.total), 0, 'SIM não cria apresentação CX no cadastro');
 
     const produto = await getDb(
       `SELECT id, nome, unidade, estoque_atual, saldo_fiscal, saldo_nao_fiscal,
@@ -369,7 +412,8 @@ test('Central NF-e mantém preço de venda e ignora payload legado de autorizaç
        FROM produtos WHERE nome = ?`,
       [name]
     );
-    assert.ok(produto, 'Central/Compras deve criar o produto novo');
+    assert.ok(produto, 'produto cadastrado na revisão deve existir');
+    assert.equal(Number(produto.id), produtoId, 'gravar a compra não pode criar outro produto');
     const item = await getDb(
       `SELECT quantidade, quantidade_fiscal, quantidade_nao_fiscal, peso_total_compra,
               custo_unitario_final, unidade, preco_venda_sugerido, atualizar_preco_venda,

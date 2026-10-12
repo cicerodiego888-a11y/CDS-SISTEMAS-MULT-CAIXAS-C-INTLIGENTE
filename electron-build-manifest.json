@@ -1,20 +1,20 @@
 {
   "schema": "cds-electron-build-manifest/v1",
   "versao": "1.0.3",
-  "data": "2026-10-06T20:00:35.824Z",
-  "build": "2026-10-06T19:58:47.412Z",
-  "commit": "896a8e8",
+  "data": "2026-10-07T01:30:43.324Z",
+  "build": "2026-10-07T01:29:24.702Z",
+  "commit": "431df09",
   "branch": "main",
   "modulo": "erp",
-  "hashAppAsar": "063958be1c393ebf44794f8bb3cb78a45cb8b7dc8fecb09ffb5c014a8340b5cc",
-  "hashFrontend": "ce2ba33c6fdf6a29383f35c2ac2af239dc3c146d01b4e8fbe0fc16955cbd7c7f",
-  "hashBackend": "9283e4cba42609a599d02d7b5441d9d2399dd6ff4364592b76b1dcf50fee4d12",
-  "hashElectron": "853658512a72fc2fbe61c791af95a0b45129bf1494a625fba58ad24e3b23254f",
-  "hashGlobal": "455909389d0dc50b2d6b73c53a4c024c8fdee359d72b48c6de13d7680258759c",
-  "quantidadeArquivosEmpacotados": 1876,
+  "hashAppAsar": "cb71984145e7a8b386e8909cc75450264876238ddefc0f64e0cda0d124231223",
+  "hashFrontend": "e9dde4e5bc200b7124671351ad035726de1ccd1e2adbfc006187c2daf3d74d15",
+  "hashBackend": "472ded7b1635fb8efeec8ffa3d78dff3f0c7ca93c4e2fab382d7e3c537d7083d",
+  "hashElectron": "103551c94f7b1de7878cc70e26839592c17226adbed56e2e63b1f973e67cf685",
+  "hashGlobal": "7a1a73c609383f85a0be3fad7197d61760a6abf2fca906e96d339901a91209c9",
+  "quantidadeArquivosEmpacotados": 1877,
   "modulosPrincipais": {
     "frontend": 261,
-    "backend": 1585,
+    "backend": 1586,
     "electron": 15,
     "recursos": 15
   },
@@ -35,7 +35,7 @@
       "nfe",
       "muc"
     ],
-    "timestamp": "2026-10-06T20:00:35.824Z"
+    "timestamp": "2026-10-07T01:30:43.324Z"
   },
   "asarPath": "dist/erp/win-unpacked/resources/app.asar"
 }

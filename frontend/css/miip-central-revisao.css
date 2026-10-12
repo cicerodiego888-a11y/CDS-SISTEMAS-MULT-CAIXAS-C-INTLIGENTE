@@ -84,82 +84,29 @@
 }
 
 .miip-central-resumo {
-  padding: 1rem 1.25rem;
+  padding: 0.5rem 1.25rem;
   background: #f8fafc;
   border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
 }
 
-.miip-central-resumo-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 0.75rem;
-}
-
-.miip-central-metrica {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 0.65rem 0.8rem;
-}
-
-.miip-central-metrica span {
-  display: block;
-  font-size: 0.72rem;
-  color: #64748b;
-  margin-bottom: 0.2rem;
-}
-
-.miip-central-metrica strong {
-  font-size: 1.25rem;
-  color: #0f172a;
-}
-
-.miip-central-metrica--ok strong { color: #15803d; }
-.miip-central-metrica--warn strong { color: #b45309; }
-.miip-central-metrica--alert strong { color: #b91c1c; }
-.miip-central-metrica--info strong { color: #1d4ed8; }
-
-/* RC3.7.6 — inteligência comercial (read-only) */
-.miip-central-filtros {
+.miip-central-contagens {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  align-items: center;
-  margin-top: 0.75rem;
+  gap: 0.35rem 1.5rem;
+  font-size: 0.85rem;
+  color: #475569;
 }
 
-.miip-central-filtros-hint {
-  font-size: 0.72rem;
-  color: #64748b;
-  margin-left: 0.35rem;
+.miip-central-contagem strong {
+  font-size: 1rem;
+  color: #0f172a;
+  margin-left: 0.2rem;
 }
 
-.miip-central-comparador {
-  margin-top: 0.75rem;
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 0.65rem 0.75rem;
-  max-height: 220px;
-  overflow: auto;
-}
-
-.miip-central-comparador-titulo {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #334155;
-  margin-bottom: 0.4rem;
-}
-
-.miip-central-comparador-table {
-  font-size: 0.78rem;
-}
-
-.miip-central-comparador-table th {
-  white-space: nowrap;
-  color: #64748b;
-  font-weight: 600;
-}
+.miip-central-contagem--ok strong { color: #15803d; }
+.miip-central-contagem--warn strong { color: #b45309; }
+.miip-central-contagem--alert strong { color: #b91c1c; }
 
 .miip-sit-icone--verde { color: #16a34a; }
 .miip-sit-icone--amarelo { color: #ca8a04; }
@@ -171,43 +118,10 @@
   color: #1d4ed8;
 }
 
-.miip-central-sugestao {
-  margin-top: 0.75rem;
-  padding: 0.65rem 0.75rem;
-  border: 1px dashed #cbd5e1;
-  border-radius: 10px;
-  background: #f8fafc;
-}
-
-.miip-central-sugestao h6 {
-  font-size: 0.85rem;
-  margin-bottom: 0.45rem;
-}
-
 .miip-central-dl--grid {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 0.2rem 0.75rem;
-}
-
-.miip-central-resumo-final-wrap {
-  border-top: 1px solid #e2e8f0;
-  background: #0f172a;
-  color: #e2e8f0;
-  padding: 0.65rem 1.25rem;
-}
-
-.miip-central-resumo-final-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem 1.25rem;
-  font-size: 0.8rem;
-}
-
-.miip-central-resumo-final-msg {
-  margin-top: 0.35rem;
-  font-size: 0.75rem;
-  color: #93c5fd;
 }
 
 .miip-central-acoes-doc .btn {
@@ -486,139 +400,32 @@
   font-size: 0.75rem;
 }
 
-/* RC3.7.6.3 — Dashboard de impacto comercial */
-.miip-dash-impacto {
-  margin-bottom: 0.85rem;
-}
-
-.miip-dash-impacto--vazio {
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
-  border-radius: 12px;
-  padding: 0.85rem 1rem;
-  color: #475569;
-  font-size: 0.88rem;
-}
-
-.miip-dash-impacto--vazio h6 {
-  font-size: 0.9rem;
-  margin-bottom: 0.35rem;
-  color: #0f172a;
-}
-
-.miip-dash-impacto-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 0.75rem;
-}
-
-.miip-dash-card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 0.75rem 0.9rem;
-}
-
-.miip-dash-card h6 {
-  font-size: 0.88rem;
-  margin-bottom: 0.55rem;
-  color: #0f172a;
-}
-
-.miip-dash-metricas {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.5rem;
-}
-
-.miip-dash-metricas--compact {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-bottom: 0.65rem;
-}
-
-.miip-dash-metrica {
-  background: #f8fafc;
-  border-radius: 10px;
-  padding: 0.5rem 0.55rem;
-}
-
-.miip-dash-metrica span {
-  display: block;
-  font-size: 0.68rem;
-  color: #64748b;
-  margin-bottom: 0.15rem;
-}
-
-.miip-dash-metrica strong {
-  font-size: 1rem;
-  color: #0f172a;
-}
-
-.miip-dash-metrica--aumento strong { color: #14532d; }
-.miip-dash-metrica--reducao strong { color: #1d4ed8; }
-.miip-dash-metrica--saldo-positivo strong { color: #c2410c; }
-.miip-dash-metrica--saldo-negativo strong { color: #b91c1c; }
-
-.miip-dash-maiores {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-}
-
-.miip-dash-maior {
-  border-radius: 10px;
-  padding: 0.5rem 0.6rem;
-  cursor: help;
-  border: 1px solid #e2e8f0;
-}
-
-.miip-dash-maior--aumento {
-  background: #f0fdf4;
-  border-color: #bbf7d0;
-}
-
-.miip-dash-maior--reducao {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-}
-
-.miip-dash-maior-titulo {
-  display: block;
-  font-size: 0.68rem;
-  color: #64748b;
-  margin-bottom: 0.15rem;
-}
-
-.miip-dash-maior-nome {
-  display: block;
-  font-size: 0.82rem;
-  color: #0f172a;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.miip-dash-maior-valor {
-  display: block;
-  font-size: 0.9rem;
-  font-weight: 700;
-  margin-top: 0.15rem;
-}
-
-.miip-dash-maior--aumento .miip-dash-maior-valor { color: #14532d; }
-.miip-dash-maior--reducao .miip-dash-maior-valor { color: #1d4ed8; }
-
-@media (max-width: 640px) {
-  .miip-dash-metricas,
-  .miip-dash-maiores {
-    grid-template-columns: 1fr;
-  }
-}
-
 .miip-central-layout {
   display: grid;
   grid-template-columns: 320px 1fr;
-  min-height: calc(100vh - 220px);
+}
+
+/* Tela larga: lista e painel ocupam a altura restante, cada um com rolagem própria. */
+@media (min-width: 993px) {
+  #miipCentralCorpo {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .miip-central-layout {
+    grid-template-rows: minmax(0, 1fr);
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+}
+
+.miip-central-layout:has(> .miip-central-lista:empty) {
+  grid-template-columns: 1fr;
+}
+
+.miip-central-lista:empty {
+  display: none;
 }
 
 .miip-central-lista {
@@ -1266,9 +1073,204 @@
   margin-top: 0;
 }
 
+.miip-central-conversoes:not(:empty) {
+  padding: 0.85rem 1.1rem 1rem;
+  margin-bottom: 0.75rem;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+}
+
+.miip-conv-painel h6 {
+  color: #f8fafc;
+  margin-bottom: 0.35rem;
+}
+
+.miip-conv-linha {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  margin-bottom: 0.65rem;
+}
+
+.miip-conv-linha.sim { border-color: #15803d; }
+.miip-conv-linha.nao { border-color: #b91c1c; }
+
+.miip-conv-linha__head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  color: #e2e8f0;
+}
+
+.miip-conv-linha__xml {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.miip-conv-linha__dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0.6rem 0 0.35rem;
+}
+
+.miip-conv-linha__dl dt {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.miip-conv-linha__dl dd {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 0.85rem;
+}
+
+.miip-conv-linha__motivo {
+  font-size: 0.8rem;
+  color: #fbbf24;
+  margin-bottom: 0.5rem;
+}
+
+.miip-conv-linha__acoes {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Sprint 2.6 — pergunta simples por item */
+.miip-pergunta {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin: 0 0 1rem;
+  color: #e2e8f0;
+}
+
+.miip-pergunta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.miip-pergunta-rotulo {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+}
+
+.miip-pergunta-nome {
+  font-size: 1.35rem;
+  color: #f8fafc;
+}
+
+.miip-pergunta-info {
+  font-size: 0.95rem;
+  color: #cbd5e1;
+}
+
+.miip-pergunta-motivo {
+  margin: 0.85rem 0 0.5rem;
+  font-size: 1rem;
+  color: #fbbf24;
+}
+
+.miip-pergunta-aviso {
+  margin: 0.5rem 0;
+  color: #fca5a5;
+}
+
+.miip-pergunta-chamada {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.miip-pergunta-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.miip-pergunta-card {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+}
+
+.miip-pergunta-card-img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.miip-pergunta-card-img--vazia {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #334155;
+  color: #94a3b8;
+  font-size: 1.5rem;
+}
+
+.miip-pergunta-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.miip-pergunta-card-info strong {
+  font-size: 1.1rem;
+  color: #f8fafc;
+}
+
+.miip-pergunta-card-info span {
+  font-size: 0.9rem;
+  color: #cbd5e1;
+}
+
+.miip-pergunta-acoes {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.85rem;
+}
+
+.miip-pergunta-btn {
+  min-width: 11rem;
+  padding: 0.7rem 1.4rem;
+  font-size: 1.1rem;
+}
+
+.miip-pergunta-detalhes-toggle {
+  margin-top: 0.75rem;
+  padding-left: 0;
+  color: #94a3b8;
+}
+
 @media (max-width: 1100px) {
   .miip-v2-triplice {
     grid-template-columns: 1fr;
+  }
+
+  .miip-pergunta-card {
+    grid-template-columns: 1fr;
+  }
+
+  .miip-conv-linha__dl {
+    grid-template-columns: 1fr 1fr;
   }
 
   .miip-v2-imagens-grid {

@@ -12,9 +12,9 @@
 
 const MOTOR_CODIGO = 'motor_compatibility_guard';
 
+/** `codigo_fornecedor` não entra: cProd sem o CNPJ do fornecedor não identifica produto. */
 const IDENTIFICADORES_FORTES = Object.freeze([
   'gtin_exato',
-  'codigo_fornecedor',
   'codigo_interno',
   'plu'
 ]);

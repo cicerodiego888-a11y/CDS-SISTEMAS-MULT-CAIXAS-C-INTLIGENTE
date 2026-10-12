@@ -150,6 +150,38 @@ function exigirSuperAdminAlteracao(req, res, next) {
   return next();
 }
 
+const PERFIS_OPERACAO_PDV = ['SUPER_ADMIN', 'ADMIN', 'SUPERVISOR', 'OPERADOR', 'CAIXA'];
+const ROLES_OPERACAO_PDV = ['admin', 'supervisor', 'operador'];
+const PERMISSOES_OPERACAO_PDV = ['pdv', 'caixa'];
+
+/** Alternar Cupom ON/OFF: qualquer usuário autenticado com acesso operacional ao PDV. */
+function exigirAcessoOperacionalPdv(req, res, next) {
+  if (!req || !req.user) {
+    return res.status(401).json({
+      error: 'Usuário não autenticado.',
+      erro: 'Usuário não autenticado.'
+    });
+  }
+
+  const perfilLogado = String(req.user.perfil || req.user.nivel || '').toUpperCase();
+  const roleLogado = String(req.user.role || '').toLowerCase();
+  const permissoes = Array.isArray(req.user.permissoes)
+    ? req.user.permissoes.map((p) => String(p || '').toLowerCase())
+    : [];
+  const permite = PERFIS_OPERACAO_PDV.includes(perfilLogado)
+    || ROLES_OPERACAO_PDV.includes(roleLogado)
+    || permissoes.some((p) => PERMISSOES_OPERACAO_PDV.includes(p));
+
+  if (!permite) {
+    return res.status(403).json({
+      error: 'Usuário sem acesso operacional ao PDV.',
+      erro: 'Usuário sem acesso operacional ao PDV.'
+    });
+  }
+
+  return next();
+}
+
 module.exports = {
   CHAVE,
   CHAVE_LEGADO,
@@ -166,6 +198,7 @@ module.exports = {
   estaAtivada,
   salvar,
   exigirSuperAdminAlteracao,
+  exigirAcessoOperacionalPdv,
   _resetCacheForTests: () => {
     cacheValor = ATIVADO;
     cacheHidratado = false;

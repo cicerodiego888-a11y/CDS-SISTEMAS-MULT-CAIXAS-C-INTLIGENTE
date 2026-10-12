@@ -1,6 +1,6 @@
 {
   "codigo": "MIB-AUDIT-01",
-  "geradoEm": "2026-10-03T22:19:22.605Z",
+  "geradoEm": "2026-10-10T11:57:57.665Z",
   "perguntaObrigatoria": "A busca do Cadastro de Produtos já utiliza o MIB?",
   "respostaObrigatoria": "NÃO",
   "etapas": {
@@ -132,9 +132,9 @@
       "nota": "A tela real não chama API a cada tecla; filtra window.produtosCache carregado via GET /api/produtos",
       "porTermo": {
         "A": {
-          "media": 5.0368,
-          "max": 9.6082,
-          "min": 4.7362,
+          "media": 7.8587,
+          "max": 13.6085,
+          "min": 6.7771,
           "amostras": 100,
           "origem": "client_side_Array.filter",
           "cacheHit": false,
@@ -143,9 +143,9 @@
           "banco": false
         },
         "AR": {
-          "media": 5.0149,
-          "max": 5.4413,
-          "min": 4.8581,
+          "media": 7.7304,
+          "max": 14.577,
+          "min": 6.9765,
           "amostras": 100,
           "origem": "client_side_Array.filter",
           "cacheHit": false,
@@ -154,9 +154,9 @@
           "banco": false
         },
         "ARR": {
-          "media": 6.3546,
-          "max": 7.2017,
-          "min": 6.1712,
+          "media": 9.5734,
+          "max": 11.7873,
+          "min": 8.7757,
           "amostras": 100,
           "origem": "client_side_Array.filter",
           "cacheHit": false,
@@ -165,9 +165,9 @@
           "banco": false
         },
         "ARRO": {
-          "media": 6.2838,
-          "max": 6.5215,
-          "min": 6.1168,
+          "media": 9.7823,
+          "max": 12.849,
+          "min": 8.6985,
           "amostras": 100,
           "origem": "client_side_Array.filter",
           "cacheHit": false,
@@ -176,9 +176,9 @@
           "banco": false
         },
         "ARROZ": {
-          "media": 6.2383,
-          "max": 6.537,
-          "min": 6.0824,
+          "media": 9.6409,
+          "max": 19.0911,
+          "min": 8.633,
           "amostras": 100,
           "origem": "client_side_Array.filter",
           "cacheHit": false,
@@ -187,7 +187,7 @@
           "banco": false
         }
       },
-      "ramMb": 12.81
+      "ramMb": 16.94
     },
     "e8_consumo": {
       "porTecla": {
@@ -202,7 +202,7 @@
         "nota": "Carrega catálogo inteiro para o browser"
       },
       "ramCpu": {
-        "benchmarkSimuladoRamMb": 12.81,
+        "benchmarkSimuladoRamMb": 16.94,
         "nota": "Medição de CPU/RAM da tela real depende do browser; aqui medimos o algoritmo de filtro isolado"
       }
     },

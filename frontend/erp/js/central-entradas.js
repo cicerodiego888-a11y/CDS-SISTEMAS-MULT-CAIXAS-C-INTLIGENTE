@@ -45,8 +45,8 @@ const centralEntradasState = {
     alertas: null,
     pendencias: null,
     atencao: null,
-    filtroRapidoAtivo: '',
-    filaFiltroAtivo: 'todos',
+    filtroRapidoAtivo: 'em_revisao',
+    filaFiltroAtivo: 'em_revisao',
     avancadoAberto: false,
     fornecedorStats: null,
     servicoStatus: null,
@@ -300,17 +300,51 @@ function rotuloTipoEntradaCentral(tipo) {
     return map[tipo] || tipo || '—';
 }
 
-function renderClassificacaoEntradaCentral(doc) {
-    if (!doc?.compraTipoEntrada && !doc?.compraTipoEntradaSugerido) return '';
-    const alterado = doc.compraTipoEntradaAlterado
-        ? ' <span class="badge bg-warning text-dark">Alterado pelo operador</span>'
+const NOTA_HEURISTICA_CENTRAL = '<span class="text-muted">(pontuação heurística, não probabilidade)</span>';
+
+/** Sugestão calculada pelo backend (GET /:id/parse → classificacaoEntrada), antes da compra existir. */
+function obterSugestaoEntradaCentral(doc) {
+    const parse = (typeof centralEntradasState !== 'undefined') ? centralEntradasState.parseAtual : null;
+    if (!parse || String(parse.id) !== String(doc?.id)) return null;
+    return parse.classificacaoEntrada || null;
+}
+
+function renderSugestaoEntradaCentral(sugestao) {
+    const devolucao = sugestao.naturezaDetectada === 'DEVOLUCAO';
+    const natureza = sugestao.tipoEntrada
+        ? rotuloTipoEntradaCentral(sugestao.tipoEntrada)
+        : (devolucao ? 'Devolução recebida — sem sugestão de tratamento' : 'Não identificada');
+    const conflitos = Array.isArray(sugestao.conflitos) ? sugestao.conflitos : [];
+    const aviso = sugestao.requerConfirmacao
+        ? `<div class="small text-dark mt-1"><i class="fas fa-exclamation-triangle text-warning me-1"></i>Confirmação necessária ao abrir a compra.${conflitos.length ? ` Sinais divergentes: ${conflitos.map((c) => escapeHtmlCentralEntradas(c)).join(' ')}` : ''}</div>`
         : '';
     return `
         <div class="mb-3">
             <label class="central-entradas-label">Classificação da Entrada</label>
-            <div class="small"><strong>Tipo sugerido</strong> ${escapeHtmlCentralEntradas(rotuloTipoEntradaCentral(doc.compraTipoEntradaSugerido))}</div>
+            <div class="small"><strong>Natureza sugerida</strong> ${escapeHtmlCentralEntradas(natureza)}</div>
+            <div class="small"><strong>Confiança</strong> ${Number(sugestao.confianca || 0)}% ${NOTA_HEURISTICA_CENTRAL}</div>
+            <div class="small text-muted">${escapeHtmlCentralEntradas(sugestao.motivo || '')}</div>
+            ${aviso}
+        </div>`;
+}
+
+function renderClassificacaoEntradaCentral(doc) {
+    if (!doc?.compraTipoEntrada && !doc?.compraTipoEntradaSugerido) {
+        const sugestao = obterSugestaoEntradaCentral(doc);
+        return sugestao ? renderSugestaoEntradaCentral(sugestao) : '';
+    }
+    const alterado = doc.compraTipoEntradaAlterado
+        ? ' <span class="badge bg-warning text-dark">Alterado pelo operador</span>'
+        : '';
+    const sugerido = doc.compraTipoEntradaSugerido
+        ? rotuloTipoEntradaCentral(doc.compraTipoEntradaSugerido)
+        : 'Sem sugestão automática';
+    return `
+        <div class="mb-3">
+            <label class="central-entradas-label">Classificação da Entrada</label>
+            <div class="small"><strong>Tipo sugerido</strong> ${escapeHtmlCentralEntradas(sugerido)}</div>
             <div class="small"><strong>Tipo escolhido</strong> ${escapeHtmlCentralEntradas(rotuloTipoEntradaCentral(doc.compraTipoEntrada))}${alterado}</div>
-            <div class="small"><strong>Confiança</strong> ${doc.compraTipoEntradaConfianca != null ? (doc.compraTipoEntradaConfianca + '%') : '—'}</div>
+            <div class="small"><strong>Confiança</strong> ${doc.compraTipoEntradaConfianca != null ? (doc.compraTipoEntradaConfianca + '% ' + NOTA_HEURISTICA_CENTRAL) : '—'}</div>
             <div class="small text-muted">${escapeHtmlCentralEntradas(doc.compraTipoEntradaMotivo || '')}</div>
         </div>`;
 }
@@ -981,14 +1015,24 @@ function renderChipModoOperacaoCentral(operacao) {
     const automatico = String(op.modo || '').toUpperCase() === 'AUTOMATICO';
     const indicador = automatico ? '🟢' : '🟡';
     const label = automatico ? 'AUTOMÁTICO' : 'ASSISTIDO';
-    return `<span class="central-ux1-sync-info" title="${escapeHtmlCentralEntradas(op.modoLabel || label)}">
+    return `<span class="central-ux1-sync-info central-ux1-modo-operacao" data-modo="${automatico ? 'AUTOMATICO' : 'ASSISTIDO'}" title="${escapeHtmlCentralEntradas(op.modoLabel || label)}">
         <span aria-hidden="true">${indicador}</span>
         Modo: ${escapeHtmlCentralEntradas(label)}
     </span>`;
 }
 
 function renderPainelOperacaoCentral(operacao, reconcilicao) {
+    const op = operacao || {};
+    const automatico = String(op.modo || '').toUpperCase() === 'AUTOMATICO';
+    const pendentes = Array.isArray(op.pendentes) ? op.pendentes : [];
+    const exibirPendentes = !automatico && pendentes.length > 0;
+
+    // Sprint 3.8 — modo fica no cabeçalho azul; card só existe para ações pendentes (ASSISTIDO)
     let wrap = document.getElementById('centralOperacaoWrap');
+    if (!exibirPendentes) {
+        if (wrap) wrap.remove();
+        return;
+    }
     if (!wrap) {
         const host = document.getElementById('centralUx1Header')
             || document.getElementById('centralEntradasCards')
@@ -999,39 +1043,11 @@ function renderPainelOperacaoCentral(operacao, reconcilicao) {
         wrap.className = 'central-operacao-wrap mb-3';
         host.parentElement.insertBefore(wrap, host.nextSibling);
     }
-    const op = operacao || {};
-    const resumo = op.resumo || {};
-    const ind = (reconcilicao && reconcilicao.indicadores) || {};
-    const automatico = String(op.modo || '').toUpperCase() === 'AUTOMATICO';
-    const pendentes = Array.isArray(op.pendentes) ? op.pendentes : [];
-    const xmlPend = resumo.xmlPendentes ?? ind.xmlPendentes ?? '—';
-    const lacunas = resumo.possiveisIntervalosNsu ?? resumo.possiveisLacunas ?? ind.possiveisIntervalosNsu ?? ind.possiveisLacunas ?? '—';
-    const posNaoObs = resumo.posicoesNaoObservadas ?? ind.posicoesNaoObservadas ?? '—';
-    const inconsist = resumo.inconsistencias ?? ind.inconsistencias ?? '—';
 
     wrap.innerHTML = `
         <div class="card border-0 shadow-sm">
             <div class="card-body py-3">
-                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                    <strong>CENTRAL DE ENTRADAS</strong>
-                    <span>${automatico ? '🟢 AUTOMÁTICO' : '🟡 ASSISTIDO'}
-                        <small class="text-muted ms-1">${escapeHtmlCentralEntradas(op.modoLabel || '')}</small>
-                    </span>
-                </div>
-                <div class="row g-2 small mb-2">
-                    <div class="col-6 col-md-2"><span class="text-muted">Último NSU</span><div class="fw-semibold">${escapeHtmlCentralEntradas(resumo.ultNsu ?? '—')}</div></div>
-                    <div class="col-6 col-md-2"><span class="text-muted">MAX NSU</span><div class="fw-semibold">${escapeHtmlCentralEntradas(resumo.maxNsu ?? '—')}</div></div>
-                    <div class="col-6 col-md-2"><span class="text-muted">XML pendentes</span><div class="fw-semibold">${escapeHtmlCentralEntradas(xmlPend)}</div></div>
-                    <div class="col-6 col-md-2" title="Indica intervalos entre NSUs de documentos observados. Não representa quantidade de NF-e perdidas.">
-                        <span class="text-muted">Possíveis intervalos de NSU</span>
-                        <div class="fw-semibold">${escapeHtmlCentralEntradas(lacunas)}</div>
-                        <div class="text-muted" style="font-size:.7rem">Posições não observadas: ${escapeHtmlCentralEntradas(posNaoObs)}</div>
-                    </div>
-                    <div class="col-6 col-md-2"><span class="text-muted">Inconsistências</span><div class="fw-semibold">${escapeHtmlCentralEntradas(inconsist)}</div></div>
-                    <div class="col-6 col-md-2"><span class="text-muted">Ações aguardando</span><div class="fw-semibold">${escapeHtmlCentralEntradas(resumo.acoesAguardandoConfirmacao ?? pendentes.length)}</div></div>
-                </div>
-                ${!automatico && pendentes.length ? `
-                <div class="mt-2">
+                <div>
                     <div class="fw-semibold small mb-2">AÇÕES PENDENTES</div>
                     <div class="d-flex flex-column gap-2">
                         ${pendentes.map((a) => `
@@ -1046,7 +1062,7 @@ function renderPainelOperacaoCentral(operacao, reconcilicao) {
                             </div>
                         `).join('')}
                     </div>
-                </div>` : ''}
+                </div>
             </div>
         </div>`;
 
@@ -1112,6 +1128,10 @@ function renderCabecalhoUx1Central() {
             syncBtn.setAttribute('aria-disabled', syncDesabilitado ? 'true' : 'false');
             syncBtn.title = syncTitle;
         }
+        const modoHtml = renderChipModoOperacaoCentral(centralEntradasState.operacaoCentral);
+        const modoEl = container.querySelector('.central-ux1-modo-operacao');
+        if (modoEl) modoEl.outerHTML = modoHtml;
+        else if (modoHtml) container.querySelector('.central-rc40-header-meta')?.insertAdjacentHTML('beforeend', modoHtml);
         if (renderOp) {
             Perf.end(renderOp, {
                 updateType: 'incremental',
@@ -1157,9 +1177,6 @@ function renderCabecalhoUx1Central() {
                         <li><button type="button" class="dropdown-item" id="centralBtnAdicionarDocumento"><i class="fas fa-plus me-2"></i>Adicionar XML</button></li>
                         <li><button type="button" class="dropdown-item" id="centralBtnNotificacoes"><i class="fas fa-bell me-2"></i>Notificações${notifQtd > 0 ? ` (${notifQtd})` : ''}</button></li>
                         ${podeDiagnostico ? '<li><button type="button" class="dropdown-item" id="centralBtnDiagnostico"><i class="fas fa-stethoscope me-2"></i>Diagnóstico</button></li>' : ''}
-                        <li><hr class="dropdown-divider"></li>
-                        <li><h6 class="dropdown-header">Ferramentas Administrativas</h6></li>
-                        ${podeDiagnostico ? '<li><button type="button" class="dropdown-item central-nav-view" data-view="importacao-xml-legado"><i class="fas fa-file-import me-2"></i>Importação de XML Legado</button></li>' : ''}
                         <li><hr class="dropdown-divider"></li>
                         <li><button type="button" class="dropdown-item central-nav-view" data-view="config"><i class="fas fa-cog me-2"></i>Configurações</button></li>
                         <li><button type="button" class="dropdown-item central-nav-view" data-view="log"><i class="fas fa-list-alt me-2"></i>Log operacional</button></li>
@@ -1332,13 +1349,19 @@ function renderAtividadeRodapeUx1() {
     };
 
     return eventos.slice(0, 6).map((ev) => {
-        const dt = centralUx().formatarDataHoraSeparadoCentral?.(ev.createdAt) || { hora: '—' };
-        const icone = iconePorTipo[ev.tipo] || 'fa-circle';
+        const UX = centralUx();
+        const dt = UX.formatarDataHoraSeparadoCentral?.(ev.createdAt) || { hora: '—' };
+        const consumoIndevido = ev.tipo === 'SYNC_ERRO'
+            && Boolean(UX.ehConsumoIndevidoSefazUx?.(ev.descricao, ev.detalhe?.cStat));
+        const icone = consumoIndevido ? 'fa-clock' : (iconePorTipo[ev.tipo] || 'fa-circle');
+        const descricao = consumoIndevido
+            ? UX.MENSAGEM_SYNC_RETOMADA_SEFAZ
+            : (ev.descricao || ev.tipo || 'Evento');
         return `
             <div class="central-ux1-atividade-item">
                 <span class="central-ux1-atividade-icone"><i class="fas ${icone}"></i></span>
                 <div>
-                    <div>${escapeHtmlCentralEntradas(ev.descricao || ev.tipo || 'Evento')}</div>
+                    <div>${escapeHtmlCentralEntradas(descricao)}</div>
                     <small class="text-muted">${escapeHtmlCentralEntradas(dt.hora)}</small>
                 </div>
             </div>`;
@@ -3045,9 +3068,14 @@ async function pollNotificacoesCentral() {
         (notificacoes || []).forEach((n) => {
             if (centralEntradasState.notificacoesVistas.has(n.id)) return;
             centralEntradasState.notificacoesVistas.add(n.id);
-            const tipo = n.tipo === 'SYNC_ERRO' || n.tipo === 'ERRO' ? 'danger'
-                : (n.tipo === 'NOVAS_NOTAS' ? 'success' : 'info');
-            showNotification(n.titulo + (n.mensagem ? ': ' + n.mensagem : ''), tipo);
+            // Sprint 3.5 — consumo indevido: estado já aparece no painel do serviço; sem toast técnico
+            const consumoIndevido = n.tipo === 'SYNC_ERRO'
+                && Boolean(centralUx().ehConsumoIndevidoSefazUx?.(n.mensagem));
+            if (!consumoIndevido) {
+                const tipo = n.tipo === 'SYNC_ERRO' || n.tipo === 'ERRO' ? 'danger'
+                    : (n.tipo === 'NOVAS_NOTAS' ? 'success' : 'info');
+                showNotification(n.titulo + (n.mensagem ? ': ' + n.mensagem : ''), tipo);
+            }
             centralEntradasFetch(`/notificacoes/${n.id}/lida`, { method: 'PATCH' }).catch(() => {});
         });
     } catch { /* ignore */ }
@@ -4316,10 +4344,10 @@ async function sincronizarCentralEntradas() {
                 : 'Sincronização concluída. Nenhuma nota nova.';
             showNotification(msg, 'success');
         } else if (is656) {
-            // RC3.7.5.3 — não tratar cooldown como "erro" na notificação
+            // RC3.7.5.3 / Sprint 3.5 — consumo indevido não é erro; sem texto técnico ao cliente
             showNotification(
-                '🟡 Aguardando liberação da SEFAZ (cStat 656). O NSU foi sincronizado; novas consultas serão liberadas após o período de espera.',
-                'warning'
+                UX.MENSAGEM_SYNC_RETOMADA_SEFAZ || 'Sincronização automática será retomada quando disponível.',
+                'info'
             );
         } else {
             const erros = msgBruta || 'Falha na sincronização';
@@ -4331,7 +4359,11 @@ async function sincronizarCentralEntradas() {
             carregarDocumentosCentral({ pagina: 1 })
         ]);
     } catch (error) {
-        showNotification('Erro ao sincronizar: ' + error.message, 'danger');
+        if (UX.ehConsumoIndevidoSefazUx?.(error.message)) {
+            showNotification(UX.MENSAGEM_SYNC_RETOMADA_SEFAZ, 'info');
+        } else {
+            showNotification('Erro ao sincronizar: ' + error.message, 'danger');
+        }
     } finally {
         centralEntradasState.sincronizando = false;
         atualizarIndicadorSyncBotao();
@@ -5804,6 +5836,8 @@ function loadCentralEntradas() {
     centralEntradasState.xmlAtual = null;
     centralEntradasState.parseAtual = null;
     centralEntradasState.abaAtiva = 'resumo';
+    centralEntradasState.filaFiltroAtivo = 'em_revisao';
+    centralEntradasState.filtroRapidoAtivo = 'em_revisao';
 
     const html = `
         <div class="central-ux1-page">

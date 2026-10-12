@@ -15,6 +15,7 @@ const MiipContext = require('./core/MiipContext');
 const MiipAction = require('./core/MiipAction');
 const { inicializarMiip } = require('./MiipBootstrap');
 const { mapearItemCompraParaIdentificavel } = require('./utils/mapearItemCompra');
+const { aplicarPoliticaNoResultado } = require('./core/MiipIdentificacaoV2Policy');
 const miipFeatureFlags = require('./config/miipFeatureFlags');
 const integracaoLogService = require('./logs/MiipIntegracaoLogService');
 const MiipConfiguracoesRepositoryMod = require('./repositories/MiipConfiguracoesRepository');
@@ -198,10 +199,14 @@ class MiipService {
       throw error;
     }
 
-    const produtoId = this.extrairProdutoId(resultado);
+    resultado = aplicarPoliticaNoResultado(itemNormalizado, resultado);
+    const acaoV2 = resultado?.decisao?.acao;
+    const produtoId = acaoV2 === MiipAction.AUTO_VINCULAR
+      ? this.extrairProdutoId(resultado)
+      : null;
     const duracaoMs = Date.now() - inicio;
 
-    // RC9.3 — auto-aprendizado em AUTO_VINCULAR (GTIN ou associação)
+    // Sprint 2.4 — AUTO_VINCULAR só sugere o mapeamento; persistir exige confirmação manual
     let aprendizado = null;
     try {
       aprendizado = await this._aprenderAutoVinculo(itemNormalizado, resultado, contextoNormalizado);
@@ -273,8 +278,9 @@ class MiipService {
   }
 
   /**
-   * RC9.3 — Grava miip_associacoes quando AUTO_VINCULAR (inclui match por GTIN).
-   * Não altera MotorGTIN / MotorAssociacao — hook pós-decisão.
+   * Hook pós-decisão AUTO_VINCULAR. Sprint 2.4: a identificação automática não
+   * persiste mapeamento CNPJ + cProd; devolve apenas a sugestão para o operador
+   * confirmar via `registrarFeedback` (POST /api/miip/feedback).
    *
    * @private
    */
@@ -299,37 +305,34 @@ class MiipService {
       };
     }
 
-    const motor = (resultado?.decisao?.melhorCandidato?.motoresQueVotaram || [])[0]
-      || resultado?.decisao?.motor
-      || 'auto_vinculo';
-
-    const learn = await this._learningService.registrarConfirmacao({
-      confirmado: true,
-      produtoId,
-      fornecedorCnpj,
-      codigoFornecedor,
-      codigoBarras: item?.codigoBarras ?? item?.codigo_barras ?? null,
-      ncm: item?.ncm ?? null,
-      unidade: item?.unidade ?? null,
-      fornecedorNome: item?.fornecedorNome ?? item?.fornecedor_nome ?? null,
-      descricaoFornecedor: item?.produtoNome ?? item?.produto_nome ?? null,
-      origem: `auto_${motor}`,
-      operacaoId: resultado?.requestId ?? contexto?.operacaoId ?? null,
-      usuarioId: contexto?.usuarioId ?? null
-    });
+    const criterio = resultado?.decisao?.criterio ?? null;
+    const motivo = criterio === 'MAPEAMENTO_FORNECEDOR'
+      ? 'mapeamento_existente_reutilizado'
+      : 'aprendizado_requer_confirmacao_manual';
+    const learn = {
+      gravado: false,
+      associacaoId: null,
+      motivo,
+      requerConfirmacaoManual: motivo !== 'mapeamento_existente_reutilizado',
+      sugestaoMapeamento: {
+        produtoId,
+        fornecedorCnpj,
+        codigoFornecedor,
+        criterio
+      }
+    };
 
     this.registrarIntegracao({
-      evento: 'miip_aprendizado_auto',
+      evento: 'miip_aprendizado_auto_bloqueado',
       origem: contexto?.origem ?? 'compra',
       ponto: 'auto_vinculo',
       item,
       produtoId,
       aprendizado: {
-        gravado: Boolean(learn.gravado),
-        associacaoId: learn.associacaoId ?? null,
-        motivo: learn.motivo ?? null,
-        reutilizacao: Boolean(learn.reutilizacao),
-        origem: `auto_${motor}`
+        gravado: false,
+        associacaoId: null,
+        motivo,
+        criterio
       }
     });
 
@@ -384,8 +387,8 @@ class MiipService {
   /**
    * Registra confirmação manual do operador e grava aprendizado em `miip_associacoes`.
    *
- * Exige `confirmado: true` — confirmação do operador OU auto-aprendizado RC9.3
- * (origem auto_* após AUTO_VINCULAR).
+ * Exige `confirmado: true` do operador; origem `auto_*` é rejeitada pelo
+ * MiipLearningService e o produto precisa existir e estar ativo.
  *
  * @param {Object} feedback
  * @param {boolean} feedback.confirmado - Confirmação explícita / auto
@@ -411,6 +414,7 @@ class MiipService {
       reutilizacao: Boolean(resultado.reutilizacao),
       reativada: Boolean(resultado.reativada),
       substituida: Boolean(resultado.substituida),
+      promovida: Boolean(resultado.promovida),
       pendenteDecisao: Boolean(resultado.pendenteDecisao),
       estado: resultado.estado ?? null,
       conflito: resultado.conflito ?? null,

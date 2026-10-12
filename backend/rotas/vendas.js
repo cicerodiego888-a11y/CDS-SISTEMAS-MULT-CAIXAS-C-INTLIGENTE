@@ -15,6 +15,7 @@ const {
   getExprQuantidadeItemNaoFiscal,
   getFiltroItensFiscal
 } = require('../services/reportFiscalHelpers');
+const { gerarRelatorioFiscal } = require('../services/relatorios/RelatorioVendasService');
 const VendaFinanceiroService = require('../services/vendas/VendaFinanceiroService');
 const VendaApplicationService = require('../services/vendas/VendaApplicationService');
 const VendaPagamentoService = require('../services/vendas/VendaPagamentoService');
@@ -259,6 +260,10 @@ router.get('/:id', (req, res) => {
       res.status(500).json({ error: err.message });
       return;
     }
+    if (!venda) {
+      res.status(404).json({ error: `Venda #${id} não encontrada.` });
+      return;
+    }
 
     db.all(`
       SELECT vi.*, COALESCE(p.nome, 'Produto excluído') as produto_nome, p.codigo as produto_codigo, p.unidade
@@ -369,6 +374,15 @@ router.post('/:id/devolver', validarCaixaAbertoDevolucaoVenda, exigirSenhaAdmin,
   const itens = Array.isArray(req.body?.itens) ? req.body.itens : [];
 
   devolverParcial(vendaId, motivo, itens, req, res);
+});
+
+router.get('/:id/cancelamento/avaliacao', async (req, res) => {
+  try {
+    const { avaliarCancelamentoVenda } = require('../services/vendas/VendaCancelamentoAvaliacaoService');
+    res.json(await avaliarCancelamentoVenda(Number(req.params.id)));
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ sucesso: false, mensagem: err.message });
+  }
 });
 
 router.put('/:id/cancelar', validarCaixaAbertoCancelamentoVenda, (req, res) => {
@@ -489,6 +503,14 @@ router.get('/relatorio/produtos-mais-vendidos', (req, res) => {
   }
 
   const modoFiscal = modo_fiscal || '0';
+  const rawOrdenarPor = String(req.query.ordenar_por || req.query.ordenarPor || 'faturamento').trim().toLowerCase();
+  const mapOrdenacao = {
+    faturamento: 'total_vendido DESC',
+    quantidade: 'quantidade_vendida DESC'
+  };
+  const ordenarPor = mapOrdenacao[rawOrdenarPor] ? rawOrdenarPor : 'faturamento';
+  const orderBy = mapOrdenacao[ordenarPor];
+
   const exprValor = getExprValorItem(modoFiscal);
   const exprQtd = getExprQuantidadeItem(modoFiscal);
   const exprQtdFiscal = getExprQuantidadeItemFiscal();
@@ -522,7 +544,7 @@ router.get('/relatorio/produtos-mais-vendidos', (req, res) => {
       ${filtroItens}
     GROUP BY p.id
     HAVING quantidade_vendida > 0
-    ORDER BY total_vendido DESC
+    ORDER BY ${orderBy}
     LIMIT ?
   `, [data_inicio, data_fim, limit], (err, produtos) => {
     if (err) {
@@ -531,6 +553,7 @@ router.get('/relatorio/produtos-mais-vendidos', (req, res) => {
 
     res.json({
       modo_fiscal_ativo: isModoFiscalRelatorio(modoFiscal),
+      ordenar_por: ordenarPor,
       produtos: produtos || []
     });
   });
@@ -563,6 +586,27 @@ router.get('/relatorio/periodo', (req, res) => {
       dias: rows || []
     });
   });
+});
+
+router.get('/relatorio/fiscal', async (req, res) => {
+  try {
+    const tipo = req.query.tipo || req.query.relatorio || 'A';
+    const dataInicio = req.query.data_inicio || req.query.dataInicio || req.query.inicio;
+    const dataFim = req.query.data_fim || req.query.dataFim || req.query.fim;
+
+    const resultado = await gerarRelatorioFiscal({
+      tipo,
+      dataInicio,
+      dataFim,
+      empresa_id: req.query.empresa_id ?? req.query.empresa ?? req.user?.empresa_id ?? null,
+      company_id: req.query.company_id ?? req.query.company ?? null,
+      tenant_id: req.query.tenant_id ?? req.query.tenant ?? null
+    });
+
+    res.json(resultado);
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message || 'Erro ao gerar relatório fiscal' });
+  }
 });
 
 /** RC5 — NF-e Devolução de Venda */

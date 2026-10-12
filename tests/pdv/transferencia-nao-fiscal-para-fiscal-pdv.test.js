@@ -438,10 +438,10 @@ describe('PDV UX — pergunta só depois da quantidade', () => {
     assert.match(bloco, /finalizar\(false\)/);
     assert.match(bloco, /btnNao\.focus/);
     assert.doesNotMatch(bloco, /finalizar\(true\);\s*\n\s*\} else if \(e\.key === 'Escape'/);
-    assert.ok(
-      !/if \(e\.key === 'Enter'\)[\s\S]{0,80}finalizar\(true\)/.test(bloco),
-      'Enter não pode confirmar SIM'
-    );
+    // Enter confirma o botão selecionado (padrão NÃO); Enter do leitor na abertura é ignorado.
+    assert.match(bloco, /e\.repeat \|\| !abertoEm \|\| Date\.now\(\) - abertoEm < 400/);
+    assert.match(bloco, /selecionado === document\.getElementById\('btnTransferirEstoqueSim'\)\) \{\s*finalizar\(true\)/);
+    assert.match(bloco, /btnNao\.focus\(\{ preventScroll: true \}\);\s*abertoEm = Date\.now\(\)/);
     assert.doesNotMatch(pdv, /Transferir saldo não fiscal/);
     assert.doesNotMatch(pdv, /Usar estoque não fiscal/);
     assert.doesNotMatch(pdv, /Forçar venda fiscal/);

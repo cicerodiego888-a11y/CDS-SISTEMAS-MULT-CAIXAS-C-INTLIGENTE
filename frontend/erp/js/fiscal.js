@@ -220,8 +220,10 @@ function carregarFiscalConfig(targetSelector = '#fiscal-config-form-area') {
             `;
 
             const blocoCert = `
-                    ${getFiscalField('ID CSC', 'fiscal_id_csc', cfg.idCSC || '')}
-                    ${getFiscalField('Token CSC', 'fiscal_token_csc', cfg.tokenCSC || '')}
+                    ${getFiscalField('ID CSC (produção)', 'fiscal_id_csc', (cfg.idCSCProducao != null ? cfg.idCSCProducao : cfg.idCSC) || '')}
+                    ${getFiscalField('Token CSC (produção)', 'fiscal_token_csc', (cfg.tokenCSCProducao != null ? cfg.tokenCSCProducao : cfg.tokenCSC) || '')}
+                    ${getFiscalField('ID CSC (homologação)', 'fiscal_id_csc_homologacao', cfg.idCSCHomologacao || '', 'CSC gerado no portal da SEFAZ para homologação')}
+                    ${getFiscalField('Token CSC (homologação)', 'fiscal_token_csc_homologacao', cfg.tokenCSCHomologacao || '', 'Vazio = usa o CSC de produção')}
                     <div class="col-md-4 mb-3" data-cfg-search="certificado pfx a1">
                         <label class="form-label cds-cfg-label">Enviar certificado A1 (.pfx)</label>
                         <input type="file" id="fiscal_certificado_upload" class="form-control" accept=".pfx">
@@ -304,7 +306,10 @@ function carregarFiscalConfig(targetSelector = '#fiscal-config-form-area') {
 
             const proximoNumeroEl = $target.find('#proximoNumeroNfce')[0];
             if (proximoNumeroEl) {
-                proximoNumeroEl.value = (parseInt(cfg.numeroAtual || 0) + 1);
+                const nfceProx = (cfg.numeracaoDocumentos && cfg.numeracaoDocumentos.nfce && cfg.numeracaoDocumentos.nfce.proximoNumero)
+                    || (parseInt(cfg.numeroAtual || 0) + 1);
+                proximoNumeroEl.value = nfceProx;
+                proximoNumeroEl.dataset.original = String(nfceProx);
             }
             const proximoNfeEl = $target.find('#proximoNumeroNfe')[0];
             if (proximoNfeEl) {
@@ -390,8 +395,14 @@ function salvarConfigFiscal() {
 
     const payload = coletarPayloadFiscal();
 
-    // Calcular fiscal_numero_atual como (próximo número - 1)
-    payload.fiscal_numero_atual = proximoNumero - 1;
+    // Só envia a numeração NFC-e quando alterada: um valor exibido há tempo não pode
+    // regravar a sequência enquanto vendas reservam números.
+    const campoProximoNfce = document.getElementById('proximoNumeroNfce');
+    if (String(proximoNumero) !== String(campoProximoNfce.dataset.original || '')) {
+        payload.fiscal_numero_atual = proximoNumero - 1;
+    } else {
+        delete payload.fiscal_numero_atual;
+    }
 
     const proximoNfe = parseInt(document.getElementById('proximoNumeroNfe') && document.getElementById('proximoNumeroNfe').value, 10);
     const serieNfe = parseInt(document.getElementById('fiscal_serie_nfe') && document.getElementById('fiscal_serie_nfe').value, 10);
@@ -626,12 +637,7 @@ function montarHtmlAcoesNfceEmitida(n) {
     const status = String((n && n.status) || '').toLowerCase();
     const cancelada = status === 'cancelada' || Number(n && n.cancelada || 0) === 1;
     const isFechamento = ehNfceFechamentoFiscal(n);
-
-    const onDetalhe = vendaId
-        ? `viewVenda(${vendaId})`
-        : `verDetalheFiscal(${nfceId})`;
-    const onResumo = `acaoNfceEmitidaResumo(${vendaId ? vendaId : 'null'}, ${nfceId})`;
-    const onDevolucao = `acaoNfceEmitidaDevolucao(${vendaId ? vendaId : 'null'}, ${nfceId})`;
+    const ids = `data-nfce-id="${nfceId}" data-venda-id="${vendaId || ''}"`;
 
     let itemCancelar = '';
     if (!cancelada) {
@@ -650,14 +656,14 @@ function montarHtmlAcoesNfceEmitida(n) {
             const rotuloCancel = foraPrazoHint ? 'Cancelamento fora do prazo' : 'Cancelar documento fiscal';
             itemCancelar = `
         <li>
-            <button type="button" class="dropdown-item py-2 ${foraPrazoHint ? 'text-secondary' : 'text-danger'}" onclick="cancelarDocumentoFiscalNfce(${nfceId})">
+            <button type="button" class="dropdown-item py-2 ${foraPrazoHint ? 'text-secondary' : 'text-danger'}" data-nfce-acao="cancelar-documento" ${ids}>
                 <i class="fas fa-ban fa-fw me-2"></i>${rotuloCancel}
             </button>
         </li>`;
         } else if (vendaId) {
             itemCancelar = `
         <li>
-            <button type="button" class="dropdown-item py-2 text-danger" onclick="acaoNfceEmitidaCancelarVenda(${vendaId}, ${nfceId})">
+            <button type="button" class="dropdown-item py-2 text-danger" data-nfce-acao="cancelar-venda" ${ids}>
                 <i class="fas fa-times fa-fw me-2"></i>Cancelar venda
             </button>
         </li>`;
@@ -667,7 +673,7 @@ function montarHtmlAcoesNfceEmitida(n) {
     const blocoOperacional = (!cancelada && (isFechamento || vendaId)) ? `
         <li><hr class="dropdown-divider my-1"></li>
         <li>
-            <button type="button" class="dropdown-item py-2" onclick="${onDevolucao}">
+            <button type="button" class="dropdown-item py-2" data-nfce-acao="devolucao" ${ids}>
                 <i class="fas fa-undo fa-fw me-2 text-muted"></i>Devolução parcial
             </button>
         </li>
@@ -679,7 +685,7 @@ function montarHtmlAcoesNfceEmitida(n) {
             <button
                 type="button"
                 class="btn btn-sm btn-outline-primary"
-                onclick="${onDetalhe}"
+                data-nfce-acao="detalhe" ${ids}
                 title="Ver detalhes"
             >
                 <i class="fas fa-eye"></i>
@@ -698,17 +704,17 @@ function montarHtmlAcoesNfceEmitida(n) {
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end historico-venda-acoes-dropdown shadow-sm" aria-labelledby="${dropdownId}">
                     <li>
-                        <button type="button" class="dropdown-item py-2" onclick="${onDetalhe}">
+                        <button type="button" class="dropdown-item py-2" data-nfce-acao="detalhe" ${ids}>
                             <i class="fas fa-eye fa-fw me-2 text-muted"></i>Ver detalhes
                         </button>
                     </li>
                     <li>
-                        <button type="button" class="dropdown-item py-2" onclick="${onResumo}">
+                        <button type="button" class="dropdown-item py-2" data-nfce-acao="resumo" ${ids}>
                             <i class="fas fa-file-alt fa-fw me-2 text-muted"></i>Resumo NFC-e / TEF
                         </button>
                     </li>
                     <li>
-                        <button type="button" class="dropdown-item py-2" onclick="visualizarXmlNfce(${nfceId})">
+                        <button type="button" class="dropdown-item py-2" data-nfce-acao="xml" ${ids}>
                             <i class="fas fa-code fa-fw me-2 text-muted"></i>Visualizar XML
                         </button>
                     </li>
@@ -727,13 +733,81 @@ function acaoNfceEmitidaExigirVenda(vendaId, acaoLabel) {
     return false;
 }
 
-function acaoNfceEmitidaResumo(vendaId, _nfceId) {
-    if (!acaoNfceEmitidaExigirVenda(vendaId, 'Resumo NFC-e / TEF')) return;
-    if (typeof verResumoVendaFiscalTEF === 'function') {
-        verResumoVendaFiscalTEF(vendaId);
+function idPositivoNfceEmitida(valor) {
+    const n = Number(valor);
+    return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+/** vendas.js é lazy da página Vendas; a tela fiscal o carrega sob demanda para reutilizar os modais. */
+async function garantirScriptsVendasNaTelaFiscal() {
+    if (typeof showVendaModal === 'function' && typeof verResumoVendaFiscalTEF === 'function') return;
+    const loader = window.CdsErpLazyLoader;
+    const scripts = loader && loader.manifest && loader.manifest.vendas;
+    if (!loader || typeof loader.loadFeatureScript !== 'function' || !Array.isArray(scripts)) {
+        throw new Error('Carregador de módulos do ERP indisponível.');
+    }
+    for (const src of scripts) {
+        await loader.loadFeatureScript(src);
+    }
+    if (typeof showVendaModal !== 'function') {
+        throw new Error('Módulo de detalhes da venda não foi carregado.');
+    }
+}
+
+async function acaoNfceEmitidaVerDetalhe(vendaId, nfceId) {
+    const idVenda = idPositivoNfceEmitida(vendaId);
+    const idNfce = idPositivoNfceEmitida(nfceId);
+    if (!idVenda) {
+        if (!idNfce) {
+            showNotification('Registro fiscal inválido para visualização.', 'warning');
+            return;
+        }
+        verDetalheFiscal(idNfce);
         return;
     }
-    showNotification('Resumo NFC-e / TEF indisponível neste contexto.', 'warning');
+
+    try {
+        await garantirScriptsVendasNaTelaFiscal();
+    } catch (err) {
+        showNotification(`Não foi possível abrir os detalhes da venda: ${err.message} Recarregue a página.`, 'danger');
+        return;
+    }
+
+    let resp;
+    let venda;
+    try {
+        resp = await fetch(`${API_URL}/vendas/${idVenda}`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        venda = await resp.json().catch(() => null);
+    } catch (_) {
+        showNotification('Sem comunicação com o servidor ao carregar a venda. Tente novamente.', 'danger');
+        return;
+    }
+    if (resp.status === 404) {
+        showNotification(`Venda #${idVenda} vinculada à NFC-e #${idNfce || '-'} não foi encontrada.`, 'warning');
+        return;
+    }
+    if (!resp.ok || !venda) {
+        showNotification((venda && (venda.error || venda.mensagem)) || `Erro ao carregar a venda #${idVenda} (HTTP ${resp.status}).`, 'danger');
+        return;
+    }
+    if (Number(venda.id) !== idVenda) {
+        showNotification(`Resposta inconsistente: esperada venda #${idVenda}, recebida #${venda.id}.`, 'danger');
+        return;
+    }
+    showVendaModal(venda);
+}
+
+async function acaoNfceEmitidaResumo(vendaId, _nfceId) {
+    if (!acaoNfceEmitidaExigirVenda(vendaId, 'Resumo NFC-e / TEF')) return;
+    try {
+        await garantirScriptsVendasNaTelaFiscal();
+    } catch (err) {
+        showNotification(`Não foi possível abrir o resumo NFC-e / TEF: ${err.message} Recarregue a página.`, 'danger');
+        return;
+    }
+    verResumoVendaFiscalTEF(vendaId);
 }
 
 function acaoNfceEmitidaDevolucao(vendaId, _nfceId) {
@@ -745,13 +819,128 @@ function acaoNfceEmitidaDevolucao(vendaId, _nfceId) {
     showNotification('Devolução parcial indisponível neste contexto.', 'warning');
 }
 
-function acaoNfceEmitidaCancelarVenda(vendaId, _nfceId) {
+/**
+ * Cancelar venda a partir de NFC-e Emitidas: o backend avalia a situação fiscal real e decide
+ * entre cancelar a NFC-e na SEFAZ + venda, cancelar só a venda, ou bloquear com o motivo.
+ */
+async function acaoNfceEmitidaCancelarVenda(vendaId, _nfceId) {
     if (!acaoNfceEmitidaExigirVenda(vendaId, 'Cancelar venda')) return;
-    if (typeof cancelarVendaNaoFiscal === 'function') {
-        cancelarVendaNaoFiscal(vendaId);
+    let avaliacao;
+    try {
+        const resp = await fetch(`${API_URL}/vendas/${Number(vendaId)}/cancelamento/avaliacao`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        avaliacao = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+            throw new Error(avaliacao.mensagem || avaliacao.error || `Erro ao avaliar cancelamento (HTTP ${resp.status}).`);
+        }
+    } catch (err) {
+        showNotification(err.message || 'Erro ao avaliar cancelamento.', 'danger');
         return;
     }
-    showNotification('Cancelar venda indisponível neste contexto.', 'warning');
+    abrirModalCancelamentoVendaNfce(vendaId, avaliacao);
+}
+
+function escapeHtmlCancelamentoNfce(texto) {
+    return String(texto == null ? '' : texto)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function abrirModalCancelamentoVendaNfce(vendaId, avaliacao) {
+    const fiscal = avaliacao.cancelar_nfce === true;
+    const bloqueado = Boolean(avaliacao.bloqueio);
+    const titulo = bloqueado
+        ? `Cancelamento indisponível — venda #${vendaId}`
+        : (fiscal ? `Cancelar NFC-e e venda #${vendaId}` : `Cancelar venda #${vendaId}`);
+    const n = avaliacao.nfce || null;
+    const linhaNota = n
+        ? `<div class="small text-muted mb-2">NFC-e nº ${escapeHtmlCancelamentoNfce(String(n.numero ?? '-'))} · série ${escapeHtmlCancelamentoNfce(String(n.serie ?? '-'))} · status ${escapeHtmlCancelamentoNfce(n.status || '-')}${n.cstat ? ` · cStat ${escapeHtmlCancelamentoNfce(n.cstat)}` : ''}</div>`
+        : '';
+
+    $('#modalCancelamentoVendaNfce').remove();
+    $('body').append(`
+        <div class="modal fade" id="modalCancelamentoVendaNfce" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header ${bloqueado ? 'bg-secondary' : 'bg-danger'} text-white">
+                        <h5 class="modal-title">${escapeHtmlCancelamentoNfce(titulo)}</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+                    <div class="modal-body">
+                        ${linhaNota}
+                        <div class="alert ${bloqueado ? 'alert-warning' : (fiscal ? 'alert-danger' : 'alert-info')} mb-3">${escapeHtmlCancelamentoNfce(avaliacao.mensagem || '')}</div>
+                        ${bloqueado ? '' : `
+                        <div class="small mb-3">
+                            ${fiscal ? '<div><i class="fas fa-paper-plane me-1"></i>1. Evento de cancelamento enviado à SEFAZ.</div><div><i class="fas fa-box me-1"></i>2. Somente se homologado: estoque devolvido e financeiro estornado.</div>' : '<div><i class="fas fa-box me-1"></i>Estoque devolvido e financeiro estornado. Nenhum evento fiscal.</div>'}
+                        </div>
+                        <label for="motivoCancelamentoVendaNfce" class="form-label fw-bold">${fiscal ? 'Justificativa do cancelamento fiscal' : 'Motivo do cancelamento'}</label>
+                        <textarea id="motivoCancelamentoVendaNfce" class="form-control" rows="3" placeholder="Mínimo 15 caracteres"></textarea>
+                        <div id="resultadoCancelamentoVendaNfce" class="mt-3"></div>`}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">${bloqueado ? 'Fechar' : 'Voltar'}</button>
+                        ${bloqueado ? '' : `<button type="button" class="btn btn-danger" id="btnConfirmarCancelamentoVendaNfce"><i class="fas fa-times me-1"></i>${fiscal ? 'Cancelar NFC-e e venda' : 'Cancelar venda'}</button>`}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `);
+    const modalEl = document.getElementById('modalCancelamentoVendaNfce');
+    const modal = new bootstrap.Modal(modalEl);
+    $(modalEl).on('hidden.bs.modal', () => $(modalEl).remove());
+    modal.show();
+    if (bloqueado) return;
+
+    setTimeout(() => document.getElementById('motivoCancelamentoVendaNfce')?.focus(), 150);
+    $('#btnConfirmarCancelamentoVendaNfce').on('click', async function () {
+        const motivo = String($('#motivoCancelamentoVendaNfce').val() || '').trim();
+        const validacao = typeof validarMotivoTexto === 'function'
+            ? validarMotivoTexto(motivo)
+            : { valido: motivo.length >= 15, erro: 'O motivo deve ter no mínimo 15 caracteres.' };
+        if (!validacao.valido) {
+            showNotification(validacao.erro, 'warning');
+            return;
+        }
+        const $btn = $(this);
+        const $res = $('#resultadoCancelamentoVendaNfce');
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Processando…');
+        try {
+            const payload = typeof getTerminalRequestData === 'function'
+                ? getTerminalRequestData({ motivo })
+                : { motivo };
+            const resp = await fetch(`${API_URL}/vendas/cancelar/${Number(vendaId)}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify(payload)
+            });
+            const dados = await resp.json().catch(() => ({}));
+            if (!resp.ok || !dados.sucesso) {
+                const sefaz = dados.sefaz && dados.sefaz.cStatEvento
+                    ? `<div class="small mt-1">Resposta SEFAZ: cStat ${escapeHtmlCancelamentoNfce(dados.sefaz.cStatEvento)} — ${escapeHtmlCancelamentoNfce(dados.sefaz.xMotivoEvento || '')}</div>`
+                    : '';
+                $res.html(`<div class="alert alert-danger mb-0">${escapeHtmlCancelamentoNfce(dados.mensagem || dados.error || `Erro ao cancelar (HTTP ${resp.status}).`)}${sefaz}</div>`);
+                $btn.prop('disabled', false).html(`<i class="fas fa-times me-1"></i>${fiscal ? 'Cancelar NFC-e e venda' : 'Cancelar venda'}`);
+                return;
+            }
+            const s = dados.sefaz;
+            const detalheSefaz = s && s.cStatEvento
+                ? ` SEFAZ: cStat ${s.cStatEvento} — ${s.xMotivoEvento || ''}${s.protocoloCancelamento ? ` (protocolo ${s.protocoloCancelamento})` : ''}.`
+                : '';
+            showNotification(`${dados.mensagem}${detalheSefaz}`, 'success');
+            modal.hide();
+            if (typeof carregarFiscalNotas === 'function') carregarFiscalNotas();
+        } catch (err) {
+            $res.html(`<div class="alert alert-danger mb-0">${escapeHtmlCancelamentoNfce(err.message || 'Erro ao cancelar.')}</div>`);
+            $btn.prop('disabled', false).html(`<i class="fas fa-times me-1"></i>${fiscal ? 'Cancelar NFC-e e venda' : 'Cancelar venda'}`);
+        }
+    });
 }
 
 /**
@@ -928,6 +1117,41 @@ function getBadgeFiscalClass(status) {
     if (s.includes('erro')) return 'bg-warning text-dark';
 
     return 'bg-secondary';
+}
+
+function despacharAcaoNfceEmitida(acao, vendaId, nfceId) {
+    switch (acao) {
+        case 'detalhe':
+            return acaoNfceEmitidaVerDetalhe(vendaId, nfceId);
+        case 'resumo':
+            return acaoNfceEmitidaResumo(vendaId, nfceId);
+        case 'xml':
+            if (!nfceId) return showNotification('NFC-e inválida para visualizar XML.', 'warning');
+            return visualizarXmlNfce(nfceId);
+        case 'devolucao':
+            return acaoNfceEmitidaDevolucao(vendaId, nfceId);
+        case 'cancelar-documento':
+            if (!nfceId) return showNotification('NFC-e inválida para cancelamento fiscal.', 'warning');
+            return cancelarDocumentoFiscalNfce(nfceId);
+        case 'cancelar-venda':
+            return acaoNfceEmitidaCancelarVenda(vendaId, nfceId);
+        default:
+            return undefined;
+    }
+}
+
+if (!window.__cdsAcoesNfceEmitidaVinculadas) {
+    window.__cdsAcoesNfceEmitidaVinculadas = true;
+    document.addEventListener('click', (event) => {
+        const botao = event.target && event.target.closest && event.target.closest('[data-nfce-acao]');
+        if (!botao) return;
+        event.preventDefault();
+        despacharAcaoNfceEmitida(
+            botao.getAttribute('data-nfce-acao'),
+            idPositivoNfceEmitida(botao.getAttribute('data-venda-id')),
+            idPositivoNfceEmitida(botao.getAttribute('data-nfce-id'))
+        );
+    });
 }
 
 function verDetalheFiscal(id) {

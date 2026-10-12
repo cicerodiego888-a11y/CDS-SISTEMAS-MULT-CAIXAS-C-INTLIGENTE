@@ -123,7 +123,41 @@
     return fortes.every(tokenNoNome);
   }
 
+  /** Marcas cadastradas como marcador de "sem marca" não aparecem no nome exibido. */
+  const MARCAS_SEM_VALOR = new Set(['na', 'n a', 'sem marca', 's m', 'nenhuma', 'nao informada', 'nao informado']);
+
+  function chaveComparacaoMarca(texto) {
+    return normalizarTextoBusca(texto).replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+
+  function obterMarcaProduto(produto) {
+    const marca = produto?.marca && typeof produto.marca === 'object'
+      ? produto.marca.nome
+      : (produto?.marca || produto?.marca_nome);
+    return String(marca || '').replace(/\s+/g, ' ').trim();
+  }
+
+  /**
+   * Nome de exibição "NOME — MARCA" (só tela; o nome gravado não muda).
+   * Sem marca, ou com a marca já no nome como palavra inteira em qualquer posição, devolve só o nome.
+   * @param {Object|string} produtoOuNome - produto ({ nome, marca | marca_nome }) ou o nome
+   * @param {string} [marca] - marca explícita (quando o primeiro argumento é o nome)
+   */
+  function formatarNomeProdutoComMarca(produtoOuNome, marca) {
+    const produto = produtoOuNome && typeof produtoOuNome === 'object' ? produtoOuNome : null;
+    const nome = String((produto ? produto.nome : produtoOuNome) || '').trim();
+    const marcaTexto = marca !== undefined
+      ? String(marca || '').replace(/\s+/g, ' ').trim()
+      : obterMarcaProduto(produto);
+    const chaveMarca = chaveComparacaoMarca(marcaTexto);
+    if (!nome || !chaveMarca || MARCAS_SEM_VALOR.has(chaveMarca)) return nome;
+    if (` ${chaveComparacaoMarca(nome)} `.includes(` ${chaveMarca} `)) return nome;
+    return `${nome} — ${marcaTexto}`;
+  }
+
   global.CdsBuscaProdutoTexto = {
+    obterMarcaProduto,
+    formatarNomeProdutoComMarca,
     compactarMedidas,
     normalizarTextoBusca,
     compactarTextoBusca,

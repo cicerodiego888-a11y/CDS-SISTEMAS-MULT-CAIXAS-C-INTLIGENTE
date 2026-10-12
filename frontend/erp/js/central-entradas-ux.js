@@ -378,6 +378,22 @@
         };
     }
 
+    const MENSAGEM_SYNC_RETOMADA_SEFAZ = 'Sincronização automática será retomada quando disponível.';
+
+    /** Sprint 3.5 — consumo indevido (656) é aviso operacional da SEFAZ, não erro do sistema. */
+    function ehConsumoIndevidoSefazUx(texto, cStat) {
+        if (String(cStat == null ? '' : cStat).trim() === '656') return true;
+        return /consumo[\s_]*indevido/i.test(String(texto == null ? '' : texto));
+    }
+
+    function ultimoResultadoEhConsumoIndevidoUx(ultimo = {}) {
+        const textos = [ultimo.mensagem, ultimo.codigoErro]
+            .concat(Array.isArray(ultimo.erros) ? ultimo.erros : [])
+            .filter(Boolean)
+            .join(' ');
+        return ehConsumoIndevidoSefazUx(textos, ultimo.cStat);
+    }
+
     function resolverEstadoServicoCentral(state) {
         const s = state.servicoStatus || {};
         const executando = s.executando || state.sincronizando;
@@ -414,6 +430,15 @@
                 icone: 'fa-hourglass-half',
                 classe: 'central-ux-servico--cooldown',
                 cooldown
+            };
+        }
+        if (erroRecente && ultimoResultadoEhConsumoIndevidoUx(ultimo)) {
+            return {
+                codigo: 'sefaz_retomada',
+                label: 'Sincronização automática',
+                descricao: MENSAGEM_SYNC_RETOMADA_SEFAZ,
+                icone: 'fa-clock',
+                classe: 'central-ux-servico--aguardando'
             };
         }
         if (erroRecente) {
@@ -1608,6 +1633,8 @@
         obterSnapshotKpisCentral,
         salvarSnapshotKpisCentral,
         resolverCooldownSefaz656Ux,
+        MENSAGEM_SYNC_RETOMADA_SEFAZ,
+        ehConsumoIndevidoSefazUx,
         resolverEstadoServicoCentral,
         formatarDataHoraSeparadoCentral,
         formatarDataEmissaoCurtaCentral,

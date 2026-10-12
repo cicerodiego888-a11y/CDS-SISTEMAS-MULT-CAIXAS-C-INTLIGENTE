@@ -3,7 +3,13 @@ const path = require('path');
 const db = require('../../database');
 const { getFiscalConfig } = require('./configService');
 const { reservarProximaNumeracaoFiscal } = require('./numeracaoFiscalService');
-const { aplicarOcupacaoPorRejeicao539Nfce } = require('./nfceNumeracaoOcupadosService');
+const {
+  aplicarOcupacaoPorRejeicao539Nfce,
+  extrairChaveConflito539,
+  parseChaveNfce
+} = require('./nfceNumeracaoOcupadosService');
+const { consultarProtocolo } = require('./consultaProtocoloRuntime');
+const { ModelType } = require('./core/ModelType');
 const { carregarCertificadoPfx } = require('./certificateService');
 const {
   buildNfceXml
@@ -152,6 +158,7 @@ function salvarNota(payload) {
           UPDATE nfce_notas
           SET
             status = ?,
+            chave_acesso = COALESCE(NULLIF(?, ''), chave_acesso),
             xml_enviado = ?,
             xml_retorno = ?,
             protocolo = ?,
@@ -162,6 +169,7 @@ function salvarNota(payload) {
           WHERE id = ?
         `, [
           payload.status,
+          payload.chave_acesso || '',
           payload.xml_enviado || null,
           payload.xml_retorno || null,
           payload.protocolo || null,
@@ -202,6 +210,166 @@ function salvarNota(payload) {
       });
     });
   });
+}
+
+// Tentativas que nunca chegaram à SEFAZ ou foram rejeitadas sem registro: o nNF continua livre.
+const STATUS_TENTATIVA_NUMERO_LIVRE = new Set(['configuracao_pendente', 'erro_validacao', 'rejeitada']);
+// Tentativas que podem ter sido processadas pela SEFAZ: exigem consulta da chave antes de retransmitir.
+const STATUS_TENTATIVA_POSSIVEL_PROCESSAMENTO = new Set(['pendente', 'soap_enviado', 'erro_transmissao', 'timeout']);
+const STATUS_TENTATIVA_REUTILIZAVEL = [...STATUS_TENTATIVA_NUMERO_LIVRE, ...STATUS_TENTATIVA_POSSIVEL_PROCESSAMENTO];
+
+const MSG_RECUPERAR_DUPLICIDADE =
+  'Use "Recuperar duplicidades" no Fechamento Fiscal do Dia para consultar a situação na SEFAZ.';
+
+function identidadeTentativa(nota) {
+  return {
+    notaId: nota && nota.id != null ? Number(nota.id) : null,
+    numero: nota && nota.numero != null ? Number(nota.numero) : null,
+    serie: nota && nota.serie != null ? Number(nota.serie) : null,
+    chaveAcesso: (nota && nota.chave_acesso) || null
+  };
+}
+
+async function avaliarBloqueioPorSituacaoFiscal(vendaId) {
+  const {
+    classificarSituacaoFiscalDaVenda,
+    SITUACAO_NFCE
+  } = require('../fechamento-fiscal/NfceSituacaoFiscalService');
+  const situacao = await classificarSituacaoFiscalDaVenda(db, vendaId);
+  const base = {
+    success: false,
+    notaId: situacao.nfce_id,
+    numero: situacao.numero != null ? Number(situacao.numero) : null,
+    serie: situacao.serie != null ? Number(situacao.serie) : null,
+    chaveAcesso: situacao.chave_acesso || null,
+    situacaoFiscal: situacao.situacao
+  };
+
+  if (situacao.situacao === SITUACAO_NFCE.DUPLICIDADE_PENDENTE) {
+    return {
+      ...base,
+      status: 'duplicidade_pendente_consulta',
+      message: `NFC-e nº ${base.numero} série ${base.serie} recebeu duplicidade (cStat 539) e a situação na SEFAZ ainda não foi confirmada. Nenhum novo número será gerado. ${MSG_RECUPERAR_DUPLICIDADE}`
+    };
+  }
+
+  if (situacao.origem_classificacao !== 'RECUPERACAO_DUPLICIDADE') return null;
+
+  if (situacao.situacao === SITUACAO_NFCE.AUTORIZADA) {
+    return {
+      ...base,
+      status: 'autorizada_na_sefaz',
+      protocolo: situacao.protocolo || null,
+      message: `A consulta fiscal localizou NFC-e autorizada na SEFAZ para o número ${base.numero} série ${base.serie}. Nenhuma nova NFC-e será emitida para esta venda.`
+    };
+  }
+
+  if ([SITUACAO_NFCE.PENDENTE, SITUACAO_NFCE.ERRO, SITUACAO_NFCE.DESCONHECIDA].includes(situacao.situacao)) {
+    return {
+      ...base,
+      status: 'duplicidade_pendente_consulta',
+      message: `A consulta da duplicidade da NFC-e nº ${base.numero} série ${base.serie} não foi conclusiva. Nenhum novo número será gerado. ${MSG_RECUPERAR_DUPLICIDADE}`
+    };
+  }
+
+  return null;
+}
+
+function atualizarNotaAutorizadaPorConsulta(notaId, { protocolo, xmlRetorno }) {
+  return new Promise((resolve, reject) => {
+    db.run(`
+      UPDATE nfce_notas
+      SET status = 'autorizada',
+          protocolo = ?,
+          xml_retorno = ?,
+          updated_at = datetime('now', 'localtime')
+      WHERE id = ?
+    `, [protocolo, xmlRetorno, notaId], (err) => (err ? reject(err) : resolve()));
+  });
+}
+
+/**
+ * Tentativa anterior possivelmente processada (timeout/comunicação): consulta a chave
+ * antes de qualquer retransmissão. Só libera retransmitir com o mesmo nNF quando a SEFAZ
+ * confirma que a chave não consta (cStat 217).
+ */
+async function verificarSituacaoTentativaAnterior({ nota, config }) {
+  const {
+    interpretarRespostaConsulta
+  } = require('../fechamento-fiscal/NfceDuplicidadeRecuperacaoService');
+  const { SITUACAO_NFCE } = require('../fechamento-fiscal/NfceSituacaoFiscalService');
+  const identidade = identidadeTentativa(nota);
+  const chave = String(nota.chave_acesso || '').replace(/\D/g, '');
+
+  if (chave.length !== 44) {
+    return {
+      bloqueio: {
+        success: false,
+        ...identidade,
+        status: 'consulta_situacao_pendente',
+        message: `A tentativa anterior da NFC-e nº ${identidade.numero} série ${identidade.serie} não tem chave de acesso registrada; não é possível confirmar a situação na SEFAZ. Nenhum novo número foi gerado.`
+      }
+    };
+  }
+
+  let consulta = null;
+  let decisao;
+  try {
+    consulta = await consultarProtocolo({
+      chave,
+      modelo: ModelType.NFCE,
+      ambiente: nota.ambiente || config.ambiente,
+      cUF: config.codigoUf,
+      certificadoPath: config.certificadoPath,
+      certificadoSenha: config.certificadoSenha
+    });
+    decisao = interpretarRespostaConsulta(consulta);
+  } catch (err) {
+    decisao = {
+      situacao_fiscal: SITUACAO_NFCE.ERRO,
+      motivo: 'Não foi possível consultar a situação fiscal.',
+      erro_tecnico: String((err && err.message) || err)
+    };
+  }
+
+  console.log(
+    `[FISCAL][NUMERACAO][NFCe] CONSULTA_TENTATIVA NUMERO=${identidade.numero} SERIE=${identidade.serie} SITUACAO=${decisao.situacao_fiscal} CSTAT=${decisao.cstat_consulta || ''}`
+  );
+
+  const chaveRetornada = String(decisao.chave_retornada || '').replace(/\D/g, '');
+  if (decisao.situacao_fiscal === SITUACAO_NFCE.AUTORIZADA && (!chaveRetornada || chaveRetornada === chave)) {
+    await atualizarNotaAutorizadaPorConsulta(nota.id, {
+      protocolo: decisao.protocolo,
+      xmlRetorno: (consulta && consulta.body) || null
+    });
+    return {
+      autorizada: {
+        success: true,
+        reused: true,
+        recuperadaPorConsulta: true,
+        status: 'autorizada',
+        ...identidade,
+        protocolo: decisao.protocolo,
+        qrCodeUrl: nota.qr_code_url || null,
+        danfeHtml: nota.danfe_html || null,
+        message: 'NFC-e da tentativa anterior já estava autorizada na SEFAZ; nenhuma nova emissão foi feita.'
+      }
+    };
+  }
+
+  if (decisao.situacao_fiscal === SITUACAO_NFCE.REJEITADA) {
+    return { liberada: true, cStat: decisao.cstat_consulta || null };
+  }
+
+  return {
+    bloqueio: {
+      success: false,
+      ...identidade,
+      status: 'consulta_situacao_pendente',
+      cStat: decisao.cstat_consulta || null,
+      message: `Situação da NFC-e nº ${identidade.numero} série ${identidade.serie} ainda não confirmada na SEFAZ (${decisao.motivo || 'sem resposta conclusiva'}). Nenhum novo número foi gerado; tente novamente em instantes.`
+    }
+  };
 }
 
 async function emitirPorVendaId(vendaId) {
@@ -265,15 +433,24 @@ async function emitirPorVendaId(vendaId) {
       };
     }
 
+    const bloqueioSituacao = await avaliarBloqueioPorSituacaoFiscal(vendaId);
+    if (bloqueioSituacao) {
+      console.warn(
+        `[FISCAL][NUMERACAO][NFCe] EMISSAO_BLOQUEADA VENDA=${vendaId} STATUS=${bloqueioSituacao.status} NUMERO=${bloqueioSituacao.numero} SERIE=${bloqueioSituacao.serie}`
+      );
+      return bloqueioSituacao;
+    }
+
     const notaPendenteAnterior = await new Promise((resolve, reject) => {
+      const placeholders = STATUS_TENTATIVA_REUTILIZAVEL.map(() => '?').join(', ');
       db.get(`
         SELECT *
         FROM nfce_notas
         WHERE venda_id = ?
-          AND status IN ('erro_transmissao', 'pendente', 'soap_enviado', 'rejeitada')
+          AND status IN (${placeholders})
         ORDER BY id DESC
         LIMIT 1
-      `, [vendaId], (err, row) => {
+      `, [vendaId, ...STATUS_TENTATIVA_REUTILIZAVEL], (err, row) => {
         if (err) return reject(err);
         resolve(row || null);
       });
@@ -282,11 +459,32 @@ async function emitirPorVendaId(vendaId) {
     const config = await getFiscalConfig();
 
     let numero;
+    let serieEmissao = Number(config.serie);
+    let cNFTentativa = null;
 
-    if (notaPendenteAnterior && notaPendenteAnterior.numero) {
-      // Timeout / erro de transmissão: preserva identidade fiscal (nNF + chave + XML).
-      numero = notaPendenteAnterior.numero;
-      console.log(`[FISCAL][NUMERACAO][NFCe] REUTILIZANDO identidade da tentativa anterior NUMERO=${numero}`);
+    const reutilizarTentativa = Boolean(
+      notaPendenteAnterior
+      && notaPendenteAnterior.numero
+      && Number(notaPendenteAnterior.ambiente) === Number(config.ambiente)
+    );
+
+    if (reutilizarTentativa) {
+      // Mesma tentativa: preserva nNF, série e cNF (mesma chave dentro do mês de emissão).
+      numero = Number(notaPendenteAnterior.numero);
+      serieEmissao = Number(notaPendenteAnterior.serie || config.serie);
+      const idAnterior = parseChaveNfce(notaPendenteAnterior.chave_acesso);
+      if (idAnterior && Number(idAnterior.numero) === numero && Number(idAnterior.serie) === serieEmissao) {
+        cNFTentativa = idAnterior.cNF;
+      }
+      console.log(
+        `[FISCAL][NUMERACAO][NFCe] REUTILIZANDO identidade da tentativa anterior NUMERO=${numero} SERIE=${serieEmissao} STATUS=${notaPendenteAnterior.status}`
+      );
+
+      if (STATUS_TENTATIVA_POSSIVEL_PROCESSAMENTO.has(String(notaPendenteAnterior.status))) {
+        const verificacao = await verificarSituacaoTentativaAnterior({ nota: notaPendenteAnterior, config });
+        if (verificacao.autorizada) return verificacao.autorizada;
+        if (verificacao.bloqueio) return verificacao.bloqueio;
+      }
     } else {
       const reserva = await reservarProximaNumeracaoFiscal({
         cnpj: config.cnpj,
@@ -296,14 +494,17 @@ async function emitirPorVendaId(vendaId) {
         origem: 'VENDA'
       });
       numero = reserva.numero;
-      console.log(`[FISCAL][NUMERACAO][RESERVA] ORIGEM=VENDA NUMERO=${numero}`);
+      serieEmissao = Number(reserva.serie || config.serie);
+      console.log(`[FISCAL][NUMERACAO][RESERVA] ORIGEM=VENDA NUMERO=${numero} SERIE=${serieEmissao}`);
     }
+
+    const configEmissao = { ...config, serie: serieEmissao };
 
     if (!config.nomeEmpresa || !config.cnpj || !config.ie) {
       const notaId = await salvarNota({
         venda_id: vendaId,
         numero,
-        serie: config.serie,
+        serie: configEmissao.serie,
         chave_acesso: '',
         ambiente: config.ambiente,
         status: 'configuracao_pendente',
@@ -324,7 +525,7 @@ async function emitirPorVendaId(vendaId) {
       const notaId = await salvarNota({
         venda_id: vendaId,
         numero,
-        serie: config.serie,
+        serie: configEmissao.serie,
         chave_acesso: '',
         ambiente: config.ambiente,
         status: 'configuracao_pendente',
@@ -376,7 +577,13 @@ async function emitirPorVendaId(vendaId) {
       console.warn('[RC5] validação equipamentos fiscal:', eqErr.message);
     }
 
-    const xmlBase = buildNfceXml({ config, venda, itens: itensFiscal, numero });
+    const xmlBase = buildNfceXml({
+      config: configEmissao,
+      venda,
+      itens: itensFiscal,
+      numero,
+      cNF: cNFTentativa
+    });
 
     // RC7.10.4 — aborta emissão se XML inconsistente (antes da assinatura)
     try {
@@ -390,7 +597,7 @@ async function emitirPorVendaId(vendaId) {
       const notaId = await salvarNota({
         venda_id: vendaId,
         numero,
-        serie: config.serie,
+        serie: configEmissao.serie,
         chave_acesso: xmlBase.chave || '',
         ambiente: config.ambiente,
         status: 'erro_validacao',
@@ -539,7 +746,7 @@ async function emitirPorVendaId(vendaId) {
       },
       chave: xmlBase.chave,
       numero,
-      serie: config.serie,
+      serie: configEmissao.serie,
       qrCodeUrl,
       tributos: xmlBase.valores,
       nota: {
@@ -552,6 +759,7 @@ async function emitirPorVendaId(vendaId) {
     let xmlRetorno = assinaturaErro ? assinaturaErro.message : null;
     let soapResponse = null;
     let chaveAutorizada = xmlBase.chave;
+    let duplicidade = null;
 
     if (!assinaturaErro) {
       const loteXml = montarLote(xmlAssinadoFinal, String(numero));
@@ -601,12 +809,21 @@ async function emitirPorVendaId(vendaId) {
         }
       } else if (raw.includes('<cStat>539</cStat>') || String(soapResponse.cStat || '') === '539') {
         status = 'rejeitada_duplicidade';
+        const xMotivosRetorno = [...raw.matchAll(/<xMotivo>\s*([^<]+)\s*<\/xMotivo>/gi)].map((m) => m[1].trim());
+        const xMotivo539 = xMotivosRetorno.find((m) => /duplicidade/i.test(m)) || xMotivosRetorno[0] || null;
+        duplicidade = {
+          cStat: '539',
+          xMotivo: xMotivo539,
+          numero,
+          serie: configEmissao.serie,
+          chaveEnviada: xmlBase.chave,
+          chaveSefaz: extrairChaveConflito539(xMotivo539, raw)
+        };
         try {
-          const xMotivo539 = (raw.match(/<xMotivo>\s*([^<]+)\s*<\/xMotivo>/i) || [])[1] || null;
           await aplicarOcupacaoPorRejeicao539Nfce({
             cnpj: config.cnpj,
             ambiente: config.ambiente,
-            serie: config.serie,
+            serie: configEmissao.serie,
             numeroEnviado: numero,
             chaveEnviada: xmlBase.chave,
             xMotivo: xMotivo539,
@@ -616,6 +833,9 @@ async function emitirPorVendaId(vendaId) {
         } catch (e539) {
           console.warn('[FISCAL][NUMERACAO][539] falha ao registrar ocupação:', e539.message || e539);
         }
+      } else if (/<cStat>(103|105|204)<\/cStat>/.test(raw) && !/<protNFe[\s>]/.test(raw)) {
+        // Lote em processamento ou chave já existente na SEFAZ: a situação depende de consulta.
+        status = 'pendente';
       } else if (raw.includes('<cStat>') || /rejeic/i.test(raw)) {
         status = 'rejeitada';
       } else {
@@ -628,7 +848,7 @@ async function emitirPorVendaId(vendaId) {
     const notaId = await salvarNota({
       venda_id: vendaId,
       numero,
-      serie: config.serie,
+      serie: configEmissao.serie,
       chave_acesso: chaveAutorizada,
       ambiente: config.ambiente,
       status,
@@ -644,8 +864,15 @@ async function emitirPorVendaId(vendaId) {
 
     if (assinaturaErro) {
       message = assinaturaErro.message;
+    } else if (duplicidade) {
+      message = `NFC-e nº ${numero} série ${configEmissao.serie} rejeitada por duplicidade (cStat 539): o número já existe na SEFAZ com outra chave de acesso. Nenhuma nova numeração será gerada automaticamente. ${MSG_RECUPERAR_DUPLICIDADE}`;
     } else if (!autorizada) {
-      message = soapResponse?.message || `NFC-e não autorizada (status: ${status}).`;
+      const infProt = (String(xmlRetorno || '').match(/<infProt[\s\S]*?<\/infProt>/i) || [])[0] || '';
+      const cStatProt = (infProt.match(/<cStat>\s*(\d+)\s*<\/cStat>/i) || [])[1];
+      const xMotivoProt = (infProt.match(/<xMotivo>\s*([^<]+?)\s*<\/xMotivo>/i) || [])[1];
+      message = cStatProt
+        ? `NFC-e nº ${numero} série ${configEmissao.serie} rejeitada pela SEFAZ (cStat ${cStatProt}): ${xMotivoProt || 'sem motivo informado'}`
+        : (soapResponse?.message || `NFC-e não autorizada (status: ${status}).`);
     }
 
     return {
@@ -653,10 +880,12 @@ async function emitirPorVendaId(vendaId) {
       notaId,
       status,
       numero,
+      serie: configEmissao.serie,
       chaveAcesso: chaveAutorizada,
       qrCodeUrl,
       danfeHtml,
       message,
+      duplicidade,
       soap: soapResponse
     };
   }, { titular: `venda-${vendaId}` });

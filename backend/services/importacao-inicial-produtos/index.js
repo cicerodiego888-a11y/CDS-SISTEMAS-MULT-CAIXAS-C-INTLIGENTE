@@ -97,7 +97,8 @@ async function importarSessao(db, sessaoId, {
   usuarioNome,
   dbPath,
   pastaBackup,
-  politica_pendentes
+  politica_pendentes,
+  publicarCatalogo
 } = {}) {
   const sessao = obterSessao(sessaoId);
   if (!sessao || !sessao.validacao) {
@@ -135,7 +136,8 @@ async function importarSessao(db, sessaoId, {
       dbPath,
       pastaBackup,
       importId: sessaoId,
-      politica_pendentes
+      politica_pendentes,
+      publicarCatalogo
     });
   }
 

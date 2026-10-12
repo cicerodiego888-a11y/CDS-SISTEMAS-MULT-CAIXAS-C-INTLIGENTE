@@ -56,6 +56,8 @@ function renderConfiguracoes(configuracoes) {
         'fiscal_certificado_senha',
         'fiscal_id_csc',
         'fiscal_token_csc',
+        'fiscal_id_csc_homologacao',
+        'fiscal_token_csc_homologacao',
         'fiscal_ws_autorizacao_homologacao',
         'fiscal_ws_retorno_homologacao',
         'fiscal_ws_status_homologacao',

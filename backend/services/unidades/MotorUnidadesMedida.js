@@ -10,6 +10,7 @@
 
 const UNIDADES_COMERCIAIS = Object.freeze([
   'UN',
+  'CENTO',
   'PACOTE',
   'CAIXA',
   'FARDO',
@@ -34,6 +35,7 @@ const UNIDADES_COMERCIAIS = Object.freeze([
 
 const LABELS_UNIDADE_COMERCIAL = Object.freeze({
   UN: 'Unidade',
+  CENTO: 'Cento',
   PACOTE: 'Pacote',
   CAIXA: 'Caixa',
   FARDO: 'Fardo',
@@ -59,6 +61,10 @@ const MAPA_UCOM_XML = Object.freeze({
   UNI: 'UN',
   UNID: 'UN',
   UNIDADE: 'UN',
+  CT: 'CENTO',
+  CEN: 'CENTO',
+  CENTO: 'CENTO',
+  CENTENA: 'CENTO',
   PC: 'PACOTE',
   PCT: 'PACOTE',
   PACOTE: 'PACOTE',
@@ -261,6 +267,14 @@ function primeiroNumeroPositivo(...valores) {
   return 0;
 }
 
+function gerarTextoConversaoSugerida(unidadeOrigem, fator, unidadeDestino) {
+  const origem = String(unidadeOrigem || '').trim().toUpperCase();
+  const destino = String(unidadeDestino || '').trim().toUpperCase();
+  const fatorNumero = num(fator, 4);
+  if (!origem || !Number.isFinite(fatorNumero) || fatorNumero <= 0) return null;
+  return `1 ${origem} = ${fatorNumero} ${destino || origem}`;
+}
+
 function precoComercialDaNota(item = {}, quantidadeComercial = 0) {
   const explicito = primeiroNumeroPositivo(
     item.preco_unitario_comercial,
@@ -369,7 +383,12 @@ function resolverQuantidadeEntradaNfe(item = {}, produto = {}, apresentacao = nu
       unidadeComercial,
       unidadeEstoque,
       fatorConversao: 1,
-      apresentacaoId: apresentacaoCorrespondente?.id || null
+      apresentacaoId: apresentacaoCorrespondente?.id || null,
+      produtoId: produto?.id || item.produto_id || null,
+      produtoNome: produto?.nome || item.produto_nome || null,
+      codigoBarras: item.codigo_barras || produto?.codigo_barras || null,
+      tipoPendencia: null,
+      podeContinuar: true
     };
   }
 
@@ -393,7 +412,13 @@ function resolverQuantidadeEntradaNfe(item = {}, produto = {}, apresentacao = nu
         unidadeComercial,
         unidadeEstoque,
         fatorConversao: fator,
-        apresentacaoId: apresentacaoCorrespondente?.id || null
+        apresentacaoId: apresentacaoCorrespondente?.id || null,
+        produtoId: produto?.id || item.produto_id || null,
+        produtoNome: produto?.nome || item.produto_nome || null,
+        codigoBarras: item.codigo_barras || produto?.codigo_barras || null,
+        tipoPendencia: 'CONVERSAO_UNIDADE',
+        podeContinuar: true,
+        requerConfirmacao: true
       };
     }
 
@@ -405,11 +430,19 @@ function resolverQuantidadeEntradaNfe(item = {}, produto = {}, apresentacao = nu
       unidadeComercial,
       unidadeEstoque,
       fatorConversao: fator,
-      apresentacaoId: apresentacaoCorrespondente?.id || null
+      apresentacaoId: apresentacaoCorrespondente?.id || null,
+      produtoId: produto?.id || item.produto_id || null,
+      produtoNome: produto?.nome || item.produto_nome || null,
+      codigoBarras: item.codigo_barras || produto?.codigo_barras || null,
+      tipoPendencia: null,
+      podeContinuar: true
     };
   }
 
   if (quantidadeTributavel > 0 && unidadeTributavel === unidadeEstoque) {
+    const fatorCalculado = quantidadeComercial > 0
+      ? num(quantidadeTributavel / quantidadeComercial, 4)
+      : 0;
     return {
       ok: true,
       origem: 'QTRIB_UNIDADE_ESTOQUE',
@@ -417,23 +450,40 @@ function resolverQuantidadeEntradaNfe(item = {}, produto = {}, apresentacao = nu
       quantidadeEstoque: quantidadeTributavel,
       unidadeComercial,
       unidadeEstoque,
-      fatorConversao: quantidadeComercial > 0
-        ? num(quantidadeTributavel / quantidadeComercial, 4)
-        : 0,
-      apresentacaoId: null
+      fatorConversao: fatorCalculado,
+      apresentacaoId: null,
+      produtoId: produto?.id || item.produto_id || null,
+      produtoNome: produto?.nome || item.produto_nome || null,
+      codigoBarras: item.codigo_barras || produto?.codigo_barras || null,
+      tipoPendencia: null,
+      podeContinuar: true
     };
   }
+
+  const fatorSugerido = quantidadeComercial > 0 && quantidadeTributavel > 0
+    ? num(quantidadeTributavel / quantidadeComercial, 4)
+    : 0;
+  const conversaoSugerida = gerarTextoConversaoSugerida(unidadeComercial, fatorSugerido, unidadeEstoque);
 
   return {
     ok: false,
     codigo: 'FATOR_CONVERSAO_AUSENTE',
-    erro: `Não há conversão confirmada de ${unidadeComercial} para ${unidadeEstoque}; informe uma apresentação/fator ou um qTrib compatível.`,
+    erro: `Não foi encontrada uma conversão confirmada de ${unidadeComercial} para ${unidadeEstoque}. Você pode aceitar a sugestão encontrada na NF-e ou continuar sem aplicar a conversão automática.`,
     quantidadeComercial,
     quantidadeTributavel,
     unidadeComercial,
     unidadeEstoque,
+    unidadeTributavel,
     fatorConversao: 0,
-    apresentacaoId: null
+    fatorSugerido,
+    conversaoSugerida,
+    apresentacaoId: null,
+    produtoId: produto?.id || item.produto_id || null,
+    produtoNome: produto?.nome || item.produto_nome || null,
+    codigoBarras: item.codigo_barras || produto?.codigo_barras || null,
+    tipoPendencia: 'CONVERSAO_UNIDADE',
+    podeContinuar: true,
+    requerConfirmacao: true
   };
 }
 

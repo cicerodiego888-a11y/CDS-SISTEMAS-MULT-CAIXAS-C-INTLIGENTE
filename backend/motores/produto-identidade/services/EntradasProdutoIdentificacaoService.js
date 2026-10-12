@@ -74,6 +74,17 @@ class EntradasProdutoIdentificacaoService {
   }
 
   /**
+   * O catálogo guarda também lookups negativos: sem invalidar, o próximo item com o
+   * mesmo código/EAN não acharia o produto recém-criado e cairia na busca só por nome.
+   */
+  limparCacheCatalogo() {
+    const cat = this._identidade && this._identidade.catalogo;
+    if (cat && typeof cat.limparCache === 'function') {
+      cat.limparCache();
+    }
+  }
+
+  /**
    * @param {string} codigo
    * @param {Object} [contexto]
    * @returns {Promise<Object>}

@@ -210,8 +210,9 @@ async function main() {
     });
 
     const resultado = resposta.resultado;
-    assert.strictEqual(resultado.decisao.acao, MiipAction.REVISAR_MANUAL);
-    assert.strictEqual(resultado.decisao.conflito, true);
+    assert.strictEqual(resultado.decisao.acao, MiipAction.AUTO_VINCULAR);
+    assert.strictEqual(resposta.produtoId, 40);
+    assert.strictEqual(resultado.decisao.criterio, 'CODIGO_BARRAS');
   });
 
   await test('pipeline retorna criar_novo sem GTIN nem associação', async () => {

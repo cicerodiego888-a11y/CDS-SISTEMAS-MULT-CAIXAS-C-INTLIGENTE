@@ -75,6 +75,7 @@ class MiipImportacaoXmlService {
       nivelCerteza: classificacao.nivelCerteza,
       acao: classificacao.acao,
       motivos: classificacao.motivos,
+      motivoIdentificacao: classificacao.motivoIdentificacao ?? null,
       candidatoSelecionado: classificacao.candidatoSelecionado,
       candidatos: classificacao.candidatos || [],
       diagnosticoBusca: classificacao.diagnosticoBusca || null,
@@ -84,7 +85,8 @@ class MiipImportacaoXmlService {
       score: classificacao.score,
       motor: classificacao.motor,
       operacaoId,
-      mie: mieSugestao
+      mie: mieSugestao,
+      regraIdentificacao: classificacao.regraIdentificacao ?? null
     });
   }
 

@@ -528,10 +528,10 @@ function ratearDescontoNosItens(itens, descontoTotal) {
   return itensComDesconto;
 }
 
-function buildNfceXml({ config, venda, itens, numero }) {
+function buildNfceXml({ config, venda, itens, numero, cNF: cNFTentativa }) {
   const dhEmi = nowDhEmi();
   const aamm = dhEmi.slice(2, 4) + dhEmi.slice(5, 7);
-  const cNF = gerarCodigoNumerico();
+  const cNF = /^\d{8}$/.test(String(cNFTentativa || '')) ? String(cNFTentativa) : gerarCodigoNumerico();
 
   const totalFiscalBrutoItens = itens.reduce(
     (total, item) => total + obterValorFiscalItem(item),

@@ -69,7 +69,13 @@ async function cancelarNfceAutorizadaVenda(vendaId, justificativa) {
     String(dadosCancelamento.cStatEvento) === '155';
 
   if (!canceladoComSucesso) {
-    throw new Error(dadosCancelamento.xMotivoEvento || 'Cancelamento de NFC-e rejeitado pela SEFAZ.');
+    const err = new Error(
+      dadosCancelamento.cStatEvento
+        ? `Cancelamento da NFC-e rejeitado pela SEFAZ (cStat ${dadosCancelamento.cStatEvento}): ${dadosCancelamento.xMotivoEvento || 'sem motivo informado'}. A NFC-e e a venda permanecem como estavam.`
+        : (dadosCancelamento.xMotivoEvento || 'Cancelamento de NFC-e rejeitado pela SEFAZ.')
+    );
+    err.sefaz = dadosCancelamento;
+    throw err;
   }
 
   await new Promise((resolve, reject) => {
@@ -93,6 +99,8 @@ justificativa: ${justificativa.trim()}
       resolve();
     });
   });
+
+  return dadosCancelamento;
 }
 
 async function vincularNfceTransacoesVenda(vendaId, fiscal) {

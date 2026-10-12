@@ -1869,19 +1869,25 @@ function calcularDistribuicaoFiscalLocal(itens, vendaFiscal = false) {
             };
         }
 
-        const precoUnitario = Number(item.preco_unitario || 0);
-        const subtotalVenda = Number((qtdVenda * precoUnitario).toFixed(2));
-        let valorFiscal;
-        let valorNaoFiscal;
-
-        if (qtdEstoque > 0 && qtdEstoque !== qtdVenda) {
-            const ratioFiscal = resultado.quantidadeFiscal / qtdEstoque;
-            valorFiscal = Number((subtotalVenda * ratioFiscal).toFixed(2));
-            valorNaoFiscal = Number((subtotalVenda - valorFiscal).toFixed(2));
+        const centavos = (v) => Math.round((Number(v || 0) + Number.EPSILON) * 100);
+        const precoUnitario = Number(item.preco_unitario_interno || item.preco_unitario || 0);
+        const subtotalVenda = item.subtotal != null && item.subtotal !== ''
+            ? Number(item.subtotal)
+            : Number((qtdVenda * precoUnitario).toFixed(2));
+        const centavosLinha = Math.max(0, centavos(subtotalVenda));
+        let centavosFiscal;
+        if (resultado.quantidadeNaoFiscal <= 1e-9) {
+            centavosFiscal = centavosLinha;
+        } else if (resultado.quantidadeFiscal <= 1e-9) {
+            centavosFiscal = 0;
+        } else if (qtdEstoque > 0 && qtdEstoque !== qtdVenda) {
+            centavosFiscal = centavos(subtotalVenda * (resultado.quantidadeFiscal / qtdEstoque));
         } else {
-            valorFiscal = Number((resultado.quantidadeFiscal * precoUnitario).toFixed(2));
-            valorNaoFiscal = Number((resultado.quantidadeNaoFiscal * precoUnitario).toFixed(2));
+            centavosFiscal = centavos(resultado.quantidadeFiscal * precoUnitario);
         }
+        centavosFiscal = Math.max(0, Math.min(centavosLinha, centavosFiscal));
+        const valorFiscal = centavosFiscal / 100;
+        const valorNaoFiscal = (centavosLinha - centavosFiscal) / 100;
 
         totalFiscal += valorFiscal;
         totalNaoFiscal += valorNaoFiscal;
@@ -2764,10 +2770,7 @@ function abrirModalNcmProdutoPdv(produto, callback) {
     $('#modalNcmProdutoPdv').remove();
     const nomeProduto = String(produto && produto.nome ? produto.nome : '').trim()
         || 'Este produto';
-    const nomeExibicao = (window.PdvBuscaProduto
-        && typeof PdvBuscaProduto.nomeExibicaoProdutoPdv === 'function')
-        ? String(PdvBuscaProduto.nomeExibicaoProdutoPdv(produto) || nomeProduto).trim()
-        : nomeProduto;
+    const nomeExibicao = produto && produto.nome ? nomeExibicaoProdutoConsultaPdv(produto) : nomeProduto;
     const ncmInicial = pdvNcmDigitos(produto && produto.ncm).slice(0, 8);
     const html = `
         <div class="modal fade" id="modalNcmProdutoPdv" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
@@ -2886,7 +2889,7 @@ function abrirModalNcmProdutoPdv(produto, callback) {
     }).on('click', function (e) {
         e.preventDefault();
         e.stopImmediatePropagation();
-        copiarTextoSimplesPdv(nomeExibicao, 'Nome copiado. Cole na busca do NCM.');
+        copiarTextoSimplesPdv(nomeProduto, 'Nome copiado. Cole na busca do NCM.');
         setTimeout(focarInputNcm, 0);
     });
     $('#inputNcmProdutoPdv').off('input.ncmPdv paste.ncmPdv blur.ncmPdv').on('input.ncmPdv paste.ncmPdv', function () {
@@ -3055,7 +3058,14 @@ function abrirModalTransferirEstoquePdv(callback) {
                 <div class="modal-content">
                     <div class="modal-body text-center py-4">
                         <p class="mb-0 fw-bold fs-5">Transferir estoque?</p>
+                        <small class="text-muted">← → para escolher · Enter para confirmar</small>
                     </div>
+                    <style>
+                        #modalTransferirEstoquePdv .modal-footer .btn:focus {
+                            outline: 3px solid #212529;
+                            outline-offset: 2px;
+                        }
+                    </style>
                     <div class="modal-footer justify-content-center py-2">
                         <button type="button" class="btn btn-secondary" id="btnTransferirEstoqueNao">NÃO</button>
                         <button type="button" class="btn btn-primary" id="btnTransferirEstoqueSim">SIM</button>
@@ -3068,17 +3078,35 @@ function abrirModalTransferirEstoquePdv(callback) {
     const modalEl = document.getElementById('modalTransferirEstoquePdv');
     const modal = new bootstrap.Modal(modalEl);
     let decidido = false;
+    let abertoEm = 0;
     const onKeydownCaptura = (e) => {
         if (!document.getElementById('modalTransferirEstoquePdv')) return;
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
             e.preventDefault();
             e.stopPropagation();
+            // Enter do leitor de código de barras logo na abertura não decide a pergunta.
+            if (e.repeat || !abertoEm || Date.now() - abertoEm < 400) return;
+            const selecionado = document.activeElement;
+            if (selecionado === document.getElementById('btnTransferirEstoqueSim')) {
+                finalizar(true);
+            } else if (selecionado === document.getElementById('btnTransferirEstoqueNao')) {
+                finalizar(false);
+            }
             return;
         }
         if (e.key === 'Escape' || e.key === 'Esc') {
             e.preventDefault();
             e.stopPropagation();
             finalizar(false);
+            return;
+        }
+        if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+            e.preventDefault();
+            e.stopPropagation();
+            const btnNao = document.getElementById('btnTransferirEstoqueNao');
+            const btnSim = document.getElementById('btnTransferirEstoqueSim');
+            const alvo = document.activeElement === btnNao ? btnSim : btnNao;
+            if (alvo) alvo.focus({ preventScroll: true });
         }
     };
     const finalizar = (sim) => {
@@ -3102,6 +3130,7 @@ function abrirModalTransferirEstoquePdv(callback) {
     $(modalEl).off('shown.bs.modal.transferir').on('shown.bs.modal.transferir', function () {
         const btnNao = document.getElementById('btnTransferirEstoqueNao');
         if (btnNao) btnNao.focus({ preventScroll: true });
+        abertoEm = Date.now();
     });
     $(modalEl).off('hidden.bs.modal.transferir').on('hidden.bs.modal.transferir', function () {
         document.removeEventListener('keydown', onKeydownCaptura, true);
@@ -4044,7 +4073,8 @@ function renderCarrinhoItens() {
         const extrasHtml = [badgeDescontoAtacado, modoAtacadoBadge, infoVendaUnidade]
             .filter(Boolean)
             .join('');
-        const miniaturaHtml = htmlMiniaturaProdutoPdv(produto, item.nome);
+        const nomeExibicaoItem = nomeExibicaoProdutoConsultaPdv(item);
+        const miniaturaHtml = htmlMiniaturaProdutoPdv(produto, nomeExibicaoItem);
 
         return `
             <tr ${classe ? `class="${classe}"` : ''} data-item-index="${index}">
@@ -4062,7 +4092,7 @@ function renderCarrinhoItens() {
                     <div class="pdv-produto-cell">
                       ${miniaturaHtml}
                       <div class="pdv-produto-texto">
-                        <span class="pdv-produto-nome">${escapeHtml(item.nome)}</span>
+                        <span class="pdv-produto-nome">${escapeHtml(nomeExibicaoItem)}</span>
                         ${extrasHtml ? `<div class="pdv-produto-extras">${extrasHtml}</div>` : ''}
                       </div>
                     </div>
@@ -4555,7 +4585,7 @@ function adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExt
         ? quantidadeTotalPrevistaBruta
         : (etiquetaBalanca
             ? normalizarQuantidadeEtiquetaPdv(quantidadeTotalPrevistaBruta)
-            : Number(quantidadeTotalPrevistaBruta.toFixed(2)));
+            : Number(quantidadeTotalPrevistaBruta.toFixed(3)));
     const quantidadeEstoqueValidacao = obterQuantidadeEstoqueParaVenda(produto, quantidadeTotalPrevista, tipoVenda);
 
     const analiseTransferencia = pdvAnalisarTransferenciaEstoque(produto, quantidadeEstoqueValidacao, {
@@ -4667,7 +4697,7 @@ function adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExt
             ? novaQuantidadeBruta
             : (etiquetaBalanca
                 ? normalizarQuantidadeEtiquetaPdv(novaQuantidadeBruta)
-                : Number(novaQuantidadeBruta.toFixed(2)));
+                : Number(novaQuantidadeBruta.toFixed(3)));
         const novaQuantidadeEstoque = obterQuantidadeEstoqueParaVenda(
             produto,
             quantidadeTotalPrevista,
@@ -4742,7 +4772,7 @@ function adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExt
 
             const qtdCarrinho = tipoVendaEhUnidade(tipoVenda)
                 ? quantidade
-                : (etiquetaBalanca ? normalizarQuantidadeEtiquetaPdv(quantidade) : Number(quantidade.toFixed(2)));
+                : (etiquetaBalanca ? normalizarQuantidadeEtiquetaPdv(quantidade) : Number(quantidade.toFixed(3)));
 
             const novoItem = {
                 linha_id: decisaoComposicao.linha_id
@@ -4802,7 +4832,7 @@ function adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExt
     destacarLinhaCarrinho(idxDestaque);
     atualizarCarrinho();
     const msgDesconto = percentualPromocao > 0 ? ` (Promoção -${percentualPromocao}%)` : '';
-    showNotification(`${produto.nome} adicionado ao carrinho${msgDesconto}${mensagemExtra}.`, 'success');
+    showNotification(`${nomeExibicaoProdutoConsultaPdv(produto)} adicionado ao carrinho${msgDesconto}${mensagemExtra}.`, 'success');
     focarCampoCodigo({ limpar: true });
 }
 
@@ -4818,7 +4848,7 @@ function abrirModalModoVendaProduto(produto, callback) {
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <p class="mb-3 fw-bold">${escapeHtml(produto.nome || 'Produto')}</p>
+                        <p class="mb-3 fw-bold">${escapeHtml(produto.nome ? nomeExibicaoProdutoConsultaPdv(produto) : 'Produto')}</p>
                         <div class="form-check mb-2">
                             <input class="form-check-input" type="radio" name="modoVendaProduto" id="modoVendaPeso" value="PESO" checked>
                             <label class="form-check-label" for="modoVendaPeso">Peso</label>
@@ -5623,7 +5653,7 @@ function removerItemCarrinho(index) {
     const finish = () => {
         carrinho.splice(index, 1);
         atualizarCarrinho();
-        showNotification(`${item.nome} removido do carrinho.`, 'info');
+        showNotification(`${nomeExibicaoProdutoConsultaPdv(item)} removido do carrinho.`, 'info');
         focarCampoCodigo({ limpar: true });
     };
 
@@ -5768,9 +5798,37 @@ function atualizarCarrinho() {
     persistirVendaAbertaPdv();
 }
 
+function centavosPdv(valor) {
+    if (typeof CdsPoliticaMonetaria !== 'undefined' && typeof CdsPoliticaMonetaria.toCents === 'function') {
+        return CdsPoliticaMonetaria.toCents(Number(valor || 0));
+    }
+    return Math.round((Number(valor || 0) + Number.EPSILON) * 100);
+}
+
+/** Valor da linha em R$ (2 casas): o mesmo exibido na linha e enviado como subtotal do item. */
+function valorLinhaCarrinhoPdv(item) {
+    if (motorPrecoAtacadoDisponivel()) {
+        return Number(item.subtotal_exibicao ?? MotorPrecoAtacado.arredondarMoeda(Number(item.subtotal || 0)));
+    }
+    return Math.round(Number(item.subtotal || 0) * 100) / 100;
+}
+
+/**
+ * Preço interno (6 casas) que reproduz o valor da linha. Etiqueta de valor mantém o
+ * preço/kg impresso em preco_unitario; o interno passa a ser valor ÷ quantidade.
+ */
+function precoInternoCoerenteLinhaPdv(item, quantidade, valorLinha) {
+    const interno = Number(item.preco_unitario || 0);
+    const qtd = Number(quantidade || 0);
+    if (!(qtd > 0)) return interno;
+    const reproduzido = MotorPrecoAtacado.arredondarMoeda(MotorPrecoAtacado.arredondarInterno(interno * qtd));
+    if (centavosPdv(reproduzido) === centavosPdv(valorLinha)) return interno;
+    return MotorPrecoAtacado.arredondarInterno(valorLinha / qtd);
+}
+
 function calcularSubtotal() {
-    const soma = carrinho.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
-    return motorPrecoAtacadoDisponivel() ? MotorPrecoAtacado.arredondarMoeda(soma) : soma;
+    const centavos = carrinho.reduce((acc, item) => acc + centavosPdv(valorLinhaCarrinhoPdv(item)), 0);
+    return centavos / 100;
 }
 
 function calcularTotalValor() {
@@ -6166,6 +6224,11 @@ function abrirPagamentoMisto() {
         return 'R$ ' + Number(v || 0).toFixed(2).replace('.', ',');
     }
 
+    /** Centavos inteiros: R$ 0,01 real bloqueia; ruído de ponto flutuante não. */
+    function centavosMisto(v) {
+        return Math.round((Number(v || 0) + Number.EPSILON) * 100);
+    }
+
     const opcoes = {
         dinheiro_pix: [
             { id: 'pgDinheiro', label: 'Dinheiro', forma: 'dinheiro' },
@@ -6330,14 +6393,15 @@ function abrirPagamentoMisto() {
     }
 
     function atualizarTotais() {
-        let informado = 0;
+        let centavosInformados = 0;
 
         $('.pagamento-misto-input').each(function () {
-            informado += Number($(this).val() || 0);
+            centavosInformados += centavosMisto($(this).val());
         });
 
-        const falta = totalVenda - informado;
-        const somaCorreta = Math.abs(falta) <= 0.01;
+        const informado = centavosInformados / 100;
+        const falta = (centavosMisto(totalVenda) - centavosInformados) / 100;
+        const somaCorreta = centavosInformados === centavosMisto(totalVenda);
         const valorCredito = Number($('#pgCredito').val() || 0);
         const parcelasCredito = obterParcelasCreditoMisto();
         const parcelasCorretas = valorCredito <= 0 || parcelasCredito != null;
@@ -6409,7 +6473,7 @@ function abrirPagamentoMisto() {
             if (valor > 0) {
                 pagamentosMistos.push({
                     forma_pagamento: forma,
-                    valor,
+                    valor: centavosMisto(valor) / 100,
                     ...(forma === 'cartao_credito' ? { parcelas: validacao.parcelasCredito } : {})
                 });
             }
@@ -6708,9 +6772,7 @@ async function executarFinalizacaoVenda(emitirFiscal = false, cpfCnpjNota = null
             const quantidade = tipoVendaEhUnidade(tipoVenda)
                 ? Math.max(0, Math.round(Number(item.quantidade || 0)))
                 : normalizarQuantidadePdv(item.quantidade, produto);
-            const subtotalFiscal = motorPrecoAtacadoDisponivel()
-                ? Number(item.subtotal_exibicao ?? MotorPrecoAtacado.arredondarMoeda(Number(item.subtotal || 0)))
-                : Math.round(Number(item.preco_unitario) * Number(quantidade) * 100) / 100;
+            const subtotalFiscal = valorLinhaCarrinhoPdv(item);
             const itemPayload = {
             produto_id: Number(item.id),
             quantidade,
@@ -6718,7 +6780,7 @@ async function executarFinalizacaoVenda(emitirFiscal = false, cpfCnpjNota = null
                 ? MotorPrecoAtacado.formatarPrecoExibicao(Number(item.preco_unitario))
                 : Number(item.preco_unitario),
             preco_unitario_interno: motorPrecoAtacadoDisponivel()
-                ? Number(item.preco_unitario)
+                ? precoInternoCoerenteLinhaPdv(item, quantidade, subtotalFiscal)
                 : null,
             desconto_percentual: Number(item.desconto_percentual || 0),
             desconto_valor: Number(item.desconto_valor != null
@@ -6788,6 +6850,12 @@ async function executarFinalizacaoVenda(emitirFiscal = false, cpfCnpjNota = null
         );
         totalFiscal = Number(valoresDistribuidos.valor_fiscal || 0);
         totalNaoFiscal = Number(valoresDistribuidos.valor_nao_fiscal || 0);
+    }
+
+    if (totalFiscal < 0 || totalNaoFiscal < 0
+        || centavosPdv(totalFiscal) + centavosPdv(totalNaoFiscal) !== centavosPdv(total)) {
+        showNotification('Distribuição fiscal divergente do total da venda. Nada foi cobrado; revise os itens.', 'danger');
+        return;
     }
 
     vendaEmProcessamento = true;
@@ -7442,7 +7510,7 @@ function abrirModalQuantidadeProduto(produto, callback, opcoes = {}) {
                     </div>
 
                     <div class="modal-body">
-                        <p class="mb-2 fw-bold">${produto.nome}</p>
+                        <p class="mb-2 fw-bold">${escapeHtml(nomeExibicaoProdutoConsultaPdv(produto))}</p>
 
                         <label class="form-label">
                             ${vendaPorUnidade ? 'Quantidade' : (fracionado ? `Quantidade em ${unidade}` : 'Quantidade')}
@@ -8654,17 +8722,21 @@ function nomeCategoriaProdutoConsulta(produto) {
     return nome || 'Sem categoria';
 }
 
+/**
+ * Nome exibido no PDV: "NOME — MARCA" (regra comum de CdsBuscaProdutoTexto).
+ * Itens do carrinho guardam só o nome; a marca vem do catálogo pelo produto_id.
+ */
 function nomeExibicaoProdutoConsultaPdv(p) {
-    if (typeof window.PdvBuscaProduto?.nomeExibicaoProdutoPdv === 'function') {
-        return window.PdvBuscaProduto.nomeExibicaoProdutoPdv(p);
+    const formatar = window.CdsBuscaProdutoTexto?.formatarNomeProdutoComMarca;
+    const nome = String(p?.nome || '').trim();
+    if (!formatar || !nome) return nome || '-';
+    let marca = window.CdsBuscaProdutoTexto.obterMarcaProduto(p);
+    if (!marca) {
+        const id = Number(p?.produto_id ?? p?.id);
+        const doCatalogo = id ? (produtosDisponiveis || []).find((x) => Number(x.id) === id) : null;
+        marca = window.CdsBuscaProdutoTexto.obterMarcaProduto(doCatalogo);
     }
-    const nome = String(p?.nome || '').trim() || '-';
-    const marca = String(p?.marca || p?.marca_nome || '').trim();
-    if (!marca) return nome;
-    const nomeNorm = nome.toLowerCase();
-    const marcaNorm = marca.toLowerCase();
-    if (nomeNorm === marcaNorm || nomeNorm.startsWith(`${marcaNorm} `)) return nome;
-    return `${marca} ${nome}`;
+    return formatar(nome, marca) || '-';
 }
 
 function montarLinhaProdutoConsultaPDV(p) {

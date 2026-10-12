@@ -1,8 +1,8 @@
 /**
  * MiipLearningService — Único serviço autorizado a persistir aprendizado MIIP.
  *
- * Sprint 5: grava associações em `miip_associacoes` com confirmação explícita
- * ou auto-aprendizado RC9.3 (AUTO_VINCULAR / origem auto_*).
+ * Sprint 5: grava associações em `miip_associacoes` somente com confirmação explícita
+ * do operador. Sprint 2.4: origem `auto_*` (identificação automática) é rejeitada.
  *
  * Nenhum Engine grava aprendizado — toda persistência via `MiipAssociacoesRepository`.
  *
@@ -12,6 +12,7 @@
 const MiipLearningEvent = require('../core/MiipLearningEvent');
 const MiipConfidence = require('../core/MiipConfidence');
 const { MiipAssociacoesRepository } = require('../repositories/MiipAssociacoesRepository');
+const { ProdutoRepository } = require('../repositories/ProdutoRepository');
 const { normalizarCnpj } = require('../utils/normalizarCnpj');
 const { normalizarCodigoFornecedor } = require('../utils/normalizarCodigoFornecedor');
 const { mapearItemCompraParaIdentificavel } = require('../utils/mapearItemCompra');
@@ -19,6 +20,12 @@ const learningMetrics = require('../metrics/MiipLearningMetricsCollector');
 const aprendizadoLogService = require('../logs/MiipAprendizadoLogService');
 
 const SCORE_CONFIRMACAO = 100;
+
+const TIPO_CONFIRMACAO_MANUAL = 'manual_operador';
+
+function origemAutomatica(origem) {
+  return String(origem ?? '').trim().toLowerCase().startsWith('auto_');
+}
 
 /** Estado retornado quando associação ativa conflita com produto novo — decisão na UI. */
 const ESTADO_ASSOCIACAO_EXISTENTE_DIFERENTE = 'ASSOCIACAO_EXISTENTE_DIFERENTE';
@@ -40,10 +47,14 @@ class MiipLearningService {
    * @param {import('../repositories/MiipAssociacoesRepository')} [deps.associacoesRepository]
    * @param {import('../metrics/MiipLearningMetricsCollector')} [deps.metricsCollector]
    * @param {import('../logs/MiipAprendizadoLogService')} [deps.logService]
+   * @param {import('../repositories/ProdutoRepository')} [deps.produtoRepository]
    * @param {Object|null} [deps.db]
    */
   constructor(deps = {}) {
     this._associacoesRepository = deps.associacoesRepository ?? new MiipAssociacoesRepository({
+      db: deps.db ?? null
+    });
+    this._produtoRepository = deps.produtoRepository ?? new ProdutoRepository({
       db: deps.db ?? null
     });
     this._metrics = deps.metricsCollector ?? learningMetrics;
@@ -103,6 +114,9 @@ class MiipLearningService {
    * @returns {{ valido: boolean, motivo: string|null }}
    */
   validarConfirmacao(entrada) {
+    if (origemAutomatica(entrada.origem)) {
+      return { valido: false, motivo: 'aprendizado_automatico_nao_permitido' };
+    }
     if (!entrada.confirmado) {
       return { valido: false, motivo: 'confirmacao_usuario_obrigatoria' };
     }
@@ -116,6 +130,27 @@ class MiipLearningService {
       return { valido: false, motivo: 'produto_id_obrigatorio' };
     }
 
+    return { valido: true, motivo: null };
+  }
+
+  /**
+   * O produto confirmado precisa existir e estar ativo para virar mapeamento.
+   *
+   * @param {Object} entrada
+   * @returns {Promise<{ valido: boolean, motivo: string|null }>}
+   */
+  async validarProdutoConfirmado(entrada) {
+    let produto = null;
+    try {
+      produto = await this._produtoRepository.buscarPorId(entrada.produtoId);
+    } catch (_) {
+      return { valido: false, motivo: 'produto_nao_validado' };
+    }
+    if (!produto) return { valido: false, motivo: 'produto_inexistente' };
+    const ativo = produto.ativo;
+    if (!(ativo == null || ativo === 1 || ativo === '1' || ativo === true)) {
+      return { valido: false, motivo: 'produto_inativo' };
+    }
     return { valido: true, motivo: null };
   }
 
@@ -187,7 +222,10 @@ class MiipLearningService {
       duracaoMs: 0
     });
 
-    const validacao = this.validarConfirmacao(entrada);
+    let validacao = this.validarConfirmacao(entrada);
+    if (validacao.valido) {
+      validacao = await this.validarProdutoConfirmado(entrada);
+    }
     if (!validacao.valido) {
       const resultado = {
         sucesso: false,
@@ -292,6 +330,30 @@ class MiipLearningService {
   }
 
   /**
+   * Mapeamento antigo gravado sem pessoa (auto_*) confirmado agora pelo operador
+   * passa a valer como confirmação manual; a origem anterior fica nos metadados.
+   *
+   * @private
+   * @returns {Promise<Object|null>} associação atualizada, ou null se nada mudou
+   */
+  async _promoverMapeamentoAutomatico(existente, atualizada, entrada) {
+    if (!origemAutomatica(existente?.origem)) return null;
+    if (typeof this._associacoesRepository.atualizar !== 'function') return null;
+    const metadados = {
+      ...((atualizada && atualizada.metadados) || existente.metadados || {}),
+      tipo_confirmacao: TIPO_CONFIRMACAO_MANUAL,
+      origem_anterior: existente.origem,
+      confirmada_manual_em: new Date().toISOString(),
+      confirmada_manual_por: entrada.usuario ?? null
+    };
+    return this._associacoesRepository.atualizar(existente.id, {
+      origem: entrada.origem,
+      confirmadoPorUsuarioId: entrada.usuario ?? null,
+      metadados
+    });
+  }
+
+  /**
    * @private
    * @param {Object} entrada
    * @param {MiipLearningEvent} evento
@@ -314,7 +376,7 @@ class MiipLearningService {
         });
       }
 
-      if (!entrada.confirmarSubstituicao && !String(entrada.origem || '').startsWith('auto_')) {
+      if (!entrada.confirmarSubstituicao) {
         return this._retornarAssociacaoExistenteDiferente(entrada, existente, evento);
       }
 
@@ -339,6 +401,7 @@ class MiipLearningService {
         confirmadoPorUsuarioId: entrada.usuario,
         metadados: {
           servico: 'MiipLearningService',
+          tipo_confirmacao: TIPO_CONFIRMACAO_MANUAL,
           evento: evento.toJSON(),
           substituiuAssociacaoId: existente.id
         }
@@ -361,9 +424,11 @@ class MiipLearningService {
     }
 
     if (existente && existente.status === 'ativa' && Number(existente.produtoId) === entrada.produtoId) {
-      const atualizada = await this._associacoesRepository.incrementarConfirmacoes(existente.id, {
+      let atualizada = await this._associacoesRepository.incrementarConfirmacoes(existente.id, {
         usuarioId: entrada.usuario
       });
+      const promovida = await this._promoverMapeamentoAutomatico(existente, atualizada, entrada);
+      if (promovida) atualizada = promovida;
 
       return {
         sucesso: true,
@@ -371,11 +436,12 @@ class MiipLearningService {
         rejeitado: false,
         reutilizacao: true,
         reativada: false,
+        promovida: Boolean(promovida),
         associacaoId: atualizada?.id ?? existente.id,
         confirmacoes: atualizada?.confirmacoes ?? (existente.confirmacoes + 1),
         operacaoId: entrada.operacaoId,
         evento: evento.toJSON(),
-        motivo: 'confirmacao_incrementada'
+        motivo: promovida ? 'mapeamento_automatico_confirmado' : 'confirmacao_incrementada'
       };
     }
 
@@ -383,9 +449,11 @@ class MiipLearningService {
       await this._associacoesRepository.reativarAssociacao(existente.id, {
         usuarioId: entrada.usuario
       });
-      const atualizada = await this._associacoesRepository.incrementarConfirmacoes(existente.id, {
+      let atualizada = await this._associacoesRepository.incrementarConfirmacoes(existente.id, {
         usuarioId: entrada.usuario
       });
+      const promovida = await this._promoverMapeamentoAutomatico(existente, atualizada, entrada);
+      if (promovida) atualizada = promovida;
 
       return {
         sucesso: true,
@@ -393,6 +461,7 @@ class MiipLearningService {
         rejeitado: false,
         reutilizacao: false,
         reativada: true,
+        promovida: Boolean(promovida),
         associacaoId: atualizada?.id ?? existente.id,
         confirmacoes: atualizada?.confirmacoes ?? 1,
         operacaoId: entrada.operacaoId,
@@ -420,6 +489,7 @@ class MiipLearningService {
       confirmadoPorUsuarioId: entrada.usuario,
       metadados: {
         servico: 'MiipLearningService',
+        tipo_confirmacao: TIPO_CONFIRMACAO_MANUAL,
         evento: evento.toJSON()
       }
     });
@@ -448,3 +518,4 @@ class MiipLearningService {
 
 module.exports = MiipLearningService;
 module.exports.ESTADO_ASSOCIACAO_EXISTENTE_DIFERENTE = ESTADO_ASSOCIACAO_EXISTENTE_DIFERENTE;
+module.exports.TIPO_CONFIRMACAO_MANUAL = TIPO_CONFIRMACAO_MANUAL;

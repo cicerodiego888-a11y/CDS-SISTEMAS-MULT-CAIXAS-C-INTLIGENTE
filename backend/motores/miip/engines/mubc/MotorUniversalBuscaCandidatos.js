@@ -17,7 +17,7 @@ const ItemIdentificavelDTO = require('../../contracts/ItemIdentificavelDTO');
 const { ProdutoRepository } = require('../../repositories/ProdutoRepository');
 const { normalizarGtin } = require('../../utils/normalizarGtin');
 const { normalizarCodigoFornecedor } = require('../../utils/normalizarCodigoFornecedor');
-const CanonicalNormalizer = require('../../utils/CanonicalNormalizer');
+const { extrairTokensDescricao, avaliarDescricao } = require('../../utils/evidenciaDescricao');
 const SynonymDictionary = require('../../utils/SynonymDictionary');
 const metricsCollector = require('../../metrics/MiipMetricsCollector');
 const motorLogService = require('../../logs/MiipMotorLogService');
@@ -26,9 +26,9 @@ const MOTOR_CODIGO = 'motor_mubc';
 const LIMITE_CANDIDATOS = 20;
 const SCORE_MAX_MUBC = 94;
 
+/** cProd não pontua aqui: código do fornecedor só identifica via mapeamento CNPJ + cProd (motor de associação). */
 const PESOS = Object.freeze({
   gtin_exato: 90,
-  codigo_fornecedor: 82,
   codigo_interno: 80,
   plu: 78,
   gtin_parcial: 68,
@@ -43,6 +43,42 @@ const PESOS = Object.freeze({
   embalagem_ok: 4,
   embalagem_diff: -6
 });
+
+const PESO_POR_MOTIVO = Object.freeze({
+  gtin_exato: PESOS.gtin_exato,
+  codigo_interno: PESOS.codigo_interno,
+  plu: PESOS.plu,
+  gtin_parcial: PESOS.gtin_parcial,
+  marca: PESOS.marca,
+  ncm: PESOS.ncm,
+  cest: PESOS.cest,
+  unidade: PESOS.unidade_ok,
+  unidade_diff: PESOS.unidade_diff,
+  embalagem: PESOS.embalagem_ok,
+  embalagem_diff: PESOS.embalagem_diff
+});
+
+/**
+ * Pontuação MUBC a partir dos motivos de relevância. Motivo sem peso (ex.: codigo_fornecedor
+ * gravado por versão antiga) não pontua.
+ *
+ * @param {Array<{tipo: string, tokens?: number, quantidade?: number}>} motivos
+ * @returns {number}
+ */
+function pontuarMotivos(motivos) {
+  let score = 0;
+  (motivos || []).forEach((m) => {
+    const tipo = m?.tipo;
+    if (tipo === 'descricao' || tipo === 'descricao_medida') {
+      score += PESOS.descricao_base + Math.min(Number(m.tokens) || 1, 5) * PESOS.descricao_token;
+    } else if (tipo === 'sinonimo') {
+      score += Math.min(Number(m.quantidade) || 1, 3) * PESOS.sinonimo;
+    } else if (PESO_POR_MOTIVO[tipo] != null) {
+      score += PESO_POR_MOTIVO[tipo];
+    }
+  });
+  return Math.max(0, Math.min(SCORE_MAX_MUBC, Math.round(score)));
+}
 
 class MotorUniversalBuscaCandidatos extends IMotorIdentificacao {
   /**
@@ -81,22 +117,7 @@ class MotorUniversalBuscaCandidatos extends IMotorIdentificacao {
    * @private
    */
   _extrairTokens(nome) {
-    if (!nome) return [];
-    let canonico = String(nome).toUpperCase();
-    try {
-      const produto = CanonicalNormalizer.normalizar(nome);
-      canonico = produto?.canonico || produto?.original || canonico;
-    } catch {
-      /* fallback */
-    }
-
-    return String(canonico)
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^A-Z0-9\s]/g, ' ')
-      .split(/\s+/)
-      .filter((t) => t.length >= 2)
-      .filter((t) => !/^(DE|DA|DO|DAS|DOS|E|COM|SEM|PARA|UM|UMA)$/i.test(t));
+    return extrairTokensDescricao(nome);
   }
 
   /**
@@ -138,39 +159,28 @@ class MotorUniversalBuscaCandidatos extends IMotorIdentificacao {
    */
   _calcularRelevancia(hit, item, tokensXml, sinonimos) {
     const motivos = [];
-    let score = 0;
     const motivosHit = new Set(hit.motivos || []);
 
     if (motivosHit.has('gtin_exato')) {
-      score += PESOS.gtin_exato;
       motivos.push({ tipo: 'gtin_exato', rotulo: 'GTIN exato' });
     }
-    if (motivosHit.has('codigo_fornecedor')) {
-      score += PESOS.codigo_fornecedor;
-      motivos.push({ tipo: 'codigo_fornecedor', rotulo: 'Código do fornecedor' });
-    }
     if (motivosHit.has('codigo_interno')) {
-      score += PESOS.codigo_interno;
       motivos.push({ tipo: 'codigo_interno', rotulo: 'Código interno' });
     }
     if (motivosHit.has('plu')) {
-      score += PESOS.plu;
       motivos.push({ tipo: 'plu', rotulo: 'PLU' });
     }
     if (motivosHit.has('gtin_parcial')) {
-      score += PESOS.gtin_parcial;
       motivos.push({ tipo: 'gtin_parcial', rotulo: 'GTIN parcial' });
     }
 
     const nomeCad = String(hit.snapshot?.nome || '').toUpperCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    let tokensHit = 0;
-    tokensXml.forEach((t) => {
-      if (nomeCad.includes(t)) tokensHit += 1;
-    });
-    if (tokensHit > 0) {
-      score += PESOS.descricao_base + Math.min(tokensHit, 5) * PESOS.descricao_token;
-      motivos.push({ tipo: 'descricao', rotulo: 'Descrição semelhante', tokens: tokensHit });
+    const descricao = avaliarDescricao(tokensXml, hit.snapshot?.nome);
+    if (descricao) {
+      motivos.push(descricao.tipo === 'descricao'
+        ? { tipo: 'descricao', rotulo: 'Descrição semelhante', tokens: descricao.tokens }
+        : { tipo: 'descricao_medida', rotulo: 'Só medida ou unidade coincide', tokens: descricao.tokens });
     }
 
     let sinHit = 0;
@@ -178,60 +188,45 @@ class MotorUniversalBuscaCandidatos extends IMotorIdentificacao {
       if (nomeCad.includes(s)) sinHit += 1;
     });
     if (sinHit > 0) {
-      score += Math.min(sinHit, 3) * PESOS.sinonimo;
-      motivos.push({ tipo: 'sinonimo', rotulo: 'Sinônimo' });
+      motivos.push({ tipo: 'sinonimo', rotulo: 'Sinônimo', quantidade: Math.min(sinHit, 3) });
     }
 
     const marcaXml = String(item.marca || item.marcaNome || '').trim().toUpperCase();
     const marcaCad = String(hit.snapshot?.marcaNome || hit.snapshot?.atributos?.marca || '').trim().toUpperCase();
-    if (marcaXml && marcaCad && (marcaCad.includes(marcaXml) || marcaXml.includes(marcaCad))) {
-      score += PESOS.marca;
-      motivos.push({ tipo: 'marca', rotulo: 'Mesma marca' });
-    } else if (motivosHit.has('marca')) {
-      score += PESOS.marca;
+    if ((marcaXml && marcaCad && (marcaCad.includes(marcaXml) || marcaXml.includes(marcaCad)))
+      || motivosHit.has('marca')) {
       motivos.push({ tipo: 'marca', rotulo: 'Mesma marca' });
     }
 
     const ncmXml = String(item.ncm || '').replace(/\D/g, '');
     const ncmCad = String(hit.snapshot?.ncm || '').replace(/\D/g, '');
     if (ncmXml && ncmCad && ncmXml === ncmCad) {
-      score += PESOS.ncm;
       motivos.push({ tipo: 'ncm', rotulo: 'Mesmo NCM' });
     }
 
     const cestXml = String(item.cest || '').replace(/\D/g, '');
     const cestCad = String(hit.snapshot?.cest || '').replace(/\D/g, '');
     if (cestXml && cestCad && cestXml === cestCad) {
-      score += PESOS.cest;
       motivos.push({ tipo: 'cest', rotulo: 'Mesmo CEST' });
     }
 
     const uXml = this._normalizarUnidade(item.unidade);
     const uCad = this._normalizarUnidade(hit.snapshot?.unidade);
     if (uXml && uCad) {
-      if (uXml === uCad) {
-        score += PESOS.unidade_ok;
-        motivos.push({ tipo: 'unidade', rotulo: 'Mesma unidade' });
-      } else {
-        score += PESOS.unidade_diff;
-        motivos.push({ tipo: 'unidade_diff', rotulo: 'Unidade diferente' });
-      }
+      motivos.push(uXml === uCad
+        ? { tipo: 'unidade', rotulo: 'Mesma unidade' }
+        : { tipo: 'unidade_diff', rotulo: 'Unidade diferente' });
     }
 
     const embXml = this._normalizarUnidade(item.embalagem || item.unidadeEmbalagem);
     const embCad = this._normalizarUnidade(hit.snapshot?.atributos?.embalagem);
     if (embXml && embCad) {
-      if (embXml === embCad) {
-        score += PESOS.embalagem_ok;
-        motivos.push({ tipo: 'embalagem', rotulo: 'Mesma embalagem' });
-      } else {
-        score += PESOS.embalagem_diff;
-        motivos.push({ tipo: 'embalagem_diff', rotulo: 'Embalagem diferente' });
-      }
+      motivos.push(embXml === embCad
+        ? { tipo: 'embalagem', rotulo: 'Mesma embalagem' }
+        : { tipo: 'embalagem_diff', rotulo: 'Embalagem diferente' });
     }
 
-    score = Math.max(0, Math.min(SCORE_MAX_MUBC, Math.round(score)));
-    return { score, motivos };
+    return { score: pontuarMotivos(motivos), motivos };
   }
 
   /**
@@ -314,8 +309,7 @@ class MotorUniversalBuscaCandidatos extends IMotorIdentificacao {
 
     const hits = await this._produtoRepository.buscarCandidatosUniversais({
       gtin,
-      codigoFornecedor,
-      codigoInterno: dto.codigoInterno || dto.codigo || null,
+      codigoInterno: dto.codigoInterno || (codigoFornecedor ? null : dto.codigo) || null,
       plu: dto.plu || null,
       tokens,
       sinonimos,
@@ -330,7 +324,7 @@ class MotorUniversalBuscaCandidatos extends IMotorIdentificacao {
       .map((hit) => {
         const rel = this._calcularRelevancia(hit, dto, tokens, sinonimos);
         if (rel.score < 25 && !(hit.motivos || []).some((m) =>
-          ['gtin_exato', 'codigo_fornecedor', 'codigo_interno', 'plu', 'gtin_parcial'].includes(m))) {
+          ['gtin_exato', 'codigo_interno', 'plu', 'gtin_parcial'].includes(m))) {
           return null;
         }
         return this._montarCandidato(hit, rel);
@@ -409,3 +403,4 @@ module.exports = MotorUniversalBuscaCandidatos;
 module.exports.MOTOR_CODIGO = MOTOR_CODIGO;
 module.exports.LIMITE_CANDIDATOS = LIMITE_CANDIDATOS;
 module.exports.SCORE_MAX_MUBC = SCORE_MAX_MUBC;
+module.exports.pontuarMotivos = pontuarMotivos;

@@ -45,19 +45,48 @@ function cfopPredominanteDe(cfops) {
 }
 
 /**
- * CSOSN (Simples) ou CST ICMS (regime normal) — primeiro item.
+ * Código tributário do grupo ICMS (filho único de <ICMS>: ICMS00…ICMS90, ICMSPart, ICMSST, ICMSSN101…ICMSSN900).
+ * O valor vem do campo CST (2 dígitos) ou CSOSN (3 dígitos) dentro do grupo, nunca do nome da tag.
+ * Grupo com ambos os campos é ambíguo e não gera código.
+ */
+function codigoTributarioDoBlocoIcms(blocoIcms) {
+  const grupo = String(blocoIcms || '').match(/<(ICMS[A-Za-z0-9]+)\b[^>]*>([\s\S]*?)<\/\1>/);
+  if (!grupo) return { grupo: null, tipo: null, valor: '' };
+  const cst = primeiroMatch(grupo[2], /<CST[^>]*>\s*(\d{2})\s*<\/CST>/);
+  const csosn = primeiroMatch(grupo[2], /<CSOSN[^>]*>\s*(\d{3})\s*<\/CSOSN>/);
+  if (cst && csosn) return { grupo: grupo[1], tipo: null, valor: '' };
+  if (csosn) return { grupo: grupo[1], tipo: 'CSOSN', valor: csosn };
+  if (cst) return { grupo: grupo[1], tipo: 'CST', valor: cst };
+  return { grupo: grupo[1], tipo: null, valor: '' };
+}
+
+function blocoIcmsDe(trecho) {
+  return String(trecho || '').match(/<ICMS>([\s\S]*?)<\/ICMS>/)?.[1] || '';
+}
+
+/**
+ * CSOSN/CST de cada item (<det>), na ordem do XML.
+ * @returns {Array<{ nItem: string|null, grupo: string|null, tipo: 'CST'|'CSOSN'|null, valor: string }>}
+ */
+function extrairCsosnOuCstItens(xml) {
+  const itens = [];
+  const re = /<det\b([^>]*)>([\s\S]*?)<\/det>/gi;
+  let m;
+  while ((m = re.exec(String(xml || ''))) !== null) {
+    const nItem = m[1].match(/nItem="(\d+)"/)?.[1] || null;
+    itens.push({ nItem, ...codigoTributarioDoBlocoIcms(blocoIcmsDe(m[2])) });
+  }
+  return itens;
+}
+
+/**
+ * CSOSN (Simples) ou CST ICMS (regime normal) do documento — primeiro item que informa o código.
  */
 function extrairCsosnOuCst(xml) {
-  const csosn = primeiroMatch(xml, /<CSOSN[^>]*>(\d{3})<\/CSOSN>/i);
-  if (csosn) return { tipo: 'CSOSN', valor: csosn };
-
-  // CST dentro de bloco ICMS (evitar confundir com PIS/COFINS/IPI)
-  const blocoIcms = primeiroMatch(xml, /<(ICMS\d+|ICMSSN\d+)[^>]*>[\s\S]*?<\/\1>/i)
-    || String(xml || '').match(/<ICMS>[\s\S]*?<\/ICMS>/i)?.[0]
-    || '';
-  const cst = primeiroMatch(blocoIcms || xml, /<CST[^>]*>(\d{2})<\/CST>/i);
-  if (cst) return { tipo: 'CST', valor: cst };
-  return { tipo: null, valor: '' };
+  const itens = extrairCsosnOuCstItens(xml);
+  const candidatos = itens.length ? itens : [codigoTributarioDoBlocoIcms(blocoIcmsDe(xml))];
+  const encontrado = candidatos.find((i) => i.tipo);
+  return encontrado ? { tipo: encontrado.tipo, valor: encontrado.valor } : { tipo: null, valor: '' };
 }
 
 function extrairCstPis(xml) {
@@ -77,6 +106,22 @@ function extrairCstIpi(xml) {
 }
 
 /**
+ * Documentos referenciados em <NFref> (somente os que constam no XML).
+ * @returns {{ chavesNFe: string[], outras: number }}
+ */
+function extrairReferenciasDocumentos(xml) {
+  const blocos = String(xml || '').match(/<NFref>[\s\S]*?<\/NFref>/gi) || [];
+  const chavesNFe = [];
+  let outras = 0;
+  blocos.forEach((bloco) => {
+    const chave = primeiroMatch(bloco, /<refNFe[^>]*>(\d{44})<\/refNFe>/i);
+    if (chave) chavesNFe.push(chave);
+    else outras += 1;
+  });
+  return { chavesNFe, outras };
+}
+
+/**
  * @param {string} xml
  * @returns {Object}
  */
@@ -88,6 +133,8 @@ function extrairSinaisFiscaisDoXml(xml) {
     cfopPredominante: cfopPredominanteDe(cfops),
     natureza: textoTag(xml, 'natOp') || '',
     finalidade: textoTag(xml, 'finNFe') || null,
+    tipoOperacao: textoTag(xml, 'tpNF') || null,
+    referencias: extrairReferenciasDocumentos(xml),
     csosn: csosnCst.tipo === 'CSOSN' ? csosnCst.valor : '',
     cstIcms: csosnCst.tipo === 'CST' ? csosnCst.valor : '',
     csosnOuCst: csosnCst.valor || '',
@@ -110,7 +157,9 @@ module.exports = {
   extrairDadosFiscaisXml,
   textoTag,
   todosCfops,
+  extrairReferenciasDocumentos,
   extrairCsosnOuCst,
+  extrairCsosnOuCstItens,
   extrairCstPis,
   extrairCstCofins,
   extrairCstIpi

@@ -127,15 +127,15 @@ function montarXml(caso) {
   return `<?xml version="1.0" encoding="UTF-8"?>
     <NFe>
       <infNFe Id="NFe${chave}" versao="4.00">
-        <ide><cUF>35</cUF><mod>55</mod><serie>1</serie><nNF>${caso.nf}</nNF><dhEmi>2026-10-01T10:00:00-03:00</dhEmi></ide>
+        <ide><cUF>35</cUF>${caso.natOp ? `<natOp>${caso.natOp}</natOp>` : ''}<mod>55</mod><serie>1</serie><nNF>${caso.nf}</nNF><dhEmi>2026-10-01T10:00:00-03:00</dhEmi>${caso.finNFe ? `<finNFe>${caso.finNFe}</finNFe>` : ''}${caso.refNFe ? `<NFref><refNFe>${caso.refNFe}</refNFe></NFref>` : ''}</ide>
         <emit><CNPJ>${CNPJ_FORNECEDOR}</CNPJ><xNome>Fornecedor Sprint 2</xNome></emit>
         <det nItem="1"><prod>
           <cProd>${caso.codigo}</cProd><cEAN>${caso.gtin}</cEAN><xProd>${caso.nome}</xProd>
-          <NCM>00000000</NCM><CFOP>5102</CFOP>
+          <NCM>${caso.ncm || '00000000'}</NCM><CFOP>${caso.cfop || '5102'}</CFOP>
           <uCom>${caso.uCom}</uCom><qCom>${caso.qCom}</qCom><vUnCom>${caso.vUnCom.toFixed(2)}</vUnCom>
           <vProd>${vProd}</vProd><cEANTrib>${caso.gtin}</cEANTrib>
           <uTrib>${caso.uTrib}</uTrib><qTrib>${caso.qTrib}</qTrib><vUnTrib>${caso.vUnTrib.toFixed(2)}</vUnTrib>
-        </prod><imposto /></det>
+        </prod>${caso.impostoXml || '<imposto />'}</det>
         <total><ICMSTot><vProd>${vProd}</vProd><vNF>${vProd}</vNF></ICMSTot></total>
       </infNFe>
     </NFe>`;
@@ -164,6 +164,7 @@ function criarPaginaCompras(app) {
   const requisicoes = [];
   const errosCallback = [];
   let ultimoHtmlAnexado = '';
+  const htmlAnexados = [];
 
   function semearCampos(html) {
     for (const tag of String(html).matchAll(/<(input|textarea)\b([^>]*)>/gi)) {
@@ -218,6 +219,7 @@ function criarPaginaCompras(app) {
       append(conteudo) {
         if (typeof conteudo === 'string') {
           ultimoHtmlAnexado = conteudo;
+          htmlAnexados.push(conteudo);
           semearCampos(conteudo);
         }
         return proxy;
@@ -302,7 +304,8 @@ function criarPaginaCompras(app) {
 
   const confirmacoesModal = {
     politicaEntradaModal: '#politicaEntradaConfirmar|click',
-    resumoFiscalEntradaModal: '#btnConfirmarEscrituracaoFiscal|click'
+    resumoFiscalEntradaModal: '#btnConfirmarEscrituracaoFiscal|click',
+    trocaProdutoCentralModal: '#trocaProdutoCentralConfirmar|click'
   };
   class Modal {
     constructor(el) { this.el = el; }
@@ -364,6 +367,7 @@ function criarPaginaCompras(app) {
     },
     showNotification: (mensagem, tipo = 'success') => notificacoes.push({ mensagem, tipo }),
     confirm: () => true,
+    prompt() { throw new Error('prompt() is and will not be supported.'); },
     alert() {}
   };
   context.window = context;
@@ -377,10 +381,12 @@ function criarPaginaCompras(app) {
   return {
     context,
     valores,
+    confirmacoesModal,
     sessao,
     notificacoes,
     requisicoes,
     errosCallback,
+    htmlAnexados,
     avaliar: (codigo) => vm.runInContext(codigo, context)
   };
 }
@@ -415,24 +421,34 @@ async function receberPelaCentral(central, caso, revisao = { decisao: 'ASSOCIAR'
     });
   }
 
+  // Sprint 2 — decisões SIM/NÃO de conversão gravadas pela rota oficial da Central (revalidadas no backend).
+  const conversoes = [];
+  for (const conv of (Array.isArray(revisao.conversoes) ? revisao.conversoes : [])) {
+    const salvo = await central.salvarDecisaoConversaoRevisao(documentoId, conv.indice ?? 0, {
+      decisao: conv.decisao,
+      documento_id: documentoId
+    });
+    conversoes.push(salvo);
+  }
+
   const entrada = await central.finalizarEntrada(documentoId, { usuarioId: null });
   assert.equal(entrada.sucesso, true, JSON.stringify(entrada));
   assert.equal(entrada.proximaAcao, 'ABRIR_COMPRA');
-  return { documentoId: Number(entrada.documentoId || documentoId), dadosCompra: entrada.dadosCompra, xml, statusInicial, itemParse };
+  return { documentoId: Number(entrada.documentoId || documentoId), dadosCompra: entrada.dadosCompra, xml, statusInicial, itemParse, conversoes };
 }
 
 /**
  * Mesmo caminho do "Abrir compra" na Central: abertura da página (loadCompras) até "Confirmar e gravar entrada".
  * `antesDeGravar(pagina)`: interação na tela entre o carregamento e o saveCompra (ex.: EDITAR a linha).
  */
-async function lancarCompraPelaTela(app, recebimento, { antesDeGravar = null } = {}) {
+async function lancarCompraPelaTela(app, recebimento, { antesDeGravar = null, tipoEntrada = 'REVENDA' } = {}) {
   const pagina = criarPaginaCompras(app);
   pagina.sessao.set('central_abrir_compra', JSON.stringify({
     documentoId: recebimento.documentoId,
     origem: 'CENTRAL_NFE',
     dadosCompra: recebimento.dadosCompra
   }));
-  pagina.valores.set('input[name="politica_entrada_import"]:checked', 'REVENDA');
+  pagina.valores.set('input[name="politica_entrada_import"]:checked', tipoEntrada);
 
   pagina.context.loadCompras();
   await aguardar(

@@ -465,9 +465,11 @@
               <input type="text" inputmode="decimal" id="caixa-v2-retirada-valor" class="form-control" placeholder="R$ 0,00" disabled autocomplete="off">
             </div>
             <div class="cds-ui-fc-saldo" id="caixa-v2-saldo-box">
-              <span class="cds-ui-fc-label">Saldo que ficará no caixa</span>
+              <span class="cds-ui-fc-label" id="caixa-v2-saldo-rotulo">Saldo que ficará no caixa</span>
+              <span class="cds-ui-fc-label d-none" id="caixa-v2-troco-rotulo">Troco reservado para o próximo dia</span>
               <strong id="caixa-v2-saldo-final">${dinheiro(0)}</strong>
-              <small class="cds-ui-fc-status__hint">Após a retirada</small>
+              <small class="cds-ui-fc-status__hint" id="caixa-v2-saldo-hint">Após a retirada</small>
+              <small class="cds-ui-fc-status__hint d-none" id="caixa-v2-troco-hint">Esse valor permanecerá no caixa para facilitar o troco nas vendas do próximo dia.</small>
             </div>
           </div>
         </div>
@@ -809,6 +811,10 @@
       const saldo = arred2(conferido - retirada);
       const zero = aplicarVisualDiferenca(diferenca);
       $('#caixa-v2-saldo-final').text(dinheiro(saldo));
+      const troco = modo === 'valor';
+      $('#caixa-v2-saldo-box').toggleClass('is-troco', troco);
+      $('#caixa-v2-saldo-rotulo, #caixa-v2-saldo-hint').toggleClass('d-none', troco);
+      $('#caixa-v2-troco-rotulo, #caixa-v2-troco-hint').toggleClass('d-none', !troco);
       aplicarVisualDivergencia(zero);
     };
 

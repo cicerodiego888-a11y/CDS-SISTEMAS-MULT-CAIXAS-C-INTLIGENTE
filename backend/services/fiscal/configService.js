@@ -40,6 +40,8 @@ async function getFiscalConfig({ validarUrls = true } = {}) {
     'fiscal_numero_atual_nfe',
     'fiscal_token_csc',
     'fiscal_id_csc',
+    'fiscal_token_csc_homologacao',
+    'fiscal_id_csc_homologacao',
     'fiscal_certificado_path',
     'fiscal_certificado_senha',
     'fiscal_regime_tributario',
@@ -129,8 +131,17 @@ async function getFiscalConfig({ validarUrls = true } = {}) {
         proximoNumero: Number(cfg.fiscal_numero_atual_nfe || 0) || 1
       }
     },
-    tokenCSC: cfg.fiscal_token_csc || '',
-    idCSC: cfg.fiscal_id_csc || '',
+    // A SEFAZ emite CSC distinto por ambiente; homologação usa o próprio par quando cadastrado.
+    tokenCSC: (ambienteFiscal === 2 && cfg.fiscal_id_csc_homologacao && cfg.fiscal_token_csc_homologacao)
+      ? cfg.fiscal_token_csc_homologacao
+      : (cfg.fiscal_token_csc || ''),
+    idCSC: (ambienteFiscal === 2 && cfg.fiscal_id_csc_homologacao && cfg.fiscal_token_csc_homologacao)
+      ? cfg.fiscal_id_csc_homologacao
+      : (cfg.fiscal_id_csc || ''),
+    tokenCSCProducao: cfg.fiscal_token_csc || '',
+    idCSCProducao: cfg.fiscal_id_csc || '',
+    tokenCSCHomologacao: cfg.fiscal_token_csc_homologacao || '',
+    idCSCHomologacao: cfg.fiscal_id_csc_homologacao || '',
     certificadoPath: cfg.fiscal_certificado_path || '',
     certificadoSenha: cfg.fiscal_certificado_senha || '',
     crt: String(cfg.fiscal_regime_tributario || '1'),
@@ -172,6 +183,23 @@ async function getFiscalConfig({ validarUrls = true } = {}) {
       modelo: '55',
       serie: nfe.serie,
       proximoNumero: nfe.numero
+    };
+  } catch (_) { /* numeração opcional no GET */ }
+  try {
+    const { previsualizarProximaNumeracaoFiscal } = require('./numeracaoFiscalService');
+    const nfce = await previsualizarProximaNumeracaoFiscal({
+      cnpj: out.cnpj,
+      ambiente: out.ambiente,
+      modelo: '65',
+      serie: out.serie
+    });
+    // numeroAtual mantém a semântica legada "último usado" (UI exibe numeroAtual + 1).
+    out.numeroAtual = nfce.numero - 1;
+    out.numeracaoDocumentos.nfce = {
+      modelo: '65',
+      serie: nfce.serie,
+      proximoNumero: nfce.numero,
+      fonte: 'fiscal_numeracao'
     };
   } catch (_) { /* numeração opcional no GET */ }
   return out;

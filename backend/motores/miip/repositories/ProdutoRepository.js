@@ -50,10 +50,22 @@ class ProdutoRepository {
    * @param {Function} [deps.isMipEnabled] - override da feature flag
    */
   constructor(deps = {}) {
-    this._db = deps.db ?? resolverDb(deps);
-    this._helpers = this._db ? criarDbHelpers(this._db) : null;
+    this._dbInjetado = deps.db ?? null;
+    this._dbResolvido = null;
+    this._helpersResolvidos = null;
     this._identidadeService = deps.identidadeService ?? null;
     this._isMipEnabled = deps.isMipEnabled ?? null;
+  }
+
+  /** Banco do CDS carregado só no primeiro uso (require do módulo não abre o SQLite). */
+  get _db() {
+    if (!this._dbResolvido) this._dbResolvido = resolverDb(this._dbInjetado);
+    return this._dbResolvido;
+  }
+
+  get _helpers() {
+    if (!this._helpersResolvidos) this._helpersResolvidos = criarDbHelpers(this._db);
+    return this._helpersResolvidos;
   }
 
   /**
@@ -182,6 +194,63 @@ class ProdutoRepository {
   }
 
   /**
+   * Todos os produtos (ativos e inativos) que possuem o código de barras —
+   * no cadastro principal ou como identificador comercial ativo.
+   * Zeros à esquerda não diferenciam códigos (EAN-13 "0789…" = UPC "789…").
+   *
+   * @param {string} gtin - GTIN já normalizado
+   * @returns {Promise<ProdutoSnapshot[]>}
+   */
+  async listarPorGtin(gtin) {
+    if (!gtin || !this._helpers) return [];
+    const base = String(gtin).replace(/^0+/, '');
+    if (!base) return [];
+    const variantes = [...new Set([String(gtin), base, ...[8, 12, 13, 14]
+      .filter((n) => n >= base.length)
+      .map((n) => base.padStart(n, '0'))])];
+    const marcadores = variantes.map(() => '?').join(', ');
+
+    await this._helpers.whenReady();
+
+    const ids = new Set();
+    const rows = await this._helpers.all(
+      `SELECT ${COLUNAS_LEITURA} FROM produtos WHERE codigo_barras IN (${marcadores}) ORDER BY id`,
+      variantes
+    );
+    const snapshots = [];
+    (rows || []).forEach((row) => {
+      const snap = this._mapearSnapshot(row);
+      if (snap?.id && !ids.has(snap.id)) {
+        ids.add(snap.id);
+        snapshots.push(snap);
+      }
+    });
+
+    try {
+      const idRows = await this._helpers.all(
+        `SELECT DISTINCT produto_id FROM produto_identificadores
+         WHERE ativo = 1 AND UPPER(tipo) IN ('EAN13', 'EAN8', 'GTIN')
+           AND codigo IN (${marcadores})
+         ORDER BY produto_id`,
+        variantes
+      );
+      for (const r of idRows || []) {
+        const id = Number(r.produto_id);
+        if (!id || ids.has(id)) continue;
+        const snap = await this.buscarPorId(id);
+        if (snap?.id) {
+          ids.add(snap.id);
+          snapshots.push(snap);
+        }
+      }
+    } catch {
+      /* tabela MIP opcional */
+    }
+
+    return snapshots;
+  }
+
+  /**
    * @private
    * Acumula hits por produtoId com motivos de match.
    * @param {Map<number, { snapshot: ProdutoSnapshot, motivos: Set<string> }>} mapa
@@ -241,19 +310,6 @@ class ProdutoRepository {
         );
         this._acumularHits(mapa, rowsParcial, 'gtin_parcial');
       }
-    }
-
-    const codigoFornecedor = filtros.codigoFornecedor
-      ? String(filtros.codigoFornecedor).trim()
-      : '';
-    if (codigoFornecedor) {
-      const rowsCod = await this._helpers.all(
-        `SELECT ${COLUNAS_LEITURA_JOIN} ${fromJoin}
-         WHERE p.codigo = ? OR p.codigo = ?
-         LIMIT 10`,
-        [codigoFornecedor, String(codigoFornecedor).replace(/^0+/, '') || codigoFornecedor]
-      );
-      this._acumularHits(mapa, rowsCod, 'codigo_fornecedor');
     }
 
     const codigoInterno = filtros.codigoInterno ? String(filtros.codigoInterno).trim() : '';

@@ -194,9 +194,10 @@ async function migrarNumeracaoSeNecessario({ cnpj, ambiente }) {
 
   const serie65 = Number(await cfg('fiscal_serie', '1')) || 1;
   if (!(await obterLinhaNumeracao({ cnpj: emp, ambiente: amb, modelo: '65', serie: serie65 }))) {
-    const atual65 = Number(await cfg('fiscal_numero_atual', '1')) || 1;
+    // fiscal_numero_atual (65) guarda o último nNF usado; o próximo é atual + 1.
+    const ultimoUsado65 = Number(await cfg('fiscal_numero_atual', '0')) || 0;
     const max65 = await maxLocalModelo({ modelo: '65', serie: serie65, ambiente: amb, cnpj: emp });
-    const proximo65 = Math.max(1, atual65, max65 + 1);
+    const proximo65 = Math.max(1, ultimoUsado65 + 1, max65 + 1);
     await upsertNumeracao({
       cnpj: emp, ambiente: amb, modelo: '65', serie: serie65, proximoNumero: proximo65
     });
@@ -277,6 +278,54 @@ function logReserva(tag, campos = {}) {
   console.log(`[FISCAL][NUMERACAO][${tag}] ${parts.join(' ')}`);
 }
 
+async function calcularProximoNumeroLivre({ cnpj, ambiente, modelo, serie, ocupadosExtras } = {}) {
+  const emp = cnpjChave(cnpj);
+  const amb = Number(ambiente);
+  const mod = padModelo(modelo);
+  const ser = Number(serie || 1);
+  const peek = await obterProximaNumeracaoFiscal({
+    cnpj: emp, ambiente: amb, modelo: mod, serie: ser
+  });
+  const ocupados = new Set([...(ocupadosExtras || [])].map((n) => Number(n)));
+  if (mod === '55') {
+    try {
+      const { hidratarOcupadosDoHistorico, numeroOcupadoSefazEmMemoria } = require('./nfeNumeracaoNfeService');
+      await hidratarOcupadosDoHistorico();
+      let cand = peek.numero;
+      while (numeroOcupadoSefazEmMemoria({ ambiente: amb, serie: ser, numero: cand })) {
+        ocupados.add(cand);
+        cand += 1;
+      }
+    } catch (_) { /* ocupados opcionais */ }
+  }
+  if (mod === '65') {
+    try {
+      const {
+        hidratarOcupadosNfceDoHistorico,
+        listarNumerosOcupadosNfce
+      } = require('./nfceNumeracaoOcupadosService');
+      await hidratarOcupadosNfceDoHistorico();
+      const lista = await listarNumerosOcupadosNfce({ cnpj: emp, ambiente: amb, serie: ser });
+      for (const n of lista) ocupados.add(Number(n));
+    } catch (_) { /* ocupados opcionais */ }
+  }
+  return proximoLivreDeConjunto(Math.max(peek.numero, (peek.maiorLocal || 0) + 1), ocupados);
+}
+
+/**
+ * Número que a próxima reserva usará, sem consumir nem gravar a sequência.
+ * Mesmo cálculo de reservarProximaNumeracaoFiscal (fonte única para exibição).
+ */
+async function previsualizarProximaNumeracaoFiscal({ cnpj, ambiente, modelo, serie } = {}) {
+  const emp = cnpjChave(cnpj);
+  const amb = Number(ambiente);
+  const mod = padModelo(modelo);
+  const ser = Number(serie || 1);
+  await migrarNumeracaoSeNecessario({ cnpj: emp, ambiente: amb });
+  const numero = await calcularProximoNumeroLivre({ cnpj: emp, ambiente: amb, modelo: mod, serie: ser });
+  return { numero, serie: ser, modelo: mod, ambiente: amb, empresaCnpj: emp };
+}
+
 async function reservarProximaNumeracaoFiscal({
   empresaId,
   cnpj,
@@ -304,33 +353,9 @@ async function reservarProximaNumeracaoFiscal({
         await reconciliarNumeracaoNfce({ cnpj: emp, ambiente: amb, serie: ser });
       } catch (_) { /* best-effort */ }
     }
-    const peek = await obterProximaNumeracaoFiscal({
-      cnpj: emp, ambiente: amb, modelo: mod, serie: ser
+    const usado = await calcularProximoNumeroLivre({
+      cnpj: emp, ambiente: amb, modelo: mod, serie: ser, ocupadosExtras
     });
-    const ocupados = new Set([...(ocupadosExtras || [])].map((n) => Number(n)));
-    if (mod === '55') {
-      try {
-        const { hidratarOcupadosDoHistorico, numeroOcupadoSefazEmMemoria } = require('./nfeNumeracaoNfeService');
-        await hidratarOcupadosDoHistorico();
-        let cand = peek.numero;
-        while (numeroOcupadoSefazEmMemoria({ ambiente: amb, serie: ser, numero: cand })) {
-          ocupados.add(cand);
-          cand += 1;
-        }
-      } catch (_) { /* ocupados opcionais */ }
-    }
-    if (mod === '65') {
-      try {
-        const {
-          hidratarOcupadosNfceDoHistorico,
-          listarNumerosOcupadosNfce
-        } = require('./nfceNumeracaoOcupadosService');
-        await hidratarOcupadosNfceDoHistorico();
-        const lista = await listarNumerosOcupadosNfce({ cnpj: emp, ambiente: amb, serie: ser });
-        for (const n of lista) ocupados.add(Number(n));
-      } catch (_) { /* ocupados opcionais */ }
-    }
-    const usado = proximoLivreDeConjunto(Math.max(peek.numero, (peek.maiorLocal || 0) + 1), ocupados);
     await upsertNumeracao({
       cnpj: emp, ambiente: amb, modelo: mod, serie: ser, proximoNumero: usado + 1
     });
@@ -408,6 +433,7 @@ module.exports = {
   migrarNumeracaoSeNecessario,
   obterProximaNumeracaoFiscal,
   salvarProximaNumeracaoFiscal,
+  previsualizarProximaNumeracaoFiscal,
   reservarProximaNumeracaoFiscal,
   alinharProximoMinimoNfe,
   alinharProximoMinimoNfce,

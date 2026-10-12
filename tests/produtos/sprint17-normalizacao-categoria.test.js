@@ -69,7 +69,8 @@ async function criarDbCadastro() {
   const db = await openDb();
   await run(db, 'CREATE TABLE categorias (id INTEGER PRIMARY KEY, nome TEXT, tipo TEXT DEFAULT \'produto\', ativo INTEGER DEFAULT 1)');
   await run(db, `CREATE TABLE produtos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, codigo TEXT, nome TEXT, categoria_id INTEGER,
+    id INTEGER PRIMARY KEY AUTOINCREMENT, codigo TEXT, nome TEXT, nome_busca TEXT,
+    ativo INTEGER DEFAULT 1, categoria_id INTEGER,
     subcategoria_id INTEGER, unidade TEXT, preco_compra REAL, lucro_percentual REAL,
     preco_venda REAL, estoque_atual REAL, estoque_minimo REAL, fornecedor TEXT,
     ncm TEXT, cfop TEXT, csosn TEXT, origem TEXT, cest TEXT, codigo_barras TEXT,

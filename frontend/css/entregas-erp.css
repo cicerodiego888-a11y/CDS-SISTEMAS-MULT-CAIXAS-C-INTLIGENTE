@@ -1,0 +1,246 @@
+#telaEntregasOperacional {
+    width: 100%;
+    max-width: 100%;
+    padding: 1.25rem clamp(1rem, 2vw, 2rem) 2rem;
+    color: var(--cds-text, #1f2933);
+}
+
+#telaEntregasOperacional .ent-topo {
+    align-items: center;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e6ebf1;
+}
+
+#telaEntregasOperacional .ent-topo h4 {
+    font-size: clamp(1.35rem, 2vw, 1.75rem);
+}
+
+#telaEntregasOperacional .ent-topo small {
+    display: block;
+    margin-top: .3rem;
+    font-size: .9rem;
+}
+
+#telaEntregasOperacional .ent-controles {
+    align-items: center;
+}
+
+#telaEntregasOperacional .ent-busca {
+    position: relative;
+    display: flex;
+    align-items: center;
+    max-width: 42rem;
+    margin: 1rem 0 1.25rem;
+}
+
+#telaEntregasOperacional .ent-busca__icone {
+    position: absolute;
+    left: .9rem;
+    z-index: 2;
+    color: #64748b;
+    pointer-events: none;
+}
+
+#telaEntregasOperacional .ent-busca input {
+    min-width: 0;
+    padding-left: 2.6rem;
+    border-radius: 10px 0 0 10px;
+}
+
+#telaEntregasOperacional .ent-busca button {
+    border-radius: 0 10px 10px 0;
+}
+
+#telaEntregasOperacional .ent-busca__resultado {
+    margin: -.75rem 0 .75rem;
+}
+
+#telaEntregasOperacional #cardsDashboardEntrega .ent-kpis {
+    display: block;
+    margin-bottom: .75rem;
+}
+
+#telaEntregasOperacional #cardsDashboardEntrega .ent-kpis__grupo {
+    padding: .85rem;
+    border-color: #e3eaf2;
+    border-radius: 14px;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, .05);
+}
+
+#telaEntregasOperacional #cardsDashboardEntrega .ent-kpis__linha {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: .65rem;
+}
+
+#telaEntregasOperacional #cardsDashboardEntrega .ent-kpi {
+    display: flex;
+    min-height: 6rem;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: .7rem .8rem;
+    border: 1px solid #e8edf3;
+    border-radius: 11px;
+    background: #fbfcfe;
+}
+
+#telaEntregasOperacional #cardsDashboardEntrega .ent-kpi span {
+    display: flex;
+    min-height: 2.4em;
+    align-items: flex-start;
+    gap: .45rem;
+    font-size: .76rem;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+#telaEntregasOperacional #cardsDashboardEntrega .ent-kpi__icone {
+    flex: 0 0 auto;
+    margin-top: .05rem;
+    color: #64748b;
+    font-size: .8rem;
+}
+
+#telaEntregasOperacional #cardsDashboardEntrega .ent-kpi strong {
+    display: block;
+    margin-top: auto;
+    font-size: clamp(1.4rem, 2vw, 1.9rem);
+    line-height: 1.1;
+}
+
+#telaEntregasOperacional #filtrosStatusEntrega {
+    align-items: center;
+    padding: .75rem;
+    border: 1px solid #e6ebf1;
+    border-radius: 12px;
+    background: #fff;
+}
+
+#telaEntregasOperacional #filtrosStatusEntrega .btn {
+    padding: .45rem .85rem;
+    font-weight: 600;
+}
+
+#telaEntregasOperacional #filtrosStatusEntrega .btn-primary {
+    color: #fff;
+    box-shadow: 0 2px 7px rgba(30, 58, 95, .2);
+}
+
+#telaEntregasOperacional #resumoFiltroEntrega {
+    padding: .1rem .15rem .5rem;
+}
+
+#telaEntregasOperacional #conteudoEntregas .ent-grupo {
+    margin-bottom: 1rem;
+    overflow: hidden;
+    border-radius: 14px;
+}
+
+#telaEntregasOperacional #conteudoEntregas .ent-grupo__head {
+    padding: 1rem 1.15rem;
+}
+
+#telaEntregasOperacional #conteudoEntregas .ent-lista {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .85rem;
+    padding: .85rem;
+}
+
+#telaEntregasOperacional #conteudoEntregas .ent-pedido {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+        "ident valor"
+        "status status"
+        "meta meta"
+        "acoes acoes";
+    gap: .75rem 1rem;
+    align-content: start;
+    padding: 1rem;
+    border: 1px solid #e6ebf1;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, .04);
+}
+
+#telaEntregasOperacional #conteudoEntregas .ent-pedido__cliente {
+    margin-top: .2rem;
+    font-size: 1rem;
+}
+
+#telaEntregasOperacional #conteudoEntregas .ent-pedido__valor {
+    align-self: start;
+    color: #1e3a5f;
+}
+
+#telaEntregasOperacional #conteudoEntregas .ent-pedido__meta {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .7rem;
+    padding: .75rem;
+    border-radius: 9px;
+    background: #f8fafc;
+}
+
+#telaEntregasOperacional #conteudoEntregas .ent-pedido__meta .ent-campo--reserva {
+    grid-column: 1 / -1;
+}
+
+#telaEntregasOperacional #conteudoEntregas .ent-pedido__acoes {
+    padding-top: .15rem;
+}
+
+#telaEntregasOperacional #conteudoEntregas .ent-pedido__acoes .btn {
+    min-height: 36px;
+}
+
+#telaEntregasOperacional .ent-pedido[hidden],
+#telaEntregasOperacional .ent-grupo[hidden] {
+    display: none !important;
+}
+
+@media (max-width: 1200px) {
+    #telaEntregasOperacional #cardsDashboardEntrega .ent-kpis__linha {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    #telaEntregasOperacional #conteudoEntregas .ent-lista {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    #telaEntregasOperacional #conteudoEntregas .ent-pedido {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "ident valor"
+            "status status"
+            "meta meta"
+            "acoes acoes";
+    }
+}
+
+@media (max-width: 575.98px) {
+    #telaEntregasOperacional {
+        padding: 1rem .75rem;
+    }
+
+    #telaEntregasOperacional #cardsDashboardEntrega .ent-kpis__linha {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    #telaEntregasOperacional #conteudoEntregas .ent-pedido__meta {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    @media (max-width: 359.98px) {
+        #telaEntregasOperacional #cardsDashboardEntrega .ent-kpis__linha {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+
+    #telaEntregasOperacional .ent-controles .ent-modo {
+        display: none;
+    }
+}

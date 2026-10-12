@@ -14,8 +14,24 @@
   const MOTOR_LABELS = {
     motor_gtin: 'Código de barras',
     motor_associacao_fornecedor: 'Histórico do fornecedor',
-    motor_mubc: 'Busca universal (MUBC)',
-    motor_similarity: 'Similaridade'
+    motor_mubc: 'Nome parecido',
+    motor_similarity: 'Nome parecido'
+  };
+
+  /** Sprint 2.6 — motivo da pergunta em linguagem do dia a dia (sem termos técnicos). */
+  const MOTIVOS_SIMPLES = {
+    codigo_barras_ambiguo: 'Mais de um produto do seu cadastro tem este mesmo código de barras. Escolha o certo.',
+    mapeamento_automatico_requer_confirmacao: 'Este item já entrou antes ligado ao produto abaixo, mas ninguém confirmou. Confira se é o mesmo.',
+    mapeamento_ambiguo: 'Este item aparece ligado a mais de um produto. Escolha o certo.',
+    mapeamento_fornecedor_invalido: 'O produto usado antes para este item não pode mais ser usado. Escolha outro.',
+    codigo_interno_ambiguo: 'Mais de um produto tem este código. Escolha o certo.',
+    nome_unico_requer_revisao: 'Achamos um produto com nome parecido. Confira se é o mesmo.',
+    nome_ambiguo: 'Achamos alguns produtos com nome parecido. Escolha o certo.',
+    codigo_barras_produto_inativo: 'O produto com este código de barras está desativado no cadastro.',
+    codigo_barras_sem_match: 'Não encontramos este código de barras no seu cadastro.',
+    codigo_barras_sem_match_e_interno_divergente: 'Não encontramos este produto no seu cadastro.',
+    codigo_interno_divergente: 'Não encontramos este produto no seu cadastro.',
+    sem_correspondencia: 'Não encontramos este produto no seu cadastro.'
   };
 
   let estado = null;
@@ -40,15 +56,6 @@
     return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
-  function formatarTempo(ms) {
-    const totalSeg = Math.max(0, Math.floor(Number(ms || 0) / 1000));
-    const h = Math.floor(totalSeg / 3600);
-    const m = Math.floor((totalSeg % 3600) / 60);
-    const s = totalSeg % 60;
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${pad(h)}:${pad(m)}:${pad(s)}`;
-  }
-
   function calcularPrecisao(resumo, confirmadosManualmente) {
     const total = Number(resumo?.totalItens ?? 0);
     if (total <= 0) return 0;
@@ -61,10 +68,15 @@
     return (resultados || []).filter((r) => r.precisaConfirmacao || r.precisaCadastro);
   }
 
+  /** Decisão "cadastrar produto novo": não há candidato a confirmar, mesmo com produto desativado anexado ao aviso. */
+  function pendenciaDeCadastro(pendencia) {
+    return Boolean(pendencia?.precisaCadastro) && !pendencia?.precisaConfirmacao;
+  }
+
   function ordenarPendencias(pendencias) {
     return [...pendencias].sort((a, b) => {
-      const semA = Boolean(a.precisaCadastro && !a.produtoEncontrado);
-      const semB = Boolean(b.precisaCadastro && !b.produtoEncontrado);
+      const semA = pendenciaDeCadastro(a);
+      const semB = pendenciaDeCadastro(b);
       if (semA && !semB) return 1;
       if (!semA && semB) return -1;
       return Number(b.score ?? 0) - Number(a.score ?? 0);
@@ -74,9 +86,9 @@
   function extrairEvidencias(candidato, motor) {
     const lista = [];
     if (motor && MOTOR_LABELS[motor]) lista.push(MOTOR_LABELS[motor]);
-    (candidato?.evidencias || []).forEach((ev) => {
-      const t = ev?.descricao || ev?.tipo || ev?.valor;
-      if (t && !lista.includes(t)) lista.push(String(t));
+    (candidato?.motoresQueVotaram || []).forEach((m) => {
+      const t = MOTOR_LABELS[m];
+      if (t && !lista.includes(t)) lista.push(t);
     });
     (candidato?.atributosExtraidos?.motivosRelevancia || []).forEach((m) => {
       const t = m?.rotulo || m?.tipo;
@@ -92,7 +104,7 @@
     const gtinXml = String(xml.codigo_barras || xml.gtin || '').replace(/\D/g, '');
     const gtinCad = String(produto.codigoBarras || produto.codigo_barras || '').replace(/\D/g, '');
     if (gtinXml && gtinCad && gtinXml !== gtinCad) {
-      diffs.push({ campo: 'GTIN', xml: gtinXml, cds: gtinCad });
+      diffs.push({ campo: 'Código de barras', xml: gtinXml, cds: gtinCad });
     }
     const descXml = String(xml.produto_nome || '').trim();
     const descCad = String(produto.nome || '').trim();
@@ -139,18 +151,35 @@
     return '<i class="fas fa-exclamation-triangle miip-v2-status-icone" aria-hidden="true"></i>';
   }
 
+  const AVISO_PONTUACAO = 'Pontuação de 0 a 100 calculada por regras de semelhança. Não é a probabilidade de ser o mesmo produto.';
+
+  function textoPontuacao(score) {
+    return `${Math.max(0, Math.min(100, Math.round(Number(score) || 0)))}/100`;
+  }
+
   function renderBarraConfianca(score) {
     const I = intel();
     const bar = I?.barraConfianca
       ? I.barraConfianca(score)
       : { score: Math.max(0, Math.min(100, Math.round(Number(score) || 0))), barra: '', tom: 'baixa' };
     return `
-      <div class="miip-v2-confianca miip-v2-confianca--${escapeHtml(bar.tom)}" id="miipV2Comparacao">
+      <div class="miip-v2-confianca miip-v2-confianca--${escapeHtml(bar.tom)}" id="miipV2Comparacao" title="${escapeHtml(AVISO_PONTUACAO)}">
         <div class="miip-v2-confianca-topo">
-          <span>Confiança</span>
-          <strong>${bar.score}%</strong>
+          <span>Semelhança</span>
+          <strong>${textoPontuacao(bar.score)}</strong>
         </div>
-        <div class="miip-v2-confianca-barra" role="img" aria-label="Confiança ${bar.score}%">${escapeHtml(bar.barra)}</div>
+        <div class="miip-v2-confianca-barra" role="img" aria-label="Pontuação de semelhança ${bar.score} de 100">${escapeHtml(bar.barra)}</div>
+        <p class="small text-muted mb-0 miip-v2-confianca-aviso">${escapeHtml(AVISO_PONTUACAO)}</p>
+      </div>
+    `;
+  }
+
+  function renderComparacaoIndisponivel() {
+    return `
+      <div class="alert alert-warning small mb-2" role="alert" id="miipV2ComparacaoIndisponivel">
+        <strong>Comparação indisponível.</strong>
+        O módulo de comparação não foi carregado e os campos não foram analisados.
+        Recarregue a tela (F5) antes de confirmar o produto.
       </div>
     `;
   }
@@ -179,14 +208,14 @@
     if (!evidencias.length) {
       return `
         <div class="miip-v2-justificativa">
-          <h6>Por que este candidato?</h6>
-          <p class="small text-muted mb-0">Sem evidências detalhadas do motor.</p>
+          <h6>Por que sugerimos</h6>
+          <p class="small text-muted mb-0">Sem detalhes.</p>
         </div>
       `;
     }
     return `
       <div class="miip-v2-justificativa">
-        <h6>Por que este candidato?</h6>
+        <h6>Por que sugerimos</h6>
         <ul>
           ${evidencias.map((ev) => `<li><i class="fas fa-check"></i> ${escapeHtml(ev)}</li>`).join('')}
         </ul>
@@ -227,15 +256,15 @@
     if (candidatos.length <= 1) return '';
     return `
       <div class="miip-v2-top-candidatos">
-        <h6>Top candidatos</h6>
+        <h6>Outros produtos parecidos</h6>
         <div class="table-responsive">
           <table class="table table-sm miip-v2-top-table">
             <thead>
               <tr>
-                <th>Confiança</th>
+                <th title="${escapeHtml(AVISO_PONTUACAO)}">Semelhança</th>
                 <th>Produto</th>
                 <th>Marca</th>
-                <th>GTIN</th>
+                <th>Código de barras</th>
                 <th>PLU</th>
                 <th>NCM</th>
                 <th>Preço</th>
@@ -251,7 +280,7 @@
                   : base;
                 return `
                   <tr>
-                    <td><strong>${Number(c.score || 0)}%</strong></td>
+                    <td><strong>${textoPontuacao(c.score)}</strong></td>
                     <td>${escapeHtml(p?.nome || '—')}</td>
                     <td>${escapeHtml(p?.marca || '—')}</td>
                     <td>${escapeHtml(p?.codigoBarras || p?.codigo_barras || '—')}</td>
@@ -279,9 +308,9 @@
         <h6>Imagens</h6>
         <div class="miip-v2-imagens-grid">
           <div class="miip-v2-imagem-col">
-            <span>XML</span>
+            <span>Nota</span>
             ${imgXml
-              ? `<img src="${escapeHtml(imgXml)}" alt="Imagem XML" loading="lazy">`
+              ? `<img src="${escapeHtml(imgXml)}" alt="Imagem da nota" loading="lazy">`
               : '<div class="miip-v2-imagem-vazio">Sem imagem</div>'}
           </div>
           <div class="miip-v2-imagem-seta" aria-hidden="true"><i class="fas fa-arrow-down"></i></div>
@@ -296,19 +325,17 @@
     `;
   }
 
-  function renderRodapeMotores(pendencia, sessao) {
+  function renderRodapeMotores(pendencia) {
     const I = intel();
     const motores = I?.motoresUtilizados
       ? I.motoresUtilizados(pendencia)
       : (pendencia?.motor ? [pendencia.motor] : []);
-    const labels = motores.map((m) => MOTOR_LABELS[m] || m);
-    const tempo = formatarTempo(sessao?.resumo?.tempoProcessamento || 0);
+    const labels = [...new Set(motores.map((m) => MOTOR_LABELS[m]).filter(Boolean))];
+    if (!labels.length) return '';
     return `
       <div class="miip-v2-rodape-motores" data-miip-foco-ocultar>
         <div class="miip-v2-rodape-motores-grid">
-          <span><strong>Motor utilizado:</strong> ${labels.length ? labels.map((l) => escapeHtml(l)).join(' · ') : '—'}</span>
-          <span><strong>Tempo:</strong> ${escapeHtml(tempo)}</span>
-          <span><strong>Versão:</strong> MIIP V2</span>
+          <span><strong>Encontrado por:</strong> ${labels.map((l) => escapeHtml(l)).join(' · ')}</span>
         </div>
       </div>
     `;
@@ -349,10 +376,10 @@
       : (xml.embalagem || xml.mie_rotulo || xml.unidade || '—');
     return `
       <div class="miip-v2-col miip-v2-col--xml">
-        <header class="miip-v2-col-header">Produto XML</header>
+        <header class="miip-v2-col-header">Na nota</header>
         <dl class="miip-v2-dl">
           <dt>Descrição</dt><dd>${escapeHtml(xml.produto_nome || xml.nome || '—')}</dd>
-          <dt>GTIN / Código de Barras</dt><dd>${escapeHtml(xml.codigo_barras || xml.gtin || '—')}</dd>
+          <dt>Código de barras</dt><dd>${escapeHtml(xml.codigo_barras || xml.gtin || '—')}</dd>
           <dt>Código do fornecedor</dt><dd>${escapeHtml(xml.codigo_fornecedor || '—')}</dd>
           <dt>Fornecedor</dt><dd>${escapeHtml(sessao?.fornecedor || '—')}</dd>
           <dt>Marca</dt><dd>${escapeHtml(xml.marca || '—')}</dd>
@@ -372,20 +399,20 @@
     if (!produto || !produto.id) {
       return `
         <div class="miip-v2-col miip-v2-col--cds">
-          <header class="miip-v2-col-header">Produto CDS</header>
-          <p class="small text-muted mb-0">Nenhum produto vinculado no cadastro.</p>
+          <header class="miip-v2-col-header">No seu cadastro</header>
+          <p class="small text-muted mb-0">Nenhum produto escolhido.</p>
         </div>
       `;
     }
     return `
       <div class="miip-v2-col miip-v2-col--cds">
-        <header class="miip-v2-col-header">Produto CDS</header>
+        <header class="miip-v2-col-header">No seu cadastro</header>
         <p class="miip-v2-col-nome">${escapeHtml(produto.nome || '—')}</p>
         <dl class="miip-v2-dl">
           <dt>Descrição</dt><dd>${escapeHtml(produto.nome || '—')}</dd>
           <dt>Código Interno</dt><dd>${escapeHtml(produto.codigo || '—')}</dd>
           <dt>PLU</dt><dd>${escapeHtml(produto.plu || '—')}</dd>
-          <dt>GTIN</dt><dd>${escapeHtml(produto.codigoBarras || produto.codigo_barras || '—')}</dd>
+          <dt>Código de barras</dt><dd>${escapeHtml(produto.codigoBarras || produto.codigo_barras || '—')}</dd>
           <dt>Fornecedor Principal</dt><dd>${escapeHtml(produto.fornecedor || sessao?.fornecedor || '—')}</dd>
           <dt>Marca</dt><dd>${escapeHtml(produto.marca || '—')}</dd>
           <dt>Categoria</dt><dd>${escapeHtml(produto.categoria || '—')}</dd>
@@ -406,14 +433,23 @@
     if (!produto || !produto.id) {
       return `
         <div class="miip-v2-col miip-v2-col--centro">
-          <header class="miip-v2-col-header">Comparação Inteligente</header>
+          <header class="miip-v2-col-header">Comparação</header>
           ${renderMotivosSemCandidato(pendencia)}
+        </div>
+      `;
+    }
+    if (!comparacao) {
+      return `
+        <div class="miip-v2-col miip-v2-col--centro">
+          <header class="miip-v2-col-header">Comparação</header>
+          ${renderComparacaoIndisponivel()}
+          ${renderJustificativa(pendencia)}
         </div>
       `;
     }
     return `
       <div class="miip-v2-col miip-v2-col--centro">
-        <header class="miip-v2-col-header">Comparação Inteligente</header>
+        <header class="miip-v2-col-header">Comparação</header>
         ${renderBarraConfianca(score)}
         ${pendencia.nivelCerteza ? `<p class="miip-v2-nivel small text-muted">${escapeHtml(pendencia.nivelCerteza)}</p>` : ''}
         ${renderLinhasComparacao(comparacao?.linhas || [])}
@@ -441,24 +477,24 @@
         data-miip-painel="identificadores" data-miip-painel-auxiliar id="miipV2Identificadores">
         <button type="button" class="miip-painel-toggle" data-miip-painel-toggle="identificadores"
           aria-expanded="${expandido ? 'true' : 'false'}">
-          <h6 class="mb-0">Identificadores</h6>
+          <h6 class="mb-0">Códigos</h6>
           <span class="miip-painel-chevron" aria-hidden="true">${chevronPainel(expandido)}</span>
         </button>
         <div class="miip-painel-corpo">
           <div class="miip-id-grid">
             <div class="miip-id-col">
-              <strong class="miip-id-titulo">XML</strong>
+              <strong class="miip-id-titulo">Nota</strong>
               <dl class="miip-central-dl miip-central-dl--grid">
-                <dt>GTIN</dt><dd>${escapeHtml(xml.codigo_barras || xml.gtin || '—')}</dd>
-                <dt>Código fornecedor</dt><dd>${escapeHtml(xml.codigo_fornecedor || '—')}</dd>
+                <dt>Código de barras</dt><dd>${escapeHtml(xml.codigo_barras || xml.gtin || '—')}</dd>
+                <dt>Código do fornecedor</dt><dd>${escapeHtml(xml.codigo_fornecedor || '—')}</dd>
                 <dt>NCM</dt><dd>${escapeHtml(xml.ncm || '—')}</dd>
                 <dt>CEST</dt><dd>${escapeHtml(xml.cest || '—')}</dd>
               </dl>
             </div>
             <div class="miip-id-col">
-              <strong class="miip-id-titulo">CDS</strong>
+              <strong class="miip-id-titulo">Cadastro</strong>
               <dl class="miip-central-dl miip-central-dl--grid">
-                <dt>GTIN</dt><dd>${escapeHtml(produto.codigoBarras || produto.codigo_barras || '—')}</dd>
+                <dt>Código de barras</dt><dd>${escapeHtml(produto.codigoBarras || produto.codigo_barras || '—')}</dd>
                 <dt>PLU</dt><dd>${escapeHtml(produto.plu || '—')}</dd>
                 <dt>Código interno</dt><dd>${escapeHtml(produto.codigo || '—')}</dd>
                 <dt>NCM</dt><dd>${escapeHtml(produto.ncm || '—')}</dd>
@@ -503,7 +539,6 @@
   function renderComparacaoV2(pendencia, sessao) {
     const I = intel();
     const xml = pendencia.produtoXML || sessao.itens[pendencia.indice] || {};
-    const linha = obterLinhaIntel(pendencia.indice);
     const mie = obterMieDaPendencia(pendencia);
     const produtosLista = estado?.opcoes?.produtos || [];
     const produtoBase = pendencia.produtoEncontrado
@@ -532,7 +567,7 @@
         tipoXml,
         tipoCds
       })
-      : { linhas: [], divergencias: [], iguais: 0, total: 0 };
+      : null;
 
     return `
       <div class="miip-v2-area">
@@ -545,10 +580,9 @@
         ${renderTopCandidatosTabela(pendencia, produtosLista)}
         <div class="miip-v2-auxiliares">
           ${renderPainelIdentificadores(pendencia, sessao)}
-          ${renderPainelSugestaoPreco(linha)}
           ${renderHistoricoComercial(pendencia)}
         </div>
-        ${renderRodapeMotores(pendencia, sessao)}
+        ${renderRodapeMotores(pendencia)}
       </div>
     `;
   }
@@ -627,13 +661,13 @@
     setTimeout(() => toast.classList.remove('miip-central-toast--visivel'), 4200);
   }
 
-  function enviarAprendizado(pendencia, produtoId, produto) {
+  function enviarAprendizado(pendencia, produtoId, produto, extras = {}) {
     const { opcoes, sessao } = estado;
     const item = sessao.itens[pendencia.indice] || pendencia.produtoXML || {};
     const usuario = opcoes.obterUsuario ? opcoes.obterUsuario() : null;
     const fornecedorCnpj = sessao.fornecedorCnpj;
 
-    if (!fornecedorCnpj || !item.codigo_fornecedor) return Promise.resolve(false);
+    if (!fornecedorCnpj || !item.codigo_fornecedor) return Promise.resolve(null);
 
     return $.ajax({
       url: `${opcoes.apiUrl}/miip/feedback`,
@@ -653,205 +687,80 @@
         operacaoId: pendencia.operacaoId || sessao.operacaoId,
         origem: 'Confirmacao Manual',
         origemDetalhe: 'central_revisao_miip',
-        item
+        item,
+        ...extras
       })
-    }).then(() => true).catch(() => false);
+    }).then((resposta) => resposta || {}).catch(() => null);
   }
 
-  function renderDashboardImpacto() {
-    const impacto = estado?.inteligencia?.impacto;
-    if (!impacto) return '';
-
-    if (!impacto.disponivel) {
-      const expVazio = intel()?.painelExpandido
-        ? intel().painelExpandido(obterPaineisUi(), 'dashboardComercial')
-        : true;
-      return `
-        <div class="miip-painel miip-dash-impacto miip-dash-impacto--vazio${expVazio ? '' : ' miip-painel--recolhido'}"
-          data-miip-painel="dashboardComercial" data-miip-painel-auxiliar>
-          <button type="button" class="miip-painel-toggle" data-miip-painel-toggle="dashboardComercial"
-            aria-expanded="${expVazio ? 'true' : 'false'}">
-            <h6 class="mb-0">Dashboard Comercial</h6>
-            <span class="miip-painel-chevron" aria-hidden="true">${chevronPainel(expVazio)}</span>
-          </button>
-          <div class="miip-painel-corpo">
-            <p class="mb-0">${escapeHtml(impacto.mensagem || 'Histórico insuficiente para cálculo financeiro.')}</p>
+  /** Pergunta simples Sim/Não sobre a Central (Promise<boolean>). */
+  function perguntarSimNao(texto, rotuloSim, rotuloNao) {
+    return new Promise((resolve) => {
+      $('#miipPerguntaSimNao').remove();
+      $('body').append(`
+        <div class="modal fade" id="miipPerguntaSimNao" tabindex="-1" data-bs-backdrop="static">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-body fs-5">${escapeHtml(texto)}</div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-lg" data-resposta="nao">${escapeHtml(rotuloNao)}</button>
+                <button type="button" class="btn btn-primary btn-lg" data-resposta="sim">${escapeHtml(rotuloSim)}</button>
+              </div>
+            </div>
           </div>
         </div>
-      `;
+      `);
+      const el = document.getElementById('miipPerguntaSimNao');
+      elevarModalTemporarioSobreMiip(el);
+      const modal = bootstrap.Modal.getOrCreateInstance(el);
+      let resposta = false;
+      $(el).on('click', '[data-resposta]', function onResposta() {
+        resposta = $(this).data('resposta') === 'sim';
+        modal.hide();
+      });
+      $(el).one('hidden.bs.modal', () => {
+        $(el).remove();
+        resolve(resposta);
+      });
+      modal.show();
+    });
+  }
+
+  /**
+   * Este fornecedor + código já estava ligado a outro produto: a nota atual usa a escolha feita;
+   * trocar para as próximas notas só com o "Sim" do operador.
+   */
+  async function perguntarTrocaDeProduto(pendencia, produtoId, produto, conflito) {
+    const anterior = (estado?.opcoes?.produtos || []).find((p) => Number(p.id) === Number(conflito?.produtoAtual));
+    const nomeAnterior = anterior?.nome ? `“${anterior.nome}”` : 'outro produto';
+    const trocar = await perguntarSimNao(
+      `Nas notas anteriores este item era ligado a ${nomeAnterior}. Usar “${produto?.nome || 'este produto'}” nas próximas notas deste fornecedor?`,
+      'Sim, usar este',
+      'Só nesta nota'
+    );
+    if (!trocar || !estado) return;
+    const resposta = await enviarAprendizado(pendencia, produtoId, produto, { confirmarSubstituicao: true });
+    if (resposta?.sucesso) {
+      estado.sessao.aprendizados += 1;
+      mostrarAprendizado();
+    } else {
+      notificar('Não foi possível guardar a troca. Esta nota continua com o produto escolhido.', 'warning');
     }
-
-    const saldoClasse = Number(impacto.saldo) >= 0 ? 'positivo' : 'negativo';
-    const fmtSinal = (v) => {
-      const n = Number(v) || 0;
-      const abs = formatarMoeda(Math.abs(n));
-      return n > 0 ? `+${abs}` : (n < 0 ? `-${abs}` : abs);
-    };
-
-    const cardMaior = (titulo, item, tom) => {
-      if (!item) {
-        return `
-          <div class="miip-dash-maior miip-dash-maior--${tom}">
-            <span class="miip-dash-maior-titulo">${escapeHtml(titulo)}</span>
-            <span class="text-muted">—</span>
-          </div>`;
-      }
-      return `
-        <div class="miip-dash-maior miip-dash-maior--${tom}"
-          title="${escapeHtml(item.tooltip || '')}"
-          data-bs-toggle="tooltip" data-bs-placement="top">
-          <span class="miip-dash-maior-titulo">${escapeHtml(titulo)}</span>
-          <strong class="miip-dash-maior-nome">${escapeHtml(item.nome)}</strong>
-          <span class="miip-dash-maior-valor">${fmtSinal(item.impactoAbsoluto)}</span>
-        </div>`;
-    };
-
-    const expandido = intel()?.painelExpandido
-      ? intel().painelExpandido(obterPaineisUi(), 'dashboardComercial')
-      : true;
-
-    return `
-      <div class="miip-painel miip-dash-impacto${expandido ? '' : ' miip-painel--recolhido'}"
-        data-miip-painel="dashboardComercial" data-miip-painel-auxiliar
-        aria-label="Dashboard de impacto comercial (somente leitura)">
-        <button type="button" class="miip-painel-toggle" data-miip-painel-toggle="dashboardComercial"
-          aria-expanded="${expandido ? 'true' : 'false'}">
-          <h6 class="mb-0">Dashboard Comercial</h6>
-          <span class="miip-painel-chevron" aria-hidden="true">${chevronPainel(expandido)}</span>
-        </button>
-        <div class="miip-painel-corpo">
-          <div class="miip-dash-impacto-grid">
-            <div class="miip-dash-card miip-dash-card--financeiro">
-              <h6>Impacto Financeiro</h6>
-              <div class="miip-dash-metricas">
-                <div class="miip-dash-metrica miip-dash-metrica--aumento"
-                  title="Soma dos aumentos de custo (NF-e − cadastro) × quantidade">
-                  <span>▲ Aumento Total</span>
-                  <strong>${formatarMoeda(impacto.aumentoTotal)}</strong>
-                </div>
-                <div class="miip-dash-metrica miip-dash-metrica--reducao"
-                  title="Soma das reduções de custo (cadastro − NF-e) × quantidade">
-                  <span>▼ Redução Total</span>
-                  <strong>${formatarMoeda(impacto.reducaoTotal)}</strong>
-                </div>
-                <div class="miip-dash-metrica miip-dash-metrica--saldo-${saldoClasse}"
-                  title="Saldo líquido = aumento total − redução total">
-                  <span>Saldo da NF</span>
-                  <strong>${fmtSinal(impacto.saldo)}</strong>
-                </div>
-              </div>
-            </div>
-            <div class="miip-dash-card miip-dash-card--resumo">
-              <h6>Resumo Comercial</h6>
-              <div class="miip-dash-metricas miip-dash-metricas--compact">
-                <div class="miip-dash-metrica"><span>Produtos</span><strong>${impacto.produtos}</strong></div>
-                <div class="miip-dash-metrica"><span>Produtos Alterados</span><strong>${impacto.produtosAlterados}</strong></div>
-                <div class="miip-dash-metrica"><span>Produtos Novos</span><strong>${impacto.produtosNovos}</strong></div>
-              </div>
-              <div class="miip-dash-maiores">
-                ${cardMaior('Maior aumento', impacto.maiorAumento, 'aumento')}
-                ${cardMaior('Maior redução', impacto.maiorReducao, 'reducao')}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
   }
 
+  /** Faixa do topo: só a situação da conferência dos itens (sem indicadores comerciais). */
   function renderResumoTopo(sessao) {
-    const precisao = calcularPrecisao(sessao.resumo, sessao.confirmadosManualmente);
-    const ind = estado?.inteligencia?.indicadores;
-    const blocoIntel = ind ? `
-        <div class="miip-central-metrica"><span>Produtos</span><strong>${ind.produtos}</strong></div>
-        <div class="miip-central-metrica miip-central-metrica--info"><span>Produtos Novos</span><strong>${ind.produtosNovos}</strong></div>
-        <div class="miip-central-metrica miip-central-metrica--warn"><span>Custo Aumentou</span><strong>${ind.custoAumentou}</strong></div>
-        <div class="miip-central-metrica miip-central-metrica--ok"><span>Custo Reduziu</span><strong>${ind.custoReduziu}</strong></div>
-        <div class="miip-central-metrica"><span>Sem Alteração</span><strong>${ind.semAlteracao}</strong></div>
-        <div class="miip-central-metrica miip-central-metrica--alert"><span>Sem Cadastro</span><strong>${ind.semCadastro}</strong></div>
-    ` : '';
+    const r = sessao.resumo;
+    const contagem = (rotulo, valor, tom) => `
+      <span class="miip-central-contagem${tom ? ` miip-central-contagem--${tom}` : ''}">
+        ${escapeHtml(rotulo)} <strong>${Number(valor) || 0}</strong>
+      </span>`;
     return `
-      ${renderDashboardImpacto()}
-      <div class="miip-central-resumo-grid" data-miip-foco-ocultar>
-        ${blocoIntel}
-        <div class="miip-central-metrica"><span>Itens da Nota</span><strong>${sessao.resumo.totalItens}</strong></div>
-        <div class="miip-central-metrica miip-central-metrica--ok"><span>Associados automaticamente</span><strong>${sessao.resumo.identificadosAutomaticamente}</strong></div>
-        <div class="miip-central-metrica miip-central-metrica--warn"><span>Precisam confirmação</span><strong>${sessao.resumo.precisamConfirmacao}</strong></div>
-        <div class="miip-central-metrica miip-central-metrica--alert"><span>Precisam cadastro</span><strong>${sessao.resumo.precisamCadastro}</strong></div>
-        <div class="miip-central-metrica"><span>Precisão desta importação</span><strong>${precisao}%</strong></div>
-        <div class="miip-central-metrica"><span>Tempo de processamento</span><strong>${formatarTempo(sessao.resumo.tempoProcessamento)}</strong></div>
-      </div>
-      <div data-miip-foco-ocultar>${renderFiltrosInteligencia()}</div>
-      <div data-miip-foco-ocultar>${renderTabelaComparadorCustos()}</div>
-    `;
-  }
-
-  function renderFiltrosInteligencia() {
-    if (!estado?.inteligencia) return '';
-    const I = intel();
-    const ativo = estado.inteligencia.filtroAtivo || I?.FILTROS?.TODOS || 'todos';
-    const filtros = [
-      { id: 'todos', label: 'Todos' },
-      { id: 'alterados', label: 'Alterados' },
-      { id: 'novos', label: 'Novos' },
-      { id: 'sem_cadastro', label: 'Sem Cadastro' },
-      { id: 'divergentes', label: 'Divergentes' }
-    ];
-    return `
-      <div class="miip-central-filtros" role="group" aria-label="Filtros rápidos (somente visual)">
-        ${filtros.map((f) => `
-          <button type="button" class="btn btn-sm ${ativo === f.id ? 'btn-primary' : 'btn-outline-secondary'}"
-            data-miip-filtro="${f.id}">${escapeHtml(f.label)}</button>
-        `).join('')}
-        <span class="miip-central-filtros-hint">Somente leitura — nenhum preço é gravado</span>
-      </div>
-    `;
-  }
-
-  function renderTabelaComparadorCustos() {
-    const I = intel();
-    if (!estado?.inteligencia || !I) return '';
-    const linhas = I.filtrarLinhas(estado.inteligencia, estado.inteligencia.filtroAtivo);
-    if (!linhas.length) {
-      return `<div class="miip-central-comparador"><p class="small text-muted mb-0">Nenhum item neste filtro.</p></div>`;
-    }
-    return `
-      <div class="miip-central-comparador">
-        <div class="miip-central-comparador-titulo">Comparador de custos <small>(somente leitura)</small></div>
-        <div class="table-responsive">
-          <table class="table table-sm miip-central-comparador-table mb-0">
-            <thead>
-              <tr>
-                <th></th>
-                <th>Produto</th>
-                <th class="text-end">Custo Atual</th>
-                <th class="text-end">Custo NF-e</th>
-                <th class="text-end">Diferença %</th>
-                <th>Situação</th>
-                <th class="text-end">Preço Atual</th>
-                <th class="text-end">Margem</th>
-                <th class="text-end">Preço Sugerido</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${linhas.map((l) => {
-                const meta = I.metaSituacao(l.situacao);
-                return `
-                  <tr data-intel-indice="${l.indice}" class="miip-central-comparador-row miip-sit--${escapeHtml(meta.cor)}">
-                    <td><i class="fas ${meta.icone} miip-sit-icone miip-sit-icone--${escapeHtml(meta.cor)}" title="${escapeHtml(meta.label)}"></i></td>
-                    <td>${escapeHtml(l.nome)}</td>
-                    <td class="text-end">${l.custoAtual != null ? formatarMoeda(l.custoAtual) : '—'}</td>
-                    <td class="text-end">${formatarMoeda(l.custoNfe)}</td>
-                    <td class="text-end">${escapeHtml(I.formatarDiffPct(l.diferencaPct))}</td>
-                    <td><span class="miip-central-tag miip-central-tag--${escapeHtml(meta.tom)}">${escapeHtml(meta.label)}</span></td>
-                    <td class="text-end">${l.precoAtual != null ? formatarMoeda(l.precoAtual) : '—'}</td>
-                    <td class="text-end">${Number(l.margemAtual).toFixed(1)}%</td>
-                    <td class="text-end">${formatarMoeda(l.precoSugerido)}</td>
-                  </tr>`;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
+      <div class="miip-central-contagens" id="miipCentralContagens" aria-label="Situação dos itens da nota">
+        ${contagem('Itens da nota', r.totalItens)}
+        ${contagem('Associados automaticamente', r.identificadosAutomaticamente, 'ok')}
+        ${contagem('Precisam confirmação', r.precisamConfirmacao, 'warn')}
+        ${contagem('Precisam cadastro', r.precisamCadastro, 'alert')}
       </div>
     `;
   }
@@ -860,43 +769,11 @@
     return (estado?.inteligencia?.linhas || []).find((l) => Number(l.indice) === Number(indice)) || null;
   }
 
-  function renderPainelSugestaoPreco(linha) {
-    if (!linha) return '';
-    return `
-      <div class="miip-central-sugestao">
-        <h6>Sugestão de preço <small class="text-muted">(não grava automaticamente)</small></h6>
-        <dl class="miip-central-dl miip-central-dl--grid">
-          <dt>Preço Atual</dt><dd>${linha.precoAtual != null ? formatarMoeda(linha.precoAtual) : '—'}</dd>
-          <dt>Margem Atual</dt><dd>${Number(linha.margemAtual).toFixed(1)}%</dd>
-          <dt>Novo Custo (NF-e)</dt><dd>${formatarMoeda(linha.novoCusto)}</dd>
-          <dt>Preço Sugerido</dt><dd><strong>${formatarMoeda(linha.precoSugerido)}</strong></dd>
-        </dl>
-      </div>
-    `;
-  }
-
-  function renderResumoFinalBar() {
-    const ind = estado?.inteligencia?.indicadores;
-    if (!ind) return '';
-    return `
-      <div class="miip-central-resumo-final">
-        <div class="miip-central-resumo-final-grid">
-          <span>Produtos: <strong>${ind.produtos}</strong></span>
-          <span>Produtos Novos: <strong>${ind.produtosNovos}</strong></span>
-          <span>Custo Alterado: <strong>${ind.custoAlterado}</strong></span>
-          <span>Sem Cadastro: <strong>${ind.semCadastro}</strong></span>
-        </div>
-        <p class="miip-central-resumo-final-msg mb-0">${escapeHtml(estado.inteligencia.mensagemResumo || 'Nenhum preço será alterado automaticamente.')}</p>
-      </div>
-    `;
-  }
-
   /**
    * Tela final da revisão: um único CTA — Finalizar Entrada → abre Compras.
    */
   function renderTelaFinalizarEntrada() {
     const { sessao } = estado;
-    const ind = estado?.inteligencia?.indicadores;
     const total = sessao.pendencias.length || sessao.itens.length || 0;
     const resolvidas = sessao.resolvidas.length;
     const ignoradas = sessao.ignoradas.length;
@@ -915,16 +792,6 @@
           As decisões foram salvas. Ao finalizar, a Compra será aberta automaticamente
           com os dados da NF-e para conferência. A compra <strong>não</strong> será gravada automaticamente.
         </p>
-        ${ind ? `
-          <div class="miip-central-resumo-final mb-4 d-inline-block text-start">
-            <div class="miip-central-resumo-final-grid">
-              <span>Produtos: <strong>${ind.produtos}</strong></span>
-              <span>Produtos Novos: <strong>${ind.produtosNovos}</strong></span>
-              <span>Custo Alterado: <strong>${ind.custoAlterado}</strong></span>
-              <span>Sem Cadastro: <strong>${ind.semCadastro}</strong></span>
-            </div>
-          </div>
-        ` : ''}
         <div>
           <button type="button" class="btn btn-success btn-lg" id="miipCentralBtnFinalizarEntrada">
             <i class="fas fa-check-double me-1"></i> Finalizar Entrada
@@ -934,7 +801,6 @@
       </div>
     `);
     $('#miipCentralCandidato').html('');
-    $('#miipCentralResumoFinal').html('');
     $('#miipCentralContador').text('Revisão concluída');
     $('#miipCentralProgressoPersistente').html(
       '<span class="miip-central-progresso-label">Pronto</span><strong>Finalizar Entrada para abrir Compras</strong>'
@@ -943,10 +809,15 @@
     $('#miipCentralBtnFinalizarEntrada').off('click.miipFinalizar').on('click.miipFinalizar', function () {
       const $btn = $(this);
       if ($btn.prop('disabled') || estado?._encerrando) return;
+      if (estado?.conversoes?.bloqueia_efetivacao) {
+        notificar('Há conversões de unidade pendentes. Defina SIM ou NÃO em todas as linhas.', 'warning');
+        return;
+      }
       $btn.prop('disabled', true);
       $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Finalizando entrada...');
       encerrarRevisaoAutomaticamente('finalizar_entrada_manual');
     });
+    carregarConversoesRevisao();
   }
 
   function renderAcoesRapidasDocumento() {
@@ -1299,7 +1170,6 @@
     sessao.pendencias.forEach((pendencia, listaIdx) => {
       if (!pendenciaAberta(sessao, pendencia)) return;
       const linha = obterLinhaIntel(pendencia.indice);
-      if (I && linha && !I.linhaPassaFiltro(linha, prefs.filtro)) return;
       entradas.push({ listaIdx, linha: linha || { indice: pendencia.indice, nome: pendencia.produtoXML?.produto_nome } });
     });
     if (!I?.ordenarEntradasVisuais) return entradas;
@@ -1317,7 +1187,7 @@
       if (!pendencia) return '';
 
       const ativo = idx === sessao.indiceAtual ? ' miip-central-lista-item--ativo' : '';
-      const tipo = pendencia.precisaCadastro && !pendencia.produtoEncontrado ? 'cadastro' : 'confirmacao';
+      const tipo = pendenciaDeCadastro(pendencia) ? 'cadastro' : 'confirmacao';
       const nome = pendencia.produtoXML?.produto_nome || 'Item sem nome';
       const score = Number(pendencia.score ?? 0);
       const mie = obterMieDaPendencia(pendencia);
@@ -1334,8 +1204,8 @@
           </div>
           <div class="miip-central-lista-meta">
             <span class="miip-central-tag miip-central-tag--${tipo}">${tipo === 'cadastro' ? 'Cadastro' : 'Confirmação'}</span>
-            <span>${score > 0 ? `${score}%` : 'Sem candidato'}</span>
-            <span class="miip-central-tag miip-central-tag--embalagem" title="Embalagem (MIE)">${escapeHtml(rotuloEmbalagemMie(mie))}</span>
+            <span${score > 0 ? ` title="${escapeHtml(AVISO_PONTUACAO)}"` : ''}>${score > 0 ? `Semelhança ${textoPontuacao(score)}` : 'Sem candidato'}</span>
+            <span class="miip-central-tag miip-central-tag--embalagem" title="Embalagem">${escapeHtml(rotuloEmbalagemMie(mie))}</span>
           </div>
         </button>
       `;
@@ -1344,8 +1214,151 @@
     return `${renderToolbarOrdenacao(linhasVisiveis)}<div class="miip-central-lista-itens">${itensHtml}</div>`;
   }
 
+  function produtoAtivoUi(produto) {
+    const ativo = produto?.ativo;
+    return ativo == null || ativo === 1 || ativo === '1' || ativo === true;
+  }
+
+  function enriquecerProdutoUi(base) {
+    const I = intel();
+    const lista = estado?.opcoes?.produtos || [];
+    const doCatalogo = lista.find((p) => Number(p.id) === Number(base?.id));
+    const enriquecido = I?.enriquecerProdutoCds ? I.enriquecerProdutoCds(base, lista) : base;
+    return { ...(doCatalogo || {}), ...(enriquecido || {}), id: Number(base?.id) };
+  }
+
+  /**
+   * Sprint 2.6 — produtos que a pergunta oferece com "É este".
+   * Só ativos; com dúvida real (código repetido, nomes parecidos) todos aparecem lado a lado.
+   */
+  function produtosDaPergunta(pendencia) {
+    if (!pendencia) return [];
+    const vistos = new Set();
+    const lista = [];
+    const adicionar = (base) => {
+      const id = Number(base?.id ?? base?.produtoId);
+      if (!id || vistos.has(id)) return;
+      const produto = enriquecerProdutoUi({ ...(base || {}), id });
+      if (!produtoAtivoUi(produto)) return;
+      vistos.add(id);
+      lista.push(produto);
+    };
+    if (String(pendencia.acao || '').toUpperCase() === 'REVISAR_MANUAL') {
+      (pendencia.candidatos || []).slice(0, 6).forEach((c) => adicionar({ ...(c.produto || {}), id: c.produtoId }));
+      return lista;
+    }
+    if (pendencia.produtoEncontrado && !pendencia.precisaCadastro) adicionar(pendencia.produtoEncontrado);
+    return lista;
+  }
+
+  function motivoSimples(pendencia) {
+    const codigos = [pendencia?.motivoIdentificacao, ...(pendencia?.motivos || []), pendencia?.miip_resultado?.decisao?.motivo].filter(Boolean);
+    const conhecido = codigos.find((m) => MOTIVOS_SIMPLES[m]);
+    if (conhecido) return MOTIVOS_SIMPLES[conhecido];
+    if (pendencia?.precisaCadastro || !pendencia?.produtoEncontrado) return MOTIVOS_SIMPLES.sem_correspondencia;
+    return 'Confira se o produto abaixo é o mesmo da nota.';
+  }
+
+  function renderCardProdutoPergunta(produto) {
+    const img = produto.imagem_principal || produto.imagem || null;
+    const detalhes = [
+      produto.unidade ? `Unidade: ${produto.unidade}` : null,
+      produto.estoque != null ? `Estoque: ${produto.estoque}` : (produto.estoque_atual != null ? `Estoque: ${produto.estoque_atual}` : null),
+      produto.preco_venda != null ? `Venda: ${formatarMoeda(produto.preco_venda)}` : null
+    ].filter(Boolean).join(' · ');
+    const barras = produto.codigoBarras || produto.codigo_barras || '';
+    return `
+      <div class="miip-pergunta-card">
+        ${img
+          ? `<img class="miip-pergunta-card-img" src="${escapeHtml(img)}" alt="" loading="lazy">`
+          : '<div class="miip-pergunta-card-img miip-pergunta-card-img--vazia"><i class="fas fa-box"></i></div>'}
+        <div class="miip-pergunta-card-info">
+          <strong>${escapeHtml(produto.nome || 'Produto sem nome')}</strong>
+          ${detalhes ? `<span>${escapeHtml(detalhes)}</span>` : ''}
+          ${barras ? `<span>Código de barras: ${escapeHtml(barras)}</span>` : ''}
+        </div>
+        <button type="button" class="btn btn-success btn-lg miip-pergunta-btn" data-miip-e-este="${Number(produto.id)}">
+          <i class="fas fa-check"></i> É este
+        </button>
+      </div>
+    `;
+  }
+
+  function renderPerguntaSimples(pendencia, sessao) {
+    const xml = pendencia.produtoXML || sessao.itens[pendencia.indice] || {};
+    const produtos = produtosDaPergunta(pendencia);
+    const qtd = xml.quantidade != null ? `${xml.quantidade} ${xml.unidade || ''}`.trim() : '';
+    const unit = Number(xml.preco_unitario ?? xml.valor_unitario ?? 0);
+    const barrasXml = String(xml.codigo_barras || xml.gtin || '').trim();
+    const infoNota = [
+      qtd || null,
+      unit > 0 ? `${formatarMoeda(unit)} cada` : null,
+      barrasXml && !/^sem\s*gtin$/i.test(barrasXml) ? `Código de barras: ${barrasXml}` : null
+    ].filter(Boolean).join(' · ');
+    const inativo = pendencia.produtoEncontrado && !produtoAtivoUi(enriquecerProdutoUi(pendencia.produtoEncontrado))
+      ? pendencia.produtoEncontrado
+      : null;
+
+    const corpo = produtos.length
+      ? `
+        <p class="miip-pergunta-chamada">${produtos.length > 1 ? 'Qual destes é o produto da nota?' : 'É este o produto da nota?'}</p>
+        <div class="miip-pergunta-cards">${produtos.map(renderCardProdutoPergunta).join('')}</div>
+        <div class="miip-pergunta-acoes">
+          <button type="button" class="btn btn-outline-primary btn-lg miip-pergunta-btn" data-miip-acao-simples="escolher">
+            <i class="fas fa-search"></i> Escolher outro
+          </button>
+        </div>
+      `
+      : `
+        ${inativo ? `<p class="miip-pergunta-aviso"><i class="fas fa-ban"></i> “${escapeHtml(inativo.nome || 'Produto')}” tem este código, mas está desativado e não pode ser usado.</p>` : ''}
+        <p class="miip-pergunta-chamada">Este produto já existe no seu cadastro?</p>
+        <div class="miip-pergunta-acoes">
+          <button type="button" class="btn btn-primary btn-lg miip-pergunta-btn" data-miip-acao-simples="escolher">
+            <i class="fas fa-link"></i> Vincular produto
+          </button>
+          <button type="button" class="btn btn-warning btn-lg miip-pergunta-btn" data-miip-acao-simples="cadastrar">
+            <i class="fas fa-plus"></i> Cadastrar produto
+          </button>
+        </div>
+      `;
+
+    const detalhesAbertos = estado?.detalhesAbertos === true;
+    return `
+      <div class="miip-pergunta" id="miipPergunta">
+        <div class="miip-pergunta-item">
+          <span class="miip-pergunta-rotulo">Produto da nota</span>
+          <strong class="miip-pergunta-nome">${escapeHtml(xml.produto_nome || xml.nome || 'Item sem nome')}</strong>
+          ${infoNota ? `<span class="miip-pergunta-info">${escapeHtml(infoNota)}</span>` : ''}
+        </div>
+        <p class="miip-pergunta-motivo">${escapeHtml(motivoSimples(pendencia))}</p>
+        ${corpo}
+        <button type="button" class="btn btn-link btn-sm miip-pergunta-detalhes-toggle" data-miip-acao-simples="detalhes"
+          aria-expanded="${detalhesAbertos ? 'true' : 'false'}">
+          ${detalhesAbertos ? 'Esconder detalhes' : 'Ver detalhes'}
+        </button>
+      </div>
+    `;
+  }
+
   function renderDetalhes(pendencia, sessao) {
-    return renderComparacaoV2(pendencia, sessao);
+    const detalhesAbertos = estado?.detalhesAbertos === true;
+    return `
+      ${renderPerguntaSimples(pendencia, sessao)}
+      <div class="miip-detalhes-tecnicos"${detalhesAbertos ? '' : ' hidden'}>
+        ${renderComparacaoV2(pendencia, sessao)}
+      </div>
+    `;
+  }
+
+  function escolherProdutoDaPergunta(produtoId) {
+    const pendencia = estado?.sessao?.pendencias?.[estado.sessao.indiceAtual];
+    if (!pendencia || !pendenciaAberta(estado.sessao, pendencia)) return;
+    const produto = produtosDaPergunta(pendencia).find((p) => Number(p.id) === Number(produtoId));
+    if (!produto) {
+      notificar('Este produto não pode ser usado. Escolha outro.', 'warning');
+      return;
+    }
+    aplicarConfirmacao(pendencia, produto.id, produto);
   }
 
   function renderHistoricoComercial(pendencia) {
@@ -1441,7 +1454,6 @@
   function renderTelaRevisao() {
     const { sessao } = estado;
     const abertas = contarAbertas(sessao);
-    const I = intel();
 
     if (abertas === 0) {
       estado.sessao.fase = 'final';
@@ -1453,19 +1465,6 @@
       proximaAberta(sessao, 1);
     }
 
-    // RC3.7.6 — se o item atual sumiu pelo filtro visual, avança para o próximo visível
-    if (I && estado.inteligencia) {
-      const filtro = estado.inteligencia.filtroAtivo || 'todos';
-      let tentativas = 0;
-      while (tentativas < sessao.pendencias.length) {
-        const p = sessao.pendencias[sessao.indiceAtual];
-        const linha = obterLinhaIntel(p?.indice);
-        if (pendenciaAberta(sessao, p) && (!linha || I.linhaPassaFiltro(linha, filtro))) break;
-        proximaAberta(sessao, 1);
-        tentativas += 1;
-      }
-    }
-
     const pendencia = sessao.pendencias[sessao.indiceAtual];
     const totalPend = sessao.pendencias.length;
     const resolvidas = sessao.resolvidas.length + sessao.ignoradas.length;
@@ -1474,7 +1473,6 @@
     $('#miipCentralLista').html(renderListaPendencias(sessao));
     $('#miipCentralDetalhes').html(renderDetalhes(pendencia, sessao));
     $('#miipCentralCandidato').html(renderCandidato(pendencia));
-    $('#miipCentralResumoFinal').html(renderResumoFinalBar());
     $('#miipCentralContador').text(
       `${resolvidas + 1} / ${totalPend} · ${abertas} pendente${abertas === 1 ? '' : 's'}`
     );
@@ -1512,7 +1510,7 @@
           <div class="modal-content miip-central-content">
             <div class="modal-header miip-central-header">
               <div>
-                <h5 class="modal-title"><i class="fas fa-robot"></i> Central de Revisão Inteligente <small class="fw-normal opacity-75">MIIP V2</small></h5>
+                <h5 class="modal-title"><i class="fas fa-clipboard-check"></i> Conferir produtos da nota</h5>
                 <small id="miipCentralContador" class="text-muted"></small>
                 <div id="miipCentralProgressoPersistente" class="miip-central-progresso-persistente small"></div>
                 <span id="miipCentralPersistenciaBadge" class="miip-central-persistencia-badge miip-central-persistencia-badge--neutro" aria-live="polite"></span>
@@ -1535,25 +1533,18 @@
                   <div id="miipCentralDetalhes"></div>
                   <div id="miipCentralCandidato"></div>
                   <div class="miip-central-acoes">
-                    <button type="button" class="btn btn-success" id="miipCentralBtnConfirmar"><i class="fas fa-check"></i> Confirmar Produto <small>(Enter)</small></button>
-                    <button type="button" class="btn btn-primary" id="miipCentralBtnEscolher"><i class="fas fa-search"></i> Escolher outro <small>(F2)</small></button>
-                    <button type="button" class="btn btn-warning" id="miipCentralBtnCadastrar"><i class="fas fa-plus"></i> Cadastrar Novo <small>(F3)</small></button>
-                    <button type="button" class="btn btn-outline-secondary" id="miipCentralBtnIgnorar"><i class="fas fa-ban"></i> Ignorar Item</button>
+                    <button type="button" class="btn btn-outline-secondary" id="miipCentralBtnIgnorar"><i class="fas fa-ban"></i> Ignorar item</button>
                   </div>
+                  <div id="miipCentralConversoes" class="miip-central-conversoes" aria-live="polite"></div>
                   <div class="miip-central-atalhos">
-                    <span><kbd>Enter</kbd> Confirmar</span>
-                    <span><kbd>Tab</kbd> Próximo</span>
-                    <span><kbd>Shift</kbd>+<kbd>Tab</kbd> Anterior</span>
-                    <span><kbd>F2</kbd> Pesquisar</span>
+                    <span><kbd>Enter</kbd> É este</span>
+                    <span><kbd>F2</kbd> Escolher outro</span>
                     <span><kbd>F3</kbd> Cadastrar</span>
-                    <span><kbd>Ctrl</kbd>+<kbd>D</kbd> Comparação</span>
-                    <span><kbd>Ctrl</kbd>+<kbd>H</kbd> Histórico</span>
-                    <span><kbd>Ctrl</kbd>+<kbd>I</kbd> Identificadores</span>
+                    <span><kbd>Tab</kbd> Próximo</span>
                     <span><kbd>Esc</kbd> Pausar</span>
                   </div>
                 </section>
               </div>
-              <div id="miipCentralResumoFinal" class="miip-central-resumo-final-wrap"></div>
             </div>
           </div>
         </div>
@@ -1561,16 +1552,16 @@
       <div id="miipCentralAprendizadoToast" class="miip-central-toast">
         <i class="fas fa-check"></i>
         <div>
-          <strong>MIIP aprendeu esta associação.</strong>
-          <span>Próximas importações serão automáticas.</span>
+          <strong>Pronto!</strong>
+          <span>Nas próximas notas deste fornecedor este item será reconhecido.</span>
         </div>
       </div>
       <div class="modal fade" id="miipCentralBuscaModal" tabindex="-1">
         <div class="modal-dialog">
           <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">Pesquisar produto (F2)</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-header"><h5 class="modal-title">Escolher produto do cadastro</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
             <div class="modal-body">
-              <input type="text" class="form-control mb-2" id="miipCentralBuscaInput" placeholder="Descrição, GTIN, código interno, PLU ou código fornecedor...">
+              <input type="text" class="form-control mb-2" id="miipCentralBuscaInput" placeholder="Nome, código de barras ou código do produto...">
               <div id="miipCentralBuscaResultados" class="miip-central-busca-lista"></div>
             </div>
           </div>
@@ -1605,13 +1596,17 @@
     const pendencia = estado.sessao.pendencias[estado.sessao.indiceAtual];
     if (!pendencia || !pendenciaAberta(estado.sessao, pendencia)) return;
 
-    const produtoId = pendencia.produtoEncontrado?.id;
-    if (!produtoId) {
-      notificar('Selecione um produto para continuar.', 'warning');
+    // Com mais de uma opção (ex.: código de barras repetido) o Enter não escolhe o primeiro.
+    const opcoes = produtosDaPergunta(pendencia);
+    if (opcoes.length !== 1) {
+      notificar(
+        opcoes.length > 1 ? 'Clique em “É este” no produto certo.' : 'Selecione um produto para continuar.',
+        'warning'
+      );
       return;
     }
 
-    aplicarConfirmacao(pendencia, produtoId, pendencia.produtoEncontrado);
+    aplicarConfirmacao(pendencia, opcoes[0].id, opcoes[0]);
   }
 
   function atualizarIndicadoresAposResolucao(pendencia) {
@@ -1665,7 +1660,20 @@
         produto_id: produtoId != null ? Number(produtoId) : null,
         item: item || null,
         usuario_id: usuario?.id ?? null,
-        correlation_id: correlationIdRevisao()
+        correlation_id: correlationIdRevisao(),
+        origem_decisao: item?.origem_decisao || 'manual',
+        criterio: item?.criterio_identificacao || item?.criterio || null,
+        associacao: {
+          linha_xml: indice,
+          codigo_barras: item?.codigo_barras || item?.gtin || null,
+          cProd: item?.codigo_fornecedor || item?.cProd || item?.codigo || null,
+          codigo_interno: item?.codigo_interno || null,
+          descricao_xml: item?.produto_nome || item?.descricao || item?.xProd || null,
+          produto_id: produtoId != null ? Number(produtoId) : null,
+          criterio: item?.criterio_identificacao || item?.criterio || null,
+          origem_decisao: item?.origem_decisao || 'manual',
+          estado: decisao
+        }
       })
     }).then(async (response) => {
       const data = await response.json().catch(() => ({}));
@@ -1683,6 +1691,138 @@
       console.error('[MIIP] salvar decisão do item', { indice, decisao, documentoId, error: error.message });
       notificar('Não foi possível salvar esta decisão. Tente novamente.', 'danger');
       return false;
+    });
+  }
+
+  function headersRevisaoCentral() {
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    };
+  }
+
+  function carregarConversoesRevisao() {
+    const documentoId = estado?.opcoes?.documento?.id;
+    const apiUrl = estado?.opcoes?.apiUrl || (typeof API_URL !== 'undefined' ? API_URL : '/api');
+    if (!documentoId || !estado) return Promise.resolve();
+    return fetch(`${apiUrl}/central-entradas/${documentoId}/revisar/conversoes`, {
+      headers: headersRevisaoCentral()
+    }).then(async (response) => {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      estado.conversoes = data;
+      (data.linhas || []).forEach((linha) => {
+        const item = estado.sessao?.itens?.[linha.indice];
+        if (item && linha.conversao_persistida) item.conversao = linha.conversao_persistida;
+      });
+      renderPainelConversoes();
+      return data;
+    }).catch((error) => {
+      console.warn('[MIIP] conversoes revisão', error.message);
+    });
+  }
+
+  function bloqueiaEfetivacaoConversao() {
+    return Boolean(estado?.conversoes?.bloqueia_efetivacao);
+  }
+
+  function renderPainelConversoes() {
+    const host = document.getElementById('miipCentralConversoes');
+    if (!host || !estado) return;
+    const linhas = (estado.conversoes?.linhas || []).filter((linha) => linha.requer_confirmacao);
+    if (!linhas.length) {
+      host.innerHTML = '';
+      const btn = document.getElementById('miipCentralBtnFinalizarEntrada');
+      if (btn && estado.sessao?.fase === 'final') btn.disabled = false;
+      return;
+    }
+
+    const linhasHtml = linhas.map((linha) => {
+      const estadoDec = String(linha.estado_decisao || linha.conversao_persistida?.estado || 'PENDENTE');
+      const erro = linha.justificativa || linha.codigo || '';
+      const simAtivo = estadoDec === 'SIM';
+      const naoAtivo = estadoDec === 'NAO';
+      const resultadoOk = linha.conversao_persistida?.resultado_backend?.ok === true && simAtivo;
+      return `
+        <article class="miip-conv-linha ${escapeHtml(estadoDec.toLowerCase())}" data-indice="${Number(linha.indice)}">
+          <div class="miip-conv-linha__head">
+            <strong>${escapeHtml(linha.produto_nome || linha.descricao_xml || `Linha ${linha.nItem}`)}</strong>
+            <span class="miip-conv-linha__xml">${escapeHtml(linha.descricao_xml || '')}</span>
+          </div>
+          <dl class="miip-conv-linha__dl">
+            <div><dt>Origem</dt><dd>${escapeHtml(String(linha.quantidade_comercial ?? '—'))} ${escapeHtml(linha.unidade_comercial || '')}</dd></div>
+            <div><dt>Estoque</dt><dd>${escapeHtml(linha.unidade_estoque || '—')}</dd></div>
+            <div><dt>qTrib/uTrib</dt><dd>${escapeHtml(String(linha.quantidade_tributavel ?? '—'))} ${escapeHtml(linha.unidade_tributavel || '')}</dd></div>
+            <div><dt>Proposta</dt><dd>${escapeHtml(linha.conversao_sugerida || '—')} → ${escapeHtml(String(linha.quantidade_resultante_proposta ?? '—'))} ${escapeHtml(linha.unidade_estoque || '')}</dd></div>
+          </dl>
+          <p class="miip-conv-linha__motivo">${escapeHtml(erro || 'Confirme a conversão desta linha.')}</p>
+          <div class="miip-conv-linha__acoes">
+            <button type="button" class="btn btn-sm ${simAtivo ? 'btn-success' : 'btn-outline-success'} miip-conv-sim" data-indice="${Number(linha.indice)}" ${estado._persistindoConversao ? 'disabled' : ''}>SIM</button>
+            <button type="button" class="btn btn-sm ${naoAtivo ? 'btn-danger' : 'btn-outline-danger'} miip-conv-nao" data-indice="${Number(linha.indice)}" ${estado._persistindoConversao ? 'disabled' : ''}>NÃO</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary miip-conv-reavaliar" data-indice="${Number(linha.indice)}">Reavaliar</button>
+            ${resultadoOk ? '<span class="badge bg-success">Confirmado no servidor</span>' : (simAtivo || naoAtivo ? '<span class="badge bg-warning text-dark">Aguardando validação</span>' : '<span class="badge bg-secondary">Pendente</span>')}
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    host.innerHTML = `
+      <div class="miip-conv-painel">
+        <h6><i class="fas fa-exchange-alt me-1"></i> Conversões de unidade — confirme cada linha</h6>
+        <p class="small text-muted mb-2">SIM aplica a proposta do MUC só nesta linha. NÃO recusa a sugestão e não grava aprendizado. A efetivação fica bloqueada enquanto houver pendência.</p>
+        ${linhasHtml}
+      </div>
+    `;
+
+    const btn = document.getElementById('miipCentralBtnFinalizarEntrada');
+    if (btn && estado.sessao?.fase === 'final') {
+      btn.disabled = bloqueiaEfetivacaoConversao() || estado._persistindoConversao === true;
+    }
+
+    $(host).off('click.miipConv').on('click.miipConv', '.miip-conv-sim, .miip-conv-nao, .miip-conv-reavaliar', function (ev) {
+      ev.preventDefault();
+      const indice = Number($(this).data('indice'));
+      if ($(this).hasClass('miip-conv-reavaliar')) return persistirConversaoLinha(indice, null);
+      persistirConversaoLinha(indice, $(this).hasClass('miip-conv-sim'));
+    });
+  }
+
+  function persistirConversaoLinha(indice, decisao) {
+    const documentoId = estado?.opcoes?.documento?.id;
+    const apiUrl = estado?.opcoes?.apiUrl || (typeof API_URL !== 'undefined' ? API_URL : '/api');
+    if (!documentoId || estado._persistindoConversao) return Promise.resolve(false);
+    estado._persistindoConversao = true;
+    renderPainelConversoes();
+    const estadoTxt = decisao === true ? 'SIM' : (decisao === false ? 'NAO' : 'PENDENTE');
+    return fetch(`${apiUrl}/central-entradas/${documentoId}/revisar/itens/${indice}/conversao`, {
+      method: 'POST',
+      headers: headersRevisaoCentral(),
+      body: JSON.stringify({
+        decisao: estadoTxt,
+        documento_id: documentoId,
+        usuario_id: estado.opcoes.obterUsuario ? estado.opcoes.obterUsuario()?.id : null
+      })
+    }).then(async (response) => {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        notificar(data.error || 'Não foi possível gravar a conversão desta linha.', 'danger');
+        return false;
+      }
+      if (estado.sessao?.itens?.[indice]) {
+        estado.sessao.itens[indice].conversao = data.conversao;
+        estado.sessao.itens[indice].conversao_decisao = data.conversao?.estado;
+      }
+      if (data.resultado_backend && data.resultado_backend.ok !== true && estadoTxt === 'SIM') {
+        notificar(data.resultado_backend.justificativa || 'O servidor não confirmou esta conversão.', 'warning');
+      }
+      return true;
+    }).catch((error) => {
+      notificar(error.message || 'Falha ao gravar conversão.', 'danger');
+      return false;
+    }).finally(() => {
+      estado._persistindoConversao = false;
+      return carregarConversoesRevisao();
     });
   }
 
@@ -1721,15 +1861,19 @@
     estado._persistindoDecisao = true;
 
     const promessaAprendizado = aprendeuExplicito === false
-      ? Promise.resolve(false)
-      : enviarAprendizado(pendencia, produtoId, produto).catch(() => false);
+      ? Promise.resolve(null)
+      : enviarAprendizado(pendencia, produtoId, produto).catch(() => null);
 
     Promise.all([
       persistirDecisaoItem(pendencia.indice, decisao, produtoId, item),
       promessaAprendizado
-    ]).then(([salvo, aprendeu]) => {
+    ]).then(([salvo, aprendizado]) => {
       estado._persistindoDecisao = false;
       if (!salvo) return;
+      const aprendeu = aprendizado?.sucesso === true;
+      if (aprendizado?.estado === 'ASSOCIACAO_EXISTENTE_DIFERENTE') {
+        perguntarTrocaDeProduto(pendencia, produtoId, produto, aprendizado.conflito);
+      }
 
       if (!estado.sessao.resolvidas.includes(pendencia.indice)) {
         estado.sessao.resolvidas.push(pendencia.indice);
@@ -1741,6 +1885,8 @@
         estado.sessao.aprendizados += 1;
         mostrarAprendizado();
       }
+
+      carregarConversoesRevisao();
 
       if (contarAbertas(estado.sessao) === 0) {
         estado.sessao.fase = 'final';
@@ -1789,7 +1935,7 @@
   }
 
   function abrirBuscaProduto() {
-    const obterCatalogo = () => estado.opcoes.produtos || [];
+    const obterCatalogo = () => (estado.opcoes.produtos || []).filter(produtoAtivoUi);
     const modalEl = document.getElementById('miipCentralBuscaModal');
     if (!modalEl) return;
     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
@@ -2251,7 +2397,7 @@
           <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
               <div class="modal-header">
-                <h5 class="modal-title">Sugestão do Motor MIE</h5>
+                <h5 class="modal-title">Compra por embalagem?</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
               </div>
               <div class="modal-body">
@@ -2702,12 +2848,6 @@
     if (!estado) return;
     const { sessao, opcoes, inteligencia } = estado;
     const ind = inteligencia?.indicadores;
-    if (ind) {
-      notificar(
-        `Resumo: ${ind.produtos} produtos · ${ind.produtosNovos} novos · ${ind.custoAlterado} custo alterado · ${ind.semCadastro} sem cadastro. Nenhum preço será alterado automaticamente.`,
-        'info'
-      );
-    }
     const resultado = {
       itens: sessao.itens,
       estatisticas: {
@@ -2843,6 +2983,8 @@
       modal: null,
       _encerrando: false,
       _persistindoDecisao: false,
+      _persistindoConversao: false,
+      conversoes: null,
       correlationId: opcoes.correlationId || null
     };
 
@@ -2870,6 +3012,7 @@
 
     abrirModal();
     renderTelaRevisao();
+    carregarConversoesRevisao();
     if (opcoes.sessaoPersistente?.recuperada) {
       notificar('Revisão retomada do ponto em que parou.', 'info');
       atualizarBadgePersistencia('Salvo', 'ok');
@@ -2948,16 +3091,23 @@
     $('#miipCentralBtnIgnorar').on('click', ignorarAtual);
     $('#miipCentralBtnCancelar').on('click', cancelarRevisao);
 
-    $('#miipCentralLista').on('click', '.miip-central-lista-item', function onListaClick() {
-      estado.sessao.indiceAtual = Number($(this).data('lista-idx'));
-      renderTelaRevisao();
+    $('#miipCentralCorpo').on('click', '[data-miip-e-este]', function onEEste(e) {
+      e.preventDefault();
+      escolherProdutoDaPergunta(Number($(this).data('miip-e-este')));
+    });
+    $('#miipCentralCorpo').on('click', '[data-miip-acao-simples]', function onAcaoSimples(e) {
+      e.preventDefault();
+      const acao = String($(this).data('miip-acao-simples') || '');
+      if (acao === 'escolher') abrirBuscaProduto();
+      if (acao === 'cadastrar') cadastrarNovo();
+      if (acao === 'detalhes') {
+        estado.detalhesAbertos = !estado.detalhesAbertos;
+        renderTelaRevisao();
+      }
     });
 
-    // RC3.7.6 — filtros visuais (não alteram dados/consulta)
-    $('#miipCentralResumo').on('click', '[data-miip-filtro]', function onFiltroClick() {
-      if (!estado?.inteligencia) return;
-      estado.inteligencia.filtroAtivo = String($(this).data('miip-filtro') || 'todos');
-      persistirPrefsUi();
+    $('#miipCentralLista').on('click', '.miip-central-lista-item', function onListaClick() {
+      estado.sessao.indiceAtual = Number($(this).data('lista-idx'));
       renderTelaRevisao();
     });
 
@@ -3067,6 +3217,10 @@
       extrairPendencias,
       calcularPrecisao,
       montarInteligenciaNaAbertura,
+      renderComparacaoV2,
+      definirEstado(novo) {
+        estado = novo;
+      },
       /** RC7.5 — validação pura do botão Confirmar Produto */
       validarConfirmacao(pendencia) {
         const produtoId = pendencia?.produtoEncontrado?.id;

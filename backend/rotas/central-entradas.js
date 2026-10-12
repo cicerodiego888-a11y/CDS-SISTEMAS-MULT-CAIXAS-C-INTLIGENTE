@@ -1059,6 +1059,75 @@ router.post('/:id/revisar/sessao', async (req, res) => {
   }
 });
 
+router.get('/:id/revisar/conversoes', async (req, res) => {
+  try {
+    const resultado = await centralEntradasService.avaliarConversoesRevisao(req.params.id);
+    return res.json(resultado);
+  } catch (error) {
+    const code = error.statusCode || 500;
+    return res.status(code).json({ error: error.message, sucesso: false, code: error.code || null });
+  }
+});
+
+router.post('/:id/revisar/itens/:indice/conversao', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const resultado = await centralEntradasService.salvarDecisaoConversaoRevisao(
+      req.params.id,
+      req.params.indice,
+      {
+        decisao: body.decisao ?? body.confirmacao,
+        documento_id: body.documento_id ?? body.documentoId ?? req.params.id,
+        chave_acesso: body.chave_acesso ?? body.chaveAcesso ?? null,
+        usuarioId: req.usuario?.id ?? body.usuario_id ?? body.usuarioId ?? null
+      }
+    );
+    return res.json(resultado);
+  } catch (error) {
+    const code = error.statusCode || 500;
+    return res.status(code).json({ error: error.message, sucesso: false, code: error.code || null });
+  }
+});
+
+/** Troca explícita do produto de uma linha já decidida (antes da compra ser gravada). */
+router.post('/:id/itens/:indice/corrigir-produto', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const resultado = await centralEntradasService.corrigirProdutoLinha(req.params.id, req.params.indice, {
+      produtoId: body.produto_id ?? body.produtoId,
+      produtoAnteriorId: body.produto_anterior_id ?? body.produtoAnteriorId,
+      motivo: body.motivo,
+      chaveAcesso: body.chave_acesso ?? body.chaveAcesso ?? null,
+      usuarioId: req.user?.id ?? null
+    });
+    return res.json(resultado);
+  } catch (error) {
+    const code = error.statusCode || 500;
+    return res.status(code).json({ error: error.message, sucesso: false, code: error.code || null });
+  }
+});
+
+/** Troca de várias linhas da mesma NF-e: grava todas ou nenhuma. */
+router.post('/:id/corrigir-produtos', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const resultado = await centralEntradasService.corrigirProdutosLinhas(req.params.id, {
+      linhas: (Array.isArray(body.linhas) ? body.linhas : []).map((linha) => ({
+        indice: linha?.indice,
+        produtoId: linha?.produto_id ?? linha?.produtoId,
+        produtoAnteriorId: linha?.produto_anterior_id ?? linha?.produtoAnteriorId
+      })),
+      motivo: body.motivo,
+      chaveAcesso: body.chave_acesso ?? body.chaveAcesso ?? null,
+      usuarioId: req.user?.id ?? null
+    });
+    return res.json(resultado);
+  } catch (error) {
+    const code = error.statusCode || 500;
+    return res.status(code).json({ error: error.message, sucesso: false, code: error.code || null });
+  }
+});
+
 router.post('/:id/revisar/itens/:indice/decisao', async (req, res) => {
   try {
     const body = req.body || {};
@@ -1069,6 +1138,9 @@ router.post('/:id/revisar/itens/:indice/decisao', async (req, res) => {
         decisao: body.decisao,
         produtoId: body.produto_id ?? body.produtoId,
         item: body.item,
+        associacao: body.associacao || null,
+        criterio: body.criterio || null,
+        origemDecisao: body.origem_decisao ?? body.origemDecisao ?? null,
         usuarioId: req.usuario?.id ?? body.usuario_id ?? body.usuarioId ?? null,
         correlationId: body.correlation_id ?? body.correlationId ?? null
       }

@@ -15,6 +15,7 @@ const { paraDocumentoDetalheDTO } = require('../utils/centralEntradasMapper');
 const CentralDocumentosRepository = require('../repositories/CentralDocumentosRepository');
 const DocumentoTransitionService = require('./DocumentoTransitionService');
 const { financeiroPayloadCompleto } = require('./centralComprasFinanceiroBridge');
+const { revalidarParseMiipPersistido } = require('../../miip/utils/MiipRevalidacaoResultadoPersistido');
 
 class CentralComprasBridgeService {
   /**
@@ -70,14 +71,16 @@ class CentralComprasBridgeService {
     }
 
     // RC8.4.0 — deep clone para isolar itens (evita referências compartilhadas)
+    let parse = null;
     try {
       if (typeof structuredClone === 'function') {
-        return structuredClone(documento.parseJson);
+        parse = structuredClone(documento.parseJson);
       }
     } catch {
       /* fallback */
     }
-    return JSON.parse(JSON.stringify(documento.parseJson));
+    if (!parse) parse = JSON.parse(JSON.stringify(documento.parseJson));
+    return revalidarParseMiipPersistido(parse);
   }
 
   /**
@@ -150,9 +153,27 @@ class CentralComprasBridgeService {
       status: documento.status,
       dadosCompra: {
         ...payload,
+        ...(Array.isArray(payload.itens) ? {
+          itens: payload.itens.map((item, index) => ({
+            ...item,
+            central_item_indice: index,
+            nItem: item?.nItem ?? item?.nitem ?? index
+          }))
+        } : {}),
         xml: documento.xml || null,
         natureza_operacao: payload.natureza_operacao || payload.natureza || null,
-        cfop: payload.cfop || null
+        cfop: payload.cfop || null,
+        central_documento_id: documento.id,
+        origem_compra: 'CENTRAL_NFE',
+        confirmacoes_conversao: (Array.isArray(payload.itens) ? payload.itens : []).map((item, index) => ({
+          item_key: item?.item_key || item?.conversao?.item_key || `idx:${index}`,
+          indice: index,
+          nItem: item?.nItem ?? item?.nitem ?? index,
+          documento_id: documento.id,
+          chave_acesso: documento.chave || null,
+          confirmacao: item?.conversao?.confirmacao ?? item?.confirmacao_conversao ?? null,
+          selo_conversao: item?.conversao?.selo_conversao ?? null
+        }))
       }
     };
   }
@@ -271,10 +292,12 @@ class CentralComprasBridgeService {
 
       etapa = 'sessao';
       let sessaoAtiva = null;
+      let decisoesSessao = [];
       if (revisaoService) {
         const merge = await revisaoService.mesclarDecisoesNaSessao(documentoId, itensAtualizados);
         sessaoAtiva = merge.sessao;
         itensAtualizados = merge.itens;
+        decisoesSessao = Array.isArray(merge.decisoes) ? merge.decisoes : [];
 
         if (sessaoAtiva && !permitirParcial) {
           const total = Number(sessaoAtiva.totalItens || 0);
@@ -291,7 +314,19 @@ class CentralComprasBridgeService {
 
       // Legado: se dados.itens cobre o documento, prevalece
       if (Array.isArray(itensLegado) && itensLegado.length) {
-        itensAtualizados = itensLegado;
+        // ...exceto o produto escolhido item a item na sessão, que a lista enviada pela tela não troca,
+        // e o histórico de correções e a decisão de conversão, que só o servidor grava.
+        const itensServidor = itensAtualizados;
+        itensAtualizados = itensLegado.map((item, indice) => {
+          const linha = { ...item };
+          const atual = itensServidor[indice] || {};
+          ['correcoes_produto', 'conversao', 'conversao_decisao', 'confirmacao_conversao'].forEach((campo) => {
+            if (atual[campo] === undefined) delete linha[campo];
+            else linha[campo] = atual[campo];
+          });
+          const decisao = decisoesSessao.find((d) => Number(d.itemIndex) === indice && Number(d.produtoDestinoId) > 0);
+          return decisao ? { ...linha, produto_id: Number(decisao.produtoDestinoId) } : linha;
+        });
       }
 
       const parseAtualizado = {

@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="/css/miip-central-revisao.css">
     <link rel="stylesheet" href="/css/central-entradas.css">
     <link rel="stylesheet" href="/css/central-entradas-ux1.css">
+    <link rel="stylesheet" href="/css/entregas-erp.css">
     <link rel="stylesheet" href="/css/central-diagnostico.css">
     <link rel="stylesheet" href="/css/diagnostics-panel-v1.css">
     <link rel="stylesheet" href="/css/central-configuracao.css">
@@ -213,14 +214,19 @@
                             </ul>
                         </li>
 
-                        <!-- RELATÓRIOS — oculto até existir módulo (RC1) -->
-                        <li class="nav-group" data-nav-group="relatorios" data-placeholder="true" hidden aria-hidden="true">
+                        <!-- RELATÓRIOS -->
+                        <li class="nav-group" data-nav-group="relatorios">
                             <div class="nav-group-label"><i class="fas fa-chart-pie" aria-hidden="true"></i><span>Relatórios</span></div>
                             <ul class="nav flex-column nav-group-items">
-                                <li class="nav-item nav-item--placeholder">
-                                    <span class="nav-link nav-link--placeholder text-muted" title="Em breve">
-                                        <i class="fas fa-ellipsis-h" aria-hidden="true"></i><span>Em breve</span>
-                                    </span>
+                                <li class="nav-item">
+                                    <a class="nav-link text-white" href="#" data-page="financeiro" title="Financeiro — Relatórios">
+                                        <i class="fas fa-wallet" aria-hidden="true"></i><span>Financeiro</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item" data-recurso="historicoVendas">
+                                    <a class="nav-link text-white" href="#" data-page="ranking-produtos" title="Ranking de Produtos">
+                                        <i class="fas fa-award" aria-hidden="true"></i><span>Ranking de Produtos</span>
+                                    </a>
                                 </li>
                             </ul>
                         </li>

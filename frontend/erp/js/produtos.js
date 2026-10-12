@@ -31,11 +31,70 @@ function produtoEhFracionado(produto) {
     return produtoUsaConversaoUnidades(produto);
 }
 
+const CAMPO_PRODUTO_EMBALAGEM = Object.freeze({
+    unidadeComercial: 'unidade_comercial',
+    quantidadePorEmbalagem: 'quantidade_por_embalagem',
+    valorEmbalagemVenda: 'valor_embalagem_venda'
+});
+
 const UNIDADES_VENDA_CONVERSAO = new Set(['kg', 'g', 'l', 'ml', 'mt', 'm2', 'm3']);
 
 function unidadeVendaSuportaConversao(unidade) {
     return UNIDADES_VENDA_CONVERSAO.has(String(unidade || '').toLowerCase());
 }
+
+const UNIDADES_SELECT_CADASTRO = Object.freeze([
+    ['un', 'Unidade'],
+    ['kg', 'Quilograma'],
+    ['g', 'Grama'],
+    ['l', 'Litro'],
+    ['ml', 'Mililitro'],
+    ['mt', 'Metro'],
+    ['m2', 'Metro Quadrado'],
+    ['m3', 'Metro Cúbico']
+]);
+// Mesmos aliases da importação inicial (normalizarUnidadeBaseCadastro) e da MIIP.
+const ALIASES_UNIDADE_CADASTRO = Object.freeze({ und: 'un', lt: 'l', m: 'mt' });
+
+function unidadePadronizadaCadastro(codigo) {
+    return UNIDADES_SELECT_CADASTRO.some(([valor]) => valor === codigo);
+}
+
+/**
+ * Valor do seletor de unidade para o que está gravado: unidades padronizadas sem diferenciar
+ * maiúsculas ("KG" → "kg"); as demais (CX, PCT…) voltam como gravadas, sem virar "un".
+ */
+function normalizarUnidadeCadastroProduto(valor) {
+    const bruto = String(valor ?? '').trim();
+    const chave = bruto.toLowerCase();
+    const codigo = ALIASES_UNIDADE_CADASTRO[chave] || chave;
+    return unidadePadronizadaCadastro(codigo) ? codigo : bruto;
+}
+
+function montarOpcoesUnidadeCadastro(unidadeGravada) {
+    const atual = normalizarUnidadeCadastroProduto(unidadeGravada);
+    const opcoes = UNIDADES_SELECT_CADASTRO.map(([valor, rotulo]) =>
+        `<option value="${valor}" ${valor === atual ? 'selected' : ''}>${rotulo}</option>`);
+    if (atual && !unidadePadronizadaCadastro(atual)) {
+        opcoes.push(`<option value="${escapeHtml(atual)}" selected>${escapeHtml(atual)}</option>`);
+    }
+    return opcoes.join('');
+}
+
+/** Seleciona a unidade no <select> já renderizado; sem opção correspondente, `.val()` do jQuery devolveria null. */
+function selecionarUnidadeCadastroProduto(select, valor) {
+    const el = select && select.jquery ? select[0] : select;
+    if (!el) return '';
+    const unidade = normalizarUnidadeCadastroProduto(valor);
+    if (!unidade) return el.value;
+    if (!Array.from(el.options).some((opt) => opt.value === unidade)) {
+        el.add(new Option(unidade, unidade));
+    }
+    el.value = unidade;
+    return unidade;
+}
+window.normalizarUnidadeCadastroProduto = normalizarUnidadeCadastroProduto;
+window.selecionarUnidadeCadastroProduto = selecionarUnidadeCadastroProduto;
 
 function produtoCadastroUsaConversaoUnidades() {
     return $('#produto_fracionado').is(':checked');
@@ -1849,7 +1908,7 @@ function montarLinhasRelatorioEstoque(produtosExibidos) {
         const estoqueMinimo = Number(p.estoque_minimo || 0);
         const totalItem = estoqueAtual * Number(p.preco_compra || 0);
         const classes = classesLinhaStatusProduto(obterStatusVisualProduto(p));
-        return `<tr class="${classes.row}"><td class="${classes.text}">${escapeHtml(p.nome || '-')}</td><td>${escapeHtml(p.categoria || '-')}</td><td>${escapeHtml(formatarColunaEstoqueRelatorio(p))}</td><td>${estoqueMinimo}</td><td>${escapeHtml(p.lote || '-')}</td><td>${escapeHtml(formatarValidadeRelatorio(p.data_validade))}</td><td>${escapeHtml(formatarUltimaCompraRelatorio(p.ultima_compra_data))}</td><td>${escapeHtml(formatCurrency(totalItem))}</td><td>${escapeHtml(textoStatusRelatorio(p))}</td></tr>`;
+        return `<tr class="${classes.row}"><td class="${classes.text}">${escapeHtml(nomeExibicaoProdutoErp(p) || '-')}</td><td>${escapeHtml(p.categoria || '-')}</td><td>${escapeHtml(formatarColunaEstoqueRelatorio(p))}</td><td>${estoqueMinimo}</td><td>${escapeHtml(p.lote || '-')}</td><td>${escapeHtml(formatarValidadeRelatorio(p.data_validade))}</td><td>${escapeHtml(formatarUltimaCompraRelatorio(p.ultima_compra_data))}</td><td>${escapeHtml(formatCurrency(totalItem))}</td><td>${escapeHtml(textoStatusRelatorio(p))}</td></tr>`;
     }).join('');
 }
 
@@ -2246,8 +2305,24 @@ function produtoCorrespondeBuscaInteligente(produto, termoNormalizado, termoDigi
     return fortes.every(tokenNoProduto);
 }
 
+/**
+ * Nome exibido "NOME — MARCA" (regra comum de CdsBuscaProdutoTexto); texto puro, o nome gravado não muda.
+ * GET /produtos/:id não traz marca: usa a da listagem carregada.
+ */
+function nomeExibicaoProdutoErp(produto) {
+    const nome = String(produto?.nome || '').trim();
+    const busca = window.CdsBuscaProdutoTexto;
+    if (!nome || typeof busca?.formatarNomeProdutoComMarca !== 'function') return nome;
+    let marca = busca.obterMarcaProduto(produto);
+    if (!marca && produto?.id != null) {
+        const daLista = (window.produtosCache || []).find((p) => Number(p.id) === Number(produto.id));
+        marca = busca.obterMarcaProduto(daLista);
+    }
+    return busca.formatarNomeProdutoComMarca(nome, marca);
+}
+
 function formatarNomeProdutoComPlu(produto) {
-    const nome = escapeHtml(produto?.nome || '');
+    const nome = escapeHtml(nomeExibicaoProdutoErp(produto));
     const plu = String(produto?.plu || '').trim();
     if (!plu) return nome;
     return `<span class="text-muted small me-1">[${escapeHtml(plu)}]</span>${nome}`;
@@ -2470,8 +2545,10 @@ async function executarBuscaProdutosViaMib(termo) {
         const possuiSugestao = Resolver && typeof Resolver.mibPossuiResultadosValidos === 'function'
             ? Resolver.mibPossuiResultadosValidos({ itens: sugestoes })
             : sugestoes.length > 0;
+        // O servidor já consultou o MIB e filtrou as sugestões pelo termo; consultar de novo traria a lista sem filtro.
+        const mibJaConsultado = !!(dados.meta && dados.meta.mib_consultado);
 
-        if (!possuiSugestao && sdk && typeof sdk.search === 'function') {
+        if (!possuiSugestao && !mibJaConsultado && sdk && typeof sdk.search === 'function') {
             const resultado = await sdk.search({
                 entity: 'produto',
                 query: termo,
@@ -3487,14 +3564,7 @@ function showProdutoModal(produto = null, opcoes = {}) {
                                             <div class="col-md-6">
                                                 <label for="unidade" class="form-label" id="label_unidade_produto">Unidade Base</label>
                                                 <select class="form-control" id="unidade">
-                                                    <option value="un" ${isEdit && produto.unidade === 'un' ? 'selected' : ''}>Unidade</option>
-                                                    <option value="kg" ${isEdit && produto.unidade === 'kg' ? 'selected' : ''}>Quilograma</option>
-                                                    <option value="g" ${isEdit && produto.unidade === 'g' ? 'selected' : ''}>Grama</option>
-                                                    <option value="l" ${isEdit && produto.unidade === 'l' ? 'selected' : ''}>Litro</option>
-                                                    <option value="ml" ${isEdit && produto.unidade === 'ml' ? 'selected' : ''}>Mililitro</option>
-                                                    <option value="mt" ${isEdit && (produto.unidade === 'mt' || produto.unidade === 'm') ? 'selected' : ''}>Metro</option>
-                                                    <option value="m2" ${isEdit && produto.unidade === 'm2' ? 'selected' : ''}>Metro Quadrado</option>
-                                                    <option value="m3" ${isEdit && produto.unidade === 'm3' ? 'selected' : ''}>Metro Cúbico</option>
+                                                    ${montarOpcoesUnidadeCadastro(isEdit ? produto.unidade : '')}
                                                 </select>
                                                 <small class="text-warning d-none" id="avisoUnidadeConversaoCadastro">
                                                     Selecione uma unidade fracionável (KG, MT, LT, M², M³, etc.).
@@ -5592,6 +5662,9 @@ async function saveProduto(opcoes) {
     const forcarContinuar = opcoes && typeof opcoes === 'object' && opcoes.continuar === true;
     const forcarFechar = opcoes && typeof opcoes === 'object' && opcoes.continuar === false;
     const id = $('#produtoId').val();
+    if (window.__cdsProdutoSalvando === true) {
+        return;
+    }
 
     if ($('#venda_atacado').is(':checked')) {
         const faixaSalva = await commitFaixaAtacadoPendente(id || null);
@@ -5812,6 +5885,7 @@ async function saveProduto(opcoes) {
         }
     }
 
+    window.__cdsProdutoSalvando = true;
     $.ajax({
         url: url,
         method: method,
@@ -5820,6 +5894,9 @@ async function saveProduto(opcoes) {
             Authorization: 'Bearer ' + (localStorage.getItem('token') || '')
         },
         data: JSON.stringify(data),
+        complete: function () {
+            window.__cdsProdutoSalvando = false;
+        },
         success: function (produtoSalvo) {
             const $modal = $('#produtoModal');
             $modal.data('produtoRecemSalvo', produtoSalvo || null);
@@ -5997,7 +6074,7 @@ function historicoProduto(produtoId) {
         fetch(`${API_URL}/produtos/${produtoId}?modo_fiscal=${modoFiscalParamGestaoProdutosLocal()}`, { headers }).then((r) => (r.ok ? r.json() : null))
     ])
         .then(([ajustes, precos, produto]) => {
-            const nomeProduto = produto?.nome || `Produto #${produtoId}`;
+            const nomeProduto = nomeExibicaoProdutoErp(produto) || `Produto #${produtoId}`;
 
             const linhasAjustes = (ajustes && ajustes.length)
                 ? ajustes.map((r) => `
@@ -6218,7 +6295,7 @@ function abrirModalAjustarEstoque(produtoId) {
                     <div class="modal-dialog">
                         <div class="modal-content">
                             <div class="modal-header">
-                                <h5 class="modal-title">Ajustar Estoque — ${escapeHtml(produto.nome || '')}</h5>
+                                <h5 class="modal-title">Ajustar Estoque — ${escapeHtml(nomeExibicaoProdutoErp(produto))}</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
@@ -6354,7 +6431,7 @@ function viewProduto(id) {
                                 </div>
                             </div>
                             <div class="modal-body">
-                                <p><strong>Nome:</strong> ${escapeHtml(produtoNormalizado.nome || '-')}</p>
+                                <p><strong>Nome:</strong> ${escapeHtml(nomeExibicaoProdutoErp(produtoNormalizado) || '-')}</p>
                                 <p><strong>Código:</strong> ${escapeHtml(produtoNormalizado.codigo || '-')}</p>
                                 <p><strong>Categoria:</strong> ${escapeHtml(produtoNormalizado.categoria || '-')}</p>
                                 <p><strong>Subcategoria:</strong> ${escapeHtml(produtoNormalizado.subcategoria || '-')}</p>
@@ -6846,7 +6923,7 @@ async function carregarProdutosElegiveisPromocao() {
                             value="${p.id}" data-nome="${escapeHtml(p.nome)}" data-preco="${p.preco_venda}">
                         <div class="flex-grow-1">
                             <div class="d-flex justify-content-between align-items-start gap-2">
-                                <strong>${escapeHtml(p.nome)}</strong>
+                                <strong>${escapeHtml(nomeExibicaoProdutoErp(p))}</strong>
                                 ${formatarBadgeMotivoSugestao(p.motivo)}
                             </div>
                             <small class="text-muted">
@@ -7645,7 +7722,7 @@ function montarTabelaEstoqueResumo(lista, classeLinha) {
       <tbody>
         ${lista.map((p) => `
           <tr class="${classeLinha}">
-            <td class="fw-semibold">${escapeHtml(p.nome || '')}</td>
+            <td class="fw-semibold">${escapeHtml(nomeExibicaoProdutoErp(p))}</td>
             <td>${escapeHtml(p.codigo || '-')}</td>
             <td class="text-end fw-bold">${formatarColunaEstoqueLista(p)}</td>
             <td class="text-end">${formatarEstoqueProduto(p.estoque_minimo, p.unidade, { produtoFracionado: produtoUsaConversaoUnidades(p) })}</td>
@@ -7830,7 +7907,7 @@ function renderizarListaVencimentosProdutos(produtos) {
 
         return `
             <tr class="${linhaClasse}">
-                <td class="fw-semibold">${escapeHtml(produto.nome || '-')}</td>
+                <td class="fw-semibold">${escapeHtml(nomeExibicaoProdutoErp(produto) || '-')}</td>
                 <td>${formatarEstoqueExibicaoTela(produto)}</td>
                 <td>${escapeHtml(produto.lote || '-')}</td>
                 <td>${validadeFormatada}</td>

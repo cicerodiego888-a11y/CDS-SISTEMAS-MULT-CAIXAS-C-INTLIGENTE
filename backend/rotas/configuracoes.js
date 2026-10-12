@@ -498,7 +498,7 @@ router.get('/pdv_imprimir_cupom', (req, res) => {
 
 router.put(
   '/pdv_imprimir_cupom',
-  cfgImprimirCupomPdv.exigirSuperAdminAlteracao,
+  cfgImprimirCupomPdv.exigirAcessoOperacionalPdv,
   (req, res) => {
     cfgImprimirCupomPdv.salvar(db, req.body && req.body.valor, (err, dados) => {
       if (err) {
@@ -730,7 +730,7 @@ router.put('/:chave', (req, res) => {
   }
 
   if (cfgImprimirCupomPdv.ehChave(chave)) {
-    return cfgImprimirCupomPdv.exigirSuperAdminAlteracao(req, res, () => {
+    return cfgImprimirCupomPdv.exigirAcessoOperacionalPdv(req, res, () => {
       cfgImprimirCupomPdv.salvar(db, valor, (err, dados) => {
         if (err) {
           const status = err.status || 500;

@@ -80,9 +80,9 @@ test('TABELAS_MONITORADAS inclui módulos RC4.31.5', () => {
   });
 });
 
-test('validateInsertAlignment — INSERT produtos dinâmico (37 colunas)', () => {
-  const sql = `INSERT INTO produtos (${Array.from({ length: 37 }, (_, i) => `c${i}`).join(', ')}) VALUES (${Array(37).fill('?').join(', ')})`;
-  validateInsertAlignment(sql, new Array(37).fill(null));
+test('validateInsertAlignment — INSERT produtos dinâmico (39 colunas)', () => {
+  const sql = `INSERT INTO produtos (${Array.from({ length: 39 }, (_, i) => `c${i}`).join(', ')}) VALUES (${Array(39).fill('?').join(', ')})`;
+  validateInsertAlignment(sql, new Array(39).fill(null));
 });
 
 test('Auditoria estática — nenhum INSERT monitorado desalinhado', () => {

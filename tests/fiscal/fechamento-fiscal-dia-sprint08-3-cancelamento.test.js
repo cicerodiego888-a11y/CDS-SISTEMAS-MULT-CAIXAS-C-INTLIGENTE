@@ -147,7 +147,8 @@ describe('Sprint 08.3 — cancelamento fiscal Fechamento', () => {
   });
 
   it('B — NFC-e normal continua utilizando fluxo comercial existente', () => {
-    assert.match(FRONT, /cancelarVendaNaoFiscal\(/);
+    // vendas.js é lazy (não carregado na tela fiscal): o fluxo comercial é o endpoint /vendas/cancelar/:id
+    assert.match(FRONT, /\/vendas\/cancelar\/\$\{Number\(vendaId\)\}/);
     assert.doesNotMatch(FRONT, /acaoNfceEmitidaCancelarVenda[\s\S]{0,80}cancelarDocumentoFiscalNfce/);
   });
 

@@ -48,7 +48,8 @@ function montarProdutoEncontrado(melhor) {
     unidade: produto.unidade || null,
     marca: produto.marca || produto.marcaNome || null,
     fornecedor: produto.fornecedor || null,
-    categoria_id: produto.categoria_id || null
+    categoria_id: produto.categoria_id || null,
+    ativo: produto.ativo ?? null
   };
 }
 
@@ -70,6 +71,54 @@ function extrairCandidatos(resultado) {
   }));
 }
 
+const MOTIVOS_SEM_CANDIDATO = Object.freeze([
+  'GTIN inexistente no cadastro ou não informado.',
+  'Associação fornecedor inexistente.',
+  'Descrição sem correspondência.',
+  'Nenhum produto compatível localizado.'
+]);
+
+function produtoDesativado(produto) {
+  const ativo = produto?.ativo;
+  return ativo === 0 || ativo === '0' || ativo === false;
+}
+
+function scoreDoCandidato(candidato) {
+  const valor = Number(candidato?.scoreTotal ?? candidato?.score);
+  return Number.isFinite(valor) ? valor : null;
+}
+
+/**
+ * Decisão canônica "cadastrar produto novo": sem candidato, sem pontuação e sem pergunta "É este?".
+ * Único produto mantido: o desativado que tem o mesmo código de barras, só para o aviso na tela.
+ * @private
+ */
+function montarDecisaoCadastroNovo(decisao, resultado, motivos, regraIdentificacao) {
+  const diagMubc = resultado?.meta?.mubcDiagnostico ?? resultado?.mubcDiagnostico ?? null;
+  const produtoAviso = decisao.motivo === 'codigo_barras_produto_inativo'
+    ? montarProdutoEncontrado(decisao.melhorCandidato ?? resultado?.candidatos?.[0] ?? null)
+    : null;
+
+  return {
+    produtoEncontrado: produtoAviso && produtoDesativado(produtoAviso) ? produtoAviso : null,
+    nivelCerteza: MiipConfidence.NENHUMA,
+    acao: MiipAction.CRIAR_NOVO,
+    motivos: motivos.length > 0 ? motivos : ['nenhum_candidato_confiavel'],
+    motivoIdentificacao: decisao.motivo ?? null,
+    candidatoSelecionado: null,
+    candidatos: [],
+    diagnosticoBusca: Array.isArray(diagMubc?.motivos) && diagMubc.motivos.length > 0
+      ? diagMubc
+      : { motivos: [...MOTIVOS_SEM_CANDIDATO] },
+    precisaConfirmacao: false,
+    precisaCadastro: true,
+    associadoAutomaticamente: false,
+    score: 0,
+    motor: null,
+    regraIdentificacao
+  };
+}
+
 /**
  * @param {Object|null} miipResp
  * @param {Object|null} resultado
@@ -77,26 +126,22 @@ function extrairCandidatos(resultado) {
  */
 function mapearDecisaoPipelineParaImportacao(miipResp, resultado) {
   const decisao = resultado?.decisao ?? {};
-  const melhor = decisao.melhorCandidato ?? resultado?.candidatos?.[0] ?? null;
-  const produtoEncontrado = montarProdutoEncontrado(melhor);
   const acao = decisao.acao ?? MiipAction.CRIAR_NOVO;
-  const candidatos = extrairCandidatos(resultado);
-  const diagnosticoBusca = resultado?.meta?.mubcDiagnostico
-    ?? resultado?.mubcDiagnostico
-    ?? (candidatos.length === 0
-      ? {
-        motivos: [
-          'GTIN inexistente no cadastro ou não informado.',
-          'Associação fornecedor inexistente.',
-          'Descrição sem correspondência.',
-          'Nenhum produto compatível localizado.'
-        ]
-      }
-      : null);
+  const regraIdentificacao = decisao.regraIdentificacao ?? null;
 
   const motivos = Array.isArray(decisao.motivos) && decisao.motivos.length > 0
     ? [...decisao.motivos]
     : (decisao.motivo ? [decisao.motivo] : []);
+
+  if (acao === MiipAction.CRIAR_NOVO) {
+    return montarDecisaoCadastroNovo(decisao, resultado, motivos, regraIdentificacao);
+  }
+
+  const melhor = decisao.melhorCandidato ?? resultado?.candidatos?.[0] ?? null;
+  const produtoEncontrado = montarProdutoEncontrado(melhor);
+  if (!melhor || !produtoEncontrado) {
+    return montarDecisaoCadastroNovo(decisao, resultado, motivos, regraIdentificacao);
+  }
 
   const precisaConfirmacao = decisao.precisaConfirmacao !== undefined
     ? Boolean(decisao.precisaConfirmacao)
@@ -104,38 +149,28 @@ function mapearDecisaoPipelineParaImportacao(miipResp, resultado) {
 
   const precisaCadastro = decisao.precisaCadastro !== undefined
     ? Boolean(decisao.precisaCadastro)
-    : (acao === MiipAction.CRIAR_NOVO);
+    : false;
 
-  if (!melhor || !produtoEncontrado) {
-    return {
-      produtoEncontrado: null,
-      nivelCerteza: MiipConfidence.NENHUMA,
-      acao: MiipAction.CRIAR_NOVO,
-      motivos: motivos.length > 0 ? motivos : ['nenhum_candidato_confiavel'],
-      candidatoSelecionado: null,
-      candidatos: [],
-      diagnosticoBusca,
-      precisaConfirmacao: false,
-      precisaCadastro: true,
-      associadoAutomaticamente: false,
-      score: Number(decisao.score ?? resultado?.score?.valor ?? 0),
-      motor: null
-    };
-  }
+  // A política V2 pode trocar o candidato escolhido pelo pipeline; a pontuação é a do candidato apresentado.
+  const score = decisao.identificacaoV2 === true
+    ? (scoreDoCandidato(melhor) ?? Number(decisao.score ?? 0))
+    : Number(decisao.score ?? resultado?.score?.valor ?? melhor?.scoreTotal ?? 0);
 
   return {
     produtoEncontrado,
     nivelCerteza: decisao.confianca ?? MiipConfidence.NENHUMA,
     acao,
     motivos,
+    motivoIdentificacao: decisao.motivo ?? null,
     candidatoSelecionado: melhor,
-    candidatos,
+    candidatos: extrairCandidatos(resultado),
     diagnosticoBusca: null,
     precisaConfirmacao,
     precisaCadastro,
     associadoAutomaticamente: acao === MiipAction.AUTO_VINCULAR,
-    score: Number(decisao.score ?? resultado?.score?.valor ?? melhor?.scoreTotal ?? 0),
-    motor: extrairMotor(melhor)
+    score,
+    motor: extrairMotor(melhor),
+    regraIdentificacao
   };
 }
 

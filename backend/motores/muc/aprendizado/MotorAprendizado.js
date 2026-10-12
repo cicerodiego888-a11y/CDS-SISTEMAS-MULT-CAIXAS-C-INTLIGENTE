@@ -24,6 +24,13 @@ class MotorAprendizado {
    */
   registrar(dados = {}, callback) {
     const done = typeof callback === 'function' ? callback : () => {};
+    if (dados.permitirAprendizado === false
+      || dados.registrarAprendizado === false
+      || dados.origem === 'CENTRAL_NFE'
+      || dados.decisaoConversao === false
+      || dados.decisaoConversao === 'NAO') {
+      return done(null);
+    }
     const cnpj = digitsCnpj(dados.fornecedorCnpj);
     if (!cnpj || !dados.produtoId) return done(null);
 

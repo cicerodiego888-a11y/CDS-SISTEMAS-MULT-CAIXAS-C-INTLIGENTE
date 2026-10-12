@@ -280,7 +280,11 @@ function aplicarIpiDevolucaoNoImposto(imposto, item) {
 function montarImpostoItem({ compra, item, config, valorItem }) {
   const t = item.tributosEspelhados || {};
   const icmsEsp = t.icms || {};
-  const csosnFonte = t.csosn || item.csosn || item.CSOSN || compra.csosn_cst_xml || compra.csosn_cst || '';
+  // compras.csosn_cst(_xml) guarda CST (2 dígitos) ou CSOSN (3 dígitos): só CSOSN serve aqui.
+  const csosnCompra = [compra.csosn_cst_xml, compra.csosn_cst]
+    .map((v) => String(v || '').replace(/\D/g, ''))
+    .find((d) => d.length === 3) || '';
+  const csosnFonte = t.csosn || item.csosn || item.CSOSN || csosnCompra;
   const cstFonte = t.cst || item.cst || item.CST || '';
   const resolucao = resolverIcmsPorCrtEmitente({
     crt: config && config.crt,

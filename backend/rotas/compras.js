@@ -27,6 +27,7 @@ const {
   resolverQuantidadesCompraItem
 } = require('../lib/motorConversaoUnidades');
 const { obterMuc, resultadoParaJson } = require('../motores/muc');
+const ConfirmacaoConversaoEntradaNfe = require('../services/unidades/ConfirmacaoConversaoEntradaNfe');
 const {
   apenasDigitos,
   sqlColunaSomenteDigitos
@@ -67,8 +68,15 @@ const {
 const { getMiipService } = require('../motores/miip/getMiipService');
 const centralOrchestrator = require('../motores/central-entradas/CentralEntradasOrchestrator');
 const { logCentralErro } = require('../motores/central-entradas/utils/centralLog');
+const {
+  CODIGO_DIVERGENCIA: CODIGO_DIVERGENCIA_PRODUTO_CENTRAL,
+  carregarDecisoesProduto,
+  validarProdutosContraDecisao
+} = require('../motores/central-entradas/services/CentralDecisaoProdutoLinha');
+const CODIGO_ORIGEM_CENTRAL_OBRIGATORIA = 'ORIGEM_CENTRAL_OBRIGATORIA';
 const EntradasProdutoIdentificacaoService = require('../motores/produto-identidade/services/EntradasProdutoIdentificacaoService');
 const { espelharIdentificadoresSafe } = require('../motores/produto-identidade');
+const { normalizarNomeBusca } = require('../motores/mib');
 const { isProdutoIdentidadeEnabled } = require('../motores/produto-identidade/config/produtoIdentidadeFlags');
 const {
   normalizarTipoEntrada,
@@ -499,14 +507,15 @@ function ensureProductForItemLegado(item, callback, opcoes = {}) {
 
       dbOperacional.run(`
         INSERT INTO produtos (
-          codigo, codigo_barras, nome, categoria_id, unidade, preco_compra, preco_venda,
+          codigo, codigo_barras, nome, nome_busca, ativo, categoria_id, unidade, preco_compra, preco_venda,
           lucro_percentual, estoque_atual, estoque_minimo, fornecedor, ncm,
           saldo_fiscal, saldo_nao_fiscal, item_fiscal, controla_estoque, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 0, 0, ?, ?, CURRENT_TIMESTAMP)
+        ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, 0, 0, ?, ?, 0, 0, ?, ?, CURRENT_TIMESTAMP)
       `, [
         codigo,
         item.codigo_barras || codigo,
         nome,
+        normalizarNomeBusca(nome),
         categoriaId,
           unidadeProduto,
         precosCadastro.precoCompra,
@@ -519,12 +528,24 @@ function ensureProductForItemLegado(item, callback, opcoes = {}) {
       ], function(insertErr) {
         if (insertErr) return callback(insertErr);
         const novoId = this.lastID;
+        if (Array.isArray(opcoes.produtosCriados)) opcoes.produtosCriados.push(novoId);
+        try {
+          const mipCompras = obterComprasMipService();
+          if (typeof mipCompras.limparCacheCatalogo === 'function') mipCompras.limparCacheCatalogo();
+        } catch (cacheErr) {
+          console.warn('[MIP] compras limpar cache após criar produto:', cacheErr.message);
+        }
+        // Espelho dentro da transação da compra: PLU/EAN pesquisáveis assim que o COMMIT ocorrer.
+        let seguiu = false;
         espelharIdentificadoresSafe(novoId, {
           codigo,
           codigo_barras: item.codigo_barras || codigo,
           plu: item.plu !== undefined ? item.plu : undefined
-        }, { db: dbOperacional });
-        callback(null, novoId);
+        }, { db: dbOperacional }, () => {
+          if (seguiu) return;
+          seguiu = true;
+          callback(null, novoId);
+        });
       });
     };
 
@@ -561,9 +582,41 @@ function ensureProductForItemLegado(item, callback, opcoes = {}) {
  * Resolve produto do item: produto_id → MIP → MIIP → legado.
  * Sprint 07: MIP elimina busca duplicada codigo/barras quando flag ON.
  */
-function ensureProductForItem(item, callback) {
+function validarItensCentralNfeSemAssociacao(itens, origemCompra) {
+  if (String(origemCompra || '').toUpperCase() !== 'CENTRAL_NFE') return null;
+  const linhas = [];
+  (Array.isArray(itens) ? itens : []).forEach((item, indice) => {
+    const pid = Number(item?.produto_id || item?.produtoId);
+    if (!Number.isFinite(pid) || pid <= 0) {
+      linhas.push({
+        indice,
+        item_key: item?.item_key ?? item?.nItem ?? item?.nitem ?? indice,
+        descricao: item?.produto_nome || item?.descricao || null,
+        codigo_barras: item?.codigo_barras || item?.gtin || null,
+        cProd: item?.codigo_fornecedor || item?.cProd || item?.codigo || null
+      });
+    }
+  });
+  if (!linhas.length) return null;
+  const err = new Error('Há itens da NF-e sem produto associado. Conclua a revisão na Central antes de efetivar.');
+  err.status = 422;
+  err.code = 'ITENS_SEM_ASSOCIACAO';
+  err.linhas = linhas;
+  return err;
+}
+
+function ensureProductForItem(item, callback, opcoesCriacao = {}) {
+  const produtosCriados = opcoesCriacao.produtosCriados;
   if (item.produto_id) {
     return callback(null, Number(item.produto_id));
+  }
+
+  if (String(item.origem_compra || '').toUpperCase() === 'CENTRAL_NFE') {
+    const err = new Error('Item da NF-e sem produto associado. Conclua a associação na Central antes de efetivar.');
+    err.status = 422;
+    err.code = 'ITEM_SEM_ASSOCIACAO';
+    err.item_key = item.item_key ?? item.nItem ?? item.nitem ?? null;
+    return callback(err);
   }
 
   const seguirComMiipOuLegado = (mipJaTentou) => {
@@ -574,13 +627,13 @@ function ensureProductForItem(item, callback) {
         item,
         motivo: 'usarMiip=false — fluxo legado'
       });
-      return ensureProductForItemLegado(item, callback, { apenasNome: mipJaTentou === true });
+      return ensureProductForItemLegado(item, callback, { apenasNome: mipJaTentou === true, produtosCriados });
     }
 
     MiipService.identificar(item, { origem: 'compra', ponto: 'ensureProductForItem' })
       .then((miip) => {
         if (miip?.desabilitado) {
-          return ensureProductForItemLegado(item, callback, { apenasNome: mipJaTentou === true });
+          return ensureProductForItemLegado(item, callback, { apenasNome: mipJaTentou === true, produtosCriados });
         }
 
         if (miip?.produtoId) {
@@ -594,7 +647,7 @@ function ensureProductForItem(item, callback) {
           motivo: 'MIIP não encontrou produto — executando ensureProductForItemLegado'
         });
 
-        return ensureProductForItemLegado(item, callback, { apenasNome: mipJaTentou === true });
+        return ensureProductForItemLegado(item, callback, { apenasNome: mipJaTentou === true, produtosCriados });
       })
       .catch((miipErr) => {
         MiipService.registrarIntegracao({
@@ -603,7 +656,7 @@ function ensureProductForItem(item, callback) {
           erro: miipErr?.message || String(miipErr),
           motivo: 'erro MIIP — executando ensureProductForItemLegado'
         });
-        ensureProductForItemLegado(item, callback, { apenasNome: mipJaTentou === true });
+        ensureProductForItemLegado(item, callback, { apenasNome: mipJaTentou === true, produtosCriados });
       });
   };
 
@@ -634,6 +687,182 @@ function normalizarPrecoCentralParaCentavos(valor) {
   return Math.round((numero + Number.EPSILON) * 100);
 }
 
+const {
+  extrairChaveConversaoItem,
+  normalizarDecisaoConversaoEntrada,
+  normalizarDecisoesConversaoEntrada,
+  itemRequerConfirmacaoConversao,
+  validarPendenciasConversaoEntrada,
+  aplicarDecisoesNosItens,
+  montarErroPendencias,
+  reconciliarItensComDocumentoCentral,
+  filtrarConfirmacoesDocumento
+} = ConfirmacaoConversaoEntradaNfe;
+
+/** Documento persistido da Central (fonte oficial das linhas do XML) e compra já vinculada, se houver. */
+function carregarDocumentoCentralCompra(documentoId, callback) {
+  db.get(
+    `SELECT d.id, d.chave, d.parse_json, d.compra_id, c.id AS compra_existente_id
+     FROM central_entradas_documentos d
+     LEFT JOIN compras c ON c.id = d.compra_id
+     WHERE d.id = ?`,
+    [Number(documentoId)],
+    (err, row) => {
+      if (err) return callback(err);
+      if (!row) return callback(null, null);
+      let parse = {};
+      try {
+        parse = row.parse_json ? JSON.parse(row.parse_json) : {};
+      } catch (_) {
+        parse = {};
+      }
+      callback(null, {
+        id: Number(row.id),
+        chave: row.chave ? String(row.chave).replace(/\D/g, '') : '',
+        compraExistenteId: row.compra_existente_id ? Number(row.compra_existente_id) : null,
+        itens: Array.isArray(parse.itens) ? parse.itens : []
+      });
+    }
+  );
+}
+
+function carregarMapaProdutosItens(itens, callback) {
+  const ids = [...new Set((Array.isArray(itens) ? itens : [])
+    .map((item) => Number(item?.produto_id || item?.produtoId || 0))
+    .filter((id) => Number.isFinite(id) && id > 0))];
+  if (!ids.length) return callback(null, new Map());
+  const placeholders = ids.map(() => '?').join(',');
+  db.all(`SELECT * FROM produtos WHERE id IN (${placeholders})`, ids, (err, rows) => {
+    if (err) return callback(err);
+    const mapa = new Map();
+    (rows || []).forEach((row) => mapa.set(Number(row.id), row));
+    callback(null, mapa);
+  });
+}
+
+/**
+ * COMMIT conferido. No SQLite um COMMIT recusado (FK adiada, banco ocupado) deixa a transação aberta:
+ * desfaz e confere no banco se a compra ficou ou não gravada antes de responder.
+ */
+function confirmarTransacaoCompra(compraId, chaveAcesso, callback) {
+  db.run('COMMIT', (commitErr) => {
+    if (!commitErr) return callback(null);
+    db.run('ROLLBACK', (rollbackErr) => {
+      db.get(
+        'SELECT id FROM compras WHERE id = ? AND chave_acesso IS ?',
+        [compraId, chaveAcesso || null],
+        (consultaErr, gravada) => {
+          const indeterminado = Boolean(consultaErr || gravada);
+          const erro = new Error(indeterminado
+            ? `Não foi possível confirmar a gravação da compra #${compraId}. Confira a compra antes de repetir.`
+            : 'A compra não foi gravada: o banco recusou a confirmação e nada foi alterado. Tente novamente.');
+          erro.code = indeterminado ? 'COMPRA_ESTADO_INDETERMINADO' : 'COMPRA_NAO_GRAVADA';
+          erro.compraId = indeterminado ? compraId : null;
+          console.error('[COMPRAS] COMMIT recusado', {
+            compraId,
+            commit: commitErr.message,
+            rollback: rollbackErr?.message || 'ok',
+            resultado: erro.code
+          });
+          callback(erro);
+        }
+      );
+    });
+  });
+}
+
+/**
+ * Publica no catálogo operacional (cache MIP do PDV + MIB) os produtos criados pela compra,
+ * pelo mesmo mecanismo do cadastro de Produtos. Chamar só após o COMMIT (em ROLLBACK eles não existem).
+ * Nunca falha a compra: devolve o resumo para a resposta avisar quando a publicação não ocorreu.
+ */
+function publicarProdutosCriadosNaCompra(produtoIds, callback) {
+  const ids = [...new Set((produtoIds || []).map(Number).filter((id) => Number.isInteger(id) && id > 0))];
+  const resumo = { produtos_criados: ids, publicados: 0, falhas: [] };
+  if (!ids.length) return callback(resumo);
+
+  db.all(
+    `SELECT p.id, p.nome, p.nome_busca, p.codigo, p.codigo_barras, p.preco_venda, p.item_fiscal, p.ativo,
+            (SELECT pi.codigo FROM produto_identificadores pi
+              WHERE pi.produto_id = p.id AND UPPER(pi.tipo) = 'PLU' AND COALESCE(pi.ativo, 1) = 1
+              LIMIT 1) AS plu
+       FROM produtos p
+      WHERE p.id IN (${ids.map(() => '?').join(', ')})`,
+    ids,
+    (err, rows) => {
+      if (err) {
+        resumo.falhas.push({ produto_id: null, erros: [err.message] });
+        return callback(resumo);
+      }
+      let publicar;
+      try {
+        ({ publicarProdutoNoCatalogoOperacional: publicar } = require('./produtos'));
+      } catch (reqErr) {
+        resumo.falhas.push({ produto_id: null, erros: [reqErr.message] });
+        return callback(resumo);
+      }
+      const porId = new Map((rows || []).map((row) => [Number(row.id), row]));
+      ids.forEach((id) => {
+        const row = porId.get(id);
+        if (!row) {
+          resumo.falhas.push({ produto_id: id, erros: ['produto não encontrado após o COMMIT'] });
+          return;
+        }
+        const resultado = publicar(row) || { erros: ['publicador sem retorno'] };
+        if (resultado.erros && resultado.erros.length) {
+          resumo.falhas.push({ produto_id: id, erros: resultado.erros });
+        } else {
+          resumo.publicados += 1;
+        }
+      });
+      if (resumo.falhas.length) {
+        console.warn('[COMPRAS] publicação no catálogo operacional incompleta', resumo);
+      }
+      callback(resumo);
+    }
+  );
+}
+
+function responderFalhaCommitCompra(res, erro) {
+  return res.status(500).json({ error: erro.message, code: erro.code, compra_id: erro.compraId, sucesso: false });
+}
+
+/**
+ * NF-e da Central: apresentação cadastrada do próprio produto, resolvida pelo repositório do MUC com os
+ * mesmos critérios de processarItemCompra. Fixa produto_apresentacao_id no item para a gravação usar a mesma.
+ * @returns Map<central_item_indice, apresentação|null>
+ */
+function resolverApresentacoesAutorizadas(itens, fornecedorCnpj, callback) {
+  const repositorio = obterMuc(db).apresentacoes;
+  const mapa = new Map();
+  const lista = Array.isArray(itens) ? itens : [];
+  let posicao = 0;
+  const proximo = () => {
+    if (posicao >= lista.length) return callback(null, mapa);
+    const atual = posicao;
+    const item = lista[posicao++];
+    const indice = Number.isInteger(item.central_item_indice) ? item.central_item_indice : atual;
+    const produtoId = Number(item.produto_id || item.produtoId || 0);
+    if (!(produtoId > 0)) {
+      mapa.set(indice, null);
+      return proximo();
+    }
+    repositorio.resolverPorIdentificador(produtoId, {
+      gtin: item.codigo_barras,
+      codigo_fornecedor: item.codigo_fornecedor,
+      fornecedor_cnpj: fornecedorCnpj || item.fornecedor_cnpj,
+      unidade_comercial: item.unidade_comercial
+    }, (err, apresentacao) => {
+      if (err) return callback(err);
+      const propria = apresentacao && Number(apresentacao.produtoId) === produtoId ? apresentacao : null;
+      item.produto_apresentacao_id = propria?.id ?? null;
+      mapa.set(indice, propria);
+      return proximo();
+    });
+  };
+  proximo();
+}
+
 function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
   if (typeof opcoes === 'function') {
     done = opcoes;
@@ -643,6 +872,38 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
   const fornecedorCnpj = opcoes?.fornecedor_cnpj || null;
   const origemCentralNfe = String(opcoes?.origem_compra || '').toUpperCase() === 'CENTRAL_NFE';
   let index = 0;
+  let quantidadesAutorizadas = [];
+
+  if (origemCentralNfe && Array.isArray(itens) && itens.length > 0) {
+    carregarMapaProdutosItens(itens, (errMapa, produtoMap) => {
+      if (errMapa) return done(errMapa);
+      const apresentacoes = opcoes?.apresentacoes_autorizadas || new Map();
+      const documentoId = opcoes?.central_documento_id || opcoes?.documento_id || null;
+      const chaveAcesso = opcoes?.chave_acesso || null;
+      const pendencias = validarPendenciasConversaoEntrada(itens, {
+        produtoMap,
+        confirmacoes: opcoes?.confirmacoes_conversao || opcoes?.confirmacoes || opcoes?.decisoes_conversao || [],
+        documentoId,
+        chaveAcesso,
+        origemCompra: 'CENTRAL_NFE',
+        apresentacoes
+      });
+      if (pendencias.length > 0) {
+        return done(montarErroPendencias(pendencias));
+      }
+      quantidadesAutorizadas = itens.map((item, posicao) => {
+        const indice = Number.isInteger(item.central_item_indice) ? item.central_item_indice : posicao;
+        return ConfirmacaoConversaoEntradaNfe.quantidadeAutorizadaEntradaNfe(
+          item,
+          produtoMap.get(Number(item.produto_id || item.produtoId || 0)) || {},
+          indice,
+          { documentoId, chaveAcesso, apresentacao: apresentacoes.get(indice) || null }
+        );
+      });
+      next();
+    });
+    return;
+  }
 
   function next() {
     if (index >= itens.length) {
@@ -650,6 +911,7 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
       return;
     }
 
+    const posicaoItem = index;
     const item = itens[index++];
 
     if (!Number(item.quantidade_embalagens) && Number(item.quantidade_comercial) > 0) {
@@ -672,7 +934,7 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
       fornecedor_cnpj: item.fornecedor_cnpj || fornecedorCnpj || null
     };
 
-    ensureProductForItem(itemComContexto, (prodErr, produtoId) => {
+    const seguirComProduto = (prodErr, produtoId) => {
       if (prodErr) return done(prodErr);
 
       db.get('SELECT * FROM produtos WHERE id = ?', [produtoId], (getProdErr, produtoRow) => {
@@ -688,12 +950,31 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
             {
               fornecedorCnpj: fornecedorCnpj,
               origem: origemCentralNfe ? 'CENTRAL_NFE' : (item.origem_conversao || opcoes.origem || 'MANUAL'),
-              registrarAprendizado: true
+              registrarAprendizado: origemCentralNfe ? false : true
             },
             (mucErr, resultadoMuc) => {
             if (mucErr) {
               if (!mucErr.status && !String(mucErr.code || '').startsWith('SQLITE')) mucErr.status = 400;
               return done(mucErr);
+            }
+
+            if (origemCentralNfe) {
+              const autorizada = quantidadesAutorizadas[posicaoItem];
+              const efetiva = Number(resultadoMuc?.quantidadeEstoque);
+              if (autorizada == null || !Number.isFinite(efetiva) || Math.abs(efetiva - autorizada) > 0.001) {
+                const err = new Error('A conversão calculada para gravação difere da conversão validada para esta linha da NF-e. Nada foi gravado.');
+                err.status = 422;
+                err.code = 'CONVERSAO_EFETIVA_DIVERGENTE';
+                err.linhas = [{
+                  indice: itemComProduto.central_item_indice ?? posicaoItem,
+                  nItem: itemComProduto.nItem ?? null,
+                  produto_id: produtoId,
+                  quantidade_autorizada: autorizada,
+                  quantidade_calculada: Number.isFinite(efetiva) ? efetiva : null
+                }];
+                console.warn('[COMPRAS][CENTRAL_NFE] conversão efetiva diferente da validada', err.linhas[0]);
+                return done(err);
+              }
             }
 
             const qtdsEstoque = {
@@ -735,7 +1016,22 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
           return done(mucErr);
         }
       });
-    });
+    };
+
+    if (origemCentralNfe) {
+      const pid = Number(item.produto_id || item.produtoId);
+      if (!Number.isFinite(pid) || pid <= 0) {
+        const err = new Error('Item da NF-e sem produto associado. Conclua a associação na Central antes de efetivar.');
+        err.status = 422;
+        err.code = 'ITEM_SEM_ASSOCIACAO';
+        err.indice = index - 1;
+        err.item_key = item.item_key ?? item.nItem ?? item.nitem ?? (index - 1);
+        return done(err);
+      }
+      return seguirComProduto(null, pid);
+    }
+
+    ensureProductForItem(itemComContexto, seguirComProduto, { produtosCriados: opcoes?.produtosCriados });
   }
 
   function continuarItem(itemProcessado, qtdsEstoque, produtoId) {
@@ -900,7 +1196,7 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
               fornecedor = COALESCE(?, fornecedor),
               ncm = COALESCE(?, ncm),
               codigo_barras = COALESCE(?, codigo_barras),
-              unidade = COALESCE(?, unidade),
+              unidade = ${origemCentralNfe ? 'unidade' : 'COALESCE(?, unidade)'},
               produto_fracionado = CASE WHEN ? = 1 THEN 1 ELSE COALESCE(produto_fracionado, 0) END,
               vendido_por_peso = CASE WHEN ? = 1 THEN 1 ELSE COALESCE(vendido_por_peso, 0) END,
               updated_at = CURRENT_TIMESTAMP
@@ -922,7 +1218,7 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
             fornecedor || null,
             itemProcessado.ncm || null,
             itemProcessado.codigo_barras || null,
-            itemProcessado.unidade || 'UN',
+            ...(origemCentralNfe ? [] : [itemProcessado.unidade || 'UN']),
 
             Number(itemProcessado.produto_fracionado ?? itemProcessado.vendido_por_peso ?? 0),
 
@@ -1317,9 +1613,14 @@ router.post('/classificar-entrada', async (req, res) => {
     return res.json({
       success: true,
       tipoEntrada: resultado.tipoEntrada,
+      naturezaDetectada: resultado.naturezaDetectada,
       confianca: resultado.confianca,
       motivo: resultado.motivo,
       label: resultado.label,
+      forca: resultado.forca,
+      requerConfirmacao: resultado.requerConfirmacao,
+      razoes: resultado.razoes,
+      conflitos: resultado.conflitos,
       sinais: resultado.sinais
     });
   } catch (err) {
@@ -1501,10 +1802,22 @@ router.post('/', (req, res) => {
     natureza_operacao,
     natureza_operacao_xml,
     escrituracao_motivo,
+    confirmacoes_conversao,
+    confirmacoes,
+    decisoes_conversao,
     xml: xmlBody,
     origem_compra,
     central_documento_id: centralDocumentoId
   } = req.body;
+
+  const confirmacoesConversao = Array.isArray(confirmacoes_conversao)
+    || Array.isArray(confirmacoes)
+    || Array.isArray(decisoes_conversao)
+    || typeof confirmacoes_conversao === 'object'
+    || typeof confirmacoes === 'object'
+    || typeof decisoes_conversao === 'object'
+    ? (confirmacoes_conversao ?? confirmacoes ?? decisoes_conversao ?? [])
+    : [];
 
   const tipoEntrada = normalizarTipoEntrada(tipo_entrada);
   const tipoSugerido = tipo_entrada_sugerido
@@ -1630,7 +1943,20 @@ router.post('/', (req, res) => {
     }
   }
 
+  let confirmacoesValidas = confirmacoesConversao;
+  let apresentacoesAutorizadas = new Map();
+
   const continuarGravacao = () => {
+    const bloqueioAssociacao = validarItensCentralNfeSemAssociacao(itens, origem_compra);
+    if (bloqueioAssociacao) {
+      return res.status(422).json({
+        error: bloqueioAssociacao.message,
+        code: bloqueioAssociacao.code,
+        linhas: bloqueioAssociacao.linhas
+      });
+    }
+
+    const iniciarTransacaoCompra = () => {
     db.serialize(() => {
       db.run('BEGIN IMMEDIATE');
 
@@ -1731,111 +2057,19 @@ router.post('/', (req, res) => {
               return res.status(500).json({ error: finErr.message });
             }
 
-            db.run('COMMIT');
+            confirmarTransacaoCompra(compraId, chaveLimpa, (commitErr) => {
+              if (commitErr) return responderFalhaCommitCompra(res, commitErr);
 
-            const acaoAuditoria = isUsoConsumo ? 'criar_uso_consumo' : 'criar_nota_fiscal_avulsa';
-            const mensagem = isUsoConsumo
-              ? 'Compra de Uso e Consumo registrada com sucesso.'
-              : 'Nota Fiscal Avulsa registrada com sucesso.';
-
-            gravarAuditoria({
-              usuario_id: req.user?.id || null,
-              usuario_nome: req.user?.nome || req.user?.username || null,
-              modulo: 'compras',
-              acao: acaoAuditoria,
-              referencia_tipo: 'compra',
-              referencia_id: compraId,
-              detalhes: {
-                total: totalOficial,
-                fornecedor,
-                tipo_entrada: tipoEntrada,
-                tipo_entrada_sugerido: tipoSugerido,
-                tipo_entrada_confianca: confiancaSugestao,
-                tipo_entrada_motivo: motivoSugestao,
-                tipo_entrada_alterado: Boolean(tipoAlterado),
-                nota_fiscal_avulsa: isNotaAvulsa,
-                escrituracao: {
-                  original: resumoEscrituracao.original,
-                  utilizado: resumoEscrituracao.utilizado,
-                  alterada: Boolean(escrituracao.escrituracao_alterada),
-                  motivo: escrituracao.escrituracao_motivo,
-                  xml_imutavel: true
-                }
-              },
-              ip_requisicao: req.ip || null
-            }).catch((auditErr) => console.error('Erro ao gravar auditoria de entrada simplificada:', auditErr));
-
-            const payloadResposta = {
-              id: compraId,
-              message: mensagem,
-              tipo_entrada: tipoEntrada,
-              nota_fiscal_avulsa: isNotaAvulsa,
-              uso_consumo: isUsoConsumo
-            };
-
-            vincularDocumentoCentralAposCompra(centralDocumentoId, compraId, req.user?.id)
-              .then((vinculoCentral) => {
-                payloadResposta.vinculoCentral = vinculoCentral;
-                if (vinculoCentral && vinculoCentral.ok === false) {
-                  payloadResposta.aviso = 'Compra gravada, mas o vínculo com a Central ficou pendente de reconciliação.';
-                }
-                return res.json(payloadResposta);
-              })
-              .catch((vinculoErr) => {
-                console.error('[COMPRAS][vinculo-central] erro inesperado', vinculoErr);
-                payloadResposta.vinculoCentral = {
-                  ok: false,
-                  reconciliacaoPendente: true,
-                  documentoId: Number(centralDocumentoId),
-                  compraId: Number(compraId),
-                  erro: vinculoErr?.message || 'Erro inesperado no vínculo'
-                };
-                payloadResposta.aviso = 'Compra gravada, mas o vínculo com a Central ficou pendente de reconciliação.';
-                return res.json(payloadResposta);
-              });
-          });
-        } else {
-          // Compra Normal: process items and create financial records
-          console.log('Processando itens da compra:', compraId, itensComRateio);
-          processarItensCompra(compraId, itensComRateio, fornecedor, {
-            fornecedor_cnpj,
-            tipo_entrada: tipoEntrada,
-            origem_compra
-          }, (itensErr) => {
-            if (itensErr) {
-              console.error('Erro ao processar itens da compra:', itensErr);
-              db.run('ROLLBACK');
-              return res.status(itensErr.status || 500).json({ error: itensErr.message });
-            }
-
-            criarFinanceiroCompra({
-              id: compraId,
-              data_compra,
-              fornecedor,
-              total: totalOficial,
-              condicao_pagamento: condicao,
-              forma_pagamento,
-              data_vencimento: data_vencimento || (condicao === 'avista' ? data_compra : null),
-              parcelas: condicao === 'avista' ? 1 : qtdParcelas,
-              valor_entrada: Number(valor_entrada) || 0,
-              dias_entre_parcelas: diasEntre,
-              parcelas_detalhe: gradeParcelasReq,
-              parcelas_importadas_xml: parcelasImportadasXmlReq,
-              numero_nf,
-              observacao
-            }, (finErr) => {
-              if (finErr) {
-                db.run('ROLLBACK');
-                return res.status(500).json({ error: finErr.message });
-              }
-
-              db.run('COMMIT');
+              const acaoAuditoria = isUsoConsumo ? 'criar_uso_consumo' : 'criar_nota_fiscal_avulsa';
+              const mensagem = isUsoConsumo
+                ? 'Compra de Uso e Consumo registrada com sucesso.'
+                : 'Nota Fiscal Avulsa registrada com sucesso.';
 
               gravarAuditoria({
                 usuario_id: req.user?.id || null,
                 usuario_nome: req.user?.nome || req.user?.username || null,
                 modulo: 'compras',
-                acao: 'criar_compra',
+                acao: acaoAuditoria,
                 referencia_tipo: 'compra',
                 referencia_id: compraId,
                 detalhes: {
@@ -1846,6 +2080,7 @@ router.post('/', (req, res) => {
                   tipo_entrada_confianca: confiancaSugestao,
                   tipo_entrada_motivo: motivoSugestao,
                   tipo_entrada_alterado: Boolean(tipoAlterado),
+                  nota_fiscal_avulsa: isNotaAvulsa,
                   escrituracao: {
                     original: resumoEscrituracao.original,
                     utilizado: resumoEscrituracao.utilizado,
@@ -1855,17 +2090,14 @@ router.post('/', (req, res) => {
                   }
                 },
                 ip_requisicao: req.ip || null
-              }).catch((auditErr) => console.error('Erro ao gravar auditoria de criação de compra:', auditErr));
+              }).catch((auditErr) => console.error('Erro ao gravar auditoria de entrada simplificada:', auditErr));
 
               const payloadResposta = {
                 id: compraId,
-                message: 'Compra registrada com sucesso e integrada ao estoque/financeiro.',
+                message: mensagem,
                 tipo_entrada: tipoEntrada,
-                conferencia: {
-                  total_xml: totalCalculadoComAjustes,
-                  total_itens_calculado: totalItensCalculado,
-                  diferenca_total: diferencaTotal
-                }
+                nota_fiscal_avulsa: isNotaAvulsa,
+                uso_consumo: isUsoConsumo
               };
 
               vincularDocumentoCentralAposCompra(centralDocumentoId, compraId, req.user?.id)
@@ -1890,10 +2122,262 @@ router.post('/', (req, res) => {
                 });
             });
           });
+        } else {
+          // Compra Normal: process items and create financial records
+          console.log('Processando itens da compra:', compraId, itensComRateio);
+          const produtosCriadosCompra = [];
+          processarItensCompra(compraId, itensComRateio, fornecedor, {
+            fornecedor_cnpj,
+            tipo_entrada: tipoEntrada,
+            origem_compra,
+            confirmacoes_conversao: confirmacoesValidas,
+            central_documento_id: centralDocumentoId,
+            chave_acesso: chaveLimpa,
+            apresentacoes_autorizadas: apresentacoesAutorizadas,
+            produtosCriados: produtosCriadosCompra
+          }, (itensErr) => {
+            if (itensErr) {
+              console.error('Erro ao processar itens da compra:', itensErr);
+              db.run('ROLLBACK');
+              return res.status(itensErr.status || 500).json({
+                error: itensErr.message,
+                code: itensErr.code || null,
+                linhas: itensErr.linhas || null,
+                pendencias: itensErr.pendencias || null,
+                item_key: itensErr.item_key || null
+              });
+            }
+
+            criarFinanceiroCompra({
+              id: compraId,
+              data_compra,
+              fornecedor,
+              total: totalOficial,
+              condicao_pagamento: condicao,
+              forma_pagamento,
+              data_vencimento: data_vencimento || (condicao === 'avista' ? data_compra : null),
+              parcelas: condicao === 'avista' ? 1 : qtdParcelas,
+              valor_entrada: Number(valor_entrada) || 0,
+              dias_entre_parcelas: diasEntre,
+              parcelas_detalhe: gradeParcelasReq,
+              parcelas_importadas_xml: parcelasImportadasXmlReq,
+              numero_nf,
+              observacao
+            }, (finErr) => {
+              if (finErr) {
+                db.run('ROLLBACK');
+                return res.status(500).json({ error: finErr.message });
+              }
+
+              confirmarTransacaoCompra(compraId, chaveLimpa, (commitErr) => {
+                if (commitErr) return responderFalhaCommitCompra(res, commitErr);
+
+                gravarAuditoria({
+                  usuario_id: req.user?.id || null,
+                  usuario_nome: req.user?.nome || req.user?.username || null,
+                  modulo: 'compras',
+                  acao: 'criar_compra',
+                  referencia_tipo: 'compra',
+                  referencia_id: compraId,
+                  detalhes: {
+                    total: totalOficial,
+                    fornecedor,
+                    tipo_entrada: tipoEntrada,
+                    tipo_entrada_sugerido: tipoSugerido,
+                    tipo_entrada_confianca: confiancaSugestao,
+                    tipo_entrada_motivo: motivoSugestao,
+                    tipo_entrada_alterado: Boolean(tipoAlterado),
+                    escrituracao: {
+                      original: resumoEscrituracao.original,
+                      utilizado: resumoEscrituracao.utilizado,
+                      alterada: Boolean(escrituracao.escrituracao_alterada),
+                      motivo: escrituracao.escrituracao_motivo,
+                      xml_imutavel: true
+                    }
+                  },
+                  ip_requisicao: req.ip || null
+                }).catch((auditErr) => console.error('Erro ao gravar auditoria de criação de compra:', auditErr));
+
+                const payloadResposta = {
+                  id: compraId,
+                  message: 'Compra registrada com sucesso e integrada ao estoque/financeiro.',
+                  tipo_entrada: tipoEntrada,
+                  conferencia: {
+                    total_xml: totalCalculadoComAjustes,
+                    total_itens_calculado: totalItensCalculado,
+                    diferenca_total: diferencaTotal
+                  }
+                };
+                const adicionarAviso = (texto) => {
+                  payloadResposta.aviso = payloadResposta.aviso ? `${payloadResposta.aviso} ${texto}` : texto;
+                };
+
+                publicarProdutosCriadosNaCompra(produtosCriadosCompra, (catalogoOperacional) => {
+                  if (catalogoOperacional.produtos_criados.length) {
+                    payloadResposta.catalogoOperacional = catalogoOperacional;
+                  }
+                  if (catalogoOperacional.falhas.length) {
+                    adicionarAviso('Compra gravada, mas o produto novo não foi publicado no catálogo de pesquisa '
+                      + '(MIB/PDV). Se não aparecer na pesquisa, reabra a tela.');
+                  }
+
+                  vincularDocumentoCentralAposCompra(centralDocumentoId, compraId, req.user?.id)
+                    .then((vinculoCentral) => {
+                      payloadResposta.vinculoCentral = vinculoCentral;
+                      if (vinculoCentral && vinculoCentral.ok === false) {
+                        adicionarAviso('Compra gravada, mas o vínculo com a Central ficou pendente de reconciliação.');
+                      }
+                      return res.json(payloadResposta);
+                    })
+                    .catch((vinculoErr) => {
+                      console.error('[COMPRAS][vinculo-central] erro inesperado', vinculoErr);
+                      payloadResposta.vinculoCentral = {
+                        ok: false,
+                        reconciliacaoPendente: true,
+                        documentoId: Number(centralDocumentoId),
+                        compraId: Number(compraId),
+                        erro: vinculoErr?.message || 'Erro inesperado no vínculo'
+                      };
+                      adicionarAviso('Compra gravada, mas o vínculo com a Central ficou pendente de reconciliação.');
+                      return res.json(payloadResposta);
+                    });
+                });
+              });
+            });
+          });
         }
       });
     });
-  }
+    };
+
+    const bloquearLinhasCentral = (code, error, linhas = []) => res.status(422).json({ error, code, linhas });
+
+    if (entradaSimplificada) {
+      return iniciarTransacaoCompra();
+    }
+
+    if (String(origem_compra || '').toUpperCase() !== 'CENTRAL_NFE') {
+      const erroOrigem = 'Esta NF-e está na Central de Entradas. Lance a compra pela Central para manter '
+        + 'os produtos e as conversões decididos lá.';
+      if (centralDocumentoId) return bloquearLinhasCentral(CODIGO_ORIGEM_CENTRAL_OBRIGATORIA, erroOrigem);
+      if (!chaveLimpa) return iniciarTransacaoCompra();
+      return db.get(
+        'SELECT id FROM central_entradas_documentos WHERE chave = ? LIMIT 1',
+        [chaveLimpa],
+        (errOrigem, docCentral) => {
+          if (errOrigem) return res.status(500).json({ error: errOrigem.message });
+          if (docCentral) return bloquearLinhasCentral(CODIGO_ORIGEM_CENTRAL_OBRIGATORIA, erroOrigem);
+          return iniciarTransacaoCompra();
+        }
+      );
+    }
+
+    if (!centralDocumentoId) {
+      return bloquearLinhasCentral(
+        'LINHA_CENTRAL_NAO_IDENTIFICADA',
+        'Compra da Central sem documento de origem: não é possível validar as linhas da NF-e.'
+      );
+    }
+
+    return carregarDocumentoCentralCompra(centralDocumentoId, (errDoc, documentoCentral) => {
+      if (errDoc) return res.status(500).json({ error: errDoc.message });
+      if (!documentoCentral) {
+        return bloquearLinhasCentral('DOCUMENTO_CENTRAL_NAO_ENCONTRADO', 'Documento da Central não encontrado.');
+      }
+      if (documentoCentral.chave && chaveLimpa && documentoCentral.chave !== chaveLimpa) {
+        return bloquearLinhasCentral(
+          'DOCUMENTO_CENTRAL_DIVERGENTE',
+          'A chave de acesso enviada não corresponde ao documento da Central.'
+        );
+      }
+      if (documentoCentral.compraExistenteId) {
+        return bloquearLinhasCentral(
+          'DOCUMENTO_CENTRAL_JA_EFETIVADO',
+          `Esta NF-e da Central já foi efetivada na compra #${documentoCentral.compraExistenteId}.`
+        );
+      }
+
+      const reconciliacao = reconciliarItensComDocumentoCentral(itensComRateio, documentoCentral);
+      if (!reconciliacao.ok) {
+        return bloquearLinhasCentral(
+          'LINHA_CENTRAL_NAO_IDENTIFICADA',
+          'Não foi possível identificar a linha original da NF-e na Central.',
+          reconciliacao.erros
+        );
+      }
+      const restaurados = reconciliacao.itens.filter((item) => item.campos_xml_restaurados.length > 0);
+      if (restaurados.length > 0) {
+        console.warn('[COMPRAS][CENTRAL_NFE] campos do XML restaurados a partir da Central', {
+          documentoId: documentoCentral.id,
+          linhas: restaurados.map((item) => ({ nItem: item.nItem, campos: item.campos_xml_restaurados }))
+        });
+      }
+      itensComRateio = reconciliacao.itens;
+      confirmacoesValidas = filtrarConfirmacoesDocumento(confirmacoesConversao, documentoCentral.id);
+
+      return carregarDecisoesProduto(db, documentoCentral, (errDecisoes, decisoesProduto) => {
+        if (errDecisoes) return res.status(500).json({ error: errDecisoes.message });
+        const produtosDivergentes = validarProdutosContraDecisao(itensComRateio, decisoesProduto);
+        if (produtosDivergentes.length > 0) {
+          console.warn('[COMPRAS][CENTRAL_NFE] produto diferente da decisão da Central', {
+            documentoId: documentoCentral.id,
+            linhas: produtosDivergentes.map((l) => ({
+              indice: l.central_item_indice,
+              enviado: l.produto_id_enviado,
+              decidido: l.produto_id_decidido
+            }))
+          });
+          return bloquearLinhasCentral(
+            CODIGO_DIVERGENCIA_PRODUTO_CENTRAL,
+            'O produto de uma ou mais linhas é diferente do decidido na Central de Entradas. '
+              + 'Para trocar, faça a correção do produto na Central.',
+            produtosDivergentes
+          );
+        }
+
+        const conversaoDescartada = itensComRateio.filter((item) => item.campos_conversao_descartados.length > 0);
+        if (conversaoDescartada.length > 0) {
+          console.warn('[COMPRAS][CENTRAL_NFE] fator/quantidade convertida da tela ignorados; vale o cadastro do produto', {
+            documentoId: documentoCentral.id,
+            linhas: conversaoDescartada.map((item) => ({ nItem: item.nItem, campos: item.campos_conversao_descartados }))
+          });
+        }
+
+        return carregarMapaProdutosItens(itensComRateio, (errMapa, produtoMap) => {
+          if (errMapa) return res.status(500).json({ error: errMapa.message });
+          return resolverApresentacoesAutorizadas(itensComRateio, fornecedor_cnpj, (errAp, apresentacoes) => {
+            if (errAp) return res.status(500).json({ error: errAp.message });
+            apresentacoesAutorizadas = apresentacoes;
+            const pendenciasConversao = validarPendenciasConversaoEntrada(itensComRateio, {
+              produtoMap,
+              confirmacoes: confirmacoesValidas,
+              documentoId: documentoCentral.id,
+              chaveAcesso: documentoCentral.chave || chaveLimpa,
+              origemCompra: 'CENTRAL_NFE',
+              apresentacoes
+            });
+            if (pendenciasConversao.length > 0) {
+              const erroConv = montarErroPendencias(pendenciasConversao);
+              return res.status(422).json({
+                error: erroConv.message,
+                code: erroConv.code,
+                pendencias: pendenciasConversao,
+                linhas: pendenciasConversao
+              });
+            }
+            itensComRateio = aplicarDecisoesNosItens(itensComRateio, {
+              produtoMap,
+              confirmacoes: confirmacoesValidas,
+              documentoId: documentoCentral.id,
+              chaveAcesso: documentoCentral.chave || chaveLimpa,
+              apresentacoes
+            });
+            return iniciarTransacaoCompra();
+          });
+        });
+      });
+    });
+  };
 
   if (chaveLimpa) {
     db.get('SELECT id, status FROM compras WHERE chave_acesso = ? LIMIT 1', [chaveLimpa], (dupErr, existente) => {
@@ -2621,3 +3105,9 @@ module.exports._setComprasMipServiceForTests = _setComprasMipServiceForTests;
 module.exports._obterComprasMipService = obterComprasMipService;
 module.exports.ensureProductForItem = ensureProductForItem;
 module.exports.ensureProductForItemLegado = ensureProductForItemLegado;
+module.exports.validarItensCentralNfeSemAssociacao = validarItensCentralNfeSemAssociacao;
+module.exports.normalizarDecisaoConversaoEntrada = normalizarDecisaoConversaoEntrada;
+module.exports.normalizarDecisoesConversaoEntrada = normalizarDecisoesConversaoEntrada;
+module.exports.validarPendenciasConversaoEntrada = validarPendenciasConversaoEntrada;
+module.exports.extrairChaveConversaoItem = extrairChaveConversaoItem;
+module.exports.aplicarDecisoesNosItens = aplicarDecisoesNosItens;
