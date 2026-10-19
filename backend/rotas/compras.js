@@ -28,6 +28,7 @@ const {
 } = require('../lib/motorConversaoUnidades');
 const { obterMuc, resultadoParaJson } = require('../motores/muc');
 const ConfirmacaoConversaoEntradaNfe = require('../services/unidades/ConfirmacaoConversaoEntradaNfe');
+const MotorUnidadesMedida = require('../services/unidades/MotorUnidadesMedida');
 const {
   apenasDigitos,
   sqlColunaSomenteDigitos
@@ -105,6 +106,7 @@ const {
   normalizarParcelasDetalhe,
   moeda: moedaParcela
 } = require('../services/compras/MotorParcelamentoCompra');
+const { listarComprasRelatorio } = require('../services/compras/RelatorioComprasService');
 
 const itemCompraEhFracionado = itemCompraUsaConversaoUnidades;
 const obterTotalConvertidoItemCompraBackend = obterTotalConvertidoItemCompra;
@@ -917,10 +919,12 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
     if (!Number(item.quantidade_embalagens) && Number(item.quantidade_comercial) > 0) {
       item.quantidade_embalagens = Number(item.quantidade_comercial);
     }
-    if (!Number(item.quantidade_convertida)) {
+    if (!item.estoque_pendente_conversao && !Number(item.quantidade_convertida)) {
       item.quantidade_convertida = obterQuantidadeConvertida(item);
     }
-    item.peso_total_compra = obterQuantidadeConvertida(item);
+    item.peso_total_compra = item.estoque_pendente_conversao
+      ? 0
+      : obterQuantidadeConvertida(item);
     if (origemCentralNfe) {
       item.quantidade_fiscal = Number(item.quantidade_convertida || item.quantidade || 0);
       item.quantidade_nao_fiscal = 0;
@@ -943,6 +947,38 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
         const itemComProduto = { ...itemComContexto, produto_id: produtoId };
         const muc = obterMuc(db);
 
+        if (origemCentralNfe && itemComProduto.estoque_pendente_conversao === true) {
+          const originalXml = ConfirmacaoConversaoEntradaNfe.snapshotXmlLinha(itemComProduto, posicaoItem);
+          const itemPendente = {
+            ...itemComProduto,
+            quantidade: 0,
+            quantidade_fiscal: 0,
+            quantidade_nao_fiscal: 0,
+            quantidade_convertida: 0,
+            peso_total_compra: 0,
+            quantidade_comercial: originalXml.qCom,
+            quantidade_embalagens: originalXml.qCom,
+            unidade_comercial: originalXml.uCom,
+            compra_em: originalXml.uCom,
+            unidade: produtoRow?.unidade || itemComProduto.unidade || 'UN',
+            status_estoque: 'PENDENTE_CONVERSAO'
+          };
+          const pendencia = itemComProduto.pendencia_estoque_json
+            || JSON.stringify({
+              estado: 'PENDENTE_CONVERSAO',
+              motivo: 'Conversão automática não aplicada a pedido do operador.',
+              xml_original: originalXml
+            });
+          itemPendente.pendencia_estoque_json = pendencia;
+          return continuarItem(itemPendente, {
+            quantidade_comercial: originalXml.qCom,
+            quantidade: 0,
+            quantidade_fiscal: 0,
+            quantidade_nao_fiscal: 0,
+            quantidade_convertida: 0
+          }, produtoId);
+        }
+
         try {
           muc.processarItemCompra(
             itemComProduto,
@@ -960,19 +996,62 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
 
             if (origemCentralNfe) {
               const autorizada = quantidadesAutorizadas[posicaoItem];
+              if (autorizada?.estado === 'PENDENTE_CONVERSAO') {
+                const originalXml = ConfirmacaoConversaoEntradaNfe.snapshotXmlLinha(itemComProduto, posicaoItem);
+                const itemPendente = {
+                  ...itemComProduto,
+                  quantidade: 0,
+                  quantidade_fiscal: 0,
+                  quantidade_nao_fiscal: 0,
+                  quantidade_convertida: 0,
+                  peso_total_compra: 0,
+                  quantidade_comercial: originalXml.qCom,
+                  quantidade_embalagens: originalXml.qCom,
+                  unidade_comercial: originalXml.uCom,
+                  compra_em: originalXml.uCom,
+                  unidade: produtoRow?.unidade || itemComProduto.unidade || 'UN',
+                  status_estoque: 'PENDENTE_CONVERSAO',
+                  pendencia_estoque_json: itemComProduto.pendencia_estoque_json || JSON.stringify({
+                    estado: 'PENDENTE_CONVERSAO',
+                    motivo: 'Conversão automática não aplicada a pedido do operador.',
+                    xml_original: originalXml
+                  })
+                };
+                return continuarItem(itemPendente, {
+                  quantidade_comercial: originalXml.qCom,
+                  quantidade: 0,
+                  quantidade_fiscal: 0,
+                  quantidade_nao_fiscal: 0,
+                  quantidade_convertida: 0
+                }, produtoId);
+              }
               const efetiva = Number(resultadoMuc?.quantidadeEstoque);
-              if (autorizada == null || !Number.isFinite(efetiva) || Math.abs(efetiva - autorizada) > 0.001) {
+              if (autorizada?.quantidade == null || !Number.isFinite(efetiva)
+                  || Math.abs(efetiva - autorizada.quantidade) > 0.001) {
                 const err = new Error('A conversão calculada para gravação difere da conversão validada para esta linha da NF-e. Nada foi gravado.');
                 err.status = 422;
                 err.code = 'CONVERSAO_EFETIVA_DIVERGENTE';
+                const xmlOriginal = ConfirmacaoConversaoEntradaNfe.snapshotXmlLinha(itemComProduto, posicaoItem);
                 err.linhas = [{
                   indice: itemComProduto.central_item_indice ?? posicaoItem,
                   nItem: itemComProduto.nItem ?? null,
                   produto_id: produtoId,
-                  quantidade_autorizada: autorizada,
-                  quantidade_calculada: Number.isFinite(efetiva) ? efetiva : null
+                  quantidade_autorizada: autorizada?.quantidade ?? null,
+                  quantidade_calculada: Number.isFinite(efetiva) ? efetiva : null,
+                  unidade_nf: xmlOriginal.uCom,
+                  quantidade_nf: xmlOriginal.qCom,
+                  unidade_tributavel: xmlOriginal.uTrib,
+                  quantidade_tributavel: xmlOriginal.qTrib,
+                  unidade_compra: itemComProduto.unidade_comercial || itemComProduto.uCom || null,
+                  unidade_estoque: resultadoMuc?.unidadeEstoque || produtoRow?.unidade || null,
+                  fator_conversao: resultadoMuc?.fatorConversao || null,
+                  estado_confirmacao: itemComProduto.conversao_decisao || null
                 }];
-                console.warn('[COMPRAS][CENTRAL_NFE] conversão efetiva diferente da validada', err.linhas[0]);
+                console.warn('[COMPRAS][CENTRAL_NFE] conversão efetiva diferente da validada', {
+                  codigo: err.code,
+                  documento_id: opcoes?.central_documento_id || opcoes?.documento_id || null,
+                  ...err.linhas[0]
+                });
                 return done(err);
               }
             }
@@ -1096,11 +1175,18 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
             atualizarVenda: precoVendaManualCentral
           }
           : resolverPrecosCadastroAposCompra(itemProcessado);
+        const estoquePendente = itemProcessado.status_estoque === 'PENDENTE_CONVERSAO';
+        if (estoquePendente) {
+          precosCadastro.precoCompra = Number(produto?.preco_compra || 0);
+          precosCadastro.atualizarVenda = false;
+        }
         if (!tratamento.atualizarCusto) {
           precosCadastro.precoCompra = Number(produto?.preco_compra || precosCadastro.precoCompra || 0);
           precosCadastro.atualizarVenda = false;
         }
-        const precoUnitarioGravar = fracionado || origemCentralNfe
+        const precoUnitarioGravar = estoquePendente
+          ? Number(itemProcessado.preco_unitario || 0)
+          : fracionado || origemCentralNfe
           ? precosCadastro.precoCompra
           : moeda(itemProcessado.preco_unitario || precosCadastro.precoCompra || 0);
         const custoFinalGravar = precosCadastro.precoCompra;
@@ -1141,8 +1227,8 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
             compra_em, quantidade_embalagens, quantidade_por_embalagem, valor_total_embalagem,
             embalagem_id, produto_apresentacao_id, resultado_conversao_json,
             fator_conversao, tipo_conversao, origem_conversao, confianca_conversao, tipo_origem_compra,
-            cfop, tipo_fiscal_item, bonificacao
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            cfop, tipo_fiscal_item, bonificacao, status_estoque, pendencia_estoque_json
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
           compraId,
           produtoId,
@@ -1180,7 +1266,9 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
           itemProcessado.tipo_origem_compra || resultadoMuc?.tipoOrigemCompra || null,
           itemFiscal.cfop || null,
           itemFiscal.tipo_fiscal_item || null,
-          Number(itemFiscal.bonificacao || 0)
+          Number(itemFiscal.bonificacao || 0),
+          estoquePendente ? 'PENDENTE_CONVERSAO' : 'APLICADO',
+          estoquePendente ? (itemProcessado.pendencia_estoque_json || null) : null
         ], (insertErr) => {
           if (insertErr) return done(insertErr);
 
@@ -1714,6 +1802,19 @@ router.get('/nfe-devolucao/origens', async (req, res) => {
   }
 });
 
+router.get('/relatorio/detalhado', async (req, res) => {
+  try {
+    const resultado = await listarComprasRelatorio(db, req.query);
+    return res.json(resultado);
+  } catch (error) {
+    if (error.statusCode === 400) {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error('[COMPRAS][relatorio-detalhado] Falha na consulta', error);
+    return res.status(500).json({ error: 'Não foi possível consultar o relatório de compras.' });
+  }
+});
+
 router.get('/:id', (req, res) => {
   const { id } = req.params;
 
@@ -1747,6 +1848,239 @@ router.get('/:id', (req, res) => {
       });
     });
   });
+});
+
+router.post('/:compraId/itens/:itemId/regularizar-estoque', (req, res) => {
+  const compraId = Number(req.params.compraId);
+  const itemId = Number(req.params.itemId);
+  if (!Number.isInteger(compraId) || compraId <= 0 || !Number.isInteger(itemId) || itemId <= 0) {
+    return res.status(400).json({ error: 'Compra ou item inválido.' });
+  }
+
+  const rollback = (status, body) => db.run('ROLLBACK', () => res.status(status).json(body));
+  db.serialize(() => db.run('BEGIN IMMEDIATE', (beginErr) => {
+    if (beginErr) return res.status(500).json({ error: 'Não foi possível iniciar a regularização do estoque.' });
+    db.get(`
+      SELECT ci.*, c.id AS compra_id, c.tipo_entrada
+      FROM compras_itens ci
+      JOIN compras c ON c.id = ci.compra_id
+      WHERE ci.id = ? AND ci.compra_id = ?
+    `, [itemId, compraId], (itemErr, item) => {
+      if (itemErr) return rollback(500, { error: 'Não foi possível consultar o item da compra.' });
+      if (!item) return rollback(404, { error: 'Item da compra não encontrado.' });
+      if (item.status_estoque !== 'PENDENTE_CONVERSAO') {
+        return rollback(409, { error: 'O item não está pendente de regularização.', code: 'ESTOQUE_NAO_PENDENTE' });
+      }
+
+      let pendencia;
+      try {
+        pendencia = JSON.parse(item.pendencia_estoque_json || '{}');
+      } catch (_err) {
+        return rollback(409, { error: 'Os dados originais da unidade não estão disponíveis; revise a entrada na Central.', code: 'DADOS_ORIGINAIS_INDISPONIVEIS' });
+      }
+      const xml = pendencia.xml_original;
+      if (!xml || !(Number(xml.qCom) > 0) || !xml.uCom) {
+        return rollback(409, { error: 'Os dados originais da unidade não estão disponíveis; revise a entrada na Central.', code: 'DADOS_ORIGINAIS_INDISPONIVEIS' });
+      }
+
+      db.get('SELECT * FROM produtos WHERE id = ?', [item.produto_id], (produtoErr, produto) => {
+        if (produtoErr) return rollback(500, { error: 'Não foi possível consultar o produto.' });
+        if (!produto) return rollback(404, { error: 'Produto associado à compra não encontrado.' });
+        const linhaOriginal = {
+          ...item,
+          qCom: Number(xml.qCom),
+          uCom: String(xml.uCom),
+          qTrib: Number(xml.qTrib || 0),
+          uTrib: xml.uTrib || null,
+          quantidade_comercial: Number(xml.qCom),
+          unidade_comercial: String(xml.uCom),
+          quantidade_tributavel: Number(xml.qTrib || 0),
+          unidade_tributavel: xml.uTrib || null,
+          produto_id: Number(item.produto_id),
+          subtotal: Number(item.subtotal || 0),
+          preco_unitario: Number(item.preco_unitario || 0)
+        };
+
+        const muc = obterMuc(db);
+        const executarComApresentacao = (apresentacaoValidada) => {
+          if (apresentacaoValidada) linhaOriginal.produto_apresentacao_id = apresentacaoValidada.id;
+          muc.processarItemCompra(
+            linhaOriginal,
+            produto,
+            { origem: 'CENTRAL_NFE', registrarAprendizado: false },
+            (mucErr, resultado) => {
+            if (mucErr) return rollback(422, {
+              error: 'A unidade ainda não possui uma conversão validada. Corrija a apresentação do produto e tente novamente.',
+              code: 'CONVERSAO_NAO_VALIDADA'
+            });
+
+            const origem = String(resultado?.origem || '').toUpperCase();
+            const quantidade = Number(resultado?.quantidadeEstoque);
+            const custoUnitario = Number(resultado?.custoUnitario);
+            const unidadeEstoque = String(resultado?.unidadeEstoque || produto.unidade || '').trim();
+            const unidadeComercialNormalizada = MotorUnidadesMedida.normalizarUnidadeEntradaNfe(xml.uCom);
+            const unidadeEstoqueNormalizada = MotorUnidadesMedida.normalizarUnidadeEntradaNfe(unidadeEstoque);
+            const fatorApresentacao = Number(apresentacaoValidada?.quantidade);
+            const fatorResultado = Number(resultado?.fatorConversao);
+            const quantidadeEsperada = apresentacaoValidada
+              ? (String(apresentacaoValidada.tipoConversao || '').toUpperCase() === 'DIVISOR'
+                ? Number(xml.qCom) / fatorApresentacao
+                : Number(xml.qCom) * fatorApresentacao)
+              : null;
+            const conversaoPersistida = Boolean(
+              apresentacaoValidada
+              && Number(apresentacaoValidada.id) > 0
+              && fatorApresentacao > 0
+              && Math.abs(fatorResultado - fatorApresentacao) <= 0.001
+              && Math.abs(quantidade - quantidadeEsperada) <= 0.001
+              && unidadeEstoqueNormalizada === MotorUnidadesMedida.normalizarUnidadeEntradaNfe(apresentacaoValidada.unidade)
+            );
+            const mesmaUnidade = unidadeComercialNormalizada
+              && unidadeEstoqueNormalizada
+              && unidadeComercialNormalizada === unidadeEstoqueNormalizada
+              && Math.abs(quantidade - Number(xml.qCom)) <= 0.001
+              && Math.abs(fatorResultado - 1) <= 0.001;
+            if (!(quantidade > 0) || !Number.isFinite(custoUnitario) || custoUnitario < 0
+                || (!conversaoPersistida && !mesmaUnidade)) {
+              return rollback(422, {
+                error: 'Não há uma associação de unidade cadastrada e validada para regularizar este item.',
+                code: 'CONVERSAO_NAO_VALIDADA',
+                diagnostico: {
+                  codigo_muc: resultado?.codigo || null,
+                  origem: resultado?.origem || null,
+                  quantidade_calculada: Number.isFinite(quantidade) ? quantidade : null,
+                  fator_conversao: Number(resultado?.fatorConversao) || null,
+                  apresentacao_id: apresentacaoValidada?.id || null
+                },
+                unidade_nf: String(xml.uCom),
+                unidade_estoque: unidadeEstoque || null
+              });
+            }
+
+            let quantidadeFiscal = Number(resultado.quantidadeFiscal ?? quantidade);
+            let quantidadeNaoFiscal = Number(resultado.quantidadeNaoFiscal || 0);
+            const padraoFiscal = configService.getPadraoFiscal();
+            const itemFiscal = enriquecerItemFiscalCompra({
+              ...linhaOriginal,
+              quantidade,
+              quantidade_convertida: quantidade,
+              quantidade_fiscal: quantidadeFiscal,
+              quantidade_nao_fiscal: quantidadeNaoFiscal
+            }, {
+              tipoEntradaCompra: item.tipo_entrada,
+              configBonificacao: padraoFiscal
+            });
+            const tratamentoFiscal = resolverTratamentoFiscalItem(itemFiscal, padraoFiscal);
+            if (!tratamentoFiscal.gerarEstoque) {
+              quantidadeFiscal = 0;
+              quantidadeNaoFiscal = 0;
+            }
+            if (!Number.isFinite(quantidadeFiscal) || quantidadeFiscal < 0
+                || !Number.isFinite(quantidadeNaoFiscal) || quantidadeNaoFiscal < 0
+                || Math.abs(quantidadeFiscal + quantidadeNaoFiscal - (tratamentoFiscal.gerarEstoque ? quantidade : 0)) > 0.001) {
+              return rollback(422, {
+                error: 'A quantidade convertida não preserva a distribuição fiscal e gerencial do item.',
+                code: 'DISTRIBUICAO_CONVERSAO_INVALIDA'
+              });
+            }
+            db.run(`
+              UPDATE compras_itens
+              SET quantidade = ?,
+                  unidade = ?,
+                  preco_unitario = ?,
+                  custo_unitario_final = ?,
+                  custo_por_kg = ?,
+                  quantidade_fiscal = ?,
+                  quantidade_nao_fiscal = ?,
+                  item_fiscal = ?,
+                  peso_total_compra = ?,
+                  fator_conversao = ?,
+                  quantidade_por_embalagem = ?,
+                  produto_apresentacao_id = ?,
+                  resultado_conversao_json = ?,
+                  origem_conversao = ?,
+                  status_estoque = 'APLICADO',
+                  pendencia_estoque_json = NULL
+              WHERE id = ? AND compra_id = ? AND status_estoque = 'PENDENTE_CONVERSAO'
+            `, [
+              quantidade,
+              unidadeEstoque,
+              custoUnitario,
+              custoUnitario,
+              custoUnitario,
+              quantidadeFiscal,
+              quantidadeNaoFiscal,
+              quantidadeFiscal > 0 || quantidadeNaoFiscal > 0 ? 1 : 0,
+              quantidade,
+              Number(resultado.fatorConversao || 1),
+              Number(resultado.fatorConversao || 1),
+              apresentacaoValidada?.id || resultado.apresentacaoId || null,
+              resultadoParaJson(resultado),
+              conversaoPersistida ? 'REGULARIZACAO_MUC' : origem,
+              itemId,
+              compraId
+            ], function(updateItemErr) {
+              if (updateItemErr) return rollback(500, { error: 'Não foi possível atualizar o item pendente.' });
+              if (this.changes !== 1) return rollback(409, { error: 'O item já foi regularizado por outra tentativa.', code: 'ESTOQUE_JA_REGULARIZADO' });
+              db.run(`
+                UPDATE produtos
+                SET saldo_fiscal = COALESCE(saldo_fiscal, 0) + ?,
+                    saldo_nao_fiscal = COALESCE(saldo_nao_fiscal, 0) + ?,
+                    estoque_atual = COALESCE(saldo_fiscal, 0) + ? + COALESCE(saldo_nao_fiscal, 0) + ?,
+                    preco_compra = CASE WHEN ? = 1 THEN ? ELSE preco_compra END,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+              `, [
+                quantidadeFiscal,
+                quantidadeNaoFiscal,
+                quantidadeFiscal,
+                quantidadeNaoFiscal,
+                tratamentoFiscal.atualizarCusto ? 1 : 0,
+                custoUnitario,
+                item.produto_id
+              ], (updateProdutoErr) => {
+                if (updateProdutoErr) return rollback(500, { error: 'Não foi possível atualizar o saldo do produto.' });
+                db.run('COMMIT', (commitErr) => {
+                  if (commitErr) return rollback(500, { error: 'A regularização não foi confirmada; nenhuma alteração foi mantida.' });
+                  res.json({
+                    success: true,
+                    compra_id: compraId,
+                    item_id: itemId,
+                    quantidade_estoque: quantidade,
+                    unidade_estoque: unidadeEstoque
+                  });
+                });
+              });
+            });
+            }
+          );
+        };
+        const mesmaUnidadeOriginal = MotorUnidadesMedida.normalizarUnidadeEntradaNfe(xml.uCom)
+          === MotorUnidadesMedida.normalizarUnidadeEntradaNfe(produto.unidade);
+        if (mesmaUnidadeOriginal) return executarComApresentacao(null);
+        muc.apresentacoes.resolverPorIdentificador(
+          Number(item.produto_id),
+          { unidade_comercial: xml.uCom },
+          (apErr, apresentacao) => {
+            if (apErr) return rollback(500, { error: 'Não foi possível consultar a apresentação do produto.' });
+            const estoqueDaApresentacao = MotorUnidadesMedida.normalizarUnidadeEntradaNfe(apresentacao?.unidade);
+            const estoqueDoProduto = MotorUnidadesMedida.normalizarUnidadeEntradaNfe(produto.unidade);
+            if (!apresentacao || !apresentacao.ativa || !apresentacao.compra
+                || !(Number(apresentacao.quantidade) > 0)
+                || !estoqueDaApresentacao || estoqueDaApresentacao !== estoqueDoProduto) {
+              return rollback(422, {
+                error: 'Não há apresentação de compra ativa com fator positivo na unidade de estoque cadastrada do produto.',
+                code: 'CONVERSAO_NAO_VALIDADA',
+                unidade_nf: String(xml.uCom),
+                unidade_estoque: String(produto.unidade || '')
+              });
+            }
+            return executarComApresentacao(apresentacao);
+          }
+        );
+      });
+    });
+  }));
 });
 
 router.post('/', (req, res) => {
@@ -2202,6 +2536,13 @@ router.post('/', (req, res) => {
                   id: compraId,
                   message: 'Compra registrada com sucesso e integrada ao estoque/financeiro.',
                   tipo_entrada: tipoEntrada,
+                  estoque_pendente_conversao: itensComRateio
+                    .filter((item) => item.estoque_pendente_conversao === true)
+                    .map((item) => ({
+                      nItem: item.nItem ?? null,
+                      item_key: item.item_key || null,
+                      produto_id: item.produto_id || null
+                    })),
                   conferencia: {
                     total_xml: totalCalculadoComAjustes,
                     total_itens_calculado: totalItensCalculado,
@@ -2358,6 +2699,11 @@ router.post('/', (req, res) => {
             });
             if (pendenciasConversao.length > 0) {
               const erroConv = montarErroPendencias(pendenciasConversao);
+              console.warn('[COMPRAS][CENTRAL_NFE] validação de conversão bloqueou a gravação', {
+                codigo: erroConv.code,
+                documento_id: documentoCentral.id,
+                linhas: pendenciasConversao.map((pendencia) => pendencia.diagnostico)
+              });
               return res.status(422).json({
                 error: erroConv.message,
                 code: erroConv.code,
@@ -3111,3 +3457,4 @@ module.exports.normalizarDecisoesConversaoEntrada = normalizarDecisoesConversaoE
 module.exports.validarPendenciasConversaoEntrada = validarPendenciasConversaoEntrada;
 module.exports.extrairChaveConversaoItem = extrairChaveConversaoItem;
 module.exports.aplicarDecisoesNosItens = aplicarDecisoesNosItens;
+module.exports.quantidadeAutorizadaEntradaNfe = ConfirmacaoConversaoEntradaNfe.quantidadeAutorizadaEntradaNfe;

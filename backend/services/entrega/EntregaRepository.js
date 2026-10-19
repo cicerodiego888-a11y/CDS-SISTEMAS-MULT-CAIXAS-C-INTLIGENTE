@@ -68,6 +68,10 @@ const SELECT_BASE = `
     v.prestacao_realizada,
     v.prestado_em,
     v.prestado_por,
+    v.documento_solicitado,
+    v.status_fiscal_entrega,
+    COALESCE(v.valor_fiscal, 0) AS valor_fiscal,
+    COALESCE(v.valor_nao_fiscal, 0) AS valor_nao_fiscal,
     COALESCE(res.reservado_fiscal, 0) AS reservado_fiscal,
     COALESCE(res.reservado_nao_fiscal, 0) AS reservado_nao_fiscal,
     COALESCE(res.reservado_fiscal, 0) + COALESCE(res.reservado_nao_fiscal, 0) AS total_reservado

@@ -181,15 +181,15 @@ function gerarHtmlCupomFechamento(consolidacao, extras = {}) {
   const tipo = `<style id="cds-fechamento-tipo">
   body.fechamento-caixa-80 .cds-cupom-termico {
     font-family: "Courier New", Courier, monospace;
-    font-size: 12px;
-    line-height: 1.22;
+    font-size: 11px;
+    line-height: 1.2;
   }
-  body.fechamento-caixa-80 .empresa { font-size: 14px; font-weight: 700; line-height: 1.15; }
-  body.fechamento-caixa-80 .meta { font-size: 12px; }
+  body.fechamento-caixa-80 .empresa { font-size: 13px; font-weight: 700; line-height: 1.15; }
+  body.fechamento-caixa-80 .meta { font-size: 11px; }
   body.fechamento-caixa-80 .titulo,
-  body.fechamento-caixa-80 .sec { font-size: 13px; font-weight: 700; line-height: 1.2; margin: 0.8mm 0 0.3mm; }
+  body.fechamento-caixa-80 .sec { font-size: 12px; font-weight: 700; line-height: 1.2; margin: 0.8mm 0 0.3mm; }
   body.fechamento-caixa-80 .total .rotulo,
-  body.fechamento-caixa-80 .total .valor { font-size: 13px; font-weight: 700; }
+  body.fechamento-caixa-80 .total .valor { font-size: 12px; font-weight: 700; }
 </style>`;
   return html.replace('</head>', `${tipo}</head>`);
 }

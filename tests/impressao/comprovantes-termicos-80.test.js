@@ -27,10 +27,13 @@ function cupomNaoFiscal(venda, total, desconto) {
 }
 
 function proibirGeometriaRuim(html, papel) {
+  const util = Number(papel) === 58 ? 48 : 72;
   assert.match(html, new RegExp(`@page \\{ size: ${papel}mm auto; margin: 0; \\}`));
-  assert.match(html, new RegExp(`width:\\s*${papel}mm`));
-  assert.match(html, new RegExp(`max-width:\\s*${papel}mm`));
-  assert.match(html, /padding:\s*1\.5mm 2\.5mm 2mm/);
+  assert.match(html, new RegExp(`width:\\s*${util}mm`));
+  assert.match(html, new RegExp(`max-width:\\s*${util}mm`));
+  assert.doesNotMatch(html, new RegExp(`width:\\s*${papel}mm`));
+  assert.match(html, /padding:\s*1\.2mm 3\.5mm 2mm 2mm/);
+  assert.match(html, /padding-right:\s*1\.5mm/);
   assert.doesNotMatch(html, /width:\s*(?:280|300|380)px|48ch|32ch|76mm/);
   assert.doesNotMatch(html, /overflow-x\s*:\s*hidden|zoom|scaleFactor|pageSize/);
   assert.doesNotMatch(html, /max-height\s*:/);

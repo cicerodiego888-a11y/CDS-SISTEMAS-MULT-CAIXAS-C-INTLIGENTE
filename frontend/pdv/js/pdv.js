@@ -2319,7 +2319,7 @@ function montarObjetoTEF(retornoTef) {
         codigo_transacao: retornoTef.codigo_transacao,
         comprovante_cliente: retornoTef.comprovante_cliente,
         comprovante_estabelecimento: retornoTef.comprovante_estabelecimento,
-        cnpj_credenciadora: retornoTef.cnpj_credenciadora || '01425787000104'
+        cnpj_credenciadora: retornoTef.cnpj_credenciadora
     };
 }
 

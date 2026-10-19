@@ -12,7 +12,8 @@ const { consultarProtocolo } = require('./consultaProtocoloRuntime');
 const { ModelType } = require('./core/ModelType');
 const { carregarCertificadoPfx } = require('./certificateService');
 const {
-  buildNfceXml
+  buildNfceXml,
+  validarVinculoTefPagamentos
 } = require('./xmlBuilder');
 const { gerarQRCodeNFCe } = require('./qrcode');
 const { assinarNFe } = require('./signer');
@@ -25,6 +26,7 @@ const { validarXmlFiscal } = require('./validarXmlFiscal');
 const { montarDadosDanfe } = require('./danfe');
 const DanfeTermicoRenderer = require('./DanfeTermicoRenderer');
 const { getFiscalSubDir } = require('./paths');
+const { hidratarMetadadosPagamentoTef } = require('./tefPagamentoHydrator');
 
 function itemEntraNaNfce(item) {
   return Number(item.quantidade_fiscal || 0) > 0
@@ -70,16 +72,12 @@ function carregarVenda(vendaId) {
         if (itErr) return reject(itErr);
 
         const carregarTefEVoltar = () => {
-          db.get(
-            "SELECT * FROM tef_transacoes WHERE venda_id = ? LIMIT 1",
+          db.all(
+            "SELECT id, status FROM tef_transacoes WHERE venda_id = ? AND status = 'aprovado' ORDER BY id",
             [vendaId],
-            (tefErr, tef) => {
-              if (tefErr) {
-                console.error('Erro ao carregar TEF:', tefErr);
-              }
-              if (tef) {
-                venda.tef = tef;
-              }
+            (tefErr, transacoesTef) => {
+              if (tefErr) return reject(tefErr);
+              venda.tef_transacoes_aprovadas = transacoesTef || [];
               resolve({ venda, itens });
             }
           );
@@ -88,11 +86,29 @@ function carregarVenda(vendaId) {
         const carregarPagamentosComerciaisEVoltar = () => {
           // Valores pagos pelo cliente (visão comercial do DANFE)
           db.all(
-            'SELECT forma_pagamento, valor FROM venda_pagamentos WHERE venda_id = ? ORDER BY id',
+            `SELECT
+              vp.id AS recebimento_id,
+              vp.venda_id,
+              vp.forma_pagamento,
+              vp.valor,
+              vp.tipo_recebimento,
+              vp.tef_transacao_id,
+              tt.status AS tef_status,
+              tt.venda_id AS tef_venda_id,
+              tt.provedor AS tef_provedor,
+              tt.nsu AS tef_nsu,
+              tt.autorizacao AS tef_autorizacao,
+              tt.bandeira AS tef_bandeira,
+              tt.adquirente AS tef_adquirente,
+              tt.payload_retorno AS tef_payload_retorno
+            FROM venda_pagamentos vp
+            LEFT JOIN tef_transacoes tt ON tt.id = vp.tef_transacao_id
+            WHERE vp.venda_id = ?
+            ORDER BY vp.id`,
             [vendaId],
             (pgErr, pagamentosComerciais) => {
               if (pgErr) return reject(pgErr);
-              venda.pagamentos_comerciais = pagamentosComerciais || [];
+              venda.pagamentos_comerciais = hidratarMetadadosPagamentoTef(pagamentosComerciais);
               if (
                 (!Array.isArray(venda.pagamentos) || venda.pagamentos.length === 0)
                 && venda.pagamentos_comerciais.length > 0
@@ -106,21 +122,32 @@ function carregarVenda(vendaId) {
 
         db.all(`
           SELECT
-            forma_pagamento,
-            valor,
-            tipo_recebimento,
-            tef_transacao_id,
-            nsu,
-            autorizacao
-          FROM venda_recebimentos
-          WHERE venda_id = ?
-            AND status = 'aprovado'
-          ORDER BY id
+            vr.id AS recebimento_id,
+            vr.venda_id,
+            vr.forma_pagamento,
+            vr.valor,
+            vr.tipo_recebimento,
+            vr.tef_transacao_id,
+            vr.nsu,
+            vr.autorizacao,
+            tt.status AS tef_status,
+            tt.venda_id AS tef_venda_id,
+            tt.provedor AS tef_provedor,
+            tt.nsu AS tef_nsu,
+            tt.autorizacao AS tef_autorizacao,
+            tt.bandeira AS tef_bandeira,
+            tt.adquirente AS tef_adquirente,
+            tt.payload_retorno AS tef_payload_retorno
+          FROM venda_recebimentos vr
+          LEFT JOIN tef_transacoes tt ON tt.id = vr.tef_transacao_id
+          WHERE vr.venda_id = ?
+            AND vr.status = 'aprovado'
+          ORDER BY vr.id
         `, [vendaId], (recErr, recebimentos) => {
           if (recErr) return reject(recErr);
 
           if (Array.isArray(recebimentos) && recebimentos.length > 0) {
-            venda.pagamentos = recebimentos;
+            venda.pagamentos = hidratarMetadadosPagamentoTef(recebimentos);
           }
           carregarPagamentosComerciaisEVoltar();
         });
@@ -455,6 +482,22 @@ async function emitirPorVendaId(vendaId) {
         resolve(row || null);
       });
     });
+
+    const pagamentosParaValidar = Array.isArray(venda.pagamentos) && venda.pagamentos.length
+      ? venda.pagamentos
+      : venda.forma_pagamento
+        ? [{ forma_pagamento: venda.forma_pagamento }]
+        : [];
+    const pendenciaVinculoTef = validarVinculoTefPagamentos(
+      pagamentosParaValidar,
+      venda.tef_transacoes_aprovadas
+    );
+    if (pendenciaVinculoTef) {
+      return {
+        success: false,
+        ...pendenciaVinculoTef
+      };
+    }
 
     const config = await getFiscalConfig();
 

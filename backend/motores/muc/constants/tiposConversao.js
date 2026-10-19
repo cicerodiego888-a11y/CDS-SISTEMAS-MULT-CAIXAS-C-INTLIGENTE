@@ -45,7 +45,7 @@ function inferirTipoConversao(tipoApresentacao, unidadeBase) {
   if (tipo === 'KIT') return 'KIT';
   if (tipo === 'SACO') return 'PESO';
   if (['ROLO', 'BOBINA'].includes(tipo)) return 'LINEAR';
-  if (['CX', 'FD', 'PCT', 'DISPLAY', 'BALDE', 'GALAO'].includes(tipo)) return 'MULTIPLICADOR';
+  if (['CX', 'FD', 'PCT', 'DISPLAY', 'BALDE', 'GALAO', 'VARA'].includes(tipo)) return 'MULTIPLICADOR';
   if (tipo === 'UN' || tipo === 'SERVICO') return 'UNIDADE';
 
   return 'PERSONALIZADO';

@@ -41,13 +41,20 @@ let __ffdEstado = {
   ultimaAtualizacao: null,
   montado: false,
   ops: { previa: false, validar: false, preparar: false, salvar: false, transmitir: false, emitir: false },
+  previaRequestAtiva: false,
+  previaDemorada: false,
   usuarioEditando: false
 };
 
 const FFD_POLL_MS = 10000;
 const FFD_PREVIA_TIMEOUT_MS = 120000;
+const FFD_INTERVALO_STORAGE_KEY = 'ffd_intervalo_emissao';
+const FFD_INTERVALO_PADRAO_MS = 120000;
+// Keep the millisecond duration exact in JavaScript; this is a numeric-precision limit, not a business cap.
+const FFD_INTERVALO_MAX_MINUTOS = Math.floor(Number.MAX_SAFE_INTEGER / 60000);
 let ffdPreviaAttemptCounter = 0;
 let ffdPreviaClickAt = null;
+let ffdUltimoTraceConciliacao = null;
 
 function ffdApi() {
   return (typeof API_URL === 'string' && API_URL.trim() !== '')
@@ -90,25 +97,76 @@ function ffdNotify(msg, tipo = 'info') {
   else console.warn('[FFD]', msg);
 }
 
+function ffdTextoDiagnostico(valor, limite = 500) {
+  if (typeof valor !== 'string') return '';
+  return valor
+    .replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ')
+    .replace(/-----BEGIN [^-]+-----[\s\S]*?-----END [^-]+-----/gi, '[conteúdo sensível omitido]')
+    .replace(/\b(?:bearer|basic)\s+[a-z0-9+/=._-]+/gi, '[credencial omitida]')
+    .replace(/\b(password|passwd|senha|token|secret|authorization|certificadoSenha)\b\s*[:=]\s*[^,;\s]+/gi, '$1=[omitido]')
+    .replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b|\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/g, '[documento omitido]')
+    .replace(/<([A-Za-z_][\w:.-]*)(?:\s[^>]*)?>[\s\S]*?<\/\1>/g, '[conteúdo XML omitido]')
+    .replace(/<[^>]*>/g, '[conteúdo XML omitido]')
+    .replace(/\s+at\s+[\w.$/\\-]+(?::\d+){1,2}\b.*$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, limite);
+}
+
+function ffdNormalizarDiagnosticos(documentos) {
+  if (!Array.isArray(documentos)) return [];
+  return documentos.filter((doc) => doc && typeof doc === 'object' && !Array.isArray(doc))
+    .map((doc) => ({
+      id: doc.id != null && doc.id !== '' && Number.isSafeInteger(Number(doc.id)) ? Number(doc.id) : null,
+      sequencia: doc.sequencia != null && doc.sequencia !== ''
+        && Number.isSafeInteger(Number(doc.sequencia))
+        ? Number(doc.sequencia)
+        : null,
+      etapa: ['montagem_xml', 'validacao_xml', 'geracao_xml'].includes(doc.etapa)
+        ? doc.etapa
+        : 'geracao_xml',
+      code: /^[A-Za-z0-9_-]{1,64}$/.test(String(doc.codigo || doc.code || ''))
+        ? String(doc.codigo || doc.code)
+        : 'XML_ERRO',
+      message: ffdTextoDiagnostico(doc.mensagem || doc.message)
+    }))
+    .filter((doc) => doc.message);
+}
+
 function ffdErroApi(body, fallback) {
-  const payload = body && typeof body === 'object' ? body : {};
+  const payload = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
   const linhas = [];
-  if (payload.error) linhas.push(payload.error);
-  if (payload.detalhes && payload.detalhes !== payload.error) linhas.push(payload.detalhes);
+  const mensagemGeral = ffdTextoDiagnostico(payload.error);
+  const detalhes = ffdTextoDiagnostico(payload.detalhes);
+  const documentos = ffdNormalizarDiagnosticos(payload.documentos);
+  if (mensagemGeral) linhas.push(mensagemGeral);
+  if (detalhes && detalhes !== mensagemGeral) linhas.push(detalhes);
   if (Array.isArray(payload.erros)) {
     payload.erros.forEach((e) => {
-      const texto = e && (e.mensagem || e.message);
+      const texto = ffdTextoDiagnostico(e && (e.mensagem || e.message));
       if (texto) linhas.push(texto);
     });
   }
+  documentos.forEach((doc) => {
+    const documento = doc.sequencia != null
+      ? `Documento ${doc.sequencia}`
+      : (doc.id != null ? `Documento ID ${doc.id}` : 'Documento');
+    linhas.push(`${documento} — ${doc.etapa} (${doc.code}): ${doc.message}`);
+  });
+  if (payload.code === 'XML_ERRO' && documentos.length === 0) {
+    linhas.push('Diagnóstico individual não disponível.');
+  }
   const msg = linhas.filter(Boolean).join('\n') || fallback || 'Erro ao processar.';
   console.error('[FFD] erro API', {
-    error: payload.error,
-    code: payload.code,
-    detalhes: payload.detalhes,
-    erros: payload.erros,
-    checklist: payload.checklist,
-    status: payload.status
+    error: mensagemGeral || undefined,
+    code: ffdTextoDiagnostico(payload.code, 64) || undefined,
+    correlationId: ffdTextoDiagnostico(payload.correlationId, 100) || undefined,
+    detalhes: detalhes || undefined,
+    documentos,
+    erros: Array.isArray(payload.erros)
+      ? payload.erros.map((e) => ffdTextoDiagnostico(e && (e.mensagem || e.message))).filter(Boolean)
+      : undefined,
+    status: ffdTextoDiagnostico(payload.status, 64) || undefined
   });
   return msg;
 }
@@ -331,6 +389,16 @@ function ffdAbrirModalMaquina() {
     const trigger = document.activeElement;
     ffdRemoverModal('ffdMaquinaModal');
     const modoPorComprovante = __ffdEstado.modoRecebimento === 'por_comprovante';
+    const formasPagamento = typeof CdsFormasPagamento !== 'undefined'
+      && Array.isArray(CdsFormasPagamento.FORMAS)
+      ? CdsFormasPagamento.FORMAS
+      : [];
+    const opcoesFormaPagamento = (selecionada = '') => [
+      '<option value="">Selecione a forma</option>',
+      ...formasPagamento.map((forma) =>
+        `<option value="${ffdEsc(forma.value)}" ${forma.value === selecionada ? 'selected' : ''}>${ffdEsc(forma.label)}</option>`
+      )
+    ].join('');
     const html = `
       <div class="modal fade" id="ffdMaquinaModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -352,13 +420,24 @@ function ffdAbrirModalMaquina() {
                     <button type="button" class="btn btn-sm btn-outline-primary" id="ffdMaqAddValor">+ Valor</button>
                   </div>
                   <div id="ffdMaqValoresList">
-                    <div class="input-group mb-2" data-ffd-maq-valor-linha>
-                      <input type="text" class="form-control" data-ffd-maq-valor-input
-                        placeholder="Ex.: 400,00" inputmode="decimal" autocomplete="off" aria-label="Valor recebido 1">
-                      <button type="button" class="btn btn-outline-danger" data-ffd-maq-remover-valor aria-label="Remover valor">×</button>
+                    <div class="row g-2 align-items-end mb-2" data-ffd-maq-valor-linha>
+                      <div class="col">
+                        <label class="form-label small mb-1">Valor recebido</label>
+                        <input type="text" class="form-control" data-ffd-maq-valor-input
+                          placeholder="Ex.: 40,00" inputmode="decimal" autocomplete="off" aria-label="Valor recebido 1">
+                      </div>
+                      <div class="col">
+                        <label class="form-label small mb-1">F. Pgto</label>
+                        <select class="form-select" data-ffd-maq-forma-pagamento aria-label="Forma de pagamento 1">
+                          ${opcoesFormaPagamento()}
+                        </select>
+                      </div>
+                      <div class="col-auto">
+                        <button type="button" class="btn btn-outline-danger" data-ffd-maq-remover-valor aria-label="Remover recebimento">×</button>
+                      </div>
                     </div>
                   </div>
-                  <div class="small text-muted">Cada valor informado gera uma venda fiscal individual.</div>
+                  <div class="small text-muted">Cada valor e forma de pagamento gera uma venda fiscal individual.</div>
                 </div>
               ` : `
                 <div class="mb-3">
@@ -396,19 +475,34 @@ function ffdAbrirModalMaquina() {
 
     const montarValores = () => {
       if (!modoPorComprovante) return [el.querySelector('#ffdMaqValor')?.value || ''];
-      return Array.from(el.querySelectorAll('[data-ffd-maq-valor-input]')).map((input) => input.value);
+      return Array.from(el.querySelectorAll('[data-ffd-maq-valor-linha]')).map((linha) => ({
+        valor: linha.querySelector('[data-ffd-maq-valor-input]')?.value || '',
+        forma_pagamento: linha.querySelector('[data-ffd-maq-forma-pagamento]')?.value || ''
+      }));
     };
 
-    const adicionarLinhaValor = (valor = '') => {
+    const adicionarLinhaValor = () => {
       const container = el.querySelector('#ffdMaqValoresList');
       if (!container) return;
       const linha = document.createElement('div');
-      linha.className = 'input-group mb-2';
+      const numero = container.querySelectorAll('[data-ffd-maq-valor-linha]').length + 1;
+      linha.className = 'row g-2 align-items-end mb-2';
       linha.setAttribute('data-ffd-maq-valor-linha', '1');
       linha.innerHTML = `
-        <input type="text" class="form-control" data-ffd-maq-valor-input
-          placeholder="Ex.: 400,00" inputmode="decimal" autocomplete="off" aria-label="Valor recebido" value="${ffdEsc(valor)}">
-        <button type="button" class="btn btn-outline-danger" data-ffd-maq-remover-valor aria-label="Remover valor">×</button>
+        <div class="col">
+          <label class="form-label small mb-1">Valor recebido</label>
+          <input type="text" class="form-control" data-ffd-maq-valor-input
+            placeholder="Ex.: 40,00" inputmode="decimal" autocomplete="off" aria-label="Valor recebido ${numero}">
+        </div>
+        <div class="col">
+          <label class="form-label small mb-1">F. Pgto</label>
+          <select class="form-select" data-ffd-maq-forma-pagamento aria-label="Forma de pagamento ${numero}">
+            ${opcoesFormaPagamento()}
+          </select>
+        </div>
+        <div class="col-auto">
+          <button type="button" class="btn btn-outline-danger" data-ffd-maq-remover-valor aria-label="Remover recebimento">×</button>
+        </div>
       `;
       const remover = linha.querySelector('[data-ffd-maq-remover-valor]');
       remover.addEventListener('click', () => {
@@ -452,25 +546,38 @@ function ffdAbrirModalMaquina() {
       }
 
       if (modoPorComprovante) {
+        if (!formasPagamento.length) {
+          ffdNotify('As formas de pagamento oficiais não estão disponíveis.', 'danger');
+          return;
+        }
         const valores = [];
-        for (const valor of montarValores()) {
-          const texto = String(valor || '').trim();
-          if (texto === '') continue;
-          const parsed = parseValor(valor);
+        for (const linha of montarValores()) {
+          const texto = String(linha.valor || '').trim();
+          const parsed = parseValor(linha.valor);
           if (!(parsed > 0)) {
-            ffdNotify('Há um valor inválido na lista.', 'warning');
+            ffdNotify('Informe um valor maior que zero em cada recebimento.', 'warning');
             const primeiroInvalido = Array.from(el.querySelectorAll('[data-ffd-maq-valor-input]')).find((input) => {
-              const campo = String(input.value || '').trim();
-              return campo !== '' && !(parseValor(input.value) > 0);
+              return !(parseValor(input.value) > 0);
             });
             if (primeiroInvalido) primeiroInvalido.focus();
             return;
           }
-          valores.push(Math.round(parsed * 100) / 100);
+          if (!linha.forma_pagamento) {
+            ffdNotify('Selecione uma forma de pagamento para cada recebimento.', 'warning');
+            const seletor = Array.from(el.querySelectorAll('[data-ffd-maq-valor-linha]'))
+              .map((item) => item.querySelector('[data-ffd-maq-forma-pagamento]'))
+              .find((select) => !select?.value);
+            if (seletor) seletor.focus();
+            return;
+          }
+          valores.push({
+            valor: Math.round(parsed * 100) / 100,
+            forma_pagamento: linha.forma_pagamento
+          });
         }
 
-        if (!valores.length) {
-          ffdNotify('Informe pelo menos um valor recebido.', 'warning');
+        if (!valores.length || valores.some((linha) => !(linha.valor > 0) || !linha.forma_pagamento)) {
+          ffdNotify('Informe valor e forma de pagamento em cada recebimento.', 'warning');
           const primeiroInput = el.querySelector('[data-ffd-maq-valor-input]');
           if (primeiroInput) primeiroInput.focus();
           return;
@@ -479,7 +586,7 @@ function ffdAbrirModalMaquina() {
         finalizar({
           operadora,
           cnpj,
-          valores: valores.map((valor) => ({ operadora, cnpj, valor }))
+          valores: valores.map((linha) => ({ operadora, cnpj, ...linha }))
         });
         return;
       }
@@ -838,6 +945,20 @@ function ffdRenderConciliacaoRecebimentos() {
   if (!el) return;
   const referencia = ffdValorReferenciaConciliacao();
   const difRec = ffdDiferencaConciliacao();
+  const traceConciliacao = JSON.stringify({
+    fechamento_id: Number(__ffdEstado.fechamentoId) || null,
+    modo: __ffdEstado.modoRecebimento,
+    origem_referencia: __ffdEstado.previa
+      ? (__ffdEstado.previa.valor_distribuido != null ? 'previa.valor_distribuido' : 'previa.valor_informado')
+      : (__ffdEstado.resumo?.valor_fiscal_elegivel != null ? 'resumo.valor_fiscal_elegivel' : 'resumo.valor_elegivel'),
+    valor_referencia: referencia,
+    total_recebimentos: informado,
+    diferenca: difRec
+  });
+  if (traceConciliacao !== ffdUltimoTraceConciliacao) {
+    ffdUltimoTraceConciliacao = traceConciliacao;
+    ffdLogDesenvolvimento('CONCILIACAO_BASE', JSON.parse(traceConciliacao));
+  }
   const temPrevia = Boolean(__ffdEstado.previa && (__ffdEstado.previa.valor_distribuido != null
     || (__ffdEstado.previa.vendas || []).length));
   const residualDia = Number(
@@ -1081,6 +1202,7 @@ function loadFechamentoFiscalDoDia() {
               <div class="fw-semibold" id="ffdFilaTitulo"></div>
               <div class="small mt-1" id="ffdFilaStatus"></div>
               <div class="fw-semibold text-primary mt-2" id="ffdFilaCountdown"></div>
+              <button type="button" class="btn btn-outline-primary btn-sm mt-2 d-none" id="ffdBtnAvancarEmissaoAgora">Avançar agora</button>
               <div class="small mt-2" id="ffdFilaResumo"></div>
               <div class="table-responsive mt-2">
                 <table class="table table-sm align-middle mb-0">
@@ -1130,7 +1252,7 @@ function loadFechamentoFiscalDoDia() {
           <div id="ffdPainelRecebimentosMaquina">
           <div class="table-responsive">
             <table class="table table-sm align-middle">
-              <thead><tr><th>Máquina / Operadora</th><th>CNPJ</th><th class="text-end">Valor</th><th></th></tr></thead>
+              <thead><tr><th>Máquina / Operadora</th><th>CNPJ</th><th class="d-none" data-ffd-forma-heading>F. Pgto</th><th class="text-end">Valor</th><th></th></tr></thead>
               <tbody id="ffdMaquinasBody"><tr><td colspan="4" class="text-muted">Nenhuma máquina informada.</td></tr></tbody>
             </table>
           </div>
@@ -1166,6 +1288,24 @@ function loadFechamentoFiscalDoDia() {
               </div>
             </div>
           </div>
+          <section class="border rounded-3 p-3 mb-3" id="ffdConfiguracaoIntervalo" aria-labelledby="ffdTituloIntervalo">
+            <h6 class="mb-2" id="ffdTituloIntervalo">Intervalo entre NFC-e</h6>
+            <div class="row g-2 align-items-end">
+              <div class="col-12 col-sm-6 col-lg-auto">
+                <label class="form-label small mb-1" for="ffdIntervaloMinutos">Minutos</label>
+                <input type="number" class="form-control form-control-sm" id="ffdIntervaloMinutos" min="0" step="1" inputmode="numeric" aria-label="Minutos do intervalo entre NFC-e">
+              </div>
+              <div class="col-12 col-sm-6 col-lg-auto">
+                <label class="form-label small mb-1" for="ffdIntervaloSegundos">Segundos</label>
+                <input type="number" class="form-control form-control-sm" id="ffdIntervaloSegundos" min="0" step="1" inputmode="numeric" aria-label="Segundos adicionais do intervalo entre NFC-e">
+              </div>
+              <div class="col-12 col-lg-auto">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="ffdAplicarIntervalo">Aplicar</button>
+              </div>
+              <div class="col-12 small text-muted" id="ffdIntervaloAplicado" role="status"></div>
+              <div class="col-12 form-text">Tempo máximo de espera entre o término de uma emissão e o início da próxima. A próxima venda pode avançar antes, quando estiver pronta.</div>
+            </div>
+          </section>
           <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
             <div class="btn-group btn-group-sm" role="group">
               <button type="button" class="btn btn-outline-secondary active" id="ffdVistaVenda">Por venda</button>
@@ -1268,6 +1408,11 @@ function loadFechamentoFiscalDoDia() {
   });
   $('#ffdBtnSalvarComprovantes').on('click', () => ffdSalvarComprovantes());
   $('#ffdBtnIniciarEmissaoSequencial').on('click', () => ffdIniciarFilaEmissao());
+  $('#ffdAplicarIntervalo').on('click', () => ffdAplicarConfiguracaoIntervalo());
+  $('#ffdBtnAvancarEmissaoAgora').on('click', () => {
+    const fila = __ffdEstado.filaEmissao;
+    if (fila && typeof fila.avancarAgora === 'function') fila.avancarAgora();
+  });
   $('#ffdBtnValidar').on('click', () => ffdValidarFiscal());
   $('#ffdBtnGerarXml').on('click', () => ffdPrepararEmissao(true));
   $('#ffdBtnPreparar').on('click', () => ffdPrepararEmissao(true));
@@ -1276,6 +1421,7 @@ function loadFechamentoFiscalDoDia() {
   $('#ffdBtnTransmitir').on('click', () => ffdTransmitirSefaz());
   $('#ffdBtnRecuperar').on('click', () => ffdRecuperarSefaz());
   $('#ffdBtnContinuarEmissao').on('click', () => ffdContinuarEmissao());
+  ffdInicializarConfiguracaoIntervalo();
   $('#ffdVistaVenda').on('click', () => { __ffdEstado.vista = 'venda'; ffdAtualizarVistaBtns(); ffdRenderPrevia(__ffdEstado.previa); });
   $('#ffdVistaProduto').on('click', () => { __ffdEstado.vista = 'produto'; ffdAtualizarVistaBtns(); ffdRenderPrevia(__ffdEstado.previa); });
   $('#ffdValorAlvo, #ffdValorMin, #ffdValorMax').on('focus', () => { __ffdEstado.usuarioEditando = true; });
@@ -1315,6 +1461,7 @@ function ffdAtualizarModoRecebimentoUi() {
   if (acaoEmissao) acaoEmissao.classList.toggle('d-none', porVenda);
   if (continuarEmissao) continuarEmissao.classList.toggle('d-none', porVenda);
   if (detalhesTecnicos) detalhesTecnicos.classList.toggle('d-none', porVenda);
+  ffdRenderMaquinas();
   if (porVenda) ffdCarregarVendasElegiveis();
   if (porComprovante) ffdCarregarComprovantes();
   ffdRenderConciliacaoRecebimentos();
@@ -1452,21 +1599,30 @@ async function ffdSalvarComprovantesPorFechamento() {
 
 async function ffdCarregarComprovantes() {
   const fechamentoId = Number(__ffdEstado.fechamentoId || 0);
-  if (!fechamentoId || __ffdEstado.modoRecebimento !== 'por_comprovante') return;
+  const modoRecebimento = __ffdEstado.modoRecebimento;
+  if (!fechamentoId || modoRecebimento !== 'por_comprovante') return;
+  __ffdEstado.recebimentos = [];
+  ffdRenderMaquinas();
   try {
-    const resp = await fetch(`${ffdApi()}/fiscal/fechamentos/${fechamentoId}/recebimentos`, { headers: ffdHeaders() });
+    const resp = await fetch(`${ffdApi()}/fiscal/fechamentos/${fechamentoId}/recebimentos-comprovantes`, { headers: ffdHeaders() });
     const resultado = await resp.json().catch(() => ({}));
     if (!resp.ok) throw new Error(resultado.error || `HTTP ${resp.status}`);
-    __ffdEstado.recebimentos = (resultado.recebimentos || []).map((item) => ({
+    if (Number(__ffdEstado.fechamentoId || 0) !== fechamentoId
+      || __ffdEstado.modoRecebimento !== modoRecebimento) return;
+    __ffdEstado.recebimentos = (resultado.comprovantes || []).map((item) => ({
       id: item.id,
       operadora: item.operadora,
       cnpj: item.cnpj || '',
-      valor: Number(item.valor || 0)
+      valor: Number(item.valor || 0),
+      forma_pagamento: item.forma_pagamento || null
     }));
     ffdRenderMaquinas();
   } catch (err) {
+    if (Number(__ffdEstado.fechamentoId || 0) !== fechamentoId
+      || __ffdEstado.modoRecebimento !== modoRecebimento) return;
     __ffdEstado.recebimentos = [];
     ffdRenderMaquinas();
+    ffdNotify(err.message || 'Falha ao carregar comprovantes.', 'danger');
   }
 }
 
@@ -1698,9 +1854,152 @@ async function ffdCarregarVendasElegiveis() {
   }
 }
 
-function ffdEscolherIntervaloEmissaoMs(aleatorio = Math.random) {
-  const sorteio = Math.max(0, Math.min(0.999999999, Number(aleatorio()) || 0));
-  return 60000 + Math.floor(sorteio * 240001);
+function ffdValidarIntervaloConfiguracao(minutosTexto, segundosTexto) {
+  const minutosValor = String(minutosTexto == null ? '' : minutosTexto).trim();
+  const segundosValor = String(segundosTexto == null ? '' : segundosTexto).trim();
+  if (!minutosValor && !segundosValor) {
+    return { ok: true, ms: FFD_INTERVALO_PADRAO_MS, personalizado: false, minutos: 2, segundos: 0 };
+  }
+  if ((minutosValor && !/^\d+$/.test(minutosValor)) || (segundosValor && !/^\d+$/.test(segundosValor))) {
+    return { ok: false, erro: 'Informe minutos e segundos como números inteiros não negativos.' };
+  }
+
+  const minutos = minutosValor ? Number(minutosValor) : 0;
+  const segundos = segundosValor ? Number(segundosValor) : 0;
+  if (!Number.isSafeInteger(minutos) || minutos > FFD_INTERVALO_MAX_MINUTOS) {
+    return { ok: false, erro: 'O intervalo informado excede o maior valor representável com precisão.' };
+  }
+  if (!Number.isSafeInteger(segundos)) {
+    return { ok: false, erro: 'Os segundos devem ser um número inteiro não negativo.' };
+  }
+
+  const ms = minutos * 60000 + segundos * 1000;
+  if (!Number.isSafeInteger(ms)) {
+    return { ok: false, erro: 'O intervalo informado excede o maior valor representável com precisão.' };
+  }
+  const totalSegundos = ms / 1000;
+  return {
+    ok: true,
+    ms,
+    personalizado: true,
+    minutos: Math.floor(totalSegundos / 60),
+    segundos: totalSegundos % 60
+  };
+}
+
+function ffdCarregarConfiguracaoIntervalo(storage = localStorage) {
+  try {
+    const salvo = storage.getItem(FFD_INTERVALO_STORAGE_KEY);
+    if (salvo == null) {
+      return { ok: true, ms: FFD_INTERVALO_PADRAO_MS, personalizado: false, minutos: 2, segundos: 0 };
+    }
+    const config = JSON.parse(salvo);
+    const validado = ffdValidarIntervaloConfiguracao(config?.minutos, config?.segundos);
+    if (!validado.ok || !validado.personalizado) {
+      return { ok: false, erro: validado.erro || 'A configuração salva do intervalo é inválida.' };
+    }
+    return validado;
+  } catch (erro) {
+    return { ok: false, erro: erro.message || 'Não foi possível ler a configuração salva do intervalo.' };
+  }
+}
+
+function ffdSalvarConfiguracaoIntervalo(minutosTexto, segundosTexto, storage = localStorage) {
+  const validado = ffdValidarIntervaloConfiguracao(minutosTexto, segundosTexto);
+  if (!validado.ok) return validado;
+  try {
+    if (validado.personalizado) {
+      storage.setItem(FFD_INTERVALO_STORAGE_KEY, JSON.stringify({
+        minutos: validado.minutos,
+        segundos: validado.segundos
+      }));
+    } else {
+      storage.removeItem(FFD_INTERVALO_STORAGE_KEY);
+    }
+    return validado;
+  } catch (erro) {
+    return { ok: false, erro: erro.message || 'Não foi possível salvar a configuração do intervalo.' };
+  }
+}
+
+function ffdFormatarIntervalo(ms) {
+  const totalSegundos = Math.floor(Number(ms) / 1000);
+  const minutos = Math.floor(totalSegundos / 60);
+  const segundos = totalSegundos % 60;
+  return `${minutos} min ${segundos} s`;
+}
+
+function ffdAtualizarIntervaloAplicado(configuracao, mensagemErro = '') {
+  const status = document.getElementById('ffdIntervaloAplicado');
+  if (!status) return;
+  if (mensagemErro) {
+    status.textContent = mensagemErro;
+    status.classList.add('text-danger');
+    status.classList.remove('text-muted', 'text-success');
+    return;
+  }
+  status.textContent = configuracao.personalizado
+    ? `Intervalo personalizado aplicado: ${ffdFormatarIntervalo(configuracao.ms)}.`
+    : 'Padrão do sistema: 2 minutos.';
+  status.classList.add(configuracao.personalizado ? 'text-success' : 'text-muted');
+  status.classList.remove(configuracao.personalizado ? 'text-muted' : 'text-success', 'text-danger');
+}
+
+function ffdInicializarConfiguracaoIntervalo() {
+  const configuracao = ffdCarregarConfiguracaoIntervalo();
+  const minutos = document.getElementById('ffdIntervaloMinutos');
+  const segundos = document.getElementById('ffdIntervaloSegundos');
+  if (configuracao.ok) {
+    if (configuracao.personalizado) {
+      if (minutos) minutos.value = String(configuracao.minutos);
+      if (segundos) segundos.value = String(configuracao.segundos);
+    } else {
+      if (minutos) minutos.value = '';
+      if (segundos) segundos.value = '';
+    }
+    ffdAtualizarIntervaloAplicado(configuracao);
+  } else {
+    ffdAtualizarIntervaloAplicado(
+      { ms: FFD_INTERVALO_PADRAO_MS, personalizado: false },
+      `${configuracao.erro} Será usado o padrão de 2 minutos até corrigir a configuração.`
+    );
+  }
+  return configuracao;
+}
+
+function ffdAplicarConfiguracaoIntervalo() {
+  const minutos = document.getElementById('ffdIntervaloMinutos');
+  const segundos = document.getElementById('ffdIntervaloSegundos');
+  const valorInvalido = [minutos, segundos].some((input) => input?.validity?.badInput);
+  const configuracao = valorInvalido
+    ? { ok: false, erro: 'Informe minutos e segundos como números inteiros não negativos.' }
+    : ffdSalvarConfiguracaoIntervalo(minutos?.value, segundos?.value);
+  if (!configuracao.ok) {
+    const atual = ffdCarregarConfiguracaoIntervalo();
+    const efetivo = atual.ok ? atual : { ms: FFD_INTERVALO_PADRAO_MS, personalizado: false };
+    ffdAtualizarIntervaloAplicado(
+      null,
+      `${configuracao.erro} Configuração não alterada; permanece ${ffdFormatarIntervalo(efetivo.ms)} (${efetivo.personalizado ? 'personalizado' : 'padrão do sistema'}).`
+    );
+    if (minutos) minutos.classList.add('is-invalid');
+    if (segundos) segundos.classList.add('is-invalid');
+    return false;
+  }
+  if (minutos) {
+    minutos.classList.remove('is-invalid');
+    minutos.value = String(configuracao.minutos);
+  }
+  if (segundos) {
+    segundos.classList.remove('is-invalid');
+    segundos.value = String(configuracao.segundos);
+  }
+  ffdAtualizarIntervaloAplicado(configuracao);
+  return true;
+}
+
+function ffdEscolherIntervaloEmissaoMs() {
+  const configuracao = ffdCarregarConfiguracaoIntervalo();
+  return configuracao.ok ? configuracao.ms : FFD_INTERVALO_PADRAO_MS;
 }
 
 function ffdAguardarCountdown(intervaloMs, aoAtualizar, temporizadores = {}) {
@@ -1710,16 +2009,31 @@ function ffdAguardarCountdown(intervaloMs, aoAtualizar, temporizadores = {}) {
     const limparIntervalo = temporizadores.clearInterval || clearInterval;
     const inicio = agora();
     let timerId = null;
+    let concluido = false;
     const atualizar = () => {
+      if (concluido) return;
+      if (typeof temporizadores.deveCancelar === 'function' && temporizadores.deveCancelar()) {
+        concluido = true;
+        if (timerId != null) limparIntervalo(timerId);
+        resolve('cancelled');
+        return;
+      }
+      if (typeof temporizadores.podeAvancarAgora === 'function' && temporizadores.podeAvancarAgora()) {
+        concluido = true;
+        if (timerId != null) limparIntervalo(timerId);
+        resolve('early');
+        return;
+      }
       const restante = Math.max(0, Number(intervaloMs) - (agora() - inicio));
       if (typeof aoAtualizar === 'function') aoAtualizar(restante);
       if (restante <= 0) {
+        concluido = true;
         if (timerId != null) limparIntervalo(timerId);
-        resolve();
+        resolve('elapsed');
       }
     };
     atualizar();
-    if (Number(intervaloMs) > 0) timerId = criarIntervalo(atualizar, 1000);
+    if (!concluido && Number(intervaloMs) > 0) timerId = criarIntervalo(atualizar, 1000);
   });
 }
 
@@ -1800,9 +2114,13 @@ async function ffdExecutarFilaSequencial(vendas, dependencias = {}) {
   const atualizarEstado = dependencias.atualizarEstado || (() => {});
   const registrarLog = dependencias.registrarLog || (() => {});
   const escolherIntervalo = dependencias.escolherIntervaloMs || ffdEscolherIntervaloEmissaoMs;
-  const esperarIntervalo = dependencias.esperarIntervalo || ((ms, tick) => ffdAguardarCountdown(ms, tick));
+  const esperarIntervalo = dependencias.esperarIntervalo || ((ms, tick, podeAvancarAgora, deveCancelar) => ffdAguardarCountdown(ms, tick, {
+    podeAvancarAgora,
+    deveCancelar
+  }));
   const agora = dependencias.agora || (() => new Date().toISOString());
   const resultados = [];
+  let filaBloqueada = false;
 
   atualizarEstado({ status: lista.length ? 'RUNNING' : 'COMPLETED', total: lista.length, indiceAtual: 0, resultados: [] });
   registrarLog('FILA_INICIADA', { quantidade_vendas: lista.length });
@@ -1869,9 +2187,10 @@ async function ffdExecutarFilaSequencial(vendas, dependencias = {}) {
             protocolo: resposta.soap?.protocolo || null
           };
         } else {
+          const resultadoFiscalTerminal = ['rejeitada', 'rejeitado', 'denegada', 'denegado'].includes(statusFiscal);
           resultado = {
             venda_id: vendaId,
-            status: 'ERRO',
+            status: resultadoFiscalTerminal ? 'ERRO' : 'INDETERMINADA',
             mensagem: resposta?.message || `Emissão não autorizada (${resposta?.status || 'sem status'}).`,
             codigo: resposta?.code || null,
             status_fiscal: resposta?.status || null,
@@ -1884,7 +2203,7 @@ async function ffdExecutarFilaSequencial(vendas, dependencias = {}) {
     } catch (err) {
       resultado = {
         venda_id: vendaId,
-        status: 'ERRO',
+        status: 'INDETERMINADA',
         mensagem: err.message || 'Falha ao consultar ou emitir NFC-e.',
         codigo: err.code || null
       };
@@ -1895,16 +2214,69 @@ async function ffdExecutarFilaSequencial(vendas, dependencias = {}) {
     atualizarEstado({ status: 'RUNNING', resultados: resultados.slice(), ultimoResultado: resultado });
     registrarLog('VENDA_RESULTADO', resultado);
 
+    if (['BLOQUEADA', 'INDETERMINADA'].includes(resultado.status)) {
+      filaBloqueada = true;
+      const motivo = resultado.status === 'INDETERMINADA'
+        ? 'Resultado fiscal indeterminado; nenhuma próxima NFC-e será iniciada até a situação ser confirmada.'
+        : 'Situação fiscal pendente; nenhuma próxima NFC-e será iniciada até a pendência ser resolvida.';
+      atualizarEstado({
+        status: 'BLOCKED',
+        vendaAtualId: vendaId,
+        proximaVendaId: null,
+        countdownMs: null,
+        mensagem: motivo,
+        resultados: resultados.slice()
+      });
+      registrarLog('FILA_BLOQUEADA', { venda_id: vendaId, status: resultado.status });
+      break;
+    }
+
     if (indice < lista.length - 1) {
       const sorteado = Number(escolherIntervalo());
-      const intervaloMs = Number.isFinite(sorteado) ? Math.max(60000, Math.min(300000, sorteado)) : 60000;
+      const intervaloMs = Number.isSafeInteger(sorteado) && sorteado >= 0
+        ? sorteado
+        : FFD_INTERVALO_PADRAO_MS;
       const proximaVendaId = Number(lista[indice + 1]?.venda_id);
-      atualizarEstado({ status: 'WAITING', vendaAtualId: vendaId, proximaVendaId, intervaloMs, countdownMs: intervaloMs });
-      registrarLog('INTERVALO_INICIO', { venda_id: vendaId, proxima_venda_id: proximaVendaId, intervalo_ms: intervaloMs });
-      await esperarIntervalo(intervaloMs, (countdownMs) => {
-        atualizarEstado({ status: 'WAITING', vendaAtualId: vendaId, proximaVendaId, intervaloMs, countdownMs });
+      let avancarAgora = false;
+      const podeAvancarAgora = () => avancarAgora;
+      const deveCancelar = typeof dependencias.deveCancelar === 'function' ? dependencias.deveCancelar : () => false;
+      atualizarEstado({
+        status: 'WAITING',
+        vendaAtualId: vendaId,
+        proximaVendaId,
+        intervaloMs,
+        countdownMs: intervaloMs,
+        podeAvancarAntesDoIntervalo: true,
+        avancarAgora: () => { avancarAgora = true; }
       });
-      registrarLog('INTERVALO_FIM', { proxima_venda_id: proximaVendaId, intervalo_ms: intervaloMs });
+      registrarLog('INTERVALO_INICIO', { venda_id: vendaId, proxima_venda_id: proximaVendaId, intervalo_maximo_ms: intervaloMs });
+      const esperaResultado = await esperarIntervalo(intervaloMs, (countdownMs) => {
+        atualizarEstado({
+          status: 'WAITING',
+          vendaAtualId: vendaId,
+          proximaVendaId,
+          intervaloMs,
+          countdownMs,
+          podeAvancarAntesDoIntervalo: true,
+          avancarAgora: () => { avancarAgora = true; }
+        });
+      }, podeAvancarAgora, deveCancelar);
+      if (esperaResultado === 'cancelled' || deveCancelar()) {
+        atualizarEstado({
+          status: 'CANCELLED',
+          vendaAtualId: null,
+          proximaVendaId: null,
+          countdownMs: null,
+          podeAvancarAntesDoIntervalo: false
+        });
+        return { status: 'CANCELLED', resultados };
+      }
+      atualizarEstado({ status: 'RUNNING', proximaVendaId: null, countdownMs: null, podeAvancarAntesDoIntervalo: false, avancarAgora: null });
+      registrarLog('INTERVALO_FIM', {
+        proxima_venda_id: proximaVendaId,
+        intervalo_maximo_ms: intervaloMs,
+        avancou_antes_do_maximo: esperaResultado === 'early'
+      });
     }
   }
 
@@ -1913,11 +2285,13 @@ async function ffdExecutarFilaSequencial(vendas, dependencias = {}) {
     autorizadas: resultados.filter((item) => item.status === 'AUTORIZADA').length,
     ja_autorizadas: resultados.filter((item) => item.status === 'JA_AUTORIZADA').length,
     erros: resultados.filter((item) => item.status === 'ERRO').length,
-    bloqueadas: resultados.filter((item) => item.status === 'BLOQUEADA' || item.status === 'CANCELADA').length
+    bloqueadas: resultados.filter((item) => item.status === 'BLOQUEADA' || item.status === 'CANCELADA').length,
+    indeterminadas: resultados.filter((item) => item.status === 'INDETERMINADA').length
   };
-  atualizarEstado({ status: 'COMPLETED', vendaAtualId: null, proximaVendaId: null, countdownMs: null, resultados: resultados.slice(), resumo });
-  registrarLog('FILA_FINALIZADA', resumo);
-  return { status: 'COMPLETED', resultados, resumo };
+  const statusFinal = filaBloqueada ? 'BLOCKED' : 'COMPLETED';
+  atualizarEstado({ status: statusFinal, vendaAtualId: null, proximaVendaId: null, countdownMs: null, resultados: resultados.slice(), resumo });
+  registrarLog(filaBloqueada ? 'FILA_BLOQUEADA' : 'FILA_FINALIZADA', resumo);
+  return { status: statusFinal, resultados, resumo };
 }
 
 function ffdFormatarCountdown(ms) {
@@ -1933,6 +2307,7 @@ function ffdRenderFilaEmissao() {
   const titulo = document.getElementById('ffdFilaTitulo');
   const status = document.getElementById('ffdFilaStatus');
   const countdown = document.getElementById('ffdFilaCountdown');
+  const avancarAgora = document.getElementById('ffdBtnAvancarEmissaoAgora');
   const resumo = document.getElementById('ffdFilaResumo');
   const resultados = document.getElementById('ffdFilaResultados');
   const botao = document.getElementById('ffdBtnIniciarEmissaoSequencial');
@@ -1960,14 +2335,17 @@ function ffdRenderFilaEmissao() {
   }
   if (countdown) {
     countdown.textContent = fila.status === 'WAITING' && fila.proximaVendaId
-      ? `Próxima emissão em ${ffdFormatarCountdown(fila.countdownMs)} · Venda #${fila.proximaVendaId}`
+      ? `Intervalo máximo: ${ffdFormatarCountdown(fila.countdownMs)} · Próxima venda #${fila.proximaVendaId}`
       : '';
+  }
+  if (avancarAgora) {
+    avancarAgora.classList.toggle('d-none', fila.status !== 'WAITING' || typeof fila.avancarAgora !== 'function');
   }
 
   const totalizador = fila.resumo;
   if (resumo) {
     resumo.textContent = totalizador
-      ? `Total: ${totalizador.total} · Autorizadas: ${totalizador.autorizadas} · Já autorizadas: ${totalizador.ja_autorizadas} · Erros: ${totalizador.erros} · Bloqueadas: ${totalizador.bloqueadas}`
+      ? `Total: ${totalizador.total} · Autorizadas: ${totalizador.autorizadas} · Já autorizadas: ${totalizador.ja_autorizadas} · Erros: ${totalizador.erros} · Bloqueadas: ${totalizador.bloqueadas} · Indeterminadas: ${totalizador.indeterminadas || 0}`
       : '';
   }
   if (resultados) {
@@ -2059,6 +2437,7 @@ function ffdIniciarFilaEmissao(dependencias = {}) {
         emitirVenda: dependencias.emitirVenda || ffdEmitirVendaPeloMotorExistente,
         escolherIntervaloMs: dependencias.escolherIntervaloMs,
         esperarIntervalo: dependencias.esperarIntervalo,
+        deveCancelar: () => fila.status === 'CANCELLED',
         agora: dependencias.agora,
         registrarLog: (evento, payload) => {
           console.info(`[FFD][FILA] ${evento}`, payload);
@@ -2114,13 +2493,17 @@ function ffdRenderMaquinas() {
   const body = document.getElementById('ffdMaquinasBody');
   if (!body) return;
   const rows = __ffdEstado.recebimentos || [];
+  const porComprovante = __ffdEstado.modoRecebimento === 'por_comprovante';
+  const formaHeading = document.querySelector('[data-ffd-forma-heading]');
+  if (formaHeading) formaHeading.classList.toggle('d-none', !porComprovante);
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="4" class="text-muted">Nenhuma máquina informada.</td></tr>';
+    body.innerHTML = `<tr><td colspan="${porComprovante ? 5 : 4}" class="text-muted">Nenhuma máquina informada.</td></tr>`;
   } else {
     body.innerHTML = rows.map((r, idx) => `
       <tr>
         <td>${ffdEsc(r.operadora)}</td>
         <td>${ffdEsc(r.cnpj || '—')}</td>
+        ${porComprovante ? `<td>${ffdEsc(typeof CdsFormasPagamento !== 'undefined' ? CdsFormasPagamento.rotuloForma(r.forma_pagamento) : r.forma_pagamento || '—')}</td>` : ''}
         <td class="text-end">${ffdFmtMoney(r.valor)}</td>
         <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger" data-ffd-rm="${idx}">Remover</button></td>
       </tr>`).join('');
@@ -2166,7 +2549,8 @@ async function ffdAdicionarMaquinaUi() {
     __ffdEstado.recebimentos.push({
       operadora: linha.operadora,
       cnpj: linha.cnpj || '',
-      valor: linha.valor
+      valor: linha.valor,
+      forma_pagamento: linha.forma_pagamento || null
     });
   });
 
@@ -2249,8 +2633,9 @@ async function ffdCarregarDia(opts = {}) {
                 __ffdEstado.recebimentos = (body.comprovantes || []).map((r, idx) => ({
                   id: r.id,
                   operadora: r.operadora || `Comprovante ${idx + 1}`,
-                  cnpj: '',
-                  valor: Number(r.valor || 0)
+                  cnpj: r.cnpj || '',
+                  valor: Number(r.valor || 0),
+                  forma_pagamento: r.forma_pagamento || null
                 }));
               } else {
                 __ffdEstado.recebimentos = [];
@@ -2338,6 +2723,8 @@ async function ffdCarregarDia(opts = {}) {
               : null,
             valor_elegivel: Number(ff.valor_distribuido)
           });
+        } else if (!silencioso) {
+          ffdRenderPrevia(null);
         }
       }
     } else if (!silencioso) {
@@ -2375,10 +2762,15 @@ async function ffdCarregarDia(opts = {}) {
 }
 
 function ffdRenderPrevia(previa) {
+  if (__ffdEstado.previaRequestAtiva) {
+    ffdRenderPreviaProcessamento({ demorada: __ffdEstado.previaDemorada });
+    return;
+  }
   __ffdEstado.previa = previa;
   const el = document.getElementById('ffdPreviaConteudo');
   const alerta = document.getElementById('ffdAlertaPrevia');
   if (!el) return;
+  el.setAttribute('aria-busy', 'false');
 
   const ind = __ffdEstado.indicadores || {};
   if (!previa) {
@@ -2414,7 +2806,10 @@ function ffdRenderPrevia(previa) {
     } else if (previa.perfeita) {
       alerta.innerHTML = `<div class="alert alert-success mb-0"><strong>✓ Distribuição concluída</strong><div class="small">${ffdEsc(previa.mensagem || 'Valor informado e valor distribuído estão iguais.')}</div></div>`;
     } else if (previa.incompleta) {
-      alerta.innerHTML = `<div class="alert alert-warning mb-0"><strong>⚠ Distribuição incompleta</strong><pre class="mb-0 mt-2 small" style="white-space:pre-wrap">${ffdEsc(previa.mensagem || '')}</pre></div>`;
+      const titulo = previa.codigo === 'DIFERENCA_NAO_CONCILIADA'
+        ? '⚠ Pendente de conciliação'
+        : '⚠ Distribuição incompleta';
+      alerta.innerHTML = `<div class="alert alert-warning mb-0"><strong>${titulo}</strong><pre class="mb-0 mt-2 small" style="white-space:pre-wrap">${ffdEsc(previa.mensagem || '')}</pre></div>`;
     } else {
       alerta.innerHTML = '';
     }
@@ -3248,11 +3643,14 @@ function ffdBloqueioAvanco(acao) {
 
 /** Extrai motivos reais de erros de validação/API para o operador. */
 function ffdMotivoRealErro(body, fallback) {
+  if (body?.code === 'XML_ERRO') return ffdErroApi(body, fallback || 'Falha na operação.');
   const erros = body?.validacao?.erros || body?.erros || [];
   if (Array.isArray(erros) && erros.length) {
     return erros.map((e) => {
-      if (e.produto_nome && e.mensagem) return `Produto ${e.produto_nome} — ${e.mensagem}`;
-      return e.mensagem || String(e);
+      const produto = ffdTextoDiagnostico(e && e.produto_nome);
+      const mensagem = ffdTextoDiagnostico(e && (e.mensagem || e.message));
+      if (produto && mensagem) return `Produto ${produto} — ${mensagem}`;
+      return mensagem || 'Pendência fiscal sem mensagem disponível.';
     }).join('\n');
   }
   return ffdErroApi(body, fallback || 'Falha na operação.');
@@ -3264,7 +3662,9 @@ async function ffdExecutarValidacaoCore() {
   const id = await ffdGarantirRascunho();
   $('#ffdValStatus').text('VALIDANDO...');
   const resp = await fetch(`${ffdApi()}/fiscal/fechamentos/${id}/validar`, {
-    method: 'POST', headers: ffdHeaders(), body: JSON.stringify({})
+    method: 'POST',
+    headers: ffdHeaders(),
+    body: JSON.stringify({ modo_recebimento: __ffdEstado.modoRecebimento })
   });
   const body = await resp.json().catch(() => ({}));
   if (!resp.ok && !body.validacao) {
@@ -3297,7 +3697,10 @@ async function ffdExecutarPreparacaoCore() {
   const resp = await fetch(`${ffdApi()}/fiscal/fechamentos/${id}/preparar-emissao`, {
     method: 'POST',
     headers: ffdHeaders(),
-    body: JSON.stringify({ gerarXml: true })
+    body: JSON.stringify({
+      gerarXml: true,
+      modo_recebimento: __ffdEstado.modoRecebimento
+    })
   });
   const body = await resp.json().catch(() => ({}));
   if (!resp.ok) {
@@ -3493,16 +3896,25 @@ async function ffdGarantirRascunho() {
 async function ffdSincronizarRecebimentos(fechamentoId) {
   const porComprovante = __ffdEstado.modoRecebimento === 'por_comprovante';
   const lista = (__ffdEstado.recebimentos || []).map((r) => ({
-    operadora: r.operadora,
+    operadora: String(r.operadora || '').trim(),
     cnpj: r.cnpj || '',
-    valor: Number(r.valor)
+    valor: Number(r.valor),
+    forma_pagamento: r.forma_pagamento || ''
   }));
   const endpoint = porComprovante
     ? `${ffdApi()}/fiscal/fechamentos/${fechamentoId}/recebimentos-comprovantes`
     : `${ffdApi()}/fiscal/fechamentos/${fechamentoId}/recebimentos`;
   const payload = porComprovante
-    ? { comprovantes: lista.map((r) => Number(r.valor)).filter((valor) => Number.isFinite(valor) && valor > 0) }
+    ? { comprovantes: lista }
     : { recebimentos: lista };
+  if (porComprovante && lista.some((item) =>
+    !item.operadora
+    || !Number.isFinite(item.valor)
+    || item.valor <= 0
+    || !item.forma_pagamento
+  )) {
+    throw new Error('Cada recebimento por comprovante precisa de máquina, valor positivo e forma de pagamento.');
+  }
 
   const resp = await fetch(endpoint, {
     method: 'PUT',
@@ -3515,14 +3927,47 @@ async function ffdSincronizarRecebimentos(fechamentoId) {
     __ffdEstado.recebimentos = (body.comprovantes || []).map((r, idx) => ({
       id: r.id,
       operadora: r.operadora || `Comprovante ${idx + 1}`,
-      cnpj: '',
-      valor: Number(r.valor || 0)
+      cnpj: r.cnpj || '',
+      valor: Number(r.valor || 0),
+      forma_pagamento: r.forma_pagamento || null
     }));
     return;
   }
   __ffdEstado.recebimentos = (body.recebimentos || []).map((r) => ({
     id: r.id, operadora: r.operadora, cnpj: r.cnpj, valor: Number(r.valor)
   }));
+}
+
+function ffdRenderPreviaProcessamento(opcoes = {}) {
+  const el = document.getElementById('ffdPreviaConteudo');
+  if (!el) return;
+
+  const etapas = [
+    'Preparando dados do fechamento.',
+    'Distribuindo valores entre as vendas.',
+    'Montando as vendas e seus itens.',
+    'Salvando a prévia.',
+    'Atualizando os resultados.'
+  ];
+  const avisoDemora = opcoes.demorada
+    ? '<div class="small text-warning mt-2" role="status">A geração está demorando. A solicitação continua ativa; aguardando resposta do servidor.</div>'
+    : '';
+  el.setAttribute('aria-busy', 'true');
+  el.innerHTML = `
+    <section class="border rounded p-3" role="status" aria-live="polite" aria-label="Geração da prévia fiscal em andamento">
+      <div class="d-flex align-items-start gap-2">
+        <span class="spinner-border spinner-border-sm text-primary mt-1" aria-hidden="true"></span>
+        <div>
+          <div class="fw-semibold">Montando prévia fiscal...</div>
+          <div class="small text-muted">Aguarde enquanto o sistema distribui os valores e prepara as vendas para o fechamento.</div>
+          <div class="small text-primary mt-2">Solicitação ativa: aguardando confirmação do servidor.</div>
+          ${avisoDemora}
+        </div>
+      </div>
+      <ol class="small text-muted mt-3 mb-0">
+        ${etapas.map((etapa) => `<li data-state="pending"><span class="visually-hidden">Pendente: </span>${etapa}</li>`).join('')}
+      </ol>
+    </section>`;
 }
 
 async function ffdSalvarRascunho() {
@@ -3545,6 +3990,8 @@ async function ffdAtualizarPrevia() {
     const inicioClique = ffdPreviaClickAt || performance.now();
     ffdPreviaClickAt = null;
     const tentativa = ++ffdPreviaAttemptCounter;
+    let correlationId = null;
+    let responseTrace = {};
     try {
       const porVenda = __ffdEstado.modoRecebimento === 'por_venda';
       if (porVenda && !ffdComprovantesPorVendaValidos()) {
@@ -3568,6 +4015,9 @@ async function ffdAtualizarPrevia() {
       }
       const data = String($('#ffdData').val() || __ffdEstado.data || ffdHojeISO());
       const id = await ffdGarantirRascunho();
+      correlationId = window.crypto?.randomUUID
+        ? window.crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
       const inicioSincronizacao = performance.now();
       try {
         if (porVenda) {
@@ -3596,22 +4046,45 @@ async function ffdAtualizarPrevia() {
         valor_max: Number($('#ffdValorMax').val() || 400),
         distribuicao_automatica: $('#ffdAuto').is(':checked'),
         modo: __ffdEstado.vista || 'venda',
-        ...( __ffdEstado.modoRecebimento === 'por_comprovante' && comprovantesParaPrevia.length ? { comprovantes: comprovantesParaPrevia } : {} )
+        ...( __ffdEstado.modoRecebimento === 'por_comprovante' && comprovantesParaPrevia.length ? { comprovantes: comprovantesParaPrevia } : {} ),
+        correlation_id: correlationId
       };
       ffdLogDesenvolvimento('PREVIA REQUEST', {
+        correlation_id: correlationId,
         fechamento_id: id,
         elapsed_before_request_ms: Number((performance.now() - inicioClique).toFixed(1)),
-        ...payloadPrevia
+        modo_recebimento: __ffdEstado.modoRecebimento,
+        modo_previa: payloadPrevia.modo,
+        quantidade_comprovantes: comprovantesParaPrevia.length
       });
+      responseTrace = { correlation_id: correlationId };
+      __ffdEstado.previa = null;
+      __ffdEstado.indicadores = null;
+      ffdRenderPrevia(null);
       const request = fetch(`${ffdApi()}/fiscal/fechamentos/${id}/previa`, {
         method: 'POST',
         headers: ffdHeaders(),
         body: JSON.stringify(payloadPrevia)
       }).then(async (resp) => {
         const body = await resp.json().catch(() => ({}));
-        if (!resp.ok) throw new Error(ffdErroApi(body, `HTTP ${resp.status}`));
+        responseTrace = {
+          correlation_id: resp.headers?.get('x-correlation-id') || correlationId,
+          status_http: resp.status,
+          codigo_erro: body.code || null
+        };
+        ffdLogDesenvolvimento('PREVIA HTTP', responseTrace);
+        if (!resp.ok) {
+          const error = new Error(ffdErroApi(body, `HTTP ${resp.status}`));
+          error.code = body.code;
+          error.status = resp.status;
+          error.correlationId = responseTrace.correlation_id;
+          throw error;
+        }
         return body;
       });
+      __ffdEstado.previaRequestAtiva = true;
+      __ffdEstado.previaDemorada = false;
+      ffdRenderPreviaProcessamento();
       const processarResposta = (body) => {
         __ffdEstado.indicadores = body.indicadores;
         if (body.fechamento && body.fechamento.status) {
@@ -3624,8 +4097,10 @@ async function ffdAtualizarPrevia() {
         ffdRenderComplementacao(__ffdEstado.complementacao);
         ffdRenderPrevia(body.previa);
         ffdLogDesenvolvimento('PREVIA RENDERIZADA', {
+          correlation_id: responseTrace.correlation_id,
           elapsed_ms: Number((performance.now() - inicioClique).toFixed(1)),
-          tentativa
+          tentativa,
+          vendas: body.previa.vendas?.length || 0
         });
         if (body.previa.perfeita) {
           ffdNotify('Prévia atualizada — distribuição concluída. Conciliação não substitui a validação fiscal.', 'success');
@@ -3636,38 +4111,66 @@ async function ffdAtualizarPrevia() {
 
       let timeoutId;
       try {
-        const timeout = new Promise((_, reject) => {
-          timeoutId = setTimeout(() => {
-            const err = new Error(
-              'A prévia ainda pode estar sendo processada no servidor. A interface liberou a tela; repetir o mesmo pedido não inicia uma segunda geração.'
-            );
-            err.code = 'PREVIA_FRONTEND_TIMEOUT';
-            reject(err);
-          }, FFD_PREVIA_TIMEOUT_MS);
+        const timeoutAviso = new Promise((resolve) => {
+          timeoutId = setTimeout(() => resolve(true), FFD_PREVIA_TIMEOUT_MS);
         });
-        const body = await Promise.race([request, timeout]);
+        const resultado = await Promise.race([
+          request.then((body) => ({ body })),
+          timeoutAviso.then(() => ({ demorou: true }))
+        ]);
+        let body = resultado.body;
+        if (resultado.demorou) {
+          __ffdEstado.previaDemorada = true;
+          ffdRenderPreviaProcessamento({ demorada: true });
+          $('#ffdBtnAtualizarPrevia').text('Aguardando servidor…');
+          ffdNotify(
+            'A geração está demorando. A solicitação continua ativa e a tela será atualizada quando o servidor responder.',
+            'info'
+          );
+          body = await request;
+        }
+        __ffdEstado.previaRequestAtiva = false;
+        __ffdEstado.previaDemorada = false;
         ffdLogDesenvolvimento('PREVIA RESPONSE', {
+          correlation_id: responseTrace.correlation_id,
           elapsed_ms: Number((performance.now() - inicioClique).toFixed(1)),
           tentativa
         });
         processarResposta(body);
-      } catch (err) {
-        if (err.code === 'PREVIA_FRONTEND_TIMEOUT') {
-          request.then((body) => {
-            if (tentativa !== ffdPreviaAttemptCounter) return;
-            processarResposta(body);
-            ffdNotify('A prévia terminou após o limite de espera da interface.', 'info');
-          }).catch((erroTardio) => {
-            if (tentativa === ffdPreviaAttemptCounter) {
-              ffdNotify(erroTardio.message || 'Falha tardia ao gerar a prévia.', 'danger');
-            }
-          });
-        }
-        throw err;
       } finally {
         clearTimeout(timeoutId);
+        __ffdEstado.previaRequestAtiva = false;
+        __ffdEstado.previaDemorada = false;
       }
     } catch (err) {
+      ffdLogDesenvolvimento('PREVIA ERRO', {
+        correlation_id: err.correlationId || responseTrace.correlation_id || correlationId,
+        codigo_erro: err.code || null,
+        status_http: err.status || null
+      });
+      if (err.code === 'PREVIA_EM_ANDAMENTO') {
+        ffdRenderPrevia(null);
+        await ffdCarregarDia();
+        const alerta = document.getElementById('ffdAlertaPrevia');
+        if (alerta) {
+          alerta.insertAdjacentHTML(
+            'beforeend',
+            '<div class="alert alert-info mt-2 mb-0">A composição exibida é a última prévia persistida e pode ser anterior à geração que ainda está em andamento.</div>'
+          );
+        }
+        ffdNotify(
+          'Já existe outra geração em andamento. A tela foi atualizada com a última prévia persistida; tente novamente quando a geração terminar.',
+          'warning'
+        );
+        return;
+      }
+      if (responseTrace.status_http || responseTrace.correlation_id) {
+        ffdRenderPrevia(null);
+        const alerta = document.getElementById('ffdAlertaPrevia');
+        if (alerta) {
+          alerta.innerHTML = `<div class="alert alert-danger mb-0"><strong>A geração da prévia não foi concluída.</strong> ${ffdEsc(err.message || 'Falha ao atualizar prévia.')} Tente novamente quando a operação anterior estiver encerrada.</div>`;
+        }
+      }
       ffdNotify(err.message || 'Falha ao atualizar prévia.', 'danger');
     }
   });

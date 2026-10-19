@@ -30,6 +30,9 @@ function normalizarTipoSaldo(tipo) {
     || raw === 'NAOFISCAL'
     || raw === 'NF'
     || raw === 'SALDO_NAO_FISCAL'
+    || raw === 'GERENCIAL'
+    || raw === 'SALDO_GERENCIAL'
+    || raw === 'B'
   ) {
     return TipoSaldo.NAO_FISCAL;
   }

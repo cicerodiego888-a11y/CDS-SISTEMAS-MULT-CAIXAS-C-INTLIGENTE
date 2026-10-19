@@ -10,6 +10,10 @@
 
 const axios = require('axios');
 const https = require('https');
+const {
+  obterCAsCancelamento,
+  criarAgenteHttpsCancelamento
+} = require('../cancelamentoTls');
 const { RetryPolicy } = require('./RetryPolicy');
 const { TimeoutPolicy, DEFAULT_TIMEOUT_MS } = require('./TimeoutPolicy');
 const { TlsPolicy } = require('./TlsPolicy');
@@ -240,7 +244,9 @@ class SoapTransport {
    * @private
    */
   async _sendEnabled(request, elapsedMs) {
-    const maxTries = this.retryPolicy.getMaxTries();
+    const maxTries = request.operacao === OperationType.CANCELAMENTO
+      ? 1
+      : this.retryPolicy.getMaxTries();
     let attempts = 0;
     let lastError = null;
 
@@ -331,17 +337,38 @@ class SoapTransport {
       headers,
       timeout: ctx.timeout,
       certificado: ctx.certificado,
-      senha: ctx.senha
+      senha: ctx.senha,
+      tls: ctx.tls,
+      operacao: request.operacao || ctx.metadata?.operacao
     });
   }
 
   /**
    * @private
    */
-  async _defaultAxiosPost({ url, envelope, headers, timeout, certificado, senha }) {
+  async _defaultAxiosPost({ url, envelope, headers, timeout, certificado, senha, tls, operacao }) {
+    const host = new URL(url).hostname;
+    const requiresTrustedFiscalTls = [
+      OperationType.CANCELAMENTO,
+      OperationType.CONSULTA_PROTOCOLO
+    ].includes(operacao);
+    const tlsOptions = {
+      ...this.tlsPolicy.toJSON(),
+      ...(tls || {}),
+      ...(requiresTrustedFiscalTls ? { rejectUnauthorized: true } : {})
+    };
+    if (requiresTrustedFiscalTls) {
+      tlsOptions.ca = obterCAsCancelamento(host);
+    }
     let httpsAgent;
     if (typeof this._createHttpsAgent === 'function') {
-      httpsAgent = this._createHttpsAgent({ url, certificado, senha, tls: this.tlsPolicy });
+      httpsAgent = this._createHttpsAgent({ url, certificado, senha, tls: tlsOptions });
+      if (requiresTrustedFiscalTls
+        && httpsAgent?.options?.rejectUnauthorized !== true) {
+        const err = new Error('Agente TLS fiscal deve validar o certificado do servidor.');
+        err.code = 'TLS_POLICY_REJECTED';
+        throw err;
+      }
     } else {
       const { carregarCertificadoPfx } = require('../certificateService');
       if (!certificado) {
@@ -350,15 +377,17 @@ class SoapTransport {
         throw err;
       }
       const cert = carregarCertificadoPfx(certificado, senha);
-      const host = new URL(url).hostname;
-      httpsAgent = new https.Agent({
+      const agentOptions = {
         key: cert.privateKeyPem,
         cert: cert.certBundlePem || cert.certPem,
-        rejectUnauthorized: this.tlsPolicy.rejectUnauthorized,
-        minVersion: this.tlsPolicy.minVersion,
-        keepAlive: this.tlsPolicy.keepAlive,
+        rejectUnauthorized: tlsOptions.rejectUnauthorized === true,
+        minVersion: tlsOptions.minVersion,
+        keepAlive: tlsOptions.keepAlive,
         servername: host
-      });
+      };
+      httpsAgent = requiresTrustedFiscalTls
+        ? criarAgenteHttpsCancelamento(agentOptions)
+        : new https.Agent(agentOptions);
     }
 
     try {

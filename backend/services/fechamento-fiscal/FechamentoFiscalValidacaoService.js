@@ -7,6 +7,7 @@
 
 const crypto = require('crypto');
 const { arredondarMoeda, toCentavos, somarMoeda } = require('../fiscal/modeloTotais');
+const { temMapeamentoFormaPagamento } = require('../fiscal/xmlBuilder');
 const { STATUS, TP_EMIS } = require('./constants');
 
 function onlyDigits(s) {
@@ -540,7 +541,9 @@ function validarPreparacaoFiscal({
     if (somaRec !== valorInformadoHistorico) {
       erros.push(criarErroEstruturado({
         campo: 'pagamento',
-        mensagem: 'Soma dos recebimentos das máquinas deve ser igual ao valor do fechamento.',
+        mensagem:
+          `Soma dos recebimentos informados (R$ ${(somaRec / 100).toFixed(2)}) ` +
+          `deve ser igual ao valor do fechamento (R$ ${(valorInformadoHistorico / 100).toFixed(2)}).`,
         codigo: 'RECEBIMENTOS_DIVERGENTES'
       }));
     } else if ((recebimentos || []).length > 0) {
@@ -551,6 +554,20 @@ function validarPreparacaoFiscal({
         mensagem: 'Informe os recebimentos das máquinas para o pagamento fiscal.',
         codigo: 'RECEBIMENTOS_AUSENTES'
       }));
+    }
+  }
+
+  if (opts.modo_recebimento === 'por_comprovante') {
+    for (const [index, recebimento] of (recebimentos || []).entries()) {
+      if (!recebimento.forma_pagamento
+        || !temMapeamentoFormaPagamento(recebimento.forma_pagamento)) {
+        flags.pagamento = false;
+        erros.push(criarErroEstruturado({
+          campo: 'pagamento',
+          mensagem: `O recebimento ${index + 1} não possui uma forma de pagamento fiscal válida.`,
+          codigo: 'FORMA_PAGAMENTO_COMPROVANTE_INVALIDA'
+        }));
+      }
     }
   }
 
@@ -571,7 +588,7 @@ function validarPreparacaoFiscal({
   };
 }
 
-function hashIdempotencia({ fechamentoId, previaVendas, recebimentos, ambiente, cnpj }) {
+function hashIdempotencia({ fechamentoId, previaVendas, recebimentos, ambiente, cnpj, modoRecebimento }) {
   const payload = {
     fechamento_id: Number(fechamentoId),
     ambiente: Number(ambiente),
@@ -590,6 +607,10 @@ function hashIdempotencia({ fechamentoId, previaVendas, recebimentos, ambiente, 
     recebimentos: (recebimentos || []).map((r) => ({
       id: r.id,
       o: r.operadora,
+      ...(modoRecebimento === 'por_comprovante' ? {
+        cnpj: onlyDigits(r.cnpj),
+        forma_pagamento: String(r.forma_pagamento || '').trim().toLowerCase()
+      } : {}),
       v: toCentavos(r.valor)
     }))
   };

@@ -407,6 +407,7 @@ function criarVendaEntrega(req, res) {
 
               const vendaId = this.lastID;
               let idx = 0;
+              const documentoSolicitado = vendaFiscal ? 'NFCE' : 'NAO_FISCAL';
 
               const inserirProximoItem = () => {
                 if (idx >= distribuicaoItens.length) {
@@ -566,7 +567,21 @@ function criarVendaEntrega(req, res) {
                 });
               };
 
-              inserirProximoItem();
+              db.run(
+                `UPDATE vendas SET documento_solicitado = ?, status_fiscal_entrega = ? WHERE id = ?`,
+                [
+                  documentoSolicitado,
+                  vendaFiscal ? 'aguardando_emissao' : 'nao_aplicavel',
+                  vendaId
+                ],
+                (errDoc) => {
+                  if (errDoc && !/no such column/i.test(String(errDoc.message || ''))) {
+                    db.run('ROLLBACK');
+                    return res.status(500).json({ error: errDoc.message });
+                  }
+                  inserirProximoItem();
+                }
+              );
             }
           );
           };

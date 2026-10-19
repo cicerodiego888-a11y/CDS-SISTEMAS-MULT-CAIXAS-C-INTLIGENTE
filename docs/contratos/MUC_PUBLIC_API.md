@@ -11,6 +11,8 @@
 
 O **Motor Universal de Conversão (MUC)** é o único ponto oficial de conversão entre unidades de compra (apresentações comerciais) e unidades de estoque no CDS. Nenhum módulo externo deve implementar lógica própria de conversão.
 
+`VARA` é um tipo de apresentação comercial suportado. Sua conversão usa exclusivamente a quantidade positiva cadastrada para o produto; o tipo não presume equivalência com qualquer unidade-base.
+
 ## 2. Responsabilidades
 
 | Responsabilidade | Descrição |

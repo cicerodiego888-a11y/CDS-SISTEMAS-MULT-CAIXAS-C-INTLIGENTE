@@ -128,14 +128,27 @@ describe('Sprint 08.5 — extemporâneo NFC-e CE (sem TX real)', () => {
     assert.equal(diag.cancelamento_status, CANCELAMENTO_STATUS.DENTRO_PRAZO_NORMAL);
   });
 
-  it('B. NFC-e fora dos 30 min => bloqueada', () => {
+  it('B. NFC-e fora dos 30 min => tentativa permitida; prazo permanece apenas diagnóstico', () => {
     const auth = '2026-09-13T18:00:00-03:00';
     const agora = new Date('2026-09-13T18:31:00-03:00');
     const diag = montarDiagnosticoCancelamento(notaBase(auth), agora);
     assert.equal(diag.dentro_prazo_normal, false);
-    assert.equal(diag.pode_transmitir_110111, false);
+    assert.equal(diag.pode_transmitir_110111, true);
     assert.equal(diag.cancelamento_status, CANCELAMENTO_STATUS.FORA_DO_PRAZO);
     assert.equal(diag.status_fiscal, 'autorizada');
+  });
+
+  it('B.1 — NFC-e fora do prazo não amplia a regra para NF-e modelo 55', () => {
+    const auth = '2026-09-13T18:00:00-03:00';
+    const agora = new Date('2026-09-13T18:31:00-03:00');
+    const nota55 = notaBase(auth, {
+      chave_acesso: `${CHAVE.slice(0, 20)}55${CHAVE.slice(22)}`,
+      xml_enviado: `<NFe><infNFe><ide><mod>55</mod></ide><dhEmi>${auth}</dhEmi></infNFe></NFe>`
+    });
+    const diag = montarDiagnosticoCancelamento(nota55, agora);
+    assert.equal(diag.modelo, '55');
+    assert.equal(diag.dentro_prazo_normal, false);
+    assert.equal(diag.pode_transmitir_110111, false);
   });
 
   it('C. NF-e 55 com regra extemporânea => não aplicar automaticamente à NFC-e 65', () => {
@@ -195,26 +208,28 @@ describe('Sprint 08.5 — extemporâneo NFC-e CE (sem TX real)', () => {
     assert.equal(ev.pode_transmitir_extemporaneo, false);
   });
 
-  it('G. cStat 501 => permanece AUTORIZADA', async () => {
-    const auth = '2026-09-13T18:28:02-03:00';
+  it('G. fora do prazo, cStat 501 => a NFC-e permanece autorizada e a rejeição fica no XML', async () => {
+    const auth = '2026-09-13T18:00:00-03:00';
     await run(db, `UPDATE nfce_notas SET status='autorizada', xml_enviado=?, xml_retorno=? WHERE id=?`, [
       `<NFe><infNFe><ide><mod>65</mod></ide><dhEmi>${auth}</dhEmi></infNFe></NFe>`,
       `<ret><dhRecbto>${auth}</dhRecbto><cStat>100</cStat></ret>`,
       nfceId
     ]);
+    let chamadas = 0;
     await assert.rejects(
       () => cancelarDocumentoFiscalFechamento(db, nfceId, JUST, {
         deps: {
-          cancelarNfcePorId: mockCancel('501'),
-          ignorarPrazoLocal: true,
+          cancelarNfcePorId: async (id) => { chamadas += 1; return mockCancel('501')(id); },
           skipSnapshot: true,
-          agora: new Date('2026-09-13T18:29:00-03:00')
+          agora: new Date('2026-09-13T18:31:00-03:00')
         }
       }),
       (err) => err.code === 'SEFAZ_PRAZO_501'
     );
-    const nota = await get(db, 'SELECT status, venda_id FROM nfce_notas WHERE id=?', [nfceId]);
+    const nota = await get(db, 'SELECT status, venda_id, xml_retorno FROM nfce_notas WHERE id=?', [nfceId]);
+    assert.equal(chamadas, 1);
     assert.equal(nota.status, 'autorizada');
+    assert.match(nota.xml_retorno || '', /<cStat>501<\/cStat>/);
     assert.equal(nota.venda_id, null);
   });
 
@@ -269,10 +284,10 @@ describe('Sprint 08.5 — extemporâneo NFC-e CE (sem TX real)', () => {
     LOCKS.delete(nfceId);
   });
 
-  it('UI e política: textos de fora do prazo / sem extemporâneo comprovado', () => {
-    assert.match(FRONT, /Cancelamento fora do prazo/);
-    assert.match(FRONT, /Não foi identificado procedimento de cancelamento extemporâneo/);
-    assert.match(FRONT, /pode_transmitir_110111/);
+  it('UI e política: prazo informativo, tentativa liberada e resposta SEFAZ determinante', () => {
+    assert.match(FRONT, /O CDS permitirá enviar a tentativa/);
+    assert.match(FRONT, /SEFAZ decidirá se aceita/);
+    assert.match(FRONT, /podeTransmitir = \['autorizada', 'cancelamento_rejeitado'\]/);
     assert.equal(RESULTADO_PESQUISA, 'EXTEMPORANEO_NFCE_NAO_COMPROVADO');
     assert.equal(POLITICA_NFCE_65_CE.cancelamento_por_substituicao_110112.aplicavel_como_escape_de_prazo, false);
     assert.equal(POLITICA_NFCE_65_CE.cancelamento_por_substituicao_110112.implementado_no_cds, false);
@@ -288,8 +303,8 @@ describe('Sprint 08.5 — extemporâneo NFC-e CE (sem TX real)', () => {
     assert.equal(diag.cancelamento_extemporaneo_disponivel, false);
     assert.equal(diag.cancelamento_extemporaneo_comprovado, false);
     assert.equal(diag.procedimento_extemporaneo, null);
-    assert.equal(diag.pode_transmitir_110111, false);
-    assert.ok(diag.motivo_bloqueio);
+    assert.equal(diag.pode_transmitir_110111, true);
+    assert.equal(diag.motivo_bloqueio, null);
     assert.equal(diag.resultado_pesquisa_extemporaneo, RESULTADO_PESQUISA);
     const prazo = calcularPrazoCancelamentoNfce(notaBase(auth), agora);
     assert.ok(prazo.minutos_decorridos > 30);

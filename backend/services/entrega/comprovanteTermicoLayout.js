@@ -1,9 +1,12 @@
 /**
- * Cupom térmico 58/80mm para entrega e prestação.
- * O bloco fica à esquerda, na área útil, e o valor permanece inteiro no fim da linha.
+ * Layout monospace legado (entrega/prestação).
+ * Sem consumidores em produção — mantido só para não reativar com 48ch.
+ * Fluxos ativos usam geometriaCupom80 (HTML flex, util 72/48 mm).
  */
 
 'use strict';
+
+const { papelMmDe, larguraUtilMm, GT710_80 } = require('../termico/geometriaCupom80');
 
 function escapeHtml(texto) {
   return String(texto ?? '')
@@ -73,16 +76,21 @@ function linhaSe(label, valor, cols) {
 }
 
 function documento({ titulo, classe, linhas, papelMm }) {
-  const cols = colunas(papelMm);
+  const papel = papelMmDe(papelMm);
+  const util = larguraUtilMm(papel);
+  const cols = colunas(papel);
   const corpo = (linhas || []).map((linha) => escapeHtml(linha)).join('\n');
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
+  <meta name="cds-papel-mm" content="${papel}" />
+  <meta name="cds-util-mm" content="${util}" />
+  <meta name="cds-termico-ref" content="${papel === 80 ? GT710_80.modelo : 'TERMICO-58'}" />
   <title>${escapeHtml(titulo || 'Comprovante')}</title>
   <style>
-    @page { margin: 0; }
-    html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+    @page { size: ${papel}mm auto; margin: 0; }
+    html, body { margin: 0; padding: 0; width: ${util}mm; max-width: ${util}mm; background: #fff; color: #000; }
     pre.comprovante-termico {
       font-family: Consolas, "Courier New", monospace;
       font-size: 10px;
@@ -90,19 +98,20 @@ function documento({ titulo, classe, linhas, papelMm }) {
       line-height: 1.2;
       color: #000;
       background: #fff;
-      width: ${cols}ch;
-      max-width: ${cols}ch;
+      width: ${util}mm;
+      max-width: ${util}mm;
       margin: 0;
-      padding: 1.5mm 0.5mm 2mm;
-      white-space: pre;
+      padding: ${papel === 58 ? '1mm 2.5mm 1.6mm 1.5mm' : '1.2mm 3.5mm 2mm 2mm'};
+      box-sizing: border-box;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
       letter-spacing: 0;
-      overflow: visible;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
   </style>
 </head>
-<body class="${escapeHtml(classe || 'comprovante-termico')}">
+<body class="${escapeHtml(classe || 'comprovante-termico')}" data-cds-papel-mm="${papel}" data-cds-util-mm="${util}" data-cds-cols="${cols}">
 <pre class="comprovante-termico">${corpo}</pre>
 </body>
 </html>`;

@@ -7,6 +7,12 @@
  */
 
 const assert = require('assert');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const https = require('https');
+const axios = require('axios');
+const forge = require('node-forge');
 const {
   FiscalWebServices,
   SoapTransport,
@@ -30,6 +36,61 @@ const {
   NS_CONSULTA,
   ACTION_CONSULTA
 } = require('../../backend/services/fiscal/consultaProtocoloLegado');
+const { obterCAsCancelamento } = require('../../backend/services/fiscal/cancelamentoTls');
+
+function criarPfxSintetico() {
+  const keys = forge.pki.rsa.generateKeyPair(2048);
+  const cert = forge.pki.createCertificate();
+  cert.publicKey = keys.publicKey;
+  cert.serialNumber = '01';
+  cert.validity.notBefore = new Date(Date.now() - 60_000);
+  cert.validity.notAfter = new Date(Date.now() + 60 * 60_000);
+  cert.setSubject([{ name: 'commonName', value: 'cliente-teste.local' }]);
+  cert.setIssuer([{ name: 'commonName', value: 'cliente-teste.local' }]);
+  cert.sign(keys.privateKey, forge.md.sha256.create());
+  const p12 = forge.pkcs12.toPkcs12Asn1(
+    keys.privateKey,
+    [cert],
+    'teste',
+    { algorithm: '3des', friendlyName: 'cliente-teste' }
+  );
+  const bytes = forge.asn1.toDer(p12).getBytes();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cds-consulta-tls-'));
+  const pfxPath = path.join(dir, 'cliente-teste.pfx');
+  fs.writeFileSync(pfxPath, Buffer.from(bytes, 'binary'));
+  return { dir, pfxPath };
+}
+
+function limparPfxSintetico(fixture) {
+  fs.rmSync(fixture.dir, { recursive: true, force: true });
+}
+
+function criarCertificadoTlsNaoConfiavel() {
+  const keys = forge.pki.rsa.generateKeyPair(2048);
+  const cert = forge.pki.createCertificate();
+  cert.publicKey = keys.publicKey;
+  cert.serialNumber = '02';
+  cert.validity.notBefore = new Date(Date.now() - 60_000);
+  cert.validity.notAfter = new Date(Date.now() + 60 * 60_000);
+  cert.setSubject([{ name: 'commonName', value: 'localhost' }]);
+  cert.setIssuer([{ name: 'commonName', value: 'localhost' }]);
+  cert.setExtensions([
+    { name: 'basicConstraints', cA: true },
+    { name: 'keyUsage', keyCertSign: true, digitalSignature: true },
+    {
+      name: 'subjectAltName',
+      altNames: [
+        { type: 2, value: 'localhost' },
+        { type: 7, ip: '127.0.0.1' }
+      ]
+    }
+  ]);
+  cert.sign(keys.privateKey, forge.md.sha256.create());
+  return {
+    key: forge.pki.privateKeyToPem(keys.privateKey),
+    cert: forge.pki.certificateToPem(cert)
+  };
+}
 
 let passou = 0;
 let falhou = 0;
@@ -97,6 +158,10 @@ async function main() {
       });
       assert.strictEqual(result.success, true, modelo);
       assert.ok(result.definition.endpoint.includes('NfeConsulta'));
+      if (modelo === ModelType.NFCE) {
+        assert.match(result.definition.endpoint, /\/ws\/NfeConsulta\/NfeConsulta4\.asmx$/);
+        assert.doesNotMatch(result.definition.endpoint, /NFeConsultaProtocolo4\.asmx$/);
+      }
       assert.strictEqual(result.definition.namespace, NS_CONSULTA);
       assert.strictEqual(result.definition.soapAction, ACTION_CONSULTA);
     }
@@ -278,6 +343,118 @@ async function main() {
     });
     assert.strictEqual(result.success, true);
     assert.strictEqual(result.namespace, NS_CONSULTA);
+  });
+
+  await test('endpoint de consulta NFC-e usa a rota publicada no schema SVRS', async () => {
+    assert.equal(
+      getConsultaProtocoloUrl(1, 'NFCE'),
+      'https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx'
+    );
+    assert.equal(
+      getConsultaProtocoloUrl(2, 'NFCE'),
+      'https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx'
+    );
+    assert.equal(
+      getConsultaProtocoloUrl(1, 'NFE'),
+      'https://nfe.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx'
+    );
+  });
+
+  await test('SoapTransport de consulta usa CA SVRS com validação TLS obrigatória', async () => {
+    const fixture = criarPfxSintetico();
+    const originalPost = axios.post;
+    let agent = null;
+    try {
+      axios.post = async (_url, _envelope, options) => {
+        agent = options.httpsAgent;
+        return { status: 200, data: SOAP_OK, headers: {} };
+      };
+      const transport = new SoapTransport();
+      await transport._defaultAxiosPost({
+        url: 'https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx',
+        envelope: '<soap/>',
+        headers: {},
+        timeout: 1000,
+        certificado: fixture.pfxPath,
+        senha: 'teste',
+        operacao: OperationType.CONSULTA_PROTOCOLO
+      });
+      assert.strictEqual(agent.options.rejectUnauthorized, true);
+      assert.ok(agent.options.ca.includes(obterCAsCancelamento('nfce.svrs.rs.gov.br').at(-1)));
+      assert.strictEqual(agent.options.servername, 'nfce.svrs.rs.gov.br');
+    } finally {
+      axios.post = originalPost;
+      limparPfxSintetico(fixture);
+    }
+  });
+
+  await test('fallback legado de consulta mantém validação TLS estrita', async () => {
+    const fixture = criarPfxSintetico();
+    const originalPost = axios.post;
+    let agent = null;
+    try {
+      axios.post = async (_url, _envelope, options) => {
+        agent = options.httpsAgent;
+        return { status: 200, data: SOAP_OK, headers: {} };
+      };
+      const result = await enviarConsultaProtocoloLegado({
+        url: 'https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx',
+        ambiente: 1,
+        chave: CHAVE_OK,
+        certificadoPath: fixture.pfxPath,
+        certificadoSenha: 'teste'
+      });
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(agent.options.rejectUnauthorized, true);
+      assert.ok(agent.options.ca.includes(obterCAsCancelamento('nfce.svrs.rs.gov.br').at(-1)));
+      assert.strictEqual(agent.options.servername, 'nfce.svrs.rs.gov.br');
+    } finally {
+      axios.post = originalPost;
+      limparPfxSintetico(fixture);
+    }
+  });
+
+  await test('transportes de consulta rejeitam servidor local não confiável', async () => {
+    const fixture = criarPfxSintetico();
+    const tlsCert = criarCertificadoTlsNaoConfiavel();
+    let requestsReceived = 0;
+    const server = https.createServer(tlsCert, (_req, res) => {
+      requestsReceived += 1;
+      res.end(SOAP_OK);
+    });
+    await new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', resolve);
+    });
+
+    try {
+      const url = `https://127.0.0.1:${server.address().port}/consulta`;
+      const transport = new SoapTransport();
+      await assert.rejects(transport._defaultAxiosPost({
+        url,
+        envelope: '<soap/>',
+        headers: {},
+        timeout: 1000,
+        certificado: fixture.pfxPath,
+        senha: 'teste',
+        operacao: OperationType.CONSULTA_PROTOCOLO
+      }), /certificate|self.signed|issuer/i);
+
+      const legado = await enviarConsultaProtocoloLegado({
+        url,
+        ambiente: 1,
+        chave: CHAVE_OK,
+        certificadoPath: fixture.pfxPath,
+        certificadoSenha: 'teste',
+        timeoutMs: 1000
+      });
+      assert.strictEqual(legado.success, false);
+      assert.match(legado.message, /certificate|self.signed|issuer/i);
+      assert.strictEqual(requestsReceived, 0);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+      limparPfxSintetico(fixture);
+    }
   });
 
   await test('FiscalWebServices F10 inclui Consulta Protocolo + Autorização', async () => {

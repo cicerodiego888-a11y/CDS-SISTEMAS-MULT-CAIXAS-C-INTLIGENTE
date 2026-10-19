@@ -23,6 +23,14 @@
     return [];
   }
 
+  function entregaDeveMarcarNfce() {
+    try {
+      if (typeof pdvModoFiscalAtivo === 'function') return pdvModoFiscalAtivo() === true;
+      if (typeof modoFiscalAtivoSistema === 'function') return modoFiscalAtivoSistema() === true;
+    } catch (_) { /* ignore */ }
+    return false;
+  }
+
   function moduloEntregaAtivo() {
     try {
       if (typeof obterRecursosImplantacao === 'function') {
@@ -621,9 +629,11 @@
     const clienteId = clienteIdRaw ? Number(clienteIdRaw) : null;
     const nomeInformado = String($('#entregaNomeCliente').val() || '').trim();
 
+    const emitirFiscalEntrega = entregaDeveMarcarNfce();
     const payload = montarPayloadComTerminal({
       tipo_venda: 'ENTREGA',
-      emitir_fiscal: false,
+      emitir_fiscal: emitirFiscalEntrega,
+      documento: emitirFiscalEntrega ? 'NFCE' : 'NAO_FISCAL',
       cliente_id: Number.isFinite(clienteId) && clienteId > 0 ? clienteId : null,
       nome_cliente_entrega: nomeInformado || null,
       cpf_cnpj_cliente_entrega: String($('#entregaCpfCnpj').val() || '').trim() || null,

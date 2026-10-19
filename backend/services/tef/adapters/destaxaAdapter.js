@@ -9,7 +9,7 @@ const SimulatedGatewayAdapter = require('./SimulatedGatewayAdapter');
 function DestaxaAdapter(config) {
   return new SimulatedGatewayAdapter(config, {
     nome: 'Destaxa',
-    adquirente: 'DESTAXA',
+    adquirente: null,
     bandeiraPadrao: 'VISA'
   });
 }

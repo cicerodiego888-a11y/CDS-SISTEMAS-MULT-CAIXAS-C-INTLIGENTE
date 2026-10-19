@@ -100,7 +100,9 @@ async function main() {
     assert.ok(motor.includes('OrquestradorPagamento'));
     assert.ok(motor.includes('consumirReservasDaVenda'));
     assert.ok(motor.includes('gravarRecebimentos'));
-    assert.ok(motor.includes('emitirFiscalSeSolicitado'));
+    assert.ok(motor.includes('executarEmissaoSeMarcada'));
+    assert.ok(motor.includes('PrestacaoFiscalService'));
+    assert.ok(!motor.includes('buildNfceXml'));
     assert.ok(motor.includes('StatusVenda.FINALIZADA'));
     assert.ok(motor.includes('StatusEntrega.CONCLUIDA'));
     assert.ok(motor.includes('liberarReservasDaVenda'));

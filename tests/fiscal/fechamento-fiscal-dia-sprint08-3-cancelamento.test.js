@@ -170,7 +170,7 @@ describe('Sprint 08.3 — cancelamento fiscal Fechamento', () => {
   });
 
   it('E — clicar no cancelamento abre confirmação', () => {
-    assert.match(FRONT, /Deseja cancelar esta NFC-e\?/);
+    assert.match(FRONT, /Deseja enviar uma tentativa de cancelamento desta NFC-e\?/);
     assert.match(FRONT, /modalCancelarDocFiscalNfce/);
   });
 

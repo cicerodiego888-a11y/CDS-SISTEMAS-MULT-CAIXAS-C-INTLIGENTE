@@ -12,7 +12,8 @@ const { getJwtSecret } = require('../../config/secrets');
 const ESTADOS_DECISAO = Object.freeze({
   PENDENTE: 'PENDENTE',
   SIM: 'SIM',
-  NAO: 'NAO'
+  NAO: 'NAO',
+  PENDENTE_ESTOQUE: 'PENDENTE_ESTOQUE'
 });
 
 function num(valor) {
@@ -174,6 +175,20 @@ function quatroCasas(valor) {
   return Math.round(num(valor) * 10000) / 10000;
 }
 
+function motivoDiagnostico(codigo) {
+  const motivos = {
+    DECISAO_NOTA_INCORRETA: 'A decisão recebida pertence a outra nota.',
+    DECISAO_LINHA_INCORRETA: 'A decisão recebida não corresponde à linha original da NF-e.',
+    CONFIRMACAO_CONVERSAO_SEM_SELO: 'A confirmação não contém o selo emitido pelo servidor.',
+    CONFIRMACAO_CONVERSAO_DESATUALIZADA: 'O selo não corresponde à versão atual da linha, produto ou conversão.',
+    CONVERSAO_RECUSADA_SEM_QUANTIDADE_SEGURA: 'A conversão foi recusada e as unidades não permitem usar qCom com segurança.',
+    DIVERGENCIA_QTRIB_FATOR: 'A quantidade tributável diverge do fator cadastrado para a apresentação.',
+    FATOR_CONVERSAO_AUSENTE: 'Não foi encontrada apresentação/fator de conversão validado para esta linha.',
+    QTRIB_UNIDADE_ESTOQUE: 'A linha requer confirmação da quantidade tributável na unidade de estoque.'
+  };
+  return motivos[codigo] || 'A conversão da linha não foi validada.';
+}
+
 /**
  * O que o operador aprova: documento, linha do XML, produto, unidades e quantidades
  * e a quantidade em estoque proposta pelo MUC para essa linha.
@@ -192,16 +207,19 @@ function contextoSeloConversao(pendencia = {}) {
     uTrib: unidade(xml.uTrib),
     qTrib: quatroCasas(xml.qTrib),
     unidade_estoque: unidade(pendencia.unidade_estoque),
-    quantidade_proposta: quatroCasas(pendencia.quantidade_resultante_proposta)
+    quantidade_proposta: quatroCasas(pendencia.quantidade_resultante_proposta),
+    apresentacao_id: inteiroOuNull(pendencia.produto_apresentacao_id),
+    fator_conversao: quatroCasas(pendencia.fator_conversao_validado),
+    tipo_conversao: texto(pendencia.tipo_conversao_validado) || null
   };
 }
 
 function gerarSeloConversao(pendencia) {
-  const chave = crypto.createHmac('sha256', getJwtSecret()).update('cds:selo-conversao-entrada-nfe:v1').digest();
+  const chave = crypto.createHmac('sha256', getJwtSecret()).update('cds:selo-conversao-entrada-nfe:v2').digest();
   const assinatura = crypto.createHmac('sha256', chave)
     .update(JSON.stringify(contextoSeloConversao(pendencia)))
     .digest('hex');
-  return `v1.${assinatura}`;
+  return `v2.${assinatura}`;
 }
 
 function selosIguais(recebido, esperado) {
@@ -234,11 +252,17 @@ function temDocumento(documentoId) {
 
 function montarPendencia(item, produto, resultado, index, extras = {}) {
   const xml = snapshotXmlLinha(item, index);
+  const quantidadeCalculada = resultado?.quantidadeConvertida
+    ?? resultado?.quantidadeEstoque
+    ?? resultado?.quantidadeTributavel
+    ?? null;
   const qEstoqueProposta = resultado?.ok
     ? resultado.quantidadeEstoque
     : (resultado?.codigo === 'DIVERGENCIA_QTRIB_FATOR' && xml.qTrib > 0
       ? xml.qTrib
-      : resultado?.quantidadeTributavel || null);
+      : quantidadeCalculada || null);
+  const codigo = resultado?.codigo || (resultado?.ok ? resultado.origem : 'FATOR_CONVERSAO_AUSENTE');
+  const estado = extras.estadoDecisao || ESTADOS_DECISAO.PENDENTE;
   const pendencia = {
     item_key: extrairChaveConversaoItem(item, index),
     indice: index,
@@ -265,8 +289,8 @@ function montarPendencia(item, produto, resultado, index, extras = {}) {
     quantidade_resultante_proposta: qEstoqueProposta,
     origem_sugestao: resultado?.origem || null,
     justificativa: resultado?.erro || resultado?.origem || null,
-    codigo: resultado?.codigo || (resultado?.ok ? resultado.origem : 'FATOR_CONVERSAO_AUSENTE'),
-    estado_decisao: extras.estadoDecisao || ESTADOS_DECISAO.PENDENTE,
+    codigo,
+    estado_decisao: estado,
     requer_confirmacao: true,
     pode_continuar: extras.podeContinuar === true,
     bloqueia_efetivacao: extras.bloqueiaEfetivacao !== false,
@@ -275,7 +299,28 @@ function montarPendencia(item, produto, resultado, index, extras = {}) {
     unidadeComercial: resultado?.unidadeComercial,
     unidadeEstoque: resultado?.unidadeEstoque,
     fatorConversao: resultado?.fatorConversao || 0,
+    produto_apresentacao_id: resultado?.apresentacaoId ?? null,
+    fator_conversao_validado: resultado?.fatorConversao ?? null,
+    tipo_conversao_validado: resultado?.tipoConversao ?? null,
     revisao_produto_linha: revisaoProdutoLinha(item),
+    diagnostico: {
+      codigo,
+      item_key: extrairChaveConversaoItem(item, index),
+      indice: index,
+      nItem: xml.nItem,
+      produto_id: produto?.id || item.produto_id || item.produtoId || null,
+      unidade_nf: xml.uCom,
+      quantidade_nf: xml.qCom,
+      unidade_compra: item.unidade_compra || item.unidade_comercial || item.uCom || null,
+      unidade_tributavel: xml.uTrib,
+      quantidade_tributavel: xml.qTrib,
+      unidade_estoque: produto?.unidade || resultado?.unidadeEstoque || item.unidade_estoque || null,
+      quantidade_calculada: quantidadeCalculada,
+      quantidade_autorizada_proposta: qEstoqueProposta,
+      fator_conversao: resultado?.fatorConversao || resultado?.fatorSugerido || null,
+      estado_confirmacao: estado,
+      motivo_rejeicao: motivoDiagnostico(codigo)
+    },
     selo_conversao: null
   };
   if (temDocumento(pendencia.documento_id)) pendencia.selo_conversao = gerarSeloConversao(pendencia);
@@ -336,7 +381,8 @@ function normalizarDecisoesConversaoEntrada(confirmacoes = [], itens = []) {
         documento_id: itemRef.documento_id ?? itemRef.documentoId ?? null,
         chave_acesso: itemRef.chave_acesso ?? itemRef.chaveAcesso ?? null,
         item_key: chave,
-        selo_conversao: itemRef.selo_conversao ?? itemRef.seloConversao ?? null
+        selo_conversao: itemRef.selo_conversao ?? itemRef.seloConversao ?? null,
+        continuar_sem_conversao: itemRef.continuar_sem_conversao === true
       });
     });
     return mapa;
@@ -346,7 +392,8 @@ function normalizarDecisoesConversaoEntrada(confirmacoes = [], itens = []) {
     for (const [chave, valor] of Object.entries(confirmacoes)) {
       registrar(chave, valor, {
         item_key: chave,
-        selo_conversao: (valor && typeof valor === 'object') ? (valor.selo_conversao ?? valor.seloConversao ?? null) : null
+        selo_conversao: (valor && typeof valor === 'object') ? (valor.selo_conversao ?? valor.seloConversao ?? null) : null,
+        continuar_sem_conversao: valor?.continuar_sem_conversao === true
       });
     }
   }
@@ -367,7 +414,8 @@ function obterDecisaoDoItem(mapa, item, index) {
       ),
       documento_id: item.documento_id,
       indice: index,
-      selo_conversao: item.selo_conversao ?? null
+      selo_conversao: item.selo_conversao ?? null,
+      continuar_sem_conversao: item.continuar_sem_conversao === true
     };
   }
   return null;
@@ -415,7 +463,7 @@ function aplicarSim(item, produto, resultado, index, contexto) {
   };
 }
 
-function aplicarNao(item, produto, resultado, index, contexto) {
+function aplicarNao(item, produto, resultado, index, contexto = {}) {
   const xml = snapshotXmlLinha(item, index);
   if (quantidadeSeguraSemConversao(item, produto, resultado)) {
     return {
@@ -424,6 +472,18 @@ function aplicarNao(item, produto, resultado, index, contexto) {
       fatorConversao: 1,
       origem: 'QCOM_UNIDADE_ESTOQUE',
       conversao_aplicada: false,
+      aprendizado_permanente: false,
+      xml
+    };
+  }
+  if (contexto.continuar_sem_conversao === true) {
+    return {
+      ok: true,
+      quantidadeEstoque: null,
+      fatorConversao: null,
+      origem: 'PENDENTE_REGULARIZACAO',
+      conversao_aplicada: false,
+      estoquePendente: true,
       aprendizado_permanente: false,
       xml
     };
@@ -470,24 +530,37 @@ function validarPendenciasConversaoEntrada(itens = [], {
     if (decisaoBruta) {
       const notaErrada = validarIdentidadeNota(decisaoBruta, contextoNota);
       if (notaErrada) {
-        pendencias.push({
+        const pendencia = {
           ...avaliacao.pendencia,
           codigo: notaErrada.codigo,
           justificativa: notaErrada.message,
           estado_decisao: ESTADOS_DECISAO.PENDENTE,
           bloqueia_efetivacao: true
-        });
+        };
+        pendencia.diagnostico = {
+          ...pendencia.diagnostico,
+          codigo: notaErrada.codigo,
+          estado_confirmacao: ESTADOS_DECISAO.PENDENTE,
+          motivo_rejeicao: motivoDiagnostico(notaErrada.codigo)
+        };
+        pendencias.push(pendencia);
         continue;
       }
       if (decisaoBruta.indice != null && Number(decisaoBruta.indice) !== index
           && decisaoBruta.item_key
           && decisaoBruta.item_key !== extrairChaveConversaoItem(item, index)) {
-        pendencias.push({
+        const pendencia = {
           ...avaliacao.pendencia,
           codigo: 'DECISAO_LINHA_INCORRETA',
           justificativa: 'A decisão não pertence a esta linha da NF-e.',
           bloqueia_efetivacao: true
-        });
+        };
+        pendencia.diagnostico = {
+          ...pendencia.diagnostico,
+          codigo: pendencia.codigo,
+          motivo_rejeicao: motivoDiagnostico(pendencia.codigo)
+        };
+        pendencias.push(pendencia);
         continue;
       }
     }
@@ -496,12 +569,19 @@ function validarPendenciasConversaoEntrada(itens = [], {
     if (estado !== ESTADOS_DECISAO.PENDENTE && temDocumento(documentoId)) {
       const seloInvalido = verificarSeloDecisao(decisaoBruta, avaliacao.pendencia);
       if (seloInvalido) {
-        pendencias.push({
+        const pendencia = {
           ...avaliacao.pendencia,
           ...seloInvalido,
           estado_decisao: ESTADOS_DECISAO.PENDENTE,
           bloqueia_efetivacao: true
-        });
+        };
+        pendencia.diagnostico = {
+          ...pendencia.diagnostico,
+          codigo: seloInvalido.codigo,
+          estado_confirmacao: ESTADOS_DECISAO.PENDENTE,
+          motivo_rejeicao: motivoDiagnostico(seloInvalido.codigo)
+        };
+        pendencias.push(pendencia);
         continue;
       }
     }
@@ -511,13 +591,23 @@ function validarPendenciasConversaoEntrada(itens = [], {
       continue;
     }
     if (estado === ESTADOS_DECISAO.NAO) {
-      const recusa = aplicarNao(item, produto, avaliacao.resultado, index, contextoNota);
+      const recusa = aplicarNao(item, produto, avaliacao.resultado, index, {
+        ...contextoNota,
+        continuar_sem_conversao: decisaoBruta?.continuar_sem_conversao === true
+      });
       if (!recusa.ok) {
-        pendencias.push({
+        const pendencia = {
           ...recusa.pendencia,
           codigo: 'CONVERSAO_RECUSADA_SEM_QUANTIDADE_SEGURA',
           justificativa: 'Conversão recusada. Não há quantidade segura na unidade de estoque até corrigir associação ou unidade.'
-        });
+        };
+        pendencia.diagnostico = {
+          ...pendencia.diagnostico,
+          codigo: pendencia.codigo,
+          estado_confirmacao: ESTADOS_DECISAO.NAO,
+          motivo_rejeicao: motivoDiagnostico(pendencia.codigo)
+        };
+        pendencias.push(pendencia);
       }
       continue;
     }
@@ -583,8 +673,27 @@ function aplicarDecisoesNosItens(itens = [], {
       };
     }
     if (estado === ESTADOS_DECISAO.NAO) {
-      const recusa = aplicarNao(item, produto, avaliacao.resultado, index, { documentoId, chaveAcesso });
+      const recusa = aplicarNao(item, produto, avaliacao.resultado, index, {
+        documentoId,
+        chaveAcesso,
+        continuar_sem_conversao: decisaoBruta?.continuar_sem_conversao === true
+      });
       if (!recusa.ok) return base;
+      if (recusa.estoquePendente) {
+        return {
+          ...base,
+          decisao_conversao: false,
+          conversao_decisao: 'NAO',
+          estoque_pendente_conversao: true,
+          pendencia_estoque_json: JSON.stringify({
+            estado: 'PENDENTE_CONVERSAO',
+            motivo: 'Operador optou por não aplicar a conversão automática.',
+            xml_original: recusa.xml
+          }),
+          origem_conversao_confirmada: recusa.origem,
+          conversao_aplicada: false
+        };
+      }
       return {
         ...base,
         decisao_conversao: false,
@@ -634,13 +743,22 @@ const CAMPOS_CONVERSAO_ITEM = Object.freeze([
  * null = nenhuma quantidade autorizada.
  */
 function quantidadeAutorizadaEntradaNfe(item = {}, produto = {}, index = 0, contexto = {}) {
+  if (item.estoque_pendente_conversao === true) {
+    return { estado: 'PENDENTE_CONVERSAO', quantidade: null };
+  }
   const avaliacao = avaliarLinha(item, produto || {}, index, contexto);
   if (avaliacao.requer) {
     const confirmada = Number(item.quantidade_estoque_confirmada);
-    return item.conversao_decisao && Number.isFinite(confirmada) && confirmada > 0 ? confirmada : null;
+    return {
+      estado: 'APLICADA',
+      quantidade: item.conversao_decisao && Number.isFinite(confirmada) && confirmada > 0 ? confirmada : null
+    };
   }
   const proposta = Number(avaliacao.resultado?.quantidadeEstoque);
-  return avaliacao.resultado?.ok && Number.isFinite(proposta) && proposta > 0 ? proposta : null;
+  return {
+    estado: 'APLICADA',
+    quantidade: avaliacao.resultado?.ok && Number.isFinite(proposta) && proposta > 0 ? proposta : null
+  };
 }
 
 function inteiroOuNull(valor) {

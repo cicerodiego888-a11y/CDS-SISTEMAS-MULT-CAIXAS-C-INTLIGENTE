@@ -25,8 +25,14 @@ const OrquestradorPagamento = require('../OrquestradorPagamento');
 const tefConfigService = require('../tef/tefConfigService');
 const tefFluxoPagamento = require('../tef/tefFluxoPagamento');
 const VendaFinanceiroService = require('../vendas/VendaFinanceiroService');
-const VendaFiscalService = require('../vendas/VendaFiscalService');
 const VendaPagamentoService = require('../vendas/VendaPagamentoService');
+const {
+  avaliarRepeticaoPrestacao,
+  executarEmissaoSeMarcada,
+  normalizarDocumento,
+  pedidoMarcadoParaNfce,
+  validarPagamentosDoPedido
+} = require('./PrestacaoFiscalService');
 const { consumirReservasDaVenda } = require('../estoque/EstoqueConsumoReserva');
 const { liberarReservasDaVenda } = require('../estoque/EstoqueReservaService');
 const { StatusVenda, StatusEntrega, TipoVenda } = require('./enums');
@@ -38,7 +44,6 @@ const { gravarAuditoria } = require('../auditoria');
 const { montarHtmlComprovantePrestacao } = require('./ComprovantePrestacao');
 
 const { agoraLocalBrasil, validarSomaPagamentosVenda } = VendaFinanceiroService;
-const { emitirFiscalSeSolicitado } = VendaFiscalService;
 const {
   gravarRecebimentos,
   aplicarRegraStatusPagamentoVenda,
@@ -95,6 +100,135 @@ function audit(acao, vendaId, detalhes, ctx = {}) {
   ).catch((e) => console.error('[MotorFinalizacaoVenda] auditoria', e));
 }
 
+async function gravarSituacaoFiscalEntrega(vendaId, documento, situacao) {
+  try {
+    await run(
+      `UPDATE vendas SET documento_solicitado = ?, status_fiscal_entrega = ? WHERE id = ?`,
+      [documento, situacao, vendaId]
+    );
+  } catch (err) {
+    if (!/no such column/i.test(String(err && err.message))) throw err;
+    console.error('[MotorFinalizacaoVenda] situação fiscal não persistida', err.message);
+  }
+}
+
+async function consultarTefDaVenda(tefId) {
+  try {
+    return await get(
+      `SELECT id, venda_id, valor, status FROM tef_transacoes WHERE id = ?`,
+      [tefId]
+    );
+  } catch (err) {
+    if (/no such table/i.test(String(err && err.message))) return null;
+    throw err;
+  }
+}
+
+async function carregarItensEPagamentosDaVenda(vendaId) {
+  const itens = await all(
+    `SELECT id, produto_id, quantidade, quantidade_fiscal, quantidade_nao_fiscal,
+            valor_fiscal, valor_nao_fiscal, subtotal
+     FROM vendas_itens WHERE venda_id = ?`,
+    [vendaId]
+  );
+  const pagamentos = await all(
+    `SELECT vp.venda_id, vp.forma_pagamento, vp.valor, vp.tipo_recebimento,
+            vp.tef_transacao_id, tt.venda_id AS tef_venda_id
+     FROM venda_pagamentos vp
+     LEFT JOIN tef_transacoes tt ON tt.id = vp.tef_transacao_id
+     WHERE vp.venda_id = ?
+     ORDER BY vp.id`,
+    [vendaId]
+  );
+  return { itens, pagamentos };
+}
+
+function mensagemPrestacao(emissao) {
+  if (!emissao || emissao.documento !== 'NFCE') {
+    return 'Prestação de contas finalizada. Venda concluída.';
+  }
+  if (emissao.emissao_concluida) {
+    return emissao.fiscal?.reused
+      ? 'Prestação finalizada. NFC-e já autorizada; nenhuma segunda nota foi emitida.'
+      : 'Prestação finalizada. NFC-e autorizada pelo Motor Fiscal.';
+  }
+  return emissao.fiscal?.message
+    || 'Prestação operacional finalizada. A NFC-e ainda não foi autorizada.';
+}
+
+async function executarEmissaoDaPrestacao({
+  vendaId,
+  body,
+  venda,
+  contextoAuditoria,
+  deps = {}
+}) {
+  const carregado = await carregarItensEPagamentosDaVenda(vendaId);
+  const emissao = await executarEmissaoSeMarcada({
+    vendaId,
+    body,
+    venda,
+    itens: carregado.itens,
+    pagamentos: carregado.pagamentos,
+    deps
+  });
+  await gravarSituacaoFiscalEntrega(vendaId, emissao.documento, emissao.situacao);
+
+  if (emissao.emissao_concluida) {
+    await audit(EntregaAuditoriaEventos.NFCE_EMITIDA, vendaId, {
+      success: true,
+      status: emissao.fiscal?.status || 'autorizada',
+      situacao: emissao.situacao,
+      numero: emissao.fiscal?.numero || null,
+      chave: emissao.fiscal?.chaveAcesso || emissao.fiscal?.chave || null,
+      protocolo: emissao.fiscal?.protocolo || emissao.fiscal?.soap?.protocolo || null,
+      reused: emissao.fiscal?.reused === true
+    }, contextoAuditoria);
+  } else if (emissao.marcado) {
+    await audit(EntregaAuditoriaEventos.NFCE_RESULTADO, vendaId, {
+      success: false,
+      status: emissao.fiscal?.status || null,
+      situacao: emissao.situacao,
+      message: emissao.fiscal?.message || null,
+      motor_acionado: emissao.motor_acionado === true
+    }, contextoAuditoria);
+  }
+
+  return emissao;
+}
+
+async function recuperarEmissaoFiscalPrestacao({
+  venda,
+  vendaId,
+  body,
+  contextoAuditoria,
+  deps
+}) {
+  const emissao = await executarEmissaoDaPrestacao({
+    vendaId,
+    body: { ...body, documento: 'NFCE', emitir_fiscal: true },
+    venda,
+    contextoAuditoria,
+    deps
+  });
+  return {
+    success: true,
+    recuperacao_fiscal: true,
+    message: mensagemPrestacao(emissao),
+    id: Number(vendaId),
+    venda_id: Number(vendaId),
+    codigo: venda.codigo,
+    status_venda: venda.status_venda,
+    status_entrega: venda.status_entrega,
+    documento: emissao.documento,
+    situacao_fiscal: emissao.situacao,
+    emissao_concluida: emissao.emissao_concluida,
+    fiscal: emissao.fiscal,
+    valor_fiscal_elegivel: emissao.valor_fiscal_elegivel,
+    motor_acionado: emissao.motor_acionado
+  };
+}
+
 /**
  * Finaliza venda ENTREGA via prestação de contas.
  * @param {object} params
@@ -103,7 +237,7 @@ function audit(acao, vendaId, detalhes, ctx = {}) {
  * @param {object} params.req — contexto HTTP (caixa, user)
  * @param {object} params.contextoAuditoria
  */
-async function finalizarPrestacao({ vendaId, body = {}, req = {}, contextoAuditoria = {} }) {
+async function finalizarPrestacao({ vendaId, body = {}, req = {}, contextoAuditoria = {}, deps = {} }) {
   if (!configService.recursoHabilitado('vendasEntrega')) {
     const err = new Error('Módulo Vendas para Entrega desabilitado.');
     err.status = 404;
@@ -121,13 +255,13 @@ async function finalizarPrestacao({ vendaId, body = {}, req = {}, contextoAudito
   prestacoesEmAndamento.add(vendaIdNum);
 
   try {
-    return await _finalizarPrestacaoInterno({ vendaId, body, req, contextoAuditoria });
+    return await _finalizarPrestacaoInterno({ vendaId, body, req, contextoAuditoria, deps });
   } finally {
     prestacoesEmAndamento.delete(vendaIdNum);
   }
 }
 
-async function _finalizarPrestacaoInterno({ vendaId, body = {}, req = {}, contextoAuditoria = {} }) {
+async function _finalizarPrestacaoInterno({ vendaId, body = {}, req = {}, contextoAuditoria = {}, deps = {} }) {
   if (!configService.recursoHabilitado('vendasEntrega')) {
     const err = new Error('Módulo Vendas para Entrega desabilitado.');
     err.status = 404;
@@ -159,14 +293,25 @@ async function _finalizarPrestacaoInterno({ vendaId, body = {}, req = {}, contex
     throw err;
   }
 
-  if (
-    venda.status_venda === StatusVenda.FINALIZADA
-    || Number(venda.prestacao_realizada || 0) === 1
-    || venda.status === 'concluida'
-  ) {
-    const err = new Error('Esta venda já foi finalizada na prestação de contas.');
-    err.status = 400;
+  const repeticao = avaliarRepeticaoPrestacao(venda, body);
+  if (repeticao.bloquear) {
+    const err = new Error(
+      repeticao.codigo === 'VENDA_NAO_FISCAL'
+        ? 'Esta venda foi configurada como não fiscal e não emite NFC-e.'
+        : 'Esta venda já foi finalizada na prestação de contas.'
+    );
+    err.status = repeticao.codigo === 'PRESTACAO_DUPLICADA' ? 409 : 400;
+    err.codigo = repeticao.codigo;
     throw err;
+  }
+  if (repeticao.recuperar) {
+    return recuperarEmissaoFiscalPrestacao({
+      venda,
+      vendaId,
+      body,
+      contextoAuditoria,
+      deps
+    });
   }
 
   const statusEntregaOk = [
@@ -229,6 +374,10 @@ async function _finalizarPrestacaoInterno({ vendaId, body = {}, req = {}, contex
   };
   formaPagamentoFinal = aliasForma[formaPagamentoFinal] || formaPagamentoFinal;
 
+  if (normalizarDocumento(venda.documento_solicitado) === 'NAO_FISCAL') {
+    body = { ...body, documento: 'NAO_FISCAL', emitir_fiscal: false };
+  }
+
   const pagamentosNormalizados = (pagamentosVenda.length
     ? pagamentosVenda
     : [{ forma_pagamento: formaPagamentoFinal, valor: totalNum }]
@@ -240,6 +389,8 @@ async function _finalizarPrestacaoInterno({ vendaId, body = {}, req = {}, contex
       valor: Number(p.valor || 0)
     };
   });
+
+  await validarPagamentosDoPedido(pagamentosNormalizados, vendaId, consultarTefDaVenda);
 
   const erroSoma = validarSomaPagamentosVenda(pagamentosNormalizados, totalNum, {
     valor_fiscal: totalFiscal,
@@ -326,12 +477,7 @@ async function _finalizarPrestacaoInterno({ vendaId, body = {}, req = {}, contex
     pagamentos: pagamentosNormalizados
   }, contextoAuditoria);
 
-  const emitirFiscal = body.emitir_fiscal === true
-    || body.emitir_fiscal === 1
-    || body.emitir_fiscal === '1'
-    || body.emitir_fiscal === 'true'
-    || String(body.documento || '').toUpperCase() === 'NFCE';
-
+  const emitirFiscal = pedidoMarcadoParaNfce({ body, venda });
   const documento = emitirFiscal ? 'NFCE' : 'NAO_FISCAL';
   const valorRecebido = pagamentosNormalizados.reduce((s, p) => s + Number(p.valor || 0), 0);
   const dataMov = agoraLocalBrasil().slice(0, 10);
@@ -410,6 +556,7 @@ async function _finalizarPrestacaoInterno({ vendaId, body = {}, req = {}, contex
 
     // Pagamentos — persiste o split F/NF do MIDP (não o payload comercial único)
     await run(`DELETE FROM venda_pagamentos WHERE venda_id = ?`, [vendaId]);
+    await run(`DELETE FROM venda_recebimentos WHERE venda_id = ?`, [vendaId]);
     const linhasPag = linhasPagamentoPersistencia(
       pagamentosNormalizados,
       recebimentos,
@@ -509,6 +656,8 @@ async function _finalizarPrestacaoInterno({ vendaId, body = {}, req = {}, contex
           prestacao_realizada = 1,
           prestado_por = ?,
           prestado_em = CURRENT_TIMESTAMP,
+          documento_solicitado = ?,
+          status_fiscal_entrega = ?,
           cancelada = 0
         WHERE id = ?
       `,
@@ -519,6 +668,8 @@ async function _finalizarPrestacaoInterno({ vendaId, body = {}, req = {}, contex
         statusPagamento,
         valorRecebido,
         operadorId,
+        documento,
+        emitirFiscal ? 'processando' : 'nao_aplicavel',
         vendaId
       ]
     );
@@ -540,17 +691,36 @@ async function _finalizarPrestacaoInterno({ vendaId, body = {}, req = {}, contex
     forma_pagamento: formaPagamentoFinal
   }, contextoAuditoria);
 
-  // NFC-e fora da transação (rede SEFAZ)
-  let fiscal = null;
-  if (emitirFiscal) {
-    const vendaAtual = await get(`SELECT * FROM vendas WHERE id = ?`, [vendaId]);
-    fiscal = await emitirFiscalSeSolicitado(vendaId, true, vendaAtual);
-    await audit(EntregaAuditoriaEventos.NFCE_EMITIDA, vendaId, {
-      success: !!fiscal?.success,
-      status: fiscal?.status || null,
-      message: fiscal?.message || null
-    }, contextoAuditoria);
+  // NFC-e fora da transação: o Motor Fiscal oficial confirma autorização, rejeição ou pendência.
+  let emissao;
+  try {
+    const vendaFiscal = await get(`SELECT * FROM vendas WHERE id = ?`, [vendaId]);
+    emissao = await executarEmissaoDaPrestacao({
+      vendaId,
+      body: { ...body, documento, emitir_fiscal: emitirFiscal },
+      venda: { ...(vendaFiscal || venda), documento_solicitado: documento },
+      contextoAuditoria,
+      deps
+    });
+  } catch (errorFiscal) {
+    console.error('[MotorFinalizacaoVenda] emissão NFC-e', errorFiscal);
+    emissao = {
+      documento,
+      situacao: 'erro_emissao',
+      emissao_concluida: false,
+      motor_acionado: emitirFiscal,
+      valor_fiscal_elegivel: totalFiscal,
+      fiscal: {
+        success: false,
+        status: 'erro_emissao',
+        message: errorFiscal.message || 'Falha ao acionar o Motor Fiscal.'
+      }
+    };
+    if (emitirFiscal) {
+      await gravarSituacaoFiscalEntrega(vendaId, 'NFCE', 'erro_emissao');
+    }
   }
+  const fiscal = emissao.fiscal;
 
   let papelMm = 80;
   try {
@@ -603,14 +773,18 @@ async function _finalizarPrestacaoInterno({ vendaId, body = {}, req = {}, contex
 
   return {
     success: true,
-    message: 'Prestação de contas finalizada. Venda concluída.',
+    message: mensagemPrestacao(emissao),
     id: Number(vendaId),
     venda_id: Number(vendaId),
     codigo: venda.codigo,
     status_venda: StatusVenda.FINALIZADA,
     status_entrega: StatusEntrega.CONCLUIDA,
     status_pagamento: statusPagamento,
-    documento,
+    documento: emissao.documento || documento,
+    situacao_fiscal: emissao.situacao,
+    emissao_concluida: emissao.emissao_concluida === true,
+    motor_acionado: emissao.motor_acionado === true,
+    valor_fiscal_elegivel: emissao.valor_fiscal_elegivel,
     forma_pagamento: formaPagamentoFinal,
     valor_fiscal: totalFiscal,
     valor_nao_fiscal: totalNaoFiscal,

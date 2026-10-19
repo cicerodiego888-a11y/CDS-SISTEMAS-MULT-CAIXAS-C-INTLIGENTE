@@ -261,6 +261,24 @@ test('Sprint 4 — EDITAR linha da Central preserva qTrib/uTrib até o SQLite', 
     assert.equal(resposta.body.code, 'PENDENCIAS_CONVERSAO');
     assert.equal(resposta.body.pendencias.length, 1);
     const pendencia = resposta.body.pendencias[0];
+    assert.deepEqual(pendencia.diagnostico, {
+      codigo: 'DIVERGENCIA_QTRIB_FATOR',
+      item_key: pendencia.item_key,
+      indice: pendencia.indice,
+      nItem: 0,
+      produto_id: caso.id,
+      unidade_nf: pendencia.unidade_nf,
+      quantidade_nf: 100,
+      unidade_compra: 'FARDO',
+      unidade_tributavel: 'UN',
+      quantidade_tributavel: 1000,
+      unidade_estoque: 'UN',
+      quantidade_calculada: 1200,
+      quantidade_autorizada_proposta: 1000,
+      fator_conversao: 12,
+      estado_confirmacao: 'PENDENTE',
+      motivo_rejeicao: pendencia.diagnostico.motivo_rejeicao
+    });
     assert.equal(Number(pendencia.produto_id), caso.id);
     assert.equal(pendencia.codigo, 'DIVERGENCIA_QTRIB_FATOR');
     assert.equal(pendencia.estado_decisao, 'PENDENTE');
@@ -308,18 +326,59 @@ test('Sprint 4 — EDITAR linha da Central preserva qTrib/uTrib até o SQLite', 
 
     // NÃO: recusa a conversão; sem quantidade segura a linha continua pendente e nada é gravado.
     pagina.context.executarGravacaoCompra(montarPayloadDecisao(false), false, false);
-    await aguardarCondicao(() => modaisConversao.length === 2, 'modal reaberto após NÃO');
+    await aguardarCondicao(() => postsCompra().length === 2, 'retorno da recusa NÃO');
+    await aguardarCondicao(
+      () => pagina.notificacoes.some((n) => /não há quantidade segura/.test(n.mensagem)),
+      'mensagem de conversão recusada sem quantidade segura'
+    );
     const respostaNao = postsCompra()[1].resposta;
     assert.equal(respostaNao.status, 422, JSON.stringify(respostaNao.body));
     assert.equal(respostaNao.body.code, 'PENDENCIAS_CONVERSAO');
     assert.equal(respostaNao.body.pendencias[0].codigo, 'CONVERSAO_RECUSADA_SEM_QUANTIDADE_SEGURA');
     assert.equal(respostaNao.body.pendencias[0].bloqueia_efetivacao, true);
+    assert.equal(respostaNao.body.pendencias[0].diagnostico.estado_confirmacao, 'NAO');
+    assert.equal(
+      respostaNao.body.pendencias[0].diagnostico.motivo_rejeicao,
+      'A conversão foi recusada e as unidades não permitem usar qCom com segurança.'
+    );
+    assert.equal(modaisConversao.length, 1, 'uma recusa não deve reabrir o mesmo modal em loop');
     assert.deepEqual(await capturarEstado(caso.id, recebimento.documentoId), antes, 'NÃO não pode deixar efeito persistente');
 
     // SIM: backend revalida e grava a quantidade proposta; cadastro e aprendizado ficam intactos.
-    pagina.context.executarGravacaoCompra(montarPayloadDecisao(true), false, false);
-    await aguardarCondicao(() => postsCompra().length === 3, 'POST após SIM');
-    const respostaSim = postsCompra()[2].resposta;
+    // Retomar a mesma tentativa sem decisão abre novamente o modal, sem reenviar a compra em loop.
+    pagina.context.executarGravacaoCompra(payloadPendente, false, false);
+    await aguardarCondicao(() => postsCompra().length === 3 && modaisConversao.length === 2, 'modal após nova tentativa');
+    const modalRetomada = modaisConversao[1];
+    const pendenciaRetomada = modalRetomada.pendencias[0];
+    assert.equal(pendenciaRetomada.documento_id, recebimento.documentoId);
+    assert.equal(pendenciaRetomada.chave_acesso, recebimento.dadosCompra.chave_acesso);
+    assert.equal(pendenciaRetomada.nItem, pendencia.nItem);
+    assert.equal(pendenciaRetomada.produto_id, pendencia.produto_id);
+    assert.equal(pagina.prop('#confirmacaoConversaoUnidadesModal-confirmar', 'disabled'), true);
+
+    // A decisão é feita pelo botão real no modal, e não por um payload SIM montado pelo teste.
+    pagina.clicar('#confirmacaoConversaoUnidadesModal', {
+      dataset: { itemKey: pendenciaRetomada.item_key, decisao: 'true' }
+    });
+    assert.equal(pagina.prop('#confirmacaoConversaoUnidadesModal-confirmar', 'disabled'), false);
+    pagina.clicar('#confirmacaoConversaoUnidadesModal-confirmar');
+    await aguardarCondicao(() => postsCompra().length === 4, 'POST após SIM no modal real');
+    const postSim = postsCompra()[3];
+    const respostaSim = postSim.resposta;
+    assert.equal(respostaSim.status, 200, JSON.stringify(respostaSim.body));
+    assert.equal(postSim.corpo.central_documento_id, recebimento.documentoId);
+    assert.equal(postSim.corpo.chave_acesso, recebimento.dadosCompra.chave_acesso);
+    assert.equal(postSim.corpo.confirmacoes_conversao.length, 1);
+    assert.deepEqual(postSim.corpo.confirmacoes_conversao[0], {
+      item_key: pendenciaRetomada.item_key,
+      indice: pendenciaRetomada.indice,
+      central_item_indice: pendenciaRetomada.indice,
+      nItem: pendenciaRetomada.nItem,
+      documento_id: recebimento.documentoId,
+      chave_acesso: recebimento.dadosCompra.chave_acesso,
+      confirmacao: true,
+      selo_conversao: pendenciaRetomada.selo_conversao
+    });
     assert.equal(respostaSim.status, 200, JSON.stringify(respostaSim.body));
     await aguardarCondicao(
       () => pagina.notificacoes.some((n) => /registrada com sucesso|vínculo com a Central/.test(n.mensagem)),

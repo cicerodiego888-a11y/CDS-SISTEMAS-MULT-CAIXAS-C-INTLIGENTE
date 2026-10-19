@@ -1,8 +1,35 @@
 /**
  * Geometria compartilhada dos comprovantes térmicos 80/58 mm.
- * O papel é a referência. A janela do Electron não entra aqui.
+ *
+ * GT710 (ESC/POS, bobina 80 mm): a cabeça queima 576 dots a 203 dpi ≈ 72 mm.
+ * O CDS não manda ESC/POS neste cupom — HTML → Chromium/Electron → driver Windows.
+ * O @page declara o rolo; o miolo nasce na faixa útil e fica à esquerda,
+ * para o valor da direita não sair da área queimada.
  */
 'use strict';
+
+/** Referência de hardware usada na geometria 80 mm (Goldentec GT710). */
+const GT710_80 = Object.freeze({
+  modelo: 'GT710',
+  papelMm: 80,
+  utilMm: 72,
+  dpi: 203,
+  dots: 576,
+  mecanismo: 'html-electron-driver'
+});
+
+/**
+ * Recuo da coluna monetária dentro da área útil (não desloca o cupom no papel).
+ * Padding do miolo: top right bottom left — direita maior que a esquerda.
+ * padding-right em .valor mantém os números alinhados e longe da borda queimada.
+ */
+const COLUNA_VALOR_TERMICO = Object.freeze({
+  paddingCupom80: '1.2mm 3.5mm 2mm 2mm',
+  paddingCupom58: '1mm 2.5mm 1.6mm 1.5mm',
+  valorPaddingRight80: '1.5mm',
+  valorPaddingRight58: '1.2mm',
+  valorMaxWidthPct: 50
+});
 
 function escapeHtml(texto) {
   return String(texto ?? '')
@@ -16,16 +43,47 @@ function papelMmDe(valor) {
   return Number(valor) === 58 ? 58 : 80;
 }
 
+function larguraUtilMm(papelMm) {
+  return papelMmDe(papelMm) === 58 ? 48 : GT710_80.utilMm;
+}
+
+function paddingCupomTermico(papelMm) {
+  return papelMmDe(papelMm) === 58
+    ? COLUNA_VALOR_TERMICO.paddingCupom58
+    : COLUNA_VALOR_TERMICO.paddingCupom80;
+}
+
+function paddingValorTermico(papelMm) {
+  return papelMmDe(papelMm) === 58
+    ? COLUNA_VALOR_TERMICO.valorPaddingRight58
+    : COLUNA_VALOR_TERMICO.valorPaddingRight80;
+}
+
+/** CSS da coluna monetária — reutilizar em templates que não passam por documento(). */
+function cssColunaValorTermico(papelMm, seletores) {
+  const alvo = seletores || '.valor, .item-tot, .cds-valor-termico';
+  const recuo = paddingValorTermico(papelMm);
+  const maxPct = COLUNA_VALOR_TERMICO.valorMaxWidthPct;
+  return `
+    ${alvo} {
+      flex: 0 1 auto; max-width: ${maxPct}%; min-width: 0;
+      text-align: right; font-weight: 700; overflow-wrap: anywhere;
+      padding-right: ${recuo}; box-sizing: border-box;
+    }
+  `;
+}
+
 function cssCupomTermico(papelMm) {
   const papel = papelMmDe(papelMm);
+  const util = larguraUtilMm(papel);
   const estreito = papel === 58;
   return `
     @page { size: ${papel}mm auto; margin: 0; }
-    html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+    html, body { margin: 0; padding: 0; width: ${util}mm; max-width: ${util}mm; background: #fff; color: #000; }
     .cds-cupom-termico {
-      width: ${papel}mm; max-width: ${papel}mm;
-      margin: 0 auto;
-      padding: ${estreito ? '1.2mm 2mm 1.6mm' : '1.5mm 2.5mm 2mm'};
+      width: ${util}mm; max-width: ${util}mm;
+      margin: 0;
+      padding: ${paddingCupomTermico(papel)};
       box-sizing: border-box;
       font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
       font-size: ${estreito ? '9px' : '11px'};
@@ -47,12 +105,11 @@ function cssCupomTermico(papelMm) {
     .sep { border: 0; border-top: 1px solid #000; margin: 0.8mm 0; }
     .row, .item-linha {
       display: flex; justify-content: space-between; align-items: baseline;
-      gap: 2mm; width: 100%; max-width: 100%;
+      gap: 1.5mm; width: 100%; max-width: 100%; min-width: 0;
     }
-    .rotulo, .item-nome, .txt { min-width: 0; overflow-wrap: anywhere; }
-    .valor {
-      flex: 0 1 auto; max-width: 58%; text-align: right; font-weight: 700; overflow-wrap: anywhere;
-    }
+    .rotulo, .item-nome { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+    .txt { min-width: 0; overflow-wrap: anywhere; }
+    ${cssColunaValorTermico(papel, '.valor')}
     .item { margin: 0 0 0.8mm; width: 100%; }
     .item-nome { font-weight: 700; }
     .total .rotulo, .total .valor { font-size: ${estreito ? '12px' : '16px'}; font-weight: 700; }
@@ -80,22 +137,32 @@ function sep() {
 
 function documento({ titulo, classe, corpo, papelMm }) {
   const papel = papelMmDe(papelMm);
+  const util = larguraUtilMm(papel);
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
+  <meta name="cds-papel-mm" content="${papel}" />
+  <meta name="cds-util-mm" content="${util}" />
+  <meta name="cds-termico-ref" content="${papel === 80 ? GT710_80.modelo : 'TERMICO-58'}" />
   <title>${escapeHtml(titulo || 'Comprovante')}</title>
   <style>${cssCupomTermico(papel)}</style>
 </head>
-<body class="${escapeHtml(classe || 'comprovante-termico')}">
+<body class="${escapeHtml(classe || 'comprovante-termico')}" data-cds-papel-mm="${papel}" data-cds-util-mm="${util}">
 <main class="cds-cupom-termico">${corpo || ''}</main>
 </body>
 </html>`;
 }
 
 module.exports = {
+  GT710_80,
+  COLUNA_VALOR_TERMICO,
   escapeHtml,
   papelMmDe,
+  larguraUtilMm,
+  paddingCupomTermico,
+  paddingValorTermico,
+  cssColunaValorTermico,
   cssCupomTermico,
   linha,
   centro,

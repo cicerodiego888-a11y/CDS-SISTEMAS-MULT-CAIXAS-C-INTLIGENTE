@@ -109,7 +109,14 @@ function createCancelamentoRuntime(options = {}) {
     if (resolution.success && def) {
       const transport = platform.getSoapTransport();
       const request = transport.getFactory().createRequest({
-        definition: def,
+        definition: {
+          ...def,
+          tls: {
+            ...(def.tls || {}),
+            minVersion: 'TLSv1.2',
+            rejectUnauthorized: true
+          }
+        },
         envelope,
         certificado: input.certificadoPath || null,
         senha: input.certificadoSenha || null,
@@ -175,6 +182,37 @@ function createCancelamentoRuntime(options = {}) {
         code: 'PLATFORM_TRANSPORT_FAILED',
         message: transportResponse.error || 'Falha no SoapTransport do cancelamento.'
       });
+      const result = buildRuntimeResult({
+        success: false,
+        source: ResolutionSource.REGISTRY,
+        resolutionSource: resolution.source || ResolutionSource.REGISTRY,
+        operacao: OperationType.CANCELAMENTO,
+        modelo,
+        endpoint: def.endpoint,
+        namespace: def.namespace || NS_EVENTO,
+        soapAction: def.soapAction || ACTION_EVENTO,
+        versao: def.versao || versao,
+        ambiente,
+        uf,
+        tpEvento: TP_EVENTO_CANCELAMENTO,
+        body: transportResponse.body || null,
+        statusCode: transportResponse.statusCode || null,
+        error: transportResponse.error || 'Falha no transporte; resultado do envio desconhecido.',
+        warnings,
+        tempoResolverMs,
+        tempoTransporteMs,
+        tempoXmlMs,
+        tempoSoapMs,
+        tempoPlataformaMs,
+        tempoLegadoMs: 0,
+        tempoTotalMs: nowMs(),
+        fallbackUtilizado: false,
+        retries,
+        cStat: null,
+        resultado: 'DESCONHECIDO'
+      });
+      metrics.record(result);
+      return result;
     } else {
       warnings.push({
         code: 'PLATFORM_RESOLVE_FAILED',
@@ -297,8 +335,9 @@ function extrairXMotivo(body) {
  */
 function classificarResultado(cStat) {
   if (cStat === '135' || cStat === '155') return 'AUTORIZADO';
-  if (cStat === '573' || cStat === '631') return 'DUPLICADO';
-  if (cStat) return 'REJEITADO';
+  if (cStat === '573') return 'DESCONHECIDO'; // Duplicidade, isoladamente, não comprova registro do cancelamento.
+  // cStat 631 remains a non-success under the existing mapping; event-specific official documentation is pending.
+  if (cStat === '501' || cStat === '631') return 'REJEITADO';
   return 'DESCONHECIDO';
 }
 

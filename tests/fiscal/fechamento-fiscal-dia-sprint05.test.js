@@ -359,9 +359,12 @@ async function main() {
       const p = gerarPreviaDistribuicao(lotes, v, { valorAlvo: 250, valorMin: 80, valorMax: 400 });
       if (p.quantidade_vendas > 0) {
         assert.ok(toCentavos(p.valor_distribuido) >= toCentavos(v));
-        assert.strictEqual(toCentavos(p.valor_final), toCentavos(v));
-        assert.strictEqual(toCentavos(p.desconto), toCentavos(p.valor_distribuido) - toCentavos(v));
-        assert.strictEqual(toCentavos(p.diferenca), 0);
+        assert.strictEqual(toCentavos(p.valor_final), toCentavos(p.valor_distribuido));
+        assert.strictEqual(toCentavos(p.desconto), 0);
+        assert.strictEqual(
+          toCentavos(p.diferenca),
+          toCentavos(v) - toCentavos(p.valor_distribuido)
+        );
       } else {
         assert.strictEqual(p.incompleta, true);
       }
@@ -377,8 +380,12 @@ async function main() {
     const over = gerarPreviaDistribuicao(lotes, 1999.99, { valorAlvo: 250, valorMin: 80, valorMax: 400 });
     if (over.quantidade_vendas > 0) {
       assert.ok(toCentavos(over.valor_distribuido) >= toCentavos(1999.99));
-      assert.strictEqual(toCentavos(over.valor_final), toCentavos(1999.99));
-      assert.strictEqual(toCentavos(over.desconto), toCentavos(over.valor_distribuido) - toCentavos(1999.99));
+      assert.strictEqual(toCentavos(over.valor_final), toCentavos(over.valor_distribuido));
+      assert.strictEqual(toCentavos(over.desconto), 0);
+      assert.strictEqual(
+        toCentavos(over.diferenca),
+        toCentavos(1999.99) - toCentavos(over.valor_distribuido)
+      );
     } else {
       assert.strictEqual(over.incompleta, true);
     }

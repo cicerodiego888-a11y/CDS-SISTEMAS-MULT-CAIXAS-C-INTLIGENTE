@@ -114,6 +114,21 @@ describe('cadastro transação e backfill', () => {
 
   test('17. frontend trava duplo clique no cadastro', () => {
     assert.match(FRONT, /__cdsProdutoSalvando/);
+    assert.match(FRONT, /já existe um salvamento em andamento/);
+    assert.match(FRONT, /try\s*\{[\s\S]*window\.__cdsProdutoSalvando = true/);
+    assert.match(FRONT, /catch\s*\(err\)\s*\{[\s\S]*__cdsProdutoSalvando = false/);
+  });
+
+  test('POST continua dual-write após configuração comercial (camposEspelho no callback)', () => {
+    const marca = 'aplicarConfiguracaoComercialProduto((configErr)';
+    const idx = ROTA.indexOf(marca);
+    assert.ok(idx > 0, 'callback de configuração comercial deve existir no POST');
+    const trecho = ROTA.slice(idx, idx + 900);
+    assert.match(trecho, /const camposEspelho\s*=/);
+    assert.match(trecho, /espelharIdentificadoresSafe\(produtoId,\s*camposEspelho/);
+    // Regressão: dual-write NÃO pode ficar fora do callback (ReferenceError + request pendente).
+    const aposCallback = ROTA.slice(idx + trecho.indexOf('});') + 3, idx + 1200);
+    assert.doesNotMatch(aposCallback, /^\s*espelharIdentificadoresSafe\(produtoId,\s*camposEspelho/);
   });
 
   test('16. cadastro na revisão associa o ID persistido à linha', () => {

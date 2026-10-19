@@ -60,6 +60,13 @@ test('ÁGUA MINERAL FD 6X1,5L → FARDO × 6', () => {
   assert.strictEqual(r.quantidade_por_embalagem, 6);
 });
 
+test('perfil de aço VARA é reconhecido como apresentação sem inferir fator', () => {
+  const r = Mie.analisar({ xProd: 'PERFIL DE AÇO VARA', uCom: 'VARA' });
+  assert.strictEqual(r.unidade_comercial, 'VARA');
+  assert.strictEqual(r.quantidade_por_embalagem, null);
+  assert.strictEqual(r.compra_por_embalagem, true);
+});
+
 test('uCom + descrição + qty → auto_ativar (>95) com aprendizado', () => {
   const r = Mie.analisar({
     xProd: 'CERVEJA CX C/24',

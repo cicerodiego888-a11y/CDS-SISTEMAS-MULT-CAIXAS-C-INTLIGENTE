@@ -20,7 +20,7 @@ describe('DANFE térmico — janela não é o papel', () => {
   it('renderer declara 80mm auto e o Electron não envia pageSize nem zoom', () => {
     const renderer = ler('backend/services/fiscal/DanfeTermicoRenderer.js');
     assert.match(renderer, /size: \$\{papelMm\}mm auto/);
-    assert.match(renderer, /width: \$\{papelMm\}mm/);
+    assert.match(renderer, /width: \$\{utilMm\}mm/);
     assert.doesNotMatch(renderer, /48ch|76mm|overflow-x\s*:\s*hidden/);
 
     for (const arquivo of ['electron.js', 'electron-common.js', 'electron-janelas-modulo.js']) {

@@ -9,6 +9,7 @@
 const crypto = require('crypto');
 const { arredondarMoeda, toCentavos } = require('../fiscal/modeloTotais');
 const { STATUS, DOC_STATUS, STATUS_PODEM_PREPARAR, TP_EMIS } = require('./constants');
+const { criarDiagnosticoPreparacao } = require('./DiagnosticoPreparacaoFiscal');
 const {
   validarPreparacaoFiscal,
   ratearRecebimentosPorDocumentos,
@@ -47,9 +48,115 @@ function get(db, sql, params = []) {
   });
 }
 
+function normalizarModoRecebimento(modo) {
+  return ['por_maquina', 'por_comprovante', 'por_venda'].includes(String(modo || ''))
+    ? String(modo)
+    : 'por_maquina';
+}
+
+async function carregarRecebimentosParaModo(db, fechamentoId, modo) {
+  const modoRecebimento = normalizarModoRecebimento(modo);
+  if (modoRecebimento === 'por_comprovante') {
+    const rows = await all(
+      db,
+      `SELECT id, valor, ordem, operadora, cnpj, forma_pagamento
+       FROM fechamentos_fiscais_recebimentos_comprovantes
+       WHERE fechamento_fiscal_id = ? AND valor > 0
+       ORDER BY ordem ASC, id ASC`,
+      [Number(fechamentoId)]
+    );
+    return rows.map((row, index) => ({
+      ...row,
+      operadora: row.operadora || `Comprovante ${Number(row.ordem || index) + 1}`,
+      descricao: row.operadora || `Comprovante ${Number(row.ordem || index) + 1}`,
+      cnpj: row.cnpj || null,
+      forma_pagamento: row.forma_pagamento || null
+    }));
+  }
+
+  if (modoRecebimento === 'por_venda') {
+    const rows = await all(
+      db,
+      `SELECT id, venda_id, valor_comprovante AS valor
+       FROM fechamentos_fiscais_recebimentos_vendas
+       WHERE fechamento_fiscal_id = ?
+         AND valor_comprovante IS NOT NULL
+         AND valor_comprovante > 0
+       ORDER BY venda_id ASC, id ASC`,
+      [Number(fechamentoId)]
+    );
+    return rows.map((row) => ({
+      ...row,
+      operadora: `Venda #${Number(row.venda_id)}`,
+      descricao: `Comprovante da venda #${Number(row.venda_id)}`
+    }));
+  }
+
+  return all(
+    db,
+    `SELECT * FROM fechamentos_fiscais_recebimentos
+     WHERE fechamento_fiscal_id = ?
+     ORDER BY id`,
+    [Number(fechamentoId)]
+  );
+}
+
+function mapearPagamentosPorComprovante(documentos, recebimentos) {
+  const listaDocs = Array.isArray(documentos) ? documentos : [];
+  const listaRecebimentos = Array.isArray(recebimentos) ? recebimentos : [];
+  if (listaDocs.length !== listaRecebimentos.length) {
+    const err = new Error('Cada comprovante deve corresponder a exatamente uma venda fiscal individual.');
+    err.statusCode = 400;
+    err.code = 'COMPROVANTES_VENDAS_DIVERGENTES';
+    throw err;
+  }
+
+  const xmlBuilder = require('../fiscal/xmlBuilder');
+  return listaDocs.map((documento, index) => {
+    const recebimento = listaRecebimentos[index];
+    const valorDocumento = toCentavos(documento.valor);
+    const valorRecebimento = toCentavos(recebimento.valor);
+    if (valorDocumento <= 0 || valorDocumento !== valorRecebimento) {
+      const err = new Error(`O recebimento ${index + 1} não corresponde ao valor da venda fiscal individual.`);
+      err.statusCode = 400;
+      err.code = 'VALOR_COMPROVANTE_VENDA_DIVERGENTE';
+      throw err;
+    }
+    if (!recebimento.forma_pagamento
+      || !xmlBuilder.temMapeamentoFormaPagamento(recebimento.forma_pagamento)) {
+      const err = new Error(`Selecione uma forma de pagamento fiscal válida para o recebimento ${index + 1}.`);
+      err.statusCode = 400;
+      err.code = 'FORMA_PAGAMENTO_COMPROVANTE_INVALIDA';
+      throw err;
+    }
+
+    return {
+      previa_venda_id: documento.id,
+      sequencia: documento.sequencia,
+      pagamentos: [{
+        recebimento_id: recebimento.id != null ? Number(recebimento.id) : null,
+        operadora: recebimento.operadora || null,
+        cnpj: String(recebimento.cnpj || '').replace(/\D/g, '') || null,
+        forma_pagamento: recebimento.forma_pagamento,
+        valor: valorRecebimento / 100,
+        observacao: recebimento.observacao || null
+      }]
+    };
+  });
+}
+
 function logTecnico(evento, payload = {}) {
   // eslint-disable-next-line no-console
   console.log(`[FechamentoFiscal:Prep] ${evento}`, JSON.stringify(payload));
+}
+
+function marcarEtapaErro(erro, etapa) {
+  if (erro && typeof erro === 'object') {
+    try {
+      erro.etapa = etapa;
+    } catch (_) { /* preserva a exceção original */ }
+  }
+  throw erro;
 }
 
 async function carregarProdutos(db, produtoIds) {
@@ -195,7 +302,11 @@ async function gerarXmlDocumento({ config, snapshotItens, pagamentos, valorTotal
       const row = {
         forma_pagamento: forma,
         valor: Number(p.valor),
-        tipo_recebimento: 'fiscal'
+        tipo_recebimento: 'fiscal',
+        recebimento_id: p.recebimento_id != null ? Number(p.recebimento_id) : null,
+        operadora: p.operadora || null,
+        cnpj: p.cnpj || null,
+        observacao: p.observacao || null
       };
       // Sprint 08.0 — xPag só é permitido com tPag=99.
       // Mercado Pago / operadora NÃO pode ir para xPag em cartão (03/04) ou PIX (17) → cStat 442.
@@ -210,25 +321,35 @@ async function gerarXmlDocumento({ config, snapshotItens, pagamentos, valorTotal
     })
   };
 
-  const built = buildNfceXml({
-    config: {
-      ...config,
-      // sem certificado real nos testes — evita leitura de arquivo
-      certificadoPath: config.certificadoPath || null,
-      certificadoSenha: config.certificadoSenha || null
-    },
-    venda,
-    itens,
-    numero
-  });
+  let built;
+  try {
+    built = buildNfceXml({
+      config: {
+        ...config,
+        // sem certificado real nos testes — evita leitura de arquivo
+        certificadoPath: config.certificadoPath || null,
+        certificadoSenha: config.certificadoSenha || null
+      },
+      venda,
+      itens,
+      numero
+    });
+  } catch (erro) {
+    marcarEtapaErro(erro, 'montagem_xml');
+  }
 
   const xml = built.xmlSemAssinatura;
-  const validacao = validarXmlFiscal({
-    xml,
-    fase: 'pre_assinatura',
-    modeloDoc: '65',
-    validarXsd: false
-  });
+  let validacao;
+  try {
+    validacao = validarXmlFiscal({
+      xml,
+      fase: 'pre_assinatura',
+      modeloDoc: '65',
+      validarXsd: false
+    });
+  } catch (erro) {
+    marcarEtapaErro(erro, 'validacao_xml');
+  }
 
   const hash = crypto.createHash('sha256').update(xml).digest('hex');
 
@@ -304,14 +425,13 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
   }
 
   const previaVendas = await carregarPreviaCompleta(db, id);
-  const recebimentos = await all(
-    db,
-    `SELECT * FROM fechamentos_fiscais_recebimentos WHERE fechamento_fiscal_id = ? ORDER BY id`,
-    [id]
-  );
+  const recebimentos = await carregarRecebimentosParaModo(db, id, opts.modo_recebimento);
   const recebimentosTentativa = contextoEmissao.tipo === 'CONTINUACAO'
     ? obterRecebimentosDaTentativa(recebimentos, contextoEmissao.valorTentativa)
     : recebimentos;
+  const pagamentosComprovante = normalizarModoRecebimento(opts.modo_recebimento) === 'por_comprovante'
+    ? mapearPagamentosPorComprovante(previaVendas, recebimentosTentativa)
+    : null;
 
   const produtoIds = [];
   for (const v of previaVendas) {
@@ -354,7 +474,8 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
       dhEmi: opts.dhEmi,
       forcar_dhEmi: opts.forcar_dhEmi,
       continuar_emissao: opts.continuar_emissao === true || opts.continuar === true,
-      recebimentosJaDaTentativa: true
+      recebimentosJaDaTentativa: true,
+      modo_recebimento: normalizarModoRecebimento(opts.modo_recebimento)
     }
   });
 
@@ -363,7 +484,8 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
     previaVendas,
     recebimentos: recebimentosTentativa,
     ambiente: configFiscal.ambiente,
-    cnpj: configFiscal.cnpj || ff.cnpj
+    cnpj: configFiscal.cnpj || ff.cnpj,
+    modoRecebimento: normalizarModoRecebimento(opts.modo_recebimento)
   });
 
   // Idempotência: já preparado com a mesma chave
@@ -442,7 +564,7 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
       await run(db, `DELETE FROM fechamentos_fiscais_documentos WHERE id = ?`, [d.id]);
     }
 
-    const rateio = ratearRecebimentosPorDocumentos(
+    const rateio = pagamentosComprovante || ratearRecebimentosPorDocumentos(
       previaVendas.map((v) => ({ previa_venda_id: v.id, sequencia: v.sequencia, valor: v.valor })),
       recebimentosTentativa
     );
@@ -450,6 +572,8 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
     const dataRef = ff.data_referencia_comercial || ff.data_fechamento;
     const dataPrep = agoraLocal();
     const documentosCriados = [];
+    const causasXml = [];
+    const correlationId = crypto.randomUUID();
     const gerarXml = opts.gerarXml !== false;
 
     for (let i = 0; i < previaVendas.length; i++) {
@@ -483,6 +607,7 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
       let checklist = validacao.checklist.map((c) => ({ ...c }));
       let docStatus = DOC_STATUS.VALIDADO;
       let errosDoc = [];
+      let diagnosticoXml = null;
 
       if (gerarXml) {
         try {
@@ -500,10 +625,18 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
           checklist = checklist.map((c) => (c.key === 'xml' ? { ...c, ok: true } : c));
           docStatus = DOC_STATUS.PRONTO_EMISSAO;
         } catch (xmlErr) {
-          errosDoc.push({
-            codigo: 'XML_ERRO',
-            mensagem: xmlErr.message || String(xmlErr)
+          diagnosticoXml = criarDiagnosticoPreparacao({
+            etapa: xmlErr?.etapa,
+            codigo: xmlErr?.code || 'XML_ERRO',
+            mensagem: xmlErr?.message || String(xmlErr),
+            correlationId,
+            ocorridoEm: new Date().toISOString(),
+            componente: xmlErr?.etapa === 'montagem_xml'
+              ? 'xmlBuilder'
+              : (xmlErr?.etapa === 'validacao_xml' ? 'validarXmlFiscal' : undefined)
           });
+          errosDoc.push(diagnosticoXml);
+          causasXml.push({ sequencia: v.sequencia, erro: xmlErr });
           docStatus = DOC_STATUS.ERRO;
         }
       }
@@ -540,6 +673,15 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
           dataPrep
         ]
       );
+      if (diagnosticoXml) {
+        logTecnico('falha_geracao_xml_documento', {
+          fechamento_id: id,
+          documento_id: ins.lastID,
+          sequencia: v.sequencia,
+          correlationId,
+          ...diagnosticoXml
+        });
+      }
 
       let ordem = 0;
       for (const snap of snapshots) {
@@ -675,8 +817,8 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
       err.statusCode = 400;
       err.code = 'XML_ERRO';
       err.documentos = documentosCriados;
-      err.validacao = validacao;
-      err.contextoEmissao = contextoEmissao;
+      err.correlationId = correlationId;
+      Object.defineProperty(err, 'causasXml', { value: causasXml, enumerable: false });
       throw err;
     }
 
@@ -730,14 +872,18 @@ async function validarSomente(fechamentoId, opts = {}, deps = {}) {
   });
   const contextoEmissao = resolverContextoEmissao(ff, saldo, opts);
   const previaVendas = await carregarPreviaCompleta(db, id);
-  const recebimentos = await all(
-    db,
-    `SELECT * FROM fechamentos_fiscais_recebimentos WHERE fechamento_fiscal_id = ? ORDER BY id`,
-    [id]
-  );
+  const recebimentos = await carregarRecebimentosParaModo(db, id, opts.modo_recebimento);
   const recebimentosTentativa = contextoEmissao.tipo === 'CONTINUACAO'
     ? obterRecebimentosDaTentativa(recebimentos, contextoEmissao.valorTentativa)
     : recebimentos;
+  let erroMapeamentoComprovante = null;
+  if (normalizarModoRecebimento(opts.modo_recebimento) === 'por_comprovante') {
+    try {
+      mapearPagamentosPorComprovante(previaVendas, recebimentosTentativa);
+    } catch (error) {
+      erroMapeamentoComprovante = error;
+    }
+  }
   const produtoIds = [];
   for (const v of previaVendas) {
     for (const it of v.itens) produtoIds.push(it.produto_id);
@@ -761,9 +907,22 @@ async function validarSomente(fechamentoId, opts = {}, deps = {}) {
       data_hora_emissao: opts.data_hora_emissao,
       dhEmi: opts.dhEmi,
       continuar_emissao: opts.continuar_emissao === true || opts.continuar === true,
-      recebimentosJaDaTentativa: true
+      recebimentosJaDaTentativa: true,
+      modo_recebimento: normalizarModoRecebimento(opts.modo_recebimento)
     }
   });
+  if (erroMapeamentoComprovante) {
+    validacao.erros.push({
+      codigo: erroMapeamentoComprovante.code || 'COMPROVANTE_INVALIDO',
+      campo: 'recebimentos',
+      produto_id: null,
+      produto_nome: null,
+      mensagem: erroMapeamentoComprovante.message
+    });
+    validacao.ok = false;
+    const checklistPagamento = validacao.checklist.find((item) => item.key === 'pagamento');
+    if (checklistPagamento) checklistPagamento.ok = false;
+  }
   return {
     ok: validacao.ok,
     status: ff.status,
@@ -791,7 +950,9 @@ module.exports = {
   peekNumeroProvisorio,
   gerarXmlDocumento,
   ratearRecebimentosPorDocumentos,
+  mapearPagamentosPorComprovante,
   obterRecebimentosDaTentativa,
   resolverContextoEmissao,
-  hashIdempotencia
+  hashIdempotencia,
+  carregarRecebimentosParaModo
 };

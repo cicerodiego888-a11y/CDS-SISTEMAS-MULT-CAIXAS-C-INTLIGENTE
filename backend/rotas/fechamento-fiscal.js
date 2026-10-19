@@ -6,12 +6,14 @@
 'use strict';
 
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 const service = require('../services/fechamento-fiscal');
 const moduloConfig = require('../services/fechamento-fiscal/fechamentoFiscalModuloConfig');
 const db = require('../database');
 const { contextoAuditoriaRequisicao } = require('../services/auditoria');
 const PerformanceMonitor = require('../observabilidade/performance/PerformanceMonitor');
+const { criarPayloadErroXml } = require('../services/fechamento-fiscal/DiagnosticoPreparacaoFiscal');
 
 function usuarioId(req) {
   return req.user?.id || req.usuario?.id || null;
@@ -19,6 +21,9 @@ function usuarioId(req) {
 
 function sendError(res, err) {
   const status = err.statusCode || err.status || 500;
+  if (err.code === 'XML_ERRO') {
+    return res.status(status).json(criarPayloadErroXml(err));
+  }
   const erros = Array.isArray(err.erros) ? err.erros : undefined;
   const detalhes = erros
     ? erros.map((e) => e.mensagem || e.message || String(e)).filter(Boolean).join(' ')
@@ -361,20 +366,46 @@ router.post('/:id/complementacao', async (req, res) => {
 
 router.post('/:id/previa', async (req, res) => {
   const inicio = performance.now();
+  const correlationCandidate = String(req.body?.correlation_id || '');
+  const correlationId = /^[A-Za-z0-9._-]{1,100}$/.test(correlationCandidate)
+    ? correlationCandidate
+    : crypto.randomUUID();
+  let codigoErro = null;
+  res.setHeader('x-correlation-id', correlationId);
+  // eslint-disable-next-line no-console
+  console.log('[FechamentoFiscal] previa_rota_inicio', JSON.stringify({
+    correlation_id: correlationId,
+    fechamento_id: Number(req.params.id) || null
+  }));
   const metrica = PerformanceMonitor.start('fiscal:preview:T0-route', {
+    correlation_id: correlationId,
     fechamento_id: Number(req.params.id)
   });
   res.once('finish', () => {
+    const duracao = Number((performance.now() - inicio).toFixed(3));
     PerformanceMonitor.end(metrica, {
-      elapsed_ms: Number((performance.now() - inicio).toFixed(3)),
+      elapsed_ms: duracao,
       response_bytes: Number(res.getHeader('content-length')) || null,
-      status: res.statusCode
+      status: res.statusCode,
+      correlation_id: correlationId,
+      codigo_erro: codigoErro
     });
     PerformanceMonitor.record('fiscal:preview:T12-route-finish', {
-      elapsed_ms: Number((performance.now() - inicio).toFixed(3)),
+      elapsed_ms: duracao,
       response_bytes: Number(res.getHeader('content-length')) || null,
-      status: res.statusCode
+      status: res.statusCode,
+      correlation_id: correlationId,
+      fechamento_id: Number(req.params.id) || null,
+      codigo_erro: codigoErro
     });
+    // eslint-disable-next-line no-console
+    console.log('[FechamentoFiscal] previa_rota_fim', JSON.stringify({
+      correlation_id: correlationId,
+      fechamento_id: Number(req.params.id) || null,
+      status_http: res.statusCode,
+      codigo_erro: codigoErro,
+      duracao_ms: duracao
+    }));
   });
   try {
     const body = req.body || {};
@@ -388,7 +419,8 @@ router.post('/:id/previa', async (req, res) => {
       valor_min: body.valor_min != null ? Number(body.valor_min) : undefined,
       valor_max: body.valor_max != null ? Number(body.valor_max) : undefined,
       comprovantes,
-      persistir: true
+      persistir: true,
+      correlation_id: correlationId
     });
     const response = { ...result };
     delete response.resumo;
@@ -402,6 +434,7 @@ router.post('/:id/previa', async (req, res) => {
     }
     res.json(response);
   } catch (err) {
+    codigoErro = err?.code || 'ERRO_NAO_CLASSIFICADO';
     sendError(res, err);
   }
 });

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="cds-papel-mm" content="80" />
+  <meta name="cds-util-mm" content="72" />
+  <meta name="cds-termico-ref" content="GT710" />
+  <title>Comprovante de Entrega</title>
+  <style>
+    @page { size: 80mm auto; margin: 0; }
+    html, body { margin: 0; padding: 0; width: 72mm; max-width: 72mm; background: #fff; color: #000; }
+    .cds-cupom-termico {
+      width: 72mm; max-width: 72mm;
+      margin: 0;
+      padding: 1.2mm 3.5mm 2mm 2mm;
+      box-sizing: border-box;
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      font-size: 11px;
+      line-height: 1.22;
+      font-weight: 600;
+      color: #000; background: #fff;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+    .cds-cupom-termico * { box-sizing: border-box; }
+    .empresa {
+      font-size: 18px; font-weight: 800;
+      text-align: center; text-transform: uppercase; overflow-wrap: anywhere; line-height: 1.15;
+    }
+    .razao, .meta { text-align: center; overflow-wrap: anywhere; font-size: 11px; }
+    .titulo { font-size: 16px; font-weight: 800; text-align: center; line-height: 1.15; }
+    .sec { font-size: 12px; font-weight: 800; text-align: center; margin: 1.2mm 0 0.4mm; overflow-wrap: anywhere; }
+    .txt, .aviso { text-align: center; overflow-wrap: anywhere; }
+    .aviso { font-weight: 800; }
+    .sep { border: 0; border-top: 1px solid #000; margin: 0.8mm 0; }
+    .row, .item-linha {
+      display: flex; justify-content: space-between; align-items: baseline;
+      gap: 1.5mm; width: 100%; max-width: 100%; min-width: 0;
+    }
+    .rotulo, .item-nome { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+    .txt { min-width: 0; overflow-wrap: anywhere; }
+    
+    .valor {
+      flex: 0 1 auto; max-width: 50%; min-width: 0;
+      text-align: right; font-weight: 700; overflow-wrap: anywhere;
+      padding-right: 1.5mm; box-sizing: border-box;
+    }
+  
+    .item { margin: 0 0 0.8mm; width: 100%; }
+    .item-nome { font-weight: 700; }
+    .total .rotulo, .total .valor { font-size: 16px; font-weight: 700; }
+  </style>
+</head>
+<body class="comprovante-entrega-80" data-cds-papel-mm="80" data-cds-util-mm="72">
+<main class="cds-cupom-termico"><div class="titulo">COMPROVANTE DE ENTREGA</div><div class="empresa">CREMOLÍCIA</div><div class="meta">CNPJ 36.811.652/0001-53</div><hr class="sep"><div class="sec">DADOS DO CLIENTE/CONSUMIDOR</div><div class="row"><span class="rotulo">Nome:</span><span class="valor">Maria da Silva Oliveira</span></div><div class="row"><span class="rotulo">CPF/CNPJ:</span><span class="valor">111.222.333-44</span></div><div class="row"><span class="rotulo">Telefone:</span><span class="valor">88999504417</span></div><div class="sec">ENDEREÇO DA ENTREGA</div><div class="row"><span class="rotulo">Endereço:</span><span class="valor">Rua Antônio Nunes de Alencar bem comprida para testar a lateral direita do papel térmico</span></div><div class="row"><span class="rotulo">Número:</span><span class="valor">310</span></div><div class="row"><span class="rotulo">Bairro:</span><span class="valor">José Geraldo da Cruz</span></div><div class="row"><span class="rotulo">Cidade:</span><span class="valor">Juazeiro do Norte</span></div><div class="row"><span class="rotulo">UF:</span><span class="valor">CE</span></div><div class="row"><span class="rotulo">Referência:</span><span class="valor">Portaria do prédio azul ao lado da padaria</span></div><div class="sec">DADOS DA ENTREGA</div><div class="row"><span class="rotulo">Pedido:</span><span class="valor">901</span></div><div class="row"><span class="rotulo">Data:</span><span class="valor">2026-10-19</span></div><div class="row"><span class="rotulo">Hora:</span><span class="valor">08:30:00</span></div><div class="row"><span class="rotulo">Entregador:</span><span class="valor">João Entregador</span></div><div class="row"><span class="rotulo">Taxa de entrega:</span><span class="valor">R$ 5,00</span></div><div class="row"><span class="rotulo">Pagamento previsto:</span><span class="valor">DINHEIRO</span></div><div class="row"><span class="rotulo">Levar maquineta:</span><span class="valor">SIM</span></div><div class="row"><span class="rotulo">Troco para:</span><span class="valor">R$ 50,00</span></div><div class="txt">Observações: Deixar com o porteiro se ninguém atender</div><div class="sec">ITENS</div><div class="item"><div class="item-nome">PICOLÉ LINHA CREMOSA ESPECIAL DE MORANGO COM LEITE CONDENSADO E GRANULADO</div><div class="item-linha"><span class="rotulo">2,00 x R$ 10,45</span><span class="valor">R$ 20,90</span></div></div><div class="item"><div class="item-nome">ÁGUA MINERAL 500ML</div><div class="item-linha"><span class="rotulo">4,00 x R$ 5,00</span><span class="valor">R$ 20,00</span></div></div><hr class="sep"><div class="row"><span class="rotulo">Subtotal:</span><span class="valor">R$ 40,90</span></div><div class="row"><span class="rotulo">Taxa:</span><span class="valor">R$ 5,00</span></div><div class="row total"><span class="rotulo">Total:</span><span class="valor">R$ 45,90</span></div><hr class="sep"><div class="aviso">ESTE DOCUMENTO NÃO POSSUI VALOR FISCAL</div><div class="aviso">Venda sujeita à confirmação na prestação de contas.</div></main>
+</body>
+</html>

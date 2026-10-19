@@ -194,13 +194,15 @@ async function main() {
     assert.strictEqual(previa.vendas.length, 0);
   });
 
-  await test('Teste 10 — Produto unitário acima do alvo mantém desconto sem fracionar', async () => {
+  await test('Teste 10 — Produto unitário acima do alvo mantém bruto sem fracionar', async () => {
     const soCaro = lotes.filter((l) => l.produto_id === 8);
-    const previa = gerarPreviaDistribuicao(soCaro, 700, { valorAlvo: 250 });
+    const previa = gerarPreviaDistribuicao(soCaro, 700, { valorAlvo: 250, valorMax: 1000 });
     assert.strictEqual(previa.valor_informado, 700);
     assert.strictEqual(previa.valor_distribuido, 1000);
-    assert.strictEqual(previa.desconto, 300);
-    assert.strictEqual(previa.valor_final, 700);
+    assert.strictEqual(previa.desconto, 0);
+    assert.strictEqual(previa.valor_final, 1000);
+    assert.strictEqual(previa.diferenca, -300);
+    assert.strictEqual(previa.perfeita, false);
     assert.strictEqual(previa.vendas.length, 1);
     assert.strictEqual(previa.vendas[0].itens[0].quantidade, 1);
   });

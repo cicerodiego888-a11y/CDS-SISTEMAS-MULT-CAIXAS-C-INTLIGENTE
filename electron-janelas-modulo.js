@@ -353,38 +353,80 @@ function registrarIpcImprimirRelatorioHtml(ipcMainRef) {
   ipc.handle('imprimir-relatorio-html', async (event, payload = {}) => {
     const html = String(payload.html || '');
     if (!html.trim()) {
-      return { ok: false, erro: 'Relatório vazio.' };
+      throw new Error('Relatório vazio.');
     }
     const origem = obterJanelaOrigemComprovante(event);
-    const win = new BrowserWindow({
-      width: 1100,
-      height: 800,
-      title: String(payload.titulo || 'Relatório'),
-      parent: origem || undefined,
-      modal: false,
-      show: true,
-      alwaysOnTop: false,
-      autoHideMenuBar: true,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true
-      }
-    });
-    const tmp = path.join(os.tmpdir(), `cds-relatorio-${process.pid}-${Date.now()}.html`);
-    await fs.promises.writeFile(tmp, html, 'utf8');
+    let tempDir = null;
+    let tmp = null;
+    let win = null;
     try {
-      await win.loadFile(tmp);
-      try { win.focus(); } catch (_) { /* ignore */ }
-      await new Promise((resolve) => {
-        try {
-          win.webContents.print({ silent: false, printBackground: true }, () => resolve());
-        } catch (_) {
-          resolve();
+      tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'cds-relatorio-'));
+      tmp = path.join(tempDir, 'relatorio.html');
+      await fs.promises.writeFile(tmp, html, 'utf8');
+      win = new BrowserWindow({
+        width: 1100,
+        height: 800,
+        title: String(payload.titulo || 'Relatório'),
+        parent: origem || undefined,
+        modal: false,
+        show: false,
+        alwaysOnTop: false,
+        autoHideMenuBar: true,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true
         }
       });
-      return { ok: true };
+      await win.loadFile(tmp);
+      win.show();
+      try { win.focus(); } catch (_) { /* ignore */ }
+      const rendered = await win.webContents.executeJavaScript(`(async () => {
+        if (document.fonts && document.fonts.ready) await document.fonts.ready;
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const report = document.querySelector('.compras-report-print-document');
+        return {
+          hasReport: Boolean(report),
+          textLength: report ? report.innerText.trim().length : 0,
+          expectedPurchases: report ? Number(report.dataset.expectedPurchases) : -1,
+          expectedItemRows: report ? Number(report.dataset.expectedItemRows) : -1,
+          purchases: report ? report.querySelectorAll('.compras-report-purchase').length : 0,
+          items: report ? report.querySelectorAll('.compras-report-items-table tbody tr').length : 0,
+          officialTotals: report ? report.querySelectorAll('.compras-report-financial .official-total').length : 0
+        };
+      })()`, true);
+      if (!rendered || !rendered.hasReport || rendered.textLength < 1
+          || rendered.purchases !== rendered.expectedPurchases
+          || rendered.items !== rendered.expectedItemRows
+          || rendered.officialTotals !== rendered.expectedPurchases) {
+        throw new Error('O documento do relatório está vazio ou incompleto; a impressão foi cancelada.');
+      }
+      return await new Promise((resolve, reject) => {
+        try {
+          win.webContents.print({ silent: false, printBackground: true }, (success, failureReason) => {
+            if (success) {
+              resolve({ ok: true });
+            } else if (/cancel/i.test(String(failureReason || ''))) {
+              resolve({ ok: false, cancelado: true });
+            } else {
+              reject(new Error(failureReason || 'Falha ao imprimir o relatório.'));
+            }
+          });
+        } catch (error) {
+          reject(error);
+        }
+      });
     } finally {
-      fs.promises.unlink(tmp).catch(() => {});
+      try {
+        if (win && !win.isDestroyed()) win.destroy();
+      } finally {
+        if (tempDir) {
+          try {
+            await fs.promises.rm(tempDir, { recursive: true });
+          } catch (error) {
+            if (error.code !== 'ENOENT') throw error;
+          }
+        }
+      }
     }
   });
 }
@@ -436,23 +478,12 @@ function registrarIpcAbrirComprovante(ipcMain) {
 
     const srcHtml = String(html || '');
     const papelMatch = srcHtml.match(/danfe-(58|80)/);
-    const papelMm = papelMatch ? papelMatch[1] : '80';
-    const utilMm = papelMm === '58' ? '48' : '72';
-    // O CSS de tela do DANFE só entra no DANFE. Fechamento e demais cupons
-    // imprimem o HTML original: reescrever a largura cortava a coluna dos valores.
+    // A largura útil já vem no HTML do cupom. Recentralizar ou encolher
+    // a janela empurrava a coluna dos valores para fora da cabeça.
     const htmlTela = papelMatch
       ? srcHtml.replace('</head>', `
     <style>
-      @page { margin: 0; }
-      html, body.danfe {
-        width: ${utilMm}mm !important; max-width: ${utilMm}mm !important;
-        margin: 0 auto !important;
-        background: #fff !important; color: #000 !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
       .qr img { display: block !important; margin: 8px auto !important; object-fit: contain !important; image-rendering: pixelated !important; }
-      table.items { width: 100% !important; border-collapse: collapse !important; table-layout: fixed !important; }
     </style>
   </head>`)
       : srcHtml;

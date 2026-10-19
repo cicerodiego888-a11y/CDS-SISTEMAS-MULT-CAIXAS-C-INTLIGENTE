@@ -5,17 +5,20 @@
  */
 'use strict';
 
-const db = require('../../database');
-const { getFiscalConfig } = require('./configService');
 const { assinarEvento } = require('./signer');
 const { carregarCertificadoPfx } = require('./certificateService');
 const { compactarXml, extrairChaveEProtocoloAutorizados } = require('./utils');
 const { obterDataHoraFiscalEstabelecimento } = require('./fiscalDateTime');
 const { validarMotivoTexto } = require('../validacao/validarMotivoTexto');
 const { enviarCancelamento } = require('./cancelamentoRuntime');
+const {
+  confirmarEventoCancelamentoNfce: confirmarEventoCancelamentoNfcePadrao
+} = require('./NfceCancelamentoReconciliacaoService');
+
+const CANCELAMENTOS_EM_ANDAMENTO = new Set();
 
 function getDb(maybeDb) {
-  return maybeDb || db;
+  return maybeDb || require('../../database');
 }
 
 function dbGet(database, sql, params = []) {
@@ -33,12 +36,26 @@ function dbRun(database, sql, params = []) {
   });
 }
 
+function extrairCstatRetornoEvento(xml) {
+  const retorno = String(xml || '');
+  const eventos = [...retorno.matchAll(
+    /<((?:[\w.-]+:)?retEvento)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi
+  )];
+  if (!eventos.length) return null;
+  const infEvento = eventos[eventos.length - 1][2];
+  const match = infEvento.match(
+    /<(?:(?:[\w.-]+):)?cStat\b[^>]*>\s*([^<]*)\s*<\/(?:(?:[\w.-]+):)?cStat\s*>/i
+  );
+  return match ? match[1].trim() : null;
+}
+
 /**
  * Núcleo compartilhado: monta evento 110111 + envia via cancelamentoRuntime.
  * deps opcional para testes (sem SEFAZ real).
  */
 async function executarCancelamentoNota(notaAutorizada, justificativa, deps = {}) {
-  const getConfig = deps.getFiscalConfig || getFiscalConfig;
+  const getConfig = deps.getFiscalConfig
+    || (() => require('./configService').getFiscalConfig());
   const enviar = deps.enviarCancelamento || enviarCancelamento;
   const assinar = deps.assinarEvento || assinarEvento;
   const carregarCert = deps.carregarCertificadoPfx || carregarCertificadoPfx;
@@ -54,8 +71,21 @@ async function executarCancelamentoNota(notaAutorizada, justificativa, deps = {}
   const chaveAcesso = authSefaz?.chaveAcesso || notaAutorizada.chave_acesso;
   const protocolo = authSefaz?.protocolo || notaAutorizada.protocolo;
 
-  if (!chaveAcesso || !protocolo) {
+  if (!/^\d{44}$/.test(String(chaveAcesso || '')) || !protocolo) {
     throw new Error('NFC-e autorizada sem chave ou protocolo.');
+  }
+
+  if (String(chaveAcesso).slice(20, 22) !== '65') {
+    throw new Error('A chave selecionada não pertence a uma NFC-e modelo 65.');
+  }
+
+  const cnpjCertificado = String(config.cnpj || '').replace(/\D/g, '');
+  if (cnpjCertificado && String(chaveAcesso).slice(6, 20) !== cnpjCertificado) {
+    throw new Error('CNPJ da NFC-e não corresponde à empresa do certificado fiscal configurado.');
+  }
+
+  if (config.ambiente != null && Number(notaAutorizada.ambiente) !== Number(config.ambiente)) {
+    throw new Error('Ambiente da NFC-e não corresponde ao ambiente fiscal configurado.');
   }
 
   if (authSefaz?.chaveAcesso && authSefaz.chaveAcesso !== notaAutorizada.chave_acesso) {
@@ -67,7 +97,6 @@ async function executarCancelamentoNota(notaAutorizada, justificativa, deps = {}
       `UPDATE nfce_notas
        SET chave_acesso = ?,
            protocolo = COALESCE(?, protocolo),
-           status = 'autorizada',
            updated_at = datetime('now', 'localtime')
        WHERE id = ?`,
       [authSefaz.chaveAcesso, authSefaz.protocolo, notaAutorizada.id]
@@ -145,11 +174,28 @@ async function executarCancelamentoNota(notaAutorizada, justificativa, deps = {}
     throw new Error(envio.error || 'Falha no cancelamento SEFAZ.');
   }
 
+  let confirmacaoCancelamento = null;
+  if (extrairCstatRetornoEvento(envio.body) === '573') {
+    const confirmarEvento = deps.confirmarEventoCancelamentoNfce
+      || confirmarEventoCancelamentoNfcePadrao;
+    confirmacaoCancelamento = await confirmarEvento({
+      chave: chaveAcesso,
+      cnpj: cnpjCertificado,
+      codigoUf: String(config.codigoUf || '').replace(/\D/g, '').padStart(2, '0'),
+      ambiente: Number(config.ambiente),
+      protocoloAutorizacao: protocolo,
+      certificadoPath: config.certificadoPath,
+      certificadoSenha: config.certificadoSenha,
+      consultarProtocolo: deps.consultarProtocolo
+    });
+  }
+
   return {
     sefaz: envio.body,
     notaId: notaAutorizada.id,
     chaveAcesso,
     protocolo,
+    confirmacaoCancelamento,
     source: envio.source,
     fallbackUtilizado: envio.fallbackUtilizado
   };
@@ -195,7 +241,7 @@ async function cancelarNfce(vendaId, justificativa, deps = {}) {
  */
 async function cancelarNfcePorId(nfceId, justificativa, deps = {}) {
   const id = Number(nfceId);
-  if (!id) {
+  if (!Number.isInteger(id) || id <= 0) {
     throw new Error('nfce_id é obrigatório para cancelar NFC-e.');
   }
 
@@ -205,35 +251,52 @@ async function cancelarNfcePorId(nfceId, justificativa, deps = {}) {
   }
 
   const database = getDb(deps.db);
-  const nota = await dbGet(database, `SELECT * FROM nfce_notas WHERE id = ?`, [id]);
-  if (!nota) {
-    const err = new Error('NFC-e não encontrada.');
-    err.statusCode = 404;
-    throw err;
-  }
-
-  const st = String(nota.status || '').toLowerCase();
-  if (st === 'cancelada') {
-    const err = new Error('NFC-e já cancelada.');
+  if (CANCELAMENTOS_EM_ANDAMENTO.has(id)) {
+    const err = new Error('Cancelamento já em andamento para esta NFC-e.');
     err.statusCode = 409;
-    err.code = 'JA_CANCELADA';
-    err.nota = nota;
+    err.code = 'CONCORRENCIA';
     throw err;
   }
 
-  if (!['autorizada', 'cancelamento_rejeitado'].includes(st)) {
-    const err = new Error('Somente NFC-e autorizada pode ser cancelada.');
-    err.statusCode = 400;
-    throw err;
-  }
+  CANCELAMENTOS_EM_ANDAMENTO.add(id);
+  try {
+    const nota = await dbGet(database, `SELECT * FROM nfce_notas WHERE id = ?`, [id]);
+    if (!nota) {
+      const err = new Error('NFC-e não encontrada.');
+      err.statusCode = 404;
+      throw err;
+    }
 
-  if (!nota.chave_acesso && !(nota.xml_retorno && String(nota.xml_retorno).includes('<cStat>100</cStat>'))) {
-    const err = new Error('NFC-e sem chave de acesso válida.');
-    err.statusCode = 400;
-    throw err;
-  }
+    const st = String(nota.status || '').toLowerCase();
+    const claimAdquirido = deps.cancelamentoClaimed === true
+      && st === 'cancelamento_em_andamento';
+    if (st === 'cancelada') {
+      const err = new Error('NFC-e já cancelada.');
+      err.statusCode = 409;
+      err.code = 'JA_CANCELADA';
+      err.nota = nota;
+      throw err;
+    }
 
-  return executarCancelamentoNota(nota, justificativa, deps);
+    if (!['autorizada', 'cancelamento_rejeitado'].includes(st) && !claimAdquirido) {
+      const err = new Error('Somente NFC-e autorizada pode ser cancelada.');
+      err.statusCode = ['cancelamento_em_andamento', 'cancelamento_desconhecido'].includes(st)
+        ? 409
+        : 400;
+      err.code = st === 'cancelamento_desconhecido' ? 'RESULTADO_DESCONHECIDO' : null;
+      throw err;
+    }
+
+    if (!nota.chave_acesso && !(nota.xml_retorno && String(nota.xml_retorno).includes('<cStat>100</cStat>'))) {
+      const err = new Error('NFC-e sem chave de acesso válida.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    return await executarCancelamentoNota(nota, justificativa, deps);
+  } finally {
+    CANCELAMENTOS_EM_ANDAMENTO.delete(id);
+  }
 }
 
 cancelarNfce.cancelarNfce = cancelarNfce;

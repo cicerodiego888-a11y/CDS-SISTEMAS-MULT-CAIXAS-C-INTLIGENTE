@@ -42,7 +42,11 @@ const PRODUTOS = {
     apresentacao: { tipo: 'CX', quantidade: 500 }
   },
   legado: { id: 9904, nome: 'AGUA SPRINT29 FARDO LEGADO X4', unidadeComercial: 'PCT', qpe: 4, gtin: ean13('789804392904') },
-  qtrib: { id: 9905, nome: 'IOGURTE SPRINT29 QTRIB', unidadeComercial: 'UN', qpe: 0, gtin: ean13('789804392905') }
+  qtrib: { id: 9905, nome: 'IOGURTE SPRINT29 QTRIB', unidadeComercial: 'UN', qpe: 0, gtin: ean13('789804392905') },
+  pct6Mt: {
+    id: 9906, nome: 'CABO SPRINT29 PACOTE DE 6 METROS', gtin: ean13('789804392906'),
+    apresentacao: { tipo: 'PCT', quantidade: 6 }
+  }
 };
 
 // 5 PCT na nota; a quantidade em estoque correta é sempre 20 UN.
@@ -373,5 +377,18 @@ test('Sprint 2.9 — fator de conversão da NF-e validado pelo backend', async (
     assert.deepEqual(await foto([rec.documentoId]), antes, 'rollback completo');
 
     await gravaVinteUmaVez(app, corpo, PRODUTOS.apresentacao, rec.documentoId, 'depois da recusa');
+  });
+
+  await t.test('MUC: fixture coerente PCT×6 MT produz seis metros, sem inferir outro fator', () => {
+    const resultado = MotorUnidadesMedida.resolverQuantidadeEntradaNfe(
+      { uCom: 'PCT', qCom: 1, uTrib: 'MT', qTrib: 6 },
+      { id: PRODUTOS.pct6Mt.id, unidade: 'MT', unidade_comercial: 'PCT' },
+      { id: 1, tipo: 'PCT', quantidade: 6, unidade: 'MT', ativa: 1, compra: 1 }
+    );
+    assert.equal(resultado.ok, true);
+    assert.equal(resultado.origem, 'FATOR_APRESENTACAO');
+    assert.equal(resultado.quantidadeEstoque, 6);
+    assert.equal(resultado.unidadeEstoque, 'M', 'MT é normalizada para a unidade canônica M');
+    assert.equal(resultado.fatorConversao, 6);
   });
 });

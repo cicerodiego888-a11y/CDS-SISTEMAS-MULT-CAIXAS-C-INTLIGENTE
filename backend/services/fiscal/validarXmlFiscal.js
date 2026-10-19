@@ -90,9 +90,23 @@ function validarGruposObrigatorios(xml, modeloDoc = '65') {
 }
 
 function validarPagamentosETroco(xml, totais) {
+  const pagamentos = bloco(xml, 'pag');
+  const detalhesPagamento = pagamentos.match(/<detPag(?:\s[^>]*)?>[\s\S]*?<\/detPag>/g) || [];
+  for (const detalhe of detalhesPagamento) {
+    if (!/<card(?:\s[^>]*)?(?:>|\/>)/.test(detalhe)) continue;
+    const card = bloco(detalhe, 'card');
+    const tipoIntegracao = tag(card, 'tpIntegra');
+    if (!['1', '2'].includes(String(tipoIntegracao || '').trim())) {
+      const erro = new Error('Grupo card exige tpIntegra válido (1=integrado, 2=não integrado).');
+      erro.code = 'XML_PAGAMENTO_TPINTEGRA_AUSENTE';
+      erro.detalhes = { campo: 'tpIntegra' };
+      throw erro;
+    }
+  }
+
   const somaPag = somaTags(xml, 'vPag');
   const vTroco = totais.vTroco;
-  const pagBloco = bloco(xml, 'pag');
+  const pagBloco = pagamentos;
   const tPags = [];
   const reTPag = /<tPag>([^<]+)<\/tPag>/g;
   let mTPag;

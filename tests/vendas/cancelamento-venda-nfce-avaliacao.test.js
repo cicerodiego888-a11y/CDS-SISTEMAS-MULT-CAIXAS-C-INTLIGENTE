@@ -20,10 +20,14 @@ fs.mkdirSync(process.env.DB_DIR, { recursive: true });
 const ROOT = path.join(__dirname, '../..');
 
 const eventosFiscais = { chamadas: [], responder: null };
+const estornosTef = [];
 const cancelarNfcePath = require.resolve(path.join(ROOT, 'backend/services/fiscal/cancelarNfce.js'));
-const cancelarNfceFake = async (vendaId, justificativa) => {
-  eventosFiscais.chamadas.push({ vendaId: Number(vendaId), justificativa });
-  return eventosFiscais.responder(Number(vendaId));
+const cancelarNfceFake = async () => {
+  throw new Error('O cancelamento de venda deve usar cancelarNfcePorId.');
+};
+cancelarNfceFake.cancelarNfcePorId = async (nfceId, justificativa) => {
+  eventosFiscais.chamadas.push({ nfceId: Number(nfceId), justificativa });
+  return eventosFiscais.responder(Number(nfceId));
 };
 require.cache[cancelarNfcePath] = {
   id: cancelarNfcePath, filename: cancelarNfcePath, loaded: true, exports: cancelarNfceFake
@@ -98,8 +102,22 @@ async function estado(vendaId) {
     'SELECT COALESCE(saldo_fiscal, 0) + COALESCE(saldo_nao_fiscal, 0) AS estoque_atual FROM produtos WHERE id = ?',
     [vendaId]
   );
-  const nota = await get('SELECT status, xml_retorno, chave_acesso, protocolo FROM nfce_notas WHERE venda_id = ? ORDER BY id DESC LIMIT 1', [vendaId]);
+  const nota = await get('SELECT id, status, xml_retorno, chave_acesso, protocolo FROM nfce_notas WHERE venda_id = ? ORDER BY id DESC LIMIT 1', [vendaId]);
   return { venda, estoque: Number(produto.estoque_atual), nota };
+}
+
+async function estadoComercial(vendaId) {
+  const atual = await estado(vendaId);
+  const financeiro = await get('SELECT COUNT(*) AS quantidade FROM financeiro WHERE venda_id = ?', [vendaId]);
+  const recebimentos = await get('SELECT COUNT(*) AS quantidade FROM venda_recebimentos WHERE venda_id = ?', [vendaId]);
+  const contasReceber = await get('SELECT COUNT(*) AS quantidade FROM contas_receber WHERE venda_id = ?', [vendaId]);
+  return {
+    vendaCancelada: atual.venda.cancelada,
+    estoque: atual.estoque,
+    financeiro: financeiro.quantidade,
+    recebimentos: recebimentos.quantidade,
+    contasReceber: contasReceber.quantidade
+  };
 }
 
 function chamarPost(vendaId, motivo) {
@@ -115,6 +133,8 @@ function chamarPost(vendaId, motivo) {
 
 let servico;
 let avaliacaoSvc;
+let tefManager;
+let cancelarTefOriginal;
 
 describe('Cancelamento de venda × NFC-e', () => {
   before(async () => {
@@ -126,6 +146,12 @@ describe('Cancelamento de venda × NFC-e', () => {
     }
     servico = require('../../backend/services/vendas/VendaCancelamentoService');
     avaliacaoSvc = require('../../backend/services/vendas/VendaCancelamentoAvaliacaoService');
+    tefManager = require('../../backend/services/tef/TefManager');
+    cancelarTefOriginal = tefManager.cancelar;
+    tefManager.cancelar = async (...args) => {
+      estornosTef.push(args);
+      return { success: true };
+    };
 
     await criarVenda(16);
     await criarNota(16, {
@@ -170,9 +196,21 @@ describe('Cancelamento de venda × NFC-e', () => {
 
     await criarVenda(28);
     await criarNota(28, { numero: 10028, status: 'autorizada', chaveAcesso: '', protocolo: '323260000000001', xmlRetorno: '<cStat>100</cStat><nProt>323260000000001</nProt>' });
+
+    await criarVenda(29);
+    await criarNota(29, { numero: 10029, status: 'autorizada', chaveAcesso: chave(10029), protocolo: '323260000000001', xmlRetorno: xmlAutorizada(10029) });
+
+    await criarVenda(30);
+    await criarNota(30, { numero: 10030, status: 'autorizada', chaveAcesso: chave(10030), protocolo: '323260000000001', xmlRetorno: xmlAutorizada(10030) });
+    await criarVenda(31);
+    await criarNota(31, { numero: 10031, status: 'autorizada', chaveAcesso: chave(10031), protocolo: '323260000000001', xmlRetorno: xmlAutorizada(10031) });
+    await run(`UPDATE vendas SET tef_transacao_id = 9129, status_pagamento = 'fiscal_pago' WHERE id IN (22, 29, 30, 31)`);
   });
 
-  after(() => { db.close(() => {}); });
+  after(() => {
+    if (tefManager && cancelarTefOriginal) tefManager.cancelar = cancelarTefOriginal;
+    db.close(() => {});
+  });
 
   it('01 — NFC-e rejeitada (cStat 462): nenhum evento fiscal; cancela só a venda e preserva o histórico fiscal', async () => {
     const av = await avaliacaoSvc.avaliarCancelamentoVenda(16);
@@ -212,9 +250,8 @@ describe('Cancelamento de venda × NFC-e', () => {
     assert.equal(eventosFiscais.chamadas.length, 0);
     assert.deepEqual(await estado(21), antes, 'justificativa inválida não altera nada');
 
-    eventosFiscais.responder = async (vendaId) => {
-      const nota = await get(`SELECT id FROM nfce_notas WHERE venda_id = ? AND status = 'autorizada'`, [vendaId]);
-      return { sefaz: retornoEvento('135', 'Evento registrado e vinculado a NF-e'), notaId: nota.id };
+    eventosFiscais.responder = async (nfceId) => {
+      return { sefaz: retornoEvento('135', 'Evento registrado e vinculado a NF-e'), notaId: nfceId };
     };
     const r = await chamarPost(21, MOTIVO);
     assert.equal(r.status, 200, JSON.stringify(r.body));
@@ -222,6 +259,7 @@ describe('Cancelamento de venda × NFC-e', () => {
     assert.equal(r.body.sefaz.cStatEvento, '135');
     assert.equal(r.body.sefaz.protocoloCancelamento, '323260000009999');
     assert.equal(eventosFiscais.chamadas.length, 1);
+    assert.equal(eventosFiscais.chamadas[0].nfceId, antes.nota.id);
     assert.equal(eventosFiscais.chamadas[0].justificativa, MOTIVO);
 
     const depois = await estado(21);
@@ -232,20 +270,121 @@ describe('Cancelamento de venda × NFC-e', () => {
     assert.equal(depois.estoque, antes.estoque + 1);
   });
 
-  it('03 — cancelamento fiscal rejeitado pela SEFAZ: estado e resposta originais preservados', async () => {
+  it('03 — cStat 573 sem evento comprovado mantém venda, estoque e TEF intactos', async () => {
     const antes = await estado(22);
+    const antesComercial = await estadoComercial(22);
     eventosFiscais.chamadas.length = 0;
-    eventosFiscais.responder = async (vendaId) => {
-      const nota = await get(`SELECT id FROM nfce_notas WHERE venda_id = ?`, [vendaId]);
-      return { sefaz: retornoEvento('573', 'Rejeicao: Duplicidade de evento'), notaId: nota.id };
+    estornosTef.length = 0;
+    eventosFiscais.responder = async (nfceId) => {
+      return { sefaz: retornoEvento('573', 'Rejeicao: Duplicidade de evento'), notaId: nfceId };
     };
     const r = await chamarPost(22, MOTIVO);
     assert.equal(r.status, 400);
     assert.equal(r.body.sucesso, false);
-    assert.match(r.body.mensagem, /cStat 573\): Rejeicao: Duplicidade de evento/);
+    assert.match(r.body.mensagem, /cStat 573.*não comprova o cancelamento/i);
     assert.equal(r.body.sefaz.cStatEvento, '573');
     assert.equal(eventosFiscais.chamadas.length, 1);
-    assert.deepEqual(await estado(22), antes, 'venda, estoque e nota inalterados');
+    assert.equal(eventosFiscais.chamadas[0].nfceId, antes.nota.id);
+    const depois = await estado(22);
+    assert.equal(depois.venda.cancelada, antes.venda.cancelada);
+    assert.equal(depois.estoque, antes.estoque);
+    assert.equal(depois.nota.status, 'cancelamento_desconhecido');
+    assert.match(depois.nota.xml_retorno, /<cStat>573<\/cStat>/);
+    assert.deepEqual(await estadoComercial(22), antesComercial);
+    assert.deepEqual(estornosTef, [], 'cStat 573 sem confirmação não estorna TEF');
+    const novaTentativa = await chamarPost(22, MOTIVO);
+    assert.equal(novaTentativa.status, 409);
+    assert.equal(eventosFiscais.chamadas.length, 1, 'estado desconhecido bloqueia novo envio automático');
+  });
+
+  it('03a — evento 110111 confirmado após cStat 573 conclui a venda e estorna TEF uma vez', async () => {
+    const antes = await estado(31);
+    eventosFiscais.chamadas.length = 0;
+    estornosTef.length = 0;
+    eventosFiscais.responder = async (nfceId) => ({
+      sefaz: retornoEvento('573', 'Rejeicao: Duplicidade de evento'),
+      notaId: nfceId,
+      confirmacaoCancelamento: {
+        confirmado: true,
+        cStat: '135',
+        xMotivo: 'Evento registrado e vinculado a NF-e',
+        protocolo: '323260000009999',
+        dataCancelamento: dhFiscal(0),
+        retornoXml: '<retConsSitNFe><procEventoNFe><retEvento><infEvento>'
+          + '<tpEvento>110111</tpEvento><cStat>135</cStat><nProt>323260000009999</nProt>'
+          + '</infEvento></retEvento></procEventoNFe></retConsSitNFe>'
+      }
+    });
+
+    const r = await chamarPost(31, MOTIVO);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(eventosFiscais.chamadas.length, 1);
+    assert.equal(eventosFiscais.chamadas[0].nfceId, antes.nota.id);
+    const depois = await estado(31);
+    assert.equal(depois.nota.status, 'cancelada');
+    assert.equal(depois.venda.cancelada, 1);
+    assert.equal(depois.estoque, antes.estoque + 1);
+    assert.match(depois.nota.xml_retorno, /<cStat>573<\/cStat>/);
+    assert.match(depois.nota.xml_retorno, /<tpEvento>110111<\/tpEvento>/);
+    assert.equal(estornosTef.length, 1, 'TEF é estornado somente após persistência da confirmação');
+  });
+
+  it('03b — resultado fiscal desconhecido bloqueia efeitos comerciais e nova tentativa', async () => {
+    const antes = await estadoComercial(29);
+    eventosFiscais.chamadas.length = 0;
+    estornosTef.length = 0;
+    eventosFiscais.responder = async (nfceId) => ({
+      sefaz: retornoEvento('136', 'Evento registrado, mas não vinculado'),
+      notaId: nfceId
+    });
+
+    const resposta = await chamarPost(29, MOTIVO);
+    assert.equal(resposta.status, 400);
+    assert.match(resposta.body.mensagem, /desconhecido|não vinculado/i);
+    assert.equal(eventosFiscais.chamadas.length, 1);
+    assert.equal(eventosFiscais.chamadas[0].nfceId, (await estado(29)).nota.id);
+
+    const depois = await estadoComercial(29);
+    assert.deepEqual(depois, antes);
+    assert.deepEqual(estornosTef, [], 'resultado desconhecido não estorna TEF');
+    assert.equal((await estado(29)).nota.status, 'cancelamento_desconhecido');
+
+    const novaTentativa = await chamarPost(29, MOTIVO);
+    assert.equal(novaTentativa.status, 409);
+    assert.equal(eventosFiscais.chamadas.length, 1);
+  });
+
+  it('03c — falha de persistência mantém claim e impede efeitos comerciais', async () => {
+    const antes = await estadoComercial(30);
+    const nota = (await estado(30)).nota;
+    estornosTef.length = 0;
+    const trigger = `falha_persistencia_cancelamento_${nota.id}`;
+    await run(`
+      CREATE TRIGGER ${trigger}
+      BEFORE UPDATE OF status ON nfce_notas
+      WHEN NEW.id = ${Number(nota.id)} AND NEW.status = 'cancelada'
+      BEGIN
+        SELECT RAISE(ABORT, 'Falha sintética de persistência');
+      END
+    `);
+    eventosFiscais.chamadas.length = 0;
+    eventosFiscais.responder = async (nfceId) => ({
+      sefaz: retornoEvento('135', 'Evento registrado e vinculado a NF-e'),
+      notaId: nfceId
+    });
+
+    try {
+      const resposta = await chamarPost(30, MOTIVO);
+      assert.equal(resposta.status, 400);
+      assert.match(resposta.body.mensagem, /Falha sintética de persistência/);
+      assert.equal(eventosFiscais.chamadas.length, 1);
+      assert.equal(eventosFiscais.chamadas[0].nfceId, nota.id);
+      assert.deepEqual(await estadoComercial(30), antes);
+      assert.deepEqual(estornosTef, [], 'falha de persistência não estorna TEF');
+      assert.equal((await estado(30)).nota.status, 'cancelamento_em_andamento');
+    } finally {
+      await run(`DROP TRIGGER IF EXISTS ${trigger}`);
+    }
   });
 
   it('04 — NFC-e já cancelada: nenhum novo evento', async () => {
@@ -288,16 +427,31 @@ describe('Cancelamento de venda × NFC-e', () => {
     assert.equal((await estado(25)).venda.cancelada, 1);
   });
 
-  it('07 — autorizada fora do prazo: não transmite evento e informa o prazo', async () => {
+  it('07 — autorizada fora do prazo: transmite tentativa; rejeição SEFAZ não cancela venda nem libera efeitos comerciais', async () => {
     const antes = await estado(26);
+    const comercialAntes = await estadoComercial(26);
+    const estornosAntes = estornosTef.length;
     const av = await avaliacaoSvc.avaliarCancelamentoVenda(26);
-    assert.equal(av.bloqueio.codigo, 'CANCELAMENTO_FORA_DO_PRAZO');
-    assert.match(av.mensagem, /prazo de cancelamento é de 30 min/);
+    assert.equal(av.cancelar_nfce, true);
+    assert.equal(av.cancelar_venda_permitido, true);
+    assert.equal(av.prazo.dentro_prazo, false);
+    assert.match(av.mensagem, /tentativa será submetida à SEFAZ/);
     eventosFiscais.chamadas.length = 0;
+    eventosFiscais.responder = async (nfceId) => ({
+      sefaz: retornoEvento('501', 'Rejeicao: Prazo de cancelamento superior ao previsto'),
+      notaId: nfceId
+    });
     const r = await chamarPost(26, MOTIVO);
-    assert.equal(r.status, 409);
-    assert.equal(eventosFiscais.chamadas.length, 0);
-    assert.deepEqual(await estado(26), antes);
+    assert.equal(r.status, 400);
+    assert.match(r.body.mensagem, /rejeitado pela SEFAZ/);
+    assert.equal(eventosFiscais.chamadas.length, 1);
+    assert.equal(eventosFiscais.chamadas[0].nfceId, antes.nota.id);
+    const depois = await estado(26);
+    assert.equal(depois.venda.cancelada, antes.venda.cancelada);
+    assert.equal(depois.estoque, antes.estoque);
+    assert.equal(depois.nota.status, 'autorizada');
+    assert.deepEqual(await estadoComercial(26), comercialAntes);
+    assert.equal(estornosTef.length, estornosAntes);
   });
 
   it('08 — situação fiscal não confirmada (539 pendente): bloqueia venda e evento', async () => {

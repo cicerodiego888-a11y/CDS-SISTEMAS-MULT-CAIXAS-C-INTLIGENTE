@@ -26,7 +26,6 @@ const {
 } = require('../../backend/services/fiscal/cancelamentoRuntime');
 const {
   enviarCancelamentoLegado,
-  getCancelamentoUrl,
   NS_EVENTO,
   ACTION_EVENTO
 } = require('../../backend/services/fiscal/cancelamentoLegado');
@@ -186,7 +185,7 @@ async function main() {
     assert.strictEqual(result.resultado, 'REJEITADO');
   });
 
-  await test('evento duplicado (cStat 573)', async () => {
+  await test('evento duplicado (cStat 573) fica desconhecido até validar consulta oficial', async () => {
     const runtime = createCancelamentoRuntime({
       platform: new FiscalWebServices({
         transportOptions: {
@@ -197,7 +196,7 @@ async function main() {
     });
     const result = await runtime.enviarCancelamento({ chave: CHAVE, ambiente: 2 });
     assert.strictEqual(result.cStat, '573');
-    assert.strictEqual(result.resultado, 'DUPLICADO');
+    assert.strictEqual(result.resultado, 'DESCONHECIDO');
   });
 
   await test('resolver fail usa fallback', async () => {
@@ -222,8 +221,9 @@ async function main() {
     assert.ok(result.warnings.some((w) => w.code === 'PLATFORM_RESOLVE_FAILED'));
   });
 
-  await test('transport fail dispara fallback', async () => {
+  await test('transport fail mantém resultado desconhecido sem retransmitir', async () => {
     const metrics = new CancelamentoMetrics();
+    let fallbackCalls = 0;
     const runtime = createCancelamentoRuntime({
       platform: new FiscalWebServices({
         transportOptions: {
@@ -234,25 +234,24 @@ async function main() {
         }
       }),
       metrics,
-      legadoSender: async () => ({
-        success: true,
-        body: SOAP_AUTORIZADO,
-        statusCode: 200,
-        endpoint: getCancelamentoUrl(2),
-        namespace: NS_EVENTO,
-        tempoXmlMs: 0.1,
-        tempoSoapMs: 0.2,
-        tempo: 0.3
-      })
+      legadoSender: async () => {
+        fallbackCalls += 1;
+        return { success: true, body: SOAP_AUTORIZADO };
+      }
     });
     const result = await runtime.enviarCancelamento({ chave: CHAVE, ambiente: 2 });
-    assert.strictEqual(result.source, ResolutionSource.FALLBACK);
+    assert.strictEqual(result.source, ResolutionSource.REGISTRY);
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.resultado, 'DESCONHECIDO');
+    assert.strictEqual(result.fallbackUtilizado, false);
+    assert.strictEqual(fallbackCalls, 0);
     assert.ok(result.warnings.some((w) => w.code === 'PLATFORM_TRANSPORT_FAILED'));
-    assert.strictEqual(metrics.snapshot().fallbacks, 1);
+    assert.strictEqual(metrics.snapshot().fallbacks, 0);
   });
 
-  await test('timeout dispara fallback legado', async () => {
+  await test('timeout não dispara fallback legado', async () => {
     const metrics = new CancelamentoMetrics();
+    let fallbackCalls = 0;
     const runtime = createCancelamentoRuntime({
       platform: new FiscalWebServices({
         transportOptions: {
@@ -263,24 +262,19 @@ async function main() {
         }
       }),
       metrics,
-      legadoSender: async () => ({
-        success: true,
-        body: SOAP_AUTORIZADO,
-        statusCode: 200,
-        endpoint: getCancelamentoUrl(2),
-        namespace: NS_EVENTO,
-        tempoXmlMs: 0.1,
-        tempoSoapMs: 0.2,
-        tempo: 0.3
-      })
+      legadoSender: async () => {
+        fallbackCalls += 1;
+        return { success: true, body: SOAP_AUTORIZADO };
+      }
     });
     const result = await runtime.enviarCancelamento({ chave: CHAVE, ambiente: 2 });
-    assert.strictEqual(result.fallbackUtilizado, true);
-    assert.ok(result.warnings.some((w) => w.code === 'FALLBACK'));
-    console.log(`         fallbacks: ${metrics.snapshot().fallbacks}`);
+    assert.strictEqual(result.fallbackUtilizado, false);
+    assert.strictEqual(result.resultado, 'DESCONHECIDO');
+    assert.strictEqual(fallbackCalls, 0);
+    assert.strictEqual(metrics.snapshot().fallbacks, 0);
   });
 
-  await test('retry contabilizado em transport com maxRetries', async () => {
+  await test('cancelamento não repete envio após falha do transporte', async () => {
     let calls = 0;
     const httpClient = async () => {
       calls += 1;
@@ -297,10 +291,11 @@ async function main() {
       metrics
     });
     const result = await runtime.enviarCancelamento({ chave: CHAVE, ambiente: 2 });
-    assert.strictEqual(result.success, true);
-    assert.ok(result.retries >= 1);
-    assert.ok(calls >= 2);
-    assert.ok(metrics.snapshot().retries >= 1);
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.resultado, 'DESCONHECIDO');
+    assert.strictEqual(result.retries, 0);
+    assert.strictEqual(calls, 1);
+    assert.strictEqual(metrics.snapshot().retries, 0);
   });
 
   await test('legado direto com httpClient', async () => {

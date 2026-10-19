@@ -49,8 +49,8 @@ const ENDPOINTS = Object.freeze({
     [EnvironmentType.HOMOLOGACAO]: 'https://nfce-homologacao.svrs.rs.gov.br/ws/NfeStatusServico/NFeStatusServico4.asmx'
   },
   NFCE_CONSULTA: {
-    [EnvironmentType.PRODUCAO]: 'https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NFeConsultaProtocolo4.asmx',
-    [EnvironmentType.HOMOLOGACAO]: 'https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NFeConsultaProtocolo4.asmx'
+    [EnvironmentType.PRODUCAO]: 'https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx',
+    [EnvironmentType.HOMOLOGACAO]: 'https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx'
   },
   NFE_CONSULTA: {
     // SVRS oficial (Portal NF-e / SEFAZ-CE): NfeConsulta4.asmx — NFeConsultaProtocolo4.asmx retorna HTTP 404
@@ -101,9 +101,11 @@ function def(partial) {
   return WebServiceDefinition.create({
     timeout: DEFAULT_TIMEOUT_MS,
     retry: DEFAULT_MAX_RETRIES,
-    tls: { minVersion: 'TLSv1.2', rejectUnauthorized: false },
     ativo: true,
     ...partial,
+    tls: partial.operacao === OperationType.CANCELAMENTO
+      ? { ...(partial.tls || {}), minVersion: 'TLSv1.2', rejectUnauthorized: true }
+      : (partial.tls || { minVersion: 'TLSv1.2', rejectUnauthorized: false }),
     headers: soapHeaders(partial.soapAction)
   });
 }

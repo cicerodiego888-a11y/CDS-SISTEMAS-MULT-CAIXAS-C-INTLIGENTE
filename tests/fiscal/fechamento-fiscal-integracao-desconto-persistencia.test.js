@@ -38,7 +38,7 @@ function garantirSchema(db) {
   });
 }
 
-test('comprovante explícito compõe acima do alvo e persiste bruto, desconto e final', async (t) => {
+test('comprovante explícito mantém composição bruta e persiste divergência sem desconto', async (t) => {
   const db = abrirDb();
   t.after(() => db.close());
 
@@ -67,7 +67,14 @@ test('comprovante explícito compõe acima do alvo e persiste bruto, desconto e 
   )`);
   await executar(db, `INSERT INTO produtos
     (id,nome,codigo,item_fiscal,saldo_fiscal,saldo_nao_fiscal,preco_venda,preco_compra)
-    VALUES (1,'Produto fiscal sem venda','P1',1,2,100,14.90,5)`);
+    VALUES (1,'Produto fiscal elegível','P1',1,2,100,14.90,5)`);
+  await executar(db, `INSERT INTO vendas
+    (id,codigo,data_venda,total,valor_fiscal,valor_nao_fiscal,status,cancelada)
+    VALUES (1,'V-1',?,29.80,29.80,0,'concluida',0)`, [`${DATA} 12:00:00`]);
+  await executar(db, `INSERT INTO vendas_itens
+    (id,venda_id,produto_id,quantidade,quantidade_fiscal,quantidade_nao_fiscal,
+     subtotal,valor_fiscal,valor_nao_fiscal,preco_unitario)
+    VALUES (1,1,1,2,2,0,29.80,29.80,0,14.90)`);
 
   await garantirSchema(db);
   const fechamentoId = await executar(db, `INSERT INTO fechamentos_fiscais
@@ -82,6 +89,9 @@ test('comprovante explícito compõe acima do alvo e persiste bruto, desconto e 
     id: fechamentoId,
     data: DATA,
     valor_informado: 28,
+    valor_alvo: 28,
+    valor_min: 1,
+    valor_max: 30,
     comprovantes: [28],
     persistir: true
   }, { db, moduloOn: true, capturarSnapshot: false });
@@ -97,30 +107,28 @@ test('comprovante explícito compõe acima do alvo e persiste bruto, desconto e 
   assert.equal(gerada.previa.valor_informado, 28);
   assert.equal(gerada.previa.quantidade_vendas, 1);
   assert.equal(gerada.previa.valor_distribuido, 29.8);
-  assert.equal(gerada.previa.desconto, 1.8);
-  assert.equal(gerada.previa.valor_final, 28);
+  assert.equal(gerada.previa.desconto, 0);
+  assert.equal(gerada.previa.valor_final, 29.8);
+  assert.equal(gerada.previa.diferenca, -1.8);
+  assert.equal(gerada.previa.perfeita, false);
+  assert.equal(gerada.previa.codigo, 'DIFERENCA_NAO_CONCILIADA');
   assert.deepEqual(gerada.previa.vendas[0].itens.map((item) => item.produto_id), [1]);
   assert.equal(lida.valor_informado, 28);
   assert.equal(lida.valor_distribuido, 29.8);
-  assert.equal(lida.desconto, 1.8);
-  assert.equal(lida.valor_final, 28);
+  assert.equal(lida.desconto, 0);
+  assert.equal(lida.valor_final, 29.8);
+  assert.equal(lida.diferenca, -1.8);
   assert.equal(vendaPersistida.valor, 29.8);
-  assert.equal(vendaPersistida.desconto, 1.8);
-  assert.equal(vendaPersistida.valor_final, 28);
+  assert.equal(vendaPersistida.desconto, 0);
+  assert.equal(vendaPersistida.valor_final, 29.8);
   assert.deepEqual(estoqueDepois, estoqueAntes);
   assert.deepEqual(transferenciasDepois, transferenciasAntes);
 });
 
-test('comprovantes iguais diversificam produtos equivalentes de forma determinística', async (t) => {
+test('comprovantes iguais priorizam saldo fiscal e consomem unidades deterministicamente', async (t) => {
   const db = abrirDb();
   t.after(() => db.close());
 
-  await executar(db, `CREATE TABLE produtos (
-    id INTEGER PRIMARY KEY, nome TEXT, codigo TEXT, item_fiscal INTEGER,
-    saldo_fiscal REAL, saldo_nao_fiscal REAL, preco_venda REAL,
-    preco_compra REAL DEFAULT 0, ativo INTEGER DEFAULT 1,
-    ncm TEXT, cfop TEXT, csosn TEXT, origem INTEGER DEFAULT 0
-  )`);
   await executar(db, `CREATE TABLE vendas (
     id INTEGER PRIMARY KEY, codigo TEXT, data_venda TEXT, total REAL,
     valor_fiscal REAL DEFAULT 0, valor_nao_fiscal REAL DEFAULT 0,
@@ -131,6 +139,12 @@ test('comprovantes iguais diversificam produtos equivalentes de forma determiní
     quantidade REAL, quantidade_fiscal REAL, quantidade_nao_fiscal REAL,
     subtotal REAL, valor_fiscal REAL, valor_nao_fiscal REAL, preco_unitario REAL
   )`);
+  await executar(db, `CREATE TABLE produtos (
+    id INTEGER PRIMARY KEY, nome TEXT, codigo TEXT, item_fiscal INTEGER,
+    saldo_fiscal REAL, saldo_nao_fiscal REAL, preco_venda REAL,
+    preco_compra REAL DEFAULT 0, ativo INTEGER DEFAULT 1,
+    ncm TEXT, cfop TEXT, csosn TEXT, origem INTEGER DEFAULT 0
+  )`);
   await executar(db, `CREATE TABLE vendas_devolucoes (
     id INTEGER PRIMARY KEY, venda_id INTEGER, venda_item_id INTEGER,
     produto_id INTEGER, quantidade REAL, valor_total REAL
@@ -140,6 +154,13 @@ test('comprovantes iguais diversificam produtos equivalentes de forma determiní
     await executar(db, `INSERT INTO produtos
       (id,nome,codigo,item_fiscal,saldo_fiscal,saldo_nao_fiscal,preco_venda,preco_compra)
       VALUES (?,?,?,1,?,0,5,2)`, [id, `Produto ${id}`, `P${id}`, saldosFiscais[id - 1]]);
+    await executar(db, `INSERT INTO vendas
+      (id,codigo,data_venda,total,valor_fiscal,valor_nao_fiscal,status,cancelada)
+      VALUES (?,?,?,10,10,0,'concluida',0)`, [id, `V-${id}`, `${DATA} 12:0${id}:00`]);
+    await executar(db, `INSERT INTO vendas_itens
+      (id,venda_id,produto_id,quantidade,quantidade_fiscal,quantidade_nao_fiscal,
+       subtotal,valor_fiscal,valor_nao_fiscal,preco_unitario)
+      VALUES (?,?,?,2,2,0,10,10,0,5)`, [id, id, id]);
   }
 
   const params = {
@@ -169,10 +190,22 @@ test('comprovantes iguais diversificam produtos equivalentes de forma determiní
 
   assert.equal(primeira.previa.metricas.produtos_elegiveis, 4);
   assert.deepEqual(primeira.previa.vendas.map((venda) => venda.valor_final), [10, 10, 10]);
-  const produtosVendaUm = new Set(primeira.previa.vendas[0].itens.map((item) => item.produto_id));
-  const produtosVendaDois = new Set(primeira.previa.vendas[1].itens.map((item) => item.produto_id));
-  assert.deepEqual([...produtosVendaUm].sort(), [1, 2]);
-  assert.deepEqual([...produtosVendaDois].sort(), [3, 4]);
-  assert.ok([...produtosVendaDois].every((produtoId) => !produtosVendaUm.has(produtoId)));
+  assert.deepEqual(primeira.previa.vendas.map((venda) => venda.desconto), [0, 0, 0]);
+  assert.deepEqual(
+    primeira.previa.vendas.map((venda) => venda.itens.map((item) => item.produto_id)),
+    [[1, 2], [1, 2], [3, 4]]
+  );
+  const quantidadePorProduto = new Map();
+  for (const venda of primeira.previa.vendas) {
+    for (const item of venda.itens) {
+      quantidadePorProduto.set(
+        item.produto_id,
+        (quantidadePorProduto.get(item.produto_id) || 0) + item.quantidade
+      );
+    }
+  }
+  for (const [produtoId, quantidade] of quantidadePorProduto) {
+    assert.ok(quantidade <= saldosFiscais[produtoId - 1]);
+  }
   assert.deepEqual(normalizar(primeira), normalizar(segunda));
 });

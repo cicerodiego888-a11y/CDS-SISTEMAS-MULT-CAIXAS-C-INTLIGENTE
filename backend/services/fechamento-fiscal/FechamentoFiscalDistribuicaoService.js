@@ -21,6 +21,73 @@ function compararUnidade(a, b) {
   return String(a.key).localeCompare(String(b.key));
 }
 
+function normalizarSaldoFiscal(saldo) {
+  if (saldo == null) return null;
+  const valor = Number(saldo);
+  return Number.isFinite(valor) ? Math.max(0, valor) : 0;
+}
+
+function compararPrioridadeSaldo(a, b) {
+  const saldoA = normalizarSaldoFiscal(a.saldo_fiscal);
+  const saldoB = normalizarSaldoFiscal(b.saldo_fiscal);
+  if (saldoA != null && saldoB == null) return -1;
+  if (saldoA == null && saldoB != null) return 1;
+  if (saldoA != null && saldoB != null && saldoA !== saldoB) return saldoB - saldoA;
+  if (saldoA != null && saldoB != null && a.produto_id !== b.produto_id) {
+    return Number(a.produto_id) - Number(b.produto_id);
+  }
+  return compararUnidade(a, b);
+}
+
+function compararPrioridadeProdutos(a, b, ordemProdutos) {
+  // Compare the selected-product sequence by current saldo descending, then ID.
+  let indiceA = 0;
+  let indiceB = 0;
+  while (indiceA < ordemProdutos.length && indiceB < ordemProdutos.length) {
+    while (indiceA < ordemProdutos.length && !a.produtos.has(ordemProdutos[indiceA])) indiceA += 1;
+    while (indiceB < ordemProdutos.length && !b.produtos.has(ordemProdutos[indiceB])) indiceB += 1;
+    if (indiceA === ordemProdutos.length || indiceB === ordemProdutos.length) return 0;
+    if (indiceA !== indiceB) return indiceA - indiceB;
+    indiceA += 1;
+    indiceB += 1;
+  }
+  return 0;
+}
+
+function limitarGruposAoSaldoFiscal(grupos) {
+  const saldoRestante = new Map();
+  const saldoConhecido = new Set();
+  for (const grupo of grupos) {
+    const saldo = normalizarSaldoFiscal(grupo.saldo_fiscal);
+    if (saldo == null) continue;
+    const produtoId = Number(grupo.produto_id);
+    if (!saldoConhecido.has(produtoId)) {
+      saldoRestante.set(produtoId, saldo);
+      saldoConhecido.add(produtoId);
+    } else {
+      saldoRestante.set(produtoId, Math.min(saldoRestante.get(produtoId), saldo));
+    }
+  }
+
+  return [...grupos].sort(compararPrioridadeSaldo).map((grupo) => {
+    const produtoId = Number(grupo.produto_id);
+    if (!saldoConhecido.has(produtoId)) return grupo;
+    const quantidadePorUnidade = Number(grupo.quantidade_por_unidade || 0);
+    const saldo = saldoRestante.get(produtoId);
+    const unidadesPermitidas = quantidadePorUnidade > 0
+      ? Math.min(
+        Number(grupo.quantidade_unidades || 0),
+        Math.floor((saldo + 1e-9) / quantidadePorUnidade)
+      )
+      : 0;
+    saldoRestante.set(
+      produtoId,
+      Math.max(0, saldo - unidadesPermitidas * quantidadePorUnidade)
+    );
+    return { ...grupo, quantidade_unidades: unidadesPermitidas };
+  }).filter((grupo) => grupo.quantidade_unidades > 0);
+}
+
 function criarGrupoUnidades(lote, key, valueCents, unitCents, quantity, count, fractional) {
   if (!(count > 0) || !(valueCents > 0)) return null;
   return {
@@ -34,8 +101,8 @@ function criarGrupoUnidades(lote, key, valueCents, unitCents, quantity, count, f
     quantidade_unidades: count,
     unit_cents: unitCents,
     valor_cents: valueCents,
-       fracionado: Boolean(fractional),
-       saldo_fiscal: Math.max(0, Number(lote.saldo_fiscal || 0))
+    fracionado: Boolean(fractional),
+    saldo_fiscal: normalizarSaldoFiscal(lote.saldo_fiscal)
   };
 }
 
@@ -135,7 +202,9 @@ function calcularConcentracao(estado, usoPorProduto) {
   return concentracao;
 }
 
-function compararEstadoCompacto(a, b, grupos, usoPorProduto = new Map()) {
+function compararEstadoCompacto(a, b, grupos, usoPorProduto, ordemProdutos) {
+  const prioridade = compararPrioridadeProdutos(a, b, ordemProdutos);
+  if (prioridade !== 0) return prioridade;
   if (a.produtos.size !== b.produtos.size) return b.produtos.size - a.produtos.size;
   if (a.unidades !== b.unidades) return a.unidades - b.unidades;
   const concentracaoA = calcularConcentracao(a, usoPorProduto);
@@ -162,10 +231,44 @@ function compararEstadoCompacto(a, b, grupos, usoPorProduto = new Map()) {
   }
 }
 
+function totalCabeEmVendas(totalCents, valorMinCents, valorMaxCents) {
+  if (!(totalCents > 0) || !(valorMinCents > 0) || valorMaxCents < valorMinCents) {
+    return false;
+  }
+  return Math.ceil(totalCents / valorMaxCents) <= Math.floor(totalCents / valorMinCents);
+}
+
 function selecionarUnidadesCompactas(gruposEntrada, targetCents, opts = {}) {
-  const grupos = [...(Array.isArray(gruposEntrada) ? gruposEntrada : [])]
+  const gruposComSaldoLimitado = limitarGruposAoSaldoFiscal(
+    Array.isArray(gruposEntrada) ? gruposEntrada : []
+  );
+  const maxValorUnidadeCents = Number.isFinite(Number(opts.maxValorUnidadeCents))
+    ? Math.max(0, Number(opts.maxValorUnidadeCents))
+    : null;
+  const maxSomaCents = Number.isFinite(Number(opts.maxSomaCents))
+    ? Math.max(0, Number(opts.maxSomaCents))
+    : null;
+  const minSomaCents = Number.isFinite(Number(opts.minSomaCents))
+    ? Math.max(0, Number(opts.minSomaCents))
+    : null;
+  const minVendaCents = Number.isFinite(Number(opts.minVendaCents))
+    ? Math.max(0, Number(opts.minVendaCents))
+    : null;
+  const maxVendaCents = Number.isFinite(Number(opts.maxVendaCents))
+    ? Math.max(0, Number(opts.maxVendaCents))
+    : null;
+  const grupos = gruposComSaldoLimitado
     .filter((grupo) => Number(grupo.quantidade_unidades || 0) > 0 && Number(grupo.valor_cents || 0) > 0)
-    .sort(compararUnidade);
+    .filter((grupo) => maxValorUnidadeCents == null || Number(grupo.valor_cents) <= maxValorUnidadeCents)
+    .sort(compararPrioridadeSaldo);
+  const ordemProdutos = [];
+  const produtosVistos = new Set();
+  for (const grupo of grupos) {
+    const produtoId = Number(grupo.produto_id);
+    if (produtosVistos.has(produtoId) || normalizarSaldoFiscal(grupo.saldo_fiscal) == null) continue;
+    produtosVistos.add(produtoId);
+    ordemProdutos.push(produtoId);
+  }
   const capacidadeCents = grupos.reduce(
     (soma, grupo) => soma + Number(grupo.quantidade_unidades) * Number(grupo.valor_cents),
     0
@@ -178,7 +281,11 @@ function selecionarUnidadesCompactas(gruposEntrada, targetCents, opts = {}) {
   }
 
   const maiorUnidade = grupos.reduce((maior, grupo) => Math.max(maior, Number(grupo.valor_cents)), 0);
-  const limiteBusca = Math.min(capacidadeCents, alvo + Math.max(0, maiorUnidade - 1));
+  const limiteBusca = Math.min(
+    capacidadeCents,
+    Math.max(alvo, minSomaCents == null ? alvo : minSomaCents)
+      + Math.max(0, maiorUnidade - 1)
+  );
   const dp = new Map([[0, {
     soma: 0,
     quantidades: Array(grupos.length).fill(0),
@@ -210,6 +317,7 @@ function selecionarUnidadesCompactas(gruposEntrada, targetCents, opts = {}) {
       }
       const soma = somaAtual + bloco.valor;
       if (soma > limiteBusca) continue;
+      if (maxSomaCents != null && soma > maxSomaCents) continue;
       const quantidades = [...estado.quantidades];
       const grupo = grupos[bloco.indice];
       const produtoId = Number(grupo.produto_id);
@@ -231,7 +339,9 @@ function selecionarUnidadesCompactas(gruposEntrada, targetCents, opts = {}) {
         unidades: estado.unidades + bloco.quantidade
       };
       const existente = dp.get(soma);
-      if (!existente || compararEstadoCompacto(proximo, existente, grupos, usoPorProduto) < 0) {
+      if (!existente || compararEstadoCompacto(
+        proximo, existente, grupos, usoPorProduto, ordemProdutos
+      ) < 0) {
         dp.set(soma, proximo);
       }
     }
@@ -243,16 +353,33 @@ function selecionarUnidadesCompactas(gruposEntrada, targetCents, opts = {}) {
   let melhor = null;
   for (const [soma, estado] of dp) {
     if (soma < alvo) continue;
+    if (minSomaCents != null && soma < minSomaCents) continue;
+    if (maxSomaCents != null && soma > maxSomaCents) continue;
+    if (minVendaCents != null && maxVendaCents != null
+      && !totalCabeEmVendas(soma, minVendaCents, maxVendaCents)) continue;
     if (!melhor) {
       melhor = estado;
       continue;
     }
+    const exata = soma === alvo;
+    const melhorExata = melhor.soma === alvo;
+    if (exata !== melhorExata) {
+      if (exata) melhor = estado;
+      continue;
+    }
     const excesso = soma - alvo;
     const melhorExcesso = melhor.soma - alvo;
-    if (excesso < melhorExcesso || (
-      excesso === melhorExcesso
-      && compararEstadoCompacto(estado, melhor, grupos, usoPorProduto) < 0
-    )) {
+    const distancia = Math.abs(soma - alvo);
+    const melhorDistancia = Math.abs(melhor.soma - alvo);
+    const prioridade = compararPrioridadeProdutos(estado, melhor, ordemProdutos);
+    if (prioridade < 0 || (prioridade === 0 && (
+      (minSomaCents != null ? distancia < melhorDistancia : excesso < melhorExcesso) || (
+        (minSomaCents != null ? distancia === melhorDistancia : excesso === melhorExcesso)
+        && compararEstadoCompacto(
+          estado, melhor, grupos, usoPorProduto, ordemProdutos
+        ) < 0
+      )
+    ))) {
       melhor = estado;
     }
   }
@@ -279,7 +406,8 @@ function expandirGruposSelecionados(grupos) {
         quantidade: Number(grupo.quantidade_por_unidade),
         unit_cents: Number(grupo.unit_cents),
         valor_cents: Number(grupo.valor_cents),
-        fracionado: Boolean(grupo.fracionado)
+        fracionado: Boolean(grupo.fracionado),
+        saldo_fiscal: grupo.saldo_fiscal
       });
     }
   }
@@ -303,13 +431,24 @@ function selecionarUnidades(unidades, targetCents, opts = {}) {
   };
 }
 
+function obterLimitesVendaCents(opts = {}) {
+  const valorMinCents = Math.max(
+    1,
+    toCentavos(opts.valorMin != null ? opts.valorMin : DEFAULTS_DISTRIBUICAO.valorMin)
+  );
+  const valorMaxCents = Math.max(
+    valorMinCents,
+    toCentavos(opts.valorMax != null ? opts.valorMax : DEFAULTS_DISTRIBUICAO.valorMax)
+  );
+  return { valorMinCents, valorMaxCents };
+}
+
 /**
  * Empacota unidades selecionadas em vendas próximas ao valor-alvo (sugestão).
  */
 function empacotarVendas(selecionadas, opts = {}) {
   const valorAlvo = Math.max(1, toCentavos(opts.valorAlvo != null ? opts.valorAlvo : DEFAULTS_DISTRIBUICAO.valorAlvo));
-  const valorMin = Math.max(1, toCentavos(opts.valorMin != null ? opts.valorMin : DEFAULTS_DISTRIBUICAO.valorMin));
-  const valorMax = Math.max(valorMin, toCentavos(opts.valorMax != null ? opts.valorMax : DEFAULTS_DISTRIBUICAO.valorMax));
+  const { valorMinCents: valorMin, valorMaxCents: valorMax } = obterLimitesVendaCents(opts);
   const modoRealista = opts.distribuicaoRealista !== false;
 
   let sugerirAlvoCentavos = null;
@@ -321,7 +460,9 @@ function empacotarVendas(selecionadas, opts = {}) {
     }
   }
 
-  const fila = [...selecionadas];
+  const fila = [...selecionadas]
+    .filter((unidade) => Number(unidade.valor_cents) <= valorMax)
+    .sort(compararPrioridadeSaldo);
   const vendas = [];
   let seq = 0;
 
@@ -426,22 +567,30 @@ function empacotarVendas(selecionadas, opts = {}) {
       ordem
     }));
 
-    const brutoCents = montado;
-    const valorAlvoDaVenda = Math.min(Math.max(1, toCentavos(opts.valorAlvo != null ? opts.valorAlvo : DEFAULTS_DISTRIBUICAO.valorAlvo)), valorMax);
-    const descontoCents = Math.max(0, brutoCents - valorAlvoDaVenda);
-    const valorFinalCents = Math.max(0, brutoCents - descontoCents);
-
     vendas.push({
       sequencia: seq,
       rotulo: `Venda Fiscal ${String(seq).padStart(3, '0')}`,
       valor: arredondarMoeda(montado / 100),
-      valor_final: arredondarMoeda(valorFinalCents / 100),
-      desconto: arredondarMoeda(descontoCents / 100),
+      valor_final: arredondarMoeda(montado / 100),
+      desconto: 0,
       quantidade_itens: itens.length,
       itens
     });
   }
 
+  if (!vendas.every((venda) => {
+    const valorCents = toCentavos(venda.valor);
+    return valorCents >= valorMin && valorCents <= valorMax;
+  })) {
+    const grupos = agruparUnidadesExpandidas(
+      (Array.isArray(selecionadas) ? selecionadas : [])
+        .filter((unidade) => Number(unidade.valor_cents) <= valorMax)
+    ).map((grupo) => ({
+      ...grupo,
+      quantidade_selecionada: Number(grupo.quantidade_unidades || 0)
+    }));
+    return empacotarVendasAgrupadas(grupos, opts);
+  }
   return vendas;
 }
 
@@ -483,14 +632,12 @@ function criarVendaDeGrupos(selecionadas, opts = {}) {
     valor: arredondarMoeda(item.valor_cents / 100),
     ordem
   }));
-  const alvoCents = Math.max(0, toCentavos(opts.valorAlvo || 0));
-  const descontoCents = Math.max(0, brutoCents - alvoCents);
   return {
     sequencia: Number(opts.sequencia || 1),
     rotulo: `Venda Fiscal ${String(Number(opts.sequencia || 1)).padStart(3, '0')}`,
     valor: arredondarMoeda(brutoCents / 100),
-    valor_final: arredondarMoeda((brutoCents - descontoCents) / 100),
-    desconto: arredondarMoeda(descontoCents / 100),
+    valor_final: arredondarMoeda(brutoCents / 100),
+    desconto: 0,
     quantidade_itens: itens.length,
     itens
   };
@@ -511,9 +658,9 @@ function empacotarVendaUnica(selecionadas, opts = {}) {
 
 function empacotarVendasAgrupadas(selecionadasAgrupadas, opts = {}) {
   const valorAlvo = Math.max(1, toCentavos(opts.valorAlvo != null ? opts.valorAlvo : DEFAULTS_DISTRIBUICAO.valorAlvo));
-  const valorMin = Math.max(1, toCentavos(opts.valorMin != null ? opts.valorMin : DEFAULTS_DISTRIBUICAO.valorMin));
-  const valorMax = Math.max(valorMin, toCentavos(opts.valorMax != null ? opts.valorMax : DEFAULTS_DISTRIBUICAO.valorMax));
+  const { valorMinCents: valorMin, valorMaxCents: valorMax } = obterLimitesVendaCents(opts);
   const modoRealista = opts.distribuicaoRealista !== false;
+  const metricasExecucao = opts.metricasExecucao || {};
   let sugerirAlvoCentavos = null;
   if (modoRealista) {
     try {
@@ -525,12 +672,8 @@ function empacotarVendasAgrupadas(selecionadasAgrupadas, opts = {}) {
 
   let fila = [...(selecionadasAgrupadas || [])]
     .map((grupo) => ({ ...grupo, restante: Number(grupo.quantidade_selecionada || 0) }))
-    .filter((grupo) => grupo.restante > 0)
-    .sort((a, b) => {
-      if (a.produto_id !== b.produto_id) return a.produto_id - b.produto_id;
-      if (a.venda_item_id !== b.venda_item_id) return a.venda_item_id - b.venda_item_id;
-      return String(a.key).localeCompare(String(b.key));
-    });
+    .filter((grupo) => grupo.restante > 0 && Number(grupo.valor_cents) <= valorMax)
+    .sort(compararPrioridadeSaldo);
   const vendas = [];
   let sequencia = 0;
 
@@ -576,7 +719,8 @@ function empacotarVendasAgrupadas(selecionadasAgrupadas, opts = {}) {
       montado += quantidade * valorUnidade;
     }
 
-    if (quantidadesPorIndice.size === 0 && fila.length) {
+    if (quantidadesPorIndice.size === 0 && fila.length
+      && Number(fila[0].valor_cents) <= valorMax) {
       quantidadesPorIndice.set(0, 1);
       montado = Number(fila[0].valor_cents);
     }
@@ -590,7 +734,109 @@ function empacotarVendasAgrupadas(selecionadasAgrupadas, opts = {}) {
     fila = fila.filter((grupo) => grupo.restante > 0);
   }
 
-  return vendas;
+  if (vendas.every((venda) => {
+    const valorCents = toCentavos(venda.valor);
+    return valorCents >= valorMin && valorCents <= valorMax;
+  })) {
+    return vendas;
+  }
+
+  const gruposDisponiveis = [...(selecionadasAgrupadas || [])]
+    .map((grupo) => ({
+      ...grupo,
+      quantidade_unidades: Number(grupo.quantidade_selecionada || 0)
+    }))
+    .filter((grupo) => grupo.quantidade_unidades > 0
+      && Number(grupo.valor_cents) <= valorMax);
+  const valorTotalCents = gruposDisponiveis.reduce(
+    (soma, grupo) => soma + grupo.quantidade_unidades * Number(grupo.valor_cents),
+    0
+  );
+  if (valorTotalCents < valorMin) return [];
+
+  const menorNumeroVendas = Math.ceil(valorTotalCents / valorMax);
+  const maiorNumeroVendas = Math.floor(valorTotalCents / valorMin);
+  if (menorNumeroVendas > maiorNumeroVendas) return [];
+
+  const alvoPorVenda = Math.min(valorMax, Math.max(valorMin, valorAlvo));
+  const quantidadeVendas = Math.max(
+    menorNumeroVendas,
+    Math.min(maiorNumeroVendas, Math.round(valorTotalCents / alvoPorVenda))
+  );
+  const vendasBalanceadas = [];
+  const usoPorProduto = new Map();
+  let restantes = gruposDisponiveis;
+
+  for (let indiceVenda = 0; indiceVenda < quantidadeVendas; indiceVenda += 1) {
+    const numeroRestante = quantidadeVendas - indiceVenda;
+    const restanteCents = restantes.reduce(
+      (soma, grupo) => soma + grupo.quantidade_unidades * Number(grupo.valor_cents),
+      0
+    );
+    const minimoPacote = Math.max(
+      valorMin,
+      restanteCents - (numeroRestante - 1) * valorMax
+    );
+    const maximoPacote = Math.min(
+      valorMax,
+      restanteCents - (numeroRestante - 1) * valorMin
+    );
+    const alvoPacote = Math.max(
+      minimoPacote,
+      Math.min(maximoPacote, Math.round(restanteCents / numeroRestante))
+    );
+    const { selecionadasAgrupadas: gruposVenda, somaCents } = selecionarUnidadesCompactas(
+      restantes,
+      alvoPacote,
+      {
+        usoPorProduto,
+        metricasExecucao,
+        minSomaCents: minimoPacote,
+        maxSomaCents: maximoPacote,
+        maxValorUnidadeCents: valorMax
+      }
+    );
+    if (!gruposVenda.length || somaCents < minimoPacote || somaCents > maximoPacote) {
+      return [];
+    }
+
+    vendasBalanceadas.push(criarVendaDeGrupos(gruposVenda, {
+      sequencia: indiceVenda + 1,
+      valorAlvo: alvoPorVenda / 100
+    }));
+    for (const grupo of gruposVenda) {
+      const produtoId = Number(grupo.produto_id);
+      usoPorProduto.set(
+        produtoId,
+        (usoPorProduto.get(produtoId) || 0)
+          + Number(grupo.quantidade_por_unidade || 0)
+            * Number(grupo.quantidade_selecionada || 0)
+      );
+    }
+
+    const selecionadasPorChave = new Map(gruposVenda.map((grupo) => [
+      `${grupo.produto_id}|${grupo.venda_item_id}|${grupo.key}|${grupo.valor_cents}|${grupo.unit_cents}`,
+      Number(grupo.quantidade_selecionada || 0)
+    ]));
+    restantes = restantes.map((grupo) => {
+      const chave = `${grupo.produto_id}|${grupo.venda_item_id}|${grupo.key}|${grupo.valor_cents}|${grupo.unit_cents}`;
+      return {
+        ...grupo,
+        quantidade_unidades: Math.max(
+          0,
+          grupo.quantidade_unidades - Number(selecionadasPorChave.get(chave) || 0)
+        )
+      };
+    }).filter((grupo) => grupo.quantidade_unidades > 0);
+  }
+
+  if (restantes.length || vendasBalanceadas.some((venda) => {
+    const valorCents = toCentavos(venda.valor);
+    return valorCents < valorMin || valorCents > valorMax;
+  })) {
+    return [];
+  }
+  return vendasBalanceadas;
 }
 
 function consolidarPorProduto(vendas, lotesOuProdutos) {
@@ -709,7 +955,8 @@ function gerarPreviaDistribuicao(lotesOuProdutos, valorInformado, opts = {}) {
           quantidade_disponivel: qtd,
           valor_disponivel: valor,
           preco_unitario: unit,
-          unit_cents: toCentavos(unit)
+          unit_cents: toCentavos(unit),
+          saldo_fiscal: p.saldo_fiscal
         });
       }
     }
@@ -751,8 +998,12 @@ function gerarPreviaDistribuicao(lotesOuProdutos, valorInformado, opts = {}) {
     });
   }
 
+  const limitesVenda = obterLimitesVendaCents({ valorMin, valorMax });
   const { selecionadasAgrupadas, somaCents } = selecionarUnidadesCompactas(grupos, alvoCents, {
-    metricasExecucao
+    metricasExecucao,
+    maxValorUnidadeCents: limitesVenda.valorMaxCents,
+    minVendaCents: limitesVenda.valorMinCents,
+    maxVendaCents: limitesVenda.valorMaxCents
   });
 
   if (somaCents === 0 || somaCents < alvoCents) {
@@ -781,35 +1032,48 @@ function gerarPreviaDistribuicao(lotesOuProdutos, valorInformado, opts = {}) {
     valorMin,
     valorMax,
     seedRealista: opts.seedRealista,
-    distribuicaoRealista: opts.distribuicaoRealista
+    distribuicaoRealista: opts.distribuicaoRealista,
+    metricasExecucao
   });
+  if (!vendas.length || vendas.some((venda) => {
+    const valorVendaCents = toCentavos(venda.valor);
+    return valorVendaCents < limitesVenda.valorMinCents
+      || valorVendaCents > limitesVenda.valorMaxCents;
+  })) {
+    return empty({
+      valor_informado: arredondarMoeda(alvoCents / 100),
+      valor_elegivel: valorElegivel,
+      diferenca: arredondarMoeda(alvoCents / 100),
+      incompleta: true,
+      mensagem:
+        'Não foi possível compor todas as NFC-e dentro dos limites mínimo e máximo configurados.',
+      codigo: 'SEM_COMPOSICAO_VALIDA'
+    });
+  }
 
   let somaVendas = vendas.reduce((s, v) => s + toCentavos(v.valor), 0);
   if (somaVendas !== somaCents && vendas.length) {
-    const delta = somaCents - somaVendas;
-    const last = vendas[vendas.length - 1];
-    last.valor = arredondarMoeda(last.valor + delta / 100);
-    if (last.itens && last.itens.length) {
-      const li = last.itens[last.itens.length - 1];
-      li.valor_total = arredondarMoeda(li.valor_total + delta / 100);
-      li.valor = li.valor_total;
-    }
-    somaVendas = somaCents;
+    return empty({
+      valor_informado: arredondarMoeda(alvoCents / 100),
+      valor_elegivel: valorElegivel,
+      diferenca: arredondarMoeda(alvoCents / 100),
+      incompleta: true,
+      mensagem: 'A soma dos valores dos itens não corresponde ao total bruto da composição; conciliação pendente.',
+      codigo: 'TOTAIS_COMPOSICAO_DIVERGENTES'
+    });
   }
 
-  const descontoCents = Math.max(0, somaCents - alvoCents);
-  let descontoRestanteCents = descontoCents;
   for (const venda of vendas) {
     const brutoVendaCents = toCentavos(venda.valor);
-    const descontoVendaCents = Math.min(brutoVendaCents, descontoRestanteCents);
-    venda.desconto = arredondarMoeda(descontoVendaCents / 100);
-    venda.valor_final = arredondarMoeda((brutoVendaCents - descontoVendaCents) / 100);
-    descontoRestanteCents -= descontoVendaCents;
+    venda.desconto = 0;
+    venda.valor_final = arredondarMoeda(brutoVendaCents / 100);
   }
 
   const porProduto = consolidarPorProduto(vendas, lotes);
   const valorFinalCents = vendas.reduce((soma, venda) => soma + toCentavos(venda.valor_final), 0);
   const perfeita = valorFinalCents === alvoCents;
+  const diferencaCents = alvoCents - valorFinalCents;
+  const diferencaAbsoluta = arredondarMoeda(Math.abs(diferencaCents) / 100);
 
   return {
     vendas,
@@ -823,18 +1087,18 @@ function gerarPreviaDistribuicao(lotesOuProdutos, valorInformado, opts = {}) {
     valor_informado: arredondarMoeda(alvoCents / 100),
     valor_distribuido: arredondarMoeda(somaCents / 100),
     valor_final: arredondarMoeda(valorFinalCents / 100),
-    desconto: arredondarMoeda(descontoCents / 100),
-    diferenca: arredondarMoeda((alvoCents - valorFinalCents) / 100),
+    desconto: 0,
+    diferenca: arredondarMoeda(diferencaCents / 100),
     valor_elegivel: valorElegivel,
     quantidade_vendas: vendas.length,
     perfeita,
     incompleta: !perfeita,
     mensagem: perfeita
-      ? (descontoCents > 0
-        ? `Distribuição concluída com desconto de R$ ${arredondarMoeda(descontoCents / 100).toFixed(2)}.`
-        : 'Valor informado e valor distribuído estão iguais.')
-      : `Distribuição incompleta. Diferença: R$ ${arredondarMoeda((alvoCents - valorFinalCents) / 100).toFixed(2)}`,
-    codigo: perfeita ? 'OK' : 'DIFERENCA',
+      ? 'Composição bruta e recebimentos conciliados; não foi aplicado desconto.'
+      : `Pendente de conciliação: composição bruta de R$ ${(valorFinalCents / 100).toFixed(2)} ` +
+        `e recebimentos de R$ ${(alvoCents / 100).toFixed(2)} diferem em ` +
+        `R$ ${diferencaAbsoluta.toFixed(2)}. Não há regra autorizada de desconto para ajustar essa diferença.`,
+    codigo: perfeita ? 'OK' : 'DIFERENCA_NAO_CONCILIADA',
     metricas: {
       produtos_elegiveis: new Set(lotes.map((l) => l.produto_id)).size,
       linhas_elegiveis: lotes.length,

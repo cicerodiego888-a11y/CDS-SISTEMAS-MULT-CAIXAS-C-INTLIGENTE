@@ -4,7 +4,7 @@
  * Avaliação (somente leitura) do cancelamento de uma venda com NFC-e.
  * Separa as duas ações:
  *  - cancelar NFC-e: evento 110111 na SEFAZ, só para documento autorizado, com chave,
- *    protocolo e dentro do prazo;
+ *    protocolo; a SEFAZ decide se aceita a tentativa de cancelamento;
  *  - cancelar venda: operação comercial (estoque/financeiro), sem evento fiscal quando
  *    não há NFC-e autorizada.
  * Situação fiscal não confirmada (duplicidade, timeout, desconhecida) bloqueia ambas.
@@ -115,17 +115,11 @@ async function avaliarCancelamentoVenda(vendaId, deps = {}) {
       );
     }
     const prazo = calcularPrazoCancelamentoNfce(notaRow, agora);
-    if (!prazo.ok) {
-      return bloquear(base, prazo.codigo, `${rotuloNota(nfce)}: ${prazo.mensagem}`, { prazo });
-    }
-    if (!prazo.dentro_prazo) {
-      return bloquear(
-        base,
-        'CANCELAMENTO_FORA_DO_PRAZO',
-        `${rotuloNota(nfce)} foi autorizada há ${Math.floor(prazo.minutos_decorridos)} min; o prazo de cancelamento é de ${prazo.prazo_minutos} min. O evento de cancelamento não será enviado.`,
-        { prazo }
-      );
-    }
+    const avisoPrazo = prazo.dentro_prazo
+      ? ''
+      : prazo.ok
+        ? ` A janela local de ${prazo.prazo_minutos} minutos foi excedida, mas a tentativa será submetida à SEFAZ, que decidirá se a aceita.`
+        : ' Não foi possível determinar a hora de autorização; a tentativa não será bloqueada localmente e a SEFAZ decidirá se a aceita.';
     return {
       ...base,
       prazo,
@@ -133,7 +127,7 @@ async function avaliarCancelamentoVenda(vendaId, deps = {}) {
       cancelar_venda_permitido: true,
       exige_justificativa: true,
       bloqueio: null,
-      mensagem: `${rotuloNota(nfce)} autorizada: será enviado o evento de cancelamento à SEFAZ e, se homologado, a venda será cancelada.`
+      mensagem: `${rotuloNota(nfce)} autorizada: a tentativa será enviada à SEFAZ. Somente a confirmação do cancelamento fiscal permitirá cancelar a venda.${avisoPrazo}`
     };
   }
 

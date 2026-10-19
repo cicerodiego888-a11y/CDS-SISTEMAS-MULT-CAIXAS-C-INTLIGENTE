@@ -71,7 +71,7 @@ function montarBlocoIcmsSimplesNacional(origem, csosnRaw, csosnPadrao = '102') {
   }
 
   throw new Error(
-    `CSOSN ${csosn} inválido para NFC-e. Use 102, 103, 300, 400, 500 ou 900 no cadastro do produto.`
+    `CSOSN ${csosn} inválido para NFC-e. Use 101, 102, 103, 300, 400, 500 ou 900 no cadastro do produto.`
   );
 }
 
@@ -90,34 +90,40 @@ function splitEnderecoLivre(endereco) {
   };
 }
 
+const MAPA_FORMAS_PAGAMENTO = Object.freeze({
+  dinheiro: '01',
+  cheque: '02',
+  cartao: '03',
+  cartao_credito: '03',
+  cartao_debito: '04',
+  credito: '05',
+  credito_loja: '05',
+  vale_alimentacao: '10',
+  vale_refeicao: '11',
+  vale_presente: '12',
+  vale_combustivel: '13',
+  boleto: '15',
+  deposito: '16',
+  pix: '17',
+  pix_tef: '17',
+  transferencia: '18',
+  programa_fidelidade: '19',
+  sem_pagamento: '90',
+  misto: '99',
+  outro: '99',
+  prazo: '99'
+});
+
+function normalizarFormaPagamento(forma) {
+  return String(forma || '').toLowerCase().trim();
+}
+
+function temMapeamentoFormaPagamento(forma) {
+  return Object.prototype.hasOwnProperty.call(MAPA_FORMAS_PAGAMENTO, normalizarFormaPagamento(forma));
+}
+
 function mapearFormaPagamento(forma) {
-  const normalizada = String(forma || '').toLowerCase().trim();
-
-  const mapa = {
-    dinheiro: '01',
-    cheque: '02',
-    cartao: '03',
-    cartao_credito: '03',
-    cartao_debito: '04',
-    credito: '05',
-    credito_loja: '05',
-    vale_alimentacao: '10',
-    vale_refeicao: '11',
-    vale_presente: '12',
-    vale_combustivel: '13',
-    boleto: '15',
-    deposito: '16',
-    pix: '17',
-    pix_tef: '17',
-    transferencia: '18',
-    programa_fidelidade: '19',
-    sem_pagamento: '90',
-    misto: '99',
-    outro: '99',
-    prazo: '99'
-  };
-
-  return mapa[normalizada] || '99';
+  return MAPA_FORMAS_PAGAMENTO[normalizarFormaPagamento(forma)] || '99';
 }
 
 function obterDescricaoPagamento(forma, tPag) {
@@ -136,21 +142,110 @@ function obterDescricaoPagamento(forma, tPag) {
   return descricoes[normalizada] || 'Outros';
 }
 
-function resolverTefPagamento(pagamento, dadosVenda = {}) {
-  if (pagamento.tef) {
+function resolverTefPagamento(pagamento) {
+  const pagamentoTransacaoId = pagamento.tef_transacao_id || null;
+  const objetoTransacaoId = pagamento.tef?.transacao_id || null;
+  if (
+    pagamentoTransacaoId != null &&
+    objetoTransacaoId != null &&
+    String(pagamentoTransacaoId) !== String(objetoTransacaoId)
+  ) return null;
+  const tefTransacaoId = pagamentoTransacaoId || objetoTransacaoId;
+  if (tefTransacaoId == null) return null;
+
+  if (
+    pagamento.tef &&
+    typeof pagamento.tef === 'object' &&
+    String(pagamento.tef.status || '').toLowerCase() === 'aprovado'
+  ) {
     return pagamento.tef;
   }
 
-  if (pagamento.nsu || pagamento.autorizacao) {
+  if (String(pagamento.tef_status || '').toLowerCase() === 'aprovado') {
     return {
-      nsu: pagamento.nsu,
-      autorizacao: pagamento.autorizacao,
-      bandeira: pagamento.bandeira,
-      cnpj_credenciadora: pagamento.cnpj_credenciadora
+      transacao_id: String(tefTransacaoId),
+      status: pagamento.tef_status,
+      venda_id: pagamento.tef_venda_id != null ? Number(pagamento.tef_venda_id) : null,
+      provedor: pagamento.tef_provedor || null,
+      nsu: pagamento.nsu || pagamento.tef_nsu || null,
+      autorizacao: pagamento.autorizacao || pagamento.tef_autorizacao || null,
+      bandeira: pagamento.tef_bandeira || null,
+      adquirente: pagamento.tef_adquirente || null,
+      cnpj_credenciadora: pagamento.cnpj_credenciadora || null
     };
   }
 
-  return dadosVenda.tef || null;
+  return null;
+}
+
+function validarVinculoTefPagamentos(pagamentos, transacoesTefVenda = []) {
+  const pagamentosFiscais = (Array.isArray(pagamentos) ? pagamentos : []).filter((p) => {
+    const tipo = String(p.tipo_recebimento || '').toLowerCase().trim();
+    return !tipo || tipo === 'fiscal';
+  });
+
+  const idsTefDivergentes = pagamentosFiscais.some((p) =>
+    (
+      p.tef_transacao_id != null &&
+      p.tef?.transacao_id != null &&
+      String(p.tef_transacao_id) !== String(p.tef.transacao_id)
+    ) || (
+      p.venda_id != null &&
+      (p.tef_venda_id != null || p.tef?.venda_id != null) &&
+      String(p.venda_id) !== String(p.tef_venda_id != null ? p.tef_venda_id : p.tef.venda_id)
+    )
+  );
+  if (idsTefDivergentes) {
+    return {
+      status: 'pendente_dados_pagamento',
+      code: 'XML_PAGAMENTO_TEF_ID_DIVERGENTE',
+      message: 'O ID da transação ou venda diverge dos metadados associados ao recebimento.'
+    };
+  }
+
+  const tefNaoAprovadoVinculado = pagamentosFiscais.some((p) => {
+    const id = p.tef_transacao_id || p.tef?.transacao_id;
+    if (id == null) return false;
+    const status = p.tef_status || p.tef?.status;
+    return String(status || '').toLowerCase() !== 'aprovado';
+  });
+  if (tefNaoAprovadoVinculado) {
+    return {
+      status: 'pendente_dados_pagamento',
+      code: 'XML_PAGAMENTO_TEF_NAO_APROVADO',
+      message: 'O recebimento aponta para uma transação TEF sem status aprovado recuperável.'
+    };
+  }
+
+  const idsVinculados = new Set(pagamentosFiscais
+    .map((p) => p.tef_transacao_id || p.tef?.transacao_id)
+    .filter((id) => id != null)
+    .map(String));
+
+  const transacoesAprovadasSemRecebimento = (Array.isArray(transacoesTefVenda)
+    ? transacoesTefVenda
+    : [])
+    .filter((t) => String(t.status || '').toLowerCase() === 'aprovado')
+    .filter((t) => !idsVinculados.has(String(t.id)));
+
+  const haRecebimentoCartaoOuPixSemVinculo = pagamentosFiscais.some((pagamento) => {
+    const tPag = mapearFormaPagamento(pagamento.forma_pagamento || pagamento.tipo || '');
+    const forma = String(pagamento.forma_pagamento || pagamento.tipo || '').toLowerCase().trim();
+    return (
+      (['03', '04', '17'].includes(tPag)
+        && pagamento.tef_transacao_id == null
+        && pagamento.tef?.transacao_id == null)
+      || ['misto', 'pagamento misto'].includes(forma)
+    );
+  });
+
+  if (!transacoesAprovadasSemRecebimento.length || !haRecebimentoCartaoOuPixSemVinculo) return null;
+
+  return {
+    status: 'pendente_dados_pagamento',
+    code: 'XML_PAGAMENTO_TEF_SEM_VINCULO',
+    message: 'Há uma transação TEF aprovada, mas não é possível associá-la com segurança aos recebimentos fiscais desta venda.'
+  };
 }
 
 /**
@@ -226,7 +321,7 @@ function resolverPagamentosNfce(venda, totalFiscal) {
   ) };
 }
 
-function montarPagamentos(pagamentos, dadosVenda = {}, vTroco = 0) {
+function montarPagamentos(pagamentos, _dadosVenda = {}, vTroco = 0) {
   let xml = '<pag>';
 
   pagamentos.forEach(p => {
@@ -245,25 +340,41 @@ function montarPagamentos(pagamentos, dadosVenda = {}, vTroco = 0) {
 
     xml += `<vPag>${Number(p.valor).toFixed(2)}</vPag>`;
 
-    const tef = resolverTefPagamento(p, dadosVenda);
+    // Vendas legadas sem ID por recebimento só têm associação não ambígua quando há um único pagamento.
+    const tef = resolverTefPagamento(p);
+    const ehCartao = tPag === '03' || tPag === '04';
+    const ehPix = tPag === '17';
 
-    if (tef && ['03', '04', '17'].includes(tPag)) {
+    if (tef && (ehCartao || ehPix)) {
       xml += `
         <card>
           <tpIntegra>1</tpIntegra>
       `;
 
-      const cnpjCredenciadora = onlyDigits(
-        (tef && tef.cnpj_credenciadora) ||
-        (tef && tef.cnpjCredenciadora) ||
-        '01425787000104'
-      );
-
-      if (cnpjCredenciadora && cnpjCredenciadora.length === 14) {
-        xml += `<CNPJ>${cnpjCredenciadora}</CNPJ>`;
+      // RC3.21 — PIX não usa credenciadora de cartão.
+      // O CNPJ deve ser da instituição de pagamento do PIX.
+      // Não inventar CNPJ: só emitir se houver dado real.
+      let cnpjInstituicao;
+      if (ehPix) {
+        cnpjInstituicao = onlyDigits(
+          (tef && tef.cnpj_credenciadora) ||
+          (tef && tef.cnpjCredenciadora) ||
+          (tef && tef.cnpj_instituicao) ||
+          ''
+        );
+      } else {
+        cnpjInstituicao = onlyDigits(
+          (tef && tef.cnpj_credenciadora) ||
+          (tef && tef.cnpjCredenciadora) ||
+          ''
+        );
       }
 
-      if (tPag === '03' || tPag === '04') {
+      if (cnpjInstituicao && cnpjInstituicao.length === 14) {
+        xml += `<CNPJ>${cnpjInstituicao}</CNPJ>`;
+      }
+
+      if (ehCartao) {
         const bandeira = String(tef.bandeira || p.bandeira || '').toUpperCase();
 
         let tBand = '99';
@@ -281,14 +392,15 @@ function montarPagamentos(pagamentos, dadosVenda = {}, vTroco = 0) {
         xml += `<tBand>${tBand}</tBand>`;
       }
 
-      const autorizacao = tef.autorizacao || p.autorizacao || tef.nsu || p.nsu;
+      const autorizacao = tef.autorizacao || p.autorizacao;
 
       if (autorizacao) {
         xml += `<cAut>${String(autorizacao).substring(0, 20)}</cAut>`;
       }
 
       xml += `</card>`;
-    } else if (['03', '04', '17'].includes(tPag)) {
+    } else if (ehCartao || ehPix) {
+      // Pagamento não integrado à automação, sem dados de transação vinculados.
       xml += `
         <card>
           <tpIntegra>2</tpIntegra>
@@ -850,6 +962,7 @@ function buildNfceXml({ config, venda, itens, numero, cNF: cNFTentativa }) {
 
 module.exports = {
   buildNfceXml,
+  validarVinculoTefPagamentos,
   ratearDescontoNosItens,
   determinarModeloDeTotais,
   calcularVNFSefaz,
@@ -860,6 +973,7 @@ module.exports = {
   montarInfNFeSupl,
   anexarInfNFeSupl,
   mapearFormaPagamento,
+  temMapeamentoFormaPagamento,
   montarPagamentos,
   resolverPagamentosNfce
 };

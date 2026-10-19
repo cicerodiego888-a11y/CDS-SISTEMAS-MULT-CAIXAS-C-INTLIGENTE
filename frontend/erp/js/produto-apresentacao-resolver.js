@@ -13,7 +13,7 @@
     const MAX_PROFUNDIDADE = 8;
 
     const TIPOS_EMBALAGEM_AGRUPADORA = Object.freeze([
-        'CX', 'CAIXA', 'FD', 'FARDO', 'PCT', 'PACOTE', 'DISPLAY', 'KIT'
+        'CX', 'CAIXA', 'FD', 'FARDO', 'PCT', 'PACOTE', 'DISPLAY', 'KIT', 'VARA'
     ]);
 
     const OPCAO_NOVA_UC_ID = '__nova_uc__';
@@ -52,7 +52,7 @@
     }
 
     function embalagemAtivaCompra(e) {
-        return Number(e?.ativa ?? 1) === 1 && Number(e?.compra ?? 1) === 1;
+        return Number(e?.ativa ?? 1) === 1 && Number(e.compra ?? 1) === 1;
     }
 
     function legadoUsaEmbalagemComercial(produto) {

@@ -167,7 +167,7 @@ describe('Motor térmico — contrato do enhancer', () => {
     for (const original of documentos) {
       const final = enriquecerHtmlImpressaoTermica(original);
       assert.equal(regrasPage(final).length, 1);
-      if (/danfe-termico|cupom-nao-fiscal|fechamento-caixa/.test(original)) {
+      if (/danfe-termico|cupom-nao-fiscal|fechamento-caixa|etiqueta/.test(original)) {
         assert.match(final, /@page \{ size: (80|58)mm auto; margin: 0; \}/);
       } else {
         assert.match(final, PAGE_SO_MARGEM);
@@ -184,7 +184,8 @@ describe('Motor térmico — geometria dos templates reais', () => {
     const final = enriquecerHtmlImpressaoTermica(gerarCupomNaoFiscal());
     assert.match(final, /<body class="cupom-nao-fiscal-80">/);
     assert.match(final, /@page \{ size: 80mm auto; margin: 0; \}/);
-    assert.match(final, /width:\s*80mm/);
+    assert.match(final, /width:\s*72mm/);
+    assert.doesNotMatch(final, /width:\s*80mm/);
     assert.match(final, /font-size:\s*11px/);
     assert.doesNotMatch(final, /width:\s*(?:300|280|380)px|48ch|32ch|76mm|overflow-x\s*:\s*hidden/);
   });
@@ -193,7 +194,8 @@ describe('Motor térmico — geometria dos templates reais', () => {
     const final = enriquecerHtmlImpressaoTermica(gerarCupomNaoFiscal({ papel_mm: 58 }));
     assert.match(final, /<body class="cupom-nao-fiscal-58">/);
     assert.match(final, /@page \{ size: 58mm auto; margin: 0; \}/);
-    assert.match(final, /width:\s*58mm/);
+    assert.match(final, /width:\s*48mm/);
+    assert.doesNotMatch(final, /width:\s*58mm/);
     for (const trecho of ['COMPROVANTE NÃO FISCAL', 'Venda #42', 'PRODUTO TESTE', 'Total:', 'R$ 10,00', 'ESTE COMPROVANTE NÃO POSSUI VALOR FISCAL', 'VOLTE SEMPRE.']) {
       assert.ok(final.includes(trecho), `conteúdo ausente: ${trecho}`);
     }
@@ -204,8 +206,10 @@ describe('Motor térmico — geometria dos templates reais', () => {
     for (const [papel, qr] of [[80, 42], [58, 26]]) {
       const original = DanfeTermicoRenderer.gerar(dadosDanfeTermico(papel));
       const final = enriquecerHtmlImpressaoTermica(original.html);
+      const util = papel === 58 ? 48 : 72;
       assert.match(final, new RegExp(`@page \\{ size: ${papel}mm auto; margin: 0; \\}`));
-      assert.match(final, new RegExp(`width:\\s*${papel}mm`));
+      assert.match(final, new RegExp(`width:\\s*${util}mm`));
+      assert.doesNotMatch(final, new RegExp(`width:\\s*${papel}mm`));
       assert.match(final, new RegExp(`--qr:\\s*${qr}mm`));
       assert.match(original.html, /\.qr img\s*\{[^}]*width:\s*var\(--qr\)/);
       assert.equal((original.html.match(/\.qr img\s*\{/g) || []).length, 1);
@@ -229,11 +233,14 @@ describe('Motor térmico — geometria dos templates reais', () => {
     const f80 = gerarHtmlCupomFechamento(amostra);
     const f58 = gerarHtmlCupomFechamento(amostra, { papel_mm: 58 });
     assert.match(f80, /@page \{ size: 80mm auto; margin: 0; \}/);
-    assert.match(f80, /width:\s*80mm/);
-    assert.match(f80, /max-width:\s*80mm/);
-    assert.match(f80, /padding:\s*1\.5mm 2\.5mm 2mm/);
+    assert.match(f80, /width:\s*72mm/);
+    assert.match(f80, /max-width:\s*72mm/);
+    assert.match(f80, /padding:\s*1\.2mm 3\.5mm 2mm 2mm/);
+    assert.match(f80, /padding-right:\s*1\.5mm/);
+    assert.doesNotMatch(f80, /width:\s*80mm/);
     assert.match(f58, /@page \{ size: 58mm auto; margin: 0; \}/);
-    assert.match(f58, /width:\s*58mm/);
+    assert.match(f58, /width:\s*48mm/);
+    assert.doesNotMatch(f58, /width:\s*58mm/);
     assert.doesNotMatch(f80, /48ch|32ch|76mm|overflow-x\s*:\s*hidden|text-overflow:\s*ellipsis|<pre\b/);
     for (const html of [f80, f58]) {
       assert.ok(html.includes('FECHAMENTO DE CAIXA'));
@@ -247,9 +254,9 @@ describe('Motor térmico — geometria dos templates reais', () => {
     const produto = { id: 1, nome: 'Produto', codigo: '1', unidade: 'UN', codigo_barras: '7891234567890', preco_venda: 10 };
     const e80 = EtiquetaProduto.montarHtml(produto, '<svg viewBox="0 0 100 30"></svg>');
     const e58 = EtiquetaProduto.montarHtml(produto, '<svg viewBox="0 0 100 30"></svg>', { papelMm: 58 });
-    assert.match(e80, /\.etiqueta \{ width: 72mm; max-width: 100%;/);
+    assert.match(e80, /\.etiqueta \{ width: 72mm; max-width: 72mm;/);
     assert.match(e80, /grid-template-columns: minmax\(0, 1fr\) 29mm/);
-    assert.match(e58, /\.etiqueta \{ width: 48mm; max-width: 100%;/);
+    assert.match(e58, /\.etiqueta \{ width: 48mm; max-width: 48mm;/);
     assert.match(e58, /\.barcode-area \{ grid-column: 1; grid-row: 3;/);
   });
 

@@ -225,6 +225,12 @@ Endpoints legados (`/operacional`, `/alertas`, `/pendencias`, `/atencao`) perman
 
 `rotas/compras.js` → `CentralEntradasOrchestrator.vincularCompra` (singleton DI).
 
+### Conversão MUC recusada sem quantidade segura
+
+Na gravação de uma compra originada da Central, o operador pode continuar sem aplicar a conversão automática. Se `qCom/uCom` não representar com segurança a unidade de estoque, o item é gravado com `compras_itens.status_estoque = 'PENDENTE_CONVERSAO'`, quantidade de estoque zero e unidades/quantidades originais da NF-e preservadas em `pendencia_estoque_json`. A compra e seus lançamentos financeiros seguem a transação normal; o saldo e o custo do produto não são atualizados por esse item.
+
+O detalhe da compra apresenta a pendência. `POST /api/compras/:compraId/itens/:itemId/regularizar-estoque` só aplica o saldo depois de resolver uma apresentação de compra ativa, com fator positivo, para a unidade de estoque atual do produto e de confirmar a quantidade calculada pelo MUC. A regularização altera item e saldo numa transação e só pode ocorrer uma vez. Uma resposta `422 CONVERSAO_NAO_VALIDADA` indica que a apresentação ainda precisa ser corrigida; não autoriza usar quantidade tributável inferida como fator.
+
 ## Exceções documentadas
 
 | Item | Motivo |

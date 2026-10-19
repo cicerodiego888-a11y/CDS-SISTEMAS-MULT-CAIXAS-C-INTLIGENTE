@@ -203,25 +203,24 @@ function expedicaoHabilitada() {
     return possuiRecurso('expedicao');
 }
 
-/** Permitir Fechamento Fiscal do Dia (configuração, não licença). Padrão: oculto. */
+let fechamentoFiscalDiaMenuAtualizacao = 0;
+window.__cdsFechamentoFiscalDiaOn = false;
+
 function fechamentoFiscalDiaMenuPermitido() {
-    return window.__cdsFechamentoFiscalDiaOn === true;
+    const fiscalDesativado = implantacaoPermiteFiscal()
+        && window.__cdsModoFiscalEstadoConfirmado === false;
+    return window.__cdsFechamentoFiscalDiaOn === true || fiscalDesativado;
 }
 
-function aplicarVisibilidadeMenuFechamentoFiscalDia(on, opts = {}) {
-    window.__cdsFechamentoFiscalDiaOn = Boolean(on);
+function aplicarVisibilidadeMenuFechamentoFiscalDia(permitido, opts = {}) {
+    window.__cdsFechamentoFiscalDiaOn = permitido === true;
     if (typeof filtrarMenuPorPermissoes === 'function') {
         filtrarMenuPorPermissoes();
     } else {
-        const el = document.getElementById('nav-fechamento-fiscal-dia');
-        if (el) {
-            if (window.__cdsFechamentoFiscalDiaOn) {
-                el.removeAttribute('hidden');
-                el.style.display = '';
-            } else {
-                el.setAttribute('hidden', '');
-                el.style.display = 'none';
-            }
+        const item = document.getElementById('nav-fechamento-fiscal-dia');
+        if (item) {
+            item.hidden = !window.__cdsFechamentoFiscalDiaOn;
+            item.style.display = window.__cdsFechamentoFiscalDiaOn ? '' : 'none';
         }
     }
     if (
@@ -234,21 +233,49 @@ function aplicarVisibilidadeMenuFechamentoFiscalDia(on, opts = {}) {
     }
 }
 
-async function hidratarMenuFechamentoFiscalDia() {
-    window.__cdsFechamentoFiscalDiaOn = false;
+async function atualizarVisibilidadeMenuFechamentoFiscalDia() {
+    const atualizacao = ++fechamentoFiscalDiaMenuAtualizacao;
+    const item = document.getElementById('nav-fechamento-fiscal-dia');
+    if (!item) return;
+
     try {
         const response = await fetch(`${API_URL}/configuracoes/fechamento_fiscal_do_dia`, {
             headers: {
-                Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+                Authorization: `******'token') || ''}`
             }
         });
-        if (!response.ok) return;
-        const data = await response.json().catch(() => ({}));
-        window.__cdsFechamentoFiscalDiaOn = Boolean(data.permitido) || data.valor === 'ATIVADO';
-    } catch (_) {
-        window.__cdsFechamentoFiscalDiaOn = false;
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        let permitido;
+        if (typeof data?.permitido === 'boolean') {
+            permitido = data.permitido;
+        } else if (data?.valor === 'ATIVADO') {
+            permitido = true;
+        } else if (data?.valor === 'DESATIVADO') {
+            permitido = false;
+        } else {
+            throw new Error('Resposta inválida da configuração do Fechamento Fiscal do Dia.');
+        }
+
+        if (atualizacao !== fechamentoFiscalDiaMenuAtualizacao) return;
+        aplicarVisibilidadeMenuFechamentoFiscalDia(permitido);
+    } catch (error) {
+        if (atualizacao !== fechamentoFiscalDiaMenuAtualizacao) return;
+        aplicarVisibilidadeMenuFechamentoFiscalDia(false);
+        console.warn(
+            '[Fechamento Fiscal do Dia] Não foi possível confirmar a configuração administrativa; a visibilidade segue o estado F12 confirmado.',
+            error
+        );
     }
 }
+
+window.addEventListener('cds:fechamento-fiscal-dia-config-alterada', atualizarVisibilidadeMenuFechamentoFiscalDia);
+document.addEventListener('cds:modo-fiscal-alterado', function () {
+    if (typeof filtrarMenuPorPermissoes === 'function') filtrarMenuPorPermissoes();
+});
 
 function paginaEhModuloFiscal(page) {
     return PAGINAS_MODULO_FISCAL.includes(String(page || ''));
@@ -605,6 +632,7 @@ function aplicarModoFiscalLocal(valor, opcoes = {}) {
     }
 
     const normalizado = normalizarValorModoFiscal(valor);
+    window.__cdsModoFiscalEstadoConfirmado = normalizado === '1';
     const atual = localStorage.getItem('pdv_modo_fiscal_ativo');
 
     if (ehPdvF12 && opcoes.origemF12 === true && typeof window !== 'undefined') {
@@ -784,6 +812,7 @@ function iniciarSincronizacaoModoFiscalServidor() {
 
 function alternarModoFiscalLegadoSessao() {
     const novoValor = modoFiscalAtivoSistema() ? '0' : '1';
+    window.__cdsModoFiscalEstadoConfirmado = novoValor === '1';
     localStorage.setItem('pdv_modo_fiscal_ativo', novoValor);
     localStorage.setItem('modo_dashboard_fiscal', novoValor);
     aplicarModoFiscalGlobal();
@@ -1251,7 +1280,6 @@ function filtrarMenuPorPermissoes() {
 
         if (page === 'fechamento-fiscal-dia' && !fechamentoFiscalDiaMenuPermitido()) {
             $item.hide();
-            $item.attr('hidden', 'hidden');
             return;
         }
 
@@ -1260,10 +1288,13 @@ function filtrarMenuPorPermissoes() {
             return;
         }
 
-        $item.show();
         if (page === 'fechamento-fiscal-dia') {
+            $item.show();
             $item.removeAttr('hidden');
+            return;
         }
+
+        $item.show();
     });
 
     $('#nav-config-avancadas').toggle(isSuperAdminUser());
@@ -1538,7 +1569,7 @@ function inicializarShellModulo(options = {}) {
         success: function () {
             carregarConfiguracaoImplantacao().finally(async function () {
                 await carregarModoFiscalInicial();
-                await hidratarMenuFechamentoFiscalDia();
+                await atualizarVisibilidadeMenuFechamentoFiscalDia();
                 iniciarSincronizacaoModoFiscalServidor();
 
                 if (implantacaoPermiteFiscal() && moduloAtualUsaAtalhoF12()) {
@@ -1581,8 +1612,7 @@ window.aplicarIdentidadeVisualCds = aplicarIdentidadeVisualCds;
 window.fiscalHabilitado = fiscalHabilitado;
 window.possuiRecurso = possuiRecurso;
 window.expedicaoHabilitada = expedicaoHabilitada;
-window.fechamentoFiscalDiaMenuPermitido = fechamentoFiscalDiaMenuPermitido;
-window.aplicarVisibilidadeMenuFechamentoFiscalDia = aplicarVisibilidadeMenuFechamentoFiscalDia;
+window.atualizarVisibilidadeMenuFechamentoFiscalDia = atualizarVisibilidadeMenuFechamentoFiscalDia;
 window.implantacaoPermiteFiscal = implantacaoPermiteFiscal;
 window.implantacaoPermiteMultiCaixa = implantacaoPermiteMultiCaixa;
 window.obterRecursosImplantacao = obterRecursosImplantacao;

@@ -1,0 +1,91 @@
+<section class="compras-report" id="compras-report">
+    <header class="compras-report-header">
+        <div>
+            <p class="compras-report-eyebrow">Gestão · Suprimentos</p>
+            <h1>Relatório de Compras</h1>
+            <p class="text-muted mb-0">Consulte compras, itens e valores registrados no sistema.</p>
+        </div>
+        <div class="compras-report-actions">
+            <button type="button" class="btn btn-primary" id="compras-report-preview-open" disabled>
+                <i class="fas fa-eye" aria-hidden="true"></i> Visualizar impressão
+            </button>
+        </div>
+    </header>
+
+    <section class="compras-report-filters" aria-labelledby="compras-report-filters-title">
+        <h2 id="compras-report-filters-title">Filtros</h2>
+        <form id="compras-report-form">
+            <div class="compras-report-filter-grid">
+                <label>
+                    <span>Data inicial</span>
+                    <input class="form-control" type="date" id="compras-report-date-start">
+                </label>
+                <label>
+                    <span>Data final</span>
+                    <input class="form-control" type="date" id="compras-report-date-end">
+                </label>
+                <label>
+                    <span>Fornecedor</span>
+                    <input class="form-control" type="search" id="compras-report-supplier" maxlength="200" autocomplete="off">
+                </label>
+                <label>
+                    <span>Número da nota</span>
+                    <input class="form-control" type="search" id="compras-report-invoice" maxlength="200" autocomplete="off">
+                </label>
+                <label>
+                    <span>ID da compra</span>
+                    <input class="form-control" type="number" id="compras-report-purchase-id" min="1" step="1">
+                </label>
+                <div class="compras-report-filter-actions">
+                    <button class="btn btn-primary" type="submit" id="compras-report-submit">Consultar</button>
+                    <button class="btn btn-outline-secondary" type="button" id="compras-report-clear">Limpar filtros</button>
+                </div>
+            </div>
+        </form>
+        <div id="compras-report-filter-error" class="alert alert-danger d-none mb-0" role="alert"></div>
+    </section>
+
+    <section class="compras-report-summary" aria-label="Resumo das compras filtradas">
+        <article class="compras-report-metric">
+            <span>Total de compras</span>
+            <strong id="compras-report-count">—</strong>
+        </article>
+        <article class="compras-report-metric">
+            <span>Valor oficial das compras</span>
+            <strong id="compras-report-total">—</strong>
+        </article>
+        <article class="compras-report-metric">
+            <span>Linhas de itens</span>
+            <strong id="compras-report-items">—</strong>
+        </article>
+        <article class="compras-report-metric">
+            <span>Notas identificadas</span>
+            <strong id="compras-report-invoices">—</strong>
+        </article>
+    </section>
+
+    <div class="compras-report-status" id="compras-report-status" role="status" aria-live="polite"></div>
+    <div class="compras-report-error alert alert-danger d-none" id="compras-report-error" role="alert"></div>
+    <main id="compras-report-results" aria-live="polite"></main>
+    <footer class="compras-report-footer" id="compras-report-generated"></footer>
+</section>
+
+<div class="compras-report-preview" id="compras-report-preview" hidden aria-hidden="true">
+    <section class="compras-report-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="compras-report-preview-title">
+        <header class="compras-report-preview-toolbar">
+            <h2 id="compras-report-preview-title">Pré-visualização de impressão</h2>
+            <div class="compras-report-actions">
+                <button type="button" class="btn btn-outline-secondary" id="compras-report-preview-print">
+                    <i class="fas fa-print" aria-hidden="true"></i> Imprimir
+                </button>
+                <button type="button" class="btn btn-primary" id="compras-report-preview-pdf">
+                    <i class="fas fa-file-pdf" aria-hidden="true"></i> Salvar PDF
+                </button>
+                <button type="button" class="btn btn-outline-secondary" id="compras-report-preview-close">Fechar</button>
+            </div>
+        </header>
+        <div id="compras-report-preview-status" class="small text-muted px-3" role="status" aria-live="polite"></div>
+        <div id="compras-report-preview-error" class="alert alert-danger d-none mx-3" role="alert"></div>
+        <div class="compras-report-preview-paper" id="compras-report-preview-content"></div>
+    </section>
+</div>

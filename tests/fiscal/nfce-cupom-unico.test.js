@@ -197,7 +197,8 @@ describe('Cupom NFC-e único — renderer oficial', () => {
     const out = await cupom({ larguraMm: 80 });
     assert.match(out.html, /danfe-termico-80/);
     assert.match(out.html, /--qr:\s*42mm/);
-    assert.match(out.html, /width:\s*80mm/);
+    assert.match(out.html, /width:\s*72mm/);
+    assert.doesNotMatch(out.html, /width:\s*80mm/);
     assert.match(out.html, /width:\s*var\(--qr\)/);
     assert.match(out.html, /height:\s*var\(--qr\)/);
     assert.match(out.html, /data:image\/png;base64,/);
@@ -208,7 +209,8 @@ describe('Cupom NFC-e único — renderer oficial', () => {
     const out = await cupom({ larguraMm: 58 });
     oficial(out.html);
     assert.match(out.html, /danfe-termico-58/);
-    assert.match(out.html, /width:\s*58mm/);
+    assert.match(out.html, /width:\s*48mm/);
+    assert.doesNotMatch(out.html, /width:\s*58mm/);
     assert.match(out.html, /--qr:\s*26mm/);
     assert.match(out.html, /font-size:\s*12px/);
   });

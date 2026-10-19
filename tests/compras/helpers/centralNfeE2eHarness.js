@@ -28,6 +28,7 @@ const SCRIPTS_PAGINA_COMPRAS = [
   'frontend/shared/js/motor-quantidade-compra.js',
   'frontend/erp/js/tratamento-fiscal-item-compra.js',
   'frontend/erp/js/compras-fornecedor-cnpj-rc831.js',
+  'frontend/erp/js/compras-confirmacao-conversao.js',
   'frontend/erp/js/compras.js'
 ];
 const FUNCOES_CORE_FORMATACAO = ['formatDate', 'formatCurrency'];
@@ -159,6 +160,7 @@ function criarPaginaCompras(app) {
   const marcados = new Map();
   const handlers = new Map();
   const elementos = new Map();
+  const propriedades = new Map();
   const sessao = new Map();
   const notificacoes = [];
   const requisicoes = [];
@@ -175,6 +177,11 @@ function criarPaginaCompras(app) {
       if (value !== undefined) valores.set(`#${id}`, decodificarHtml(value));
       if (/\bchecked\b/.test(attrs)) marcados.set(`#${id}`, true);
     }
+    for (const tag of String(html).matchAll(/<button\b([^>]*)>/gi)) {
+      const attrs = tag[1];
+      const id = attrs.match(/\bid="([^"]+)"/)?.[1];
+      if (id && /\bdisabled\b/.test(attrs)) propriedades.set(`#${id}|disabled`, true);
+    }
   }
 
   async function enviar(metodo, url, corpo) {
@@ -189,6 +196,7 @@ function criarPaginaCompras(app) {
 
   function jq(alvo) {
     const chave = typeof alvo === 'string' ? alvo.trim() : '__objeto__';
+    const objeto = typeof alvo === 'object' && alvo !== null ? alvo : null;
     const base = {
       length: 1,
       val(...args) {
@@ -202,8 +210,12 @@ function criarPaginaCompras(app) {
         return seletor === ':checked' ? Boolean(marcados.get(chave)) : false;
       },
       prop(nome, valor) {
-        if (valor === undefined) return nome === 'checked' ? Boolean(marcados.get(chave)) : undefined;
+        if (valor === undefined) {
+          if (nome === 'checked') return Boolean(marcados.get(chave));
+          return propriedades.get(`${chave}|${nome}`);
+        }
         if (nome === 'checked') marcados.set(chave, Boolean(valor));
+        else propriedades.set(`${chave}|${nome}`, valor);
         return proxy;
       },
       on(evento, ...resto) {
@@ -213,6 +225,8 @@ function criarPaginaCompras(app) {
       },
       html(conteudo) {
         if (conteudo === undefined) return '';
+        ultimoHtmlAnexado = conteudo;
+        htmlAnexados.push(conteudo);
         semearCampos(conteudo);
         return proxy;
       },
@@ -226,7 +240,11 @@ function criarPaginaCompras(app) {
       },
       text(valor) { return valor === undefined ? '' : proxy; },
       attr(nome, valor) { return valor === undefined ? undefined : proxy; },
-      data() { return undefined; },
+      data(nome) {
+        if (!objeto || !nome) return undefined;
+        const camel = String(nome).replace(/-([a-z])/g, (_match, letra) => letra.toUpperCase());
+        return objeto.dataset?.[camel] ?? objeto[`data-${nome}`];
+      },
       toArray() { return []; },
       get() { return undefined; }
     };
@@ -387,6 +405,12 @@ function criarPaginaCompras(app) {
     requisicoes,
     errosCallback,
     htmlAnexados,
+    clicar(seletor, alvo = {}) {
+      const handler = handlers.get(`${seletor}|click`);
+      if (!handler) throw new Error(`Handler de clique não registrado para ${seletor}`);
+      handler.call(alvo);
+    },
+    prop(seletor, nome) { return propriedades.get(`${seletor}|${nome}`); },
     avaliar: (codigo) => vm.runInContext(codigo, context)
   };
 }

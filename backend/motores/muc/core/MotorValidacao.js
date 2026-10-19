@@ -4,6 +4,8 @@
  */
 'use strict';
 
+const { normalizarTipoApresentacao } = require('../constants/tiposApresentacao');
+
 function executar(ctx) {
   const warnings = [];
   const dto = ctx.dto;
@@ -16,6 +18,13 @@ function executar(ctx) {
   const fracionado = Number(item.produto_fracionado ?? item.vendido_por_peso ?? 0) === 1;
   const qtdEmb = Number(item.quantidade_embalagens || dto.quantidadeCompra || 0);
   const qtdPor = Number(item.quantidade_por_embalagem || dto.quantidadePorApresentacao || 0);
+
+  const tipoApresentacao = normalizarTipoApresentacao(
+    dto.apresentacao?.tipo || dto.unidadeCompra
+  );
+  if (tipoApresentacao === 'VARA' && qtdEmb > 0 && qtdPor <= 0) {
+    return { ok: false, erro: 'Apresentação VARA exige fator de conversão positivo cadastrado.', warnings };
+  }
 
   if (!fracionado && qtdEmb > 0 && qtdPor <= 0) {
     warnings.push('Quantidade por apresentação não informada; usando fator 1.');

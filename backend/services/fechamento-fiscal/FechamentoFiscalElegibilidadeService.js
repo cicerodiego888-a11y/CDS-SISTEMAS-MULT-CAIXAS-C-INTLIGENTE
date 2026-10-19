@@ -309,9 +309,10 @@ async function listarLotesElegiveisDoDia(db, data, opts = {}) {
      ORDER BY p.id ASC`
   );
   if (contextoDia) contextoDia.produtosFiscais = produtos;
-  const saldoPorProduto = new Map(
+  const saldoFiscalAtualPorProduto = new Map(
     produtos.map((produto) => [Number(produto.produto_id), max0(produto.saldo_fiscal)])
   );
+  const saldoPorProduto = new Map(saldoFiscalAtualPorProduto);
   const produtosComLote = new Set();
 
   const lotes = [];
@@ -363,6 +364,7 @@ async function listarLotesElegiveisDoDia(db, data, opts = {}) {
       preco_unitario: unit,
       preco_unitario_comercial: precoComercial,
       valor_unitario_fiscal: unit,
+      saldo_fiscal: saldoFiscalAtualPorProduto.get(produtoId) || 0,
       quantidade_fiscal_consumida_em_operacao_nao_fiscal: qtd,
       quantidade_disponivel: qtd,
       valor_disponivel: valor,
@@ -406,6 +408,7 @@ async function listarLotesElegiveisDoDia(db, data, opts = {}) {
       preco_unitario: preco,
       preco_unitario_comercial: preco,
       valor_unitario_fiscal: preco,
+      saldo_fiscal: saldoFiscalAtualPorProduto.get(produtoId) || 0,
       quantidade_fiscal_consumida_em_operacao_nao_fiscal: 0,
       quantidade_disponivel: quantidade,
       valor_disponivel: valor,

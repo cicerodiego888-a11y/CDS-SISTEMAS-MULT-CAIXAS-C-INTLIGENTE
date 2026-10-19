@@ -23,6 +23,7 @@ const UNIDADES_COMERCIAIS = Object.freeze([
   'DISPLAY',
   'BOBINA',
   'GALAO',
+  'VARA',
   'KG',
   'G',
   'L',
@@ -51,7 +52,8 @@ const LABELS_UNIDADE_COMERCIAL = Object.freeze({
   M: 'Metro',
   CM: 'Centímetro',
   M2: 'Metro Quadrado',
-  M3: 'Metro Cúbico'
+  M3: 'Metro Cúbico',
+  VARA: 'Vara'
 });
 
 /** Mapa uCom XML → unidade comercial CDS */
@@ -88,6 +90,7 @@ const MAPA_UCOM_XML = Object.freeze({
   BOBINA: 'ROLO',
   GALAO: 'BALDE',
   GALÃO: 'BALDE',
+  VARA: 'VARA',
   KG: 'KG',
   G: 'G',
   L: 'L',

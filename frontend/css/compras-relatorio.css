@@ -1,0 +1,451 @@
+.compras-report {
+    color: #202a36;
+    padding-bottom: 2rem;
+}
+
+.compras-report-header,
+.compras-report-actions,
+.compras-report-filter-actions {
+    align-items: center;
+    display: flex;
+    gap: 0.75rem;
+}
+
+.compras-report-header {
+    justify-content: space-between;
+    margin: 0.5rem 0 1.5rem;
+}
+
+.compras-report-header h1 {
+    font-size: clamp(1.6rem, 3vw, 2rem);
+    margin-bottom: 0.35rem;
+}
+
+.compras-report-eyebrow {
+    color: #526579;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.4rem;
+    text-transform: uppercase;
+}
+
+.compras-report-filters {
+    background: #f5f7fa;
+    border: 1px solid #d9e0e8;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 1rem;
+}
+
+.compras-report-filters h2 {
+    font-size: 1.05rem;
+    margin-bottom: 0.9rem;
+}
+
+.compras-report-filter-grid {
+    align-items: end;
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(5, minmax(130px, 1fr)) auto;
+}
+
+.compras-report-filter-grid label span {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+}
+
+.compras-report-filter-actions {
+    flex-wrap: wrap;
+}
+
+.compras-report-summary {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: 1rem 0 1.25rem;
+}
+
+.compras-report-metric {
+    background: #fff;
+    border: 1px solid #d9e0e8;
+    border-radius: 0.5rem;
+    min-width: 0;
+    padding: 0.85rem 1rem;
+}
+
+.compras-report-metric span,
+.compras-report-metric strong {
+    display: block;
+}
+
+.compras-report-metric span {
+    color: #526579;
+    font-size: 0.82rem;
+    margin-bottom: 0.35rem;
+}
+
+.compras-report-metric strong {
+    font-size: 1.2rem;
+    overflow-wrap: anywhere;
+}
+
+.compras-report-status,
+.compras-report-footer {
+    color: #526579;
+    font-size: 0.86rem;
+    margin: 0.75rem 0;
+}
+
+.compras-report-purchase {
+    background: #fff;
+    border: 1px solid #d9e0e8;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    overflow: hidden;
+}
+
+.compras-report-purchase-header {
+    align-items: flex-start;
+    background: #f5f7fa;
+    border-bottom: 1px solid #d9e0e8;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    padding: 0.9rem 1rem;
+}
+
+.compras-report-purchase-header h2 {
+    font-size: 1.05rem;
+    margin: 0 0 0.35rem;
+}
+
+.compras-report-purchase-meta {
+    color: #526579;
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 0.86rem;
+    gap: 0.3rem 1rem;
+}
+
+.compras-report-purchase-total {
+    flex: 0 0 auto;
+    text-align: right;
+}
+
+.compras-report-purchase-total span,
+.compras-report-purchase-total strong {
+    display: block;
+}
+
+.compras-report-purchase-total span {
+    color: #526579;
+    font-size: 0.78rem;
+}
+
+.compras-report-purchase-total strong {
+    font-size: 1.15rem;
+}
+
+.compras-report-table-wrap {
+    overflow-x: auto;
+    padding: 0.25rem 1rem 0;
+}
+
+.compras-report-items-table {
+    font-size: 0.87rem;
+    margin-bottom: 0;
+    min-width: 760px;
+    width: 100%;
+}
+
+.compras-report-items-table th {
+    white-space: nowrap;
+}
+
+.compras-report-items-table .number {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.compras-report-financial {
+    border-top: 1px solid #d9e0e8;
+    display: grid;
+    gap: 0.55rem 1rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 0.85rem 1rem 1rem;
+}
+
+.compras-report-financial div {
+    display: flex;
+    gap: 0.35rem;
+    justify-content: space-between;
+}
+
+.compras-report-financial .official-total {
+    font-weight: 700;
+}
+
+.compras-report-reconciliation {
+    color: #526579;
+    font-size: 0.82rem;
+    grid-column: 1 / -1;
+}
+
+.compras-report-period-summary {
+    border-top: 2px solid #526579;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+}
+
+.compras-report-period-summary h2 {
+    font-size: 1.1rem;
+}
+
+.compras-report-period-summary p {
+    margin: 0.25rem 0;
+}
+
+.compras-report-preview[hidden] {
+    display: none !important;
+}
+
+.compras-report-preview {
+    background: rgba(20, 29, 40, 0.62);
+    inset: 0;
+    overflow: auto;
+    position: fixed;
+    z-index: 1080;
+}
+
+.compras-report-preview-dialog {
+    margin: 1.5rem auto;
+    max-width: 1100px;
+    padding: 0 1rem;
+}
+
+.compras-report-preview-toolbar {
+    align-items: center;
+    background: #fff;
+    border: 1px solid #d9e0e8;
+    border-radius: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
+}
+
+.compras-report-preview-toolbar h2 {
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+.compras-report-preview-paper {
+    background: #fff;
+    margin: 0 auto 1.5rem;
+    max-width: 210mm;
+    min-height: 250mm;
+    padding: 12mm;
+}
+
+.compras-report-preview-paper .compras-report-financial {
+    gap: 0;
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.compras-report-preview-paper .compras-report-financial > div:not(.official-total) {
+    display: none !important;
+}
+
+@media (max-width: 1100px) {
+    .compras-report-filter-grid {
+        grid-template-columns: repeat(3, minmax(130px, 1fr));
+    }
+}
+
+@media (max-width: 700px) {
+    .compras-report-header,
+    .compras-report-purchase-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .compras-report-actions {
+        flex-wrap: wrap;
+    }
+
+    .compras-report-filter-grid,
+    .compras-report-summary,
+    .compras-report-financial {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .compras-report-purchase-total {
+        text-align: left;
+    }
+}
+
+@page {
+    size: A4 portrait;
+    margin: 12mm;
+}
+
+@media print {
+    body {
+        background: #fff !important;
+        color: #111 !important;
+        font-size: 9pt;
+    }
+
+    #sidebar,
+    .sidebar,
+    .navbar,
+    .compras-report-actions,
+    .compras-report-filters,
+    .compras-report-status,
+    .compras-report-error,
+    .compras-report-filter-error,
+    .btn,
+    #modal-container {
+        display: none !important;
+    }
+
+    body * {
+        visibility: hidden !important;
+    }
+
+    #compras-report-preview,
+    #compras-report-preview * {
+        visibility: visible !important;
+    }
+
+    #compras-report-preview {
+        background: #fff !important;
+        display: block !important;
+        inset: auto !important;
+        overflow: visible !important;
+        position: static !important;
+    }
+
+    .compras-report-preview-dialog,
+    .compras-report-preview-paper {
+        background: #fff !important;
+        margin: 0 !important;
+        max-width: none !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+    }
+
+    .compras-report-preview-toolbar {
+        display: none !important;
+    }
+
+    #erp-main,
+    #page-content,
+    .compras-report {
+        display: block !important;
+        margin: 0 !important;
+        max-width: none !important;
+        padding: 0 !important;
+        width: 100% !important;
+    }
+
+    .compras-report-header {
+        border-bottom: 1px solid #777;
+        margin: 0 0 0.6rem;
+        padding-bottom: 0.5rem;
+    }
+
+    .compras-report-header h1 {
+        font-size: 18pt;
+    }
+
+    .compras-report-eyebrow {
+        color: #111;
+    }
+
+    .compras-report-summary {
+        gap: 0.35rem;
+        margin: 0.5rem 0;
+    }
+
+    .compras-report-metric,
+    .compras-report-purchase,
+    .compras-report-purchase-header {
+        background: #fff !important;
+        border-color: #aaa !important;
+        break-inside: avoid;
+    }
+
+    .compras-report-metric {
+        padding: 0.4rem;
+    }
+
+    .compras-report-metric strong,
+    .compras-report-purchase-total strong {
+        font-size: 10pt;
+    }
+
+    .compras-report-purchase {
+        margin-bottom: 0.65rem;
+        overflow: visible;
+    }
+
+    .compras-report-purchase-header,
+    .compras-report-financial {
+        padding: 0.45rem 0.55rem;
+    }
+
+    .compras-report-purchase-header h2 {
+        font-size: 10pt;
+    }
+
+    .compras-report-purchase-meta,
+    .compras-report-financial,
+    .compras-report-items-table {
+        font-size: 8pt;
+    }
+
+    .compras-report-table-wrap {
+        overflow: visible;
+        padding: 0 0.45rem;
+    }
+
+    .compras-report-items-table {
+        min-width: 0;
+        page-break-inside: auto;
+    }
+
+    .compras-report-items-table thead {
+        display: table-header-group;
+    }
+
+    .compras-report-items-table tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .compras-report-items-table td,
+    .compras-report-items-table th {
+        padding: 0.25rem;
+    }
+
+    .compras-report-financial {
+        break-inside: avoid;
+        gap: 0;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .compras-report-financial > div:not(.official-total) {
+        display: none !important;
+    }
+
+    .compras-report-footer {
+        border-top: 1px solid #aaa;
+        margin-top: 0.5rem;
+        padding-top: 0.35rem;
+    }
+}

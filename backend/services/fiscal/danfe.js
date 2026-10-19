@@ -376,6 +376,9 @@ async function gerarDanfeHtml(args = {}) {
     : '';
 
   const papelMm = dados.papelMm;
+  const utilMm = Number(papelMm) === 58 ? 48 : 72;
+  const paddingCupom = Number(papelMm) === 58 ? '1mm 2.5mm 1.6mm 1.5mm' : '1.2mm 3.5mm 2mm 2mm';
+  const paddingValor = Number(papelMm) === 58 ? '1.2mm' : '1.5mm';
   const qrLargura = dados.qrLargura;
   const fsBase = dados.fsBase;
   const fsFantasia = dados.fsFantasia;
@@ -460,11 +463,16 @@ async function gerarDanfeHtml(args = {}) {
   <meta charset="UTF-8" />
   <title>DANFE NFC-e</title>
   <style>
-    :root { --danfe-width: ${papelMm}mm; --danfe-ink: #111; --danfe-muted: #333; --danfe-line: #999; }
+    @page { size: ${papelMm}mm auto; margin: 0; }
+    :root { --danfe-width: ${utilMm}mm; --danfe-papel: ${papelMm}mm; --danfe-ink: #111; --danfe-muted: #333; --danfe-line: #999; }
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; color: var(--danfe-ink); background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    html, body {
+      margin: 0; padding: 0; width: ${utilMm}mm; max-width: ${utilMm}mm;
+      color: var(--danfe-ink); background: #fff;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
     body.danfe {
-      width: var(--danfe-width); max-width: var(--danfe-width); margin: 0 auto; padding: 2mm 2.2mm 3mm;
+      width: var(--danfe-width); max-width: var(--danfe-width); margin: 0; padding: ${paddingCupom};
       font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; font-size: ${fsBase}; line-height: 1.25;
     }
     .center { text-align: center; }
@@ -488,11 +496,12 @@ async function gerarDanfeHtml(args = {}) {
     .col-cod { width: ${papelMm === 58 ? '14%' : '12%'}; }
     .col-desc { width: ${papelMm === 58 ? '36%' : '40%'}; }
     .col-qtd { width: 12%; text-align: center; }
-    .col-vl { width: 18%; text-align: right; }
-    .col-tot { width: 18%; text-align: right; font-weight: 600; }
+    .col-vl { width: 18%; text-align: right; padding-right: ${paddingValor}; box-sizing: border-box; }
+    .col-tot { width: 18%; text-align: right; font-weight: 600; padding-right: ${paddingValor}; box-sizing: border-box; }
     th.col-qtd { text-align: center; }
-    th.col-vl, th.col-tot { text-align: right; }
+    th.col-vl, th.col-tot { text-align: right; padding-right: ${paddingValor}; box-sizing: border-box; }
     .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 2px 0; }
+    .row span:last-child { text-align: right; padding-right: ${paddingValor}; box-sizing: border-box; max-width: 50%; min-width: 0; overflow-wrap: anywhere; }
     .total-box { margin: 6px 0 4px; padding: 5px 4px; border-top: 2px solid #000; border-bottom: 2px solid #000; }
     .total-box .row { font-size: ${papelMm === 58 ? '12px' : '14px'}; font-weight: 800; letter-spacing: 0.3px; }
     .pays { margin: 2px 0 4px; font-size: ${papelMm === 58 ? '9px' : '10.5px'}; }

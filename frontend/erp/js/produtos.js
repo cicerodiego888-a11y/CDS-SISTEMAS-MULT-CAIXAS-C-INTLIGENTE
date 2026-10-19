@@ -4072,6 +4072,8 @@ function showProdutoModal(produto = null, opcoes = {}) {
     $('#produtoModal').data('temVendas', Boolean(produto?.tem_vendas));
     $('#produtoModal').removeData('produtoRecemSalvo');
     $('#produtoModal').removeData('produtoSalvoComSucesso');
+    // Evita trava silenciosa se um save anterior ficou sem complete (rede/erro).
+    window.__cdsProdutoSalvando = false;
     if (origemCadastro) {
         $('#produtoModal').data('origemCadastroProduto', origemCadastro);
     } else {
@@ -5658,14 +5660,31 @@ function inicializarConfirmacaoControlaEstoque() {
 
 // Salva produto
 // opcoes.continuar === true → após salvar, abre outro "Novo Produto" (fluxo rápido)
+function elevarNotificacaoSobreProdutoModal() {
+    const notif = document.getElementById('notification-container');
+    if (!notif) return null;
+    if (!notif.dataset.zIndexAnterior) {
+        notif.dataset.zIndexAnterior = notif.style.zIndex || '';
+    }
+    notif.style.zIndex = '23000';
+    return notif;
+}
+
+function notificarCadastroProduto(mensagem, tipo = 'warning') {
+    elevarNotificacaoSobreProdutoModal();
+    showNotification(mensagem, tipo);
+}
+
 async function saveProduto(opcoes) {
     const forcarContinuar = opcoes && typeof opcoes === 'object' && opcoes.continuar === true;
     const forcarFechar = opcoes && typeof opcoes === 'object' && opcoes.continuar === false;
     const id = $('#produtoId').val();
     if (window.__cdsProdutoSalvando === true) {
+        notificarCadastroProduto('Aguarde: já existe um salvamento em andamento.', 'info');
         return;
     }
 
+    try {
     if ($('#venda_atacado').is(':checked')) {
         const faixaSalva = await commitFaixaAtacadoPendente(id || null);
         if (!faixaSalva) {
@@ -5680,18 +5699,18 @@ async function saveProduto(opcoes) {
         for (let i = 0; i < apresentacoes.length; i += 1) {
             const ap = apresentacoes[i];
             if (String(ap.tipo || 'UN').toUpperCase() !== 'UN' && Number(ap.quantidade || 0) <= 0) {
-                showNotification(`Apresentação ${i + 1}: informe a quantidade de conversão.`, 'warning');
+                notificarCadastroProduto(`Apresentação ${i + 1}: informe a quantidade de conversão.`, 'warning');
                 return;
             }
             if (Number(ap.compra) === 1 && String(ap.tipo || 'UN').toUpperCase() !== 'UN' && Number(ap.valor_compra || 0) <= 0) {
-                showNotification(`Apresentação ${i + 1}: informe o valor de compra da embalagem.`, 'warning');
+                notificarCadastroProduto(`Apresentação ${i + 1}: informe o valor de compra da embalagem.`, 'warning');
                 return;
             }
         }
     }
 
     if ($('#produto_fracionado').is(':checked') && !unidadeVendaSuportaConversao($('#unidade').val())) {
-        showNotification(
+        notificarCadastroProduto(
             'Produto Pesável exige unidade de venda fracionável (KG, MT, LT, M², M³, etc.).',
             'warning'
         );
@@ -5701,12 +5720,12 @@ async function saveProduto(opcoes) {
     const pluBruto = ($('#plu').val() || '').trim();
     const pluDigits = pluBruto.replace(/\D/g, '');
     if (pluBruto && !pluDigits) {
-        showNotification('PLU inválido: use apenas dígitos.', 'warning');
+        notificarCadastroProduto('PLU inválido: use apenas dígitos.', 'warning');
         $('#plu').focus();
         return;
     }
     if (pluDigits.length > 10) {
-        showNotification('PLU inválido: máximo 10 dígitos.', 'warning');
+        notificarCadastroProduto('PLU inválido: máximo 10 dígitos.', 'warning');
         $('#plu').focus();
         return;
     }
@@ -5715,7 +5734,7 @@ async function saveProduto(opcoes) {
         const controlaEstoque = $('#controla_estoque').is(':checked');
         const ref = obterReferenciaConversaoCadastro();
         if (controlaEstoque && (ref.qtd <= 0 || ref.precoCompra <= 0)) {
-            showNotification(
+            notificarCadastroProduto(
                 'Para produto pesável, informe a Quantidade Total no Estoque Inicial e o Custo por Unidade de Venda.',
                 'warning'
             );
@@ -5725,14 +5744,24 @@ async function saveProduto(opcoes) {
 
     const fracionadoAtivo = $('#produto_fracionado').is(':checked');
     const permiteVendaUnidade = fracionadoAtivo && $('#permite_venda_unidade').is(':checked');
-    const pesoMedioUnidade = parseFloat($('#peso_medio_unidade').val()) || 0;
-    const precoUnidadeVenda = parseFloat($('#preco_unidade').val()) || 0;
+    const pesoMedioUnidade = parseNumeroCadastro($('#peso_medio_unidade').val());
+    const precoUnidadeVenda = parseNumeroCadastro($('#preco_unidade').val());
+    const precoCompraNum = parseNumeroCadastro($('#preco_compra').val());
+    const precoVendaNum = parseNumeroCadastro($('#preco_venda').val());
+    const lucroInformado = ($('#lucro_percentual').val() || '').trim() !== '';
+    const lucroPercentualNum = lucroInformado
+        ? parseNumeroCadastro($('#lucro_percentual').val())
+        : (
+            precoCompraNum > 0 && precoVendaNum > 0
+                ? Number((((precoVendaNum - precoCompraNum) / precoCompraNum) * 100).toFixed(2))
+                : null
+        );
 
     if (permiteVendaUnidade && (pesoMedioUnidade <= 0 || precoUnidadeVenda <= 0)) {
         const camposPendentes = [];
         if (pesoMedioUnidade <= 0) camposPendentes.push('peso médio da unidade');
         if (precoUnidadeVenda <= 0) camposPendentes.push('preço por unidade');
-        showNotification(
+        notificarCadastroProduto(
             `Para permitir venda por unidade, informe ${camposPendentes.join(' e ')} com valor maior que zero.`,
             'warning'
         );
@@ -5753,14 +5782,10 @@ async function saveProduto(opcoes) {
         observacoes: ($('#produto_observacoes').val() || '').trim() || null,
         imagem_principal: ($('#produtoModal').data('produtoImagemPath') || null),
         unidade: ($('#unidade').val() || '').trim(),
-        preco_compra: parseFloat($('#preco_compra').val()) || 0,
-        preco_venda: parseFloat($('#preco_venda').val()) || 0,
-        lucro_percentual: $('#lucro_percentual').val() !== '' ? parseFloat($('#lucro_percentual').val()) : (
-            (parseFloat($('#preco_compra').val()) || 0) > 0 && (parseFloat($('#preco_venda').val()) || 0) > 0
-                ? parseFloat(((((parseFloat($('#preco_venda').val()) - parseFloat($('#preco_compra').val())) / parseFloat($('#preco_compra').val())) * 100).toFixed(2)))
-                : null
-        ),
-        estoque_minimo: parseFloat($('#estoque_minimo').val()) || 0,
+        preco_compra: precoCompraNum,
+        preco_venda: precoVendaNum,
+        lucro_percentual: lucroPercentualNum,
+        estoque_minimo: parseNumeroCadastro($('#estoque_minimo').val()),
         fornecedor: obterNomeFornecedorCadastro(),
         data_validade: ($('#data_validade').val() || '').trim() || null,
         lote: ($('#lote').val() || '').trim(),
@@ -5774,9 +5799,9 @@ async function saveProduto(opcoes) {
         cest: ($('#cest').val() || '').trim(),
         codigo_barras: ($('#codigo_barras').val() || '').trim(),
         plu: pluDigits,
-        aliquota_icms: parseFloat($('#aliquota_icms').val()) || 0,
-        aliquota_pis: parseFloat($('#aliquota_pis').val()) || 0,
-        aliquota_cofins: parseFloat($('#aliquota_cofins').val()) || 0,
+        aliquota_icms: parseNumeroCadastro($('#aliquota_icms').val()),
+        aliquota_pis: parseNumeroCadastro($('#aliquota_pis').val()),
+        aliquota_cofins: parseNumeroCadastro($('#aliquota_cofins').val()),
         produto_fracionado: fracionadoAtivo ? 1 : 0,
         vendido_por_peso: fracionadoAtivo ? 1 : 0,
         produto_pesavel: fracionadoAtivo ? 1 : 0,
@@ -5816,43 +5841,43 @@ async function saveProduto(opcoes) {
         : saldosIniciais.estoque_total;
 
     if (data.controlar_validade === 1 && estoqueParaValidade > 0 && !data.data_validade_inicial) {
-        showNotification('Para produtos com controle de validade e estoque, informe a data de validade.', 'warning');
+        notificarCadastroProduto('Para produtos com controle de validade e estoque, informe a data de validade.', 'warning');
         $('#data_validade_inicial').focus();
         return;
     }
 
     if (!data.nome) {
-        showNotification('Informe o nome do produto.', 'warning');
+        notificarCadastroProduto('Informe o nome do produto.', 'warning');
         $('#nome').focus();
         return;
     }
 
     if (data.preco_venda <= 0) {
-        showNotification('Informe um preço de venda válido.', 'warning');
+        notificarCadastroProduto('Informe um preço de venda válido.', 'warning');
         $('#preco_venda').focus();
         return;
     }
 
     if (data.preco_compra < 0) {
-        showNotification('Preço de compra inválido.', 'warning');
+        notificarCadastroProduto('Preço de compra inválido.', 'warning');
         $('#preco_compra').focus();
         return;
     }
 
     if (saldosIniciais.saldo_fiscal_inicial < 0 || saldosIniciais.saldo_nao_fiscal_inicial < 0) {
-        showNotification('Saldos iniciais não podem ser negativos.', 'warning');
+        notificarCadastroProduto('Saldos iniciais não podem ser negativos.', 'warning');
         $('#saldo_fiscal_inicial').focus();
         return;
     }
 
     if ($('#saldo_fiscal_inicial').length && saldosIniciais.estoque_total < 0) {
-        showNotification('Estoque inicial inválido.', 'warning');
+        notificarCadastroProduto('Estoque inicial inválido.', 'warning');
         $('#saldo_fiscal_inicial').focus();
         return;
     }
 
     if (data.estoque_minimo < 0) {
-        showNotification('Estoque mínimo inválido.', 'warning');
+        notificarCadastroProduto('Estoque mínimo inválido.', 'warning');
         $('#estoque_minimo').focus();
         return;
     }
@@ -5866,7 +5891,7 @@ async function saveProduto(opcoes) {
     }
 
     if (typeof ProdutoEmbalagensUI !== 'undefined') {
-        const precoVendaUnit = parseFloat($('#preco_venda').val()) || 0;
+        const precoVendaUnit = precoVendaNum;
         data.embalagens = ProdutoEmbalagensUI.coletarApresentacoesDoFormulario().map((ap) => ({
             ...ap,
             preco_venda: Number((precoVendaUnit * Number(ap.quantidade || 1)).toFixed(2))
@@ -5879,7 +5904,7 @@ async function saveProduto(opcoes) {
                     && Number(ap.quantidade || 0) > 0
             );
             if (!temEmbComercial) {
-                showNotification('Ative "Compra por Embalagem" somente após cadastrar ao menos uma embalagem comercial habilitada para compra.', 'warning');
+                notificarCadastroProduto('Ative "Compra por Embalagem" somente após cadastrar ao menos uma embalagem comercial habilitada para compra.', 'warning');
                 return;
             }
         }
@@ -5947,11 +5972,7 @@ async function saveProduto(opcoes) {
             }
 
             // Notificações ficam atrás do modal empilhado sobre a MIIP (z-index 22000).
-            const notif = document.getElementById('notification-container');
-            if (notif) {
-                notif.dataset.zIndexAnterior = notif.style.zIndex || '';
-                notif.style.zIndex = '23000';
-            }
+            const notif = elevarNotificacaoSobreProdutoModal();
             showNotification('Produto salvo com sucesso!', 'success');
             setTimeout(() => {
                 if (notif) {
@@ -5993,14 +6014,21 @@ async function saveProduto(opcoes) {
 
         },
         error: function (xhr) {
-            const erro = xhr.responseJSON?.error || 'Erro desconhecido';
-            const notif = document.getElementById('notification-container');
-            if (notif) {
-                notif.style.zIndex = '23000';
-            }
+            const erro = (xhr && xhr.responseJSON && xhr.responseJSON.error)
+                || (xhr && xhr.statusText)
+                || 'Erro desconhecido';
+            elevarNotificacaoSobreProdutoModal();
             showNotification('Erro ao salvar produto: ' + erro, 'danger');
         }
     });
+    } catch (err) {
+        window.__cdsProdutoSalvando = false;
+        console.error('[saveProduto] falha inesperada:', err);
+        notificarCadastroProduto(
+            'Não foi possível salvar o produto: ' + (err && err.message ? err.message : 'erro inesperado'),
+            'danger'
+        );
+    }
 }
 window.saveProduto = saveProduto;
 
@@ -6242,6 +6270,9 @@ function abrirModalAjustarEstoque(produtoId) {
             const stepAjuste = obterStepEstoqueProduto(unidade, opcoesFormato.produtoFracionado);
             const controlaValidade = Number(produto.controlar_validade || 0) === 1;
 
+            // RC3.20.1 — layout original restaurado.
+            // F12 ativo: somente saldo fiscal.
+            // F12 inativo: saldos fiscal, gerencial e total, com os dois campos de ajuste.
             const camposFiscal = modoFiscal ? `
                 <div class="col-md-6 mb-3">
                     <label class="form-label">Saldo Fiscal Atual</label>
@@ -6257,7 +6288,7 @@ function abrirModalAjustarEstoque(produtoId) {
                     <input type="text" class="form-control bg-light" readonly value="${formatarEstoqueProduto(saldoFiscal, unidade, opcoesFormato)}">
                 </div>
                 <div class="col-md-4 mb-3">
-                    <label class="form-label">Saldo Não Fiscal Atual</label>
+                    <label class="form-label">Saldo Gerencial Atual</label>
                     <input type="text" class="form-control bg-light" readonly value="${formatarEstoqueProduto(saldoNaoFiscal, unidade, opcoesFormato)}">
                 </div>
                 <div class="col-md-4 mb-3">
@@ -6269,7 +6300,7 @@ function abrirModalAjustarEstoque(produtoId) {
                     <input type="number" step="${stepAjuste}" class="form-control" id="ajuste_fiscal" value="0">
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label for="ajuste_nao_fiscal" class="form-label">Ajuste Não Fiscal (+/-)</label>
+                    <label for="ajuste_nao_fiscal" class="form-label">Ajuste Gerencial (+/-)</label>
                     <input type="number" step="${stepAjuste}" class="form-control" id="ajuste_nao_fiscal" value="0">
                 </div>
             `;
@@ -6360,6 +6391,9 @@ function salvarAjusteEstoque() {
         return;
     }
 
+    // RC3.20.1 — contrato legado restaurado: envia ajuste_fiscal e ajuste_nao_fiscal.
+    // No modo F12 ativo, o ajuste gerencial é forçado a zero.
+    // O backend aplica apenas os saldos com ajuste não-zero, preservando o isolamento.
     const payload = {
         ajuste_fiscal: ajusteFiscal,
         ajuste_nao_fiscal: modoFiscal ? 0 : ajusteNaoFiscal,

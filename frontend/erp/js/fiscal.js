@@ -640,24 +640,19 @@ function montarHtmlAcoesNfceEmitida(n) {
     const ids = `data-nfce-id="${nfceId}" data-venda-id="${vendaId || ''}"`;
 
     let itemCancelar = '';
+    const itemReconciliar = status === 'cancelamento_desconhecido'
+        ? `<li>
+            <button type="button" class="dropdown-item py-2 text-warning" data-nfce-acao="reconciliar-cancelamento" ${ids}>
+                <i class="fas fa-sync-alt fa-fw me-2"></i>Verificar situação na SEFAZ
+            </button>
+        </li>`
+        : '';
     if (!cancelada) {
         if (isFechamento) {
-            const foraPrazoHint = (function estimarForaPrazoLista(row) {
-                const raw = row && row.created_at;
-                if (!raw) return false;
-                try {
-                    const d = new Date(String(raw).includes('T') ? raw : String(raw).replace(' ', 'T'));
-                    if (Number.isNaN(d.getTime())) return false;
-                    return (Date.now() - d.getTime()) > (30 * 60 * 1000);
-                } catch (_) {
-                    return false;
-                }
-            })(n);
-            const rotuloCancel = foraPrazoHint ? 'Cancelamento fora do prazo' : 'Cancelar documento fiscal';
             itemCancelar = `
         <li>
-            <button type="button" class="dropdown-item py-2 ${foraPrazoHint ? 'text-secondary' : 'text-danger'}" data-nfce-acao="cancelar-documento" ${ids}>
-                <i class="fas fa-ban fa-fw me-2"></i>${rotuloCancel}
+            <button type="button" class="dropdown-item py-2 text-danger" data-nfce-acao="cancelar-documento" ${ids}>
+                <i class="fas fa-ban fa-fw me-2"></i>Cancelar documento fiscal
             </button>
         </li>`;
         } else if (vendaId) {
@@ -678,6 +673,7 @@ function montarHtmlAcoesNfceEmitida(n) {
             </button>
         </li>
         ${itemCancelar}
+        ${itemReconciliar}
     ` : '';
 
     return `
@@ -944,8 +940,8 @@ function abrirModalCancelamentoVendaNfce(vendaId, avaliacao) {
 }
 
 /**
- * Sprint 08.3/08.4/08.5 — cancelamento fiscal da NFC-e do Fechamento (sem venda comercial).
- * Pré-valida prazo (30 min). Fora do prazo: sem transmissão 110111; informa extemporâneo só se comprovado.
+ * Cancelamento fiscal da NFC-e do Fechamento (sem venda comercial).
+ * O prazo é informativo; a SEFAZ decide se aceita a tentativa de cancelamento.
  */
 function cancelarDocumentoFiscalNfce(nfceId) {
     const id = Number(nfceId);
@@ -963,10 +959,9 @@ function cancelarDocumentoFiscalNfce(nfceId) {
         const nota = notaResp.body;
         const diag = diagResp.ok ? diagResp.body : {};
         const dentroPrazo = diag.dentro_prazo_normal === true || diag.dentro_prazo === true;
-        const podeTransmitir = diag.pode_transmitir_110111 === true && dentroPrazo;
-        const extDisponivel = diag.cancelamento_extemporaneo_disponivel === true
-            && diag.cancelamento_extemporaneo_comprovado === true;
-        const tituloModal = podeTransmitir ? 'Cancelar documento fiscal' : 'Cancelamento fora do prazo';
+        const statusFiscal = String(diag.status_fiscal || nota.status || '').toLowerCase();
+        const podeTransmitir = ['autorizada', 'cancelamento_rejeitado'].includes(statusFiscal);
+        const tituloModal = 'Cancelar documento fiscal';
         const ffLabel = nota.fechamento_fiscal_id
             ? `FF-${String(Number(nota.fechamento_fiscal_id)).padStart(6, '0')}`
             : '—';
@@ -987,31 +982,22 @@ function cancelarDocumentoFiscalNfce(nfceId) {
             }
         };
 
-        const blocoExtemporaneo = podeTransmitir
-            ? ''
-            : (extDisponivel
-                ? `<div class="alert alert-info small mt-2 mb-0">
-                     Existe procedimento de cancelamento extemporâneo.
-                     ${diag.procedimento_extemporaneo ? `<div class="mt-1">${diag.procedimento_extemporaneo}</div>` : ''}
-                     <div class="mt-1 text-muted">Nenhuma transmissão será iniciada automaticamente. Siga a orientação oficial e aguarde autorização.</div>
-                   </div>`
-                : `<div class="alert alert-secondary small mt-2 mb-0">
-                     Não foi identificado procedimento de cancelamento extemporâneo aplicável a esta NFC-e no ambiente configurado.
-                   </div>`);
-
         const alertaPrazo = podeTransmitir
-            ? `<div class="alert alert-success small">Esta NFC-e está dentro do prazo normal de cancelamento.
+            ? (dentroPrazo
+              ? `<div class="alert alert-success small">Esta NFC-e está dentro do prazo normal de cancelamento.
                  <div class="mt-1">NFC-e autorizada em: <strong>${fmtDh(diag.dh_autorizacao)}</strong>
                  · Decorrido: <strong>${diag.minutos_decorridos != null ? diag.minutos_decorridos + ' min' : '—'}</strong>
                  · Prazo: <strong>${diag.prazo_normal_minutos || diag.prazo_minutos || 30} minutos</strong></div></div>`
-            : `<div class="alert alert-danger small">
+              : `<div class="alert alert-warning small">
                  <div>NFC-e autorizada em: <strong>${fmtDh(diag.dh_autorizacao)}</strong></div>
                  <div>Prazo normal: <strong>${diag.prazo_normal_minutos || diag.prazo_minutos || 30} minutos</strong></div>
                  <div>Situação: <strong>fora do prazo normal de cancelamento.</strong></div>
                  <div>Tempo transcorrido: <strong>${diag.minutos_decorridos != null ? diag.minutos_decorridos + ' minutos' : '—'}</strong></div>
-                 <div class="mt-1 text-muted">Status fiscal: <strong>${diag.status_fiscal || nota.status || 'autorizada'}</strong>
-                  · Operacional: <strong>${diag.cancelamento_status || 'FORA_DO_PRAZO'}</strong></div>
-               </div>${blocoExtemporaneo}`;
+                 <div class="mt-1">O CDS permitirá enviar a tentativa. A SEFAZ decidirá se aceita; o envio não confirma o cancelamento.</div>
+                 <div class="mt-1 text-muted">Status fiscal: <strong>${statusFiscal}</strong>
+                  · Diagnóstico do prazo: <strong>${diag.cancelamento_status || 'FORA_DO_PRAZO'}</strong></div>
+               </div>`)
+            : `<div class="alert alert-danger small">A NFC-e não está em um estado autorizado para cancelamento. Situação: <strong>${statusFiscal || 'desconhecida'}</strong>.</div>`;
 
         const footerBtns = podeTransmitir
             ? `<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
@@ -1029,7 +1015,7 @@ function cancelarDocumentoFiscalNfce(nfceId) {
                             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
-                            ${podeTransmitir ? '<p class="fw-semibold">Deseja cancelar esta NFC-e?</p>' : '<p class="fw-semibold">Cancelamento fora do prazo</p>'}
+                            ${podeTransmitir ? '<p class="fw-semibold">Deseja enviar uma tentativa de cancelamento desta NFC-e?</p>' : '<p class="fw-semibold">Cancelamento indisponível para este estado fiscal</p>'}
                             <ul class="small mb-3">
                                 <li>NFC-e nº <strong>${nota.numero || '—'}</strong></li>
                                 <li>Série <strong>${nota.serie || '—'}</strong></li>
@@ -1135,9 +1121,61 @@ function despacharAcaoNfceEmitida(acao, vendaId, nfceId) {
             return cancelarDocumentoFiscalNfce(nfceId);
         case 'cancelar-venda':
             return acaoNfceEmitidaCancelarVenda(vendaId, nfceId);
+        case 'reconciliar-cancelamento':
+            if (!nfceId) return showNotification('NFC-e inválida para reconciliação.', 'warning');
+            return reconciliarCancelamentoNfce(nfceId);
         default:
             return undefined;
     }
+}
+
+function reconciliarCancelamentoNfce(nfceId) {
+    const id = Number(nfceId);
+    if (!id) return;
+    const confirmado = window.confirm(
+        'O sistema consultará a situação desta NFC-e na SEFAZ. ' +
+        'Se a SEFAZ confirmar que ela permanece autorizada, o estado local será reconciliado ' +
+        'e você poderá iniciar um novo cancelamento manualmente. Nenhum cancelamento será enviado por esta ação.'
+    );
+    if (!confirmado) return;
+
+    const botao = document.querySelector(
+        `[data-nfce-acao="reconciliar-cancelamento"][data-nfce-id="${id}"]`
+    );
+    if (botao?.disabled) return;
+    if (botao) botao.disabled = true;
+
+    $.ajax({
+        url: `${API_URL}/fiscal/notas/${id}/reconciliar-cancelamento`,
+        method: 'POST',
+        contentType: 'application/json',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        data: JSON.stringify({ confirmacao_consulta: true }),
+        success: function(resp) {
+            if (!resp || resp.success !== true) {
+                showNotification(
+                    (resp && resp.message) || 'A situação não foi confirmada pela SEFAZ. A NFC-e permanece bloqueada.',
+                    'warning'
+                );
+                return;
+            }
+            showNotification(resp.message, 'success');
+            carregarFiscalNotas();
+        },
+        error: function(xhr) {
+            const resp = xhr.responseJSON || {};
+            const consultaInconclusiva = resp.code === 'CONSULTA_SEFAZ_INCONCLUSIVA';
+            showNotification(
+                consultaInconclusiva
+                    ? (resp.error || 'A consulta à SEFAZ não foi concluída. Nenhum retorno foi confirmado; a NFC-e permanece bloqueada e inalterada.')
+                    : (resp.error || resp.message || 'Não foi possível confirmar a situação. A NFC-e permanece bloqueada.'),
+                'danger'
+            );
+        },
+        complete: function() {
+            if (botao && botao.isConnected) botao.disabled = false;
+        }
+    });
 }
 
 if (!window.__cdsAcoesNfceEmitidaVinculadas) {
@@ -1350,18 +1388,36 @@ function emitirNFCeDaVenda() {
 }
 
 function imprimirHtmlFiscal(html) {
-    const win = window.open('', '_blank', 'width=420,height=800');
+    if (!html) return;
 
+    // Mesma rota térmica do PDV (HTML → Electron → driver). Sem ESC/POS.
+    if (typeof apresentarCupomNaTela === 'function') {
+        apresentarCupomNaTela(html, html, { tipo: 'FISCAL', automatico: true });
+        return;
+    }
+    if (window.electronAPI && typeof window.electronAPI.abrirComprovante === 'function') {
+        window.electronAPI.abrirComprovante(html, {
+            silent: false,
+            autoFecharMs: 8000,
+            aguardarDecisao: true,
+            enviarImpressora: false,
+            htmlImpressao: html
+        });
+        if (window.CupomPrintPolicy && typeof window.CupomPrintPolicy.aposCupomNaTela === 'function') {
+            window.CupomPrintPolicy.aposCupomNaTela({ tipo: 'FISCAL', html, automatico: true });
+        }
+        return;
+    }
+
+    const win = window.open('', '_blank', 'width=420,height=800');
     if (!win) {
         showNotification('Permita popups para imprimir o DANFE NFC-e.', 'warning');
         return;
     }
-
     win.document.open();
     win.document.write(html);
     win.document.close();
     win.focus();
-
     setTimeout(() => win.print(), 500);
 }
 

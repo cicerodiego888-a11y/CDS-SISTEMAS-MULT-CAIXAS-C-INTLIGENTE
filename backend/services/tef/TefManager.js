@@ -263,6 +263,8 @@ class TefManager {
                       status: retornoBruto.status,
                       nsu: retornoBruto.nsu,
                       autorizacao: retornoBruto.autorizacao,
+                      cnpj_credenciadora: retornoBruto.cnpj_credenciadora,
+                      provedor: adapter.nome,
                       adquirente: retornoBruto.adquirente,
                       bandeira: retornoBruto.bandeira,
                       comprovanteCliente: retornoBruto.comprovanteCliente || retornoBruto.comprovante_cliente,
@@ -281,11 +283,17 @@ class TefManager {
                     tefEvents.emitirEstado(tefEvents.estados.PROCESSANDO);
 
                     const persistencia = tefContrato.paraPersistencia(retorno);
+                    const payloadPersistido = persistencia.payload_retorno;
 
                     repository.atualizarTransacao(transacaoId, {
                       venda_id: dados.venda_id || null,
                       ...persistencia,
-                      payload_retorno: { ...persistencia.payload_retorno, financialState: retorno.financialState }
+                      payload_retorno: {
+                        ...(payloadPersistido && typeof payloadPersistido === 'object'
+                          ? payloadPersistido
+                          : { resposta: payloadPersistido }),
+                        financialState: retorno.financialState
+                      }
                     }, (updateErr) => {
                       if (updateErr) {
                         clearTimeout(timeoutId);
@@ -669,6 +677,8 @@ class TefManager {
       status,
       nsu: retornoBruto.nsu,
       autorizacao: retornoBruto.autorizacao,
+      cnpj_credenciadora: retornoBruto.cnpj_credenciadora,
+      provedor,
       adquirente: retornoBruto.adquirente,
       bandeira: retornoBruto.bandeira,
       comprovanteCliente: retornoBruto.comprovanteCliente || retornoBruto.comprovante_cliente,
@@ -690,10 +700,17 @@ class TefManager {
       reconciliationRequired: decisao.reconciliationRequired,
       recebidoEm: new Date().toISOString()
     };
+    const persistencia = tefContrato.paraPersistencia(retorno);
+    const payloadPersistido = persistencia.payload_retorno;
 
     this._gravar((pronto) => repository.atualizarTransacao(transacaoId, {
-      ...tefContrato.paraPersistencia(retorno),
-      payload_retorno: { ...(retorno.payloadRetorno || {}), resultadoTardio }
+      ...persistencia,
+      payload_retorno: {
+        ...(payloadPersistido && typeof payloadPersistido === 'object'
+          ? payloadPersistido
+          : { resposta: payloadPersistido }),
+        resultadoTardio
+      }
     }, (err) => {
       if (err) repository.registrarLog(transacaoId, 'ERRO', err.message, { error: err.message });
       pronto();

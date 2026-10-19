@@ -128,12 +128,16 @@ describe('PRINT-RC1.0 — largura 58/80 mm', () => {
     assert.equal(resolverLarguraPapelMm({ larguraMm: 58 }), 58);
     const html = await gerar({ empresa: { ...empresaBase, larguraMm: 58 } });
     assert.match(html, /danfe-58/);
-    assert.match(html, /--danfe-width:\s*58mm/);
+    assert.match(html, /--danfe-width:\s*48mm/);
+    assert.match(html, /--danfe-papel:\s*58mm/);
   });
 
   it('80mm no HTML', async () => {
     const html = await gerar({ empresa: { ...empresaBase, larguraMm: 80 } });
     assert.match(html, /danfe-80/);
+    assert.match(html, /--danfe-width:\s*72mm/);
+    assert.match(html, /--danfe-papel:\s*80mm/);
+    assert.doesNotMatch(html, /--danfe-width:\s*80mm/);
   });
 });
 

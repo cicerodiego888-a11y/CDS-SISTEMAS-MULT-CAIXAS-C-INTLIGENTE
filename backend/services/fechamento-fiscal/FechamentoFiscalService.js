@@ -4,6 +4,7 @@
 
 'use strict';
 
+const crypto = require('crypto');
 const { arredondarMoeda, toCentavos, somarMoeda } = require('../fiscal/modeloTotais');
 const { STATUS, STATUS_ATIVOS, DEFAULTS_DISTRIBUICAO } = require('./constants');
 const PerformanceMonitor = require('../../observabilidade/performance/PerformanceMonitor');
@@ -137,6 +138,72 @@ async function medirEtapa(nome, executar, detalhes = {}) {
   } finally {
     finalizarMetrica(id, { elapsed_ms: Number((performance.now() - inicio).toFixed(3)) });
   }
+}
+
+async function medirEtapaRastreada(nome, executar, detalhes = {}, rastreio = {}) {
+  const inicio = performance.now();
+  const dados = {
+    correlation_id: rastreio.correlationId,
+    fechamento_id: rastreio.fechamentoId,
+    assinatura: rastreio.assinatura,
+    etapa: nome,
+    ...detalhes
+  };
+  logTecnico('previa_etapa_inicio', dados);
+  try {
+    const resultado = await medirEtapa(nome, executar, dados);
+    logTecnico('previa_etapa_fim', {
+      ...dados,
+      resultado: 'sucesso',
+      duracao_ms: Number((performance.now() - inicio).toFixed(3))
+    });
+    return resultado;
+  } catch (error) {
+    logTecnico('previa_etapa_fim', {
+      ...dados,
+      resultado: 'erro',
+      codigo_erro: error?.code || 'ERRO_NAO_CLASSIFICADO',
+      classe_erro: error?.name || null,
+      duracao_ms: Number((performance.now() - inicio).toFixed(3))
+    });
+    throw error;
+  }
+}
+
+function medirEtapaSincronaRastreada(nome, executar, rastreio = {}) {
+  const inicio = performance.now();
+  const dados = {
+    correlation_id: rastreio.correlationId,
+    fechamento_id: rastreio.fechamentoId,
+    assinatura: rastreio.assinatura,
+    etapa: nome
+  };
+  logTecnico('previa_etapa_inicio', dados);
+  try {
+    const resultado = executar();
+    logTecnico('previa_etapa_fim', {
+      ...dados,
+      resultado: 'sucesso',
+      duracao_ms: Number((performance.now() - inicio).toFixed(3))
+    });
+    return resultado;
+  } catch (error) {
+    logTecnico('previa_etapa_fim', {
+      ...dados,
+      resultado: 'erro',
+      codigo_erro: error?.code || 'ERRO_NAO_CLASSIFICADO',
+      classe_erro: error?.name || null,
+      duracao_ms: Number((performance.now() - inicio).toFixed(3))
+    });
+    throw error;
+  }
+}
+
+function criarAssinaturaPrevia(params) {
+  return crypto.createHash('sha256')
+    .update(JSON.stringify(params))
+    .digest('hex')
+    .slice(0, 24);
 }
 
 function normalizarListaComprovantes(comprovantes = []) {
@@ -283,7 +350,7 @@ async function listarComprovantesRecebimento(dbOverride, fechamentoId) {
 
   const rows = await all(
     db,
-    `SELECT id, valor, ordem, criado_em, atualizado_em
+    `SELECT id, valor, ordem, operadora, cnpj, forma_pagamento, criado_em, atualizado_em
      FROM fechamentos_fiscais_recebimentos_comprovantes
      WHERE fechamento_fiscal_id = ?
      ORDER BY ordem ASC, id ASC`,
@@ -294,6 +361,9 @@ async function listarComprovantesRecebimento(dbOverride, fechamentoId) {
     id: Number(row.id),
     valor: toCentavos(row.valor || 0) / 100,
     ordem: Number(row.ordem || 0),
+    operadora: row.operadora || '',
+    cnpj: row.cnpj || '',
+    forma_pagamento: row.forma_pagamento || null,
     criado_em: row.criado_em,
     atualizado_em: row.atualizado_em
   }));
@@ -357,16 +427,46 @@ async function salvarComprovantesRecebimento(dbOverride, fechamentoId, comprovan
 
   const lista = Array.isArray(comprovantes) ? comprovantes : [];
   const valores = [];
+  const estruturada = lista.some((item) => item && typeof item === 'object');
+  const xmlBuilder = require('../fiscal/xmlBuilder');
   for (let idx = 0; idx < lista.length; idx += 1) {
     const item = lista[idx];
     const valor = normalizarValorMonetarioComprovante(item?.valor ?? item ?? null);
-    if (valor === null && (item !== null && item !== undefined && String(item).trim() !== '')) {
+    if (estruturada && (!item || typeof item !== 'object' || valor === null || valor <= 0)) {
+      const err = new Error(`Valor do recebimento ${idx + 1} deve ser maior que zero e válido.`);
+      err.statusCode = 400;
+      err.code = 'VALOR_COMPROVANTE_INVALIDO';
+      throw err;
+    }
+    if (!estruturada && valor === null && (item !== null && item !== undefined && String(item).trim() !== '')) {
       const err = new Error('Valor do comprovante inválido.');
       err.statusCode = 400;
       err.code = 'VALOR_COMPROVANTE_INVALIDO';
       throw err;
     }
-    if (valor !== null) valores.push({ valor, ordem: idx });
+    if (valor === null) continue;
+
+    const operadora = estruturada ? String(item.operadora || '').trim() : null;
+    const formaPagamento = estruturada ? String(item.forma_pagamento || '').trim().toLowerCase() : null;
+    if (estruturada && !operadora) {
+      const err = new Error(`Informe a máquina/operadora do recebimento ${idx + 1}.`);
+      err.statusCode = 400;
+      err.code = 'OPERADORA_COMPROVANTE_AUSENTE';
+      throw err;
+    }
+    if (estruturada && !xmlBuilder.temMapeamentoFormaPagamento(formaPagamento)) {
+      const err = new Error(`Forma de pagamento inválida ou sem mapeamento fiscal no recebimento ${idx + 1}.`);
+      err.statusCode = 400;
+      err.code = 'FORMA_PAGAMENTO_COMPROVANTE_INVALIDA';
+      throw err;
+    }
+    valores.push({
+      valor,
+      ordem: idx,
+      operadora,
+      cnpj: estruturada ? normalizarCnpj(item.cnpj) || null : null,
+      forma_pagamento: formaPagamento
+    });
   }
 
   await run(db, 'BEGIN IMMEDIATE');
@@ -380,9 +480,16 @@ async function salvarComprovantesRecebimento(dbOverride, fechamentoId, comprovan
       await run(
         db,
         `INSERT INTO fechamentos_fiscais_recebimentos_comprovantes
-          (fechamento_fiscal_id, valor, ordem, criado_em, atualizado_em)
-         VALUES (?, ?, ?, datetime('now','localtime'), datetime('now','localtime'))`,
-        [Number(fechamentoId), item.valor, item.ordem]
+          (fechamento_fiscal_id, valor, ordem, operadora, cnpj, forma_pagamento, criado_em, atualizado_em)
+         VALUES (?, ?, ?, ?, ?, ?, datetime('now','localtime'), datetime('now','localtime'))`,
+        [
+          Number(fechamentoId),
+          item.valor,
+          item.ordem,
+          item.operadora,
+          item.cnpj,
+          item.forma_pagamento
+        ]
       );
     }
     const totalCentavos = valores.reduce((soma, item) => soma + toCentavos(item.valor), 0);
@@ -1055,31 +1162,87 @@ async function persistirPrevia(db, fechamento, previa, produtos, opts, metricasP
 function gerarPreviaPorComprovante(comprovantes, lotes, opts = {}) {
   const inicio = performance.now();
   const metricasExecucao = opts.metricasExecucao || {};
+  const maxInformado = opts.valorMax;
+  const maxNumerico = maxInformado == null || String(maxInformado).trim() === ''
+    ? DEFAULTS_DISTRIBUICAO.valorMax
+    : Number(maxInformado);
+  const valorMaxCents = toCentavos(
+    Number.isFinite(maxNumerico) && maxNumerico > 0
+      ? maxNumerico
+      : DEFAULTS_DISTRIBUICAO.valorMax
+  );
   const gruposOriginais = agruparUnidades(lotes);
   metricasExecucao.grupos = gruposOriginais.length;
   let gruposDisponiveis = gruposOriginais.map((grupo) => ({ ...grupo }));
   const usoPorProduto = new Map();
   const vendas = [];
+  const comprovantesNaoCompostos = [];
 
   for (let index = 0; index < comprovantes.length; index += 1) {
     const comprovante = comprovantes[index];
     const valorAlvoCents = toCentavos(comprovante.valor);
-    const { selecionadasAgrupadas, somaCents } = selecionarUnidadesCompactas(
+    const ordem = Number(comprovante.ordem || index + 1);
+    if (valorAlvoCents <= 0) {
+      comprovantesNaoCompostos.push({
+        ordem,
+        valor: valorAlvoCents / 100,
+        codigo: 'COMPROVANTE_VALOR_INVALIDO',
+        motivo: 'o valor do recebimento deve ser maior que zero'
+      });
+      continue;
+    }
+    if (valorAlvoCents > valorMaxCents) {
+      comprovantesNaoCompostos.push({
+        ordem,
+        valor: valorAlvoCents / 100,
+        codigo: 'COMPROVANTE_ACIMA_DO_MAXIMO',
+        motivo: `o valor excede o máximo de R$ ${(valorMaxCents / 100).toFixed(2)} por venda`
+      });
+      continue;
+    }
+
+    // POR_COMPROVANTE is receipt-driven: valorMin is only a grouping hint for
+    // POR_MAQUINA and must never filter or inflate the maximum for a receipt.
+    const { selecionadasAgrupadas, somaCents, capacidadeCents: capacidadeRecebimentoCents } = selecionarUnidadesCompactas(
       gruposDisponiveis,
       valorAlvoCents,
-      { usoPorProduto, metricasExecucao }
+      {
+        usoPorProduto,
+        metricasExecucao,
+        maxValorUnidadeCents: valorMaxCents,
+        maxSomaCents: valorAlvoCents
+      }
     );
-    if (!selecionadasAgrupadas.length || somaCents < valorAlvoCents) continue;
+    if (!selecionadasAgrupadas.length || somaCents !== valorAlvoCents) {
+      const motivo = capacidadeRecebimentoCents < valorAlvoCents
+        ? 'os produtos e as quantidades fiscais elegíveis disponíveis não alcançam esse valor'
+        : 'não existe uma combinação exata dos produtos e quantidades fiscais elegíveis disponíveis';
+      comprovantesNaoCompostos.push({
+        ordem,
+        valor: valorAlvoCents / 100,
+        codigo: 'SEM_COMPOSICAO_EXATA',
+        motivo
+      });
+      continue;
+    }
 
     const [venda] = empacotarVendaUnicaAgrupada(selecionadasAgrupadas, {
       sequencia: index + 1,
       valorAlvo: valorAlvoCents / 100
     });
-    if (!venda) continue;
+    if (!venda || toCentavos(venda.valor_final) !== valorAlvoCents) {
+      comprovantesNaoCompostos.push({
+        ordem,
+        valor: valorAlvoCents / 100,
+        codigo: 'VALOR_COMPOSICAO_DIVERGENTE',
+        motivo: 'o total dos itens selecionados não corresponde exatamente ao recebimento'
+      });
+      continue;
+    }
 
     venda.sequencia = index + 1;
     venda.rotulo = `Venda Fiscal ${String(index + 1).padStart(3, '0')}`;
-    venda.ordem = comprovante.ordem || index + 1;
+    venda.ordem = ordem;
     vendas.push(venda);
     for (const item of venda.itens || []) {
       const produtoId = Number(item.produto_id);
@@ -1135,11 +1298,25 @@ function gerarPreviaPorComprovante(comprovantes, lotes, opts = {}) {
     perfeita,
     incompleta: !perfeita,
     mensagem: perfeita
-      ? 'Por comprovante: cada comprovante gera uma venda fiscal individual com itens fiscais elegíveis.'
+      ? 'Por comprovante: cada comprovante gera uma venda fiscal individual com itens fiscais elegíveis; nenhum desconto foi aplicado.'
       : capacidadeCents > 0
-        ? `Não foi possível compor integralmente os comprovantes com o estoque fiscal elegível. Diferença: R$ ${((totalInformadoCents - totalDistribuidoCents) / 100).toFixed(2)}`
-        : 'Não há itens fiscais elegíveis para compor os comprovantes informados.',
-    codigo: perfeita ? 'OK' : (capacidadeCents > 0 ? 'DISTRIBUICAO_INCOMPLETA' : 'SEM_ELEGIVEIS'),
+        ? `Pendente de conciliação: composição bruta de R$ ${(totalDistribuidoCents / 100).toFixed(2)} ` +
+          `e recebimentos de R$ ${(totalInformadoCents / 100).toFixed(2)} diferem em ` +
+          `R$ ${(Math.abs(totalInformadoCents - totalDistribuidoCents) / 100).toFixed(2)}. ` +
+          'Não há regra autorizada de desconto para ajustar essa diferença.' +
+          (comprovantesNaoCompostos.length
+            ? ` Comprovantes sem composição: ${comprovantesNaoCompostos.map((item) =>
+              `#${item.ordem} de R$ ${item.valor.toFixed(2)}: ${item.motivo}`
+            ).join('; ')}.`
+            : '')
+        : comprovantesNaoCompostos.length
+          ? `Não há itens fiscais elegíveis para compor os comprovantes informados. ` +
+            `Comprovantes sem composição: ${comprovantesNaoCompostos.map((item) =>
+              `#${item.ordem} de R$ ${item.valor.toFixed(2)}: ${item.motivo}`
+            ).join('; ')}.`
+          : 'Não há itens fiscais elegíveis para compor os comprovantes informados.',
+    codigo: perfeita ? 'OK' : (capacidadeCents > 0 ? 'DIFERENCA_NAO_CONCILIADA' : 'SEM_ELEGIVEIS'),
+    comprovantes_nao_compostos: comprovantesNaoCompostos,
     metricas: {
       produtos_elegiveis: new Set(lotes.map((lote) => lote.produto_id)).size,
       linhas_elegiveis: lotes.length,
@@ -1161,14 +1338,19 @@ function gerarPreviaPorComprovante(comprovantes, lotes, opts = {}) {
  * Prévia READ-ONLY sobre tabelas comerciais.
  * Regenerar substitui a prévia anterior (idempotente / sem acumular).
  */
-async function gerarPreviaInterna(params = {}, deps = {}) {
+async function gerarPreviaInterna(params = {}, deps = {}, rastreio = {}) {
   const inicioTotal = performance.now();
   const db = getDb(deps.db);
-  await assertModuloAtivo(db, deps);
+  await medirEtapaRastreada('T1-module-check', () => assertModuloAtivo(db, deps), {}, rastreio);
 
   let fechamento = null;
   if (params.fechamento_id || params.id) {
-    fechamento = await obterPorId(params.fechamento_id || params.id, { db });
+    fechamento = await medirEtapaRastreada(
+      'T1-load-fechamento',
+      () => obterPorId(params.fechamento_id || params.id, { db }),
+      {},
+      rastreio
+    );
     if (String(fechamento.status || '').toUpperCase() === STATUS.CANCELADO) {
       const err = new Error('Este fechamento foi cancelado. Crie um novo rascunho para gerar outra prévia.');
       err.statusCode = 409;
@@ -1180,11 +1362,20 @@ async function gerarPreviaInterna(params = {}, deps = {}) {
   const dataResolvida = resolverDataFechamento(params, fechamento);
   const data = normalizarData(dataResolvida);
   const excluirFechamentoId = params.fechamento_id || params.id || null;
-  const resumo = await medirEtapa(
+  const resumo = await medirEtapaRastreada(
     'T2-summary',
     () => obterResumoDia(db, data, { excluirFechamentoId }),
-    { fechamento_id: fechamento?.id || null }
+    { fechamento_id: fechamento?.id || null },
+    rastreio
   );
+  logTecnico('previa_resumo_base', {
+    ...rastreio,
+    data,
+    valor_fiscal_elegivel: Number(resumo.valor_fiscal_elegivel || 0),
+    valor_elegivel: Number(resumo.valor_elegivel || 0),
+    produtos_elegiveis: Number(resumo.itens_fiscais_elegiveis || 0),
+    lotes_elegiveis: Number(resumo.linhas_elegiveis || 0)
+  });
   const contextoDia = obterContextoResumoDia(resumo);
   const lotesMonitor = resumo.lotes || [];
 
@@ -1272,21 +1463,37 @@ async function gerarPreviaInterna(params = {}, deps = {}) {
     );
     const produtos = lotes.length ? agregarProdutosDosLotes(lotes) : (resumo.produtos || []);
     const metricasExecucao = {};
-    const poolMetric = {
+    const poolMetric = medirEtapaSincronaRastreada('T4-pool', () => ({
       produtos_candidatos: new Set(lotes.map((lote) => Number(lote.produto_id))).size,
       lotes: lotes.length
-    };
+    }), rastreio);
     PerformanceMonitor.record('fiscal:preview:T4-pool', {
       produtos_candidatos: poolMetric.produtos_candidatos
     });
+    medirEtapaSincronaRastreada('T5-lotes', () => poolMetric.lotes, rastreio);
     PerformanceMonitor.record('fiscal:preview:T5-lotes', { lotes: poolMetric.lotes });
-    const previa = await medirEtapa('T7-distribution', () => gerarPreviaDistribuicaoNoWorker({
+    const previa = await medirEtapaRastreada('T7-distribution', () => gerarPreviaDistribuicaoNoWorker({
       tipo: 'comprovantes',
       comprovantes: comprovantesPersistidos,
       lotes,
       opcoes: { ...opts, metricasExecucao }
-    }), poolMetric);
+    }, rastreio), poolMetric, rastreio);
+    logTecnico('previa_etapa_fim', {
+      ...rastreio,
+      etapa: 'T6-groups',
+      resultado: 'sucesso',
+      grupos: previa.metricas.grupos,
+      worker_duracao_ms: previa.metricas.tempo_ms
+    });
     PerformanceMonitor.record('fiscal:preview:T6-groups', { grupos: previa.metricas.grupos });
+    logTecnico('previa_etapa_fim', {
+      ...rastreio,
+      etapa: 'T8-search',
+      resultado: 'sucesso',
+      estados_avaliados: previa.metricas.estados_avaliados,
+      transicoes_avaliadas: previa.metricas.transicoes_avaliadas,
+      worker_duracao_ms: previa.metricas.tempo_ms
+    });
     PerformanceMonitor.record('fiscal:preview:T8-search', {
       estados_avaliados: previa.metricas.estados_avaliados,
       transicoes_avaliadas: previa.metricas.transicoes_avaliadas,
@@ -1295,20 +1502,21 @@ async function gerarPreviaInterna(params = {}, deps = {}) {
 
     const persistencia = { deletes: 0, inserts: 0, updates: 0 };
     if (devePersistir && fechamento) {
-      await medirEtapa('T9-persistence', () =>
+      await medirEtapaRastreada('T9-persistence', () =>
         persistirPrevia(db, fechamento, previa, produtos, opts, persistencia), {
           ...poolMetric,
           vendas: previa.vendas.length
-        });
+        }, rastreio);
       PerformanceMonitor.record('fiscal:preview:T9-persistence-counts', persistencia);
       fechamento = await obterPorId(fechamento.id, { db });
-      await medirEtapa('T10-complementation', () =>
-        atualizarComplementacaoDoFechamento(db, fechamento.id, contextoDia));
+      await medirEtapaRastreada('T10-complementation', () =>
+        atualizarComplementacaoDoFechamento(db, fechamento.id, contextoDia), {}, rastreio);
       fechamento = await obterPorId(fechamento.id, { db });
     }
 
     const responseInicio = performance.now();
-    const responseMetric = iniciarMetrica('T11-response-mount');
+    const responseMetric = iniciarMetrica('T11-response-mount', rastreio);
+    logTecnico('previa_etapa_inicio', { ...rastreio, etapa: 'T11-response-mount' });
     const resultado = {
       data,
       resumo,
@@ -1333,6 +1541,12 @@ async function gerarPreviaInterna(params = {}, deps = {}) {
     finalizarMetrica(responseMetric, {
       elapsed_ms: Number((performance.now() - responseInicio).toFixed(3))
     });
+    logTecnico('previa_etapa_fim', {
+      ...rastreio,
+      etapa: 'T11-response-mount',
+      resultado: 'sucesso',
+      duracao_ms: Number((performance.now() - responseInicio).toFixed(3))
+    });
     PerformanceMonitor.record('fiscal:preview:T11-generation-metrics', {
       fechamento_id: fechamento?.id || null,
       data,
@@ -1346,6 +1560,16 @@ async function gerarPreviaInterna(params = {}, deps = {}) {
       deletes: persistencia?.deletes || 0,
       inserts: persistencia?.inserts || 0,
       updates: persistencia?.updates || 0
+    });
+    logTecnico('previa_geracao_concluida', {
+      ...rastreio,
+      duracao_total_ms: Number((performance.now() - inicioTotal).toFixed(3)),
+      valor_informado: previa.valor_informado,
+      valor_distribuido: previa.valor_distribuido,
+      diferenca: previa.diferenca,
+      valor_elegivel: previa.valor_elegivel,
+      vendas: previa.vendas.length,
+      itens_fiscais: previa.vendas.reduce((total, venda) => total + (venda.itens || []).length, 0)
     });
     return resultado;
   }
@@ -1362,25 +1586,41 @@ async function gerarPreviaInterna(params = {}, deps = {}) {
   const produtos = lotes.length ? agregarProdutosDosLotes(lotes) : (resumo.produtos || []);
 
   const snapshotAntes = deps.capturarSnapshot !== false
-    ? await medirEtapa('snapshot-before', () => snapshotComercial(db))
+    ? await medirEtapaRastreada('snapshot-before', () => snapshotComercial(db), {}, rastreio)
     : null;
 
   const metricasExecucao = {};
-  const poolMetric = {
+  const poolMetric = medirEtapaSincronaRastreada('T4-pool', () => ({
     produtos_candidatos: new Set(lotes.map((lote) => Number(lote.produto_id))).size,
     lotes: lotes.length
-  };
+  }), rastreio);
   PerformanceMonitor.record('fiscal:preview:T4-pool', {
     produtos_candidatos: poolMetric.produtos_candidatos
   });
+  medirEtapaSincronaRastreada('T5-lotes', () => poolMetric.lotes, rastreio);
   PerformanceMonitor.record('fiscal:preview:T5-lotes', { lotes: poolMetric.lotes });
-  const previa = await medirEtapa('T7-distribution', () => gerarPreviaDistribuicaoNoWorker({
+  const previa = await medirEtapaRastreada('T7-distribution', () => gerarPreviaDistribuicaoNoWorker({
     tipo: 'normal',
     lotes: lotes.length ? lotes : produtos,
     valorInformado,
     opcoes: { ...opts, metricasExecucao }
-  }), poolMetric);
+  }, rastreio), poolMetric, rastreio);
+  logTecnico('previa_etapa_fim', {
+    ...rastreio,
+    etapa: 'T6-groups',
+    resultado: 'sucesso',
+    grupos: previa.metricas.grupos,
+    worker_duracao_ms: previa.metricas.tempo_ms
+  });
   PerformanceMonitor.record('fiscal:preview:T6-groups', { grupos: previa.metricas.grupos });
+  logTecnico('previa_etapa_fim', {
+    ...rastreio,
+    etapa: 'T8-search',
+    resultado: 'sucesso',
+    estados_avaliados: previa.metricas.estados_avaliados,
+    transicoes_avaliadas: previa.metricas.transicoes_avaliadas,
+    worker_duracao_ms: previa.metricas.tempo_ms
+  });
   PerformanceMonitor.record('fiscal:preview:T8-search', {
     estados_avaliados: previa.metricas.estados_avaliados,
     transicoes_avaliadas: previa.metricas.transicoes_avaliadas,
@@ -1388,6 +1628,7 @@ async function gerarPreviaInterna(params = {}, deps = {}) {
   });
 
   logTecnico('previa_gerada', {
+    ...rastreio,
     fechamento_id: fechamento?.id || null,
     data,
     valor_alvo: opts.valorAlvo,
@@ -1430,16 +1671,16 @@ async function gerarPreviaInterna(params = {}, deps = {}) {
         throw err;
       }
     } else {
-      await medirEtapa('T9-persistence', () =>
+      await medirEtapaRastreada('T9-persistence', () =>
         persistirPrevia(db, fechamento, previa, produtos, opts, persistencia), {
           ...poolMetric,
           vendas: previa.vendas.length
-        });
+        }, rastreio);
       PerformanceMonitor.record('fiscal:preview:T9-persistence-counts', persistencia);
     }
     fechamento = await obterPorId(fechamento.id, { db });
-    await medirEtapa('T10-complementation', () =>
-      atualizarComplementacaoDoFechamento(db, fechamento.id, contextoDia));
+    await medirEtapaRastreada('T10-complementation', () =>
+      atualizarComplementacaoDoFechamento(db, fechamento.id, contextoDia), {}, rastreio);
     fechamento = await obterPorId(fechamento.id, { db });
   } else if (fechamento) {
     fechamento.complementacao = await complementacao.gerarComplementacaoFiscal(fechamento, {
@@ -1449,11 +1690,12 @@ async function gerarPreviaInterna(params = {}, deps = {}) {
   }
 
   const snapshotDepois = deps.capturarSnapshot !== false
-    ? await medirEtapa('snapshot-after', () => snapshotComercial(db))
+    ? await medirEtapaRastreada('snapshot-after', () => snapshotComercial(db), {}, rastreio)
     : null;
 
   const responseInicio = performance.now();
-  const responseMetric = iniciarMetrica('T11-response-mount');
+  const responseMetric = iniciarMetrica('T11-response-mount', rastreio);
+  logTecnico('previa_etapa_inicio', { ...rastreio, etapa: 'T11-response-mount' });
   const resultado = {
     data,
     resumo,
@@ -1480,6 +1722,12 @@ async function gerarPreviaInterna(params = {}, deps = {}) {
   finalizarMetrica(responseMetric, {
     elapsed_ms: Number((performance.now() - responseInicio).toFixed(3))
   });
+  logTecnico('previa_etapa_fim', {
+    ...rastreio,
+    etapa: 'T11-response-mount',
+    resultado: 'sucesso',
+    duracao_ms: Number((performance.now() - responseInicio).toFixed(3))
+  });
   PerformanceMonitor.record('fiscal:preview:T11-generation-metrics', {
     fechamento_id: fechamento?.id || null,
     data,
@@ -1494,10 +1742,21 @@ async function gerarPreviaInterna(params = {}, deps = {}) {
     inserts: persistencia.inserts,
     updates: persistencia.updates
   });
+  logTecnico('previa_geracao_concluida', {
+    ...rastreio,
+    duracao_total_ms: Number((performance.now() - inicioTotal).toFixed(3)),
+    valor_informado: previa.valor_informado,
+    valor_distribuido: previa.valor_distribuido,
+    diferenca: previa.diferenca,
+    valor_elegivel: previa.valor_elegivel,
+    vendas: previa.vendas.length,
+    itens_fiscais: previa.vendas.reduce((total, venda) => total + (venda.itens || []).length, 0)
+  });
   return resultado;
 }
 
 function gerarPrevia(params = {}, deps = {}) {
+  const inicio = performance.now();
   const db = getDb(deps.db);
   let dbId = dbIdentidades.get(db);
   if (!dbId) {
@@ -1508,27 +1767,71 @@ function gerarPrevia(params = {}, deps = {}) {
     ? `fechamento:${Number(params.id || params.fechamento_id)}`
     : `data:${String(params.data || params.data_fechamento || '')}`;
   const chave = `${dbId}:${identidade}`;
-  const assinatura = JSON.stringify({
-    params,
+  const parametrosAssinatura = { ...params };
+  delete parametrosAssinatura.correlation_id;
+  delete parametrosAssinatura.correlationId;
+  const correlationId = /^[A-Za-z0-9._-]{1,100}$/.test(String(params.correlation_id || params.correlationId || ''))
+    ? String(params.correlation_id || params.correlationId)
+    : crypto.randomUUID();
+  const fechamentoId = Number(params.id || params.fechamento_id) || null;
+  const assinatura = criarAssinaturaPrevia(parametrosAssinatura);
+  const rastreio = { correlationId, fechamentoId, assinatura };
+  logTecnico('previa_geracao_inicio', rastreio);
+  const assinaturaConcorrencia = criarAssinaturaPrevia({
+    params: parametrosAssinatura,
     moduloOn: deps.moduloOn,
     capturarSnapshot: deps.capturarSnapshot,
     persistir: deps.persistir
   });
   const existente = previewsEmAndamento.get(chave);
   if (existente) {
-    if (existente.assinatura === assinatura) return existente.promise;
+    if (existente.assinatura === assinaturaConcorrencia) {
+      logTecnico('previa_geracao_coalescida', {
+        ...rastreio,
+        correlation_id_original: existente.correlationId
+      });
+      return existente.promise;
+    }
     const erro = new Error('Já existe uma geração de prévia em andamento para este fechamento.');
     erro.statusCode = 409;
     erro.code = 'PREVIA_EM_ANDAMENTO';
+    logTecnico('previa_geracao_rejeitada', {
+      ...rastreio,
+      codigo_erro: erro.code,
+      status_http: erro.statusCode,
+      duracao_ms: Number((performance.now() - inicio).toFixed(3))
+    });
     return Promise.reject(erro);
   }
 
-  const promise = gerarPreviaInterna(params, deps).finally(() => {
+  const promise = gerarPreviaInterna(params, deps, rastreio).then((resultado) => {
+    logTecnico('previa_geracao_fim', {
+      ...rastreio,
+      resultado: 'sucesso',
+      vendas: resultado?.previa?.vendas?.length || 0,
+      duracao_ms: Number((performance.now() - inicio).toFixed(3))
+    });
+    return resultado;
+  }, (erro) => {
+    logTecnico('previa_geracao_fim', {
+      ...rastreio,
+      resultado: 'erro',
+      codigo_erro: erro?.code || 'ERRO_NAO_CLASSIFICADO',
+      status_http: erro?.statusCode || erro?.status || 500,
+      duracao_ms: Number((performance.now() - inicio).toFixed(3))
+    });
+    throw erro;
+  }).finally(() => {
     if (previewsEmAndamento.get(chave)?.promise === promise) {
       previewsEmAndamento.delete(chave);
+      logTecnico('previa_geracao_lock_liberado', rastreio);
     }
   });
-  previewsEmAndamento.set(chave, { assinatura, promise });
+  previewsEmAndamento.set(chave, {
+    assinatura: assinaturaConcorrencia,
+    correlationId,
+    promise
+  });
   return promise;
 }
 

@@ -209,7 +209,7 @@ db.get('SELECT * FROM vendas WHERE id = ?', [id], (err, venda) => {
       });
     }
 
-    cancelarNfceAutorizadaVenda(id, motivo)
+    cancelarNfceAutorizadaVenda(id, motivo, avaliacao.nfce.id)
       .then(() => executarCancelamentoVenda())
       .catch((cancelErr) => res.status(400).json({ error: cancelErr.message, sefaz: cancelErr.sefaz || null }));
   });
@@ -351,11 +351,30 @@ db.get(
           return executarCancelamentoLocal();
         }
 
+        const concluirAposConfirmacaoFiscal = () => {
+          const exigeEstornoFiscal =
+            venda.status_pagamento === 'fiscal_pago' ||
+            venda.status_pagamento === 'aguardando_nao_fiscal';
+          const estornarFiscal = exigeEstornoFiscal && venda.tef_transacao_id
+            ? cancelarFiscal(venda.tef_transacao_id, motivo || 'Cancelamento de venda')
+            : Promise.resolve();
+
+          estornarFiscal
+            .then(() => executarCancelamentoLocal())
+            .catch((tefErr) => {
+              console.error('Erro ao estornar TEF após confirmação fiscal:', tefErr);
+              res.status(500).json({
+                sucesso: false,
+                mensagem: 'Erro ao estornar o Recebimento A após confirmação do cancelamento fiscal.'
+              });
+            });
+        };
+
         const justificativa = motivo || '';
-        cancelarNfceAutorizadaVenda(vendaId, justificativa)
+        cancelarNfceAutorizadaVenda(vendaId, justificativa, avaliacao.nfce.id)
           .then((retorno) => {
             avaliacao.retornoCancelamento = retorno || null;
-            executarCancelamentoLocal();
+            concluirAposConfirmacaoFiscal();
           })
           .catch((cancelErr) => res.status(400).json({
             sucesso: false,
@@ -375,10 +394,10 @@ db.get(
       }
     }
 
-    if (
+    if (!avaliacao.cancelar_nfce && (
       venda.status_pagamento === 'fiscal_pago' ||
       venda.status_pagamento === 'aguardando_nao_fiscal'
-    ) {
+    )) {
       const estornarFiscal = venda.tef_transacao_id
         ? cancelarFiscal(venda.tef_transacao_id, motivo || 'Cancelamento de venda')
         : Promise.resolve();

@@ -1024,8 +1024,8 @@
         throw new Error(data.error || data.erro || 'Não foi possível salvar.');
       }
       chk.checked = data.valor === 'ATIVADO';
-      if (typeof global.aplicarVisibilidadeMenuFechamentoFiscalDia === 'function') {
-        global.aplicarVisibilidadeMenuFechamentoFiscalDia(data.valor === 'ATIVADO');
+      if (typeof global.dispatchEvent === 'function' && typeof Event === 'function') {
+        global.dispatchEvent(new Event('cds:fechamento-fiscal-dia-config-alterada'));
       }
       if (fb) fb.textContent = data.valor === 'ATIVADO' ? 'Módulo ATIVADO.' : 'Módulo DESATIVADO.';
       if (typeof global.showNotification === 'function') {

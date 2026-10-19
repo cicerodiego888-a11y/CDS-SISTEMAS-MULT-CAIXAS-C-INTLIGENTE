@@ -8,8 +8,8 @@
  */
 
 const axios = require('axios');
-const https = require('https');
 const { carregarCertificadoPfx } = require('./certificateService');
+const { criarAgenteHttpsCancelamento } = require('./cancelamentoTls');
 
 const NS_EVENTO = 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4';
 const ACTION_EVENTO = `${NS_EVENTO}/nfeRecepcaoEvento`;
@@ -179,13 +179,28 @@ async function enviarCancelamentoLegado(params = {}) {
     }
 
     let httpsAgent = params.httpsAgent || null;
+    if (httpsAgent && httpsAgent.options?.rejectUnauthorized !== true) {
+      return {
+        success: false,
+        body: null,
+        statusCode: null,
+        message: 'Agente TLS de cancelamento deve validar o certificado do servidor.',
+        code: 'TLS_POLICY_REJECTED',
+        endpoint: url,
+        namespace: NS_EVENTO,
+        soapAction: ACTION_EVENTO,
+        versao,
+        tempoXmlMs,
+        tempoSoapMs: 0,
+        tempo: elapsedMs()
+      };
+    }
     if (!httpsAgent) {
       const certificado = carregarCertificadoPfx(params.certificadoPath, params.certificadoSenha);
       const host = new URL(url).hostname;
-      httpsAgent = new https.Agent({
+      httpsAgent = criarAgenteHttpsCancelamento({
         key: certificado.privateKeyPem,
         cert: certificado.certBundlePem || certificado.certPem,
-        rejectUnauthorized: false,
         minVersion: 'TLSv1.2',
         keepAlive: false,
         servername: host

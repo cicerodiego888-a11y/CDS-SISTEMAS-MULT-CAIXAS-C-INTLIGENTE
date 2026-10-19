@@ -1,4 +1,5 @@
 let produtosCompraList = [];
+let sequenciaCarregamentoEmbalagensCompra = 0;
 let fornecedoresList = [];
 let itensCompraAtual = [];
 /**
@@ -1071,8 +1072,15 @@ function salvarUltimaEmbalagemCompraProduto(produtoId, embalagemId) {
 }
 
 async function carregarEmbalagensProdutoCompra(produto) {
+    const produtoIdSolicitado = String(produto?.id ?? '');
+    const versaoCarga = ++sequenciaCarregamentoEmbalagensCompra;
     embalagensProdutoCompraAtual = [];
-    if (!produto?.id) return [];
+    if (!produtoIdSolicitado) return [];
+
+    const produtoSelecionadoAgora = obterProdutoSelecionadoCompra();
+    if (String(produtoSelecionadoAgora?.id ?? '') !== produtoIdSolicitado) {
+        return [];
+    }
 
     let produtoCompleto = produto;
     if (!Array.isArray(produto.embalagens)) {
@@ -1082,11 +1090,16 @@ async function carregarEmbalagensProdutoCompra(produto) {
             });
             if (resp.ok) {
                 produtoCompleto = await resp.json();
+                if (versaoCarga !== sequenciaCarregamentoEmbalagensCompra) return [];
+                if (String(obterProdutoSelecionadoCompra()?.id ?? '') !== produtoIdSolicitado) return [];
                 const idx = produtosCompraList.findIndex((p) => String(p.id) === String(produto.id));
                 if (idx >= 0) produtosCompraList[idx] = { ...produtosCompraList[idx], ...produtoCompleto };
             }
         } catch { /* fallback legado */ }
     }
+
+    if (versaoCarga !== sequenciaCarregamentoEmbalagensCompra) return [];
+    if (String(obterProdutoSelecionadoCompra()?.id ?? '') !== produtoIdSolicitado) return [];
 
     if (typeof ProdutoApresentacaoResolver !== 'undefined') {
         const cadastradas = ProdutoApresentacaoResolver.listarOpcoesCompraProduto(produtoCompleto);
@@ -1098,6 +1111,8 @@ async function carregarEmbalagensProdutoCompra(produto) {
             [...cadastradas, ...temporarias]
         );
     }
+    if (versaoCarga !== sequenciaCarregamentoEmbalagensCompra) return [];
+    if (String(obterProdutoSelecionadoCompra()?.id ?? '') !== produtoIdSolicitado) return [];
     return embalagensProdutoCompraAtual;
 }
 
@@ -5675,10 +5690,12 @@ function calcularEmbalagemComercialLocal(qtdEmb, qtdPorEmb, valorTotal, precoVen
 }
 
 function produtoUsaEmbalagemComercialCompra(produto) {
-    return Boolean(produto && (
-        Number(produto.compra_por_embalagem || 0) === 1
-        || (isOrigemCompraCentralNfe() && produto.central_nfe_usa_apresentacao_compra === true)
-    ));
+    if (!produto) return false;
+    const compraPorEmbalagemAtiva = Number(produto.compra_por_embalagem || 0) === 1;
+    if (!compraPorEmbalagemAtiva && Number(produto.compra_por_embalagem || 0) !== 1) {
+        return Boolean(isOrigemCompraCentralNfe() && produto.central_nfe_usa_apresentacao_compra === true);
+    }
+    return true;
 }
 
 /** RC4.31.24 — embalagem_id persistido (não sintético de UI). */
@@ -7097,25 +7114,7 @@ function invalidarConfirmacaoConversaoLinhaCompra(item = {}) {
 }
 
 function gerarChaveItemConversaoCompra(item = {}, fallbackIndex = 0) {
-    const nItem = item.nItem ?? item.nitem ?? item.linha_xml;
-    if (nItem !== undefined && nItem !== null && String(nItem).trim() !== '') {
-        return `linha:${String(nItem).trim()}`;
-    }
-    const explicit = [
-        item.item_key,
-        item.itemKey,
-        item.linha_id,
-        item.linhaId
-    ].find((valor) => valor !== undefined && valor !== null && String(valor).trim() !== '');
-    if (explicit !== undefined) {
-        const raw = String(explicit).trim();
-        if (raw.startsWith('item:') || raw.startsWith('linha:') || raw.startsWith('produto:')) return raw;
-        return `linha:${raw}`;
-    }
-    const produtoRef = [item.produto_id, item.produtoId].find(
-        (valor) => valor !== undefined && valor !== null && String(valor).trim() !== ''
-    );
-    return produtoRef !== undefined ? `produto:${String(produtoRef)}:idx:${fallbackIndex}` : `idx:${fallbackIndex}`;
+    return window.CdsComprasConfirmacaoConversao.gerarChaveItem(item, fallbackIndex);
 }
 
 function abrirModalConfirmacaoConversaoPendencias(pendencias, payloadOriginal, isUsoConsumo, isNotaAvulsa) {
@@ -7128,7 +7127,7 @@ function abrirModalConfirmacaoConversaoPendencias(pendencias, payloadOriginal, i
 
     const renderLinha = (itemKey, item, index) => {
         const decisaoAtual = decisoes.get(itemKey);
-        const itemLabel = item?.produto_nome || item?.produto_nome || item?.codigo_barras || `Item ${index + 1}`;
+        const itemLabel = item?.produto_nome || item?.codigo_barras || `Item ${index + 1}`;
         const sugestao = item?.conversao_sugerida || item?.conversaoSugerida || item?.fator_sugerido || item?.fatorSugerido;
         const detalhe = item?.unidade_nf && item?.unidade_estoque
             ? `${item.unidade_nf} → ${item.unidade_estoque}`
@@ -7142,6 +7141,7 @@ function abrirModalConfirmacaoConversaoPendencias(pendencias, payloadOriginal, i
                         <button type="button" class="btn ${decisaoAtual === false ? 'btn-danger' : 'btn-outline-danger'} decisao-conversao-btn" data-item-key="${escapeHtml(String(itemKey))}" data-decisao="false">NÃO</button>
                     </div>
                 </div>
+                        <button type="button" class="btn btn-sm ${decisaoAtual === 'sem-conversao' ? 'btn-warning' : 'btn-outline-warning'} decisao-conversao-btn" data-item-key="${escapeHtml(String(itemKey))}" data-decisao="sem-conversao">Continuar sem conversão automática</button>
                         <div class="small text-muted mb-1">${escapeHtml(detalhe)}</div>
                         <div class="small">
                             Origem: ${escapeHtml(String(item?.quantidade_nf ?? item?.quantidade_comercial ?? '—'))} ${escapeHtml(String(item?.unidade_nf || item?.unidade_comercial || ''))}
@@ -7166,7 +7166,7 @@ function abrirModalConfirmacaoConversaoPendencias(pendencias, payloadOriginal, i
                     </div>
                     <div class="modal-body">
                         <div class="alert alert-warning small mb-3">
-                            Há itens da NF-e com unidade em conversão pendente. Defina a ação para cada linha antes de gravar a compra.
+                            “NÃO” só permite gravar se a quantidade original já estiver na unidade de estoque. “Continuar sem conversão automática” grava a compra e o financeiro com a quantidade original da NF-e, mas não movimenta o estoque desse item; corrija a apresentação do produto e regularize depois.
                         </div>
                         <div id="${modalId}-body">
                             ${pendenciasComChave.map((pendencia, index) => renderLinha(pendencia.item_key, pendencia, index)).join('')}
@@ -7187,51 +7187,57 @@ function abrirModalConfirmacaoConversaoPendencias(pendencias, payloadOriginal, i
 
     const atualizarBotaoConfirmar = () => {
         const total = pendenciasComChave.length;
-        const respondidas = pendenciasComChave.filter((p) => decisoes.has(p.item_key) && decisoes.get(p.item_key) !== undefined && decisoes.get(p.item_key) !== null).length;
+        const respondidas = pendenciasComChave.filter((p) => (
+            decisoes.get(p.item_key) === true
+            || decisoes.get(p.item_key) === false
+            || decisoes.get(p.item_key) === 'sem-conversao'
+        )).length;
         $('#'+modalId+'-confirmar').prop('disabled', respondidas !== total);
     };
 
     $(`#${modalId}`).on('click', '.decisao-conversao-btn', function() {
         const itemKey = String($(this).data('item-key') || '');
-        const decisao = $(this).data('decisao') === true || $(this).data('decisao') === 'true';
+        const decisaoValor = $(this).data('decisao');
+        const decisaoRaw = decisaoValor === false ? 'false' : String(decisaoValor || '');
+        const decisao = decisaoRaw === 'true' ? true
+            : decisaoRaw === 'false' ? false
+                : decisaoRaw === 'sem-conversao' ? 'sem-conversao' : null;
+        if (decisao === null) return;
         decisoes.set(itemKey, decisao);
         atualizarBotaoConfirmar();
-        $(this).closest('.conversion-confirm-row').find('.decisao-conversao-btn').removeClass('btn-success btn-outline-success btn-danger btn-outline-danger').addClass((decisao ? 'btn-success' : 'btn-danger'));
-        $(this).siblings('.decisao-conversao-btn').not(this).removeClass('btn-success btn-danger').addClass(decisao ? 'btn-outline-danger' : 'btn-outline-success');
-        $(this).removeClass('btn-outline-success btn-outline-danger').addClass(decisao ? 'btn-success' : 'btn-danger');
+        const $botoes = $(this).closest('.conversion-confirm-row').find('.decisao-conversao-btn');
+        $botoes.removeClass('btn-success btn-outline-success btn-danger btn-outline-danger btn-warning btn-outline-warning');
+        $botoes.each(function() {
+            const valor = String($(this).attr('data-decisao') || '');
+            const selecionado = valor === decisaoRaw;
+            const classe = valor === 'true'
+                ? (selecionado ? 'btn-success' : 'btn-outline-success')
+                : valor === 'false'
+                    ? (selecionado ? 'btn-danger' : 'btn-outline-danger')
+                    : (selecionado ? 'btn-warning' : 'btn-outline-warning');
+            $(this).addClass(classe);
+        });
     });
 
     $('#'+modalId+'-confirmar').on('click', () => {
         if (window.__cdsGravandoCompraConversao) return;
-        const faltando = pendenciasComChave.filter((pendencia) => decisoes.get(pendencia.item_key) === undefined || decisoes.get(pendencia.item_key) === null);
+        const faltando = pendenciasComChave.filter((pendencia) => ![
+            true, false, 'sem-conversao'
+        ].includes(decisoes.get(pendencia.item_key)));
         if (faltando.length > 0) {
-            showNotification('Defina SIM ou NÃO para todos os itens pendentes antes de continuar.', 'warning');
+            showNotification('Escolha uma opção para todos os itens pendentes antes de continuar.', 'warning');
             return;
         }
 
-        const confirmacoes = pendenciasComChave.map((pendencia) => ({
-            item_key: pendencia.item_key,
-            indice: pendencia.indice ?? pendencia.nItem ?? null,
-            nItem: pendencia.nItem,
-            documento_id: payloadOriginal?.central_documento_id || centralDocumentoIdAtual || null,
-            confirmacao: Boolean(decisoes.get(pendencia.item_key)),
-            selo_conversao: pendencia.selo_conversao || null
-        }));
-        const respondida = (c) => confirmacoes.some((n) => String(n.item_key) === String(c?.item_key)
-            || (n.nItem != null && String(n.nItem) === String(c?.nItem)));
-        const anteriores = (Array.isArray(payloadOriginal?.confirmacoes_conversao) ? payloadOriginal.confirmacoes_conversao : [])
-            .filter((c) => c && !respondida(c));
-        const payloadConfirmado = {
-            ...payloadOriginal,
-            confirmacoes_conversao: [...anteriores, ...confirmacoes],
-            itens: Array.isArray(payloadOriginal?.itens) ? payloadOriginal.itens.map((item, index) => {
-                const itemKey = gerarChaveItemConversaoCompra(item, index);
-                const decisaoItem = decisoes.get(itemKey);
-                return { ...item, item_key: itemKey, confirmacao: decisaoItem !== undefined ? decisaoItem : null };
-            }) : []
-        };
+        const payloadConfirmado = window.CdsComprasConfirmacaoConversao.construirPayloadConfirmado(
+            payloadOriginal,
+            pendenciasComChave,
+            decisoes,
+            centralDocumentoIdAtual
+        );
 
         window.__cdsGravandoCompraConversao = true;
+        $('#'+modalId+'-confirmar').prop('disabled', true).text('Validando decisões...');
         modal.hide();
         el.addEventListener('hidden.bs.modal', () => {
             $(`#${modalId}`).remove();
@@ -7263,7 +7269,12 @@ function executarGravacaoCompra(data, isUsoConsumo, isNotaAvulsa) {
             if (it?.produto_id) invalidarCacheUltimaCompraProduto(it.produto_id);
         });
         $('#compraModal').modal('hide');
-        if (resp?.aviso || resp?.vinculoCentral?.ok === false) {
+        if (resp?.estoque_pendente_conversao?.length) {
+            showNotification(
+                'Compra registrada; o estoque de um ou mais itens ficou pendente de regularização. Consulte a compra e corrija a apresentação para atualizar o saldo com segurança.',
+                'warning'
+            );
+        } else if (resp?.aviso || resp?.vinculoCentral?.ok === false) {
             showNotification(
                 resp.aviso || 'Compra gravada, mas o vínculo com a Central ficou pendente de reconciliação.',
                 'warning'
@@ -7282,7 +7293,8 @@ function executarGravacaoCompra(data, isUsoConsumo, isNotaAvulsa) {
     }).fail(function(xhr) {
         window.__cdsExecutandoGravacaoCompra = false;
         const payload = xhr.responseJSON || {};
-        if (xhr.status === 422 && payload.code === 'PENDENCIAS_CONVERSAO' && Array.isArray(payload.pendencias)) {
+        const erroConversao = window.CdsComprasConfirmacaoConversao.classificarResposta422(payload);
+        if (xhr.status === 422 && erroConversao.reabrirModal) {
             abrirModalConfirmacaoConversaoPendencias(payload.pendencias, data, isUsoConsumo, isNotaAvulsa);
             return;
         }
@@ -7292,7 +7304,7 @@ function executarGravacaoCompra(data, isUsoConsumo, isNotaAvulsa) {
             });
             return;
         }
-        showNotification(payload.error || 'Erro ao registrar compra.', 'danger');
+        showNotification(xhr.status === 422 ? erroConversao.mensagem : (payload.error || 'Erro ao registrar compra.'), 'danger');
     });
 }
 
@@ -7481,6 +7493,16 @@ function viewCompra(id) {
             ? '<tr><td colspan="8" class="text-center text-muted">Nota Fiscal Avulsa - sem itens</td></tr>'
             : itensLista.map((item, index) => {
                 const margem = item.margem_lucro != null ? item.margem_lucro : MARGEM_PADRAO_FALLBACK_COMPRA;
+                const estoquePendente = item.status_estoque === 'PENDENTE_CONVERSAO';
+                const pendenciaEstoqueHtml = estoquePendente
+                    ? `<div class="mt-1">
+                        <span class="badge bg-warning text-dark">Estoque pendente</span>
+                        <button type="button" class="btn btn-sm btn-outline-primary ms-1 regularizar-estoque-compra-btn"
+                            data-compra-id="${Number(compra.id)}" data-item-id="${Number(item.id)}">
+                            Regularizar estoque
+                        </button>
+                    </div>`
+                    : '';
                 const vendaCell = podeEditarVenda
                     ? `<input type="number" step="0.01" min="0" class="form-control form-control-sm"
                         data-view-preco-venda-item="${index}"
@@ -7493,7 +7515,7 @@ function viewCompra(id) {
                     : formatCurrency(item.preco_venda_sugerido || 0);
                 return `
             <tr data-view-compra-item-index="${index}">
-                <td>${escapeHtml(item.produto_nome || item.descricao_produto || '-')}${renderResumoConversaoItemCompraHtml(item)}</td>
+                <td>${escapeHtml(item.produto_nome || item.descricao_produto || '-')}${renderResumoConversaoItemCompraHtml(item)}${pendenciaEstoqueHtml}</td>
                 <td>${formatarQuantidadeItemCompra(item)}</td>
                 <td>${formatCurrency(item.preco_unitario)}</td>
                 <td class="view-compra-margem-cell">${formatNumberInput(margem)}%</td>
@@ -7560,9 +7582,38 @@ function viewCompra(id) {
             </div>
         `;
         $('#modal-container').html(modalHtml);
+        $('#viewCompraModal').on('click', '.regularizar-estoque-compra-btn', function() {
+            regularizarEstoqueCompra(
+                Number($(this).data('compra-id')),
+                Number($(this).data('item-id')),
+                this
+            );
+        });
         $('#viewCompraModal').modal('show');
     }).fail(function(xhr) {
         showNotification(xhr.responseJSON?.error || 'Erro ao carregar compra.', 'danger');
+    });
+}
+
+function regularizarEstoqueCompra(compraId, itemId, button) {
+    if (!Number.isInteger(compraId) || compraId <= 0 || !Number.isInteger(itemId) || itemId <= 0) return;
+    const $button = $(button);
+    if ($button.prop('disabled')) return;
+    $button.prop('disabled', true).text('Validando unidade...');
+    $.ajax({
+        url: `${API_URL}/compras/${compraId}/itens/${itemId}/regularizar-estoque`,
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({})
+    }).done(function() {
+        showNotification('Estoque regularizado com a apresentação atualmente cadastrada.', 'success');
+        viewCompra(compraId);
+    }).fail(function(xhr) {
+        $button.prop('disabled', false).text('Regularizar estoque');
+        showNotification(
+            xhr.responseJSON?.error || 'Não foi possível regularizar o estoque. Revise a unidade e o fator do produto.',
+            'warning'
+        );
     });
 }
 

@@ -394,8 +394,9 @@ async function main() {
     const informadoCents = toCentavos(previa.valor_informado);
     if (previa.quantidade_vendas > 0) {
       assert.ok(brutoCents >= informadoCents);
-      assert.strictEqual(toCentavos(previa.valor_final), informadoCents);
-      assert.strictEqual(toCentavos(previa.desconto), brutoCents - informadoCents);
+      assert.strictEqual(toCentavos(previa.valor_final), brutoCents);
+      assert.strictEqual(toCentavos(previa.desconto), 0);
+      assert.strictEqual(toCentavos(previa.diferenca), informadoCents - brutoCents);
     } else {
       assert.strictEqual(brutoCents, 0);
       assert.strictEqual(previa.incompleta, true);

@@ -8,6 +8,7 @@ const { getFiscalConfig, setConfiguracao } = require('../services/fiscal/configS
 const { carregarCertificadoPfx } = require('../services/fiscal/certificateService');
 const { emitirPorVendaId, obterDanfeHtmlAtualizado } = require('../services/fiscal/emissor');
 const cancelarNfce = require('../services/fiscal/cancelarNfce');
+const { appendXmlRetornoNfce } = require('../services/fiscal/xmlRetornoNfce');
 const { gravarAuditoria } = require('../services/auditoria');
 const { validarMotivoTexto } = require('../services/validacao/validarMotivoTexto');
 const { getFiscalSubDir } = require('../services/fiscal/paths');
@@ -339,18 +340,28 @@ function extrairTagXml(xml, tag) {
 
 function extrairCancelamentoSefaz(xml) {
   const texto = String(xml || '');
-
-  const blocoEventoMatch = texto.match(/<retEvento[\s\S]*?<\/retEvento>/i);
-  const blocoEvento = blocoEventoMatch ? blocoEventoMatch[0] : texto;
+  const lotes = [...texto.matchAll(/<retEnvEvento[\s\S]*?<\/retEnvEvento>/gi)];
+  const retornoAtual = lotes.length ? lotes[lotes.length - 1][0] : texto;
+  const eventos = [...retornoAtual.matchAll(/<retEvento[\s\S]*?<\/retEvento>/gi)];
+  const blocoEvento = eventos.length ? eventos[eventos.length - 1][0] : retornoAtual;
 
   return {
-    cStatLote: extrairTagXml(texto, 'cStat'),
-    xMotivoLote: extrairTagXml(texto, 'xMotivo'),
+    cStatLote: extrairTagXml(retornoAtual, 'cStat'),
+    xMotivoLote: extrairTagXml(retornoAtual, 'xMotivo'),
     cStatEvento: extrairTagXml(blocoEvento, 'cStat'),
     xMotivoEvento: extrairTagXml(blocoEvento, 'xMotivo'),
     protocoloCancelamento: extrairTagXml(blocoEvento, 'nProt'),
     dataCancelamento: extrairTagXml(blocoEvento, 'dhRegEvento')
   };
+}
+
+function dbRunAsync(database, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    database.run(sql, params, function onRun(err) {
+      if (err) reject(err);
+      else resolve({ changes: this.changes });
+    });
+  });
 }
 
 router.post('/notas/:id/cancelar', async (req, res) => {
@@ -433,115 +444,190 @@ router.post('/notas/:id/cancelar', async (req, res) => {
         });
       }
 
-      db.get(`
-        SELECT id, status
-        FROM nfce_notas
-        WHERE venda_id = ?
-          AND status IN ('autorizada', 'cancelamento_rejeitado')
-          AND (
-            (chave_acesso IS NOT NULL AND chave_acesso <> '')
-            OR (xml_retorno IS NOT NULL AND xml_retorno LIKE '%<cStat>100</cStat>%')
-          )
-        ORDER BY id DESC
-        LIMIT 1
-      `, [nota.venda_id], async (authErr, notaAutorizada) => {
-        if (authErr) {
-          return res.status(500).json({ error: authErr.message });
-        }
+      try {
+        const claim = await dbRunAsync(db, `
+          UPDATE nfce_notas
+          SET status = 'cancelamento_em_andamento',
+              updated_at = datetime('now', 'localtime')
+          WHERE id = ?
+            AND status IN ('autorizada', 'cancelamento_rejeitado')
+            AND (
+              (chave_acesso IS NOT NULL AND chave_acesso <> '')
+              OR (xml_retorno IS NOT NULL AND xml_retorno LIKE '%<cStat>100</cStat>%')
+            )
+        `, [id]);
 
-        if (!notaAutorizada) {
-          return res.status(400).json({
-            error: 'Nenhuma NFC-e autorizada encontrada para esta venda.'
+        if (claim.changes !== 1) {
+          return res.status(409).json({
+            success: false,
+            error: 'NFC-e não está disponível para cancelamento ou já possui operação em andamento.',
+            code: 'CONCORRENCIA'
           });
         }
 
+        let cancelamento;
         try {
-          const cancelamento = await cancelarNfce(nota.venda_id, justificativa.trim());
-          const notaIdAutorizada = cancelamento.notaId;
-
-          const retornoTexto = typeof cancelamento.sefaz === 'string'
-            ? cancelamento.sefaz
-            : JSON.stringify(cancelamento.sefaz);
-
-          const dadosCancelamento = extrairCancelamentoSefaz(retornoTexto);
-
-          const canceladoComSucesso =
-            String(dadosCancelamento.cStatEvento) === '135' ||
-            String(dadosCancelamento.cStatEvento) === '136' ||
-            String(dadosCancelamento.cStatEvento) === '155';
-
-          const novoStatus = canceladoComSucesso ? 'cancelada' : 'autorizada';
-
-          const resumoCancelamento = `
-STATUS CANCELAMENTO: ${novoStatus}
-cStatEvento: ${dadosCancelamento.cStatEvento || ''}
-xMotivoEvento: ${dadosCancelamento.xMotivoEvento || ''}
-protocoloCancelamento: ${dadosCancelamento.protocoloCancelamento || ''}
-dataCancelamento: ${dadosCancelamento.dataCancelamento || ''}
-justificativa: ${justificativa.trim()}
-`;
-
-          db.run(`
-            UPDATE nfce_notas
-            SET status = ?,
-                xml_retorno = COALESCE(xml_retorno, '') || char(10) || ? || char(10) || ?,
-                updated_at = datetime('now', 'localtime')
-            WHERE id = ?
-          `, [novoStatus, resumoCancelamento, retornoTexto, notaIdAutorizada], (updErr) => {
-            if (updErr) {
-              return res.status(500).json({ error: updErr.message });
-            }
-
-            if (!canceladoComSucesso) {
-              const motivoRejeicao = dadosCancelamento.xMotivoEvento || 'Cancelamento rejeitado pela SEFAZ.';
-              return res.status(400).json({
-                success: false,
-                error: motivoRejeicao,
-                message: motivoRejeicao,
-                status: novoStatus,
-                chaveAcesso: cancelamento.chaveAcesso,
-                retorno: cancelamento.sefaz,
-                dadosCancelamento
-              });
-            }
-
-            res.json({
-              success: true,
-              message: 'NFC-e cancelada com sucesso.',
-              status: novoStatus,
-              notaId: notaIdAutorizada,
-              chaveAcesso: cancelamento.chaveAcesso,
-              protocoloCancelamento: dadosCancelamento.protocoloCancelamento,
-              dataCancelamento: dadosCancelamento.dataCancelamento,
-              retorno: cancelamento.sefaz,
-              dadosCancelamento
-            });
-
-            gravarAuditoria({
-              usuario_id: req.user?.id || null,
-              usuario_nome: req.user?.username || req.user?.nome || null,
-              modulo: 'fiscal',
-              acao: 'cancelar_nfce',
-              referencia_tipo: 'nfce',
-              referencia_id: notaIdAutorizada,
-              detalhes: {
-                venda_id: nota.venda_id,
-                justificativa: justificativa.trim(),
-                protocolo: dadosCancelamento.protocoloCancelamento || null,
-                ip: req.ip || null
-              },
-              ip_requisicao: req.ip || null
-            }).catch((auditErr) => console.error('Erro ao gravar auditoria de cancelamento NFC-e:', auditErr));
-          });
+          cancelamento = await cancelarNfce.cancelarNfcePorId(
+            id,
+            justificativa.trim(),
+            { db, cancelamentoClaimed: true }
+          );
         } catch (cancelErr) {
-          res.status(500).json({
-            error: cancelErr.message
+          await dbRunAsync(db, `
+            UPDATE nfce_notas
+            SET status = 'cancelamento_desconhecido',
+                updated_at = datetime('now', 'localtime')
+            WHERE id = ? AND status = 'cancelamento_em_andamento'
+          `, [id]).catch((persistErr) => {
+            console.error('Falha ao bloquear NFC-e após erro de cancelamento:', persistErr);
+          });
+          return res.status(cancelErr.statusCode || 500).json({
+            success: false,
+            error: cancelErr.message || 'Resultado do cancelamento desconhecido.',
+            code: cancelErr.code || 'RESULTADO_DESCONHECIDO',
+            status: 'cancelamento_desconhecido'
           });
         }
-      });
+
+        const retornoTexto = typeof cancelamento.sefaz === 'string'
+          ? cancelamento.sefaz
+          : JSON.stringify(cancelamento.sefaz);
+        const confirmacao = cancelamento.confirmacaoCancelamento;
+        const confirmadoPorConsulta = confirmacao?.confirmado === true;
+        const retornoConsulta = String(confirmacao?.retornoXml || '');
+        const retornoPersistido = [retornoTexto, retornoConsulta].filter(Boolean).join('\n');
+        const dadosCancelamento = Object.assign(
+          {},
+          extrairCancelamentoSefaz(retornoTexto),
+          confirmadoPorConsulta
+            ? {
+              cStatEvento: confirmacao.cStat,
+              xMotivoEvento: confirmacao.xMotivo,
+              protocoloCancelamento: confirmacao.protocolo,
+              dataCancelamento: confirmacao.dataCancelamento
+            }
+            : {}
+        );
+        const cStatEvento = String(dadosCancelamento.cStatEvento || '');
+        const loteProcessado = confirmadoPorConsulta
+          || String(dadosCancelamento.cStatLote || '') === '128';
+        const canceladoComSucesso = confirmadoPorConsulta
+          || (loteProcessado && (cStatEvento === '135' || cStatEvento === '155'));
+        const rejeicaoConhecida = !confirmadoPorConsulta
+          && loteProcessado
+          && ['501', '631'].includes(cStatEvento);
+        const novoStatus = canceladoComSucesso
+          ? 'cancelada'
+          : (rejeicaoConhecida ? 'autorizada' : 'cancelamento_desconhecido');
+        const retornoNfcePersistido = appendXmlRetornoNfce(nota.xml_retorno, retornoPersistido);
+
+        const persistencia = await dbRunAsync(db, `
+          UPDATE nfce_notas
+          SET status = ?,
+              xml_retorno = ?,
+              updated_at = datetime('now', 'localtime')
+          WHERE id = ? AND status = 'cancelamento_em_andamento'
+        `, [novoStatus, retornoNfcePersistido, id]);
+
+        if (persistencia.changes !== 1) {
+          return res.status(409).json({
+            success: false,
+            error: 'O estado da NFC-e mudou durante a persistência; o cancelamento exige reconciliação.',
+            code: 'PERSISTENCIA_CANCELAMENTO_INDETERMINADA',
+            status: 'cancelamento_em_andamento'
+          });
+        }
+
+        if (!canceladoComSucesso) {
+          const desconhecido = novoStatus === 'cancelamento_desconhecido';
+          return res.status(desconhecido ? 409 : 400).json({
+            success: false,
+            error: cStatEvento === '573'
+              ? `cStat 573: a duplicidade não comprova o cancelamento; ${confirmacao?.motivo || 'o evento 110111 não foi validado oficialmente'}. A NFC-e permanece bloqueada para reconciliação.`
+              : (dadosCancelamento.xMotivoEvento || (desconhecido
+                ? 'Retorno fiscal desconhecido; a NFC-e foi bloqueada para nova tentativa.'
+                : 'Cancelamento rejeitado pela SEFAZ.')),
+            code: desconhecido
+              ? (cStatEvento === '136'
+                ? 'PENDENCIA_DOCUMENTAL_CSTAT_136'
+                : (cStatEvento === '573' ? 'PENDENCIA_RECONCILIACAO_CSTAT_573' : 'RESULTADO_DESCONHECIDO'))
+              : 'SEFAZ_REJEICAO',
+            status: novoStatus,
+            notaId: id,
+            chaveAcesso: cancelamento.chaveAcesso,
+            retorno: cancelamento.sefaz,
+            dadosCancelamento
+          });
+        }
+
+        res.json({
+          success: true,
+          message: 'NFC-e cancelada com sucesso.',
+          status: novoStatus,
+          notaId: id,
+          chaveAcesso: cancelamento.chaveAcesso,
+          protocoloCancelamento: dadosCancelamento.protocoloCancelamento,
+          dataCancelamento: dadosCancelamento.dataCancelamento,
+          retorno: cancelamento.sefaz,
+          dadosCancelamento
+        });
+
+        gravarAuditoria({
+          usuario_id: req.user?.id || null,
+          usuario_nome: req.user?.username || req.user?.nome || null,
+          modulo: 'fiscal',
+          acao: 'cancelar_nfce',
+          referencia_tipo: 'nfce',
+          referencia_id: id,
+          detalhes: {
+            venda_id: nota.venda_id,
+            justificativa: justificativa.trim(),
+            protocolo: dadosCancelamento.protocoloCancelamento || null,
+            ip: req.ip || null
+          },
+          ip_requisicao: req.ip || null
+        }).catch((auditErr) => console.error('Erro ao gravar auditoria de cancelamento NFC-e:', auditErr));
+      } catch (cancelErr) {
+        return res.status(500).json({ error: cancelErr.message });
+      }
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/notas/:id/reconciliar-cancelamento', async (req, res) => {
+  try {
+    const { reconciliarCancelamentoNfce } = require('../services/fiscal/NfceCancelamentoReconciliacaoService');
+    const resultado = await reconciliarCancelamentoNfce(req.params.id, {
+      db,
+      confirmacaoConsulta: req.body?.confirmacao_consulta === true
+    });
+
+    gravarAuditoria({
+      usuario_id: req.user?.id || null,
+      usuario_nome: req.user?.username || req.user?.nome || null,
+      modulo: 'fiscal',
+      acao: 'reconciliar_cancelamento_nfce',
+      referencia_tipo: 'nfce',
+      referencia_id: resultado.notaId,
+      detalhes: {
+        chave_acesso: resultado.chaveAcesso,
+        status: resultado.status,
+        cstat_consulta: resultado.cStat,
+        protocolo_consulta: resultado.protocolo || null,
+        ip: req.ip || null
+      },
+      ip_requisicao: req.ip || null
+    }).catch((auditErr) => console.error('Erro ao gravar auditoria de reconciliação NFC-e:', auditErr));
+
+    return res.status(resultado.success ? 200 : 409).json(resultado);
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message || 'Falha ao reconciliar a situação da NFC-e.',
+      code: error.code || 'ERRO_RECONCILIACAO'
+    });
   }
 });
 

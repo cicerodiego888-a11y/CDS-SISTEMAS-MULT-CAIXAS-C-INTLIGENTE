@@ -281,10 +281,6 @@ function montarPayloadCancelamentoVenda(motivo) {
     return payload;
 }
 
-function extrairMensagemErroResposta(dados, status) {
-    return dados?.mensagem || dados?.error || `Erro ao cancelar venda (HTTP ${status}).`;
-}
-
 function cancelarVendaNaoFiscal(vendaId) {
     // Usar modal customizado em vez de prompt() para compatibilidade com Electron
     const modalHtml = `
@@ -347,40 +343,31 @@ function cancelarVendaNaoFiscal(vendaId) {
             return;
         }
 
-        modal.hide();
+        const botao = document.getElementById('btnConfirmarCancelamento');
+        await PdvCancelamentoSefazUi.executar(vendaId, botao, async () => {
+            modal.hide();
+            try {
+                const resposta = await fetch(
+                    `${API_URL}/vendas/cancelar/${vendaId}`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        },
+                        body: JSON.stringify(montarPayloadCancelamentoVenda(motivo))
+                    }
+                );
 
-        try {
-            const resposta = await fetch(
-                `${API_URL}/vendas/cancelar/${vendaId}`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify(montarPayloadCancelamentoVenda(motivo))
-                }
-            );
-
-            const dados = await resposta.json().catch(() => ({}));
-
-            if (!resposta.ok || !dados.sucesso) {
-                throw new Error(extrairMensagemErroResposta(dados, resposta.status));
+                const dados = await PdvCancelamentoSefazUi.obterResultado(resposta);
+                showNotification('Venda cancelada com sucesso.', 'success');
+                loadVendas();
+                return dados;
+            } catch (error) {
+                showNotification(PdvCancelamentoSefazUi.mensagemErro(error), 'danger');
+                return null;
             }
-
-            showNotification(
-                'Venda cancelada com sucesso.',
-                'success'
-            );
-
-            loadVendas();
-
-        } catch (error) {
-            showNotification(
-                error.message,
-                'danger'
-            );
-        }
+        });
     });
 }
 

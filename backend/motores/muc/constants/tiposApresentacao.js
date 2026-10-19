@@ -7,21 +7,21 @@
 
 const TIPOS_APRESENTACAO = Object.freeze([
   'UN', 'KG', 'G', 'L', 'ML', 'M', 'CM', 'MM',
-  'CX', 'FD', 'PCT', 'DISPLAY', 'KIT', 'SACO', 'ROLO', 'BOBINA', 'GALAO', 'BALDE', 'SERVICO'
+  'CX', 'FD', 'PCT', 'DISPLAY', 'KIT', 'SACO', 'ROLO', 'BOBINA', 'GALAO', 'BALDE', 'VARA', 'SERVICO'
 ]);
 
 const LABELS_APRESENTACAO = Object.freeze({
   UN: 'Unidade', KG: 'Quilograma', G: 'Grama', L: 'Litro', ML: 'Mililitro',
   M: 'Metro', CM: 'Centímetro', MM: 'Milímetro',
   CX: 'Caixa', FD: 'Fardo', PCT: 'Pacote', DISPLAY: 'Display', KIT: 'Kit',
-  SACO: 'Saco', ROLO: 'Rolo', BOBINA: 'Bobina', GALAO: 'Galão', BALDE: 'Balde',
+  SACO: 'Saco', ROLO: 'Rolo', BOBINA: 'Bobina', GALAO: 'Galão', BALDE: 'Balde', VARA: 'Vara',
   SERVICO: 'Serviço'
 });
 
 const MAPA_TIPO_PARA_UNIDADE_COMERCIAL = Object.freeze({
   UN: 'UN', KG: 'KG', G: 'G', L: 'L', ML: 'ML', M: 'M', CM: 'CM', MM: 'CM',
   CX: 'CAIXA', FD: 'FARDO', PCT: 'PACOTE', KIT: 'PACOTE', DISPLAY: 'PACOTE',
-  SACO: 'SACO', ROLO: 'ROLO', BOBINA: 'ROLO', BALDE: 'BALDE', GALAO: 'BALDE',
+  SACO: 'SACO', ROLO: 'ROLO', BOBINA: 'ROLO', BALDE: 'BALDE', GALAO: 'BALDE', VARA: 'VARA',
   SERVICO: 'UN'
 });
 
@@ -30,7 +30,7 @@ const MAPA_UNIDADE_COMERCIAL_PARA_TIPO = Object.freeze({
   M: 'M', MT: 'M', CM: 'CM', MM: 'MM',
   CAIXA: 'CX', CX: 'CX', FARDO: 'FD', FD: 'FD', PACOTE: 'PCT', PCT: 'PCT',
   KIT: 'KIT', DISPLAY: 'DISPLAY', SACO: 'SACO', ROLO: 'ROLO', BOBINA: 'BOBINA',
-  BALDE: 'BALDE', GALAO: 'GALAO', GALÃO: 'GALAO', SERVICO: 'SERVICO', SERVIÇO: 'SERVICO'
+  BALDE: 'BALDE', GALAO: 'GALAO', GALÃO: 'GALAO', VARA: 'VARA', SERVICO: 'SERVICO', SERVIÇO: 'SERVICO'
 });
 
 function normalizarTipoApresentacao(valor) {

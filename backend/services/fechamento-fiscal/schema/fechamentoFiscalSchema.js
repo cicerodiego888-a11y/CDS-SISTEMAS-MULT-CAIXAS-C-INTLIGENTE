@@ -41,6 +41,9 @@ const DDL = [
     fechamento_fiscal_id INTEGER NOT NULL,
     valor REAL NOT NULL DEFAULT 0,
     ordem INTEGER NOT NULL DEFAULT 0,
+    operadora TEXT,
+    cnpj TEXT,
+    forma_pagamento TEXT,
     criado_em TEXT NOT NULL DEFAULT (datetime('now','localtime')),
     atualizado_em TEXT NOT NULL DEFAULT (datetime('now','localtime')),
     FOREIGN KEY (fechamento_fiscal_id) REFERENCES fechamentos_fiscais(id) ON DELETE CASCADE
@@ -244,6 +247,9 @@ const ALTERS = [
   `ALTER TABLE fechamentos_fiscais ADD COLUMN data_hora_autorizacao TEXT`,
   `ALTER TABLE fechamentos_fiscais ADD COLUMN tp_emis TEXT DEFAULT '1'`,
   `ALTER TABLE fechamentos_fiscais ADD COLUMN preparacao_idempotency_key TEXT`,
+  `ALTER TABLE fechamentos_fiscais_recebimentos_comprovantes ADD COLUMN operadora TEXT`,
+  `ALTER TABLE fechamentos_fiscais_recebimentos_comprovantes ADD COLUMN cnpj TEXT`,
+  `ALTER TABLE fechamentos_fiscais_recebimentos_comprovantes ADD COLUMN forma_pagamento TEXT`,
   // Sprint 04 — campos de transmissão/autorização por documento
   `ALTER TABLE fechamentos_fiscais_documentos ADD COLUMN numero INTEGER`,
   `ALTER TABLE fechamentos_fiscais_documentos ADD COLUMN chave_acesso TEXT`,

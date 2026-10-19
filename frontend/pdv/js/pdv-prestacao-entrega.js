@@ -27,12 +27,69 @@
 
   function fiscalPadraoSistema() {
     try {
+      if (typeof pdvModoFiscalAtivo === 'function') return pdvModoFiscalAtivo() === true;
       if (typeof modoFiscalAtivoSistema === 'function') return !!modoFiscalAtivoSistema();
       if (typeof obterRecursosImplantacao === 'function') {
         return obterRecursosImplantacao().fiscal === true;
       }
     } catch (_) { /* ignore */ }
     return false;
+  }
+
+  function documentoInicialPedido(item) {
+    const gravado = String(item?.documento_solicitado || '').toUpperCase();
+    if (gravado === 'NAO_FISCAL') return 'NAO_FISCAL';
+    if (gravado === 'NFCE') return 'NFCE';
+    return fiscalPadraoSistema() ? 'NFCE' : 'NAO_FISCAL';
+  }
+
+  function pedidoTravadoNaoFiscal(item) {
+    return String(item?.documento_solicitado || '').toUpperCase() === 'NAO_FISCAL';
+  }
+
+  function tituloSituacaoFiscal(situacao) {
+    return ({
+      aguardando_emissao: 'Aguardando emissão',
+      processando: 'Processando emissão',
+      autorizada: 'NFC-e autorizada',
+      rejeitada: 'NFC-e rejeitada',
+      pendente: 'Emissão pendente',
+      erro_comunicacao: 'Falha de comunicação com a SEFAZ',
+      erro_emissao: 'Falha na emissão',
+      sem_itens_fiscais: 'Sem itens fiscalmente elegíveis',
+      nao_aplicavel: 'Venda não fiscal'
+    })[situacao] || 'Situação fiscal';
+  }
+
+  function renderPainelFiscal(destino, dados) {
+    const $alvo = destino ? $(destino) : $('#prestacaoFiscalEstado');
+    if (!$alvo.length) return;
+    const situacao = String(dados?.situacao_fiscal || dados?.situacao || dados?.status_fiscal_entrega || '').toLowerCase();
+    if (!situacao) {
+      $alvo.empty();
+      return;
+    }
+    const fiscal = dados.fiscal || {};
+    const mensagem = dados.message || fiscal.message || '';
+    const chave = fiscal.chaveAcesso || fiscal.chave || '';
+    const protocolo = fiscal.protocolo || fiscal.soap?.protocolo || '';
+    const numero = fiscal.numero || '';
+    const semRetentativa = ['nao_aplicavel', 'sem_itens_fiscais', 'autorizada', 'aguardando_emissao'].includes(situacao);
+    const processandoAgora = situacao === 'processando' && dados.permitirRecuperacao !== true;
+    const podeRecuperar = dados.documento === 'NFCE'
+      && dados.emissao_concluida !== true
+      && !semRetentativa
+      && !processandoAgora;
+    $alvo.html(`
+      <div class="prestacao-fiscal prestacao-fiscal--${escapeHtml(situacao)}" role="status">
+        <strong>${escapeHtml(tituloSituacaoFiscal(situacao))}</strong>
+        ${mensagem ? `<div class="small mt-1">${escapeHtml(mensagem)}</div>` : ''}
+        ${numero ? `<div class="small">Número: ${escapeHtml(numero)}</div>` : ''}
+        ${protocolo ? `<div class="small">Protocolo: ${escapeHtml(protocolo)}</div>` : ''}
+        ${chave ? `<div class="small text-break">Chave: ${escapeHtml(chave)}</div>` : ''}
+        ${podeRecuperar ? '<button type="button" class="btn btn-sm btn-outline-danger mt-2" id="btnRecuperarNfcePrestacao">Recuperar emissão</button>' : ''}
+      </div>
+    `);
   }
 
   function fmtMoney(n) {
@@ -275,7 +332,8 @@
   function renderDetalhe(data) {
     const item = data.item || {};
     const eventos = (data.timeline && data.timeline.eventos) || [];
-    const sugestaoFiscal = fiscalPadraoSistema();
+    const docInicial = documentoInicialPedido(item);
+    const naoFiscalTravada = pedidoTravadoNaoFiscal(item);
     const total = Number(item.total || 0);
 
     const timelineHtml = eventos.length
@@ -313,14 +371,20 @@
           <label class="form-label fw-semibold">Documento</label>
           <div class="d-flex gap-3">
             <div class="form-check">
-              <input class="form-check-input" type="radio" name="prestDoc" id="docNfce" value="NFCE" ${sugestaoFiscal ? 'checked' : ''}>
+              <input class="form-check-input" type="radio" name="prestDoc" id="docNfce" value="NFCE" ${docInicial === 'NFCE' ? 'checked' : ''} ${naoFiscalTravada ? 'disabled' : ''}>
               <label class="form-check-label" for="docNfce">NFC-e</label>
             </div>
             <div class="form-check">
-              <input class="form-check-input" type="radio" name="prestDoc" id="docNaoFiscal" value="NAO_FISCAL" ${!sugestaoFiscal ? 'checked' : ''}>
+              <input class="form-check-input" type="radio" name="prestDoc" id="docNaoFiscal" value="NAO_FISCAL" ${docInicial !== 'NFCE' ? 'checked' : ''}>
               <label class="form-check-label" for="docNaoFiscal">Venda Não Fiscal</label>
             </div>
           </div>
+          <div class="small text-muted mt-1">
+            Valor fiscal elegível: <strong>${fmtMoney(item.valor_fiscal)}</strong>
+            · Gerencial: <strong>${fmtMoney(item.valor_nao_fiscal)}</strong>
+          </div>
+          ${naoFiscalTravada ? '<div class="small text-muted">Pedido configurado como venda não fiscal. A NFC-e não será emitida.</div>' : ''}
+          <div id="prestacaoFiscalEstado" class="mt-2"></div>
         </div>
 
         <div class="mb-3">
@@ -392,6 +456,24 @@
 
     $('#btnFinalizarPrestacao').on('click', () => finalizarPrestacao(item, total));
     $('#btnCancelarEntregaPrestacao').on('click', () => cancelarEntrega(item.id));
+    if (item.status_fiscal_entrega) {
+      renderPainelFiscal('#prestacaoFiscalEstado', {
+        situacao_fiscal: item.status_fiscal_entrega,
+        documento: item.documento_solicitado,
+        emissao_concluida: item.status_fiscal_entrega === 'autorizada',
+        permitirRecuperacao: item.documento_solicitado === 'NFCE' && Number(item.prestacao_realizada || 0) === 1,
+        message: item.status_fiscal_entrega === 'autorizada'
+          ? 'NFC-e já autorizada para este pedido.'
+          : 'A emissão anterior não foi autorizada. É possível recuperar sem nova prestação.'
+      });
+      if (item.status_fiscal_entrega !== 'autorizada'
+        && item.status_fiscal_entrega !== 'nao_aplicavel'
+        && item.status_fiscal_entrega !== 'sem_itens_fiscais'
+        && item.documento_solicitado === 'NFCE'
+        && Number(item.prestacao_realizada || 0) === 1) {
+        $('#btnRecuperarNfcePrestacao').on('click', () => recuperarEmissaoFiscal(item.id));
+      }
+    }
   }
 
   function labelForma(f) {
@@ -601,6 +683,13 @@
     if (!confirmado) return;
 
     const $btn = $('#btnFinalizarPrestacao').prop('disabled', true);
+    if (documento === 'NFCE') {
+      renderPainelFiscal('#prestacaoFiscalEstado', {
+        situacao: 'processando',
+        documento: 'NFCE',
+        message: 'Processando emissão da NFC-e no Motor Fiscal. A nota só fica concluída após a autorização.'
+      });
+    }
     try {
       const data = await api(`/vendas/${item.id}/prestacao`, {
         method: 'POST',
@@ -615,14 +704,83 @@
         })
       });
 
-      showNotification(data.message || 'Prestação finalizada.', 'success');
-      await imprimirPosPrestacao(data);
-      atualizarWidgetContadores();
-      carregarEntregadores();
+      apresentarResultadoFiscalPrestacao(item, data);
     } catch (err) {
+      renderPainelFiscal('#prestacaoFiscalEstado', {
+        situacao: 'erro_emissao',
+        documento,
+        emissao_concluida: false,
+        message: err.message || 'Erro na prestação.'
+      });
       showNotification(err.message || 'Erro na prestação.', 'danger');
     } finally {
       $btn.prop('disabled', false);
+    }
+  }
+
+  function fiscalAutorizadaNaPrestacao(data) {
+    if (!data) return false;
+    if (data.emissao_concluida === true) return true;
+    const fiscal = data.fiscal;
+    return !!(fiscal && fiscal.success !== false && String(fiscal.status || '') === 'autorizada');
+  }
+
+  function apresentarResultadoFiscalPrestacao(item, data) {
+    const situacao = data.situacao_fiscal || (data.documento === 'NFCE' ? 'pendente' : 'nao_aplicavel');
+    const autorizada = fiscalAutorizadaNaPrestacao(data);
+    renderPainelFiscal('#prestacaoFiscalEstado', {
+      ...data,
+      situacao_fiscal: autorizada ? 'autorizada' : situacao,
+      documento: data.documento || 'NAO_FISCAL'
+    });
+    const nivel = autorizada
+      ? 'success'
+      : (situacao === 'sem_itens_fiscais' || situacao === 'nao_aplicavel' ? 'info' : 'warning');
+    showNotification(data.message || tituloSituacaoFiscal(situacao), nivel);
+
+    const encerraOperacao = autorizada
+      || situacao === 'nao_aplicavel'
+      || situacao === 'sem_itens_fiscais'
+      || data.documento !== 'NFCE';
+    if (encerraOperacao) {
+      imprimirPosPrestacao(data).finally(() => {
+        atualizarWidgetContadores();
+        carregarEntregadores();
+      });
+      return;
+    }
+
+    $('#btnFinalizarPrestacao')
+      .prop('disabled', true)
+      .text('Prestação registrada — emissão pendente');
+    $('#btnRecuperarNfcePrestacao').off('click').on('click', () => recuperarEmissaoFiscal(item.id));
+  }
+
+  async function recuperarEmissaoFiscal(vendaId) {
+    renderPainelFiscal('#prestacaoFiscalEstado', {
+      situacao: 'processando',
+      documento: 'NFCE',
+      message: 'Recuperando a emissão no Motor Fiscal, sem gerar outra prestação.'
+    });
+    try {
+      const data = await api(`/vendas/${vendaId}/prestacao`, {
+        method: 'POST',
+        body: JSON.stringify({
+          recuperar_fiscal: true,
+          documento: 'NFCE',
+          emitir_fiscal: true
+        })
+      });
+      apresentarResultadoFiscalPrestacao({ id: vendaId }, data);
+    } catch (err) {
+      renderPainelFiscal('#prestacaoFiscalEstado', {
+        situacao: 'erro_emissao',
+        documento: 'NFCE',
+        emissao_concluida: false,
+        message: err.message || 'Falha ao recuperar a emissão.'
+      });
+      $('#btnRecuperarNfcePrestacao').off('click').on('click', () => recuperarEmissaoFiscal(vendaId));
+      showNotification(err.message || 'Falha ao recuperar a emissão.', 'danger');
     }
   }
 
@@ -655,7 +813,7 @@
               <tr><td>Valor</td><td class="text-end">${fmtMoney(total)}</td></tr>
               <tr><td>Pagamento Previsto</td><td class="text-end">${escapeHtml(item.pagamento_previsto || '—')}</td></tr>
               <tr><td>Pagamento Recebido</td><td class="text-end">${escapeHtml(pagamentoRecebido)}</td></tr>
-              <tr><td>Documento</td><td class="text-end">${documento === 'NFCE' ? 'NFC-e' : 'Não Fiscal'}</td></tr>
+              <tr><td>Documento</td><td class="text-end">${documento === 'NFCE' ? 'NFC-e — emissão pelo Motor Fiscal após confirmar' : 'Não Fiscal — sem NFC-e'}</td></tr>
               <tr><td>Entregador</td><td class="text-end">${escapeHtml(item.entregador || '—')}</td></tr>
               <tr><td>Operador</td><td class="text-end">${escapeHtml(operador)}</td></tr>
               <tr><td>Reserva</td><td class="text-end text-success">Será convertida / removida</td></tr>
@@ -714,17 +872,10 @@
       });
     }
 
-    if (cfg.danfe && fiscal) {
-      if (fiscal.status === 'sem_itens_fiscais') {
-        showNotification(
-          fiscal.message || 'Venda sem itens fiscais. NFC-e não necessária.',
-          'info'
-        );
-        return;
-      }
-
-      if (fiscal.success === false) {
-        showNotification(fiscal.message || 'Erro ao emitir NFC-e.', 'danger');
+    const nfceAutorizada = data?.emissao_concluida === true
+      || (fiscal && fiscal.success !== false && String(fiscal.status || '') === 'autorizada');
+    if (cfg.danfe && nfceAutorizada) {
+      if (fiscal && fiscal.status === 'sem_itens_fiscais') {
         return;
       }
 

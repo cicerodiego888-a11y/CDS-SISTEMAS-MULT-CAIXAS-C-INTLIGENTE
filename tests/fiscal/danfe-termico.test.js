@@ -354,10 +354,10 @@ describe('Impressão térmica compartilhada — largura segura', () => {
     const final = enriquecerHtmlImpressaoTermica(original);
 
     assert.match(original, /@page \{ size: 58mm auto; margin: 0; \}/);
-    assert.match(final, /width:\s*58mm/);
+    assert.match(final, /width:\s*48mm/);
+    assert.doesNotMatch(final, /width:\s*58mm/);
     assert.match(final, /--qr:\s*26mm/);
     assert.match(final, /font-size:\s*12px/);
-    assert.doesNotMatch(final, /width:\s*48mm/);
     assert.doesNotMatch(final, /<img\b[^>]*\swidth\s*=/i);
     assert.match(final, /danfe-termico-58/);
   });
@@ -367,12 +367,12 @@ describe('Impressão térmica compartilhada — largura segura', () => {
     const final = enriquecerHtmlImpressaoTermica(original);
 
     assert.match(original, /@page \{ size: 80mm auto; margin: 0; \}/);
-    assert.match(final, /width:\s*80mm/);
-    assert.match(final, /max-width:\s*80mm/);
+    assert.match(final, /width:\s*72mm/);
+    assert.match(final, /max-width:\s*72mm/);
+    assert.doesNotMatch(final, /width:\s*80mm/);
     assert.match(final, /--qr:\s*42mm/);
     assert.match(final, /font-size:\s*18px/);
     assert.match(final, /font-size:\s*16px/);
-    assert.doesNotMatch(final, /width:\s*72mm/);
     assert.doesNotMatch(final, /width:\s*76mm/);
     assert.doesNotMatch(final, /<img\b[^>]*\swidth\s*=/i);
     assert.match(final, /danfe-termico-80/);
@@ -423,8 +423,10 @@ describe('Impressão térmica compartilhada — largura segura', () => {
       assert.ok(html.includes('ESTE COMPROVANTE NÃO POSSUI VALOR FISCAL'));
       assert.doesNotMatch(html, /DANFE|chave de acesso|<img/i);
     }
-    assert.match(cupom80, /width:\s*80mm/);
-    assert.match(cupom58, /width:\s*58mm/);
+    assert.match(cupom80, /width:\s*72mm/);
+    assert.doesNotMatch(cupom80, /width:\s*80mm/);
+    assert.match(cupom58, /width:\s*48mm/);
+    assert.doesNotMatch(cupom58, /width:\s*58mm/);
   });
 
   it('fechamento em 80/58mm e etiqueta com barcode preservado', () => {
@@ -442,15 +444,17 @@ describe('Impressão térmica compartilhada — largura segura', () => {
     const etiqueta58 = enriquecerHtmlImpressaoTermica(EtiquetaProduto.montarHtml(produto, '<svg viewBox="0 0 100 30"></svg>', { papelMm: 58 }));
 
     assert.match(fechamento80, /@page \{ size: 80mm auto; margin: 0; \}/);
-    assert.match(fechamento80, /width:\s*80mm/);
+    assert.match(fechamento80, /width:\s*72mm/);
+    assert.doesNotMatch(fechamento80, /width:\s*80mm/);
     assert.match(fechamento80, /fechamento-caixa-80/);
     assert.match(fechamento58, /@page \{ size: 58mm auto; margin: 0; \}/);
-    assert.match(fechamento58, /width:\s*58mm/);
+    assert.match(fechamento58, /width:\s*48mm/);
+    assert.doesNotMatch(fechamento58, /width:\s*58mm/);
     assert.match(fechamento58, /fechamento-caixa-58/);
     assert.doesNotMatch(fechamento80, /48ch|76mm|overflow-x\s*:\s*hidden/);
+    assert.match(etiqueta80, /@page \{ size: 80mm auto; margin: 0; \}/);
+    assert.match(etiqueta58, /@page \{ size: 58mm auto; margin: 0; \}/);
     for (const html of [etiqueta80, etiqueta58]) {
-      assert.match(html, PAGE_SO_MARGEM);
-      assert.doesNotMatch(html, PAGE_COM_SIZE);
       assert.doesNotMatch(html, /width:\s*80mm/);
     }
     assert.match(etiqueta80, /\.etiqueta \{ width: 72mm/);
@@ -555,13 +559,13 @@ describe('DanfeTermicoRenderer — redesign da bobina', () => {
       itens: [itemBase({ produto_nome: nomeLongo })]
     }));
     assert.match(out.html, /danfe-termico-58/);
-    assert.match(out.html, /width:\s*58mm/);
+    assert.match(out.html, /width:\s*48mm/);
+    assert.doesNotMatch(out.html, /width:\s*58mm/);
     assert.match(out.html, /--qr:\s*26mm/);
     assert.match(out.html, /font-size:\s*12px/);
     assert.ok(out.html.includes(nomeLongo));
     assert.match(out.html, /<img\b[^>]*QR Code NFC-e/);
     assert.doesNotMatch(out.html, /<img\b[^>]*\swidth\s*=/i);
-    assert.doesNotMatch(out.html, /width:\s*48mm/);
     assert.ok(digitosHtml(out.html).includes(chave44));
   });
 
@@ -607,15 +611,18 @@ describe('DANFE 80mm — geometria única', () => {
   }
 
   function semConflitoDeLargura(html, papelMm) {
+    const util = papelMm === 58 ? 48 : 72;
     const css = estilo(html);
     assert.match(css, new RegExp(`@page \\{ size: ${papelMm}mm auto; margin: 0; \\}`));
-    assert.match(css, new RegExp(`width:\\s*${papelMm}mm`));
-    assert.match(css, new RegExp(`max-width:\\s*${papelMm}mm`));
+    assert.match(css, new RegExp(`width:\\s*${util}mm`));
+    assert.match(css, new RegExp(`max-width:\\s*${util}mm`));
+    assert.doesNotMatch(css, new RegExp(`width:\\s*${papelMm}mm`));
     assert.match(css, /box-sizing:\s*border-box/);
-    assert.match(css, /padding:[^;]*2\.5mm|padding:[^;]*2mm/);
+    assert.match(css, /padding:\s*1\.2mm 3\.5mm 2mm 2mm|padding:\s*1mm 2\.5mm 1\.6mm 1\.5mm/);
+    assert.match(css, /padding-right:\s*1\.[25]mm/);
     assert.doesNotMatch(css, /76mm/);
     assert.doesNotMatch(css, /48ch/);
-    assert.doesNotMatch(css, /72mm/);
+    assert.doesNotMatch(css, /white-space:\s*nowrap/);
     assert.doesNotMatch(css, /width:\s*\d+px/i);
     assert.doesNotMatch(css, /overflow-x\s*:\s*hidden/i);
     assert.doesNotMatch(css, /max-height\s*:/i);

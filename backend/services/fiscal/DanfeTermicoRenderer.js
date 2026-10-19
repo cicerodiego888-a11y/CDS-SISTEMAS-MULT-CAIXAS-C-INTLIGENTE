@@ -294,6 +294,10 @@ function montarItensHtml(itens) {
 function montarHtmlTermico(linhas, dados = {}) {
   void linhas;
   const papelMm = Number(dados.papelMm) === 58 ? 58 : 80;
+  const utilMm = papelMm === 58 ? 48 : 72;
+  // Espelha COLUNA_VALOR_TERMICO (geometriaCupom80) — recuo da coluna monetária.
+  const paddingCupom = papelMm === 58 ? '1mm 2.5mm 1.6mm 1.5mm' : '1.2mm 3.5mm 2mm 2mm';
+  const paddingValor = papelMm === 58 ? '1.2mm' : '1.5mm';
   const cols = larguraColunas(papelMm);
   const moeda = (valor) => helpersDanfe().formatarMoeda(valor);
 
@@ -379,14 +383,15 @@ function montarHtmlTermico(linhas, dados = {}) {
     @page { size: ${papelMm}mm auto; margin: 0; }
     html, body {
       margin: 0; padding: 0;
+      width: ${utilMm}mm; max-width: ${utilMm}mm;
       background: #fff; color: #000;
       -webkit-print-color-adjust: exact; print-color-adjust: exact;
     }
     body.danfe-termico {
       --qr: ${papelMm === 58 ? '26mm' : '42mm'};
-      width: ${papelMm}mm; max-width: ${papelMm}mm;
-      margin: 0 auto;
-      padding: ${papelMm === 58 ? '1.2mm 2mm 1.6mm' : '1.5mm 2.5mm 2mm'};
+      width: ${utilMm}mm; max-width: ${utilMm}mm;
+      margin: 0;
+      padding: ${paddingCupom};
       box-sizing: border-box;
       font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
       font-size: ${papelMm === 58 ? '9px' : '11px'};
@@ -407,8 +412,12 @@ function montarHtmlTermico(linhas, dados = {}) {
       display: flex; justify-content: space-between; align-items: baseline;
       gap: 2mm; width: 100%; max-width: 100%; box-sizing: border-box; line-height: 1.2;
     }
-    .row span:first-child, .item-qtd, .item-nome { min-width: 0; overflow-wrap: anywhere; }
-    .row span:last-child, .item-tot { white-space: nowrap; flex: 0 0 auto; }
+    .row span:first-child, .item-qtd, .item-nome { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+    .row span:last-child, .item-tot {
+      flex: 0 1 auto; max-width: 50%; min-width: 0;
+      text-align: right; overflow-wrap: anywhere;
+      padding-right: ${paddingValor}; box-sizing: border-box;
+    }
     .sec-title { font-size: 12px; font-weight: 800; text-align: center; line-height: 1.2; }
     .sep { border: 0; border-top: 1px solid #000; margin: 0.8mm 0; height: 0; }
     .item { margin: 0 0 0.9mm; width: 100%; max-width: 100%; box-sizing: border-box; }

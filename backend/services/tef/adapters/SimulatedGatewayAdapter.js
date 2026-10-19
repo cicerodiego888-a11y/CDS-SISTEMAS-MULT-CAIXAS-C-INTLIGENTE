@@ -9,7 +9,7 @@ class SimulatedGatewayAdapter extends BaseAdapter {
   constructor(config, { nome, adquirente, bandeiraPadrao = 'VISA' } = {}) {
     super(config);
     this.nome = nome;
-    this.adquirente = adquirente || nome;
+    this.adquirente = adquirente === null ? null : (adquirente || nome);
     this.bandeiraPadrao = bandeiraPadrao;
     this.modo = 'simulacao';
   }

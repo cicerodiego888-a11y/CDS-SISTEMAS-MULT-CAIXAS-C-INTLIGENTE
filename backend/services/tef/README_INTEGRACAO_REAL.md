@@ -16,6 +16,18 @@ Este documento descreve como implementar a integração real com os adquirentes 
 - Serviço de homologação (`tefHomologacaoService.js`)
 - Validação fiscal (`tefFiscalValidator.js`)
 
+## Contrato TEF usado pela NFC-e
+
+- `provedor` identifica o integrador/adaptador (por exemplo, Destaxa); não deve preencher `adquirente`.
+- `adquirente`, `bandeira`, NSU, autorização e CNPJ da instituição só são preenchidos quando a resposta do adapter fornece esses dados. O CDS não deriva CNPJ ou adquirente do nome do provedor, terminal ou maquininha.
+- No adapter Destaxa atual, o único campo de saída transacional mapeado explicitamente é `transacao_nsu`; não há mapeamento confirmado de CNPJ, adquirente, bandeira ou autorização. Não preencher esses campos até que o contrato oficial de saída esteja disponível e confirmado.
+- O `tef_transacao_id` retornado pela autorização é persistido no recebimento. A emissão/reemissão consulta `tef_transacoes` usando esse ID e só então recupera `provedor`, `adquirente`, bandeira, NSU, autorização e payload cifrado. O payload é descriptografado por `cryptoService`; somente os nomes normalizados existentes `cnpj_credenciadora` e `cnpj_instituicao` são extraídos, sem deduzir aliases da resposta do SDK.
+- `cnpj_credenciadora` e `cnpj_instituicao` são opcionais no payload. Quando ausentes, continuam ausentes no XML. Uma transação aprovada associada apenas à venda, sem `tef_transacao_id` no recebimento, nunca é atribuída por ordem ou valor; se houver pagamento fiscal de cartão/PIX candidato, a emissão retorna `pendente_dados_pagamento` antes da reserva de numeração. Link TEF persistido sem status aprovado recuperável também gera pendência.
+- Os recebimentos comerciais têm ID próprio e `tef_transacao_id`; `tef_transacoes` guarda provedor, adquirente, bandeira, NSU e autorização em colunas, com `payload_retorno` cifrado. A tabela consolidada `fechamentos_fiscais_recebimentos`, em contraste, contém somente operador/descrição/CNPJ/valor/observação e não tem ID ou FK TEF. Esses dados são preservados na preparação, mas não são promovidos a dados TEF nem usados para preencher o grupo `<card>`.
+- Não há campo normalizado/persistido de identificador de terminal no contrato TEF. O `terminal_id` do PDV/terminal CDS não comprova o identificador de terminal da transação Destaxa. Transações antigas sem vínculo individual ou payload recuperável permanecem sem dados inferidos.
+- O XSD NFC-e 4.00 versionado no repositório exige `tpIntegra` dentro de `<card>`, mas define o CNPJ da instituição como opcional (`minOccurs="0"`). A validação bloqueia ausência/valor inválido de `tpIntegra`; não bloqueia pagamento integrado apenas por falta de CNPJ.
+- Não há campo `endToEndId` no contrato normalizado do TEF.
+
 ## Integração Real - SiTef (Software Express)
 
 ### Pré-requisitos

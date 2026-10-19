@@ -186,6 +186,9 @@ function montarDiagnosticoCancelamento(nota, agora = new Date(), opts) {
   });
 
   const statusFiscal = String((nota && nota.status) || '').toLowerCase() || null;
+  const statusPermiteTentativa = ['autorizada', 'cancelamento_rejeitado'].includes(statusFiscal);
+  const podeTransmitir110111 = statusPermiteTentativa
+    && (modelo === '65' || prazo.dentro_prazo === true);
   let cancelamentoStatus = ext.cancelamento_status;
   if (statusFiscal === 'cancelada') {
     cancelamentoStatus = CANCELAMENTO_STATUS.NAO_APLICAVEL;
@@ -225,10 +228,10 @@ function montarDiagnosticoCancelamento(nota, agora = new Date(), opts) {
     cancelamento_extemporaneo_comprovado: ext.cancelamento_extemporaneo_comprovado,
     procedimento_extemporaneo: ext.procedimento_extemporaneo,
     necessita_autorizacao_sefaz: ext.necessita_autorizacao_sefaz,
-    pode_transmitir_110111: statusFiscal === 'cancelada' ? false : ext.pode_transmitir_110111,
+    pode_transmitir_110111: podeTransmitir110111,
     motivo_bloqueio: statusFiscal === 'cancelada'
       ? 'NFC-e já cancelada.'
-      : (ext.pode_transmitir_110111 ? null : ext.motivo_bloqueio),
+      : (podeTransmitir110111 ? null : ext.motivo_bloqueio),
     resultado_pesquisa_extemporaneo: ext.resultado_pesquisa,
     mensagem_extemporaneo_ui: ext.mensagem_ui,
     substituicao_110112: ext.substituicao_110112,

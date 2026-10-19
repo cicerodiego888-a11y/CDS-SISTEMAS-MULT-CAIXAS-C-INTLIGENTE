@@ -2,20 +2,25 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+const { EventEmitter } = require('node:events');
 const sqlite3 = require('sqlite3').verbose();
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const PerformanceMonitor = require('../../backend/observabilidade/performance/PerformanceMonitor');
+const { gerarPreviaDistribuicaoNoWorker } = require('../../backend/services/fechamento-fiscal/FechamentoFiscalDistribuicaoWorker');
 const {
   listarVendasElegiveisRecebimento,
   salvarRecebimentosVendas,
   gerarPrevia,
   obterPorId,
   listarComprovantesRecebimento,
-  salvarComprovantesRecebimento
+  salvarComprovantesRecebimento,
+  gerarPreviaPorComprovante
 } = require('../../backend/services/fechamento-fiscal/FechamentoFiscalService');
+const { gerarPreviaDistribuicao } = require('../../backend/services/fechamento-fiscal/FechamentoFiscalDistribuicaoService');
 const { listarLotesElegiveisDoDia } = require('../../backend/services/fechamento-fiscal/FechamentoFiscalElegibilidadeService');
+const { mapearPagamentosPorComprovante } = require('../../backend/services/fechamento-fiscal/FechamentoFiscalPreparacaoService');
 const { garantirSchemaFechamentoFiscal } = require('../../backend/services/fechamento-fiscal/schema/fechamentoFiscalSchema');
 
 function abrirDb() {
@@ -26,6 +31,22 @@ function executar(db, sql, params = []) {
   return new Promise((resolve, reject) => {
     db.run(sql, params, (err) => (err ? reject(err) : resolve()));
   });
+}
+
+function criarLotesComValores(valorCentavos) {
+  return valorCentavos.map((valor, index) => ({
+    produto_id: index + 1,
+    nome: `Produto teste ${index + 1}`,
+    unidade: 'UN',
+    venda_id: 200 + index,
+    venda_item_id: 300 + index,
+    quantidade_disponivel: 1,
+    valor_disponivel: valor / 100,
+    preco_unitario: valor / 100,
+    unit_cents: valor,
+    fracionado: false,
+    saldo_fiscal: 1
+  }));
 }
 
 async function prepararCenario(db) {
@@ -81,6 +102,70 @@ async function prepararCenario(db) {
   await executar(db, `INSERT INTO fechamentos_fiscais_previa_itens
     (fechamento_fiscal_id, venda_item_origem_id, quantidade) VALUES (1, 1, 1), (1, 2, 1)`);
 }
+
+describe('Worker de distribuição da prévia fiscal', () => {
+  it('timeout encerra o worker antes de iniciar a próxima tarefa da fila', async () => {
+    let workerCount = 0;
+    let firstWorkerTerminated = false;
+    let secondStartedAfterTermination = false;
+    const criarWorker = () => {
+      const workerId = ++workerCount;
+      const worker = new EventEmitter();
+      worker.postMessage = () => {
+        if (workerId === 2) {
+          setImmediate(() => worker.emit('message', { ok: true, resultado: { fila: workerId } }));
+        }
+      };
+      worker.terminate = () => new Promise((resolve) => {
+        setTimeout(() => {
+          if (workerId === 1) firstWorkerTerminated = true;
+          worker.emit('exit', 1);
+          resolve(1);
+        }, workerId === 1 ? 20 : 0);
+      });
+      if (workerId === 2) secondStartedAfterTermination = firstWorkerTerminated;
+      return worker;
+    };
+    const deps = { criarWorker, timeoutMs: 10 };
+
+    const primeira = gerarPreviaDistribuicaoNoWorker({}, { correlationId: 'worker-timeout-1' }, deps);
+    const segunda = gerarPreviaDistribuicaoNoWorker({}, { correlationId: 'worker-timeout-2' }, deps);
+
+    await assert.rejects(
+      primeira,
+      (erro) => erro.code === 'PREVIA_WORKER_TIMEOUT'
+    );
+    assert.deepEqual(await segunda, { fila: 2 });
+    assert.equal(firstWorkerTerminated, true);
+    assert.equal(secondStartedAfterTermination, true);
+  });
+
+  it('saída normal sem message rejeita a tarefa e não prende a fila', async () => {
+    let workerCount = 0;
+    const criarWorker = () => {
+      const workerId = ++workerCount;
+      const worker = new EventEmitter();
+      worker.postMessage = () => {
+        if (workerId === 1) setImmediate(() => worker.emit('exit', 0));
+        else setImmediate(() => worker.emit('message', { ok: true, resultado: { fila: workerId } }));
+      };
+      worker.terminate = async () => {
+        worker.emit('exit', 1);
+        return 1;
+      };
+      return worker;
+    };
+    const deps = { criarWorker, timeoutMs: 100 };
+    const primeira = gerarPreviaDistribuicaoNoWorker({}, { correlationId: 'worker-exit-1' }, deps);
+    const segunda = gerarPreviaDistribuicaoNoWorker({}, { correlationId: 'worker-exit-2' }, deps);
+
+    await assert.rejects(
+      primeira,
+      (erro) => erro.code === 'PREVIA_WORKER_NO_RESULT'
+    );
+    assert.deepEqual(await segunda, { fila: 2 });
+  });
+});
 
 describe('Sprint por comprovante — informar comprovantes', () => {
   it('usa a elegibilidade oficial, retorna vendas reais uma vez e não persiste ao consultar', async () => {
@@ -353,7 +438,7 @@ describe('Sprint por comprovante — informar comprovantes', () => {
     db.close();
   });
 
-  it('compõe acima do alvo quando possível e mantém os demais comprovantes pendentes', async () => {
+  it('não atribui itens acima do valor de nenhum comprovante sem composição exata', async () => {
     const db = abrirDb();
     await prepararCenario(db);
 
@@ -368,17 +453,146 @@ describe('Sprint por comprovante — informar comprovantes', () => {
       capturarSnapshot: false
     });
 
-    assert.equal(resultado.previa.quantidade_vendas, 1);
+    assert.equal(resultado.previa.quantidade_vendas, 0);
     assert.equal(resultado.previa.perfeita, false);
     assert.equal(resultado.previa.incompleta, true);
-    assert.equal(resultado.previa.vendas[0].valor, 75);
-    assert.equal(resultado.previa.vendas[0].desconto, 65);
-    assert.equal(resultado.previa.vendas[0].valor_final, 10);
-    assert.equal(resultado.previa.valor_distribuido, 75);
-    assert.equal(resultado.previa.desconto, 65);
-    assert.equal(resultado.previa.valor_final, 10);
-    assert.equal(resultado.previa.diferenca, 50);
+    assert.deepEqual(resultado.previa.vendas, []);
+    assert.equal(resultado.previa.valor_distribuido, 0);
+    assert.equal(resultado.previa.desconto, 0);
+    assert.equal(resultado.previa.valor_final, 0);
+    assert.equal(resultado.previa.diferenca, 60);
+    assert.equal(resultado.previa.codigo, 'DIFERENCA_NAO_CONCILIADA');
+    assert.match(resultado.previa.mensagem, /Não há regra autorizada de desconto/);
+    assert.match(resultado.previa.mensagem, /Comprovantes sem composição/);
     db.close();
+  });
+
+  it('compõe cada comprovante individual, inclusive abaixo do mínimo, com soma exata de R$ 55,30', () => {
+    const lotes = criarLotesComValores([4150, 285, 1095]);
+    const resultado = gerarPreviaPorComprovante(
+      [{ valor: 41.50 }, { valor: 2.85 }, { valor: 10.95 }],
+      lotes
+    );
+
+    assert.equal(resultado.quantidade_vendas, 3);
+    assert.deepEqual(resultado.vendas.map((venda) => venda.valor), [41.5, 2.85, 10.95]);
+    assert.deepEqual(resultado.vendas.map((venda) => venda.ordem), [1, 2, 3]);
+    assert.deepEqual(resultado.vendas.map((venda) =>
+      venda.itens.reduce((soma, item) => soma + Math.round(item.valor_total * 100), 0)
+    ), [4150, 285, 1095]);
+    assert.ok(resultado.vendas.every((venda) => venda.desconto === 0 && venda.itens.length > 0));
+    assert.equal(resultado.valor_informado, 55.3);
+    assert.equal(resultado.valor_distribuido, 55.3);
+    assert.equal(resultado.valor_final, 55.3);
+    assert.equal(resultado.diferenca, 0);
+    assert.deepEqual(resultado.comprovantes_nao_compostos, []);
+    assert.equal(resultado.perfeita, true);
+  });
+
+  it('não usa valor mínimo configurado, padrão, vazio ou inválido para descartar comprovantes', () => {
+    const comprovante = [{ valor: 2.85 }];
+    const lotes = criarLotesComValores([285]);
+    const configuracoes = [
+      ['mínimo configurado acima do recebimento', { valorMin: 10 }],
+      ['mínimo padrão do sistema', { valorMin: 8 }],
+      ['mínimo ausente', {}],
+      ['mínimo nulo', { valorMin: null }],
+      ['mínimo vazio', { valorMin: '' }],
+      ['mínimo zero', { valorMin: 0 }],
+      ['mínimo inválido', { valorMin: 'inválido' }]
+    ];
+
+    for (const [descricao, opcoes] of configuracoes) {
+      const resultado = gerarPreviaPorComprovante(comprovante, lotes, opcoes);
+      assert.equal(
+        resultado.quantidade_vendas,
+        1,
+        `${descricao}: o recebimento válido de R$ 2,85 deve ser processado`
+      );
+      assert.equal(resultado.vendas[0].valor, 2.85, descricao);
+      assert.equal(resultado.vendas[0].valor_final, 2.85, descricao);
+      assert.equal(resultado.diferenca, 0, descricao);
+      assert.deepEqual(resultado.comprovantes_nao_compostos, [], descricao);
+    }
+  });
+
+  it('mínimo inválido ou acima do máximo não expande o limite máximo por comprovante', () => {
+    const resultado = gerarPreviaPorComprovante(
+      [{ valor: 501 }],
+      criarLotesComValores([50100]),
+      { valorMin: 1000, valorMax: 500 }
+    );
+
+    assert.equal(resultado.quantidade_vendas, 0);
+    assert.equal(resultado.diferenca, 501);
+    assert.equal(resultado.comprovantes_nao_compostos[0].codigo, 'COMPROVANTE_ACIMA_DO_MAXIMO');
+    assert.match(resultado.comprovantes_nao_compostos[0].motivo, /máximo de R\$ 500\.00/);
+  });
+
+  it('mantém diferença e explica quando os itens elegíveis não compõem exatamente R$ 2,85', () => {
+    const resultado = gerarPreviaPorComprovante(
+      [{ valor: 2.85 }],
+      criarLotesComValores([150, 150])
+    );
+
+    assert.equal(resultado.quantidade_vendas, 0);
+    assert.equal(resultado.valor_distribuido, 0);
+    assert.equal(resultado.diferenca, 2.85);
+    assert.equal(resultado.comprovantes_nao_compostos.length, 1);
+    assert.equal(resultado.comprovantes_nao_compostos[0].codigo, 'SEM_COMPOSICAO_EXATA');
+    assert.match(resultado.comprovantes_nao_compostos[0].motivo, /não existe uma combinação exata/);
+    assert.match(resultado.mensagem, /Comprovantes sem composição: #1 de R\$ 2\.85/);
+  });
+
+  it('preserva ordem, associação e formas de pagamento iguais e diferentes por comprovante', async () => {
+    const db = abrirDb();
+    await prepararCenario(db);
+    await new Promise((resolve, reject) => {
+      garantirSchemaFechamentoFiscal(db, (err) => err ? reject(err) : resolve());
+    });
+
+    await salvarComprovantesRecebimento(db, 1, [
+      { operadora: 'PIX 1', valor: 41.50, forma_pagamento: 'pix' },
+      { operadora: 'PIX 2', valor: 2.85, forma_pagamento: 'pix' },
+      { operadora: 'Débito', valor: 10.95, forma_pagamento: 'cartao_debito' }
+    ]);
+    const resultado = await listarComprovantesRecebimento(db, 1);
+    const previa = gerarPreviaPorComprovante(
+      resultado.comprovantes.map((item) => ({ valor: item.valor, ordem: item.ordem + 1 })),
+      criarLotesComValores([4150, 285, 1095])
+    );
+    const pagamentos = mapearPagamentosPorComprovante(
+      previa.vendas.map((venda, index) => ({ id: index + 1, sequencia: venda.sequencia, valor: venda.valor })),
+      resultado.comprovantes
+    );
+
+    assert.deepEqual(resultado.comprovantes.map((item) => item.forma_pagamento), ['pix', 'pix', 'cartao_debito']);
+    assert.deepEqual(previa.vendas.map((venda) => venda.ordem), [1, 2, 3]);
+    assert.deepEqual(previa.vendas.map((venda) => venda.valor), [41.5, 2.85, 10.95]);
+    assert.deepEqual(pagamentos.map((item) => ({
+      recebimento_id: item.pagamentos[0].recebimento_id,
+      forma_pagamento: item.pagamentos[0].forma_pagamento,
+      valor: item.pagamentos[0].valor
+    })), resultado.comprovantes.map((item, index) => ({
+      recebimento_id: item.id,
+      forma_pagamento: resultado.comprovantes[index].forma_pagamento,
+      valor: item.valor
+    })));
+    db.close();
+  });
+
+  it('não altera a distribuição POR_MAQUINA ao corrigir a composição por comprovante', () => {
+    const resultado = gerarPreviaDistribuicao(
+      criarLotesComValores([4150, 285, 1095]),
+      55.3,
+      { valorAlvo: 55.3, valorMin: 8, valorMax: 400 }
+    );
+
+    assert.equal(resultado.valor_informado, 55.3);
+    assert.equal(resultado.valor_distribuido, 55.3);
+    assert.equal(resultado.valor_final, 55.3);
+    assert.equal(resultado.diferenca, 0);
+    assert.equal(resultado.desconto, 0);
   });
 
   it('mantém o seletor, a composição fiscal e os controles de Por Máquina', () => {
@@ -387,6 +601,7 @@ describe('Sprint por comprovante — informar comprovantes', () => {
 
     assert.match(source, /Modo de recebimento do Recebimento Fiscal do Dia/);
     assert.match(source, /Por comprovante — Informar comprovantes/);
+    assert.match(source, /Pendente de conciliação/);
     assert.doesNotMatch(source, /Por venda — Comprovante por venda/);
     assert.ok(/Composição fiscal sugerida/.test(source));
     assert.ok(/ffdBtnAddMaquina/.test(source));
@@ -536,7 +751,7 @@ describe('Sprint por comprovante — informar comprovantes', () => {
     assert.equal(resultado.resumo.erros, 1);
   });
 
-  it('pula autorizadas/canceladas e bloqueia estados fiscais existentes sem retry', async () => {
+  it('pula autorizadas/canceladas e interrompe a fila diante de situação fiscal pendente', async () => {
     const source = fs.readFileSync(path.join(__dirname, '../../frontend/erp/js/fechamento-fiscal-dia.js'), 'utf8');
     const escolher = source.match(/function ffdEscolherIntervaloEmissaoMs\([^)]*\) \{[\s\S]*?\n\}/)?.[0] || '';
     const fila = source.match(/async function ffdExecutarFilaSequencial\([^)]*\) \{[\s\S]*?\n\}/)?.[0] || '';
@@ -565,25 +780,92 @@ describe('Sprint por comprovante — informar comprovantes', () => {
       agora: () => '2026-10-01T12:00:00.000Z'
     });
 
-    assert.deepEqual(emitidas, [4]);
+    assert.deepEqual(emitidas, []);
     assert.equal(JSON.stringify(resultado.resultados.map((item) => item.status)), JSON.stringify([
-      'JA_AUTORIZADA', 'CANCELADA', 'BLOQUEADA', 'AUTORIZADA'
+      'JA_AUTORIZADA', 'CANCELADA', 'BLOQUEADA'
     ]));
     assert.equal(resultado.resumo.ja_autorizadas, 1);
     assert.equal(resultado.resumo.bloqueadas, 2);
+    assert.equal(resultado.status, 'BLOCKED');
   });
 
-  it('limita intervalo a 60–300 segundos, testa countdown sem espera real e reserva uma única fila', async () => {
+  it('não inicia a venda seguinte se a resposta da emissão anterior for indeterminada', async () => {
     const source = fs.readFileSync(path.join(__dirname, '../../frontend/erp/js/fechamento-fiscal-dia.js'), 'utf8');
+    const fila = source.match(/async function ffdExecutarFilaSequencial\([^)]*\) \{[\s\S]*?\n\}/)?.[0] || '';
     const escolher = source.match(/function ffdEscolherIntervaloEmissaoMs\([^)]*\) \{[\s\S]*?\n\}/)?.[0] || '';
+    assert.ok(fila && escolher);
+    const context = { console, Number, FFD_INTERVALO_PADRAO_MS: 120000, ffdEscolherIntervaloEmissaoMs: () => 0 };
+    vm.createContext(context);
+    vm.runInContext(`${escolher}\n${fila}`, context);
+
+    const emitidas = [];
+    const resultado = await context.ffdExecutarFilaSequencial([
+      { venda_id: 1 },
+      { venda_id: 2 }
+    ], {
+      consultarSituacao: async () => ({ nfce_situacao_fiscal: 'SEM_DOCUMENTO' }),
+      emitirVenda: async (id) => {
+        emitidas.push(id);
+        throw new Error('Tempo esgotado; resultado fiscal desconhecido.');
+      },
+      esperarIntervalo: async () => assert.fail('A fila não deve aguardar e continuar após resultado indeterminado.'),
+      atualizarEstado: () => {},
+      registrarLog: () => {},
+      agora: () => '2026-10-16T12:00:00.000Z'
+    });
+
+    assert.deepEqual(emitidas, [1]);
+    assert.equal(resultado.status, 'BLOCKED');
+    assert.equal(resultado.resultados[0].status, 'INDETERMINADA');
+    assert.equal(resultado.resumo.indeterminadas, 1);
+  });
+
+  it('usa intervalo padrão ou configurado sem teto arbitrário, persiste a preferência e testa o relógio sem espera real', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '../../frontend/erp/js/fechamento-fiscal-dia.js'), 'utf8');
+    const constantes = source.match(/const FFD_INTERVALO_STORAGE_KEY = [\s\S]*?const FFD_INTERVALO_MAX_MINUTOS = [^\n]+;/)?.[0] || '';
+    const funcoes = [
+      'ffdValidarIntervaloConfiguracao',
+      'ffdCarregarConfiguracaoIntervalo',
+      'ffdSalvarConfiguracaoIntervalo',
+      'ffdEscolherIntervaloEmissaoMs',
+      'ffdAguardarCountdown',
+      'ffdReservarFilaEmissao'
+    ].map((nome) => source.match(new RegExp(`(?:async )?function ${nome}\\([^)]*\\) \\{[\\s\\S]*?\\n\\}`))?.[0] || '');
     const countdown = source.match(/function ffdAguardarCountdown\([^)]*\) \{[\s\S]*?\n\}/)?.[0] || '';
     const reservar = source.match(/function ffdReservarFilaEmissao\([^)]*\) \{[\s\S]*?\n\}/)?.[0] || '';
-    assert.ok(escolher && countdown && reservar);
-    const context = { console, Math, Date };
+    assert.ok(constantes && funcoes.every(Boolean) && countdown && reservar);
+    const store = {
+      data: {},
+      getItem(key) { return Object.prototype.hasOwnProperty.call(this.data, key) ? this.data[key] : null; },
+      setItem(key, value) { this.data[key] = String(value); },
+      removeItem(key) { delete this.data[key]; }
+    };
+    const context = { console, Math, Date, Number, JSON, localStorage: store };
     vm.createContext(context);
-    vm.runInContext(`${escolher}\n${countdown}\n${reservar}`, context);
-    assert.equal(context.ffdEscolherIntervaloEmissaoMs(() => 0), 60000);
-    assert.equal(context.ffdEscolherIntervaloEmissaoMs(() => 1), 300000);
+    vm.runInContext(`${constantes}\n${funcoes.join('\n')}`, context);
+    assert.equal(context.ffdEscolherIntervaloEmissaoMs(), 120000);
+    for (const [segundos, ms] of [[45, 45000], [60, 60000], [180, 180000], [600, 600000]]) {
+      const minutos = Math.floor(segundos / 60);
+      const resto = segundos % 60;
+      const salvo = context.ffdSalvarConfiguracaoIntervalo(String(minutos), String(resto));
+      assert.equal(salvo.ok, true);
+      assert.equal(salvo.ms, ms);
+      assert.equal(context.ffdEscolherIntervaloEmissaoMs(), ms);
+      const recarregado = {
+        console, Math, Date, Number, JSON, localStorage: store
+      };
+      vm.createContext(recarregado);
+      vm.runInContext(`${constantes}\n${funcoes.slice(0, 4).join('\n')}`, recarregado);
+      assert.equal(recarregado.ffdCarregarConfiguracaoIntervalo().ms, ms);
+    }
+
+    assert.equal(context.ffdSalvarConfiguracaoIntervalo('', '').ms, 120000);
+    assert.equal(context.ffdEscolherIntervaloEmissaoMs(), 120000);
+    assert.equal(store.getItem('ffd_intervalo_emissao'), null);
+    for (const [minutos, segundos] of [['-1', '0'], ['abc', '0'], ['1.5', '0'], ['0', '-1'], [String(Number.MAX_SAFE_INTEGER), '0']]) {
+      assert.equal(context.ffdValidarIntervaloConfiguracao(minutos, segundos).ok, false);
+    }
+    assert.equal(context.ffdValidarIntervaloConfiguracao('0', '600').ms, 600000);
 
     let agora = 0;
     let tick;
@@ -602,6 +884,18 @@ describe('Sprint por comprovante — informar comprovantes', () => {
     assert.deepEqual(countdowns, [2000, 1000, 0]);
     assert.equal(cleared, true);
 
+    let avancar = false;
+    const esperaAntecipada = context.ffdAguardarCountdown(600000, () => {}, {
+      now: () => agora,
+      setInterval: (callback) => { tick = callback; return 8; },
+      clearInterval: (id) => { cleared = id === 8; },
+      podeAvancarAgora: () => avancar
+    });
+    avancar = true;
+    tick();
+    assert.equal(await esperaAntecipada, 'early');
+    assert.equal(cleared, true);
+
     const state = { status: 'IDLE' };
     assert.equal(context.ffdReservarFilaEmissao(state), true);
     assert.equal(context.ffdReservarFilaEmissao(state), false);
@@ -609,7 +903,45 @@ describe('Sprint por comprovante — informar comprovantes', () => {
     assert.equal(context.ffdReservarFilaEmissao(state), false);
     state.status = 'COMPLETED';
     assert.equal(context.ffdReservarFilaEmissao(state), true);
-    assert.doesNotMatch(source, /ffdIntervaloEmissao|Intervalo entre emissões/);
+    const composicao = source.match(/id="ffdSecaoComposicao"[\s\S]*?(?=<div class="card border-0 shadow-sm mb-3" id="ffdSecaoEmissao")/)?.[0] || '';
+    assert.match(composicao, /id="ffdConfiguracaoIntervalo"/);
+    assert.match(composicao, /Intervalo entre NFC-e/);
+    assert.match(composicao, /for="ffdIntervaloMinutos">Minutos/);
+    assert.match(composicao, /for="ffdIntervaloSegundos">Segundos/);
+    assert.match(composicao, /Tempo máximo de espera entre o término de uma emissão e o início da próxima\. A próxima venda pode avançar antes, quando estiver pronta\./);
+    assert.ok(composicao.indexOf('id="ffdConfiguracaoIntervalo"') < composicao.indexOf('id="ffdVistaVenda"'));
+    assert.match(source, /ffdInicializarConfiguracaoIntervalo\(\)/);
+    assert.match(source, /Padrão do sistema: 2 minutos\./);
+    assert.match(source, /Intervalo personalizado aplicado:/);
+    assert.doesNotMatch(source, /Math\.max\(60000,\s*Math\.min\(300000/);
+  });
+
+  it('exibe Avançar agora somente durante a espera ativa da fila', () => {
+    const source = fs.readFileSync(path.join(__dirname, '../../frontend/erp/js/fechamento-fiscal-dia.js'), 'utf8');
+    const render = source.match(/function ffdRenderFilaEmissao\([^)]*\) \{[\s\S]*?\n\}/)?.[0] || '';
+    assert.ok(render);
+    assert.match(source, /id="ffdPainelFilaEmissao"[\s\S]*?id="ffdBtnAvancarEmissaoAgora"/);
+    assert.match(render, /fila\.status !== 'WAITING' \|\| typeof fila\.avancarAgora !== 'function'/);
+
+    const classes = { dNone: false, toggle(name, hidden) { this.dNone = name === 'd-none' ? hidden : this.dNone; } };
+    const elementos = {
+      ffdPainelFilaEmissao: { classList: { toggle() {} } },
+      ffdBtnIniciarEmissaoSequencial: { disabled: false },
+      ffdBtnAvancarEmissaoAgora: { classList: classes }
+    };
+    const context = {
+      __ffdEstado: { filaEmissao: { status: 'WAITING', avancarAgora() {} } },
+      document: { getElementById: (id) => elementos[id] || null },
+      ffdFilaEmissaoPodeIniciar: () => true,
+      ffdEsc: (value) => String(value)
+    };
+    vm.createContext(context);
+    vm.runInContext(render, context);
+    vm.runInContext('ffdRenderFilaEmissao()', context);
+    assert.equal(classes.dNone, false);
+    context.__ffdEstado.filaEmissao = { status: 'RUNNING' };
+    vm.runInContext('ffdRenderFilaEmissao()', context);
+    assert.equal(classes.dNone, true);
   });
 
   it('bloqueia um segundo início enquanto a primeira fila está ativa', async () => {
@@ -723,6 +1055,31 @@ describe('Sprint por comprovante — informar comprovantes', () => {
     db.close();
   });
 
+  it('persiste e devolve forma de pagamento própria para cada comprovante', async () => {
+    const db = abrirDb();
+    await prepararCenario(db);
+    await new Promise((resolve, reject) => {
+      garantirSchemaFechamentoFiscal(db, (err) => err ? reject(err) : resolve());
+    });
+
+    await salvarComprovantesRecebimento(db, 1, [
+      { operadora: 'PIX', cnpj: '12345678000199', valor: 25, forma_pagamento: 'pix' },
+      { operadora: 'Débito', valor: 40, forma_pagamento: 'cartao_debito' }
+    ]);
+    const resultado = await listarComprovantesRecebimento(db, 1);
+
+    assert.deepEqual(resultado.comprovantes.map((item) => ({
+      valor: item.valor,
+      operadora: item.operadora,
+      cnpj: item.cnpj,
+      forma_pagamento: item.forma_pagamento
+    })), [
+      { valor: 25, operadora: 'PIX', cnpj: '12345678000199', forma_pagamento: 'pix' },
+      { valor: 40, operadora: 'Débito', cnpj: '', forma_pagamento: 'cartao_debito' }
+    ]);
+    db.close();
+  });
+
   it('permite entrar vários valores em uma mesma máquina antes do clique de adicionar', () => {
     const source = fs.readFileSync(path.join(__dirname, '../../frontend/erp/js/fechamento-fiscal-dia.js'), 'utf8');
     assert.match(source, /ffdMaqValoresList|data-ffd-maq-valor/);
@@ -740,11 +1097,29 @@ describe('Sprint por comprovante — informar comprovantes', () => {
     assert.match(source, /ffdMaquinaModal/);
     assert.match(source, /ffdRenderMaquinas/);
     assert.match(source, /ffdSincronizarRecebimentos/);
+    assert.match(source, /fechamentos\/\$\{fechamentoId\}\/recebimentos-comprovantes/);
+    assert.match(source, /forma_pagamento: item\.forma_pagamento \|\| null/);
   });
 
   it('registra etapas e persiste uma única prévia para requests concorrentes idênticos', async (t) => {
     const db = abrirDb();
+    const logOriginal = console.log;
+    const rastros = [];
+    console.log = (...args) => {
+      if (String(args[0] || '').startsWith('[FechamentoFiscal] previa_')) {
+        try {
+          rastros.push({
+            evento: String(args[0]).replace('[FechamentoFiscal] ', ''),
+            dados: JSON.parse(args[1] || '{}')
+          });
+        } catch (_) {
+          rastros.push({ evento: String(args[0]).replace('[FechamentoFiscal] ', ''), dados: {} });
+        }
+      }
+      logOriginal.apply(console, args);
+    };
     t.after(() => {
+      console.log = logOriginal;
       PerformanceMonitor.disable();
       db.close();
     });
@@ -794,5 +1169,14 @@ describe('Sprint por comprovante — informar comprovantes', () => {
     assert.ok(contagens.inserts > 0);
     assert.equal(contagens.lotes, resultadoA.previa.metricas.linhas_elegiveis);
     assert.ok(contagens.transicoes_avaliadas > 0);
+    assert.ok(rastros.some((item) => item.evento === 'previa_geracao_inicio' && item.dados.assinatura));
+    assert.ok(rastros.some((item) => item.evento === 'previa_geracao_rejeitada'
+      && item.dados.codigo_erro === 'PREVIA_EM_ANDAMENTO'));
+    assert.ok(rastros.some((item) => item.evento === 'previa_etapa_inicio'
+      && item.dados.etapa === 'T7-distribution'));
+    assert.ok(rastros.some((item) => item.evento === 'previa_etapa_fim'
+      && item.dados.etapa === 'T9-persistence'));
+    assert.ok(rastros.some((item) => item.evento === 'previa_geracao_fim'
+      && item.dados.resultado === 'sucesso'));
   });
 });

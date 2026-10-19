@@ -26,13 +26,14 @@ const MAPA_UNIDADE = Object.freeze({
   LATA: 'LATA',
   BALDE: 'BALDE',
   ROLO: 'ROLO',
-  BARRA: 'BARRA'
+  BARRA: 'BARRA',
+  VARA: 'VARA'
 });
 
 /** Unidades comerciais de embalagem (não UN/KG/L isolados). */
 const UNIDADES_EMBALAGEM = Object.freeze([
   'PACOTE', 'CAIXA', 'FARDO', 'DISPLAY', 'KIT', 'BANDEJA',
-  'SACO', 'LATA', 'BALDE', 'ROLO', 'BARRA'
+  'SACO', 'LATA', 'BALDE', 'ROLO', 'BARRA', 'VARA'
 ]);
 
 function normalizarTexto(valor) {
@@ -73,7 +74,8 @@ function extrairUnidadeDoTexto(texto) {
     { re: /\bLATAS?\b/, unidade: 'LATA' },
     { re: /\bBALDES?\b/, unidade: 'BALDE' },
     { re: /\bROLOS?\b/, unidade: 'ROLO' },
-    { re: /\bBARRAS?\b/, unidade: 'BARRA' }
+    { re: /\bBARRAS?\b/, unidade: 'BARRA' },
+    { re: /\bVARAS?\b/, unidade: 'VARA' }
   ];
 
   for (const p of padroes) {

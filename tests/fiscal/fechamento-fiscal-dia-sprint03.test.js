@@ -25,6 +25,7 @@ const {
 } = require('../../backend/services/fechamento-fiscal');
 
 const moduloConfig = require('../../backend/services/fechamento-fiscal/fechamentoFiscalModuloConfig');
+const { sanitizarDiagnosticosDocumentos } = require('../../backend/services/fechamento-fiscal/DiagnosticoPreparacaoFiscal');
 
 let ok = 0;
 let falhas = 0;
@@ -425,6 +426,92 @@ async function main() {
 
     const prepOk = await prepararEmissao(ff.id, {}, depsPrep(db2, { ...CFG_HOMOLOG, ambiente: 2 }));
     assert.strictEqual(Number(prepOk.ambiente), 2);
+  });
+
+  await test('26 — Persistência e atribuição do diagnóstico XML sem vazar dados', async () => {
+    await run(db2, `UPDATE fechamentos_fiscais SET status = 'CANCELADO' WHERE status != 'CANCELADO'`);
+    const ff = await montarFechamentoPrevia(db2);
+    const erroOriginal = new Error(
+      'Falha do builder; senha=segredo token=credencial CNPJ 12.345.678/0001-99 <NFe>privado</NFe>\n at interno.js:10'
+    );
+    erroOriginal.code = 'XML_BUILDER_TESTE';
+    let chamadasBuilder = 0;
+    const deps = depsPrep(db2);
+    deps.buildNfceXml = (...args) => {
+      chamadasBuilder += 1;
+      if (chamadasBuilder === 1) throw erroOriginal;
+      return require('../../backend/services/fiscal/xmlBuilder').buildNfceXml(...args);
+    };
+
+    let erroPreparacao = null;
+    try {
+      await prepararEmissao(ff.id, {}, deps);
+    } catch (erro) {
+      erroPreparacao = erro;
+    }
+
+    assert.ok(erroPreparacao);
+    assert.strictEqual(erroPreparacao.code, 'XML_ERRO');
+    assert.ok(erroPreparacao.correlationId);
+    assert.strictEqual(erroPreparacao.causasXml[0].erro, erroOriginal);
+    const falhas = erroPreparacao.documentos.filter((doc) => doc.status === DOC_STATUS.ERRO);
+    assert.strictEqual(falhas.length, 1);
+    const diagnosticosHttp = sanitizarDiagnosticosDocumentos(erroPreparacao.documentos);
+    assert.strictEqual(diagnosticosHttp.length, 1);
+    assert.strictEqual(diagnosticosHttp[0].sequencia, falhas[0].sequencia);
+    assert.strictEqual(diagnosticosHttp[0].codigo, 'XML_BUILDER_TESTE');
+    assert.strictEqual(diagnosticosHttp[0].etapa, 'montagem_xml');
+    assert.match(diagnosticosHttp[0].mensagem, /Falha do builder/);
+    assert.doesNotMatch(diagnosticosHttp[0].mensagem, /segredo|credencial|12\.345\.678|<NFe>|privado|interno\.js/);
+
+    const registros = await all(
+      db2,
+      `SELECT id, sequencia, status, erros_json
+       FROM fechamentos_fiscais_documentos
+       WHERE fechamento_fiscal_id = ?
+       ORDER BY sequencia, id`,
+      [ff.id]
+    );
+    const registroFalho = registros.find((doc) => doc.status === DOC_STATUS.ERRO);
+    assert.ok(registroFalho);
+    const persistido = JSON.parse(registroFalho.erros_json);
+    assert.strictEqual(persistido[0].codigo, 'XML_BUILDER_TESTE');
+    assert.strictEqual(persistido[0].etapa, 'montagem_xml');
+    assert.strictEqual(persistido[0].correlationId, erroPreparacao.correlationId);
+    assert.ok(persistido[0].ocorridoEm);
+    assert.ok(registros.length > 1);
+  });
+
+  await test('27 — Falha de persistência desfaz a preparação no banco temporário', async () => {
+    await run(db2, `UPDATE fechamentos_fiscais SET status = 'CANCELADO' WHERE status != 'CANCELADO'`);
+    const ff = await montarFechamentoPrevia(db2);
+    const antes = await get(db2, `SELECT status FROM fechamentos_fiscais WHERE id = ?`, [ff.id]);
+    await run(
+      db2,
+      `CREATE TRIGGER falhar_item_documento
+       BEFORE INSERT ON fechamentos_fiscais_documentos_itens
+       BEGIN SELECT RAISE(ABORT, 'falha de persistência de teste'); END`
+    );
+
+    let erro = null;
+    try {
+      await prepararEmissao(ff.id, {}, depsPrep(db2));
+    } catch (e) {
+      erro = e;
+    } finally {
+      await run(db2, `DROP TRIGGER IF EXISTS falhar_item_documento`);
+    }
+
+    assert.ok(erro);
+    assert.match(String(erro.message), /falha de persistência de teste/i);
+    const depois = await get(db2, `SELECT status FROM fechamentos_fiscais WHERE id = ?`, [ff.id]);
+    const documentos = await all(
+      db2,
+      `SELECT id FROM fechamentos_fiscais_documentos WHERE fechamento_fiscal_id = ?`,
+      [ff.id]
+    );
+    assert.strictEqual(depois.status, antes.status);
+    assert.strictEqual(documentos.length, 0);
   });
 
   console.log(`\nResultado: ${ok} OK, ${falhas} falha(s)\n`);

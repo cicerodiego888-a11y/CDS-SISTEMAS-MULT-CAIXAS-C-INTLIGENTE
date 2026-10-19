@@ -8,16 +8,15 @@
 const { validarMotivoTexto } = require('../validacao/validarMotivoTexto');
 const { ORIGEM_FECHAMENTO } = require('./NfceHistoricoOficialService');
 const { STATUS, DOC_STATUS } = require('./constants');
+const { appendXmlRetornoNfce } = require('../fiscal/xmlRetornoNfce');
 const {
-  calcularPrazoCancelamentoNfce,
   montarDiagnosticoCancelamento,
-  logPrazoCancelamento,
-  obterDataHoraFiscalEstabelecimento
+  logPrazoCancelamento
 } = require('../fiscal/fiscalDateTime');
 
 const LOCKS = new Map();
-const CSTAT_CANCEL_OK = new Set(['135', '136', '155']);
-const CSTAT_FORA_PRAZO = new Set(['501']);
+const CSTAT_CANCEL_OK = new Set(['135', '155']);
+const CSTAT_REJEICAO = new Set(['501', '631']);
 
 function get(db, sql, params = []) {
   return new Promise((resolve, reject) => {
@@ -42,11 +41,13 @@ function extrairTagXml(xml, tag) {
 
 function extrairCancelamentoSefaz(xml) {
   const texto = String(xml || '');
-  const blocoEventoMatch = texto.match(/<retEvento[\s\S]*?<\/retEvento>/i);
-  const blocoEvento = blocoEventoMatch ? blocoEventoMatch[0] : texto;
+  const lotes = [...texto.matchAll(/<retEnvEvento[\s\S]*?<\/retEnvEvento>/gi)];
+  const retornoAtual = lotes.length ? lotes[lotes.length - 1][0] : texto;
+  const eventos = [...retornoAtual.matchAll(/<retEvento[\s\S]*?<\/retEvento>/gi)];
+  const blocoEvento = eventos.length ? eventos[eventos.length - 1][0] : retornoAtual;
   return {
-    cStatLote: extrairTagXml(texto, 'cStat'),
-    xMotivoLote: extrairTagXml(texto, 'xMotivo'),
+    cStatLote: extrairTagXml(retornoAtual, 'cStat'),
+    xMotivoLote: extrairTagXml(retornoAtual, 'xMotivo'),
     cStatEvento: extrairTagXml(blocoEvento, 'cStat'),
     xMotivoEvento: extrairTagXml(blocoEvento, 'xMotivo'),
     protocoloCancelamento: extrairTagXml(blocoEvento, 'nProt'),
@@ -186,67 +187,100 @@ async function cancelarDocumentoFiscalFechamento(db, nfceId, justificativa, opts
       throw err;
     }
 
-    // Sprint 08.4 — pré-validação de prazo (30 min CE). SEFAZ continua autoridade final.
-    const prazo = deps.prazoOverride || calcularPrazoCancelamentoNfce(nota, deps.agora || new Date());
+    // O prazo é diagnóstico; a aceitação da tentativa cabe à SEFAZ.
     const diagBase = montarDiagnosticoCancelamento(nota, deps.agora || new Date());
     logPrazoCancelamento(diagBase);
 
-    if (!prazo.dentro_prazo && !deps.ignorarPrazoLocal) {
-      const err = new Error(prazo.mensagem || 'A NFC-e está fora do prazo normal de cancelamento para este estabelecimento.');
-      err.statusCode = 400;
-      err.code = 'CANCELAMENTO_FORA_DO_PRAZO';
-      err.diagnostico = diagBase;
-      err.prazo = prazo;
+    const snapAntes = deps.skipSnapshot ? null : await snapshotComercial(db);
+
+    const claim = await run(
+      db,
+      `UPDATE nfce_notas
+       SET status = 'cancelamento_em_andamento',
+           updated_at = datetime('now', 'localtime')
+       WHERE id = ? AND status IN ('autorizada', 'cancelamento_rejeitado')`,
+      [id]
+    );
+    if (claim.changes !== 1) {
+      const err = new Error('NFC-e já possui cancelamento em andamento ou estado fiscal alterado.');
+      err.statusCode = 409;
+      err.code = 'CONCORRENCIA';
       throw err;
     }
-
-    const snapAntes = deps.skipSnapshot ? null : await snapshotComercial(db);
 
     const cancelarPorId = deps.cancelarNfcePorId
       || require('../fiscal/cancelarNfce').cancelarNfcePorId;
 
-    const cancelamento = await cancelarPorId(id, String(justificativa).trim(), Object.assign({ db: db }, deps));
+    let cancelamento;
+    try {
+      cancelamento = await cancelarPorId(
+        id,
+        String(justificativa).trim(),
+        Object.assign({}, deps, { db: db, cancelamentoClaimed: true })
+      );
+    } catch (error) {
+      await run(
+        db,
+        `UPDATE nfce_notas
+         SET status = 'cancelamento_desconhecido',
+             updated_at = datetime('now', 'localtime')
+         WHERE id = ? AND status = 'cancelamento_em_andamento'`,
+        [id]
+      );
+      error.statusCode = error.statusCode || 409;
+      error.code = error.code || 'RESULTADO_DESCONHECIDO';
+      throw error;
+    }
 
     const retornoTexto = typeof cancelamento.sefaz === 'string'
       ? cancelamento.sefaz
       : JSON.stringify(cancelamento.sefaz);
 
-    const dadosCancelamento = extrairCancelamentoSefaz(retornoTexto);
+    const confirmacao = cancelamento.confirmacaoCancelamento;
+    const confirmadoPorConsulta = confirmacao?.confirmado === true;
+    const retornoConsulta = String(confirmacao?.retornoXml || '');
+    const retornoPersistido = [retornoTexto, retornoConsulta].filter(Boolean).join('\n');
+    const dadosCancelamento = Object.assign(
+      {},
+      extrairCancelamentoSefaz(retornoTexto),
+      confirmadoPorConsulta
+        ? {
+          cStatEvento: confirmacao.cStat,
+          xMotivoEvento: confirmacao.xMotivo,
+          protocoloCancelamento: confirmacao.protocolo,
+          dataCancelamento: confirmacao.dataCancelamento
+        }
+        : {}
+    );
     const cStat = String(dadosCancelamento.cStatEvento || '');
-    const canceladoComSucesso = CSTAT_CANCEL_OK.has(cStat) || Boolean(deps.forcarSucesso);
-    const rejeicaoPrazo = CSTAT_FORA_PRAZO.has(cStat);
+    const loteProcessado = confirmadoPorConsulta
+      || String(dadosCancelamento.cStatLote || '') === '128';
+    const canceladoComSucesso = confirmadoPorConsulta
+      || (loteProcessado && CSTAT_CANCEL_OK.has(cStat));
+    const rejeicaoConhecida = !confirmadoPorConsulta && loteProcessado && CSTAT_REJEICAO.has(cStat);
 
     logPrazoCancelamento(diagBase, {
       cStat: cStat || null,
       xMotivo: dadosCancelamento.xMotivoEvento || null
     });
 
-    if (!canceladoComSucesso) {
-      // cStat 501 e demais rejeições: NFC-e permanece AUTORIZADA
+    if (!canceladoComSucesso && rejeicaoConhecida) {
       const motivo = dadosCancelamento.xMotivoEvento || 'Cancelamento rejeitado pela SEFAZ.';
-      const resumoRej = [
-        'STATUS CANCELAMENTO: rejeitado',
-        'nfce_status_mantido: autorizada',
-        'cStatEvento: ' + (dadosCancelamento.cStatEvento || ''),
-        'xMotivoEvento: ' + (dadosCancelamento.xMotivoEvento || ''),
-        'protocoloCancelamento: ' + (dadosCancelamento.protocoloCancelamento || ''),
-        'dhRegEvento: ' + (dadosCancelamento.dataCancelamento || ''),
-        'dh_autorizacao: ' + (prazo.dh_autorizacao || ''),
-        'dh_tentativa: ' + obterDataHoraFiscalEstabelecimento(),
-        'justificativa: ' + String(justificativa).trim()
-      ].join('\n');
-      await run(
+      const retornoRejeitado = await run(
         db,
-        "UPDATE nfce_notas SET xml_retorno = COALESCE(xml_retorno, '') || char(10) || ? || char(10) || ?, updated_at = datetime('now', 'localtime') WHERE id = ? AND status != 'cancelada'",
-        [resumoRej, retornoTexto, id]
+        `UPDATE nfce_notas
+         SET status = 'autorizada',
+             xml_retorno = ?,
+             updated_at = datetime('now', 'localtime')
+         WHERE id = ? AND status = 'cancelamento_em_andamento'`,
+        [appendXmlRetornoNfce(nota.xml_retorno, retornoPersistido), id]
       );
-
-      // Garante que status não virou cancelada
-      await run(
-        db,
-        "UPDATE nfce_notas SET status = 'autorizada' WHERE id = ? AND status NOT IN ('cancelada')",
-        [id]
-      ).catch(function () {});
+      if (retornoRejeitado.changes !== 1) {
+        const erroPersistencia = new Error('Falha ao persistir a rejeição; NFC-e permanece bloqueada para reconciliação.');
+        erroPersistencia.statusCode = 500;
+        erroPersistencia.code = 'PERSISTENCIA_CANCELAMENTO_INDETERMINADA';
+        throw erroPersistencia;
+      }
 
       logCancelamento({
         nfce_id: id,
@@ -255,7 +289,7 @@ async function cancelarDocumentoFiscalFechamento(db, nfceId, justificativa, opts
         serie: nota.serie,
         chave: nota.chave_acesso,
         ambiente: nota.ambiente,
-        resultado: rejeicaoPrazo ? 'REJEITADO_PRAZO_501' : 'REJEITADO',
+        resultado: 'REJEITADO',
         cStat: cStat,
         protocolo: dadosCancelamento.protocoloCancelamento,
         usuario: usuario.id || null,
@@ -263,12 +297,12 @@ async function cancelarDocumentoFiscalFechamento(db, nfceId, justificativa, opts
       });
 
       const err = new Error(
-        rejeicaoPrazo
-          ? 'Cancelamento rejeitado pela SEFAZ (cStat 501): prazo de cancelamento superior ao previsto na legislação.'
+        cStat === '501'
+          ? `Cancelamento rejeitado pela SEFAZ (cStat 501): ${motivo}`
           : motivo
       );
       err.statusCode = 400;
-      err.code = rejeicaoPrazo ? 'SEFAZ_PRAZO_501' : 'SEFAZ_REJEICAO';
+      err.code = cStat === '501' ? 'SEFAZ_PRAZO_501' : 'SEFAZ_REJEICAO';
       err.dadosCancelamento = dadosCancelamento;
       err.diagnostico = Object.assign({}, diagBase, {
         cStat: cStat,
@@ -280,22 +314,47 @@ async function cancelarDocumentoFiscalFechamento(db, nfceId, justificativa, opts
       throw err;
     }
 
-    const resumoOk = [
-      'STATUS CANCELAMENTO: cancelada',
-      'cStatEvento: ' + (dadosCancelamento.cStatEvento || (deps.forcarSucesso ? '135' : '')),
-      'xMotivoEvento: ' + (dadosCancelamento.xMotivoEvento || 'Evento registrado'),
-      'protocoloCancelamento: ' + (dadosCancelamento.protocoloCancelamento || ''),
-      'dataCancelamento: ' + (dadosCancelamento.dataCancelamento || ''),
-      'justificativa: ' + String(justificativa).trim(),
-      'origem: fechamento_fiscal_dia',
-      'fechamento_id: ' + (nota.fechamento_fiscal_id || '')
-    ].join('\n');
+    if (!canceladoComSucesso) {
+      await run(
+        db,
+        `UPDATE nfce_notas
+         SET status = 'cancelamento_desconhecido',
+             xml_retorno = ?,
+             updated_at = datetime('now', 'localtime')
+         WHERE id = ? AND status = 'cancelamento_em_andamento'`,
+        [appendXmlRetornoNfce(nota.xml_retorno, retornoPersistido), id]
+      );
+      const err = new Error(
+        cStat === '136'
+          ? 'cStat 136 informa evento registrado, mas não vinculado; sem confirmação documental da situação desta NFC-e.'
+          : cStat === '573'
+            ? `cStat 573: a duplicidade não comprova o cancelamento; ${confirmacao?.motivo || 'o evento 110111 não foi validado oficialmente'}. A NFC-e permanece bloqueada para reconciliação.`
+          : 'Retorno fiscal desconhecido; a NFC-e foi bloqueada para nova tentativa.'
+      );
+      err.statusCode = 409;
+      err.code = cStat === '136'
+        ? 'PENDENCIA_DOCUMENTAL_CSTAT_136'
+        : (cStat === '573' ? 'PENDENCIA_RECONCILIACAO_CSTAT_573' : 'RESULTADO_DESCONHECIDO');
+      err.status = 'cancelamento_desconhecido';
+      err.dadosCancelamento = dadosCancelamento;
+      throw err;
+    }
 
-    await run(
+    const retornoFinal = await run(
       db,
-      "UPDATE nfce_notas SET status = 'cancelada', xml_retorno = COALESCE(xml_retorno, '') || char(10) || ? || char(10) || ?, updated_at = datetime('now', 'localtime') WHERE id = ? AND status IN ('autorizada', 'cancelamento_rejeitado')",
-      [resumoOk, retornoTexto, id]
+      `UPDATE nfce_notas
+       SET status = 'cancelada',
+           xml_retorno = ?,
+           updated_at = datetime('now', 'localtime')
+       WHERE id = ? AND status = 'cancelamento_em_andamento'`,
+      [appendXmlRetornoNfce(nota.xml_retorno, retornoTexto), id]
     );
+    if (retornoFinal.changes !== 1) {
+      const err = new Error('Falha ao persistir o resultado fiscal; NFC-e permanece bloqueada para reconciliação.');
+      err.statusCode = 500;
+      err.code = 'PERSISTENCIA_CANCELAMENTO_INDETERMINADA';
+      throw err;
+    }
 
     if (nota.fechamento_documento_id) {
       await run(

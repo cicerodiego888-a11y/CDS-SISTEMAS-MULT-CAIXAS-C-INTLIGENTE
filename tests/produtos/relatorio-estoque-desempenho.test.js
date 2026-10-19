@@ -34,6 +34,13 @@ describe('Relatório de estoque — desempenho', () => {
     assert.match(handler, /win\.loadFile\(tmp\)/);
     assert.match(handler, /writeFile\(tmp, html/);
     assert.doesNotMatch(handler, /encodeURIComponent\(html\)/);
+    assert.match(handler, /document\.fonts\.ready/);
+    assert.match(handler, /requestAnimationFrame/);
+    assert.match(handler, /rendered\.items !== rendered\.expectedItemRows/);
+    assert.match(handler, /rendered\.officialTotals !== rendered\.expectedPurchases/);
+    assert.match(handler, /webContents\.print\(\{ silent: false, printBackground: true \}, \(success, failureReason\)/);
+    assert.match(handler, /if \(win && !win\.isDestroyed\(\)\) win\.destroy\(\)/);
+    assert.match(handler, /await fs\.promises\.rm\(tempDir, \{ recursive: true \}\)/);
 
     const produtos = read('frontend/erp/js/produtos.js');
     const printFn = produtos.slice(

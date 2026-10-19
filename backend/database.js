@@ -382,7 +382,9 @@ function aplicarAlteracoesPosCriacao() {
     `ALTER TABLE compras_itens ADD COLUMN valor_total_embalagem DECIMAL(10,2) DEFAULT 0`,
     `ALTER TABLE compras_itens ADD COLUMN cfop TEXT`,
     `ALTER TABLE compras_itens ADD COLUMN tipo_fiscal_item TEXT`,
-    `ALTER TABLE compras_itens ADD COLUMN bonificacao INTEGER DEFAULT 0`
+    `ALTER TABLE compras_itens ADD COLUMN bonificacao INTEGER DEFAULT 0`,
+    `ALTER TABLE compras_itens ADD COLUMN status_estoque TEXT NOT NULL DEFAULT 'APLICADO'`,
+    `ALTER TABLE compras_itens ADD COLUMN pendencia_estoque_json TEXT`
   ];
 
   const alteracoesVendas = [
@@ -508,6 +510,8 @@ function aplicarAlteracoesPosCriacao() {
   aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN pedido_id INTEGER`);
   // RC8.2 — snapshot imutável da Política Fiscal Comercial (MPFC)
   aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN mpfc_politica_snapshot TEXT`);
+  aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN documento_solicitado TEXT`);
+  aplicarAlteracaoSegura('vendas', `ALTER TABLE vendas ADD COLUMN status_fiscal_entrega TEXT`);
   aplicarAlteracaoSegura(
     'vendas',
     `CREATE INDEX IF NOT EXISTS idx_vendas_pedido_id ON vendas(pedido_id)`
@@ -1826,6 +1830,8 @@ function criarTabelas() {
         preco_unitario DECIMAL(10,2) NOT NULL,
         subtotal DECIMAL(10,2) NOT NULL,
         item_fiscal INTEGER DEFAULT 1,
+        status_estoque TEXT NOT NULL DEFAULT 'APLICADO',
+        pendencia_estoque_json TEXT,
         FOREIGN KEY (compra_id) REFERENCES compras(id) ON DELETE CASCADE,
         FOREIGN KEY (produto_id) REFERENCES produtos(id)
       )
@@ -2207,7 +2213,19 @@ function criarTabelas() {
       )
     `, (err) => {
       if (err) console.error('Erro ao criar tabela nfce_notas:', err);
-      else console.log('Tabela nfce_notas criada/verificada');
+      else {
+        console.log('Tabela nfce_notas criada/verificada');
+        const { restaurarStatusAutorizadoNfceRejeitada } = require('./services/fiscal/NfceRejeicaoStatusMigration');
+        restaurarStatusAutorizadoNfceRejeitada(db)
+          .then((atualizados) => {
+            if (atualizados > 0) {
+              console.log(`[NFC-e] ${atualizados} rejeição(ões) de cancelamento restaurada(s) para status autorizada.`);
+            }
+          })
+          .catch((migrationError) => {
+            console.error('[NFC-e] Falha ao restaurar status autorizado após rejeição:', migrationError.message);
+          });
+      }
       aplicarAlteracaoSegura('nfce_notas', `ALTER TABLE nfce_notas ADD COLUMN fechamento_fiscal_id INTEGER`);
       aplicarAlteracaoSegura('nfce_notas', `ALTER TABLE nfce_notas ADD COLUMN fechamento_documento_id INTEGER`);
       aplicarAlteracaoSegura('nfce_notas', `ALTER TABLE nfce_notas ADD COLUMN origem TEXT DEFAULT 'venda'`);

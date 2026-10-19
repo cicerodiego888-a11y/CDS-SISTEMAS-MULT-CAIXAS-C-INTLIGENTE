@@ -74,12 +74,23 @@ const decisao = (pendencia, confirmacao = true, extras = {}) => ({
 describe('Sprint 2.8 — selo da confirmação de conversão', () => {
   test('confirmação válida para a linha e a conversão corretas', () => {
     const [pendencia] = emitir();
-    assert.match(pendencia.selo_conversao, /^v1\.[0-9a-f]{64}$/);
+    assert.match(pendencia.selo_conversao, /^v2\.[0-9a-f]{64}$/);
     assert.equal(emitir()[0].selo_conversao, pendencia.selo_conversao, 'mesmo contexto, mesmo selo');
     assert.deepEqual(Object.keys(Confirmacao.contextoSeloConversao(pendencia)), [
       'documento_id', 'indice', 'nItem', 'revisao_produto', 'produto_id',
-      'uCom', 'qCom', 'uTrib', 'qTrib', 'unidade_estoque', 'quantidade_proposta'
+      'uCom', 'qCom', 'uTrib', 'qTrib', 'unidade_estoque', 'quantidade_proposta',
+      'apresentacao_id', 'fator_conversao', 'tipo_conversao'
     ]);
+    assert.notEqual(
+      Confirmacao.gerarSeloConversao({ ...pendencia, fator_conversao_validado: 6 }),
+      pendencia.selo_conversao,
+      'alterar o fator validado exige um selo novo'
+    );
+    assert.notEqual(
+      Confirmacao.gerarSeloConversao({ ...pendencia, produto_apresentacao_id: 321 }),
+      pendencia.selo_conversao,
+      'alterar a apresentação exige um selo novo'
+    );
 
     assert.deepEqual(validar([itemCabo()], [decisao(pendencia)]), []);
     const [aplicado] = aplicar([itemCabo()], [decisao(pendencia)]);
@@ -93,7 +104,8 @@ describe('Sprint 2.8 — selo da confirmação de conversão', () => {
       ['SIM sem selo', [decisao(pendencia, true, { selo_conversao: undefined })], [itemCabo()], 'CONFIRMACAO_CONVERSAO_SEM_SELO'],
       ['NÃO sem selo', [decisao(pendencia, false, { selo_conversao: null })], [itemCabo()], 'CONFIRMACAO_CONVERSAO_SEM_SELO'],
       ['SIM só no item', [], [itemCabo({ confirmacao: true, conversao_decisao: 'SIM' })], 'CONFIRMACAO_CONVERSAO_SEM_SELO'],
-      ['selo forjado', [decisao(pendencia, true, { selo_conversao: `v1.${'0'.repeat(64)}` })], [itemCabo()], 'CONFIRMACAO_CONVERSAO_DESATUALIZADA'],
+      ['selo da versão anterior', [decisao(pendencia, true, { selo_conversao: `v1.${'0'.repeat(64)}` })], [itemCabo()], 'CONFIRMACAO_CONVERSAO_DESATUALIZADA'],
+      ['selo forjado', [decisao(pendencia, true, { selo_conversao: `v2.${'0'.repeat(64)}` })], [itemCabo()], 'CONFIRMACAO_CONVERSAO_DESATUALIZADA'],
       ['selo truncado', [decisao(pendencia, true, { selo_conversao: pendencia.selo_conversao.slice(0, 20) })], [itemCabo()], 'CONFIRMACAO_CONVERSAO_DESATUALIZADA']
     ];
     for (const [rotulo, confirmacoes, itens, codigo] of casos) {
@@ -150,7 +162,7 @@ describe('Sprint 2.8 — selo da confirmação de conversão', () => {
       itens: [{ nItem: 1, uCom: 'CENTO', qCom: 5, uTrib: 'M', qTrib: 500, correcoes_produto: [{}, {}] }]
     };
     const { ok, itens } = Confirmacao.reconciliarItensComDocumentoCentral([
-      itemCabo({ revisao_produto_linha: 0, correcoes_produto: [], selo_conversao: 'v1.qualquer' })
+      itemCabo({ revisao_produto_linha: 0, correcoes_produto: [], selo_conversao: 'v2.qualquer' })
     ], documento);
     assert.equal(ok, true);
     assert.equal(itens[0].revisao_produto_linha, 2);

@@ -16,7 +16,7 @@ test('COMPOSICAO — prioriza exata em vez de excesso', () => {
   assert.equal(previa.desconto, 0);
 });
 
-test('COMPOSICAO — escolhe menor excesso e aplica desconto', () => {
+test('COMPOSICAO — mantém excesso como divergência sem desconto autorizado', () => {
   const lotes = [
     { produto_id: 1, nome: 'A', venda_item_id: 1, unidade: 'UN', fracionado: false, quantidade_disponivel: 1, valor_disponivel: 15, preco_unitario: 15, unit_cents: 1500 },
     { produto_id: 2, nome: 'B', venda_item_id: 2, unidade: 'UN', fracionado: false, quantidade_disponivel: 1, valor_disponivel: 10, preco_unitario: 10, unit_cents: 1000 },
@@ -25,12 +25,15 @@ test('COMPOSICAO — escolhe menor excesso e aplica desconto', () => {
   ];
 
   const previa = gerarPreviaDistribuicao(lotes, 28);
-  assert.equal(previa.desconto, 1.8);
+  assert.equal(previa.desconto, 0);
   assert.equal(previa.valor_distribuido, 29.8);
-  assert.equal(previa.valor_final, 28);
-  assert.equal(previa.diferenca, 0);
-  assert.equal(previa.perfeita, true);
-  assert.equal(previa.incompleta, false);
+  assert.equal(previa.valor_final, 29.8);
+  assert.equal(previa.diferenca, -1.8);
+  assert.equal(previa.perfeita, false);
+  assert.equal(previa.incompleta, true);
+  assert.equal(previa.codigo, 'DIFERENCA_NAO_CONCILIADA');
+  assert.ok(previa.mensagem.includes('R$ 1.80'));
+  assert.match(previa.mensagem, /Não há regra autorizada de desconto/);
 });
 
 test('COMPOSICAO — rejeita abaixo do alvo sem inventar valor', () => {

@@ -66,6 +66,8 @@
         const htmlCodigoBarras = codigoBarras ? `<aside class="barcode-area">${svg}</aside>` : '';
         const papelMm = Number(opcoes.papelMm) === 58 ? 58 : 80;
         const areaUtilMm = papelMm === 58 ? 48 : 72;
+        // Recuo direito alinhado à COLUNA_VALOR_TERMICO (geometriaCupom80).
+        const paddingEtiqueta = papelMm === 58 ? '2mm 2.5mm 2mm 1.5mm' : '2mm 3.5mm 2mm 2mm';
         const larguraInternaMm = areaUtilMm - 4.5;
         const larguraPrecoMm = papelMm === 80 && codigoBarras ? larguraInternaMm - 31 : larguraInternaMm;
         const precoFontSize = calcularFontePreco(formatarPreco(produto.preco_venda), larguraPrecoMm).toFixed(1);
@@ -80,11 +82,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Etiqueta de produto</title>
 <style>
-  @page { margin: 0; }
+  @page { size: ${papelMm}mm auto; margin: 0; }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+  html, body { margin: 0; padding: 0; width: ${areaUtilMm}mm; max-width: ${areaUtilMm}mm; background: #fff; color: #000; }
   body { font-family: Arial, Helvetica, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .etiqueta { width: ${areaUtilMm}mm; max-width: 100%; margin: 0 auto; min-height: 31mm; padding: 2mm; border: .25mm solid #000; display: grid; grid-template-columns: minmax(0, 1fr) 29mm; grid-template-rows: auto 1fr; column-gap: 2mm; }
+    .etiqueta { width: ${areaUtilMm}mm; max-width: ${areaUtilMm}mm; margin: 0; min-height: 31mm; padding: ${paddingEtiqueta}; border: .25mm solid #000; display: grid; grid-template-columns: minmax(0, 1fr) 29mm; grid-template-rows: auto 1fr; column-gap: 2mm; box-sizing: border-box; }
     .etiqueta.sem-codigo-barras { grid-template-columns: minmax(0, 1fr); }
   .nome { grid-column: 1; grid-row: 1; max-width: 100%; margin: 0 0 1.5mm; text-align: center; font-size: ${nomeFontSize}pt; line-height: 1.08; font-weight: 700; overflow-wrap: anywhere; word-break: break-word; }
   .dados { grid-column: 1; grid-row: 2; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; }

@@ -151,7 +151,7 @@ async function revisarEFinalizar(central, documentoId, produtosPorLinha) {
     });
     const conv = await central.salvarDecisaoConversaoRevisao(documentoId, indice, { decisao: 'SIM', documento_id: documentoId });
     assert.equal(conv.confirmada, true, JSON.stringify(conv));
-    assert.match(conv.conversao.selo_conversao, /^v1\.[0-9a-f]{64}$/, 'SIM da Central gravado com selo');
+    assert.match(conv.conversao.selo_conversao, /^v2\.[0-9a-f]{64}$/, 'SIM da Central gravado com selo');
   }
   return central.finalizarEntrada(documentoId, { usuarioId: USUARIO_ID });
 }
@@ -201,7 +201,7 @@ test('Sprint 2.8 — correção atômica e confirmação de conversão no contex
   const confX = clonar(entradaX.dadosCompra.confirmacoes_conversao);
   const confY = clonar(entradaY.dadosCompra.confirmacoes_conversao);
   assert.equal(confX.length, 2);
-  confX.concat(confY).forEach((c) => assert.match(String(c.selo_conversao), /^v1\.[0-9a-f]{64}$/, 'Central envia o selo para Compras'));
+  confX.concat(confY).forEach((c) => assert.match(String(c.selo_conversao), /^v2\.[0-9a-f]{64}$/, 'Central envia o selo para Compras'));
   assert.notEqual(confX[0].selo_conversao, confY[0].selo_conversao, 'mesma linha e produto em outra nota: outro selo');
   assert.notEqual(confX[0].selo_conversao, confX[1].selo_conversao, 'outra linha: outro selo');
 
@@ -261,7 +261,7 @@ test('Sprint 2.8 — correção atômica e confirmação de conversão no contex
       ['ausente', (c) => { c.confirmacoes_conversao = [c.confirmacoes_conversao[1]]; }, 'QTRIB_UNIDADE_ESTOQUE'],
       ['SIM sem selo', (c) => { delete c.confirmacoes_conversao[0].selo_conversao; }, 'CONFIRMACAO_CONVERSAO_SEM_SELO'],
       ['NÃO sem selo', (c) => { c.confirmacoes_conversao[0].confirmacao = false; c.confirmacoes_conversao[0].selo_conversao = null; }, 'CONFIRMACAO_CONVERSAO_SEM_SELO'],
-      ['selo forjado', (c) => { c.confirmacoes_conversao[0].selo_conversao = `v1.${'a'.repeat(64)}`; }, 'CONFIRMACAO_CONVERSAO_DESATUALIZADA'],
+      ['selo forjado', (c) => { c.confirmacoes_conversao[0].selo_conversao = `v2.${'a'.repeat(64)}`; }, 'CONFIRMACAO_CONVERSAO_DESATUALIZADA'],
       ['selo da outra linha', (c) => { c.confirmacoes_conversao[0].selo_conversao = confX[1].selo_conversao; }, 'CONFIRMACAO_CONVERSAO_DESATUALIZADA'],
       ['confirmação de outro documento', (c) => { c.confirmacoes_conversao[0] = { ...confY[0] }; }, 'DECISAO_NOTA_INCORRETA'],
       ['selo de outro documento com o número deste', (c) => {
@@ -464,5 +464,98 @@ test('Sprint 2.8 — correção atômica e confirmação de conversão no contex
       (err) => err.statusCode === 409
     );
     assert.deepEqual(await foto([docX.documentoId]), antes);
+  });
+
+  await t.test('NÃO sem conversão automática conclui compra sem estoque e regulariza uma vez após cadastrar fator', async () => {
+    const docZ = await upload(central, 9803, [LINHA_NAPO]);
+    const entradaZ = await revisarEFinalizar(central, docZ.documentoId, [PRODUTO_B.id]);
+    const dadosSemConfirmacao = clonar(entradaZ.dadosCompra);
+    dadosSemConfirmacao.confirmacoes_conversao = [];
+    const antes = await foto([docZ.documentoId]);
+    const saldoAntes = Number((await getDb('SELECT saldo_fiscal FROM produtos WHERE id = ?', [PRODUTO_B.id])).saldo_fiscal);
+
+    const pagina = await abrirTela(app, docZ.documentoId, dadosSemConfirmacao);
+    pagina.context.saveCompra();
+    await esperar(
+      () => postsCompra(pagina).length === 1
+        && pagina.htmlAnexados.some((html) => html.includes('Continuar sem conversão automática')),
+      'a resposta pendente abrir o modal com a opção de não converter',
+      pagina
+    );
+    assert.equal(postsCompra(pagina)[0].resposta.status, 422);
+    pagina.clicar('#confirmacaoConversaoUnidadesModal', {
+      dataset: { itemKey: 'linha:0', decisao: 'sem-conversao' }
+    });
+    assert.equal(pagina.prop('#confirmacaoConversaoUnidadesModal-confirmar', 'disabled'), false);
+    pagina.clicar('#confirmacaoConversaoUnidadesModal-confirmar');
+    await esperar(() => postsCompra(pagina).length === 2, 'o operador confirmar sem conversão', pagina);
+    await esperar(
+      () => pagina.notificacoes.some((n) => /estoque.*pendente de regularização/i.test(n.mensagem)),
+      'a interface informar o estoque pendente',
+      pagina
+    );
+
+    const gravacao = postsCompra(pagina)[1];
+    assert.equal(gravacao.resposta.status, 200, JSON.stringify(gravacao.resposta.body));
+    assert.equal(gravacao.corpo.itens[0].qCom, LINHA_NAPO.qCom);
+    assert.equal(gravacao.corpo.itens[0].uCom, LINHA_NAPO.uCom);
+    assert.equal(gravacao.corpo.confirmacoes_conversao[0].continuar_sem_conversao, true);
+    const compraId = Number(gravacao.resposta.body.id);
+    const item = await getDb('SELECT id, quantidade, subtotal, status_estoque FROM compras_itens WHERE compra_id = ?', [compraId]);
+    assert.equal(Number(item.quantidade), 0);
+    assert.equal(item.status_estoque, 'PENDENTE_CONVERSAO');
+    assert.equal(Number((await getDb('SELECT saldo_fiscal FROM produtos WHERE id = ?', [PRODUTO_B.id])).saldo_fiscal), saldoAntes);
+    assert.equal((await getDb('SELECT COUNT(*) AS n FROM financeiro WHERE compra_id = ?', [compraId])).n > 0, true);
+    assert.equal((await getDb('SELECT COUNT(*) AS n FROM compras WHERE chave_acesso = ?', [entradaZ.dadosCompra.chave_acesso])).n, 1);
+
+    await runDb(
+      `INSERT INTO produto_embalagens (
+        produto_id, tipo, quantidade, unidade, principal, compra, venda, estoque, ativa
+      ) VALUES (?, 'PCT', 4, 'UN', 1, 1, 1, 1, 1)`,
+      [PRODUTO_B.id]
+    );
+    await runDb(
+      "CREATE TRIGGER s28_falha_regularizacao BEFORE UPDATE ON produtos WHEN OLD.id = 9802 BEGIN SELECT RAISE(ABORT, 'falha simulada: saldo'); END"
+    );
+    let falhaRegularizacao;
+    try {
+      falhaRegularizacao = await request(app)
+        .post(`/api/compras/${compraId}/itens/${item.id}/regularizar-estoque`)
+        .send({});
+    } finally {
+      await runDb('DROP TRIGGER IF EXISTS s28_falha_regularizacao');
+    }
+    assert.equal(falhaRegularizacao.status, 500);
+    assert.equal((await getDb('SELECT status_estoque FROM compras_itens WHERE id = ?', [item.id])).status_estoque, 'PENDENTE_CONVERSAO');
+    assert.equal(Number((await getDb('SELECT saldo_fiscal FROM produtos WHERE id = ?', [PRODUTO_B.id])).saldo_fiscal), saldoAntes);
+
+    pagina.context.viewCompra(compraId);
+    await esperar(
+      () => pagina.htmlAnexados.some((html) => html.includes('Regularizar estoque')),
+      'a tela de detalhes apresentar a regularização pendente',
+      pagina
+    );
+    pagina.clicar('#viewCompraModal', {
+      dataset: { compraId: String(compraId), itemId: String(item.id) }
+    });
+    await esperar(
+      () => pagina.requisicoes.some((req) => /regularizar-estoque$/.test(req.url)),
+      'a tela solicitar a regularização do estoque',
+      pagina
+    );
+    const regularizada = pagina.requisicoes.find((req) => /regularizar-estoque$/.test(req.url));
+    assert.equal(regularizada.resposta.status, 200, JSON.stringify(regularizada.resposta.body));
+    assert.equal(regularizada.resposta.body.quantidade_estoque, 20);
+    const itemFinal = await getDb('SELECT quantidade, status_estoque FROM compras_itens WHERE id = ?', [item.id]);
+    assert.equal(Number(itemFinal.quantidade), 20);
+    assert.equal(itemFinal.status_estoque, 'APLICADO');
+    assert.equal(Number((await getDb('SELECT saldo_fiscal FROM produtos WHERE id = ?', [PRODUTO_B.id])).saldo_fiscal), saldoAntes + 20);
+
+    const repetida = await request(app)
+      .post(`/api/compras/${compraId}/itens/${item.id}/regularizar-estoque`)
+      .send({});
+    assert.equal(repetida.status, 409);
+    assert.equal(repetida.body.code, 'ESTOQUE_NAO_PENDENTE');
+    assert.equal((await getDb('SELECT COUNT(*) AS n FROM financeiro WHERE compra_id = ?', [compraId])).n > 0, true);
   });
 });

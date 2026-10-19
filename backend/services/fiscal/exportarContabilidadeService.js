@@ -5,18 +5,20 @@ const archiver = require('archiver');
 const db = require('../../database');
 const { getFiscalDir, getFiscalSubDir } = require('./paths');
 
-function dbGet(sql, params = []) {
+function dbGet(sql, params = [], dbOverride) {
+  const dbConn = dbOverride || db;
   return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
+    dbConn.get(sql, params, (err, row) => {
       if (err) reject(err);
       else resolve(row || null);
     });
   });
 }
 
-function dbAll(sql, params = []) {
+function dbAll(sql, params = [], dbOverride) {
+  const dbConn = dbOverride || db;
   return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
+    dbConn.all(sql, params, (err, rows) => {
       if (err) reject(err);
       else resolve(rows || []);
     });
@@ -55,18 +57,29 @@ function agoraLocalBrasil() {
   return `${ano}-${mes}-${dia} ${hora}:${min}:${seg}`;
 }
 
+/**
+ * RC3.19 — Extrai o XML autorizado da NFC-e.
+ *
+ * Prioridade:
+ *   1. xml_retorno com <nfeProc> (XML oficial autorizado + protocolo SEFAZ)
+ *   2. xml_enviado com <NFe> (XML assinado enviado — fallback compatível)
+ *   3. <NFe> extraído de xml_retorno
+ *
+ * Não utiliza o XML de envio como prova isolada de autorização: prefere o
+ * retorno SEFAZ quando este contém o nfeProc completo.
+ */
 function extrairXmlNfceAutorizado(nota) {
+  const retorno = String(nota?.xml_retorno || '');
+  const nfeProc = retorno.match(/<nfeProc[\s\S]*?<\/nfeProc>/i);
+  if (nfeProc) {
+    return nfeProc[0];
+  }
+
   const xmlEnviado = String(nota?.xml_enviado || '').trim();
   if (xmlEnviado && xmlEnviado.includes('<NFe')) {
     return xmlEnviado.startsWith('<?xml')
       ? xmlEnviado
       : `<?xml version="1.0" encoding="UTF-8"?>\n${xmlEnviado}`;
-  }
-
-  const retorno = String(nota?.xml_retorno || '');
-  const nfeProc = retorno.match(/<nfeProc[\s\S]*?<\/nfeProc>/i);
-  if (nfeProc) {
-    return nfeProc[0];
   }
 
   const nfe = retorno.match(/<NFe[\s\S]*?<\/NFe>/i);
@@ -184,22 +197,54 @@ function escreverArquivo(caminho, conteudo) {
   return caminho;
 }
 
-async function buscarNfceAutorizadas(dataInicial, dataFinal) {
+/**
+ * RC3.19 — NFC-e autorizadas para exportação contábil.
+ *
+ * LEFT JOIN vendas: NFC-e do Fechamento Fiscal do Dia consolida várias vendas
+ * e NÃO possui venda_id. O INNER JOIN anterior eliminava essas notas.
+ *
+ * Data fiscal:
+ *   - convencional (venda_id): v.data_venda, fallback n.created_at
+ *   - consolidada (fechamento): fd.data_hora_autorizacao → fd.data_hora_emissao → n.created_at
+ *
+ * Valor:
+ *   - convencional: v.total
+ *   - consolidada: fd.valor_total
+ */
+async function buscarNfceAutorizadas(dataInicial, dataFinal, dbOverride) {
   return dbAll(`
     SELECT
       n.*,
       v.codigo AS venda_codigo,
       v.data_venda,
-      v.total AS venda_total,
+      CASE WHEN n.venda_id IS NOT NULL THEN v.total ELSE fd.valor_total END AS venda_total,
       v.forma_pagamento,
       v.status AS venda_status,
       c.nome AS cliente_nome,
-      c.cpf_cnpj AS cliente_cpf
+      c.cpf_cnpj AS cliente_cpf,
+      fd.valor_total AS fechamento_valor_total,
+      fd.data_hora_autorizacao AS fechamento_data_autorizacao,
+      fd.data_hora_emissao AS fechamento_data_emissao,
+      CASE
+        WHEN n.venda_id IS NOT NULL THEN COALESCE(v.data_venda, n.created_at)
+        ELSE COALESCE(fd.data_hora_autorizacao, fd.data_hora_emissao, n.created_at)
+      END AS data_fiscal
     FROM nfce_notas n
-    INNER JOIN vendas v ON v.id = n.venda_id
+    LEFT JOIN vendas v ON v.id = n.venda_id
     LEFT JOIN clientes c ON c.id = v.cliente_id
-    WHERE DATE(COALESCE(n.created_at, v.data_venda)) >= ?
-      AND DATE(COALESCE(n.created_at, v.data_venda)) <= ?
+    LEFT JOIN fechamentos_fiscais_documentos fd ON fd.id = n.fechamento_documento_id
+    WHERE DATE(
+      CASE
+        WHEN n.venda_id IS NOT NULL THEN COALESCE(v.data_venda, n.created_at)
+        ELSE COALESCE(fd.data_hora_autorizacao, fd.data_hora_emissao, n.created_at)
+      END
+    ) >= ?
+      AND DATE(
+        CASE
+          WHEN n.venda_id IS NOT NULL THEN COALESCE(v.data_venda, n.created_at)
+          ELSE COALESCE(fd.data_hora_autorizacao, fd.data_hora_emissao, n.created_at)
+        END
+      ) <= ?
       AND (
         LOWER(TRIM(COALESCE(n.status, ''))) = 'autorizada'
         OR (
@@ -209,7 +254,45 @@ async function buscarNfceAutorizadas(dataInicial, dataFinal) {
         )
       )
     ORDER BY n.created_at ASC, n.id ASC
-  `, [dataInicial, dataFinal]);
+  `, [dataInicial, dataFinal], dbOverride);
+}
+
+/**
+ * RC3.19 — Recuperação histórica idempotente.
+ *
+ * Documentos AUTORIZADOS do fechamento fiscal emitidos antes da integração
+ * Sprint 08.1 podem não estar em nfce_notas. Antes de exportar, sincroniza
+ * todos os fechamentos com documentos autorizados no período.
+ *
+ * NÃO transmite. NÃO cria venda. Reutiliza persistirNfceAutorizadaDoFechamento.
+ */
+async function sincronizarHistoricoNfcePeriodo(dataInicial, dataFinal, dbOverride) {
+  const dbConn = dbOverride || db;
+  try {
+    const { sincronizarHistoricoNfceDoFechamento } = require('../fechamento-fiscal/NfceHistoricoOficialService');
+    const fechamentos = await dbAll(`
+      SELECT DISTINCT ff.id
+      FROM fechamentos_fiscais ff
+      INNER JOIN fechamentos_fiscais_documentos fd ON fd.fechamento_fiscal_id = ff.id
+      WHERE UPPER(fd.status) = 'AUTORIZADO'
+        AND DATE(COALESCE(fd.data_hora_autorizacao, fd.data_hora_emissao, fd.criado_em)) >= ?
+        AND DATE(COALESCE(fd.data_hora_autorizacao, fd.data_hora_emissao, fd.criado_em)) <= ?
+    `, [dataInicial, dataFinal], dbConn);
+
+    let sincronizados = 0;
+    for (const ff of fechamentos) {
+      try {
+        await sincronizarHistoricoNfceDoFechamento(dbConn, ff.id);
+        sincronizados += 1;
+      } catch (err) {
+        console.warn(`[CONTABILIDADE] Falha ao sincronizar histórico NFC-e do fechamento ${ff.id}:`, err.message);
+      }
+    }
+    return { sincronizados };
+  } catch (err) {
+    console.warn('[CONTABILIDADE] Falha ao sincronizar histórico NFC-e do período:', err.message);
+    return { sincronizados: 0, erro: err.message };
+  }
 }
 
 /** RC3.18 — NF-e modelo 55 autorizadas (nfe_notas). */
@@ -311,7 +394,7 @@ function gerarCsvVendas(notas, tipoDoc = 'NFC-e') {
   for (const nota of notas) {
     csv += linhaCsv([
       tipoDoc,
-      (nota.data_venda || nota.created_at || '').toString().slice(0, 10),
+      (nota.data_fiscal || nota.data_venda || nota.created_at || '').toString().slice(0, 10),
       nota.numero || nota.venda_codigo || '',
       nota.cliente_nome || 'Consumidor',
       nota.cliente_cpf || '',
@@ -329,7 +412,7 @@ function gerarCsvVendasMisto(notasNfce, notasNfe) {
     for (const nota of notas) {
       csv += linhaCsv([
         tipoDoc,
-        (nota.data_venda || nota.created_at || '').toString().slice(0, 10),
+        (nota.data_fiscal || nota.data_venda || nota.created_at || '').toString().slice(0, 10),
         nota.numero || nota.venda_codigo || '',
         nota.cliente_nome || 'Consumidor',
         nota.cliente_cpf || '',
@@ -447,6 +530,12 @@ async function exportarContabilidade({ dataInicial, dataFinal, ...opcoesBody } =
     throw erro;
   }
 
+  // RC3.19 — recupera documentos autorizados do fechamento que ainda não
+  // estão em nfce_notas (histórico anterior à Sprint 08.1). Idempotente.
+  if (opcoes.incluirNfce) {
+    await sincronizarHistoricoNfcePeriodo(inicio, fim);
+  }
+
   const notasNfce = await buscarNfceAutorizadas(inicio, fim);
   const notasNfe = await buscarNfeAutorizadas(inicio, fim);
   const entradas = await buscarEntradasPeriodo(inicio, fim);
@@ -478,6 +567,13 @@ async function exportarContabilidade({ dataInicial, dataFinal, ...opcoesBody } =
       : null;
   const arquivosGerados = [];
   const xmlAusentes = [];
+  let xmlsNfceExportados = 0;
+  let xmlsNfeExportados = 0;
+  let xmlsEntradasExportados = 0;
+
+  const quantidadeNfceConsolidadas = opcoes.incluirNfce
+    ? notasNfce.filter((n) => n.venda_id == null).length
+    : 0;
 
   if (opcoes.incluirNfce) {
     for (const nota of notasNfce) {
@@ -488,7 +584,7 @@ async function exportarContabilidade({ dataInicial, dataFinal, ...opcoesBody } =
       if (!xml) {
         xmlAusentes.push({
           tipo: 'NFCE',
-          referencia: nota.chave_acesso || `venda_${nota.venda_id}`,
+          referencia: nota.chave_acesso || `venda_${nota.venda_id || 'fechamento'}`,
           caminhoEsperado: caminhoDestino
         });
         console.warn(`[CONTABILIDADE] XML NFC-e ausente: nota ${nota.id} / venda ${nota.venda_id}`);
@@ -497,6 +593,7 @@ async function exportarContabilidade({ dataInicial, dataFinal, ...opcoesBody } =
 
       escreverArquivo(caminhoDestino, xml);
       arquivosGerados.push(`XML_NFCE/${nomeArquivo}`);
+      xmlsNfceExportados += 1;
     }
   }
 
@@ -518,6 +615,7 @@ async function exportarContabilidade({ dataInicial, dataFinal, ...opcoesBody } =
 
       escreverArquivo(caminhoDestino, xml);
       arquivosGerados.push(`XML_NFE/${nomeArquivo}`);
+      xmlsNfeExportados += 1;
     }
   }
 
@@ -539,6 +637,7 @@ async function exportarContabilidade({ dataInicial, dataFinal, ...opcoesBody } =
 
       escreverArquivo(caminhoDestino, xml);
       arquivosGerados.push(`XML_ENTRADAS/${nomeArquivo}`);
+      xmlsEntradasExportados += 1;
     }
   }
 
@@ -644,6 +743,7 @@ async function exportarContabilidade({ dataInicial, dataFinal, ...opcoesBody } =
     resumo: {
       periodo: `${inicio} a ${fim}`,
       quantidadeNfce: opcoes.incluirNfce ? notasNfce.length : 0,
+      quantidadeNfceConsolidadas,
       quantidadeNfe: opcoes.incluirNfe ? notasNfe.length : 0,
       valorTotalVendas:
         (opcoes.incluirNfce ? totalVendasNfce : 0) +
@@ -652,6 +752,9 @@ async function exportarContabilidade({ dataInicial, dataFinal, ...opcoesBody } =
       valorTotalCompras: opcoes.incluirEntradas ? totalCompras : 0,
       dataGeracao,
       xmlAusentes: xmlAusentes.length,
+      xmlsNfceExportados,
+      xmlsNfeExportados,
+      xmlsEntradasExportados,
       opcoes
     }
   };
@@ -668,5 +771,14 @@ function limparExportacaoTemporaria(resultado) {
 module.exports = {
   exportarContabilidade,
   limparExportacaoTemporaria,
-  normalizarOpcoesExportacao
+  normalizarOpcoesExportacao,
+  buscarNfceAutorizadas,
+  buscarNfeAutorizadas,
+  sincronizarHistoricoNfcePeriodo,
+  extrairXmlNfceAutorizado,
+  extrairXmlNfeAutorizado,
+  nomeArquivoNfce,
+  nomeArquivoNfe,
+  gerarCsvVendasMisto,
+  gerarCsvResumo
 };

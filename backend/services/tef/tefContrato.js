@@ -35,6 +35,8 @@ function criarRespostaAutorizacao({
   status = STATUS.ERRO,
   nsu = null,
   autorizacao = null,
+  cnpj_credenciadora = null,
+  provedor = null,
   adquirente = null,
   bandeira = null,
   comprovanteCliente = null,
@@ -55,6 +57,8 @@ function criarRespostaAutorizacao({
     status: statusNorm,
     nsu: nsu || null,
     autorizacao: autorizacao || null,
+    cnpj_credenciadora: cnpj_credenciadora || null,
+    provedor: provedor || null,
     adquirente: adquirente || null,
     bandeira: bandeira || null,
     comprovanteCliente: comprovanteCliente || null,
@@ -153,6 +157,13 @@ function criarRespostaDiagnostico({
 
 /** Mapeia contrato padronizado → campos do banco / legado API */
 function paraPersistencia(retorno) {
+  const payloadRetorno = retorno.payloadRetorno || retorno.payload_retorno || retorno;
+  let payloadComCnpj = payloadRetorno;
+  if (retorno.cnpj_credenciadora) {
+    payloadComCnpj = payloadRetorno && typeof payloadRetorno === 'object'
+      ? { ...payloadRetorno, cnpj_credenciadora: retorno.cnpj_credenciadora }
+      : { resposta: payloadRetorno, cnpj_credenciadora: retorno.cnpj_credenciadora };
+  }
   return {
     status: retorno.status,
     adquirente: retorno.adquirente,
@@ -162,7 +173,7 @@ function paraPersistencia(retorno) {
     codigo_transacao: retorno.transacaoId || retorno.codigo_transacao || null,
     comprovante_cliente: retorno.comprovanteCliente || retorno.comprovante_cliente || null,
     comprovante_estabelecimento: retorno.comprovanteLoja || retorno.comprovante_estabelecimento || null,
-    payload_retorno: retorno.payloadRetorno || retorno.payload_retorno || retorno
+    payload_retorno: payloadComCnpj
   };
 }
 
@@ -175,6 +186,8 @@ function paraRespostaApi(retorno, transacaoId = null) {
     aprovado: estaAprovado(retorno),
     nsu: retorno.nsu,
     autorizacao: retorno.autorizacao,
+    cnpj_credenciadora: retorno.cnpj_credenciadora,
+    provedor: retorno.provedor,
     adquirente: retorno.adquirente,
     bandeira: retorno.bandeira,
     comprovanteCliente: retorno.comprovanteCliente,

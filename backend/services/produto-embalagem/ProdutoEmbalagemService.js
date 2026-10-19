@@ -28,7 +28,7 @@ function normalizarEmbalagemInput(raw = {}, unidadeProduto = 'un') {
     id: raw.id ? Number(raw.id) : null,
     tipo,
     descricao: raw.descricao ? String(raw.descricao).trim() : null,
-    quantidade: quantidade > 0 ? quantidade : 1,
+    quantidade: tipo === 'UN' ? 1 : quantidade,
     unidade: String(raw.unidade || unidadeProduto || 'un').trim().toLowerCase(),
     gtin: raw.gtin ? String(raw.gtin).trim() : (raw.codigo_barras ? String(raw.codigo_barras).trim() : null),
     codigo_fornecedor: raw.codigo_fornecedor ? String(raw.codigo_fornecedor).trim() : null,

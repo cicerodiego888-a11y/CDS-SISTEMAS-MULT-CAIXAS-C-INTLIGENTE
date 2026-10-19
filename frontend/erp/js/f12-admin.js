@@ -197,6 +197,7 @@ async function persistirModeloF12(controle, escopo) {
             return;
         }
 
+        window.dispatchEvent(new Event('cds:f12-policy-alterada'));
         showNotification(result.mensagem || 'Controle atualizado', 'success');
         setTimeout(() => loadF12Admin(), 400);
     } catch (err) {
@@ -210,6 +211,7 @@ async function salvarEstadoGlobalF12(ativo) {
     try {
         const result = await F12PolicyResolver.definirEstadoGlobal(ativo);
         if (result.success) {
+            window.dispatchEvent(new Event('cds:f12-policy-alterada'));
             const label = document.getElementById('global_label');
             if (label) label.textContent = ativo ? 'ON' : 'OFF';
             showNotification('Estado atualizado para todos os caixas', 'success');
@@ -228,6 +230,7 @@ async function salvarEstadoCaixaF12(caixaId, ativo) {
     try {
         const result = await F12PolicyResolver.definirEstadoCaixa(caixaId, ativo);
         if (result.success) {
+            window.dispatchEvent(new Event('cds:f12-policy-alterada'));
             showNotification('Estado do caixa atualizado', 'success');
             const label = document.querySelector(`label[for="caixa_${caixaId}"]`);
             if (label) label.textContent = ativo ? 'ON' : 'OFF';

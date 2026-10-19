@@ -8,8 +8,8 @@
  */
 
 const axios = require('axios');
-const https = require('https');
 const { carregarCertificadoPfx } = require('./certificateService');
+const { criarAgenteHttpsCancelamento } = require('./cancelamentoTls');
 
 const NS_CONSULTA = 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4';
 const ACTION_CONSULTA = `${NS_CONSULTA}/nfeConsultaNF`;
@@ -28,8 +28,8 @@ function getConsultaProtocoloUrl(ambiente, modelo = 'NFCE') {
       : 'https://nfe-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx';
   }
   return prod
-    ? 'https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NFeConsultaProtocolo4.asmx'
-    : 'https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NFeConsultaProtocolo4.asmx';
+    ? 'https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx'
+    : 'https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx';
 }
 
 /**
@@ -174,10 +174,9 @@ async function enviarConsultaProtocoloLegado(params = {}) {
 
     const certificado = carregarCertificadoPfx(params.certificadoPath, params.certificadoSenha);
     const host = new URL(url).hostname;
-    const httpsAgent = new https.Agent({
+    const httpsAgent = criarAgenteHttpsCancelamento({
       key: certificado.privateKeyPem,
       cert: certificado.certBundlePem || certificado.certPem,
-      rejectUnauthorized: false,
       minVersion: 'TLSv1.2',
       keepAlive: false,
       servername: host

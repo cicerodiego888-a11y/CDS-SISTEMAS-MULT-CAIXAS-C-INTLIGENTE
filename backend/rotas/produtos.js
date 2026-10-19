@@ -12,6 +12,7 @@ const {
   aplicarAjusteEstoqueProduto,
   definirSaldosIniciaisProduto
 } = require('../services/ajusteEstoqueService');
+const { TipoSaldo, normalizarTipoSaldo } = require('../services/fiscalNaoFiscal/constants');
 const { excluirProdutoCadastro } = require('../services/excluirProdutoService');
 const cfgValidadeEmpresa = require('../services/estoque/empresaControlaValidadeConfig');
 const { sqlRankingProdutos, isModoFiscalRelatorio } = require('../services/reportFiscalHelpers');
@@ -2116,13 +2117,31 @@ function executarAjusteEstoque(req, res) {
     data_fabricacao,
     data_validade,
     quantidade,
-    modo_fiscal
+    modo_fiscal,
+    tipo_saldo
   } = req.body;
 
   let ajusteFiscal = Number(ajuste_fiscal ?? 0);
   let ajusteNaoFiscal = Number(ajuste_nao_fiscal ?? 0);
 
-  if (quantidade !== undefined && quantidade !== null && ajuste_fiscal === undefined && ajuste_nao_fiscal === undefined) {
+  // RC3.20 — tipo_saldo explicito: isola o ajuste em um único saldo.
+  // Rejeita tipos desconhecidos; não assume Fiscal como padrão silencioso.
+  if (tipo_saldo !== undefined && tipo_saldo !== null && String(tipo_saldo).trim() !== '') {
+    let tipoNormalizado;
+    try {
+      tipoNormalizado = normalizarTipoSaldo(tipo_saldo);
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
+
+    if (tipoNormalizado === TipoSaldo.FISCAL) {
+      ajusteFiscal = Number(ajuste_fiscal ?? quantidade ?? 0);
+      ajusteNaoFiscal = 0;
+    } else {
+      ajusteNaoFiscal = Number(ajuste_nao_fiscal ?? quantidade ?? 0);
+      ajusteFiscal = 0;
+    }
+  } else if (quantidade !== undefined && quantidade !== null && ajuste_fiscal === undefined && ajuste_nao_fiscal === undefined) {
     const qtd = Number(quantidade) || 0;
     const modoFiscalAtivo = modo_fiscal === 1 || modo_fiscal === true || modo_fiscal === '1';
     if (modoFiscalAtivo) {
@@ -2159,6 +2178,7 @@ function executarAjusteEstoque(req, res) {
       detalhes: {
         ajuste_fiscal: ajusteFiscal,
         ajuste_nao_fiscal: ajusteNaoFiscal,
+        tipo_saldo: tipo_saldo || null,
         motivo,
         resultado
       },
@@ -2577,34 +2597,37 @@ router.post('/', (req, res) => {
       } catch (mibErr) {
         console.warn('[MIB] nome_busca no POST:', mibErr.message);
       }
-      try {
-        const MotorUM = require('../services/unidades/MotorUnidadesMedida');
-        const compraPorEmb = Number(req.body.compra_por_embalagem || 0) === 1 ? 1 : 0;
-        const uc = compraPorEmb
-          ? MotorUM.normalizarUnidadeComercial(req.body.unidade_comercial)
-          : 'UN';
-        const qpe = compraPorEmb ? Number(req.body.quantidade_por_embalagem || 0) : 0;
-        const valorEmb = compraPorEmb ? Number(req.body.valor_compra_embalagem || 0) : 0;
-        db.run(
-          `UPDATE produtos SET
-             unidade_comercial = ?,
-             quantidade_por_embalagem = ?,
-             compra_por_embalagem = ?,
-             valor_compra_embalagem = ?
-           WHERE id = ?`,
-          [uc, qpe > 0 ? qpe : 0, compraPorEmb, valorEmb > 0 ? valorEmb : 0, produtoId]
-        );
-      } catch (umErr) {
-        console.warn('[RC8.4.2] unidade comercial no POST:', umErr.message);
-      }
-      // MIP — dual-write codigo/barras/PLU (aguardar antes da resposta para o GET/editar ver o PLU)
-      const camposEspelho = { codigo: codigoFinal, codigo_barras };
-      if (pluValidacao.informado) {
-        camposEspelho.plu = pluValidacao.valor;
-      }
-      if (codigoMgv6Informado) {
-        camposEspelho.codigo_mgv6 = codigoMgv6Valor;
-      }
+
+      const aplicarConfiguracaoComercialProduto = (callback) => {
+        try {
+          const MotorUM = require('../services/unidades/MotorUnidadesMedida');
+          const compraPorEmb = Number(req.body.compra_por_embalagem || 0) === 1 ? 1 : 0;
+          const uc = compraPorEmb
+            ? MotorUM.normalizarUnidadeComercial(req.body.unidade_comercial)
+            : 'UN';
+          const qpe = compraPorEmb ? Number(req.body.quantidade_por_embalagem || 0) : 0;
+          const valorEmb = compraPorEmb ? Number(req.body.valor_compra_embalagem || 0) : 0;
+          db.run(
+            `UPDATE produtos SET
+               unidade_comercial = ?,
+               quantidade_por_embalagem = ?,
+               compra_por_embalagem = ?,
+               valor_compra_embalagem = ?
+             WHERE id = ?`,
+            [uc, qpe > 0 ? qpe : 0, compraPorEmb, valorEmb > 0 ? valorEmb : 0, produtoId],
+            (updateErr) => {
+              if (updateErr) {
+                console.error('[RC8.4.2] falha ao persistir configuração comercial no POST:', updateErr.message);
+                return callback(new Error(`Falha ao atualizar configuração comercial do produto: ${updateErr.message}`));
+              }
+              callback(null);
+            }
+          );
+        } catch (umErr) {
+          console.warn('[RC8.4.2] unidade comercial no POST:', umErr.message);
+          callback(umErr);
+        }
+      };
 
       const aposDualWrite = () => {
         // INFRA 02 — espelha imagem_principal na galeria (sem alterar o campo legado)
@@ -2645,7 +2668,21 @@ router.post('/', (req, res) => {
         }
       };
 
-      espelharIdentificadoresSafe(produtoId, camposEspelho, { db }, () => aposDualWrite());
+      aplicarConfiguracaoComercialProduto((configErr) => {
+        if (configErr) {
+          return abortarCadastro(500, { error: configErr.message || 'Falha ao atualizar configuração comercial do produto.' });
+        }
+
+        // MIP — dual-write codigo/barras/PLU (aguardar antes da resposta para o GET/editar ver o PLU)
+        const camposEspelho = { codigo: codigoFinal, codigo_barras };
+        if (pluValidacao.informado) {
+          camposEspelho.plu = pluValidacao.valor;
+        }
+        if (codigoMgv6Informado) {
+          camposEspelho.codigo_mgv6 = codigoMgv6Valor;
+        }
+        espelharIdentificadoresSafe(produtoId, camposEspelho, { db }, () => aposDualWrite());
+      });
 
       function continuarCriacaoProduto() {
         inserirFaixasAtacadoProduto(produtoId, atacado_faixas, (faixaErr) => {

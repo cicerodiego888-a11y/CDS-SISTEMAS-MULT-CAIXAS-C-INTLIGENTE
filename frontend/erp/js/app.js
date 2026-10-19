@@ -14,7 +14,8 @@ const CDS_ERP_PAGE_SCRIPTS = Object.freeze({
     monitoring: ['/erp/js/cds-monitoring-engine.js'],
     produtos: ['/shared/js/SearchSDK.js', '/shared/js/buscaProdutoTexto.js', '/shared/js/resolverBuscaCadastroProdutos.js', '/erp/js/categorias.js', '/erp/js/subcategorias.js', '/erp/js/motor-unidades-medida.js', '/erp/js/produto-apresentacao-resolver.js', '/erp/js/produto-embalagens.js', '/shared/js/motor-preco-atacado.js', '/erp/js/formacao-preco-margem.js', '/shared/js/cds-stable-dropdown.js', '/erp/js/etiquetaProduto.js', '/erp/js/produtos.js'],
     clientes: ['/erp/js/clientes.js'],
-    compras: ['/erp/js/categorias.js', '/erp/js/subcategorias.js', '/erp/js/produto-apresentacao-resolver.js', '/erp/js/produto-embalagens.js', '/shared/js/motor-preco-atacado.js', '/erp/js/formacao-preco-margem.js', '/shared/js/buscaProdutoTexto.js', '/shared/js/resolverBuscaCadastroProdutos.js', '/shared/js/cds-stable-dropdown.js', '/erp/js/etiquetaProduto.js', '/erp/js/produtos.js', '/erp/js/motor-unidades-medida.js', '/shared/js/motor-quantidade-compra.js', '/erp/js/compra-muc-client.js', '/erp/js/tratamento-fiscal-item-compra.js', '/erp/js/miip-central-revisao-inteligente.js', '/erp/js/miip-central-revisao.js', '/erp/js/compras-fornecedor-cnpj-rc831.js', '/shared/js/nfeDanfeViewer.js', '/erp/js/compras.js'],
+    compras: ['/erp/js/categorias.js', '/erp/js/subcategorias.js', '/erp/js/produto-apresentacao-resolver.js', '/erp/js/produto-embalagens.js', '/shared/js/motor-preco-atacado.js', '/erp/js/formacao-preco-margem.js', '/shared/js/buscaProdutoTexto.js', '/shared/js/resolverBuscaCadastroProdutos.js', '/shared/js/cds-stable-dropdown.js', '/erp/js/etiquetaProduto.js', '/erp/js/produtos.js', '/erp/js/motor-unidades-medida.js', '/shared/js/motor-quantidade-compra.js', '/erp/js/compra-muc-client.js', '/erp/js/tratamento-fiscal-item-compra.js', '/erp/js/miip-central-revisao-inteligente.js', '/erp/js/miip-central-revisao.js', '/erp/js/compras-fornecedor-cnpj-rc831.js', '/shared/js/nfeDanfeViewer.js', '/erp/js/compras-confirmacao-conversao.js', '/erp/js/compras.js'],
+    'compras-relatorio': ['/erp/js/compras-relatorio.js'],
     'central-entradas': [
         '/erp/js/central-entradas-ux.js',
         '/erp/js/categorias.js',
@@ -301,14 +302,6 @@ async function loadPage(page) {
         return;
     }
 
-    if (page === 'fechamento-fiscal-dia'
-        && typeof fechamentoFiscalDiaMenuPermitido === 'function'
-        && !fechamentoFiscalDiaMenuPermitido()) {
-        showNotification('Fechamento Fiscal do Dia está desativado.', 'warning');
-        if (page !== 'dashboard') loadPage('dashboard');
-        return;
-    }
-
     if (!usuarioTemPermissao(page)) {
         showNotification('Você não tem permissão para acessar esta página.', 'warning');
         if (page !== 'dashboard') loadPage('dashboard');
@@ -403,6 +396,10 @@ async function loadPage(page) {
             return typeof loadCompras === 'function'
                 ? loadCompras()
                 : $('#page-content').html('<div class="alert alert-danger">Erro ao carregar compras.</div>');
+        case 'compras-relatorio':
+            return typeof loadRelatorioCompras === 'function'
+                ? loadRelatorioCompras()
+                : $('#page-content').html('<div class="alert alert-danger">Erro ao carregar Relatório de Compras.</div>');
         case 'central-entradas':
             return typeof loadCentralEntradas === 'function'
                 ? loadCentralEntradas()

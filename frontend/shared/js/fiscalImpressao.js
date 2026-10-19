@@ -194,7 +194,11 @@ function montarHtmlCupomNaoFiscal(vendaId, venda, total, desconto) {
 
     const clienteNome = venda.cliente_nome || '';
     const papelMm = Number(venda.papel_mm) === 58 ? 58 : 80;
+    const utilMm = papelMm === 58 ? 48 : 72;
     const estreito = papelMm === 58;
+    // Espelha COLUNA_VALOR_TERMICO de geometriaCupom80.js (frontend não importa o backend).
+    const paddingCupom = estreito ? '1mm 2.5mm 1.6mm 1.5mm' : '1.2mm 3.5mm 2mm 2mm';
+    const paddingValor = estreito ? '1.2mm' : '1.5mm';
     const itensHtml = (venda.itens || []).map((item) => formatarHtmlItemCupom(item)).join('');
 
     const totalNum = Number(total || 0);
@@ -221,11 +225,11 @@ function montarHtmlCupomNaoFiscal(vendaId, venda, total, desconto) {
 <title>Comprovante não fiscal</title>
 <style>
   @page { size: ${papelMm}mm auto; margin: 0; }
-  html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+  html, body { margin: 0; padding: 0; width: ${utilMm}mm; max-width: ${utilMm}mm; background: #fff; color: #000; }
   .cds-cupom-termico {
-    width: ${papelMm}mm; max-width: ${papelMm}mm;
-    margin: 0 auto;
-    padding: ${estreito ? '1.2mm 2mm 1.6mm' : '1.5mm 2.5mm 2mm'};
+    width: ${utilMm}mm; max-width: ${utilMm}mm;
+    margin: 0;
+    padding: ${paddingCupom};
     box-sizing: border-box;
     font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
     font-size: ${estreito ? '9px' : '11px'};
@@ -239,9 +243,10 @@ function montarHtmlCupomNaoFiscal(vendaId, venda, total, desconto) {
   .sec { font-size: ${estreito ? '10px' : '12px'}; font-weight: 800; text-align: center; margin: 1.2mm 0 0.4mm; }
   .aviso { text-align: center; font-weight: 800; overflow-wrap: anywhere; }
   .sep { border: 0; border-top: 1px solid #000; margin: 0.8mm 0; }
-  .row, .item-linha { display: flex; justify-content: space-between; align-items: baseline; gap: 2mm; width: 100%; }
-  .rotulo, .item-nome, .txt { min-width: 0; overflow-wrap: anywhere; }
-  .valor { flex: 0 1 auto; max-width: 58%; text-align: right; font-weight: 700; overflow-wrap: anywhere; }
+  .row, .item-linha { display: flex; justify-content: space-between; align-items: baseline; gap: 1.5mm; width: 100%; max-width: 100%; min-width: 0; }
+  .rotulo, .item-nome { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  .txt { min-width: 0; overflow-wrap: anywhere; }
+  .valor { flex: 0 1 auto; max-width: 50%; min-width: 0; text-align: right; font-weight: 700; overflow-wrap: anywhere; padding-right: ${paddingValor}; box-sizing: border-box; }
   .item { margin: 0 0 0.8mm; width: 100%; }
   .item-nome { font-weight: 700; }
   .total .rotulo, .total .valor { font-size: ${estreito ? '12px' : '16px'}; font-weight: 700; }

@@ -231,7 +231,7 @@ class DestaxaRealAdapter extends BaseAdapter {
       ...tefContrato.criarRespostaAutorizacao({
         sucesso: false,
         status: tefContrato.STATUS.ERRO,
-        adquirente: PROVIDER,
+        provedor: PROVIDER,
         codigo,
         mensagem,
         modo: this.modo,
@@ -437,7 +437,7 @@ class DestaxaRealAdapter extends BaseAdapter {
         sucesso: resultado.sucesso === true,
         status,
         nsu: parametros.transacao_nsu || null,
-        adquirente: PROVIDER,
+        provedor: PROVIDER,
         transacaoId: resultado.contexto?.transactionId || null,
         codigo: resultado.codigoDestaxa || resultado.codigo || null,
         mensagem: resultado.descricao || resultado.mensagem || '',

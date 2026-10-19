@@ -15,7 +15,8 @@
         { value: 'ROLO', label: 'Rolo (ROLO)' },
         { value: 'BOBINA', label: 'Bobina (BOBINA)' },
         { value: 'BALDE', label: 'Balde (BALDE)' },
-        { value: 'GALAO', label: 'Galão (GALAO)' }
+        { value: 'GALAO', label: 'Galão (GALAO)' },
+        { value: 'VARA', label: 'Vara (VARA)' }
     ]);
 
     function num(valor, casas = 3) {
@@ -39,7 +40,7 @@
 
         const mapa = {
             CAIXA: 'CX', CX: 'CX', FARDO: 'FD', FD: 'FD', PACOTE: 'PCT', PCT: 'PCT',
-            SACO: 'SACO', ROLO: 'ROLO', BALDE: 'BALDE', UN: 'UN'
+            SACO: 'SACO', ROLO: 'ROLO', BALDE: 'BALDE', VARA: 'VARA', UN: 'UN'
         };
         const uc = String(produto.unidade_comercial || 'PACOTE').toUpperCase();
         const qtd = num(produto.quantidade_por_embalagem, 3) || 1;
@@ -203,7 +204,7 @@
 
         const mapaTipo = {
             CX: 'CAIXA', FD: 'FARDO', PCT: 'PACOTE', SACO: 'SACO', ROLO: 'ROLO',
-            BALDE: 'BALDE', GALAO: 'BALDE', KIT: 'PACOTE', DISPLAY: 'PACOTE', BOBINA: 'ROLO'
+            BALDE: 'BALDE', GALAO: 'BALDE', VARA: 'VARA', KIT: 'PACOTE', DISPLAY: 'PACOTE', BOBINA: 'ROLO'
         };
         const qtdEmb = num(principal.quantidade, 3);
         const valorEmbCompra = num(principal.valor_compra, 2);

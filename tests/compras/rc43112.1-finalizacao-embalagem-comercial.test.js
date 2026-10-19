@@ -62,12 +62,15 @@ test('aceite — 3 pacotes × 10 UN = 30 UN no estoque via MUC', () => {
   assert.strictEqual(r.custoUnitario, 0.99);
 });
 
-test('aceite — operador informa embalagem, sistema grava quantidade convertida', () => {
+test('contrato atual — operador informa embalagem, sistema dispara simulação MUC com dados do item', () => {
   const src = fs.readFileSync(path.join(ROOT, 'frontend/erp/js/compras.js'), 'utf8');
-  assert.match(src, /quantidade_embalagens/);
-  assert.match(src, /quantidade_por_embalagem/);
-  assert.match(src, /origem_conversao: 'MANUAL'/);
-  assert.match(src, /CompraMucClient\.simularConversao/);
+
+  assert.match(src, /quantidade_embalagens_item/);
+  assert.match(src, /quantidade_por_embalagem_item/);
+  assert.match(src, /origem_conversao:\s*item\.origem_conversao/);
+  assert.match(src, /CompraMucClient\.simularConversao\s*\(/);
+  assert.match(src, /quantidade_embalagens:\s*Number\(\$\('#quantidade_embalagens_item'\)\.val\(\) \|\| 0\)/);
+  assert.match(src, /quantidade_por_embalagem:\s*Number\(\$\('#quantidade_por_embalagem_item'\)\.val\(\) \|\| 0\)/);
 });
 
 console.log(`\nResultado: ${ok} OK, ${falhas} falha(s)\n`);
