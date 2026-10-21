@@ -27,7 +27,6 @@ const { CentralSyncExecucaoService } = require(
 const CentralNotificacoesService = require(
   path.join(root, 'backend/motores/central-entradas/services/CentralNotificacoesService')
 );
-const gate = require(path.join(root, 'backend/motores/central-entradas/services/CentralSefazOperationalGate'));
 const { TIPOS_EVENTO } = require(path.join(root, 'backend/motores/central-entradas/config/centralEventosTipos'));
 
 const MSG_656 = 'Rejeição: Consumo Indevido';
@@ -228,27 +227,29 @@ describe('Sprint 3.5 — backend: registro interno e Gate preservados', () => {
     const eventos = [];
     const inseridas = [];
     const gateChamadas = [];
-    const original = gate.processarRespostaSefaz;
-    gate.processarRespostaSefaz = async (res) => { gateChamadas.push(res); return null; };
-    try {
-      const sync = new CentralSyncExecucaoService({
-        sincronizacaoService: { sincronizar: async () => ({ ...resultadoSefaz }) },
-        configuracaoService: {
-          obterContextoOperacional: async () => ({ ok: false }),
-          obterResumo: async () => ({ syncMaxDocumentos: 5, notificarNovasNotas: true }),
-          verificarHorarioPermitido: async () => ({ permitido: true })
-        },
-        nsuRepository: { buscarPorCnpjAmbiente: async () => null },
-        notificacoesService: new CentralNotificacoesService({
-          notificacoesRepository: { inserir: async (d) => { inseridas.push(d); return d; } }
+    const gate = {
+      async autorizarConsultaDistDfe() { return { permitido: true }; },
+      async processarRespostaSefaz(res) { gateChamadas.push(res); }
+    };
+    const sync = new CentralSyncExecucaoService({
+      gate,
+      sincronizacaoService: { sincronizar: async () => ({ ...resultadoSefaz }) },
+      configuracaoService: {
+        obterContextoOperacional: async () => ({
+          ok: true,
+          contexto: { cnpj: '12345678000199', ambiente: 2 }
         }),
-        emitirEvento: async (ev) => { eventos.push(ev); return null; }
-      });
-      const r = await sync.executar({ origem: 'background', ignorarCooldown: true, ignorarBloqueio656: true, ignorarHorario: true });
-      return { r, eventos, inseridas, gateChamadas };
-    } finally {
-      gate.processarRespostaSefaz = original;
-    }
+        obterResumo: async () => ({ syncMaxDocumentos: 5, notificarNovasNotas: true }),
+        verificarHorarioPermitido: async () => ({ permitido: true })
+      },
+      nsuRepository: { buscarPorCnpjAmbiente: async () => null },
+      notificacoesService: new CentralNotificacoesService({
+        notificacoesRepository: { inserir: async (d) => { inseridas.push(d); return d; } }
+      }),
+      emitirEvento: async (ev) => { eventos.push(ev); return null; }
+    });
+    const r = await sync.executar({ origem: 'background', ignorarCooldown: true, ignorarBloqueio656: true, ignorarHorario: true });
+    return { r, eventos, inseridas, gateChamadas };
   }
 
   it('656: Gate recebe a resposta, evento SYNC_ERRO e notificação interna seguem registrados', async () => {

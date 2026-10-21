@@ -23,6 +23,8 @@ function diagnosticoIndisponivel(error) {
     clientResultCode: null,
     estado: error.code || ESTADOS.DLL_NOT_FOUND,
     tefDisponivel: false,
+    transactionCommunicationValidated: false,
+    authorizationAvailable: false,
     ultimoErro: { codigo: error.code, mensagem: error.message }
   };
 }

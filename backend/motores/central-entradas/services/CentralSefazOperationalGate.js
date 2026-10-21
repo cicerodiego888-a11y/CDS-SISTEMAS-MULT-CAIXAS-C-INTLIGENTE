@@ -16,8 +16,8 @@ const { criarCorrelationId } = require('../utils/centralOperacaoLog');
 const CHAVE_ESTADO = 'xml_wait_scheduler_state';
 const HISTORICO_MAX = 100;
 
-/** Cooldown progressivo cStat 656 (minutos). */
-const COOLDOWN_656_MINUTOS = Object.freeze([10, 20, 40, 60, 120]);
+/** Cooldown progressivo cStat 656 (minutos), sempre respeitando a hora obrigatória. */
+const COOLDOWN_656_MINUTOS = Object.freeze([60, 120, 180, 240, 300]);
 /** Teto do cooldown (compat export / 5ª+ ocorrência). */
 const INTERVALO_BLOQUEIO_656_MS = COOLDOWN_656_MINUTOS[COOLDOWN_656_MINUTOS.length - 1] * 60 * 1000;
 
@@ -53,6 +53,12 @@ function formatarDuracao(ms) {
   const h = Math.floor(seg / 3600);
   const m = Math.floor((seg % 3600) / 60);
   return `${h}h ${m}min`;
+}
+
+function mascararIdentificador(valor) {
+  if (valor == null || valor === '') return null;
+  const digitos = String(valor).replace(/\D/g, '');
+  return digitos.length >= 4 ? `***${digitos.slice(-4)}` : 'informado';
 }
 
 function media(arr) {
@@ -159,7 +165,9 @@ class CentralSefazOperationalGate {
     /** @private */
     this._carregado = false;
     /** @private */
-    this._persistindo = false;
+    this._persistindo = null;
+    /** @private */
+    this._persistenciaPendente = false;
     /** @private */
     this._documentosAguardandoHint = 0;
     /** @private */
@@ -372,53 +380,73 @@ class CentralSefazOperationalGate {
 
   async _ensureLoaded() {
     if (this._carregado) return;
-    try {
-      const row = await this._configRepository.buscarPorChave(CHAVE_ESTADO);
-      if (row) {
-        const parsed = this._configRepository.parseValor({ ...row, tipo: 'json' });
-        if (parsed && typeof parsed === 'object') {
-          this.hidratar(parsed);
-          return;
-        }
+    const mirxRow = await this._configRepository.buscarPorChave('mirx_scheduler_state');
+    if (mirxRow) {
+      const estadoMirx = this._configRepository.parseValor({ ...mirxRow, tipo: 'json' });
+      if (!estadoMirx || typeof estadoMirx !== 'object') {
+        throw new Error('Estado persistido do MIRX inválido; Gate SEFAZ não pode liberar consultas.');
       }
-    } catch (error) {
-      logCentralErro('XML_WAIT', error, { Motivo: 'gate_falha_carregar' });
+      if (estadoMirx.gateState && typeof estadoMirx.gateState === 'object') {
+        this.hidratar(estadoMirx.gateState);
+        return;
+      }
+    }
+
+    const row = await this._configRepository.buscarPorChave(CHAVE_ESTADO);
+    if (row) {
+      const parsed = this._configRepository.parseValor({ ...row, tipo: 'json' });
+      if (!parsed || typeof parsed !== 'object') {
+        throw new Error('Estado persistido do Gate SEFAZ inválido; consultas permanecem bloqueadas.');
+      }
+      this.hidratar(parsed);
+      return;
     }
     this._carregado = true;
   }
 
   async _persistir() {
-    if (!this._autoPersist || this._persistindo) return;
-    if (this._onChange) {
-      this._onChange();
-      return;
+    if (!this._autoPersist && !this._onChange) return;
+    if (this._persistindo) {
+      this._persistenciaPendente = true;
+      return this._persistindo;
     }
-    this._persistindo = true;
-    try {
-      let base = {};
-      try {
-        const row = await this._configRepository.buscarPorChave(CHAVE_ESTADO);
+    this._persistindo = (async () => {
+      do {
+        this._persistenciaPendente = false;
+        if (this._onChange) {
+          await this._onChange();
+          continue;
+        }
+        let base = {};
+        const row = await this._configRepository.buscarPorChave('mirx_scheduler_state');
         if (row) {
           const parsed = this._configRepository.parseValor({ ...row, tipo: 'json' });
-          if (parsed && typeof parsed === 'object') base = parsed;
+          if (!parsed || typeof parsed !== 'object') {
+            throw new Error('Estado persistido do MIRX inválido; Gate SEFAZ não pode persistir o bloqueio.');
+          }
+          base = parsed;
         }
-      } catch { /* keep base */ }
-
-      await this._configRepository.salvar(CHAVE_ESTADO, {
-        ...base,
-        atualizadoEm: this._agora().toISOString(),
-        ...this.serializar()
-      }, 'json');
+        await this._configRepository.salvar('mirx_scheduler_state', {
+          ...base,
+          atualizadoEm: this._agora().toISOString(),
+          gateState: this.serializar()
+        }, 'json');
+      } while (this._persistenciaPendente);
+    })();
+    try {
+      return await this._persistindo;
     } catch (error) {
       logCentralErro('XML_WAIT', error, { Motivo: 'gate_falha_persistir' });
+      throw error;
     } finally {
-      this._persistindo = false;
+      this._persistindo = null;
     }
   }
 
   _notificar() {
-    if (this._onChange) this._onChange();
-    else this._persistir().catch(() => {});
+    this._persistir().catch((error) => {
+      logCentralErro('XML_WAIT', error, { Motivo: 'gate_falha_persistir' });
+    });
   }
 
   _setCircuit(novo, fields = {}) {
@@ -466,8 +494,8 @@ class CentralSefazOperationalGate {
       CorrelationId: fields.correlationId || null,
       RequestId: fields.requestId || null,
       DocumentoId: fields.documentoId != null ? fields.documentoId : null,
-      NSU: fields.nsu || null,
-      Chave: fields.chave || null,
+      NSU: mascararIdentificador(fields.nsu),
+      Chave: mascararIdentificador(fields.chave),
       Endpoint: fields.endpoint || null,
       Tempo: fields.tempoMs != null ? fields.tempoMs : null,
       'Tempo restante': fields.tempoRestanteLabel || null,
@@ -476,8 +504,8 @@ class CentralSefazOperationalGate {
       Resultado: fields.resultado || null,
       cStat: fields.cStat || null,
       Estado: estado,
-      CNPJ_XML: fields.cnpjXml || null,
-      CNPJ_Certificado: fields.cnpjCertificado || null
+      CNPJ_XML: mascararIdentificador(fields.cnpjXml),
+      CNPJ_Certificado: mascararIdentificador(fields.cnpjCertificado)
     });
   }
 
@@ -488,8 +516,8 @@ class CentralSefazOperationalGate {
       CorrelationId: fields.correlationId || null,
       RequestId: fields.requestId || null,
       DocumentoId: fields.documentoId != null ? fields.documentoId : null,
-      NSU: fields.nsu || null,
-      Chave: fields.chave || null,
+      NSU: mascararIdentificador(fields.nsu),
+      Chave: mascararIdentificador(fields.chave),
       Tempo: fields.tempoMs != null ? fields.tempoMs : null,
       'Tempo restante': fields.tempoRestanteLabel || null,
       'Próxima tentativa': fields.proximaExecucao || null,
@@ -497,8 +525,8 @@ class CentralSefazOperationalGate {
       Resultado: fields.resultado || null,
       cStat: fields.cStat || null,
       Estado: fields.estado || this._circuitState,
-      CNPJ_XML: fields.cnpjXml || null,
-      CNPJ_Certificado: fields.cnpjCertificado || null
+      CNPJ_XML: mascararIdentificador(fields.cnpjXml),
+      CNPJ_Certificado: mascararIdentificador(fields.cnpjCertificado)
     });
   }
 
@@ -643,7 +671,7 @@ class CentralSefazOperationalGate {
     }
 
     const bloqueio = this.obterBloqueio656();
-    if (bloqueio.ativo && !admin) {
+    if (bloqueio.ativo) {
       this._metricas.consultasEvitadas += 1;
       this._logGate('SEFAZ_GATE_BLOCK', {
         correlationId,
@@ -821,6 +849,7 @@ class CentralSefazOperationalGate {
         nsu: ctx.nsu || resultado?.ultNsu,
         endpoint: ctx.endpoint
       });
+      await this._persistir();
       return { acao: 'bloquear', cStat: '656', bloqueio656: bloq, estadoOperacional: this.obterEstadoOperacional() };
     }
 
@@ -1142,7 +1171,7 @@ class CentralSefazOperationalGate {
       cnpjCertificado: this._estado593.cnpjCertificado
     });
 
-    this._notificar();
+    await this._persistir();
     return this.obterEstado593();
   }
 

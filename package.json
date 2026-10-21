@@ -3,7 +3,7 @@
   "version": "1.0.3",
   "description": "CDS Sistemas - Plataforma Inteligente de Gestão",
   "author": "CDS Sistemas",
-  "main": "electron.js",
+  "main": "electron-erp.js",
   "scripts": {
     "start": ".\\node_modules\\.bin\\electron.cmd .",
     "start:local": ".\\node_modules\\.bin\\electron.cmd . --cds-forcar-local",

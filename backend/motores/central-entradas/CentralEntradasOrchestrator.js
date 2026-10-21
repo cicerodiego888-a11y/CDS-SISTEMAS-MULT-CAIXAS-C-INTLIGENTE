@@ -588,27 +588,23 @@ class CentralEntradasOrchestrator {
 
   async processarCicloDfeDocumento(id, opcoes = {}) {
     // RC7.4.2 — Gate operacional único (Solicitar XML / ciclo DF-e).
-    if (opcoes.ignorarBloqueio656 !== true) {
-      try {
-        const gate = require('./services/CentralSefazOperationalGate');
-        const auth = await gate.autorizarConsultaDistDfe({
-          correlationId: opcoes.correlationId,
-          documentoId: id,
-          forcar: opcoes.forcarConsulta === true,
-          forcarAdminConfirmado: opcoes.forcarAdminConfirmado === true,
-          confirmacaoAdmin: opcoes.confirmacaoAdmin === true,
-          motivo: 'Aguardando liberação da SEFAZ'
-        });
-        if (!auth.permitido) {
-          return {
-            documentoId: Number(id),
-            ...auth,
-            xmlCompleto: false,
-            aguardandoDisponibilizacao: true,
-            gateProcessado: true
-          };
-        }
-      } catch { /* ignore */ }
+    const gate = require('./services/CentralSefazOperationalGate');
+    const auth = await gate.autorizarConsultaDistDfe({
+      correlationId: opcoes.correlationId,
+      documentoId: id,
+      forcar: opcoes.forcarConsulta === true,
+      forcarAdminConfirmado: opcoes.forcarAdminConfirmado === true,
+      confirmacaoAdmin: opcoes.confirmacaoAdmin === true,
+      motivo: 'Aguardando liberação da SEFAZ'
+    });
+    if (!auth.permitido) {
+      return {
+        documentoId: Number(id),
+        ...auth,
+        xmlCompleto: false,
+        aguardandoDisponibilizacao: true,
+        gateProcessado: true
+      };
     }
 
     const resultado = await this._manifestacaoDfeService.processarDocumento(id, {
@@ -617,15 +613,13 @@ class CentralEntradasOrchestrator {
     });
 
     if (resultado?.cStat) {
-      try {
-        await require('./services/CentralSefazOperationalGate').processarRespostaSefaz(resultado, {
-          correlationId: opcoes.correlationId || resultado?.detalhe?.correlationId,
-          documentoId: id,
-          chave: resultado?.documento?.chave,
-          nsu: resultado?.ultNsu
-        });
-        resultado.gateProcessado = true;
-      } catch { /* ignore */ }
+      await gate.processarRespostaSefaz(resultado, {
+        correlationId: opcoes.correlationId || resultado?.detalhe?.correlationId,
+        documentoId: id,
+        chave: resultado?.documento?.chave,
+        nsu: resultado?.ultNsu
+      });
+      resultado.gateProcessado = true;
     }
 
     if (resultado.xmlCompleto) {

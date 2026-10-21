@@ -12,6 +12,7 @@ const {
   criarDbHelpers,
   montarCamposUpdate
 } = require('./dbHelpers');
+const { normalizarNsu } = require('../../../services/fiscal/dfeRetornoParser');
 
 const MAPA_CAMPOS = {
   cnpj: 'cnpj',
@@ -118,7 +119,7 @@ class CentralNsuRepository extends IRepository {
 
     const row = await sql.get(
       `SELECT * FROM ${CentralNsuRepository.TABELA} WHERE cnpj = ? AND ambiente = ?`,
-      [cnpj, ambiente]
+      [String(cnpj || '').replace(/\D/g, ''), Number(ambiente) === 1 ? 1 : 2]
     );
     return this._mapearRow(row);
   }
@@ -166,8 +167,8 @@ class CentralNsuRepository extends IRepository {
       `INSERT INTO ${CentralNsuRepository.TABELA} (cnpj, ambiente, ult_nsu, max_nsu, updated_at)
        VALUES (?, ?, ?, ?, datetime('now'))`,
       [
-        dados.cnpj,
-        dados.ambiente ?? 2,
+        String(dados.cnpj || '').replace(/\D/g, ''),
+        Number(dados.ambiente) === 1 ? 1 : 2,
         dados.ultNsu ?? dados.ult_nsu ?? '000000000000000',
         dados.maxNsu ?? dados.max_nsu ?? '000000000000000'
       ]
@@ -182,6 +183,14 @@ class CentralNsuRepository extends IRepository {
    * @returns {Promise<Object|null>}
    */
   async atualizar(id, dados) {
+    if (
+      dados.ultNsu !== undefined
+      || dados.ult_nsu !== undefined
+      || dados.maxNsu !== undefined
+      || dados.max_nsu !== undefined
+    ) {
+      throw new Error('Atualizações de cursor devem usar atualizarSincronizacaoSegura.');
+    }
     const sql = this._obterSql();
     await sql.whenReady();
 
@@ -223,12 +232,14 @@ class CentralNsuRepository extends IRepository {
    * @returns {Promise<Object>}
    */
   async obterOuCriar(cnpj, ambiente) {
-    const existente = await this.buscarPorCnpjAmbiente(cnpj, ambiente);
+    const cnpjNormalizado = String(cnpj || '').replace(/\D/g, '');
+    const ambienteNormalizado = Number(ambiente) === 1 ? 1 : 2;
+    const existente = await this.buscarPorCnpjAmbiente(cnpjNormalizado, ambienteNormalizado);
     if (existente) return existente;
 
     return this.inserir({
-      cnpj,
-      ambiente,
+      cnpj: cnpjNormalizado,
+      ambiente: ambienteNormalizado,
       ultNsu: '000000000000000',
       maxNsu: '000000000000000'
     });
@@ -298,14 +309,33 @@ class CentralNsuRepository extends IRepository {
       return this.buscarPorId(id);
     }
 
-    // Comparação lexicográfica funciona para NSU zero-padded (15 dígitos).
+    const ultNsuRaw = String(ultNsu).trim();
+    const maxNsuRaw = String(maxNsu).trim();
+    if (!/^\d{1,15}$/.test(ultNsuRaw) || !/^\d{1,15}$/.test(maxNsuRaw)) {
+      throw new Error('NSU inválido em atualizarSincronizacaoSegura.');
+    }
+    const ultNsuNormalizado = normalizarNsu(ultNsuRaw);
+    const maxNsuNormalizado = normalizarNsu(maxNsuRaw);
+    if (!ultNsuNormalizado || !maxNsuNormalizado) {
+      throw new Error('NSU inválido em atualizarSincronizacaoSegura.');
+    }
+    if (Number(maxNsuNormalizado) < Number(ultNsuNormalizado)) {
+      throw new Error('maxNSU não pode ser menor que ultNSU.');
+    }
+
     const sets = [
-      'ult_nsu = CASE WHEN ? >= ult_nsu THEN ? ELSE ult_nsu END',
-      'max_nsu = CASE WHEN ? >= ult_nsu THEN ? ELSE max_nsu END',
+      'ult_nsu = CASE WHEN CAST(? AS INTEGER) >= CAST(ult_nsu AS INTEGER) THEN ? ELSE ult_nsu END',
+      'max_nsu = CASE WHEN CAST(? AS INTEGER) >= CAST(max_nsu AS INTEGER) THEN ? ELSE max_nsu END',
       'data_sincronizacao = ?',
       "updated_at = datetime('now')"
     ];
-    const params = [ultNsu, ultNsu, ultNsu, maxNsu, dataSync];
+    const params = [
+      ultNsuNormalizado,
+      ultNsuNormalizado,
+      maxNsuNormalizado,
+      maxNsuNormalizado,
+      dataSync
+    ];
 
     if (ultimoCstat !== undefined) {
       sets.push('ultimo_cstat = ?');

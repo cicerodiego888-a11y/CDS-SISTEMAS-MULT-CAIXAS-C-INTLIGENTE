@@ -198,7 +198,9 @@ class DestaxaNativeBridge {
       clientInitialized: this._clientInitialized,
       clientResultCode: this._ultimoCodigoClient,
       estado: this._estado,
-      tefDisponivel: this._estado === ESTADOS.CLIENT_INITIALIZED,
+      tefDisponivel: false,
+      transactionCommunicationValidated: false,
+      authorizationAvailable: false,
       ultimoCodigoClient: this._ultimoCodigoClient,
       ultimoErro: this._ultimoErro
         ? {

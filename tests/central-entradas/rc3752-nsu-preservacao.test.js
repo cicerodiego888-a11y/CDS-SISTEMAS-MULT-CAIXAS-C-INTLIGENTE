@@ -4,6 +4,7 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const path = require('path');
 const {
   normalizarNsu,
   extrairMetadadosRetorno,
@@ -130,7 +131,18 @@ async function main() {
       ultNsu: null,
       maxNsu: null,
       xmlRetorno: xml,
-      correlationId: 'rc3752-fallback'
+      correlationId: 'rc3752-fallback',
+      requestId: 'req-rc3752-fallback',
+      evidenciaSequencia: {
+        confirmada: true,
+        confirmadoPor: 'operador-teste',
+        requestId: 'req-rc3752-fallback',
+        correlationId: 'rc3752-fallback',
+        cnpj: '12345678000199',
+        ambiente: 2,
+        cursorLocal: '000000000000000',
+        nsuEnviado: '000000000000000'
+      }
     });
 
     assert.strictEqual(r.atualizou, true);
@@ -139,6 +151,68 @@ async function main() {
     assert.ok(auditorias.some((a) => a.tipo === TIPOS_EVENTO.NSU_RECOVERED_FROM_XML));
     assert.ok(auditorias.some((a) => a.tipo === TIPOS_EVENTO.AUTO_SYNC_NSU));
     assert.strictEqual(repo._peek().ultNsu, '000000000000428');
+  });
+
+  await test('recuperação direta rejeita ausência de evidência da sequência', async () => {
+    const repo = criarNsuRepoMemoria({ ultNsu: '000000000000736', maxNsu: '000000000000736' });
+    const recovery = new NsuRecoveryService({ nsuRepository: repo });
+    const xml = '<retDistDFeInt><cStat>656</cStat>'
+      + '<ultNSU>000000000000810</ultNSU><maxNSU>000000000000900</maxNSU></retDistDFeInt>';
+    const result = await recovery.tentarRecuperar({
+      controle: await repo.obterOuCriar(),
+      cStat: '656',
+      xmlRetorno: xml,
+      correlationId: 'rc3752-no-evidence',
+      ultNsu: '000000000000810',
+      maxNsu: '000000000000900'
+    });
+
+    assert.strictEqual(result.atualizou, false);
+    assert.strictEqual(result.motivo, 'EVIDENCIA_SEQUENCIA_NAO_VERIFICADA');
+    assert.strictEqual(repo._peek().ultNsu, '000000000000736');
+  });
+
+  await test('XML de diagnóstico 656 preserva cursor 736 e cooldown sobrevive a reinício', async () => {
+    const xmlPath = path.join(
+      __dirname,
+      '../../dados/fiscal/debug/dfe-ret-656-SYNC-20261009-204524-642.xml'
+    );
+    const xml = fs.readFileSync(xmlPath, 'utf8');
+    const meta = extrairMetadadosRetorno(xml);
+    assert.strictEqual(meta.cStat, '656');
+    assert.strictEqual(meta.ultNSU, '000000000000810');
+    assert.strictEqual(meta.maxNSU, '000000000000000');
+
+    const agora = { valor: new Date('2026-10-09T23:00:00.000Z') };
+    const repo = criarNsuRepoMemoria({
+      ultNsu: '000000000000736',
+      maxNsu: '000000000000736'
+    });
+    const primeiraExecucao = new CentralNsuService({
+      nsuRepository: repo,
+      agora: () => agora.valor
+    });
+    const resultado = await primeiraExecucao.aplicarRetornoDistDfe({
+      controle: await primeiraExecucao.obterOuCriar('12345678000199', 2),
+      cStat: meta.cStat,
+      xmlRetorno: xml,
+      ultNsu: meta.ultNSU,
+      maxNsu: meta.maxNSU,
+      correlationId: 'rc3752-diagnostic-656',
+      requestId: 'fixture-request'
+    });
+
+    assert.strictEqual(resultado.atualizouNsu, false);
+    assert.strictEqual(resultado.ultNsu, '000000000000736');
+    assert.strictEqual(resultado.maxNsu, '000000000000736');
+    assert.strictEqual(repo._peek().cooldownAte, '2026-10-10T00:00:00.000Z');
+
+    agora.valor = new Date('2026-10-09T23:59:59.000Z');
+    const aposReinicio = new CentralNsuService({ nsuRepository: repo, agora: () => agora.valor });
+    assert.strictEqual(aposReinicio.avaliarCooldown(await repo.buscarPorId(1)).ativo, true);
+    agora.valor = new Date('2026-10-10T00:00:01.000Z');
+    assert.strictEqual(aposReinicio.avaliarCooldown(await repo.buscarPorId(1)).ativo, false);
+    assert.strictEqual(repo._peek().ultNsu, '000000000000736');
   });
 
   await test('NSU inexistente → não atualizar', async () => {
@@ -157,13 +231,12 @@ async function main() {
       correlationId: 'rc3752-ausente'
     });
     assert.strictEqual(consumo.atualizouNsu, false);
-    assert.strictEqual(consumo.recuperacaoNsu.motivo, 'SEM_ULT_NSU');
-    assert.strictEqual(consumo.recuperacaoNsu.origemUltNsu, 'Ausente');
+    assert.strictEqual(consumo.recuperacaoNsu.motivo, 'CSTAT_656_REQUER_RECONCILIACAO_CONTROLADA');
     assert.strictEqual(repo._peek().ultNsu, '000000000000000');
     assert.strictEqual(repo._peek().ultimoCstat, '656');
   });
 
-  await test('Banco restaurado + 656 com tags → recuperação automática', async () => {
+  await test('656 com tags → cursor preservado para reconciliação controlada', async () => {
     NsuRecoveryService.limparCacheEventos();
     const repo = criarNsuRepoMemoria({ ultNsu: '000000000000000', maxNsu: '000000000000000' });
     const service = new CentralNsuService({
@@ -183,9 +256,10 @@ async function main() {
         + '<ultNSU>000000000000428</ultNSU><maxNSU>000000000000500</maxNSU></retDistDFeInt>',
       correlationId: 'rc3752-restore'
     });
-    assert.strictEqual(consumo.atualizouNsu, true);
-    assert.strictEqual(consumo.ultNsu, '000000000000428');
-    assert.strictEqual(consumo.recuperacaoNsu.origemUltNsu, 'Parser');
+    assert.strictEqual(consumo.atualizouNsu, false);
+    assert.strictEqual(consumo.ultNsu, '000000000000000');
+    assert.strictEqual(consumo.maxNsu, '000000000000000');
+    assert.strictEqual(consumo.recuperacaoNsu.motivo, 'CSTAT_656_REQUER_RECONCILIACAO_CONTROLADA');
     assert.strictEqual(consumo.cooldownAtivo, true);
   });
 

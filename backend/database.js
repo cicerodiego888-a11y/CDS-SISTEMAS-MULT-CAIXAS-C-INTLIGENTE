@@ -2,6 +2,8 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { recordEffectiveDatabasePath } = require('./diagnostics/effectiveDatabasePath');
+const { resolverDirBanco: resolverDirBancoCompartilhado } = require('./diagnostics/databasePath');
 const bcrypt = require('bcryptjs');
 const { validateInsertAlignment, analisarInsertSql, tabelaMonitorada } = require('./lib/validateInsertAlignment');
 const { aplicarCertificacaoSql } = require('./lib/sqlCertification');
@@ -17,14 +19,11 @@ if (EXECUCAO_EM_TESTE) {
 }
 
 function resolverDirBanco() {
-  const dirExplicito = process.env.DB_DIR && process.env.DB_DIR.trim();
-  if (dirExplicito) return dirExplicito;
-
-  if (process.env.CDS_TEST_ISOLAR_BANCO === '1' || EXECUCAO_EM_TESTE) {
-    return path.join(os.tmpdir(), 'cds-sistemas-test-db');
-  }
-
-  return DB_DIR_PADRAO_REAL;
+  return resolverDirBancoCompartilhado({
+    env: process.env,
+    execucaoEmTeste: EXECUCAO_EM_TESTE,
+    diretorioTemporario: os.tmpdir()
+  });
 }
 
 const DB_DIR = resolverDirBanco();
@@ -83,6 +82,14 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
     console.error('Erro ao conectar ao banco:', err.message);
   } else {
     console.log('Conectado ao banco de dados SQLite');
+    if (process.env.CDS_DATABASE_PATH_DIAGNOSTIC === '1') {
+      try {
+        const { outputPath } = recordEffectiveDatabasePath({ databasePath: DB_PATH });
+        console.info('Evidência de caminho SQLite efetivamente aberto gravada:', outputPath);
+      } catch (diagnosticError) {
+        console.error('Não foi possível gravar evidência do caminho SQLite aberto:', diagnosticError.message);
+      }
+    }
     db.run('PRAGMA journal_mode=WAL');
     db.run('PRAGMA busy_timeout=30000');
     db.run('PRAGMA foreign_keys=ON');
@@ -1586,6 +1593,7 @@ function criarTabelas() {
         nome VARCHAR(200) NOT NULL,
         categoria_id INTEGER,
         subcategoria_id INTEGER,
+        tipo_operacional TEXT DEFAULT 'COMERCIAL',
         unidade VARCHAR(20),
         preco_compra DECIMAL(10,2),
         preco_venda DECIMAL(18,6) NOT NULL,

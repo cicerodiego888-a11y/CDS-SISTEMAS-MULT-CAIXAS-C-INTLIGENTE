@@ -1,0 +1,103 @@
+{
+  "sprint": "TEF-DESTAXA-07E",
+  "status": "READY_FOR_07F_PRECHECK",
+  "geradoEm": "2026-10-19T19:40:24.310Z",
+  "ambiente": {
+    "bancoAplicacaoAcessado": false,
+    "bancoTeste": ":memory:",
+    "configuracaoClienteAlterada": false,
+    "hardwareConsultado": false,
+    "estadoHardware": "não consultado neste teste; deverá ser avaliado separadamente no precheck"
+  },
+  "indicadorServidor": {
+    "origem": "GET /api/tef/status → tefConfiguracaoController.getStatus → tefConfigService.obterStatus().servidor",
+    "monitorSecundario": "tefMonitorService.verificarStatusServidor usa resolverEstadoServidorMonitor",
+    "criterio": "Parâmetros configurados não são apresentados como conexão online; Destaxa, SiTef e PayGo não dependem do servidor HTTP legado."
+  },
+  "causaDivergencia": {
+    "origem": "diagnosticar() chamava bridge.load() mesmo após testarConexao() inicializar Client 00; load() descarregava/recarregava a DLL e limpava o snapshot do Client.",
+    "correcao": "diagnosticar() consulta isLoaded() e só chama load() quando necessário; ambos os snapshots agora são conferidos e divergência/ausência não é marcada consistente."
+  },
+  "causaStatusPinpad": {
+    "origem": "tefMonitorService marcava online quando havia porta, IP ou serial configurados, sem enumeração física.",
+    "correcao": "Monitor agora publica configurado_nao_testado ou nao_configurado; enumeração PPC930 permanece exclusiva do diagnóstico Windows."
+  },
+  "estadosSeparados": {
+    "dllCarregadaEExportsValidados": "diagnostico.adapter.detalhes.dllLoaded/exportsValid",
+    "clientDestaxa": "diagnostico.adapter.detalhes.clientInitialized/clientResultCode",
+    "processoVSPague": "diagnostico.middleware.vspague.detectado/executando/responding",
+    "ppc930Enumerado": "diagnostico.pinpad.hardware.detectado; monitor periódico sem enumeração reporta configurado_nao_testado",
+    "consistenciaCOM": "diagnostico.estadosIntegracao.pinpad.comConsistent",
+    "comunicacaoTransacional": "not_tested sem operação financeira",
+    "autorizacao": "indisponível/não comprovada sem transação"
+  },
+  "validacaoRuntime": {
+    "bridgeNativoOuHostInvocado": false,
+    "dllRealCarregada": false,
+    "clientRealInicializado": false,
+    "processoVSPagueConsultado": false,
+    "hardwareWindowsConsultado": false,
+    "observacao": "Estados e consistência foram exercitados com bridge fake e banco SQLite em memória; confirmar runtime real no precheck 07F."
+  },
+  "executor": {
+    "chamadasFinanceirasNativas": [],
+    "gateFinanceiroAlterado": false,
+    "transacaoExecutada": false
+  },
+  "testes": {
+    "total": 12,
+    "aprovados": 12,
+    "falhas": 0,
+    "resultados": [
+      {
+        "nome": "servidor Destaxa fica não aplicável sem declarar conexão",
+        "sucesso": true
+      },
+      {
+        "nome": "SiTef, PayGo e simulação não exigem servidor HTTP legado",
+        "sucesso": true
+      },
+      {
+        "nome": "provedores que dependem do servidor preservam estado configurado não testado",
+        "sucesso": true
+      },
+      {
+        "nome": "teste de configuração aceita Destaxa, SiTef, PayGo e simulação sem servidor",
+        "sucesso": true
+      },
+      {
+        "nome": "Rede em homologação mantém servidor obrigatório",
+        "sucesso": true
+      },
+      {
+        "nome": "estado oficial do monitor informa Destaxa como não aplicável",
+        "sucesso": true
+      },
+      {
+        "nome": "monitoramento periódico usa o mesmo estado contextual do endpoint",
+        "sucesso": true
+      },
+      {
+        "nome": "PinPad configurado não é publicado como online sem teste físico",
+        "sucesso": true
+      },
+      {
+        "nome": "Client 00 permanece consistente entre teste e diagnóstico no mesmo bridge",
+        "sucesso": true
+      },
+      {
+        "nome": "snapshots divergentes ou ausentes nunca são marcados consistentes",
+        "sucesso": true
+      },
+      {
+        "nome": "DLL, Client, processo e PinPad não inferem comunicação nem autorização",
+        "sucesso": true
+      },
+      {
+        "nome": "Monitor usa o status contextual do endpoint, sem converter parâmetros em Online",
+        "sucesso": true
+      }
+    ]
+  },
+  "achados": []
+}

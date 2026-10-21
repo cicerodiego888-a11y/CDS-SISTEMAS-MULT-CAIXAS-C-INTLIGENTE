@@ -1,0 +1,182 @@
+{
+  "sprint": "TEF-DESTAXA-07F",
+  "titulo": "Precheck real da instalação do cliente",
+  "status": "BLOCKED_WITH_FINDINGS",
+  "geradoEm": "2026-10-19T16:32:04.169-03:00",
+  "versaoFonteObservada": {
+    "versaoPacote": "1.0.3",
+    "commit": "cc32d71bf63ce04e542f11d8e300f96ec1ed180a",
+    "branch": "fix/p0-lentidao-cancelamento-nfce",
+    "observacao": "Versão do workspace local; não comprova a versão instalada ou carregada por um processo CDS."
+  },
+  "instalacao": {
+    "processosSistemaAnalisados": 268,
+    "processosCorrespondentes": 0,
+    "filtro": "Win32_Process.Name ou ExecutablePath contendo electron, CDS ou Mercantil",
+    "processoElectron": null,
+    "caminhoExecutavel": null,
+    "linhaComando": null,
+    "versaoEmExecucao": null,
+    "bancoEfetivo": {
+      "caminho": null,
+      "evidenciaRuntime": null,
+      "comprovado": false,
+      "arquivosCandidatosAbertos": false
+    },
+    "resultado": "Não foi possível identificar uma instalação CDS em execução nem vincular um banco a um processo."
+  },
+  "configuracaoEfetiva": {
+    "bancoAtivoLido": false,
+    "telaOficial": "não observada",
+    "banco": "não consultado: banco efetivo não identificado",
+    "servicoConfiguracao": "não consultado no runtime do cliente",
+    "tefManager": "não consultado no runtime do cliente",
+    "tefFactory": "não consultado no runtime do cliente",
+    "destaxaRealAdapter": "não consultado no runtime do cliente",
+    "diagnostico": "não executado contra a instalação do cliente",
+    "monitor": "não observado na instalação do cliente",
+    "valoresEsperados": {
+      "tefHabilitado": null,
+      "provedor": null,
+      "ambiente": null,
+      "integracao": null,
+      "tentativas": null,
+      "pinpadHabilitado": null,
+      "modeloPinpad": null,
+      "portaComConfigurada": null,
+      "portaComDetectada": null,
+      "divergencias": "não verificáveis sem banco e runtime efetivos"
+    },
+    "alteracoesRealizadas": false
+  },
+  "cadeiaDestaxa": {
+    "dll": {
+      "presente": null,
+      "caminho": null,
+      "arquitetura": null,
+      "sha256": null,
+      "exports": null,
+      "carregadaNoProcessoCliente": null
+    },
+    "clientDestaxa": {
+      "inicializadoNoProcessoCliente": null,
+      "codigo": null,
+      "snapshotCoerenteComAdapter": null
+    },
+    "vspague": {
+      "processoDetectado": null,
+      "caminhoExecutado": null,
+      "respondendo": null
+    },
+    "ppc930": {
+      "enumeradoNoWindows": null,
+      "portaDetectada": null,
+      "portaConfiguradaCoincide": null,
+      "evidencia": "hardware não consultado; configuração e enumeração não foram inferidas"
+    },
+    "comunicacaoTransacionalValidada": false,
+    "disponibilidadeAutorizacaoComprovada": false
+  },
+  "monitor": {
+    "servidorHttpLegado": "não observado na instalação",
+    "estadoPinpad": "não observado na instalação",
+    "internetVerificada": false,
+    "estadosAusentesOuDivergentes": "runtime não disponível para comparar",
+    "prontoParaPagamento": false,
+    "motivo": "A ausência de evidência do cliente impede confirmar o monitor e qualquer prontidão financeira."
+  },
+  "estadoFinanceiro": {
+    "bancoEfetivoConsultado": false,
+    "pendentes": null,
+    "autorizacoesEmAndamento": null,
+    "bloqueiosSeguranca": null,
+    "resultadosTardiosAguardandoReconciliacao": null,
+    "errosHistoricos": "não consultados nem alterados",
+    "registrosCriadosOuModificados": false
+  },
+  "executorCrt": {
+    "executor": "scripts/tef/destaxa-07b/executorCrt07b.js",
+    "validacaoMock": {
+      "comando": "node tests/tef/tef-destaxa-07b-executor.test.js --mocks-only",
+      "aprovados": 38,
+      "falhas": 0,
+      "escopo": "contrato exercitado com dependências falsas; não valida pré-condições do cliente real"
+    },
+    "chamadasClientInitialization": {
+      "iniciaClientDestaxa": 0,
+      "fonte": "nenhuma chamada nativa ou real de inicialização executada nesta sprint"
+    },
+    "chamadasOperacoesFinanceiras": {
+      "iniciaTransacaoDestaxa": 0,
+      "continuaTransacaoDestaxa": 0,
+      "finalizaTransacaoDestaxa": 0
+    },
+    "gateFinanceiro": {
+      "alterado": false,
+      "estadoNoRuntimeDoCliente": "não verificável sem processo ativo"
+    },
+    "transacaoExecutada": false
+  },
+  "testesExecutados": [
+    {
+      "comando": "node tests/tef/tef-destaxa-07b-executor.test.js --mocks-only",
+      "resultado": "38 aprovados, 0 falhas",
+      "financeiroNativo": false
+    },
+    {
+      "comando": "npm run test:tef-destaxa-07e",
+      "resultado": "12 aprovados, 0 falhas",
+      "financeiroNativo": false,
+      "observacao": "Testes mockados e SQLite em memória; não substituem evidências do cliente."
+    },
+    {
+      "verificacao": "Varredura Win32_Process",
+      "resultado": "268 processos examinados, 0 processos Electron/CDS/Mercantil correspondentes"
+    }
+  ],
+  "arquivosModificados": [
+    "docs/build/tef-destaxa-07f-precheck-real-report.json",
+    "docs/build/tef-destaxa-07e-monitor-consistencia-report.json"
+  ],
+  "limitacoes": [
+    "Nenhum processo Electron/CDS correspondente estava ativo durante a verificação.",
+    "O caminho do banco efetivamente aberto não foi obtido por evidência de runtime; nenhum banco candidato foi aberto.",
+    "Tela oficial, configuração, DLL, Client Destaxa, VSPague, PPC930, COM e estados financeiros do cliente não foram validados.",
+    "Os valores históricos do relatório 07D são snapshots anteriores e não foram tratados como evidência atual.",
+    "Testes mockados aprovados não comprovam os pré-requisitos físicos ou persistidos da instalação."
+  ],
+  "chamadasNativas": {
+    "iniciaClientDestaxa": false,
+    "iniciaTransacaoDestaxa": false,
+    "continuaTransacaoDestaxa": false,
+    "finalizaTransacaoDestaxa": false
+  },
+  "achados": [
+    {
+      "id": "runtime_cliente_ausente",
+      "severidade": "bloqueante",
+      "detalhe": "Não há processo CDS/Electron ativo para identificar executável, versão carregada ou banco efetivo."
+    },
+    {
+      "id": "banco_efetivo_nao_comprovado",
+      "severidade": "bloqueante",
+      "detalhe": "Sem processo ativo não é possível comprovar qual banco está aberto; nenhum nome ou caminho foi presumido."
+    },
+    {
+      "id": "precondicoes_reais_nao_verificadas",
+      "severidade": "bloqueante",
+      "detalhe": "Configuração, hardware, middleware, estado financeiro, gate e consistência dos componentes não podem ser atestados nesta sessão."
+    }
+  ],
+  "pendenciasParaRetomar": [
+    "Executar o precheck na máquina e sessão em que a instalação CDS do cliente esteja aberta.",
+    "Obter evidência de runtime do caminho executável e do banco efetivamente aberto antes de qualquer leitura.",
+    "Recolher configuração oficial, estados do middleware/hardware e consultas financeiras somente de leitura no banco comprovado.",
+    "Reexecutar o relatório; manter BLOCKED_WITH_FINDINGS até todas as evidências reais estarem disponíveis."
+  ],
+  "criterios": {
+    "READY_FOR_REAL_CRT": false,
+    "BLOCKED_WITH_FINDINGS": true,
+    "proximaEtapa": "Não executar CRT. Repetir o precheck na instalação ativa do cliente."
+  }
+}

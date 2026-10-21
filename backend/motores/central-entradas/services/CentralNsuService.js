@@ -13,7 +13,6 @@
  */
 
 const CentralNsuRepository = require('../repositories/CentralNsuRepository');
-const NsuRecoveryService = require('./NsuRecoveryService');
 const {
   NSU_ZERADO,
   normalizarNsu,
@@ -42,12 +41,6 @@ class CentralNsuService {
     this._repository = deps.nsuRepository
       ?? new CentralNsuRepository({ db: deps.db ?? null });
     this._agora = deps.agora || (() => new Date());
-    this._recovery = deps.nsuRecovery
-      ?? new NsuRecoveryService({
-        nsuRepository: this._repository,
-        agora: this._agora,
-        emitirEvento: deps.emitirEvento
-      });
   }
 
   /** Expõe o repositório para callers que só leem. */
@@ -56,11 +49,17 @@ class CentralNsuService {
   }
 
   obterOuCriar(cnpj, ambiente) {
-    return this._repository.obterOuCriar(cnpj, ambiente);
+    return this._repository.obterOuCriar(
+      String(cnpj || '').replace(/\D/g, ''),
+      Number(ambiente) === 1 ? 1 : 2
+    );
   }
 
   buscarPorCnpjAmbiente(cnpj, ambiente) {
-    return this._repository.buscarPorCnpjAmbiente(cnpj, ambiente);
+    return this._repository.buscarPorCnpjAmbiente(
+      String(cnpj || '').replace(/\D/g, ''),
+      Number(ambiente) === 1 ? 1 : 2
+    );
   }
 
   obterUltimaSincronizacao() {
@@ -93,62 +92,46 @@ class CentralNsuService {
     if (cStat === '656') {
       const cooldownAte = new Date(agora.getTime() + INTERVALO_COOLDOWN_MS);
       const cooldownIso = cooldownAte.toISOString();
-
-      // RC3.7.5.1 — recuperação automática se SEFAZ > local (banco restaurado).
-      const recuperacao = await this._recovery.tentarRecuperar({
-        controle,
-        cStat: '656',
-        xmlRetorno: xml,
-        ultNsu: params.ultNsu,
-        maxNsu: params.maxNsu,
-        correlationId,
-        empresa: params.empresa || params.cnpj || controle.cnpj || null
-      });
-
-      const controleBase = recuperacao.controle || controle;
-      const atualizado = await this._repository.atualizarSincronizacaoSegura(controleBase.id, {
+      const nsuRetornado = normalizarNsu(params.ultNsu) || extrairNsuTagDoXml(xml, 'ultNSU');
+      const recuperacao = {
+        atualizou: false,
+        motivo: 'CSTAT_656_REQUER_RECONCILIACAO_CONTROLADA',
+        nsuLocal: normalizarNsuOuZero(controle.ultNsu),
+        nsuRemoto: nsuRetornado
+      };
+      const atualizado = await this._repository.atualizarSincronizacaoSegura(controle.id, {
         preservarNsu: true,
         ultimoCstat: '656',
         cooldownAte: cooldownIso,
-        dataSincronizacao: agora.toISOString()
-      });
-
-      this._recovery.logCooldown({
-        correlationId,
-        nsuLocal: recuperacao.nsuLocal || (atualizado || controleBase).ultNsu,
-        nsuRemoto: recuperacao.nsuRemoto,
-        atualizado: recuperacao.atualizou,
-        motivo: recuperacao.atualizou
-          ? '656 Consumo Indevido'
-          : (recuperacao.motivo || '656 Consumo Indevido'),
-        origem: recuperacao.origemUltNsu,
-        cooldownAte: cooldownIso
+        dataSincronizacao: agora.toISOString(),
+        ultimoRequestId: params.requestId || params.request_id || undefined,
+        ultimoXmotivo: params.xMotivo || params.xmotivo || undefined,
+        ultimoStatusSync: 'BLOQUEADO_656'
       });
 
       logOperacaoCentral({
         correlationId,
-        operacao: recuperacao.atualizou ? 'NSU_RECUPERAR_656' : 'NSU_PRESERVAR_656',
-        nsu: (atualizado || controleBase).ultNsu,
+        operacao: 'NSU_PRESERVAR_656',
+        nsu: (atualizado || controle).ultNsu,
         cStat: '656',
-        resultado: recuperacao.atualizou ? 'RECUPERADO' : 'PRESERVADO',
+        resultado: 'PRESERVADO',
         origem: 'CentralNsuService',
         detalhe: {
-          nsuLocal: recuperacao.nsuLocal,
-          nsuRemoto: recuperacao.nsuRemoto,
           motivo: recuperacao.motivo,
-          cooldownAte: cooldownIso
+          cooldownAte: cooldownIso,
+          requestId: params.requestId || params.request_id || null
         }
       });
 
       return {
-        controle: atualizado || controleBase,
-        atualizouNsu: Boolean(recuperacao.atualizou),
-        preservado: !recuperacao.atualizou,
+        controle: atualizado || controle,
+        atualizouNsu: false,
+        preservado: true,
         recuperacaoNsu: recuperacao,
         cooldownAtivo: true,
         proximaConsultaEm: cooldownIso,
-        ultNsu: (atualizado || controleBase).ultNsu,
-        maxNsu: (atualizado || controleBase).maxNsu
+        ultNsu: (atualizado || controle).ultNsu,
+        maxNsu: (atualizado || controle).maxNsu
       };
     }
 
@@ -191,6 +174,32 @@ class CentralNsuService {
         resultado: 'PRESERVADO',
         origem: 'CentralNsuService',
         detalhe: { candidataUlt, candidataMax }
+      });
+      return {
+        controle: atualizado || controle,
+        atualizouNsu: false,
+        preservado: true,
+        cooldownAtivo: false,
+        proximaConsultaEm: null,
+        ultNsu: atualUlt,
+        maxNsu: atualMax
+      };
+    }
+
+    if (nsuNumerico(candidataMax) < nsuNumerico(candidataUlt)) {
+      const atualizado = await this._repository.atualizarSincronizacaoSegura(controle.id, {
+        preservarNsu: true,
+        ultimoCstat: cStat,
+        dataSincronizacao: agora.toISOString()
+      });
+      logOperacaoCentral({
+        correlationId,
+        operacao: 'NSU_REJEITAR_MAX_NSU_INCONSISTENTE',
+        nsu: atualUlt,
+        cStat,
+        resultado: 'PRESERVADO',
+        origem: 'CentralNsuService',
+        detalhe: { motivo: 'MAX_NSU_MENOR_QUE_ULT_NSU' }
       });
       return {
         controle: atualizado || controle,
@@ -266,8 +275,8 @@ class CentralNsuService {
       preservado: false,
       cooldownAtivo: false,
       proximaConsultaEm: null,
-      ultNsu: candidataUlt,
-      maxNsu: candidataMax,
+      ultNsu: atualizado?.ultNsu || candidataUlt,
+      maxNsu: atualizado?.maxNsu || candidataMax,
       cursorAnterior: atualUlt
     };
   }

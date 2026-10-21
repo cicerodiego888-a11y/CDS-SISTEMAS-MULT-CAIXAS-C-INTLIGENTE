@@ -1,0 +1,194 @@
+{
+  "sprint": "TEF-DESTAXA-07D",
+  "title": "Precheck final para CRT de R$ 1,00",
+  "generatedAt": "2026-10-19T19:07:42.564Z",
+  "verdict": "BLOCKED_WITH_FINDINGS",
+  "executable": {
+    "running": [],
+    "candidates": [
+      "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\dist\\erp\\win-unpacked\\CDS ERP.exe",
+      "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\dist\\pdv\\win-unpacked\\CDS PDV.exe",
+      "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe"
+    ],
+    "selectedForInstall": null,
+    "note": "O caminho em uso vem apenas de processo CDS detectado; candidatos do workspace não identificam uma instalação."
+  },
+  "database": {
+    "effectiveDir": null,
+    "effectivePath": null,
+    "exists": false,
+    "candidatePath": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+    "candidateExists": true,
+    "candidateOpenedThisTurn": false,
+    "effectiveForRunningProcess": false,
+    "effectivePathSource": null,
+    "nameNotAssumed": "O banco efetivo precisa ser informado a partir da evidência do processo CDS; o nome convencional é apenas candidato."
+  },
+  "initialState": {
+    "verifiedThisTurn": false,
+    "previouslyReportedSnapshot": {
+      "databaseCandidate": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+      "provedor": "destaxa",
+      "ambiente": "homologacao",
+      "habilitado": true,
+      "tentativas": 1,
+      "tipoIntegracao": "dll",
+      "pinpad": "Gertec PPC930",
+      "portaCom": "COM4",
+      "pendentes": 0,
+      "ultimasTransacoes": [],
+      "warning": "Snapshot de um processo de precheck anterior; o banco não foi comprovado como aberto pelo CDS."
+    }
+  },
+  "configurationApplied": {
+    "performedThisTurn": false,
+    "uiInteractive": false,
+    "verifiedThisTurn": false,
+    "previouslyReportedPersistedValues": {
+      "source": "precheck report visible before the fail-closed refresh; historical and not revalidated",
+      "tefHabilitado": true,
+      "tefProvedor": "destaxa",
+      "tefAmbiente": "homologacao",
+      "tipoIntegracao": "dll",
+      "tefTentativas": 1,
+      "pinpadHabilitado": true,
+      "pinpadModelo": "Gertec PPC930",
+      "portaCom": "COM4"
+    }
+  },
+  "afterRestartValidation": {
+    "cdsFullGuiRestart": false,
+    "verifiedThisTurn": false,
+    "previouslyReportedNodeProcessCheck": {
+      "simulated": true,
+      "databasePath": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+      "adapter": "DestaxaRealAdapter",
+      "clientCode": "00",
+      "dllArch": "x64",
+      "dllSha256": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+      "exports": [
+        "iniciaClientDestaxa",
+        "iniciaTransacaoDestaxa",
+        "continuaTransacaoDestaxa",
+        "finalizaTransacaoDestaxa"
+      ],
+      "pendentes": 0,
+      "pagamentoEmAndamento": false,
+      "warning": "A leitura anterior foi feita em processo Node separado e não comprova o banco aberto pelo CDS nem um reinício completo da GUI."
+    }
+  },
+  "hardware": {
+    "verifiedThisTurn": false,
+    "previouslyReported": {
+      "pinpad": "Gertec PPC930",
+      "detectedPort": "COM4",
+      "configuredPort": "COM4",
+      "driverStatus": "nao_confirmado",
+      "vspagueRunning": true,
+      "vspaguePid": 24064,
+      "warning": "Estado histórico; hardware e VSPague não foram reconsultados nesta execução."
+    }
+  },
+  "crtExecutor": {
+    "file": "scripts/tef/destaxa-07b/executorCrt07b.js",
+    "testsFile": "tests/tef/tef-destaxa-07b-executor.test.js",
+    "exitCode": 0,
+    "mockOkCount": 38,
+    "mockFailCount": 0,
+    "electronPreflightFailCount": 0,
+    "mockSuiteAccepted": true,
+    "executionMode": "tests/tef/tef-destaxa-07b-executor.test.js --mocks-only",
+    "inspectedContract": {
+      "onlyCrt": true,
+      "onlyOneReal": true,
+      "usesNativeHost": true,
+      "code99AsInteraction": true,
+      "noAutoRetry": true,
+      "preservesTransactionId": true,
+      "states00_03_08_A0_A1": true,
+      "explicitFinalizeConfirmation": true,
+      "configuredPortMatchesDetection": true,
+      "notAutoStartedOnBoot": true
+    },
+    "financialNativeCallsInThisSprint": false,
+    "note": "Somente dependências mockadas foram executadas; nenhum runner Electron, DLL ou função financeira nativa foi acionado."
+  },
+  "nativeFinancialCalls": {
+    "iniciaTransacaoDestaxa": false,
+    "continuaTransacaoDestaxa": false,
+    "finalizaTransacaoDestaxa": false,
+    "gateFinanceiro": false,
+    "envDestaxaRealTransactionEnabled": ""
+  },
+  "findings": [
+    "Não foi identificada uma única instalação CDS em execução (processos=0).",
+    "Banco efetivamente aberto não informado; CDS_TEF07D_EFFECTIVE_DB_PATH é obrigatório e não pode ser inferido pelo nome padrão.",
+    "Configuração e hardware somente constam em snapshot histórico; não houve persistência pela tela oficial nem verificação pós-reinicialização neste turno."
+  ],
+  "pendencias": [
+    "Inicie/identifique a instalação cliente e forneça o caminho efetivo obtido da própria instalação; nenhum banco candidato será aberto.",
+    "Validar/salvar as opções necessárias pela tela oficial e reiniciar o CDS completamente.",
+    "Revalidar DLL/Client, VSPague, Native Host, PPC930/COM, pendências e pagamentos em andamento no processo cliente."
+  ],
+  "precheckChecks": [
+    {
+      "id": "activeProductProcess",
+      "ok": false
+    },
+    {
+      "id": "effectiveDatabaseIdentified",
+      "ok": false
+    },
+    {
+      "id": "officialUiConfiguration",
+      "ok": false
+    },
+    {
+      "id": "fullCdsRestart",
+      "ok": false
+    },
+    {
+      "id": "currentHardwareAndClient",
+      "ok": false
+    },
+    {
+      "id": "executorMocksOk",
+      "ok": true
+    },
+    {
+      "id": "executorContract",
+      "ok": true
+    },
+    {
+      "id": "noFinancialNativeCalls",
+      "ok": true
+    },
+    {
+      "id": "gateOff",
+      "ok": true
+    }
+  ],
+  "validationThisTurn": {
+    "observedAt": "2026-10-19T19:07:42.564Z",
+    "verdict": "BLOCKED_WITH_FINDINGS",
+    "mockExecutor": {
+      "command": "node tests/tef/tef-destaxa-07b-executor.test.js --mocks-only",
+      "passed": 38,
+      "failed": 0,
+      "nativeFinancialCalls": 0
+    },
+    "codeChanges": {
+      "executorPortCheck": "The configured COM port must be a valid COMn and equal the detected PPC930 port; COM3/COM4 are not hard-coded.",
+      "precheckSafety": "The precheck fails closed without a running CDS process and explicitly observed effective database path; it never writes settings and only opens a supplied path read-only.",
+      "priorPrecheckRisk": "The previous precheck implementation could open the candidate database read-write and save configuration through the service; this turn did not run that code path or access the database."
+    },
+    "nativeFinancialCalls": {
+      "iniciaTransacaoDestaxa": false,
+      "continuaTransacaoDestaxa": false,
+      "finalizaTransacaoDestaxa": false
+    },
+    "databaseModifiedThisTurn": false,
+    "crtExecuted": false
+  },
+  "finishedAt": "2026-10-19T19:07:42.564Z"
+}

@@ -12,6 +12,9 @@ const { CentralSyncExecucaoService } = require(
 const CentralManifestacaoDfeService = require(
   '../../backend/motores/central-entradas/services/CentralManifestacaoDfeService'
 );
+const { CentralSefazOperationalGate } = require(
+  '../../backend/motores/central-entradas/services/CentralSefazOperationalGate'
+);
 const { DocumentoFiscalStatus } = require(
   '../../backend/motores/central-entradas/core/DocumentoFiscalStatus'
 );
@@ -136,20 +139,40 @@ async function main() {
     let emCurso = 0;
     let maxParalelo = 0;
     let efetivas = 0;
+    let iniciarSincronizacao;
+    let liberarSincronizacao;
+    const sincronizacaoIniciada = new Promise((resolve) => {
+      iniciarSincronizacao = resolve;
+    });
+    const aguardarLiberacao = new Promise((resolve) => {
+      liberarSincronizacao = resolve;
+    });
+    const gate = new CentralSefazOperationalGate({
+      configRepository: {
+        async buscarPorChave() { return null; },
+        parseValor(registro) { return registro?.valor || null; }
+      },
+      autoPersist: false
+    });
 
     const sync = new CentralSyncExecucaoService({
+      gate,
       sincronizacaoService: {
         sincronizar: async () => {
           efetivas += 1;
           emCurso += 1;
           maxParalelo = Math.max(maxParalelo, emCurso);
-          await new Promise((r) => setTimeout(r, 40));
+          iniciarSincronizacao();
+          await aguardarLiberacao;
           emCurso -= 1;
           return { sucesso: true, cStat: '137', ultNsu: '1', maxNsu: '1', mensagem: 'ok' };
         }
       },
       configuracaoService: {
-        obterContextoOperacional: async () => ({ ok: false }),
+        obterContextoOperacional: async () => ({
+          ok: true,
+          contexto: { cnpj: '12345678000199', ambiente: 2 }
+        }),
         obterResumo: async () => ({ syncMaxDocumentos: 5 }),
         verificarHorarioPermitido: async () => ({ permitido: true })
       },
@@ -160,11 +183,18 @@ async function main() {
       emitirEvento: async () => null
     });
 
-    const resultados = await Promise.all([
-      sync.executar({ origem: 'manual', ignorarCooldown: true }),
-      sync.executar({ origem: 'background', ignorarCooldown: true }),
-      sync.comLockDistDfe('scheduler', async () => ({ sucesso: true, via: 'scheduler' }))
+    const primeira = sync.executar({ origem: 'manual' });
+    await sincronizacaoIniciada;
+    const concorrentes = await Promise.all([
+      sync.executar({ origem: 'background' }),
+      sync.comLockDistDfe(
+        'scheduler',
+        async () => ({ sucesso: true, via: 'scheduler' }),
+        { cnpj: '12345678000199', ambiente: 2 }
+      )
     ]);
+    liberarSincronizacao();
+    const resultados = [await primeira, ...concorrentes];
 
     const ignorados = resultados.filter((r) => r.ignorado || r.codigo === 'SYNC_EM_ANDAMENTO');
     assert.strictEqual(efetivas, 1);

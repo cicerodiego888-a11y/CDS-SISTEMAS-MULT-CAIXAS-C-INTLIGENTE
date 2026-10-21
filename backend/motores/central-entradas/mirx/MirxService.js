@@ -69,7 +69,7 @@ class MirxService {
     this._timeoutId = null;
     this._ativo = false;
     this._tickEmExecucao = false;
-    this._persistindo = false;
+    this._persistindo = null;
     this._ticksDesdeScan = 0;
     this._metricas = {
       documentosRecuperados: 0,
@@ -530,7 +530,11 @@ class MirxService {
     const id = Number(documentoId);
     this._queue.remove(id);
     const tinha = this._docs.delete(id);
-    if (tinha) this._persistirEstado().catch(() => {});
+    if (tinha) {
+      this._persistirEstado().catch((error) => {
+        logCentralErro('MIRX', error, { Motivo: 'falha_persistir_estado' });
+      });
+    }
     this._auditoria.logOperacional('MIRX_REMOVE', {
       documentoId: id,
       motivo
@@ -694,7 +698,9 @@ class MirxService {
     if (!atual) return null;
     const novo = { ...atual, ...patch, atualizadoEm: this._agora().toISOString() };
     this._docs.set(id, novo);
-    this._persistirEstado().catch(() => {});
+    this._persistirEstado().catch((error) => {
+      logCentralErro('MIRX', error, { Motivo: 'falha_persistir_estado' });
+    });
     return novo;
   }
 
@@ -1024,8 +1030,11 @@ class MirxService {
         parsed = typeof this._configRepository.parseValor === 'function'
           ? this._configRepository.parseValor(registro)
           : (registro?.valor || null);
+        if (registro && (!parsed || typeof parsed !== 'object')) {
+          throw new Error('Estado persistido do MIRX inválido; serviço não pode iniciar com segurança.');
+        }
         if (typeof parsed === 'string') {
-          try { parsed = JSON.parse(parsed); } catch { parsed = null; }
+          parsed = JSON.parse(parsed);
         }
       } else if (typeof this._configRepository.obter === 'function') {
         const raw = await this._configRepository.obter(CHAVE_ESTADO);
@@ -1039,7 +1048,7 @@ class MirxService {
             ? this._configRepository.parseValor(legado)
             : null;
           if (typeof parsed === 'string') {
-            try { parsed = JSON.parse(parsed); } catch { parsed = null; }
+            parsed = JSON.parse(parsed);
           }
         }
       }
@@ -1081,14 +1090,14 @@ class MirxService {
       }
     } catch (error) {
       logCentralErro('MIRX', error, { Motivo: 'falha_carregar_estado' });
+      throw error;
     }
   }
 
   /** @private */
   async _persistirEstado() {
-    if (this._persistindo) return;
-    this._persistindo = true;
-    try {
+    if (this._persistindo) return this._persistindo;
+    this._persistindo = (async () => {
       const gateState = typeof this._gate.serializar === 'function'
         ? this._gate.serializar()
         : null;
@@ -1108,10 +1117,14 @@ class MirxService {
           ticksIgnoradosSleep: this._metricas.ticksIgnoradosSleep
         }
       }, 'json');
+    })();
+    try {
+      return await this._persistindo;
     } catch (error) {
       logCentralErro('MIRX', error, { Motivo: 'falha_persistir_estado' });
+      throw error;
     } finally {
-      this._persistindo = false;
+      this._persistindo = null;
     }
   }
 }

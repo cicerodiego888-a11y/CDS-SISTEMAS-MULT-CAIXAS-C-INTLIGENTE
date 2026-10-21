@@ -43,11 +43,11 @@ async function test(nome, fn) {
 
 const CHECKS_OK = Object.freeze({
   adapterMode: 'real',
-  configuration: { valid: true, pendencias: [], configuredPort: 'COM3' },
+  configuration: { valid: true, pendencias: [], configuredPort: 'COM4' },
   dll: { exports: 4, exportsValid: true },
   client: { clientInitializationCode: '00' },
   vspague: { running: true, responding: true, pid: '4321' },
-  pinpad: { detected: true, model: 'Gertec PPC930', port: 'COM3' },
+  pinpad: { detected: true, model: 'Gertec PPC930', port: 'COM4' },
   crt: { operation: 'CRT', input: 'transacao_valor=1.00', valueCents: 100 }
 });
 
@@ -249,6 +249,16 @@ async function main() {
     semGate(rel);
   });
 
+  await test('PPC930 em COM3 também passa quando configuração e detecção coincidem', async () => {
+    const checks = {
+      configuration: { ...CHECKS_OK.configuration, configuredPort: 'com3' },
+      pinpad: { detected: true, model: 'Gertec PPC930', port: 'COM3' }
+    };
+    const { rel } = await executar('preflight', { checks });
+    assert.strictEqual(rel.result, RESULTADOS.READY);
+    assert.ok(rel.preCondicoes.find((i) => i.item === 'porta COM configurada coincide com PPC930 detectado').ok);
+  });
+
   const bloqueios = [
     ['tentativas = 3', { tentativas: 3 }, 'tef_configuracao.tentativas'],
     ['ambiente != homologacao', { ambiente: 'producao' }, 'tefAmbiente'],
@@ -257,7 +267,8 @@ async function main() {
     ['outra instância do CDS aberta', { outros: [{ pid: 4544, comando: 'electron.exe .' }] }, 'nenhuma outra instância do CDS em execução (sem transação concorrente)'],
     ['SHA-256 divergente', { sha256: 'ABC' }, 'DLL SHA-256'],
     ['Client != 00', { checks: { client: { clientInitializationCode: '01' } } }, 'iniciaClientDestaxa = 00'],
-    ['PinPad em outra COM', { checks: { pinpad: { detected: true, model: 'PPC930', port: 'COM4' } } }, 'COM3 detectada e configurada'],
+    ['PinPad em outra COM', { checks: { pinpad: { detected: true, model: 'PPC930', port: 'COM3' } } }, 'porta COM configurada coincide com PPC930 detectado'],
+    ['porta configurada inválida', { checks: { configuration: { configuredPort: 'COM0' } } }, 'porta COM configurada coincide com PPC930 detectado'],
     ['VSPague sem resposta', { checks: { vspague: { running: true, responding: false } } }, 'VSPague respondendo'],
     ['operação != CRT', { checks: { crt: { operation: 'PIX', input: 'transacao_valor=1.00', valueCents: 100 } } }, 'operação CRT'],
     ['valor != 1.00', { checks: { crt: { operation: 'CRT', input: 'transacao_valor=100', valueCents: 10000 } } }, 'valor Destaxa transacao_valor=1.00'],
@@ -419,6 +430,11 @@ async function main() {
     assert.deepStrictEqual(chavesRemovidas.sort(), ['outra', 'transacao_cartao_numero', 'transacao_comprovante_1via']);
   });
 
+  if (process.argv.includes('--mocks-only')) {
+    console.log(`\nResultado mocks-only: ${passou} ok, ${falhou} falhou\n`);
+    process.exit(falhou === 0 ? 0 : 1);
+  }
+
   // ------------------------------------------------ pré-voo real (Electron, gate OFF)
   const antes = await consultarOficial();
   const execucao = await executarPreflightReal();
@@ -429,7 +445,7 @@ async function main() {
     'tef_configuracao.tentativas',
     'nenhuma outra instância do CDS em execução (sem transação concorrente)',
     'PPC930 detectado',
-    'COM3 detectada e configurada',
+    'porta COM configurada coincide com PPC930 detectado',
     'operação CRT',
     'valor Destaxa transacao_valor=1.00',
     'caminho CRT pronto e parado no gate (gate OFF)'

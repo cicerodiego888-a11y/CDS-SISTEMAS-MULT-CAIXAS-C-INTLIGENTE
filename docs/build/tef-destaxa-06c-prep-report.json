@@ -1,6 +1,6 @@
 {
   "sprint": "TEF-DESTAXA-06C-PREP",
-  "timestamp": "2026-10-03T21:26:36.282Z",
+  "timestamp": "2026-10-19T18:46:53.641Z",
   "transactionExecuted": false,
   "realTransactionGate": {
     "env": "DESTAXA_REAL_TRANSACTION_ENABLED",

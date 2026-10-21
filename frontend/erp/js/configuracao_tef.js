@@ -281,13 +281,14 @@ function renderizarAbaGeralTEF(conteudo) {
                         <div class="col-md-6">
                             <label for="tefProvedor" class="form-label fw-bold">Provedor</label>
                             <select id="tefProvedor" class="form-select">
+                                <option value="">Selecione o provedor</option>
+                                <option value="destaxa">Destaxa</option>
                                 <option value="rede">Rede</option>
                                 <option value="paygo">PayGo</option>
                                 <option value="sitef">CliSiTef</option>
                                 <option value="stone">Stone</option>
                                 <option value="getnet">Getnet</option>
                                 <option value="cielo">Cielo</option>
-                                <option value="destaxa">Destaxa</option>
                             </select>
                         </div>
 
@@ -452,7 +453,7 @@ function renderizarAbaPinPadTEF(conteudo) {
                             <label for="pinpadModelo" class="form-label fw-bold">Modelo PinPad</label>
                             <select id="pinpadModelo" class="form-select">
                                 <option value="">Selecione...</option>
-                                <option value="GERTEC_PPC930">Gertec PPC930 (Rede/Itaú)</option>
+                                <option value="GERTEC_PPC930">Gertec PPC930 (USB CDC → COM virtual)</option>
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -474,7 +475,7 @@ function renderizarAbaPinPadTEF(conteudo) {
                         </div>
                         <div class="col-md-4">
                             <label for="portaCom" class="form-label fw-bold">Porta COM</label>
-                            <input id="portaCom" type="text" class="form-control" autocomplete="off" placeholder="Ex.: COM4">
+                            <input id="portaCom" type="text" class="form-control" autocomplete="off" placeholder="Informe a COM detectada pelo Windows">
                         </div>
                         <div class="col-md-4">
                             <label for="pinpadIp" class="form-label fw-bold">IP do PinPad</label>
@@ -656,6 +657,7 @@ function renderizarAbaMonitorTEF(conteudo) {
                             <div class="card-body text-center">
                                 <h6 class="card-subtitle mb-2 text-muted">Servidor</h6>
                                 <div id="monitorServidorStatus" class="badge bg-secondary fs-5">Verificando...</div>
+                                <div id="monitorServidorMensagem" class="small text-muted mt-2"></div>
                             </div>
                         </div>
                     </div>
@@ -724,18 +726,30 @@ async function atualizarMonitorTEF() {
         const data = await response.json().catch(() => ({}));
 
         if (response.ok && data) {
-            document.getElementById('monitorPinpadStatus').className = 
-                `badge fs-5 ${data.pinpad?.habilitado ? 'bg-success' : 'bg-secondary'}`;
-            document.getElementById('monitorPinpadStatus').textContent = 
-                data.pinpad?.habilitado ? 'Online' : 'Offline';
+            document.getElementById('monitorPinpadStatus').className =
+                `badge fs-5 ${data.pinpad?.configurado ? 'bg-info text-dark' : 'bg-secondary'}`;
+            document.getElementById('monitorPinpadStatus').textContent =
+                data.pinpad?.configurado ? 'Configurado' : 'Não configurado';
 
-            document.getElementById('monitorServidorStatus').className = 
-                `badge fs-5 ${data.servidor?.configurado ? 'bg-success' : 'bg-secondary'}`;
-            document.getElementById('monitorServidorStatus').textContent = 
-                data.servidor?.configurado ? 'Online' : 'Offline';
+            const servidor = data.servidor || {};
+            const estadosServidor = {
+                nao_aplicavel: { label: 'Não aplicável', badge: 'bg-secondary' },
+                opcional_simulacao: { label: 'Opcional (simulação)', badge: 'bg-secondary' },
+                configurado_nao_testado: { label: 'Configurado · não testado', badge: 'bg-warning text-dark' },
+                nao_configurado: { label: 'Não configurado', badge: 'bg-secondary' }
+            };
+            const estadoServidor = estadosServidor[servidor.estado] || {
+                label: 'Estado não verificado',
+                badge: 'bg-secondary'
+            };
+            const servidorStatus = document.getElementById('monitorServidorStatus');
+            servidorStatus.className = `badge fs-5 ${estadoServidor.badge}`;
+            servidorStatus.textContent = estadoServidor.label;
+            const servidorMensagem = document.getElementById('monitorServidorMensagem');
+            if (servidorMensagem) servidorMensagem.textContent = servidor.mensagem || '';
 
-            document.getElementById('monitorInternetStatus').className = 'badge bg-success fs-5';
-            document.getElementById('monitorInternetStatus').textContent = 'Online';
+            document.getElementById('monitorInternetStatus').className = 'badge bg-secondary fs-5';
+            document.getElementById('monitorInternetStatus').textContent = 'Não verificado';
 
             document.getElementById('monitorUltimoNsu').textContent = data.ultimo_nsu || '-';
             document.getElementById('monitorPendencias').textContent = data.pendencias || 0;
@@ -880,16 +894,12 @@ async function executarDiagnosticoCompleto() {
         }
 
         const mapaBadges = {
-            adapter_selecionado: 'diagAdapter',
             adapter_carregado: 'diagAdapter',
             middleware_instalado: 'diagSDK',
-            sdk_encontrado: 'diagSDK',
-            dll_encontrada: 'diagSDK',
             modo_adapter: 'diagModoAdapter',
             pinpad_configurado: 'diagMonitor',
             banco_acessivel: 'diagBanco',
-            configuracao_valida: 'diagConfiguracao',
-            adapter_operacional: 'diagAdapter'
+            configuracao_valida: 'diagConfiguracao'
         };
 
         (relatorio.itens || []).forEach((item) => {
@@ -908,12 +918,36 @@ async function executarDiagnosticoCompleto() {
             const pendencias = (relatorio.pendencias || []).map((p) => `<li>${p}</li>`).join('');
             const pinpad = relatorio.pinpad || {};
             const hw = pinpad.hardware || pinpad.deteccaoFisica || null;
+            const estados = relatorio.estadosIntegracao || {};
+            const badge = (ok, yes, no) => `<span class="badge ${ok ? 'bg-success' : 'bg-secondary'}">${escapeHtml(ok ? yes : no)}</span>`;
+            const comunicacaoValidada = estados.transactionCommunication?.validated === true;
+            const autorizacaoDisponivel = estados.authorization?.available === true;
+            const middlewareConfig = relatorio.middleware?.configuracaoValidaProvedor || {};
+            const estadoTecnico = [
+                `<div><strong>Adapter instanciado:</strong> ${badge(estados.adapter?.instantiated, 'Sim', estados.adapter?.error ? `Não · ${estados.adapter.error}` : 'Não')}</div>`,
+                `<div><strong>Diagnóstico do adapter:</strong> ${badge(estados.adapter?.diagnosisSucceeded, 'Sucesso', 'Não concluído ou falhou')}</div>`,
+                `<div><strong>DLL carregada:</strong> ${badge(estados.dll?.loaded, 'Sim', 'Não confirmado')}</div>`,
+                `<div><strong>Exports validados:</strong> ${badge(estados.dll?.exportsValidated, 'Sim', 'Não confirmado')}</div>`,
+                `<div><strong>Client Destaxa inicializado:</strong> ${badge(estados.client?.initialized, 'Sim', 'Não')}</div>`,
+                `<div><strong>Código do Client:</strong> ${badge(estados.client?.code === '00', estados.client?.code || 'Não informado', estados.client?.code || 'Não informado')}</div>`,
+                ...(relatorio.resumo?.provedor === 'destaxa'
+                    ? [`<div><strong>Snapshots do Client consistentes:</strong> ${badge(estados.client?.snapshotsConsistent, 'Sim', 'Não')}</div>`]
+                    : []),
+                `<div><strong>Middleware do provedor detectado:</strong> ${badge(relatorio.conceitos?.middlewareInstalado, 'Sim', 'Não confirmado')}</div>`,
+                `<div><strong>Processo V$Pague:</strong> ${badge(estados.vspague?.detected && estados.vspague?.running, 'Detectado em execução', 'Não confirmado')}</div>`,
+                `<div><strong>PPC930 enumerado no Windows:</strong> ${badge(estados.pinpad?.ppc930Enumerated, 'Sim', 'Não')}</div>`,
+                `<div><strong>Porta COM consistente:</strong> ${badge(estados.pinpad?.comConsistent === true, `${estados.pinpad?.configuredPort || '-'} = ${estados.pinpad?.detectedPort || '-'}`, 'Não confirmada')}</div>`,
+                `<div><strong>Comunicação transacional:</strong> ${badge(comunicacaoValidada, 'Validada', 'Não validada')}</div>`,
+                `<div><strong>Disponibilidade para autorizar:</strong> ${badge(autorizacaoDisponivel, 'Disponível', 'Não comprovada')}</div>`,
+                `<div><strong>Validação de configuração middleware:</strong> ${middlewareConfig.aplicavel ? badge(middlewareConfig.valida, middlewareConfig.valida ? 'Válida' : 'Inválida', 'Inválida') : badge(false, '', 'Não aplicável')}${middlewareConfig.explicacao ? ` <small>${escapeHtml(middlewareConfig.explicacao)}</small>` : ''}</div>`
+            ].join('');
 
             resultadoDiv.innerHTML = `
-                <div class="alert ${pct >= 90 ? 'alert-success' : pct >= 70 ? 'alert-warning' : 'alert-danger'}">
-                    <strong>Prontidão TEF:</strong> ${pct}%
+                <div class="alert ${pct >= 90 && autorizacaoDisponivel ? 'alert-success' : pct >= 70 ? 'alert-warning' : 'alert-danger'}">
+                    <strong>Prontidão técnica TEF:</strong> ${pct}%
                     <div class="small mt-1">Provedor: ${relatorio.resumo?.provedor || '-'} | Ambiente: ${relatorio.resumo?.ambiente || '-'} | Modo adapter: ${relatorio.resumo?.modoAdapter || relatorio.adapter?.modo || '-'}</div>
                     <div class="small mt-1">Adapter: ${relatorio.conceitos?.adapterCarregado ? 'carregado' : 'não'} | Middleware real: ${relatorio.conceitos?.middlewareInstalado ? 'sim' : 'não'} | Comunicação real: ${relatorio.conceitos?.comunicacaoRealDisponivel ? 'sim' : 'não'}</div>
+                    <div class="small mt-2 d-grid gap-1">${estadoTecnico}</div>
                     ${pinpad.rotulo || pinpad.codigo ? `<div class="small mt-1"><strong>PinPad:</strong> ${pinpad.rotulo || pinpad.codigo} | <strong>Conexão:</strong> ${pinpad.tipoConexao || '-'} ${pinpad.portaCom || ''} | <strong>Status:</strong> ${pinpad.status}</div>` : ''}
                     ${hw ? `<div class="small mt-1"><strong>Hardware:</strong> ${hw.mensagem || (hw.detectado ? 'detectado' : 'não detectado')} | <strong>Driver:</strong> ${rotuloStatusEvidencia(hw.driverStatus, hw.driver)} | <strong>USB:</strong> ${rotuloStatusEvidencia(hw.usbStatus, hw.usb)}</div>` : ''}
                 </div>

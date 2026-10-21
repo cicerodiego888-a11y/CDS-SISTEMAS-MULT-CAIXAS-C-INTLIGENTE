@@ -1,0 +1,107 @@
+{
+  "sprint": "TEF-DESTAXA-07H.1",
+  "status": "BLOCKED_WITH_FINDINGS",
+  "generatedAt": "2026-10-19T16:57:07.314-03:00",
+  "shortcut": {
+    "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\CDS ERP.lnk",
+    "target": "C:\\Program Files\\CDS ERP\\CDS ERP.exe",
+    "arguments": "",
+    "workingDirectory": "C:\\Program Files\\CDS ERP",
+    "description": "CDS Sistemas - Plataforma Inteligente de Gestão",
+    "inspectedReadOnly": true,
+    "matchesUserSuppliedInstallDirectory": true
+  },
+  "installationProcess": {
+    "pid": 10068,
+    "parentPid": 25360,
+    "parentName": "explorer.exe",
+    "name": "CDS ERP.exe",
+    "executablePath": "C:\\Program Files\\CDS ERP\\CDS ERP.exe",
+    "commandLine": "\"C:\\Program Files\\CDS ERP\\CDS ERP.exe\" ",
+    "evidence": "Consulta CIM direcionada aos processos cujo executável ou command line correspondem exatamente à pasta informada; sem varredura genérica para selecionar outra instalação.",
+    "shortcutMatchesRunningProcess": true
+  },
+  "installedBuild": {
+    "executableFileVersion": "22.3.27",
+    "executableProductVersion": "22.3.27",
+    "note": "Versão embutida no stub Electron, não versão do produto CDS.",
+    "appAsarPath": "C:\\Program Files\\CDS ERP\\resources\\app.asar",
+    "appAsarSha256": "1477F763B4B4085EED6603889EAC81D42A25859358327694322C6E6AB8DA934B",
+    "appAsarLastWriteTime": "2026-10-19T16:48:42.0000000-03:00",
+    "productVersionInRuntimeVerified": false
+  },
+  "effectiveDatabase": {
+    "path": null,
+    "proven": false,
+    "runtimeEvidence": null,
+    "candidateDatabasesConsulted": false,
+    "reason": "A linha de comando do processo não fornece o caminho SQLite. A pasta, nome convencional e existência de arquivos não foram usados como prova; nenhum banco candidato foi aberto."
+  },
+  "readOnlyInstrumentation": {
+    "implementedInWorkspace": true,
+    "files": [
+      "backend/diagnostics/effectiveDatabasePath.js",
+      "backend/database.js"
+    ],
+    "hook": "Callback de abertura bem-sucedida de sqlite3.Database(DB_PATH), após o SQLite confirmar a conexão.",
+    "optInEnvironmentVariable": "CDS_DATABASE_PATH_DIAGNOSTIC=1",
+    "outputPattern": "%TEMP%\\cds-effective-database-<processId>.json",
+    "recordedFields": [
+      "evidenceType=sqlite_open_callback_success",
+      "recordedAt",
+      "processId",
+      "executablePath",
+      "effectiveDatabasePath"
+    ],
+    "readsDatabaseRows": false,
+    "writesConfigurationOrDatabase": false,
+    "activeInstalledBuildContainsInstrumentation": false,
+    "reasonNotActive": "O app.asar da instalação foi gravado às 16:48:42, antes da instrumentação ser criada no workspace nesta etapa. O processo ativo não pode produzir essa evidência.",
+    "nextStep": "Gerar/instalar uma build com a instrumentação, iniciar o CDS com CDS_DATABASE_PATH_DIAGNOSTIC=1 e recolher o JSON emitido pelo callback SQLite. Não executar diagnóstico TEF ou inicialização do Client para obter esse caminho."
+  },
+  "safety": {
+    "installedFilesModified": false,
+    "shortcutModified": false,
+    "clientDatabaseOpenedOrQueried": false,
+    "clientConfigurationChanged": false,
+    "tefDiagnosticRun": false,
+    "destaxaClientInitializationCalled": false,
+    "financialNativeCalls": {
+      "iniciaTransacaoDestaxa": false,
+      "continuaTransacaoDestaxa": false,
+      "finalizaTransacaoDestaxa": false
+    },
+    "financialGateEnabledOrChanged": false,
+    "crtExecuted": false
+  },
+  "tests": {
+    "command": "node --test tests/tef/tef-destaxa-07h1-identificacao.test.js",
+    "passed": 2,
+    "failed": 0,
+    "scope": "Valida formato/campos da evidência com diretório temporário; não acessa banco SQLite nem prova o banco do processo cliente."
+  },
+  "filesModifiedThisStep": [
+    "backend/diagnostics/effectiveDatabasePath.js",
+    "backend/database.js",
+    "tests/tef/tef-destaxa-07h1-identificacao.test.js",
+    "docs/build/tef-destaxa-07h1-identificacao-report.json"
+  ],
+  "findings": [
+    {
+      "id": "effective_database_path_missing",
+      "severity": "blocking",
+      "detail": "Instalação, atalho e processo ativo foram vinculados, mas ainda não existe evidência do callback SQLite dessa build contendo o caminho efetivamente aberto."
+    },
+    {
+      "id": "instrumentation_not_deployed",
+      "severity": "blocking",
+      "detail": "A aplicação instalada em execução não contém a instrumentação recém-adicionada; não foi substituída nem reiniciada nesta etapa."
+    }
+  ],
+  "verdict": {
+    "TARGET_AND_DATABASE_IDENTIFIED": false,
+    "BLOCKED_WITH_FINDINGS": true,
+    "paymentAuthorizationReleased": false,
+    "nextAction": "Executar uma build com a instrumentação opt-in na instalação identificada e recolher o arquivo de evidência de abertura SQLite; não presumir banco."
+  }
+}

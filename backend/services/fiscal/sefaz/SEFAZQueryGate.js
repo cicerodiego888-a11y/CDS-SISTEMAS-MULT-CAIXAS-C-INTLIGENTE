@@ -93,34 +93,30 @@ class SEFAZQueryGate {
       && params.nsu_solicitado != null
       && this._nsuService
     ) {
-      try {
-        const controle = await this._nsuService.buscarPorCnpjAmbiente(cnpj, ambiente)
-          || await this._nsuService.obterOuCriar?.(cnpj, ambiente);
-        const nsuAtual = controle?.ultNsu != null ? controle.ultNsu : controle?.ult_nsu;
-        if (nsuAtual != null && nsuNumerico(params.nsu_solicitado) < nsuNumerico(nsuAtual)) {
-          this._audit.registrar({
-            request_id,
-            cnpj,
-            ambiente,
-            tipo,
-            origem,
-            status: ESTADOS_SOLICITACAO.BLOCKED,
-            nsu_anterior: String(nsuAtual),
-            nsu_solicitado: String(params.nsu_solicitado),
-            motivo: 'NSU_REGRESSAO',
-            erro_tecnico: ERROS.ERRO_NSU_REGRESSAO,
-            logTag: '[SEFAZ-NSU]'
-          });
-          return {
-            ...base,
-            motivo: 'NSU_REGRESSAO',
-            erro: ERROS.ERRO_NSU_REGRESSAO,
-            nsu_atual: String(nsuAtual),
-            nsu_solicitado: String(params.nsu_solicitado)
-          };
-        }
-      } catch (e) {
-        // Se NSU service falhar, não bloqueia por regressão (mantém disponibilidade)
+      const controle = await this._nsuService.buscarPorCnpjAmbiente(cnpj, ambiente)
+        || await this._nsuService.obterOuCriar?.(cnpj, ambiente);
+      const nsuAtual = controle?.ultNsu != null ? controle.ultNsu : controle?.ult_nsu;
+      if (nsuAtual != null && nsuNumerico(params.nsu_solicitado) < nsuNumerico(nsuAtual)) {
+        this._audit.registrar({
+          request_id,
+          cnpj,
+          ambiente,
+          tipo,
+          origem,
+          status: ESTADOS_SOLICITACAO.BLOCKED,
+          nsu_anterior: String(nsuAtual),
+          nsu_solicitado: String(params.nsu_solicitado),
+          motivo: 'NSU_REGRESSAO',
+          erro_tecnico: ERROS.ERRO_NSU_REGRESSAO,
+          logTag: '[SEFAZ-NSU]'
+        });
+        return {
+          ...base,
+          motivo: 'NSU_REGRESSAO',
+          erro: ERROS.ERRO_NSU_REGRESSAO,
+          nsu_atual: String(nsuAtual),
+          nsu_solicitado: String(params.nsu_solicitado)
+        };
       }
     }
 

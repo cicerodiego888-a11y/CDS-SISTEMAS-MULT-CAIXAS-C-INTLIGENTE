@@ -5,6 +5,11 @@
 
 const { AUDIT_MAX } = require('./sefazGateConstants');
 
+function mascararCnpj(cnpj) {
+  const digitos = String(cnpj || '').replace(/\D/g, '');
+  return digitos.length === 14 ? `***${digitos.slice(-4)}` : '***';
+}
+
 class SEFAZQueryAudit {
   constructor(opts = {}) {
     this._max = opts.max != null ? Number(opts.max) : AUDIT_MAX;
@@ -37,7 +42,7 @@ class SEFAZQueryAudit {
     }
     const tag = evento.logTag || '[SEFAZ-GATE]';
     this._logger.log(
-      `${tag} request=${row.request_id} cnpj=${row.cnpj} tipo=${row.tipo}`
+      `${tag} request=${row.request_id} cnpj=${mascararCnpj(row.cnpj)} tipo=${row.tipo}`
       + ` status=${row.status} cStat=${row.cStat || '-'} origem=${row.origem}`
       + (row.motivo ? ` reason=${row.motivo}` : '')
     );

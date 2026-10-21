@@ -1,0 +1,196 @@
+{
+  "sprint": "TEF-DESTAXA-07H",
+  "title": "Precheck final pós-07G",
+  "status": "BLOCKED_WITH_FINDINGS",
+  "generatedAt": "2026-10-19T16:43:35.548-03:00",
+  "installation": {
+    "processScan": {
+      "processesScanned": 273,
+      "matchingProcesses": 3,
+      "matchingProcessIds": [4452, 19024, 24060],
+      "mainProcess": {
+        "pid": 4452,
+        "parentPid": 22196,
+        "name": "electron.exe",
+        "executablePath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe",
+        "commandLine": "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" ."
+      },
+      "launcher": {
+        "pid": 22196,
+        "parentPid": 6384,
+        "name": "node.exe",
+        "executablePath": "C:\\Program Files\\nodejs\\node.exe",
+        "commandLine": "\"node\" \"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\.bin\\\\..\\electron\\cli.js\" ."
+      },
+      "childProcesses": [
+        {
+          "pid": 19024,
+          "parentPid": 4452,
+          "name": "electron.exe",
+          "role": "gpu-process"
+        },
+        {
+          "pid": 24060,
+          "parentPid": 4452,
+          "name": "electron.exe",
+          "role": "network-service"
+        }
+      ],
+      "classification": "Electron iniciado com o diretório do checkout local; não há evidência de que seja a instalação cliente/release solicitada."
+    },
+    "version": {
+      "workspacePackageVersion": "1.0.3",
+      "workspaceCommit": "cc32d71bf63ce04e542f11d8e300f96ec1ed180a",
+      "loadedRuntimeVersionVerified": false
+    },
+    "effectiveDatabase": {
+      "path": null,
+      "runtimeEvidence": null,
+      "proven": false,
+      "candidateDatabasesOpened": false,
+      "reason": "O processo não expôs evidência verificável do caminho SQLite aberto; nenhum banco foi presumido ou consultado."
+    }
+  },
+  "diagnostic": {
+    "executedAgainstCustomerInstallation": false,
+    "reasonNotExecuted": "O runtime identificado é do checkout local e o banco efetivo/instalação alvo não foi comprovado. O fluxo existente executarDiagnosticoCompleto chama adapter.testarConexao(), que inicia o Client; não foi invocado sem confirmar a instalação e o alvo corretos.",
+    "configuration": {
+      "provider": null,
+      "environment": null,
+      "enabled": null,
+      "integration": null,
+      "attempts": null
+    },
+    "adapterInstantiated": null,
+    "dll": {
+      "x64Present": null,
+      "hash": null,
+      "exportsValidated": null,
+      "loadedInTargetRuntime": null
+    },
+    "client": {
+      "initialized": null,
+      "initializationCode": null,
+      "snapshotsConsistent": null
+    },
+    "vspague": {
+      "detected": null,
+      "running": null,
+      "responding": null,
+      "executablePath": null
+    },
+    "ppc930": {
+      "enumerated": null,
+      "configuredCom": null,
+      "detectedCom": null,
+      "portsConsistent": null
+    },
+    "legacyHttpServer": {
+      "state": "not observed in target installation",
+      "expectedDestaxaState": "nao_aplicavel"
+    },
+    "transactionCommunicationValidated": false,
+    "authorizationAvailable": false,
+    "adapterBadgeRule": {
+      "07gMockRegressionPassed": true,
+      "runtimeVisualStateObserved": false,
+      "expectedMeaning": "adapter_carregado reflects adapter instance presence only; it is not overwritten by adapter_operacional."
+    }
+  },
+  "financialSafety": {
+    "effectiveDatabaseQueriedReadOnly": false,
+    "pendingTransactions": null,
+    "authorizationsInProgress": null,
+    "lateResultsAwaitingReconciliation": null,
+    "securityBlocks": null,
+    "historicalErrorsModified": false,
+    "reason": "The database used by the target application was not proven, so financial state was not queried."
+  },
+  "executorTests": {
+    "mode": "mocks-only",
+    "command": "node tests/tef/tef-destaxa-07b-executor.test.js --mocks-only",
+    "passed": 38,
+    "failed": 0,
+    "checks": {
+      "crtOnly": true,
+      "fixedValueOneReal": true,
+      "singleAttempt": true,
+      "interaction99": true,
+      "states00_03_08_A0_A1": true,
+      "noAutomaticRetry": true,
+      "transactionIdPreserved": true,
+      "explicitConfirmationBeforeFinalize": true,
+      "gateDefaultOff": true
+    },
+    "realInstallationEvidence": false
+  },
+  "additionalTests": [
+    {
+      "command": "npm run test:tef-destaxa-07g",
+      "passed": 8,
+      "failed": 0,
+      "mode": "mock-only"
+    }
+  ],
+  "nativeCalls": {
+    "clientInitialization": {
+      "iniciaClientDestaxa": false
+    },
+    "financial": {
+      "iniciaTransacaoDestaxa": false,
+      "continuaTransacaoDestaxa": false,
+      "finalizaTransacaoDestaxa": false
+    },
+    "gateEnabledOrChanged": false,
+    "targetRuntimeGateState": "unknown",
+    "paymentExecuted": false
+  },
+  "filesInspected": [
+    "backend/services/tef/tefDiagnosticoService.js",
+    "backend/services/tef/adapters/DestaxaRealAdapter.js",
+    "frontend/erp/js/configuracao_tef.js",
+    "tests/tef/tef-destaxa-07g-adapter-status.test.js",
+    "tests/tef/tef-destaxa-07b-executor.test.js",
+    "scripts/tef/destaxa-07b/executorCrt07b.js"
+  ],
+  "filesModifiedThisSprint": [
+    "docs/build/tef-destaxa-07h-precheck-report.json"
+  ],
+  "validation": {
+    "syntaxChecksPassed": true,
+    "gitDiffCheckPassed": true,
+    "testsExecuted": {
+      "mockExecutorPassed": 38,
+      "diagnosticRegressionPassed": 8,
+      "failed": 0
+    }
+  },
+  "findings": [
+    {
+      "id": "target_installation_not_proven",
+      "severity": "blocking",
+      "detail": "Electron PID 4452 is launched with the local workspace directory; this does not establish that it is the client's installed/restarted CDS."
+    },
+    {
+      "id": "effective_database_not_proven",
+      "severity": "blocking",
+      "detail": "No runtime evidence ties a database path to the target process; no database was opened."
+    },
+    {
+      "id": "real_preconditions_not_verified",
+      "severity": "blocking",
+      "detail": "Configuration, DLL/Client, VSPague, PPC930/COM and financial safety state were not verified in the target installation."
+    }
+  ],
+  "limitations": [
+    "Mock test success is not customer installation evidence.",
+    "Workspace package version and commit do not prove the loaded process build.",
+    "No real client diagnosis or financial-state query was performed.",
+    "No native initialization or financial native function was called."
+  ],
+  "verdict": {
+    "READY_FOR_REAL_CRT": false,
+    "BLOCKED_WITH_FINDINGS": true,
+    "nextAction": "Repeat the read-only precheck in the confirmed client installation and establish the effective database path before querying state."
+  }
+}

@@ -77,30 +77,65 @@ function criarAdapterDestaxa(registro, opcoes = {}) {
   return new DestaxaRealAdapter(registro, opcoes.adapterOpcoes || {});
 }
 
+function erroAdapterProvedor(codigo, mensagem, detalhes = {}) {
+  const error = new Error(mensagem);
+  error.codigo = codigo;
+  error.code = codigo;
+  error.detalhes = detalhes;
+  return error;
+}
+
 function criarAdapter(registro, opcoes = {}) {
   if (!registro) {
     throw new Error('TEF não configurado');
   }
 
-  const provedor = normalizarProvedor(registro.provedor);
-  const usarReal = ambienteUsaMiddlewareReal(registro.ambiente);
+  const provedor = normalizarProvedor(registro.provedor || registro.tefProvedor);
+  if (!provedor) {
+    throw erroAdapterProvedor(
+      'TEF_PROVEDOR_NAO_CONFIGURADO',
+      'Provedor TEF não configurado. Salve um provedor na tela oficial antes de operar.'
+    );
+  }
+
+  const ambiente = registro.ambiente || registro.tefAmbiente;
+  const usarReal = ambienteUsaMiddlewareReal(ambiente);
+  const registroNormalizado = {
+    ...registro,
+    provedor,
+    ambiente
+  };
 
   if (provedor === 'sitef') {
-    if (usarReal && SitefRealAdapter.podeUsarModoReal()) {
-      return new SitefRealAdapter(registro);
+    if (usarReal) {
+      if (!SitefRealAdapter.podeUsarModoReal()) {
+        throw erroAdapterProvedor(
+          'SITEF_REAL_ADAPTER_INDISPONIVEL',
+          `Ambiente "${ambiente}" exige adapter SiTef real, mas a DLL/middleware não está disponível.`,
+          { ambiente, provedor }
+        );
+      }
+      return new SitefRealAdapter(registroNormalizado);
     }
-    return new SitefAdapter(registro);
+    return new SitefAdapter(registroNormalizado);
   }
 
   if (provedor === 'paygo') {
-    if (usarReal && PaygoRealAdapter.podeUsarModoReal()) {
-      return new PaygoRealAdapter(registro);
+    if (usarReal) {
+      if (!PaygoRealAdapter.podeUsarModoReal()) {
+        throw erroAdapterProvedor(
+          'PAYGO_REAL_ADAPTER_INDISPONIVEL',
+          `Ambiente "${ambiente}" exige adapter PayGo real, mas a DLL/middleware não está disponível.`,
+          { ambiente, provedor }
+        );
+      }
+      return new PaygoRealAdapter(registroNormalizado);
     }
-    return new PaygoAdapter(registro);
+    return new PaygoAdapter(registroNormalizado);
   }
 
   if (provedor === 'destaxa') {
-    return criarAdapterDestaxa(registro, opcoes);
+    return criarAdapterDestaxa(registroNormalizado, opcoes);
   }
 
   const gateways = {
@@ -115,13 +150,29 @@ function criarAdapter(registro, opcoes = {}) {
     throw new Error(`Provedor TEF não suportado: ${provedor}`);
   }
 
-  return new Gateway(registro);
+  return new Gateway(registroNormalizado);
 }
 
-async function obterAdapter() {
+/**
+ * Fonte oficial: tefConfigService → registro coerente para a fábrica.
+ * Não inventa provedor Rede quando a linha ainda não existe.
+ */
+async function obterAdapter(opcoes = {}) {
+  const tefConfigService = require('./tefConfigService');
   const tefConfigRepository = require('../../repositories/tefConfigRepository');
-  const registro = await tefConfigRepository.buscarConfiguracaoPrincipal();
-  return criarAdapter(registro);
+  const registroDb = await tefConfigRepository.buscarConfiguracaoPrincipal();
+  if (!registroDb) {
+    throw new Error('TEF não configurado');
+  }
+  const config = await tefConfigService.obterConfiguracao();
+  if (config._defaultsAplicados) {
+    throw new Error('TEF não configurado');
+  }
+  const registro = {
+    ...registroDb,
+    ...tefConfigService.configParaRegistroAdapter(config)
+  };
+  return criarAdapter(registro, opcoes);
 }
 
 module.exports = {

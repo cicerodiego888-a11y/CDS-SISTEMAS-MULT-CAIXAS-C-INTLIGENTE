@@ -1,0 +1,161 @@
+{
+  "sprint": "TEF-DESTAXA-07I",
+  "status": "READY_FOR_07J_PRECHECK",
+  "generatedAt": "2026-10-19T20:21:36.4437921Z",
+  "database": {
+    "confirmedPath": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+    "confirmationSource": "TEF-DESTAXA-07H.2 runtime SQLite open evidence plus the installed process DB_DIR environment and installed path resolver.",
+    "exists": true,
+    "beforeRead": {
+      "sizeBytes": 46522368,
+      "lastWriteTimeUtc": "2026-10-19T20:08:50.2256144Z",
+      "sha256": "C6BA9C7670F876C4B6A2D392B52DE21F99D58F8D0BE8BED7FB144D8BAD6149CB"
+    },
+    "afterRead": {
+      "sizeBytes": 46522368,
+      "lastWriteTimeUtc": "2026-10-19T20:08:50.2256144Z",
+      "sha256": "C6BA9C7670F876C4B6A2D392B52DE21F99D58F8D0BE8BED7FB144D8BAD6149CB"
+    },
+    "mainFileUnchanged": true,
+    "access": {
+      "sqliteMode": "mode=ro",
+      "sqlExecuted": "SELECT-only plus read-only schema inspection",
+      "migrationsRun": false,
+      "writeStatementsRun": false,
+      "businessRowsRead": "Only the required configuration record and aggregate counts; transaction details, logs, payloads, credentials, and personal data were not selected."
+    },
+    "sidecarsObservedAfterRead": {
+      "wal": {
+        "present": true,
+        "sizeBytes": 0,
+        "lastWriteTimeUtc": "2026-10-19T20:18:19.5322257Z"
+      },
+      "shm": {
+        "present": true,
+        "sizeBytes": 32768,
+        "lastWriteTimeUtc": "2026-10-19T20:20:24.9912031Z"
+      },
+      "preReadInventoryAvailable": false,
+      "intentionallyRemovedOrModifiedByAudit": false,
+      "note": "The main database file hash, size, and last-write time remained unchanged. A pre-read inventory of SQLite WAL/SHM sidecars was not captured, so their origin or prior state cannot be established; SQLite may have created or touched coordination sidecars while opening the database read-only. Neither sidecar was deleted or cleaned up."
+    }
+  },
+  "persistedConfiguration": {
+    "configurationRows": 1,
+    "recordUsed": "First row by id, matching the configuration repository's ORDER BY id ASC LIMIT 1 behavior.",
+    "secretsOrPersonalIdentifiersIncluded": false,
+    "actual": {
+      "tefEnabled": true,
+      "provider": "destaxa",
+      "environment": "homologacao",
+      "timeoutSeconds": 60,
+      "attempts": 1,
+      "integration": "dll",
+      "sdkPathConfigured": false,
+      "exePathConfigured": false,
+      "legacyIpTefConfigured": false,
+      "legacyPortaTef": null,
+      "pinpad": {
+        "enabled": true,
+        "code": "GERTEC_PPC930",
+        "manufacturer": "Gertec",
+        "model": "PPC930",
+        "connectionType": "usb",
+        "configuredComPort": "COM4",
+        "active": true
+      },
+      "legacyHttpServerFields": {
+        "recordPresent": false,
+        "urlPresent": false,
+        "ipPresent": false,
+        "portPresent": false,
+        "clientIdPresent": false,
+        "credentialsPresent": false
+      },
+      "legacyConfigurationKeyCount": 0
+    },
+    "expectedForControlledCrt": {
+      "tefEnabled": true,
+      "provider": "destaxa",
+      "environment": "homologacao",
+      "amountBRL": 1.0,
+      "attempts": 1,
+      "integration": "dll",
+      "pinpadEnabled": true,
+      "pinpadModel": "GERTEC_PPC930",
+      "comPort": "must match current Windows enumeration"
+    },
+    "comparison": {
+      "persistedFieldsMatch": true,
+      "configuredComPort": "COM4",
+      "currentWindowsComPortEnumerationChecked": false,
+      "note": "The database audit confirms the saved port only. It does not prove that COM4 is currently enumerated by Windows or that physical PinPad communication works."
+    }
+  },
+  "financialState": {
+    "transactionCountsByStatus": {},
+    "transactionRowsTotal": 0,
+    "pendingTransactions": 0,
+    "authorizationsInProgress": {
+      "pendingTransactionRows": 0,
+      "activePersistedTefLocks": 0,
+      "installedCdsProcessRunningDuringAudit": false,
+      "inMemoryState": "Not applicable to the stopped CDS process; this database-only audit does not establish state in any unrelated process."
+    },
+    "lateResults": {
+      "lateResultLogCount": 0,
+      "transactionsAwaitingReconciliation": 0,
+      "lateResultTransactionsAlreadyReconciled": 0
+    },
+    "securityLocks": {
+      "persistedLockRows": 0,
+      "activeLocks": 0,
+      "expiredLocks": 0
+    },
+    "fraudAlertCountsByRisk": {},
+    "historicalErrorRecords": {
+      "errorStatusCount": 0,
+      "deletedOrModified": false,
+      "note": "No TEF transaction rows were present; no historical errors were deleted or modified."
+    }
+  },
+  "findings": [
+    {
+      "id": "physical_com_port_not_verified",
+      "severity": "follow_up",
+      "detail": "COM4 is persisted for the PPC930, but current Windows enumeration and hardware communication were not checked in this database-only sprint."
+    },
+    {
+      "id": "sqlite_sidecar_baseline_unavailable",
+      "severity": "informational",
+      "detail": "The main database file remained byte-for-byte unchanged. WAL/SHM sidecar state was not recorded before opening, so no conclusion is made about whether the observed sidecars pre-existed."
+    }
+  ],
+  "safety": {
+    "mainDatabaseFileOrConfigurationChanged": false,
+    "sidecarMutationByAudit": "Unknown; no pre-read inventory was taken, and no sidecar was intentionally changed or removed.",
+    "migrationRun": false,
+    "tefDiagnosticRun": false,
+    "destaxaClientInitialized": false,
+    "financialNativeCalls": {
+      "iniciaTransacaoDestaxa": false,
+      "continuaTransacaoDestaxa": false,
+      "finalizaTransacaoDestaxa": false
+    },
+    "crtOrPixExecuted": false,
+    "financialGateEnabledOrChanged": false,
+    "historicalErrorsDeleted": false
+  },
+  "filesModifiedThisStep": [
+    "docs/build/tef-destaxa-07i-configuracao-readonly-report.json"
+  ],
+  "verdict": {
+    "READY_FOR_07J_PRECHECK": true,
+    "BLOCKED_WITH_FINDINGS": false,
+    "realPaymentAuthorized": false,
+    "nextChecks": [
+      "Verify COM4 against current Windows hardware enumeration and physical PinPad detection.",
+      "Perform the 07J real-installation precheck without financial operations."
+    ]
+  }
+}

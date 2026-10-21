@@ -108,6 +108,11 @@ function montarDiagnosticoPinpad(config, statusConfig, sdk, provedor, middleware
       : sdkDetector.detectarGertecPPC930({ portaConfigurada });
   }
 
+  const comparacaoPorta = tefConfigService.compararPortaPinpad(
+    portaConfigurada,
+    deteccaoFisica?.porta || null
+  );
+
   const hardware = deteccaoFisica
     ? {
       detectado: Boolean(deteccaoFisica.detectado),
@@ -121,8 +126,10 @@ function montarDiagnosticoPinpad(config, statusConfig, sdk, provedor, middleware
       driverStatus: deteccaoFisica.driverStatus || deteccaoFisica.statuses?.driver || 'nao_confirmado',
       usbStatus: deteccaoFisica.usbStatus || deteccaoFisica.statuses?.usb || 'nao_confirmado',
       dispositivo: deteccaoFisica.dispositivo || null,
+      // Enumeração Windows ≠ PinPad operacional para TEF.
+      operacionalConfirmado: false,
       mensagem: deteccaoFisica.detectado
-        ? `PinPad detectado — ${deteccaoFisica.porta || portaConfigurada || 'porta desconhecida'}`
+        ? `Hardware enumerado — ${deteccaoFisica.porta || portaConfigurada || 'porta desconhecida'} (operacionalidade TEF depende do middleware/adapter)`
         : 'PinPad não detectado no Windows'
     }
     : null;
@@ -140,6 +147,8 @@ function montarDiagnosticoPinpad(config, statusConfig, sdk, provedor, middleware
     interfaceEsperada: meta?.interfaceEsperada || null,
     descricaoConexao: meta?.descricaoConexao || null,
     portaCom: portaConfigurada,
+    portaComparacao: comparacaoPorta,
+    portaMudou: comparacaoPorta.mudou === true,
     middleware: middlewareNome,
     status: resolverStatusPinpad(
       provedor,
@@ -237,6 +246,114 @@ function montarEstadoPreparacaoDestaxa({
   };
 }
 
+function montarEstadosIntegracao({
+  adapter,
+  erroAdapter,
+  adapterDiag,
+  adapterTeste,
+  sdk,
+  pinpad,
+  config
+} = {}) {
+  const diagnostico = adapterDiag?.detalhes || {};
+  const teste = adapterTeste?.detalhes || {};
+  const diagnosticoTemEstadoClient = typeof diagnostico.clientInitialized === 'boolean'
+    || typeof diagnostico.estado === 'string';
+  const clientInitialized = typeof diagnostico.clientInitialized === 'boolean'
+    ? diagnostico.clientInitialized
+    : diagnostico.estado === ESTADOS.CLIENT_INITIALIZED;
+  const clientResultCode = diagnostico.clientResultCode || diagnostico.codigoDestaxa || null;
+  const testeTemEstadoClient = typeof teste.clientInitialized === 'boolean'
+    || typeof teste.estado === 'string';
+  const testeClientInitialized = typeof teste.clientInitialized === 'boolean'
+    ? teste.clientInitialized
+    : teste.estado === ESTADOS.CLIENT_INITIALIZED;
+  const testeClientCode = teste.clientResultCode || teste.codigoDestaxa || null;
+  const clientSnapshotConsistent = diagnosticoTemEstadoClient
+    && testeTemEstadoClient
+    && clientInitialized === testeClientInitialized
+    && (!clientResultCode || !testeClientCode || clientResultCode === testeClientCode);
+  const pinpadDetectado = pinpad?.hardware?.detectado === true;
+  const portaConfigurada = String(config?.portaCom || '').trim().toUpperCase();
+  const portaDetectada = String(pinpad?.hardware?.porta || '').trim().toUpperCase();
+  const portaConsistente = pinpad?.codigo === 'GERTEC_PPC930'
+    ? Boolean(portaConfigurada && portaDetectada && portaConfigurada === portaDetectada)
+    : null;
+
+  return {
+    adapter: {
+      instantiated: Boolean(adapter),
+      diagnosisSucceeded: adapterDiag?.sucesso === true,
+      mode: adapter?.modo || null,
+      error: erroAdapter || null
+    },
+    dll: {
+      loaded: diagnostico.dllLoaded === true,
+      exportsValidated: diagnostico.exportsValid === true
+    },
+    client: {
+      initialized: clientInitialized,
+      code: clientResultCode,
+      snapshotsConsistent: clientSnapshotConsistent
+    },
+    vspague: {
+      detected: sdk?.vspague?.detectado === true,
+      running: sdk?.vspague?.executando === true,
+      responding: sdk?.vspague?.responding ?? null
+    },
+    pinpad: {
+      ppc930Enumerated: pinpadDetectado,
+      configuredPort: portaConfigurada || null,
+      detectedPort: portaDetectada || null,
+      comConsistent: portaConsistente
+    },
+    transactionCommunication: {
+      validated: false,
+      state: 'not_tested',
+      explanation: 'Diagnóstico não executa transação financeira; comunicação transacional permanece não validada.'
+    },
+    authorization: {
+      available: false,
+      financialGateEnabled: String(process.env.DESTAXA_REAL_TRANSACTION_ENABLED || '').trim() === '1',
+      explanation: 'Disponibilidade para autorizar não é comprovada sem o fluxo transacional; este diagnóstico não autoriza pagamentos.'
+    }
+  };
+}
+
+function resolverValidacaoMiddleware(provedor, sdk = {}) {
+  const provider = String(provedor || '').trim().toLowerCase();
+  if (provider === 'sitef') {
+    return {
+      aplicavel: true,
+      valida: sdk.sitef?.configuracaoValida === true,
+      fonte: 'sdk.sitef.configuracaoValida',
+      explicacao: 'Validação do arquivo INI CliSiTef.'
+    };
+  }
+  if (provider === 'paygo') {
+    return {
+      aplicavel: true,
+      valida: sdk.paygo?.configuracaoValida === true,
+      fonte: 'sdk.paygo.configuracaoValida',
+      explicacao: 'Validação do arquivo INI PayGo.'
+    };
+  }
+  if (provider === 'destaxa') {
+    return {
+      aplicavel: false,
+      valida: null,
+      fonte: null,
+      explicacao: 'Não aplicável à Destaxa: sdk.configuracaoValida agrega somente as validações INI de SiTef e PayGo.'
+    };
+  }
+  return {
+    aplicavel: false,
+    valida: null,
+    fonte: null,
+    explicacao: 'Validação de middleware INI não aplicável a este provedor.'
+  };
+}
+
 async function executarDiagnosticoCompleto() {
   let config = {};
   let statusConfig = null;
@@ -268,8 +385,8 @@ async function executarDiagnosticoCompleto() {
   try {
     if (statusConfig?.configurado !== false) {
       adapter = await obterAdapter();
-      adapterDiag = await adapter.diagnosticar();
       adapterTeste = await adapter.testarConexao();
+      adapterDiag = await adapter.diagnosticar();
     }
   } catch (error) {
     erroAdapter = error.message;
@@ -299,13 +416,9 @@ async function executarDiagnosticoCompleto() {
     (provedor === 'destaxa' && middlewareDestaxa?.dllEncontrada)
   );
 
-  const adapterCarregado = Boolean(adapter) && !erroAdapter;
+  const adapterCarregado = Boolean(adapter);
+  const validacaoMiddlewareProvedor = resolverValidacaoMiddleware(provedor, sdk);
   const configuracaoValida = configVal.valida;
-  const comunicacaoRealDisponivel = (
-    modoAdapterFinal === 'real' &&
-    middlewareInstalado &&
-    !['stone', 'cielo', 'rede', 'getnet'].includes(provedor)
-  );
 
   const pinpadDiagnostico = montarDiagnosticoPinpad(
     config,
@@ -315,6 +428,16 @@ async function executarDiagnosticoCompleto() {
     middlewareInstalado,
     modoAdapterFinal
   );
+  const estadosIntegracao = montarEstadosIntegracao({
+    adapter,
+    erroAdapter,
+    adapterDiag,
+    adapterTeste,
+    sdk,
+    pinpad: pinpadDiagnostico,
+    config
+  });
+  const comunicacaoRealDisponivel = estadosIntegracao.transactionCommunication.validated;
 
   const preparacaoDestaxa = provedor === 'destaxa'
     ? montarEstadoPreparacaoDestaxa({
@@ -349,7 +472,12 @@ async function executarDiagnosticoCompleto() {
     sdkEncontrado,
     dllEncontrada,
     configuracaoValida,
-    comunicacaoRealDisponivel
+    comunicacaoRealDisponivel,
+    clientInicializado: estadosIntegracao.client.initialized,
+    vspagueExecutando: estadosIntegracao.vspague.running,
+    ppc930Enumerado: estadosIntegracao.pinpad.ppc930Enumerated,
+    portaComConsistente: estadosIntegracao.pinpad.comConsistent,
+    disponibilidadeAutorizacao: estadosIntegracao.authorization.available
   };
 
   const itens = [
@@ -361,7 +489,7 @@ async function executarDiagnosticoCompleto() {
     {
       chave: 'adapter_carregado',
       ok: adapterCarregado,
-      detalhe: erroAdapter || adapter?.nome || 'não carregado'
+      detalhe: adapter?.nome || erroAdapter || 'não instanciado'
     },
     {
       chave: 'modo_adapter',
@@ -397,13 +525,57 @@ async function executarDiagnosticoCompleto() {
       chave: 'comunicacao_real_disponivel',
       ok: comunicacaoRealDisponivel,
       detalhe: comunicacaoRealDisponivel
-        ? 'Middleware real disponível'
-        : 'Comunicação real indisponível (simulação ou middleware ausente)'
+        ? 'Comunicação transacional validada'
+        : estadosIntegracao.transactionCommunication.explanation
+    },
+    {
+      chave: 'client_destaxa_inicializado',
+      ok: estadosIntegracao.client.initialized,
+      detalhe: {
+        codigo: estadosIntegracao.client.code,
+        snapshotsConsistent: estadosIntegracao.client.snapshotsConsistent
+      }
+    },
+    {
+      chave: 'client_destaxa_snapshots_consistentes',
+      ok: provedor !== 'destaxa' || estadosIntegracao.client.snapshotsConsistent,
+      detalhe: provedor === 'destaxa'
+        ? estadosIntegracao.client.snapshotsConsistent
+          ? 'Snapshots de teste e diagnóstico coerentes.'
+          : 'Snapshots de Client divergentes ou ausentes.'
+        : 'Não aplicável a este provedor.'
+    },
+    {
+      chave: 'vspague_detectado',
+      ok: estadosIntegracao.vspague.detected && estadosIntegracao.vspague.running,
+      detalhe: estadosIntegracao.vspague
+    },
+    {
+      chave: 'pinpad_windows_enumerado',
+      ok: estadosIntegracao.pinpad.ppc930Enumerated,
+      detalhe: estadosIntegracao.pinpad
+    },
+    {
+      chave: 'porta_com_consistente',
+      ok: estadosIntegracao.pinpad.comConsistent === true,
+      detalhe: estadosIntegracao.pinpad
+    },
+    {
+      chave: 'autorizacao_disponivel',
+      ok: estadosIntegracao.authorization.available,
+      detalhe: estadosIntegracao.authorization.explanation
     },
     {
       chave: 'ini_configuracao',
-      ok: sdk.configuracaoValida || !['sitef', 'paygo'].includes(provedor) || modoAdapterFinal === 'simulacao',
-      detalhe: middlewareSitef?.ini?.caminho || middlewarePaygo?.ini?.caminho || 'sem INI'
+      ok: !validacaoMiddlewareProvedor.aplicavel || validacaoMiddlewareProvedor.valida,
+      detalhe: {
+        ...validacaoMiddlewareProvedor,
+        caminho: provedor === 'sitef'
+          ? middlewareSitef?.ini?.caminho || null
+          : provedor === 'paygo'
+            ? middlewarePaygo?.ini?.caminho || null
+            : null
+      }
     },
     {
       chave: 'pinpad_configurado',
@@ -452,8 +624,8 @@ async function executarDiagnosticoCompleto() {
     },
     {
       chave: 'adapter_operacional',
-      ok: adapterCarregado,
-      detalhe: erroAdapter || adapter?.nome || 'não carregado'
+      ok: estadosIntegracao.transactionCommunication.validated,
+      detalhe: erroAdapter || estadosIntegracao.transactionCommunication.explanation
     }
   ];
 
@@ -473,12 +645,16 @@ async function executarDiagnosticoCompleto() {
       ...conceitos
     },
     conceitos,
+    estadosIntegracao,
     pinpad: pinpadDiagnostico,
     preparacaoDestaxa,
     pinpadAbstracao: pinpadInstancia
       ? await pinpadInstancia.obterInformacoes().catch(() => null)
       : null,
-    middleware: sdk,
+    middleware: {
+      ...sdk,
+      configuracaoValidaProvedor: validacaoMiddlewareProvedor
+    },
     configuracao: config,
     statusConfiguracao: statusConfig,
     adapter: {
@@ -511,5 +687,7 @@ module.exports = {
   validarConfiguracao,
   montarDiagnosticoPinpad,
   montarEstadoPreparacaoDestaxa,
+  montarEstadosIntegracao,
+  resolverValidacaoMiddleware,
   resolverStatusPinpad
 };

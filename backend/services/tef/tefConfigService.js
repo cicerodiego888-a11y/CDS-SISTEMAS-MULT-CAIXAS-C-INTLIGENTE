@@ -1,9 +1,14 @@
 const repository = require('../../repositories/tefConfigRepository');
 const pinpadCatalog = require('./pinpads/pinpadCatalog');
 
+/**
+ * Defaults apenas para instalação nova / GET sem linha persistida.
+ * Nunca devem sobrescrever configuração já salva.
+ * TEF começa desabilitado e sem provedor inventado (não fixar Rede/Destaxa).
+ */
 const DEFAULTS_CONFIG = Object.freeze({
-  tefHabilitado: 'true',
-  tefProvedor: 'rede',
+  tefHabilitado: 'false',
+  tefProvedor: '',
   tefAmbiente: 'simulacao',
   tefTimeout: 60,
   tefTentativas: 3,
@@ -12,6 +17,15 @@ const DEFAULTS_CONFIG = Object.freeze({
   exePath: '',
   ipTef: '',
   portaTef: ''
+});
+
+/** Escopo efetivo do CDS: uma configuração TEF por instalação (arquivo de banco). */
+const ESCOPO_CONFIGURACAO_TEF = Object.freeze({
+  nivel: 'instalacao',
+  descricao: 'Singleton em tef_configuracao (ORDER BY id ASC LIMIT 1) no banco da instalação.',
+  empresa: 'empresa_codigo é string do middleware, não FK multiempresa CDS',
+  caixa: 'caixa_codigo/pdv_codigo/terminal_codigo são strings do provedor, não isolamento por caixa',
+  terminalFisico: 'porta_com em tef_pinpads — conexão do PinPad desta instalação'
 });
 
 const CONFIG_PREPARACAO_DESTAXA = Object.freeze({
@@ -148,53 +162,104 @@ function resolverModoAdapter(ambiente) {
   return 'simulacao';
 }
 
-function mapearPayloadEntrada(payload = {}, existente = null) {
-  const opsExistentes = existente?.operacoes || null;
+function textoOuExistente(payload, chave, legado) {
+  if (campoDefinido(payload, chave)) {
+    return normalizarTexto(payload[chave]) || null;
+  }
+  return legado != null && legado !== '' ? String(legado) : null;
+}
 
-  const confirmacaoManual = campoDefinido(payload, 'confirmacaoManual')
-    ? normalizarBoolean(payload.confirmacaoManual)
-    : repository.intToBool(opsExistentes?.confirmacao_manual);
+function numeroOuExistente(payload, chave, legado) {
+  if (campoDefinido(payload, chave)) {
+    return normalizarNumero(payload[chave]);
+  }
+  if (legado === '' || legado === null || legado === undefined) {
+    return null;
+  }
+  const numero = Number(legado);
+  return Number.isFinite(numero) ? numero : null;
+}
+
+function boolOuExistente(payload, chave, legado) {
+  if (campoDefinido(payload, chave)) {
+    return normalizarBoolean(payload[chave]);
+  }
+  return repository.intToBool(legado);
+}
+
+function mapearPayloadEntrada(payload = {}, existente = null) {
+  const p = existente?.principal || null;
+  const s = existente?.servidor || null;
+  const opsExistentes = existente?.operacoes || null;
+  const pinExistente = existente?.pinpad || null;
+
+  const pinpadPayload = campoDefinido(payload, 'pinpadHabilitado')
+    || campoDefinido(payload, 'pinpadModelo')
+    || campoDefinido(payload, 'pinpadCodigo')
+    || campoDefinido(payload, 'portaCom')
+    || campoDefinido(payload, 'tipoConexao')
+    || campoDefinido(payload, 'fabricante')
+    || campoDefinido(payload, 'modelo')
+    || campoDefinido(payload, 'pinpadIp')
+    || campoDefinido(payload, 'pinpadPorta')
+    || campoDefinido(payload, 'serial')
+    ? resolverPinpadPayload(payload)
+    : {
+      habilitado: repository.intToBool(pinExistente?.habilitado),
+      codigo: pinExistente?.codigo || null,
+      nome: pinExistente?.nome || null,
+      fabricante: pinExistente?.fabricante || null,
+      modelo: pinExistente?.modelo || null,
+      tipo_conexao: pinExistente?.tipo_conexao || null,
+      porta_com: pinExistente?.porta_com || null,
+      ip: pinExistente?.ip || null,
+      porta: pinExistente?.porta ?? null,
+      serial: pinExistente?.serial || null,
+      ativo: pinExistente?.ativo != null ? pinExistente.ativo : 1
+    };
 
   return {
     principal: {
-      habilitado: normalizarBoolean(payload.tefHabilitado),
-      provedor: normalizarTexto(payload.tefProvedor) || null,
-      ambiente: resolverAmbiente(payload.tefAmbiente),
-      timeout: normalizarNumero(payload.tefTimeout),
-      tentativas: normalizarNumero(payload.tefTentativas),
-      empresa_codigo: normalizarTexto(payload.empresaCodigo) || null,
-      loja_codigo: normalizarTexto(payload.lojaCodigo) || null,
-      pdv_codigo: normalizarTexto(payload.pdvCodigo) || null,
-      terminal_codigo: normalizarTexto(payload.terminalCodigo) || null,
-      caixa_codigo: normalizarTexto(payload.caixaCodigo) || null,
-      tipo_integracao: normalizarTexto(payload.tipoIntegracao) || null,
-      sdk_path: normalizarTexto(payload.sdkPath) || null,
-      exe_path: normalizarTexto(payload.exePath) || null,
-      ip_tef: normalizarTexto(payload.ipTef) || null,
-      porta_tef: normalizarNumero(payload.portaTef)
+      habilitado: boolOuExistente(payload, 'tefHabilitado', p?.habilitado),
+      provedor: textoOuExistente(payload, 'tefProvedor', p?.provedor),
+      ambiente: campoDefinido(payload, 'tefAmbiente')
+        ? resolverAmbiente(payload.tefAmbiente)
+        : resolverAmbiente(p?.ambiente),
+      timeout: numeroOuExistente(payload, 'tefTimeout', p?.timeout),
+      tentativas: numeroOuExistente(payload, 'tefTentativas', p?.tentativas),
+      empresa_codigo: textoOuExistente(payload, 'empresaCodigo', p?.empresa_codigo),
+      loja_codigo: textoOuExistente(payload, 'lojaCodigo', p?.loja_codigo),
+      pdv_codigo: textoOuExistente(payload, 'pdvCodigo', p?.pdv_codigo),
+      terminal_codigo: textoOuExistente(payload, 'terminalCodigo', p?.terminal_codigo),
+      caixa_codigo: textoOuExistente(payload, 'caixaCodigo', p?.caixa_codigo),
+      tipo_integracao: textoOuExistente(payload, 'tipoIntegracao', p?.tipo_integracao),
+      sdk_path: textoOuExistente(payload, 'sdkPath', p?.sdk_path),
+      exe_path: textoOuExistente(payload, 'exePath', p?.exe_path),
+      ip_tef: textoOuExistente(payload, 'ipTef', p?.ip_tef),
+      porta_tef: numeroOuExistente(payload, 'portaTef', p?.porta_tef)
     },
     servidor: {
-      base_url: normalizarTexto(payload.baseUrl) || null,
-      ip: normalizarTexto(payload.ipServidor) || null,
-      porta: normalizarNumero(payload.portaServidor),
-      client_id: normalizarTexto(payload.clientId) || null,
-      client_secret: normalizarTexto(payload.clientSecret) || null,
-      access_token: normalizarTexto(payload.accessToken) || null,
-      refresh_token: normalizarTexto(payload.refreshToken) || null,
-      chave_comunicacao: normalizarTexto(payload.chaveComunicacao) || null,
-      operador: normalizarTexto(payload.operador) || null
+      base_url: textoOuExistente(payload, 'baseUrl', s?.base_url),
+      ip: textoOuExistente(payload, 'ipServidor', s?.ip),
+      porta: numeroOuExistente(payload, 'portaServidor', s?.porta),
+      client_id: textoOuExistente(payload, 'clientId', s?.client_id),
+      client_secret: textoOuExistente(payload, 'clientSecret', s?.client_secret),
+      access_token: textoOuExistente(payload, 'accessToken', s?.access_token),
+      refresh_token: textoOuExistente(payload, 'refreshToken', s?.refresh_token),
+      chave_comunicacao: textoOuExistente(payload, 'chaveComunicacao', s?.chave_comunicacao),
+      operador: textoOuExistente(payload, 'operador', s?.operador)
     },
-    pinpad: resolverPinpadPayload(payload),
+    pinpad: pinpadPayload,
     operacoes: {
-      debito: normalizarBoolean(payload.debito),
-      credito_avista: normalizarBoolean(payload.creditoAvista),
-      credito_parcelado: normalizarBoolean(payload.creditoParcelado),
-      voucher: normalizarBoolean(payload.voucher),
-      pix: normalizarBoolean(payload.pix),
-      cancelamento: normalizarBoolean(payload.cancelamento),
-      reimpressao: normalizarBoolean(payload.reimpressao),
-      pre_autorizacao: normalizarBoolean(payload.preAutorizacao),
-      confirmacao_manual: confirmacaoManual
+      debito: boolOuExistente(payload, 'debito', opsExistentes?.debito),
+      credito_avista: boolOuExistente(payload, 'creditoAvista', opsExistentes?.credito_avista),
+      credito_parcelado: boolOuExistente(payload, 'creditoParcelado', opsExistentes?.credito_parcelado),
+      voucher: boolOuExistente(payload, 'voucher', opsExistentes?.voucher),
+      pix: boolOuExistente(payload, 'pix', opsExistentes?.pix),
+      cancelamento: boolOuExistente(payload, 'cancelamento', opsExistentes?.cancelamento),
+      reimpressao: boolOuExistente(payload, 'reimpressao', opsExistentes?.reimpressao),
+      pre_autorizacao: boolOuExistente(payload, 'preAutorizacao', opsExistentes?.pre_autorizacao),
+      confirmacao_manual: boolOuExistente(payload, 'confirmacaoManual', opsExistentes?.confirmacao_manual)
     }
   };
 }
@@ -479,6 +544,55 @@ function validarServidorConfigurado(servidor) {
   );
 }
 
+function resolverEstadoServidorMonitor(provedor, ambiente, servidor) {
+  const provider = String(provedor || '').trim().toLowerCase();
+  const env = String(ambiente || 'simulacao').trim().toLowerCase();
+  const configurado = validarServidorConfigurado(servidor);
+  const detalhes = {
+    configurado,
+    conectado: null,
+    baseUrl: servidor?.base_url || '',
+    ip: servidor?.ip || '',
+    porta: servidor?.porta ?? null
+  };
+
+  if (provider === 'destaxa') {
+    return {
+      ...detalhes,
+      aplicavel: false,
+      estado: 'nao_aplicavel',
+      mensagem: 'Não aplicável: Destaxa usa DLL/Client Destaxa; processo V$Pague detectado não comprova conexão transacional.'
+    };
+  }
+
+  if (env === 'simulacao') {
+    return {
+      ...detalhes,
+      aplicavel: false,
+      estado: 'opcional_simulacao',
+      mensagem: 'Servidor HTTP legado opcional em simulação.'
+    };
+  }
+
+  if (['sitef', 'paygo'].includes(provider)) {
+    return {
+      ...detalhes,
+      aplicavel: false,
+      estado: 'nao_aplicavel',
+      mensagem: `Não aplicável: ${provider === 'sitef' ? 'SiTef' : 'PayGo'} é validado pelo seu SDK; servidor HTTP legado não comprova conexão.`
+    };
+  }
+
+  return {
+    ...detalhes,
+    aplicavel: true,
+    estado: configurado ? 'configurado_nao_testado' : 'nao_configurado',
+    mensagem: configurado
+      ? 'Parâmetros HTTP configurados; conexão não testada.'
+      : 'Servidor HTTP não configurado.'
+  };
+}
+
 function validarPinpadConfigurado(pinpad) {
   if (!repository.intToBool(pinpad?.habilitado)) {
     return false;
@@ -521,16 +635,15 @@ function validarConfiguracao(config = {}, opcoes = {}) {
     pendencias.push('Ambiente simulacao não permite adapter real');
   }
 
-  // Destaxa 1.83: estabelecimento, loja e terminal são opcionais no iniciaClient.
-  if (provedor !== 'destaxa') {
+  // Validações por contrato do provedor — não aplicar Rede/SiTef/PayGo à Destaxa.
+  const exigeCodigosEstabelecimento = ['sitef', 'paygo', 'rede', 'stone', 'cielo', 'getnet'].includes(provedor);
+  if (exigeCodigosEstabelecimento) {
     if (!normalizarTexto(config.empresaCodigo).trim()) {
       pendencias.push('Código da empresa não configurado');
     }
-
     if (!normalizarTexto(config.lojaCodigo).trim()) {
       pendencias.push('Código da loja não configurado');
     }
-
     if (!normalizarTexto(config.terminalCodigo).trim()) {
       pendencias.push('Código do terminal não configurado');
     }
@@ -545,7 +658,7 @@ function validarConfiguracao(config = {}, opcoes = {}) {
       pendencias.push('Modelo do PinPad não configurado');
     }
 
-    if (tipoConexao === 'serial' || config.portaCom) {
+    if (tipoConexao === 'serial' || tipoConexao === 'usb' || config.portaCom) {
       if (!normalizarTexto(config.portaCom).trim()) {
         pendencias.push('Porta COM do PinPad não configurada');
       }
@@ -562,6 +675,7 @@ function validarConfiguracao(config = {}, opcoes = {}) {
   }
 
   // Modo simulação: não exige SDK/DLL/credenciais reais
+  // Destaxa real: DLL/V$Pague — não exige servidor HTTP legado nem SDK path SiTef.
   if (modoAdapter !== 'simulacao' && ambiente !== 'simulacao') {
     if (['sitef', 'paygo'].includes(provedor)) {
       if (!normalizarTexto(config.sdkPath).trim() && !normalizarTexto(config.exePath).trim()) {
@@ -645,6 +759,7 @@ async function obterStatus() {
   const pinpadConfigurado = validarPinpadConfigurado(pinpad);
   const ambiente = principal.ambiente || '';
   const modoAdapter = resolverModoAdapter(ambiente);
+  const estadoServidor = resolverEstadoServidorMonitor(principal.provedor, ambiente, servidor);
 
   return {
     configurado: true,
@@ -652,13 +767,7 @@ async function obterStatus() {
     provedor: principal.provedor || '',
     ambiente,
     modoAdapter,
-    servidor: {
-      configurado: servidorConfigurado,
-      conectado: false,
-      baseUrl: servidor?.base_url || '',
-      ip: servidor?.ip || '',
-      porta: servidor?.porta ?? null
-    },
+    servidor: estadoServidor,
     pinpad: {
       habilitado: repository.intToBool(pinpad?.habilitado),
       configurado: pinpadConfigurado,
@@ -715,13 +824,21 @@ async function testarConexao() {
   }
 
   const servidorConfigurado = validarServidorConfigurado(servidor);
-  if (modoAdapter === 'simulacao') {
+  const provedor = String(principal.provedor || '').toLowerCase();
+  const servidorOpcional = modoAdapter === 'simulacao' || ['destaxa', 'sitef', 'paygo'].includes(provedor);
+  if (servidorOpcional) {
     testes.push({
       tipo: 'servidor',
       sucesso: true,
-      mensagem: servidorConfigurado
-        ? 'Parâmetros de servidor encontrados (opcionais em simulação).'
-        : 'Servidor não configurado — OK em modo simulação.'
+      mensagem: provedor === 'destaxa'
+        ? (servidorConfigurado
+          ? 'Parâmetros de servidor presentes (opcionais na Destaxa — integração via DLL/V$Pague).'
+          : 'Servidor HTTP não exigido para Destaxa (DLL/V$Pague).')
+        : ['sitef', 'paygo'].includes(provedor)
+          ? `Servidor HTTP legado não exigido para ${provedor === 'sitef' ? 'SiTef' : 'PayGo'} (validação via SDK).`
+        : (servidorConfigurado
+          ? 'Parâmetros de servidor encontrados (opcionais em simulação).'
+          : 'Servidor não configurado — OK em modo simulação.')
     });
   } else {
     testes.push({
@@ -781,11 +898,89 @@ async function testarConexao() {
     modoAdapter,
     provedor: principal.provedor || '',
     servidor: {
+      ...resolverEstadoServidorMonitor(provedor, ambiente, servidor),
       baseUrl: servidor?.base_url || '',
       ip: servidor?.ip || '',
       porta: servidor?.porta ?? null
     },
     testes
+  };
+}
+
+function normalizarPortaCom(porta) {
+  const texto = String(porta || '').trim().toUpperCase();
+  if (!texto) return '';
+  const match = texto.match(/COM\s*(\d+)/i);
+  return match ? `COM${match[1]}` : texto.replace(/\s+/g, '');
+}
+
+/**
+ * Compara porta COM persistida com a detectada no Windows.
+ * Não presume COM3/COM4; não afirma PinPad operacional só por enumeração.
+ */
+function compararPortaPinpad(portaConfigurada, portaDetectada) {
+  const salva = normalizarPortaCom(portaConfigurada);
+  const detectada = normalizarPortaCom(portaDetectada);
+  if (!salva && !detectada) {
+    return {
+      salva: '',
+      detectada: '',
+      coincidem: true,
+      mudou: false,
+      status: 'sem_porta'
+    };
+  }
+  if (!salva) {
+    return {
+      salva: '',
+      detectada,
+      coincidem: false,
+      mudou: Boolean(detectada),
+      status: 'somente_detectada'
+    };
+  }
+  if (!detectada) {
+    return {
+      salva,
+      detectada: '',
+      coincidem: false,
+      mudou: false,
+      status: 'somente_configurada'
+    };
+  }
+  const coincidem = salva === detectada;
+  return {
+    salva,
+    detectada,
+    coincidem,
+    mudou: !coincidem,
+    status: coincidem ? 'coincidem' : 'divergente'
+  };
+}
+
+function configParaRegistroAdapter(config = {}) {
+  return {
+    id: config.id || null,
+    habilitado: normalizarBoolean(config.tefHabilitado) ? 1 : 0,
+    provedor: config.tefProvedor || null,
+    ambiente: config.tefAmbiente || null,
+    timeout: config.tefTimeout ?? null,
+    tentativas: config.tefTentativas ?? null,
+    empresa_codigo: config.empresaCodigo || null,
+    loja_codigo: config.lojaCodigo || null,
+    pdv_codigo: config.pdvCodigo || null,
+    terminal_codigo: config.terminalCodigo || null,
+    caixa_codigo: config.caixaCodigo || null,
+    tipo_integracao: config.tipoIntegracao || null,
+    sdk_path: config.sdkPath || null,
+    exe_path: config.exePath || null,
+    ip_tef: config.ipTef || null,
+    porta_tef: config.portaTef ?? null,
+    pinpadHabilitado: config.pinpadHabilitado,
+    pinpadModelo: config.pinpadModelo,
+    pinpadCodigo: config.pinpadCodigo,
+    portaCom: config.portaCom,
+    tipoConexao: config.tipoConexao
   };
 }
 
@@ -808,6 +1003,11 @@ module.exports = {
   getPinPadConfig,
   getServerConfig,
   resolverModoAdapter,
+  resolverEstadoServidorMonitor,
+  normalizarPortaCom,
+  compararPortaPinpad,
+  configParaRegistroAdapter,
+  ESCOPO_CONFIGURACAO_TEF,
   DEFAULTS_CONFIG,
   CONFIG_PREPARACAO_DESTAXA,
   criarConfiguracaoPreparacaoDestaxa

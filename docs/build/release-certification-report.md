@@ -3,20 +3,20 @@
 ## Ambiente
 
 - Versão: 1.0.3
-- Commit: 6271dca
-- Build: 2026-10-19T12:19:05.699Z
-- Hash app.asar: `d9c3e464d20772f4a6fa495a898c7165120fcdc3471b0590fd0c598e65013d82`
+- Commit: cc32d71
+- Build: 2026-10-19T19:47:15.032Z
+- Hash app.asar: `1477f763b4b4085eed6603889eac81d42a25859358327694322c6e6ab8da934b`
 - Origem: instalador-desatualizado
-- Data: 2026-10-19T12:59:05.431Z
+- Data: 2026-10-20T19:11:07.167Z
 
 ## Resultados
 
 ✔ Inicialização do ERP
-  - DB ok | pacote: instalador-desatualizado | asar: d9c3e464d207…
+  - DB ok | pacote: instalador-desatualizado | asar: 1477f763b4b4…
 ✔ Login
-  - user=rc4320_1792414744639 perfil=SUPER_ADMIN
+  - user=rc4320_1792523466089 perfil=SUPER_ADMIN
 ✔ Cadastro de Produtos
-  - CRUD ok | embalagem CX×12 | codigo=RC4320-1792414741475-P
+  - CRUD ok | embalagem CX×12 | codigo=RC4320-1792523462627-P
 ✔ Compras
   - NF-e …00000064 | status=EM_REVISAO
 ✔ Financeiro
@@ -34,13 +34,13 @@
 ✔ Relatórios
   - compras=0 fin=0 prod=0
 ✔ Performance
-  - 4s | mem 28.8MB | sql=16
+  - 4.5s | mem 28.7MB | sql=16
 
 ## Estatísticas
 
-- Tempo total: 4s
-- Memória máxima: 28.8 MB
-- CPU user: 1844 ms
+- Tempo total: 4.5s
+- Memória máxima: 28.7 MB
+- CPU user: 1703 ms
 - Testes/etapas: 12
 - Exceções: 0
 - Consultas SQL: 16

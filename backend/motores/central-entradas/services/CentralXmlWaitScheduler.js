@@ -185,11 +185,9 @@ const instancia = new CentralXmlWaitScheduler({
   mirx: require('../mirx')
 });
 
-try {
-  require('./CentralSefazOperationalGate').vincularPersistencia(() => {
-    instancia._mirx._persistirEstado().catch(() => {});
-  });
-} catch { /* ignore */ }
+require('./CentralSefazOperationalGate').vincularPersistencia(() => (
+  instancia._mirx._persistirEstado()
+));
 
 module.exports = instancia;
 module.exports.CentralXmlWaitScheduler = CentralXmlWaitScheduler;

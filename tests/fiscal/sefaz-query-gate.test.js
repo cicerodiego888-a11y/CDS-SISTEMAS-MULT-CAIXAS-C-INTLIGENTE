@@ -23,6 +23,7 @@ const {
   SEFAZCircuitBreaker,
   SEFAZQueryQueue
 } = require('../../backend/services/fiscal/sefaz');
+const { SEFAZQueryAudit } = require('../../backend/services/fiscal/sefaz/SEFAZQueryAudit');
 const { _resetSeqForTests } = require('../../backend/services/fiscal/sefaz/SEFAZRequestId');
 
 function criarGate(opts = {}) {
@@ -208,6 +209,43 @@ describe('SEFAZ Query Gate — unitários', () => {
     });
     assert.equal(auth.permitido, false);
     assert.equal(auth.erro, ERROS.ERRO_NSU_REGRESSAO);
+  });
+
+  it('8a. Falhar fechado se o cursor persistido não puder ser consultado', async () => {
+    const gate = criarGate({
+      nsuService: {
+        async buscarPorCnpjAmbiente() {
+          throw new Error('cursor store unavailable');
+        }
+      }
+    });
+    let envioRealizado = false;
+    await assert.rejects(() => gate.request({
+      cnpj: '12345678000199',
+      ambiente: 1,
+      tipo: TIPOS_CONSULTA.DIST_NSU,
+      nsu_solicitado: '000000000000100',
+      execute: async () => {
+        envioRealizado = true;
+        return { success: true, body: '<cStat>138</cStat>' };
+      }
+    }), /cursor store unavailable/);
+    assert.equal(envioRealizado, false);
+  });
+
+  it('8b. Não escreve CNPJ completo no log de auditoria', () => {
+    const logs = [];
+    const audit = new SEFAZQueryAudit({
+      logger: { log: (message) => logs.push(message) }
+    });
+    audit.registrar({
+      request_id: 'SEFAZ-TEST',
+      cnpj: '12345678000199',
+      tipo: TIPOS_CONSULTA.DIST_NSU,
+      status: ESTADOS_SOLICITACAO.BLOCKED
+    });
+    assert.equal(logs.some((message) => message.includes('12345678000199')), false);
+    assert.ok(logs.some((message) => message.includes('***0199')));
   });
 
   it('9. Preservar cursor (NSU igual autorizado)', async () => {

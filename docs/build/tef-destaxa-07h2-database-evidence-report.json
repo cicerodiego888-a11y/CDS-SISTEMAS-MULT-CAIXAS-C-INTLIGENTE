@@ -1,0 +1,136 @@
+{
+  "sprint": "TEF-DESTAXA-07H.2",
+  "status": "DATABASE_PATH_PROVEN",
+  "generatedAt": "2026-10-19T20:11:27.4638453Z",
+  "installation": {
+    "shortcut": {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\CDS ERP.lnk",
+      "target": "C:\\Program Files\\CDS ERP\\CDS ERP.exe",
+      "arguments": "",
+      "workingDirectory": "C:\\Program Files\\CDS ERP",
+      "matchedActiveProcess": true
+    },
+    "originalProcess": {
+      "pid": 10068,
+      "parentProcessId": 25360,
+      "parentName": "explorer.exe",
+      "executablePath": "C:\\Program Files\\CDS ERP\\CDS ERP.exe",
+      "commandLine": "\"C:\\Program Files\\CDS ERP\\CDS ERP.exe\" ",
+      "startedAt": "2026-10-19T16:49:40.4500648-03:00",
+      "shutdown": "Closed gracefully after explicit user confirmation that the CDS was idle."
+    },
+    "product": {
+      "name": "cds-sistemas",
+      "version": "1.0.3",
+      "electronVersion": "22.3.27",
+      "installedAppAsar": "C:\\Program Files\\CDS ERP\\resources\\app.asar",
+      "installedAppAsarSha256BeforeAndAfter": "1477F763B4B4085EED6603889EAC81D42A25859358327694322C6E6AB8DA934B",
+      "installedAsarChanged": false,
+      "shortcutChanged": false
+    }
+  },
+  "databaseResolution": {
+    "sourceEvidence": {
+      "installedElectronCommon": "Sets DB_DIR only when the process has not already inherited a value; default is PROGRAMDATA\\MercantilFiscal\\dados.",
+      "installedBackendDatabase": "Uses DB_DIR when present and joins it with mercadao.db.",
+      "inspectedInstalledArchiveReadOnly": true
+    },
+    "actualOriginalProcessEnvironment": {
+      "readFromProcessEnvironmentBlock": true,
+      "capturedKeysOnly": {
+        "DB_DIR": "C:\\ProgramData\\MercantilFiscal\\dados",
+        "PROGRAMDATA": "C:\\ProgramData"
+      },
+      "effectivePathDerivedFromSourceAndRuntimeEnvironment": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db"
+    },
+    "runtimeEvidence": {
+      "evidenceType": "sqlite_open_callback_success",
+      "evidenceFile": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-effective-database-11260.json",
+      "recordedAt": "2026-10-19T20:10:55.128Z",
+      "processId": 11260,
+      "executablePath": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-tef-07h2-diagnostic-082994cb57fd4a95b8d7d4b6fe2ec050\\output\\win-unpacked\\CDS ERP.exe",
+      "effectiveDatabasePath": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+      "sqliteOpenMode": "OPEN_READONLY",
+      "openCallbackSucceeded": true,
+      "diagnosticProcessExitCode": 0,
+      "pathMatchesOriginalProcessDbDirAndInstalledResolver": true,
+      "rowsRead": 0,
+      "sqlQueriesExecuted": 0
+    },
+    "candidateDatabasesOpenedOrQueried": false
+  },
+  "diagnosticBuild": {
+    "buildType": "Separate unpacked diagnostic package; not installed as an update.",
+    "outputExecutable": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-tef-07h2-diagnostic-082994cb57fd4a95b8d7d4b6fe2ec050\\output\\win-unpacked\\CDS ERP.exe",
+    "executableSha256": "B7B23B0DE317444A78D98C3953A83F4B370C29E6FB74018DADB35199EDED5A83",
+    "appAsarSha256": "A7CD5BFE2A83D61436B86FD708B8D83EF244E516A58A9C84AADF528A1D260959",
+    "entrypoint": "electron-database-diagnostic.js",
+    "optInEnvironmentVariable": "CDS_DATABASE_PATH_DIAGNOSTIC=1",
+    "databaseAccess": "SQLite OPEN_READONLY; no rows, PRAGMAs, migrations, or application startup modules are invoked.",
+    "electronUserData": "Isolated temporary user-data directory.",
+    "packageValidation": "afterPack verified the isolated entrypoint, shared resolver, evidence helper, package main, and read-only flag.",
+    "packageRetention": "The temporary package was removed after the successful run; hashes and output origin are recorded here.",
+    "officialBuildProcedure": {
+      "script": "build/electron/build-erp-oficial.js",
+      "config": "electron-builder-erp.json",
+      "observedBehavior": "Runs certification and E2E stages, writes the integrity manifest, removes dist/erp, then invokes electron-builder.",
+      "used": false,
+      "reason": "Avoided deleting or overwriting existing build output; electron-builder used the official ERP configuration copied to a temporary config with an isolated output directory and diagnostic-only entrypoint."
+    },
+    "installedFilesReplaced": false
+  },
+  "safety": {
+    "clientDatabaseRowsRead": false,
+    "clientDatabaseWrittenByDiagnostic": false,
+    "configurationChanged": false,
+    "tefDiagnosticRun": false,
+    "destaxaClientInitialized": false,
+    "financialNativeCalls": {
+      "iniciaTransacaoDestaxa": false,
+      "continuaTransacaoDestaxa": false,
+      "finalizaTransacaoDestaxa": false
+    },
+    "crtExecuted": false,
+    "pixExecuted": false,
+    "financialGateReadOrChanged": false,
+    "installedApplicationRestarted": false,
+    "installedApplicationRestartReason": "The normal application startup was not relaunched because it may initialize the Destaxa Client, which is outside this step's permitted scope."
+  },
+  "tests": {
+    "command": "node --test tests/tef/tef-destaxa-07h1-identificacao.test.js",
+    "passed": 5,
+    "failed": 0,
+    "coverage": [
+      "Evidence schema and callback fields",
+      "Missing database path rejection",
+      "Existing PID evidence is not overwritten",
+      "Explicit DB_DIR precedence",
+      "Default directory resolution"
+    ],
+    "additionalChecks": [
+      "node --check electron-database-diagnostic.js",
+      "node --check backend/diagnostics/databasePath.js",
+      "node --check backend/diagnostics/effectiveDatabasePath.js",
+      "node --check backend/database.js",
+      "Isolated electron-builder package completed and afterPack validation passed."
+    ]
+  },
+  "filesModifiedThisStep": [
+    "backend/database.js",
+    "backend/diagnostics/databasePath.js",
+    "backend/diagnostics/effectiveDatabasePath.js",
+    "electron-database-diagnostic.js",
+    "tests/tef/tef-destaxa-07h1-identificacao.test.js",
+    "docs/build/tef-destaxa-07h2-database-evidence-report.json"
+  ],
+  "limitations": [
+    "The runtime SQLite open was performed by the isolated diagnostic PID, not by the original installed PID. Its DB_DIR was copied from the original process environment, and the installed resolver source was independently inspected.",
+    "No business records or database schema were queried.",
+    "The normal installed CDS process remains closed; restarting it was deliberately avoided to ensure no Destaxa Client initialization."
+  ],
+  "verdict": {
+    "DATABASE_PATH_PROVEN": true,
+    "BLOCKED_WITH_FINDINGS": false,
+    "financialOperationsAuthorized": false
+  }
+}

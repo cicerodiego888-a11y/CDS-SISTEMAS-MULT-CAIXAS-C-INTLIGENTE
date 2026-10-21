@@ -1,0 +1,187 @@
+{
+  "sprint": "TEF-DESTAXA-07C",
+  "title": "Configuração universal e persistência do TEF",
+  "generatedAt": "2026-10-19T18:50:00.000Z",
+  "verdict": "READY_FOR_07D_PRECHECK",
+  "rootCause": {
+    "summary": "Defaults de instalação nova forçavam tefHabilitado=true e tefProvedor=rede no GET/primeiro save; SiTef/PayGo faziam fallback silencioso para simulação em homologação/produção sem DLL; PUT parcial podia apagar campos; validação/testes de servidor HTTP eram aplicados de forma indevida à Destaxa; UI listava Rede como primeira opção e sugeria COM4.",
+    "clientSymptom": "Instalação em C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db persiste provedor=rede, ambiente=homologacao, pinpad GERTEC_PPC930 porta COM3 — coerente com defaults legados/Rede, não com Destaxa.",
+    "notClientSpecificRules": true
+  },
+  "configSourcesFound": [
+    {
+      "source": "tef_configuracao + tef_servidores + tef_pinpads + tef_operacoes",
+      "role": "fonte oficial persistida (singleton por instalação)"
+    },
+    {
+      "source": "tef_configuracoes (KV legado)",
+      "role": "migração única se tabelas oficiais vazias"
+    },
+    {
+      "source": "tefConfigService.DEFAULTS_CONFIG",
+      "role": "defaults apenas quando não há linha; agora TEF desabilitado e sem provedor inventado"
+    },
+    {
+      "source": "tefConfigService.CONFIG_PREPARACAO_DESTAXA",
+      "role": "overlay opcional de preparação Destaxa (não inventa COM)"
+    },
+    {
+      "source": "API GET/POST/PUT /api/tef/configuracao",
+      "role": "tela ERP → serviço → repositório"
+    },
+    {
+      "source": "tefFactory.criarAdapter / obterAdapter",
+      "role": "seleção de adapter a partir da config persistida (via tefConfigService.configParaRegistroAdapter)"
+    },
+    {
+      "source": "tefDiagnosticoService",
+      "role": "consome tefConfigService + sdkDetector; compara porta salva vs detectada"
+    }
+  ],
+  "databasePaths": {
+    "devAndPackaged": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+    "electronSets": "process.env.DB_DIR → %PROGRAMDATA%\\MercantilFiscal\\dados",
+    "testsIsolated": "%TEMP%\\cds-sistemas-test-db\\mercadao.db (CDS_TEST_ISOLAR_BANCO=1)",
+    "mercadao3Db": {
+      "requested": "mercadao(3).db",
+      "found": false,
+      "usedForValidation": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db (somente leitura + VACUUM INTO em cópia isolada)"
+    }
+  },
+  "scopeRules": {
+    "nivel": "instalacao",
+    "description": "Uma linha tef_configuracao (ORDER BY id ASC LIMIT 1) por arquivo de banco da instalação.",
+    "empresa": "empresa_codigo é string do middleware — não há FK multiempresa CDS para TEF",
+    "caixaPdv": "caixa_codigo/pdv_codigo/terminal_codigo são strings do provedor — sem isolamento por caixa no schema atual",
+    "terminalFisico": "porta_com em tef_pinpads; detecção Windows separada da seleção do adapter",
+    "multitenancyIntroduced": false
+  },
+  "defaultsAndInitialization": {
+    "before": {
+      "tefHabilitado": "true",
+      "tefProvedor": "rede",
+      "tefAmbiente": "simulacao",
+      "getWithoutRowWritesDb": false
+    },
+    "after": {
+      "tefHabilitado": "false",
+      "tefProvedor": "",
+      "tefAmbiente": "simulacao",
+      "getWithoutRowWritesDb": false,
+      "neverOverwriteSavedConfig": true
+    }
+  },
+  "providerSelection": {
+    "destaxaHomologacao": "DestaxaRealAdapter (ou DESTAXA_REAL_ADAPTER_INDISPONIVEL)",
+    "destaxaSimulacao": "destaxaAdapter (simulado)",
+    "destaxaNoSilentFallback": true,
+    "sitefPaygoRealWithoutDll": "erro explícito SITEF_REAL_ADAPTER_INDISPONIVEL / PAYGO_REAL_ADAPTER_INDISPONIVEL",
+    "gatewaysRedeStoneCieloGetnet": "preservados (adapters simulados existentes)"
+  },
+  "pinpad": {
+    "detectionSeparatedFromAdapter": true,
+    "noAssumedComPort": true,
+    "portCompare": "tefConfigService.compararPortaPinpad + diagnostico.portaMudou",
+    "enumerationIsNotOperational": true,
+    "ppc930": "USB CDC → COM virtual; CDS registra hardware; TEF via middleware/adapter"
+  },
+  "validationPerProvider": {
+    "destaxa": "não exige empresa/loja/terminal; não exige servidor HTTP legado",
+    "redeSitefPaygo": "exigem códigos de estabelecimento quando aplicável; SiTef/PayGo real exigem SDK/EXE path"
+  },
+  "clientSnapshotBeforeAnyMutation": {
+    "path": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+    "tef_configuracao": {
+      "habilitado": 1,
+      "provedor": "rede",
+      "ambiente": "homologacao",
+      "timeout": 60,
+      "tentativas": 3,
+      "tipo_integracao": "dll"
+    },
+    "tef_pinpads": {
+      "habilitado": 1,
+      "codigo": "GERTEC_PPC930",
+      "modelo": "PPC930",
+      "tipo_conexao": "usb",
+      "porta_com": "COM3",
+      "status": "desconhecido"
+    },
+    "officialDbMutatedByThisSprint": false,
+    "note": "Correção de provedor Destaxa nesta instalação deve ser feita pela tela oficial, após análise — não automatizada nesta sprint."
+  },
+  "filesChanged": [
+    "backend/services/tef/tefConfigService.js",
+    "backend/services/tef/tefFactory.js",
+    "backend/services/tef/tefDiagnosticoService.js",
+    "frontend/erp/js/configuracao_tef.js",
+    "tests/tef/tef-01-configuracao.test.js",
+    "tests/tef/tef-destaxa-07c-config-universal.test.js",
+    "docs/build/tef-destaxa-07c-config-universal-report.json"
+  ],
+  "beforeAfter": {
+    "defaultsGetEmpty": {
+      "before": "habilitado=true, provedor=rede",
+      "after": "habilitado=false, provedor=''"
+    },
+    "sitefHomologWithoutDll": {
+      "before": "SitefAdapter simulado (fallback silencioso)",
+      "after": "throw SITEF_REAL_ADAPTER_INDISPONIVEL"
+    },
+    "partialPut": {
+      "before": "campos omitidos viravam false/null",
+      "after": "merge com existente (preserva provedor/ambiente/pinpad)"
+    },
+    "uiProviderSelect": {
+      "before": "primeira opção Rede",
+      "after": "Selecione o provedor + Destaxa listado sem default inventado"
+    }
+  },
+  "testsExecuted": [
+    {
+      "name": "tests/tef/tef-01-configuracao.test.js",
+      "result": "13 passou, 0 falhou"
+    },
+    {
+      "name": "tests/tef/tef-destaxa-07c-config-universal.test.js",
+      "result": "21 passou, 0 falhou"
+    },
+    {
+      "name": "tests/tef/tef-destaxa-01-fundacao.test.js",
+      "result": "9 ok, 0 falhou"
+    },
+    {
+      "name": "tests/tef/tef-destaxa-06c-prep.test.js",
+      "result": "29 ok, 5 falhou",
+      "note": "Falhas B/E/I esperam provedor destaxa no banco oficial; snapshot atual é rede/homologacao — não regressão de código 07C; não sobrescrever config do cliente nesta sprint."
+    }
+  ],
+  "regressions": [
+    {
+      "item": "06c-prep checks against official DB Destaxa",
+      "status": "blocked_by_client_data",
+      "detail": "Banco oficial tem provedor=rede; testes de lab Destaxa falham até ajuste via tela oficial."
+    }
+  ],
+  "nativeFinancialCalls": {
+    "iniciaClient": false,
+    "continua": false,
+    "finaliza": false,
+    "crt": false,
+    "gateFinanceiroEnabled": false,
+    "pdvFlowChanged": false,
+    "fiscalMotorsChanged": false,
+    "stockFinanceChanged": false,
+    "historyDeleted": false
+  },
+  "pendencias": [
+    "Arquivo mercadao(3).db não encontrado no ambiente; validação usou mercadao.db oficial em ProgramData (somente leitura).",
+    "Instalação atual permanece com provedor Rede — ajuste para Destaxa somente pela tela oficial de Configuração TEF, se for o caso do cliente.",
+    "Timeout operacional do TefManager ainda lê TEF_TIMEOUT_MS/30s e não o tefTimeout persistido (fora do escopo crítico 07C; candidata 07D).",
+    "Escopo permanece por instalação; multi-caixa com COM distintas exigiria evolução de schema futura (não introduzida)."
+  ],
+  "securityCompliance": {
+    "noFinancialTransactions": true,
+    "no07Exec": true
+  }
+}

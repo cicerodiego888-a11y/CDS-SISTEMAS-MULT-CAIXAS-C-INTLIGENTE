@@ -186,8 +186,8 @@ async function main() {
 
   await test('Defaults seguros apenas quando configuração não existe', async () => {
     const config = await tefConfigService.obterConfiguracao();
-    assert.strictEqual(config.tefHabilitado, 'true');
-    assert.strictEqual(config.tefProvedor, 'rede');
+    assert.strictEqual(config.tefHabilitado, 'false');
+    assert.strictEqual(config.tefProvedor, '');
     assert.strictEqual(config.tefAmbiente, 'simulacao');
     assert.strictEqual(Number(config.tefTimeout), 60);
     assert.strictEqual(Number(config.tefTentativas), 3);

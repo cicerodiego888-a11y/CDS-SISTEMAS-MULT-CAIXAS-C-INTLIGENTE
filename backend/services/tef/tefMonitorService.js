@@ -1,5 +1,6 @@
 const db = require('../../database');
 const tefEvents = require('./tefEvents');
+const tefConfigService = require('./tefConfigService');
 
 async function obterStatusMonitor() {
   return new Promise((resolve, reject) => {
@@ -95,8 +96,9 @@ async function verificarStatusPinpad() {
 
     const habilitado = Boolean(config.habilitado);
     const configurado = Boolean(config.porta_com || config.ip || config.serial);
+    const estado = configurado ? 'configurado_nao_testado' : 'nao_configurado';
 
-    tefEvents.emitirPinpadStatus(configurado ? 'online' : 'offline', {
+    tefEvents.emitirPinpadStatus(estado, {
       fabricante: config.fabricante,
       modelo: config.modelo
     });
@@ -104,7 +106,7 @@ async function verificarStatusPinpad() {
     return {
       habilitado,
       configurado,
-      status: config.status || 'desconhecido',
+      status: estado,
       fabricante: config.fabricante,
       modelo: config.modelo,
       ultima_conexao: config.ultima_conexao
@@ -119,10 +121,11 @@ async function verificarStatusServidor() {
   try {
     const config = await new Promise((resolve, reject) => {
       db.get(`
-        SELECT s.*
-        FROM tef_servidores s
-        INNER JOIN tef_configuracao c ON s.tef_configuracao_id = c.id
+        SELECT c.provedor, c.ambiente, s.base_url, s.ip, s.porta, s.client_id, s.access_token
+        FROM tef_configuracao c
+        LEFT JOIN tef_servidores s ON s.tef_configuracao_id = c.id
         WHERE c.habilitado = 1
+        ORDER BY c.id ASC
         LIMIT 1
       `, [], (err, row) => {
         if (err) return reject(err);
@@ -131,22 +134,28 @@ async function verificarStatusServidor() {
     });
 
     if (!config) {
-      return { configurado: false, status: 'não configurado' };
+      const estado = {
+        configurado: false,
+        conectado: null,
+        aplicavel: false,
+        estado: 'nao_configurado',
+        mensagem: 'Configuração TEF não habilitada.'
+      };
+      tefEvents.emitirServidorStatus(estado.estado, estado);
+      return estado;
     }
 
-    const configurado = Boolean(config.base_url || config.ip || config.client_id);
-
-    tefEvents.emitirServidorStatus(configurado ? 'online' : 'offline', {
-      base_url: config.base_url,
-      ip: config.ip
+    const estado = tefConfigService.resolverEstadoServidorMonitor(
+      config?.provedor,
+      config?.ambiente,
+      config
+    );
+    tefEvents.emitirServidorStatus(estado.estado, {
+      provedor: config?.provedor || null,
+      aplicavel: estado.aplicavel,
+      mensagem: estado.mensagem
     });
-
-    return {
-      configurado,
-      base_url: config.base_url,
-      ip: config.ip,
-      porta: config.porta
-    };
+    return estado;
   } catch (error) {
     console.error('Erro ao verificar status Servidor:', error);
     return { configurado: false, status: 'erro', erro: error.message };

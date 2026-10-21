@@ -20,6 +20,39 @@ function criarCorrelationId() {
   return `central-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
 }
 
+function sanitizarCampoLog(chave, valor) {
+  const nome = String(chave || '').toLowerCase();
+  if (/senha|password|private.?key|certificado.*(path|senha|conteudo)|\bpfx\b|\bp12\b/.test(nome)) {
+    return '[REDACTED]';
+  }
+  if (valor == null) return valor;
+  if (Array.isArray(valor)) return valor.map((item) => sanitizarCampoLog(chave, item));
+  if (typeof valor === 'object') {
+    return Object.fromEntries(
+      Object.entries(valor).map(([subChave, subValor]) => [
+        subChave,
+        sanitizarCampoLog(subChave, subValor)
+      ])
+    );
+  }
+
+  const digitos = String(valor).replace(/\D/g, '');
+  if ((nome.includes('cnpj') || nome === 'empresa') && digitos.length >= 11) {
+    return `***${digitos.slice(-4)}`;
+  }
+  if ((nome.includes('chave') || nome.includes('chnfe')) && digitos.length >= 4) {
+    return `…${digitos.slice(-4)}`;
+  }
+  if (nome.includes('nsu') && digitos.length >= 4) {
+    return `…${digitos.slice(-4)}`;
+  }
+  if (typeof valor !== 'string') return valor;
+  return valor
+    .replace(/\b\d{44}\b/g, (chave) => `…${chave.slice(-4)}`)
+    .replace(/\b\d{15}\b/g, (nsu) => `…${nsu.slice(-4)}`)
+    .replace(/\b\d{14}\b/g, (cnpj) => `***${cnpj.slice(-4)}`);
+}
+
 /**
  * @param {Object} dados
  */
@@ -46,7 +79,7 @@ function logOperacaoCentral(dados = {}) {
     if (v !== null && v !== undefined && v !== '') limpos[k] = v;
   }
 
-  logCentral(dados.area || 'OPERACAO', limpos);
+  logCentral(dados.area || 'OPERACAO', sanitizarCampoLog('', limpos));
 }
 
 module.exports = {

@@ -52,6 +52,16 @@ const {
 
 const MAX_ITERACOES_SYNC = 50;
 
+function mascararCnpj(cnpj) {
+  const digitos = String(cnpj || '').replace(/\D/g, '');
+  return digitos.length === 14 ? `***${digitos.slice(-4)}` : '***';
+}
+
+function mascararNsu(nsu) {
+  const digitos = String(nsu || '').replace(/\D/g, '');
+  return digitos.length > 4 ? `…${digitos.slice(-4)}` : '—';
+}
+
 function obterOrigemSefazGate(deps = {}) {
   const o = String(deps.origemSefazGate || deps.origem || '').toUpperCase();
   if (Object.values(ORIGENS).includes(o)) return o;
@@ -71,11 +81,9 @@ function garantirNsuNoGate(deps = {}) {
     sefazQueryGate.setNsuService(deps.nsuService);
     return;
   }
-  try {
-    sefazQueryGate.setNsuService(new CentralNsuService({
-      nsuRepository: deps.nsuRepository
-    }));
-  } catch { /* ignore */ }
+  sefazQueryGate.setNsuService(new CentralNsuService({
+    nsuRepository: deps.nsuRepository
+  }));
 }
 
 /**
@@ -522,7 +530,10 @@ async function sincronizarDistribuicaoDFe(deps = {}) {
   let iteracoes = 0;
   let ultimoRetorno = null;
 
-  console.log(`[DFE][SYNC] ${correlationId} | CNPJ=${cnpj} | ambiente=${ambiente} | ultNSU=${ultNsuAtual}`);
+  console.log(
+    `[DFE][SYNC] ${correlationId} | CNPJ=${mascararCnpj(cnpj)} | ambiente=${ambiente}`
+    + ` | ultNSU=${mascararNsu(ultNsuAtual)}`
+  );
 
   while (iteracoes < (deps.maxIteracoes ?? MAX_ITERACOES_SYNC)) {
     iteracoes += 1;
@@ -564,7 +575,8 @@ async function sincronizarDistribuicaoDFe(deps = {}) {
       });
 
       console.log(
-        `[DFE][SYNC] ${correlationId} | ultNSU=${ultNsuAtual} maxNSU=${ultimoRetorno.maxNSU}`
+        `[DFE][SYNC] ${correlationId} | ultNSU=${mascararNsu(ultNsuAtual)}`
+        + ` maxNSU=${mascararNsu(ultimoRetorno.maxNSU)}`
         + ` cStat=${ultimoRetorno.cStat} lotes=${lotesEstimados} tempo=${tempoConsulta}ms`
       );
 

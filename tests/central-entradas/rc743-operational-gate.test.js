@@ -88,7 +88,7 @@ async function caso137() {
 
 async function casoCooldownProgressivo656() {
   const { gate, agora } = criarGate();
-  assert.deepStrictEqual([...COOLDOWN_656_MINUTOS], [10, 20, 40, 60, 120]);
+  assert.deepStrictEqual([...COOLDOWN_656_MINUTOS], [60, 120, 180, 240, 300]);
 
   for (let i = 1; i <= 5; i += 1) {
     if (gate.estaBloqueado656()) {
@@ -170,6 +170,13 @@ async function casoReinicio() {
   assert.strictEqual(g3.estaBloqueado656(), true);
   assert.ok(g3.obterContador656() >= 1);
   assert.ok(g3.serializar().historico.length >= 1);
+  const admin = await g3.autorizarConsultaDistDfe({
+    forcarAdminConfirmado: true,
+    confirmacaoAdmin: true,
+    correlationId: 'restart-admin-bypass'
+  });
+  assert.strictEqual(admin.permitido, false);
+  assert.strictEqual(admin.codigo, 'BLOQUEADO_CONSUMO_INDEVIDO_656');
 }
 
 async function casoDashboardTelemetria() {
@@ -206,18 +213,23 @@ async function casoXmlWaitIntegrado() {
     configRepository: config,
     agora: () => agora.t,
     gate,
+    eventosRepository: {
+      async existePorTipoDocumento() { return true; },
+      async listar() { return []; }
+    },
     obterOrchestrator: () => ({
       async processarCicloDfeDocumento() {
+        await gate.processarRespostaSefaz({ cStat: '656' });
         return { xmlCompleto: false, cStat: '656' };
       }
     })
   });
-  gate.vincularPersistencia(() => { svc._persistirEstado().catch(() => {}); });
+  gate.vincularPersistencia(() => svc._mirx._persistirEstado());
   await svc.recuperarPendentes();
   svc._docs.get(1).proximaEm = new Date(agora.t.getTime() - 1000).toISOString();
   await svc._processarDocumento(svc._docs.get(1), 'x');
   assert.strictEqual(gate.estaBloqueado656(), true);
-  assert.strictEqual(calcularCooldown656Ms(1), 10 * 60 * 1000);
+  assert.strictEqual(calcularCooldown656Ms(1), 60 * 60 * 1000);
   svc.parar({ motivo: 'teste' });
 }
 

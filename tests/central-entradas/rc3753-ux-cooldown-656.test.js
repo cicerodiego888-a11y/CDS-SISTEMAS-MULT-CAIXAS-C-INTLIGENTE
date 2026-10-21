@@ -13,6 +13,11 @@ const path = require('path');
 
 const root = path.join(__dirname, '../..');
 const UX = require(path.join(root, 'frontend/erp/js/central-entradas-ux.js'));
+Object.defineProperty(globalThis, 'navigator', {
+  value: { onLine: true },
+  configurable: true,
+  writable: true
+});
 const mainSrc = fs.readFileSync(path.join(root, 'frontend/erp/js/central-entradas.js'), 'utf8');
 const dashSrc = fs.readFileSync(
   path.join(root, 'backend/motores/central-entradas/services/CentralDashboardService.js'),

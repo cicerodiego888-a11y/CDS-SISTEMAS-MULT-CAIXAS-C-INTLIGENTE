@@ -1,0 +1,101 @@
+{
+  "sprint": "TEF-DESTAXA-07G",
+  "status": "READY_FOR_07H_PRECHECK",
+  "generatedAt": "2026-10-19T20:41:07.701Z",
+  "visualRule": {
+    "file": "frontend/erp/js/configuracao_tef.js",
+    "function": "executarDiagnosticoCompleto",
+    "badge": "diagAdapter",
+    "priorMapping": [
+      "adapter_selecionado → diagAdapter",
+      "adapter_carregado → diagAdapter",
+      "adapter_operacional → diagAdapter"
+    ],
+    "priorCondition": "Each matching item called atualizarStatus(elementId, item.ok) in report order; adapter_operacional=false was last and replaced the loaded state with a red X.",
+    "correctedRule": "Only adapter_carregado maps to diagAdapter; operational communication has a distinct state and never overwrites adapter instantiation.",
+    "adapterLoadedValueIsInstancePresence": true
+  },
+  "middlewareConfiguration": {
+    "rawField": "middleware.configuracaoValida",
+    "source": "sdkDetector.diagnosticarCompleto returns sitef.configuracaoValida || paygo.configuracaoValida",
+    "underlyingChecks": {
+      "sitef": "INI CliSiTef presence and basic INI format",
+      "paygo": "INI PayGo presence and basic INI format",
+      "destaxa": "No INI validity field; Destaxa configuration is not evaluated by this aggregate."
+    },
+    "interpretationForDestaxa": "Não aplicável; false only means neither SiTef nor PayGo INI validated. It is not the universal TEF configuration result.",
+    "contextualFieldAdded": "middleware.configuracaoValidaProvedor",
+    "configurationValidationSource": "validacao.valida and validacao.pendencias from tefConfigService"
+  },
+  "stateSeparation": [
+    "Adapter instance / adapter diagnosis result",
+    "DLL loaded and exports validated",
+    "Client initialization flag and code",
+    "Provider middleware and VSPague process",
+    "PPC930 Windows enumeration and COM consistency",
+    "Transaction communication validation",
+    "Payment authorization availability"
+  ],
+  "executionEvidence": {
+    "testMode": "mock-only",
+    "applicationDatabaseAccessed": false,
+    "configurationChanged": false,
+    "nativeDllLoaded": false,
+    "clientInitializationNativeCall": false,
+    "financialNativeCalls": {
+      "iniciaTransacaoDestaxa": false,
+      "continuaTransacaoDestaxa": false,
+      "finalizaTransacaoDestaxa": false
+    },
+    "financialGateEnabledOrChanged": false,
+    "realClientEvidence": false,
+    "limitation": "Mock tests validate the reporting contract and UI rule only; they do not prove runtime state at the customer installation."
+  },
+  "tests": {
+    "total": 8,
+    "passed": 8,
+    "failed": 0,
+    "results": [
+      {
+        "nome": "adapter instanciado não falha por comunicação não testada",
+        "sucesso": true
+      },
+      {
+        "nome": "DLL carregada com Client não inicializado mantém estados separados",
+        "sucesso": true
+      },
+      {
+        "nome": "Client com código diferente de 00 preserva o código sem validar comunicação",
+        "sucesso": true
+      },
+      {
+        "nome": "adapter real indisponível não é tratado como instanciado",
+        "sucesso": true
+      },
+      {
+        "nome": "snapshots divergentes ficam sinalizados como inconsistentes",
+        "sucesso": true
+      },
+      {
+        "nome": "campo genérico de INI é não aplicável à Destaxa, sem invalidar configuração",
+        "sucesso": true
+      },
+      {
+        "nome": "validações INI SiTef e PayGo continuam específicas por provedor",
+        "sucesso": true
+      },
+      {
+        "nome": "badge Adapter usa somente instância, não seleção nem operacionalidade",
+        "sucesso": true
+      }
+    ]
+  },
+  "modifiedFiles": [
+    "backend/services/tef/tefDiagnosticoService.js",
+    "frontend/erp/js/configuracao_tef.js",
+    "tests/tef/tef-destaxa-07g-adapter-status.test.js",
+    "package.json",
+    "docs/build/tef-destaxa-07g-adapter-status-report.json"
+  ],
+  "findings": []
+}

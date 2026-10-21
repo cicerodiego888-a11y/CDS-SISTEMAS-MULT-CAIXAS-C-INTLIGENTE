@@ -53,17 +53,35 @@ function criarSvc(opts = {}) {
     agora: opts.agora || (() => new Date('2026-07-18T20:00:00.000Z')),
     autoPersist: false
   });
+  const obterOrchestrator = opts.obterOrchestrator || (() => ({
+    async processarCicloDfeDocumento() { return {}; }
+  }));
   const svc = new CentralXmlWaitScheduler({
     documentosRepository: opts.docs || criarRepoDocs([]),
     configRepository: config,
     tickMs: 20,
     agora: opts.agora || (() => new Date('2026-07-18T20:00:00.000Z')),
-    obterOrchestrator: opts.obterOrchestrator || (() => ({
-      async processarCicloDfeDocumento() { return {}; }
-    })),
+    eventosRepository: opts.eventosRepository || {
+      async existePorTipoDocumento() { return true; },
+      async listar() { return []; }
+    },
+    obterOrchestrator: () => {
+      const orchestrator = obterOrchestrator();
+      const processar = orchestrator.processarCicloDfeDocumento.bind(orchestrator);
+      return {
+        ...orchestrator,
+        async processarCicloDfeDocumento(...args) {
+          const resultado = await processar(...args);
+          if (resultado?.cStat && resultado.gateProcessado !== true) {
+            await gate.processarRespostaSefaz(resultado);
+          }
+          return resultado;
+        }
+      };
+    },
     gate
   });
-  gate.vincularPersistencia(() => { svc._persistirEstado().catch(() => {}); });
+  gate.vincularPersistencia(() => svc._mirx._persistirEstado());
   return svc;
 }
 
@@ -94,7 +112,7 @@ async function caso1Bloqueio656() {
   await svc._processarDocumento(svc._docs.get(1), 'c1');
   assert.strictEqual(consultas, 1);
   assert.strictEqual(svc.estaBloqueadoDistDfe(), true);
-  assert.strictEqual(calcularCooldown656Ms(1), 10 * 60 * 1000);
+  assert.strictEqual(calcularCooldown656Ms(1), 60 * 60 * 1000);
   assert.ok(INTERVALO_BLOQUEIO_656_MS >= calcularCooldown656Ms(1));
 
   await svc._processarDocumento(svc._docs.get(1), 'c1b');
@@ -144,7 +162,7 @@ async function caso3ReinicioRecuperaBloqueio() {
   });
   await svc1.recuperarPendentes();
   svc1.registrarBloqueio656({ documentoId: 5, chave: '1'.padStart(44, '1'), nsu: '1' });
-  await svc1._persistirEstado();
+  await svc1._mirx._persistirEstado();
 
   const svc2 = criarSvc({
     config,
@@ -157,7 +175,7 @@ async function caso3ReinicioRecuperaBloqueio() {
     }]),
     agora: () => agora
   });
-  await svc2._carregarEstado();
+  await svc2._mirx._carregarEstado();
   assert.strictEqual(svc2.estaBloqueadoDistDfe(), true);
   assert.ok(svc2.obterBloqueio656().bloqueadoAte);
 }

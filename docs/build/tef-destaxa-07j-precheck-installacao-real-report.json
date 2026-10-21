@@ -1,0 +1,323 @@
+{
+  "sprint": "TEF-DESTAXA-07J",
+  "status": "BLOCKED_WITH_FINDINGS",
+  "generatedAt": "2026-10-19T20:42:07.1729983Z",
+  "installation": {
+    "process": {
+      "pid": 14868,
+      "parentPid": 25360,
+      "parentName": "explorer.exe",
+      "executablePath": "C:\\Program Files\\CDS ERP\\CDS ERP.exe",
+      "commandLine": "\"C:\\Program Files\\CDS ERP\\CDS ERP.exe\" ",
+      "startedAt": "2026-10-19T17:34:09.6638030-03:00",
+      "mainWindowTitle": "CDS Sistemas - PDV",
+      "classification": "Installed Program Files binary; visible window is the PDV module. No CRT/PIX/payment action was used.",
+      "distinguishedFromDevelopmentCheckout": true
+    },
+    "version": {
+      "productPackageVersion": "1.0.3",
+      "electronFileVersion": "22.3.27",
+      "electronProductVersion": "22.3.27",
+      "productVersionObservedInExecutable": false,
+      "codeActuallyLoadedProven": false,
+      "limitation": "On-disk executable and app.asar hashes identify inspected files, but do not prove every runtime-loaded module."
+    },
+    "files": [
+      {
+        "path": "C:\\Program Files\\CDS ERP\\CDS ERP.exe",
+        "sizeBytes": 157938176,
+        "lastWriteTimeUtc": "2026-10-19T19:48:42.0000000Z",
+        "sha256": "8ADE237E3EDC2C118AC53FF2C6970CEE122545A31D7F10017A485685C43F3B8D",
+        "fileVersion": "22.3.27",
+        "productVersion": "22.3.27"
+      },
+      {
+        "path": "C:\\Program Files\\CDS ERP\\resources\\app.asar",
+        "sizeBytes": 115406993,
+        "lastWriteTimeUtc": "2026-10-19T19:48:42.0000000Z",
+        "sha256": "1477F763B4B4085EED6603889EAC81D42A25859358327694322C6E6AB8DA934B"
+      }
+    ]
+  },
+  "persistedConfiguration": {
+    "databasePath": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+    "configurationRowCount": 1,
+    "recordSelection": "First row by id, matching repository ORDER BY id ASC LIMIT 1.",
+    "tefEnabled": true,
+    "provider": "destaxa",
+    "environment": "homologacao",
+    "integration": "dll",
+    "attempts": 1,
+    "timeoutSeconds": 60,
+    "sdkPathConfigured": false,
+    "exePathConfigured": false,
+    "pinpad": {
+      "enabled": true,
+      "code": "GERTEC_PPC930",
+      "manufacturer": "Gertec",
+      "model": "PPC930",
+      "connectionType": "usb",
+      "configuredComPort": "COM4",
+      "active": true
+    },
+    "matchesExpectedPersistedCrtConfiguration": true
+  },
+  "hardware": {
+    "readOnlyMethods": [
+      "Win32_SerialPort",
+      "Win32_PnPEntity",
+      "Get-PnpDevice"
+    ],
+    "com4Present": true,
+    "com4": {
+      "deviceName": "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+      "description": "PPC-920/930 CDC USB-to-Serial Port",
+      "manufacturer": "Gertec Brasil Ltda",
+      "pnpInstanceId": "USB\\VID_1753&PID_C902\\5&1587D4E6&0&4",
+      "vid": "1753",
+      "pid": "C902",
+      "driverService": "usbser",
+      "status": "OK",
+      "problemCode": 0
+    },
+    "configuredPortMatchesEnumeratedPort": true,
+    "exactPpc930IdentityProven": false,
+    "pinpadCommunicationTested": false,
+    "serialPortOpenedOrWritten": false,
+    "finding": "Windows reports the PPC-920/930 family interface, not an unambiguous PPC930 model; enumeration does not establish TEF communication."
+  },
+  "destaxaDll": {
+    "resolverSelectedCandidate": "C:\\Program Files\\CDS ERP\\resources\\app.asar.unpacked\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+    "selectionBasis": "Persisted sdk_path is empty; packaged resolver falls through to the project-root resources/tef candidate and maps app.asar to app.asar.unpacked.",
+    "x64": {
+      "path": "C:\\Program Files\\CDS ERP\\resources\\app.asar.unpacked\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+      "exists": true,
+      "sizeBytes": 136782,
+      "lastWriteTimeUtc": "2026-10-19T19:48:42.0000000Z",
+      "sha256": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+      "peMachine": "0x8664",
+      "architecture": "x64"
+    },
+    "x86": {
+      "path": "C:\\Program Files\\CDS ERP\\resources\\app.asar.unpacked\\resources\\tef\\destaxa\\win-ia32\\libdll-integracao-tef.dll",
+      "exists": true,
+      "sizeBytes": 130997,
+      "sha256": "0160FAD1EF27D6EF6FB79AD4899998B36FAFD2FA836BF20039104CF6364C10CE",
+      "peMachine": "0x14c",
+      "architecture": "x86"
+    },
+    "exportsInspection": {
+      "method": "Static PE export-table parsing from file bytes; DLL was not loaded or invoked.",
+      "x64Exports": [
+        "iniciaClientDestaxa",
+        "iniciaTransacaoDestaxa",
+        "continuaTransacaoDestaxa",
+        "finalizaTransacaoDestaxa"
+      ],
+      "expectedExportsPresent": true
+    },
+    "runtimeDllLoadProven": false,
+    "loadedModuleObserved": false,
+    "nativeHostProcessObserved": false,
+    "finding": "The installed x64 DLL and exports are present, but no evidence proves the running application loaded or used it. DLL loading and Client initialization were not triggered."
+  },
+  "middleware": {
+    "vspagueProcess": {
+      "present": true,
+      "pid": 24064,
+      "executablePath": "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
+      "commandLine": "VSPagueClient -Xms64m -Xmx512m -Dfile.encoding=ISO8859-1 -Duser.timezone=America/Recife -jar C:\\VBI\\V$Pague\\Client\\V$PagueClient.jar -h app-partner.destaxa.cloud -p 60410 -atv server -tls",
+      "status": "Running when observed."
+    },
+    "matchingWindowsServiceObserved": false,
+    "responsivenessTested": false,
+    "operationalConnectionProven": false,
+    "finding": "Process presence and arguments are observations only; no active endpoint probe, Client initialization, or transaction was performed."
+  },
+  "financialState": {
+    "databaseAccess": {
+      "path": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+      "sqliteMode": "mode=ro",
+      "queries": "Configuration-only and aggregate SELECT queries; no transaction detail, payload, credential, or personal data selected."
+    },
+    "transactionCountsByStatus": [],
+    "transactionRowsTotal": 0,
+    "pendingTransactions": 0,
+    "persistedLocks": {
+      "total": 0,
+      "active": 0,
+      "expired": 0
+    },
+    "lateResultLogCount": 0,
+    "lateResultsAwaitingReconciliation": 0,
+    "lateResultTransactionsReconciled": 0,
+    "fraudAlertCountsByRisk": [],
+    "inMemoryAuthorizationState": "Not inspected. CDS was running; empty persisted counts do not prove absence of volatile state."
+  },
+  "databaseIntegrity": {
+    "path": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+    "beforeRead": {
+      "observedAtUtc": "2026-10-19T20:35:54Z",
+      "main": {
+        "exists": true,
+        "sizeBytes": 46522368,
+        "lastWriteTimeUtc": "2026-10-19T20:08:50.2256144Z",
+        "sha256": "C6BA9C7670F876C4B6A2D392B52DE21F99D58F8D0BE8BED7FB144D8BAD6149CB"
+      },
+      "wal": {
+        "exists": true,
+        "sizeBytes": 3073552,
+        "lastWriteTimeUtc": "2026-10-19T20:35:54.5398406Z",
+        "sha256": "BDC888727D62C48444DFDBD562A5F42AAD814919E1544D96A694AE626520728C"
+      },
+      "shm": {
+        "exists": true,
+        "sizeBytes": 32768,
+        "sha256": "864D65C6D810677FAF9EAEEA6B9A0AE0C99623B8305CC198217A56BE478F76B2"
+      },
+      "journal": {
+        "exists": false
+      }
+    },
+    "afterRead": {
+      "observedAtUtc": "2026-10-19T20:36:47Z",
+      "main": {
+        "exists": true,
+        "sizeBytes": 46522368,
+        "lastWriteTimeUtc": "2026-10-19T20:36:47.5722996Z",
+        "sha256": "A339806497E2E7D29891D19B60183837A6EA99ABF9AC4A0F7AD5F4FC7377A17B"
+      },
+      "wal": {
+        "exists": true,
+        "sizeBytes": 4120032,
+        "lastWriteTimeUtc": "2026-10-19T20:37:16.5526576Z",
+        "sha256": "134D10A646EC3C3E0321BFDB1C2E1DB1631EF9ABD32F46E1096B51F788D236D7"
+      },
+      "shm": {
+        "exists": true,
+        "sizeBytes": 32768,
+        "sha256": "882FAAF0E2DD35A7EF765F652BE0B306AD492899480591B27E6C858D5FF15535"
+      },
+      "journal": {
+        "exists": false
+      }
+    },
+    "finalObservation": {
+      "observedAtUtc": "2026-10-19T20:42:07.1729983Z",
+      "main": {
+        "exists": true,
+        "sizeBytes": 46522368,
+        "lastWriteTimeUtc": "2026-10-19T20:40:31.5564328Z",
+        "sha256": "553B8CDA33443C39EB6E26E2AA9A59E51A8B91C1A33D53CCD7EB8D15621ED19B"
+      },
+      "wal": {
+        "exists": true,
+        "sizeBytes": 4124152,
+        "lastWriteTimeUtc": "2026-10-19T20:41:25.6475874Z",
+        "sha256": "E7A947C7528A846CA6CF642DC20CDF0CA6B7959042D7035990AA61D13F14668F"
+      },
+      "shm": {
+        "exists": true,
+        "sizeBytes": 32768,
+        "lastWriteTimeUtc": "2026-10-19T20:34:11.6534037Z",
+        "sha256": "1AD583F034CA69BD02D2E1DBC54398FF2A8E5D2BE5906518C7998E118EE4CCA3"
+      },
+      "journal": {
+        "exists": false
+      }
+    },
+    "mainHashUnchangedDuringAudit": false,
+    "sidecarsUnchangedDuringAudit": false,
+    "changeAttribution": "The installed CDS process was active during the interval. Main/WAL/SHM hashes and WAL size changed. The audit issued no write or delete statements, but concurrent application activity prevents attributing the changes conclusively.",
+    "sidecarsDeletedOrRepaired": false
+  },
+  "financialGate": {
+    "environmentVariable": "DESTAXA_REAL_TRANSACTION_ENABLED",
+    "installedMainProcessValue": "Not present; application code enables the gate only when the value equals 1.",
+    "gateChangedOrOpenedByAudit": false,
+    "nativeCallsByAudit": {
+      "iniciaClientDestaxa": 0,
+      "iniciaTransacaoDestaxa": 0,
+      "continuaTransacaoDestaxa": 0,
+      "finalizaTransacaoDestaxa": 0
+    }
+  },
+  "tests": {
+    "executorMocks": {
+      "command": "node tests/tef/tef-destaxa-07b-executor.test.js --mocks-only",
+      "result": "PASS",
+      "passed": 38,
+      "failed": 0,
+      "scope": "Fake dependencies only; no real DLL load, real native call, hardware access, or official database preflight. Protocol operations in these cases are simulated."
+    },
+    "adapterStatusMocks": {
+      "command": "node --test tests/tef/tef-destaxa-07g-adapter-status.test.js",
+      "result": "PASS",
+      "passed": 8,
+      "failed": 0,
+      "scope": "Mocked diagnostics/configuration surfaces; database access is stubbed."
+    },
+    "realDllOrHardwareTests": "Not run."
+  },
+  "unverifiedChecks": [
+    {
+      "check": "Exact PPC930 physical identity and its association with COM4",
+      "reason": "Windows enumerates the PPC-920/930 family interface; this does not distinguish PPC920 from PPC930."
+    },
+    {
+      "check": "DLL loaded by the running installation and Client Destaxa initialization",
+      "reason": "Would require native loading or Client initialization, both prohibited in this sprint."
+    },
+    {
+      "check": "VSPague operational responsiveness",
+      "reason": "Only process presence and launch arguments were observed."
+    },
+    {
+      "check": "No authorization in volatile process memory",
+      "reason": "In-memory state was not inspected; persisted empty counts are not sufficient proof."
+    },
+    {
+      "check": "Stable main database and sidecar hashes",
+      "reason": "The installed CDS was running and the files changed during the audit interval."
+    },
+    {
+      "check": "All code loaded by the live process matches inspected package files",
+      "reason": "On-disk hashes do not prove every resident module."
+    }
+  ],
+  "safety": {
+    "sqliteOpenedReadOnly": true,
+    "businessPayloadsCredentialsOrPersonalDataSelected": false,
+    "configurationChanged": false,
+    "migrationRun": false,
+    "writeStatementsIssued": false,
+    "databaseFilesWrittenOrDeletedByAudit": false,
+    "diagnosticClientInitializationRun": false,
+    "dllLoadedByAudit": false,
+    "serialPortOpenedOrWritten": false,
+    "vspagueRestarted": false,
+    "paymentOrAuthorizationStarted": false,
+    "crtExecuted": false,
+    "pixExecuted": false,
+    "financialNativeCallsMade": false,
+    "financialGateEnabledOrModified": false,
+    "normalPdvUsedForCrt": false
+  },
+  "filesModifiedThisSprint": [
+    "docs/build/tef-destaxa-07j-precheck-installacao-real-report.json"
+  ],
+  "verdict": {
+    "READY_FOR_07K_CONTROLLED_CRT": false,
+    "BLOCKED_WITH_FINDINGS": true,
+    "paymentAuthorized": false,
+    "blockingFindings": [
+      "The live installed window is the PDV module; it was not used for a transaction.",
+      "COM4 is enumerated as PPC-920/930 family hardware; exact PPC930 identity is not proven.",
+      "The x64 DLL and exports are present statically, but runtime load and Client initialization are not proven.",
+      "VSPague is running, but operational responsiveness is not proven.",
+      "Volatile in-memory authorization state was not inspected.",
+      "Main database and WAL/SHM hashes changed while the installed process was active; the audit cannot conclusively attribute those changes."
+    ],
+    "nextPermittedAction": "Resolve the identity and database-integrity findings with an authorized controlled maintenance window and current read-only evidence. Do not execute CRT/PIX or enable the gate until all required evidence is current and consistent."
+  }
+}

@@ -86,7 +86,7 @@ async function main() {
   console.log('\n=== RC3.7.5.1 — Auto recuperação NSU ===\n');
   NsuRecoveryService.limparCacheEventos();
 
-  await test('banco restaurado + 656 com ultNSU/maxNSU → atualiza cursor', async () => {
+  await test('656 com NSUs remotos → preserva cursor até reconciliação verificada', async () => {
     NsuRecoveryService.limparCacheEventos();
     const auditorias = [];
     const repo = criarNsuRepoMemoria({
@@ -110,22 +110,18 @@ async function main() {
       empresa: '12345678000199'
     });
 
-    assert.strictEqual(consumo.atualizouNsu, true);
-    assert.strictEqual(consumo.preservado, false);
-    assert.strictEqual(consumo.ultNsu, '000000000000428');
-    assert.strictEqual(consumo.maxNsu, '000000000000500');
+    assert.strictEqual(consumo.atualizouNsu, false);
+    assert.strictEqual(consumo.preservado, true);
+    assert.strictEqual(consumo.ultNsu, '000000000000000');
+    assert.strictEqual(consumo.maxNsu, '000000000000000');
     assert.strictEqual(consumo.cooldownAtivo, true);
     assert.ok(consumo.proximaConsultaEm);
-    assert.strictEqual(repo._peek().ultNsu, '000000000000428');
+    assert.strictEqual(repo._peek().ultNsu, '000000000000000');
     assert.strictEqual(repo._peek().ultimoCstat, '656');
     assert.ok(repo._peek().cooldownAte);
 
-    assert.strictEqual(auditorias.length, 1);
-    assert.strictEqual(auditorias[0].tipo, TIPOS_EVENTO.AUTO_SYNC_NSU);
-    assert.match(auditorias[0].descricao, /sincronizado automaticamente/i);
-    assert.strictEqual(auditorias[0].detalhe.nsuLocal, '000000000000000');
-    assert.strictEqual(auditorias[0].detalhe.nsuRemoto, '000000000000428');
-    assert.strictEqual(auditorias[0].detalhe.nsuAtualizado, '000000000000428');
+    assert.strictEqual(consumo.recuperacaoNsu.motivo, 'CSTAT_656_REQUER_RECONCILIACAO_CONTROLADA');
+    assert.strictEqual(auditorias.length, 0);
   });
 
   await test('NSU local igual ao SEFAZ → nenhuma alteração', async () => {
@@ -151,7 +147,7 @@ async function main() {
     assert.strictEqual(consumo.preservado, true);
     assert.strictEqual(consumo.ultNsu, '000000000000428');
     assert.strictEqual(repo._peek().ultNsu, '000000000000428');
-    assert.strictEqual(consumo.recuperacaoNsu.motivo, 'SEFAZ_NAO_MAIOR');
+    assert.strictEqual(consumo.recuperacaoNsu.motivo, 'CSTAT_656_REQUER_RECONCILIACAO_CONTROLADA');
   });
 
   await test('SEFAZ sem ultNSU/maxNSU → nenhuma alteração (regressão RC3.3.3)', async () => {
@@ -174,7 +170,7 @@ async function main() {
     assert.strictEqual(consumo.preservado, true);
     assert.strictEqual(consumo.ultNsu, '000000000000050');
     assert.strictEqual(repo._peek().ultNsu, '000000000000050');
-    assert.strictEqual(consumo.recuperacaoNsu.motivo, 'SEM_ULT_NSU');
+    assert.strictEqual(consumo.recuperacaoNsu.motivo, 'CSTAT_656_REQUER_RECONCILIACAO_CONTROLADA');
     assert.strictEqual(consumo.cooldownAtivo, true);
   });
 
@@ -202,7 +198,7 @@ async function main() {
     assert.strictEqual(repo._peek().ultNsu, '000000000000500');
   });
 
-  await test('recuperação ocorre apenas uma vez por evento', async () => {
+  await test('repetição de 656 não avança cursor sem reconciliação verificada', async () => {
     NsuRecoveryService.limparCacheEventos();
     const auditorias = [];
     const repo = criarNsuRepoMemoria({
@@ -225,12 +221,10 @@ async function main() {
       maxNsu: '000000000000428',
       correlationId: 'rc3751-once'
     });
-    assert.strictEqual(r1.atualizouNsu, true);
+    assert.strictEqual(r1.atualizouNsu, false);
 
-    // Mesmo correlationId com cursor “atrasado” de novo: não reprocessa o evento.
-    repo._set({ ultNsu: '000000000000000', maxNsu: '000000000000000' });
     const r2 = await service.aplicarRetornoDistDfe({
-      controle: { ...r1.controle, ultNsu: '000000000000000', maxNsu: '000000000000000' },
+      controle: r1.controle,
       cStat: '656',
       xmlRetorno: xml,
       ultNsu: '000000000000428',
@@ -238,11 +232,11 @@ async function main() {
       correlationId: 'rc3751-once'
     });
     assert.strictEqual(r2.atualizouNsu, false);
-    assert.strictEqual(r2.recuperacaoNsu.motivo, 'JA_PROCESSADO');
-    assert.strictEqual(auditorias.filter((a) => a.tipo === TIPOS_EVENTO.AUTO_SYNC_NSU).length, 1);
+    assert.strictEqual(r2.recuperacaoNsu.motivo, 'CSTAT_656_REQUER_RECONCILIACAO_CONTROLADA');
+    assert.strictEqual(auditorias.filter((a) => a.tipo === TIPOS_EVENTO.AUTO_SYNC_NSU).length, 0);
   });
 
-  await test('cooldown respeitado após recuperação', async () => {
+  await test('cooldown persiste com cursor preservado', async () => {
     NsuRecoveryService.limparCacheEventos();
     const agora = new Date('2026-07-30T12:00:00.000Z');
     const repo = criarNsuRepoMemoria({
@@ -266,7 +260,8 @@ async function main() {
       correlationId: 'rc3751-cd'
     });
 
-    assert.strictEqual(consumo.atualizouNsu, true);
+    assert.strictEqual(consumo.atualizouNsu, false);
+    assert.strictEqual(consumo.ultNsu, '000000000000000');
     const cd = service.avaliarCooldown(consumo.controle);
     assert.strictEqual(cd.ativo, true);
     assert.strictEqual(cd.proximaConsultaEm, '2026-07-30T13:00:00.000Z');
@@ -291,7 +286,7 @@ async function main() {
       ultimoCstat: '656',
       cooldownAte: '2026-07-30T13:00:00.000Z'
     }, { atualizou: true, nsuRemoto: '000000000000428' });
-    assert.strictEqual(auto.status, 'Atualizado automaticamente');
+    assert.strictEqual(auto.status, 'Reconciliação controlada');
     assert.strictEqual(auto.nsuLocal, '000000000000428');
     assert.strictEqual(auto.nsuSefaz, '000000000000428');
 

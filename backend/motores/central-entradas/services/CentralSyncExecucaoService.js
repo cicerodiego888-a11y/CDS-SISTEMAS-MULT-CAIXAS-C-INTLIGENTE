@@ -37,6 +37,7 @@ class CentralSyncExecucaoService {
       ?? new CentralConfiguracaoService();
     this._notificacoes = deps.notificacoesService ?? new CentralNotificacoesService();
     this._emitirEvento = deps.emitirEvento || emitirEvento;
+    this._gate = deps.gate || require('./CentralSefazOperationalGate');
     this._syncLock = deps.syncLock || obterDistNsuSyncLock();
     this._executando = false;
     this._lockDono = null;
@@ -103,41 +104,34 @@ class CentralSyncExecucaoService {
     const usuarioId = opcoes.usuarioId ?? null;
     const correlationId = opcoes.correlationId || criarCorrelationId();
 
-    if (opcoes.ignorarBloqueio656 !== true) {
-      try {
-        const gate = require('./CentralSefazOperationalGate');
-        const auth = await gate.autorizarConsultaDistDfe({
-          correlationId,
-          origem,
-          forcar: forcar,
-          forcarAdminConfirmado: opcoes.forcarAdminConfirmado === true,
-          confirmacaoAdmin: opcoes.confirmacaoAdmin === true,
-          motivo: 'Aguardando liberação da SEFAZ'
-        });
-        if (!auth.permitido) {
-          return {
-            ...auth,
-            origem,
-            correlationId
-          };
-        }
-      } catch { /* ignore */ }
+    const auth = await this._gate.autorizarConsultaDistDfe({
+      correlationId,
+      origem,
+      forcar: forcar,
+      forcarAdminConfirmado: opcoes.forcarAdminConfirmado === true,
+      confirmacaoAdmin: opcoes.confirmacaoAdmin === true,
+      motivo: 'Aguardando liberação da SEFAZ'
+    });
+    if (!auth.permitido) {
+      return {
+        ...auth,
+        origem,
+        correlationId
+      };
     }
 
-    if (!forcar && opcoes.ignorarCooldown !== true) {
-      const cooldown = await this._verificarCooldownDfe();
-      if (cooldown.ativo) {
-        return {
-          sucesso: true,
-          ignorado: true,
-          codigo: 'AGUARDAR_JANELA_DFE',
-          mensagem: 'Consulta DF-e adiada para respeitar a janela de 1 hora da NT 2014.002.',
-          proximaConsultaEm: cooldown.proximaConsultaEm,
-          ultNsu: cooldown.ultNsu,
-          maxNsu: cooldown.maxNsu,
-          correlationId
-        };
-      }
+    const cooldown = await this._verificarCooldownDfe();
+    if (cooldown.ativo) {
+      return {
+        sucesso: true,
+        ignorado: true,
+        codigo: 'AGUARDAR_JANELA_DFE',
+        mensagem: 'Consulta DF-e adiada para respeitar a janela de 1 hora da NT 2014.002.',
+        proximaConsultaEm: cooldown.proximaConsultaEm,
+        ultNsu: cooldown.ultNsu,
+        maxNsu: cooldown.maxNsu,
+        correlationId
+      };
     }
 
     if (!ignorarHorario && origem === ORIGENS.BACKGROUND) {
@@ -201,13 +195,11 @@ class CentralSyncExecucaoService {
         this._ultimoResultado = resultado;
 
         if (resultado.cStat) {
-          try {
-            await require('./CentralSefazOperationalGate').processarRespostaSefaz(resultado, {
-              correlationId,
-              nsu: resultado.ultNsu || null
-            });
-            resultado.gateProcessado = true;
-          } catch { /* ignore */ }
+          await this._gate.processarRespostaSefaz(resultado, {
+            correlationId,
+            nsu: resultado.ultNsu || null
+          });
+          resultado.gateProcessado = true;
         }
 
         await this._emitirEvento({
@@ -288,19 +280,17 @@ class CentralSyncExecucaoService {
 
   /** @private */
   async _verificarCooldownDfe() {
-    try {
-      const contexto = await this._config.obterContextoOperacional();
-      if (!contexto.ok) return { ativo: false };
-
-      const ambiente = Number(contexto.contexto.ambiente) === 1 ? 1 : 2;
-      const controle = await this._nsuService.buscarPorCnpjAmbiente(
-        contexto.contexto.cnpj,
-        ambiente
-      );
-      return this._nsuService.avaliarCooldown(controle);
-    } catch {
-      return { ativo: false };
+    const contexto = await this._config.obterContextoOperacional();
+    if (!contexto.ok) {
+      throw new Error(contexto.mensagem || 'Contexto fiscal indisponível para validar cooldown DF-e.');
     }
+
+    const ambiente = Number(contexto.contexto.ambiente) === 1 ? 1 : 2;
+    const controle = await this._nsuService.buscarPorCnpjAmbiente(
+      contexto.contexto.cnpj,
+      ambiente
+    );
+    return this._nsuService.avaliarCooldown(controle);
   }
 }
 

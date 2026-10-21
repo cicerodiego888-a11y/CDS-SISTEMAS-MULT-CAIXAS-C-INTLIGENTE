@@ -131,7 +131,10 @@ class DestaxaRealAdapter extends BaseAdapter {
   }
 
   async diagnosticar() {
-    await this.bridge.load();
+    const carregada = await this.bridge.isLoaded();
+    if (!carregada) {
+      await this.bridge.load();
+    }
     const atual = await this.bridge.getDiagnostics();
     const dllOk = atual.dllLoaded === true && atual.exportsValid === true;
 
@@ -139,10 +142,14 @@ class DestaxaRealAdapter extends BaseAdapter {
       sucesso: dllOk,
       mensagem: dllOk
         ? (atual.clientInitialized
-          ? 'Client Destaxa inicializado'
-          : 'DLL Destaxa carregada e exports validados — Client ainda não inicializado; TEF não disponível para pagamento')
+          ? 'DLL validada e Client Destaxa inicializado; comunicação transacional não testada'
+          : 'DLL Destaxa carregada e exports validados — Client ainda não inicializado')
         : (atual.ultimoErro?.mensagem || 'Diagnóstico Destaxa incompleto'),
-      detalhes: atual
+      detalhes: {
+        ...atual,
+        transactionCommunicationValidated: false,
+        authorizationAvailable: false
+      }
     });
   }
 

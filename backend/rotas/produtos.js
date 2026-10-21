@@ -33,6 +33,12 @@ const {
   handleMulterProdutoImagemError
 } = require('../services/produtoImagemUpload');
 const { obterProdutoImagemService } = require('../services/ProdutoImagemService');
+const {
+  TIPOS_OPERACIONAIS,
+  normalizarTipoOperacional,
+  isProdutoInsumo,
+  validarProdutosParaVenda
+} = require('../services/produtosTipoOperacional');
 const { obterProdutoEmbalagemService } = require('../services/produto-embalagem/ProdutoEmbalagemService');
 const { obterMib, obterSearchService, normalizarNomeBusca } = require('../motores/mib');
 const { criarBuscaOperacionalProdutosService } = require('../services/busca-operacional-produtos');
@@ -224,6 +230,9 @@ const { resolverCustoUnitarioProdutoCadastro } = require('../lib/motorConversaoU
 const { normalizarFlagControlaEstoque } = require('../services/estoque/produtoControlaEstoque');
 
 function normalizarProdutoResposta(produto, modoFiscal) {
+  const tipoOperacional = normalizarTipoOperacional(
+    produto?.tipo_operacional ?? produto?.tipo ?? produto?.tipo_operacao ?? produto?.operacao ?? TIPOS_OPERACIONAIS.COMERCIAL
+  );
   const saldoFiscal = Number(produto.saldo_fiscal ?? 0);
   const saldoNaoFiscal = Number(produto.saldo_nao_fiscal ?? 0);
   const estoqueAtual = saldoFiscal + saldoNaoFiscal;
@@ -243,6 +252,8 @@ function normalizarProdutoResposta(produto, modoFiscal) {
   const base = {
     ...produto,
     ...aplicarCamposVendaUnidadeResposta(produto),
+    tipo_operacional: tipoOperacional,
+    tipo: tipoOperacional,
     produto_fracionado: flagFracionado,
     vendido_por_peso: flagFracionado,
     /** Alias oficial Sprint 06 — mesmo valor de produto_fracionado */
@@ -666,6 +677,17 @@ router.get('/', (req, res) => {
   const filtroFiscal = filtroSqlModoFiscalProduto(modoFiscal, 'p');
   const params = [];
   const filtros = [];
+
+  const tipoOperacionalParam = req.query.tipo_operacional != null
+    ? String(req.query.tipo_operacional).trim().toUpperCase()
+    : null;
+  if (tipoOperacionalParam) {
+    filtros.push('(COALESCE(p.tipo_operacional, p.tipo, ?) = ?)');
+    params.push(TIPOS_OPERACIONAIS.COMERCIAL, tipoOperacionalParam);
+  } else {
+    filtros.push('(COALESCE(p.tipo_operacional, p.tipo, ?) = ?)');
+    params.push(TIPOS_OPERACIONAIS.COMERCIAL, TIPOS_OPERACIONAIS.COMERCIAL);
+  }
 
   const categoriaId = req.query.categoria_id != null && String(req.query.categoria_id).trim() !== ''
     ? Number(req.query.categoria_id)
@@ -2393,8 +2415,8 @@ router.get('/:id', (req, res) => {
 // Criar produto
 router.post('/', (req, res) => {
   const {
-    codigo, nome, categoria_id, subcategoria_id, unidade, preco_compra,
-    lucro_percentual, preco_venda, estoque_atual, estoque_minimo, fornecedor,
+    codigo, nome, categoria_id, subcategoria_id, unidade, tipo_operacional, tipo,
+    preco_compra, lucro_percentual, preco_venda, estoque_atual, estoque_minimo, fornecedor,
     ncm, cfop, csosn, origem, cest, codigo_barras,
     aliquota_icms, aliquota_pis, aliquota_cofins,
     controlar_validade,
@@ -2453,6 +2475,9 @@ router.post('/', (req, res) => {
   const imagemPrincipalGravar = Object.prototype.hasOwnProperty.call(req.body, 'imagem_principal')
     ? normalizarImagemPrincipalOpcional(imagem_principal)
     : null;
+  const tipoOperacionalGravar = normalizarTipoOperacional(
+    tipo_operacional ?? tipo ?? req.body?.tipo_operacional ?? req.body?.tipo ?? TIPOS_OPERACIONAIS.COMERCIAL
+  );
 
   const flagFracionado = resolverFlagProdutoFracionado({
     produto_fracionado,
@@ -2544,7 +2569,7 @@ router.post('/', (req, res) => {
 
   db.run(`
     INSERT INTO produtos (
-      codigo, nome, nome_busca, ativo, categoria_id, subcategoria_id, unidade,
+      codigo, nome, nome_busca, ativo, categoria_id, subcategoria_id, tipo_operacional, unidade,
       preco_compra, lucro_percentual, preco_venda,
       estoque_atual, estoque_minimo, fornecedor,
       ncm, cfop, csosn, origem, cest, codigo_barras,
@@ -2556,9 +2581,9 @@ router.post('/', (req, res) => {
       permite_venda_unidade, peso_medio_unidade, preco_unidade,
       marca_id, observacoes, imagem_principal
     )
-    VALUES (${Array(39).fill('?').join(', ')})
+    VALUES (${Array(40).fill('?').join(', ')})
   `, [
-    codigoFinal, nome, nomeBuscaGravar, 1, categoria_id, subcategoria_id, unidade,
+    codigoFinal, nome, nomeBuscaGravar, 1, categoria_id, subcategoria_id, tipoOperacionalGravar, unidade,
     preco_compra, lucro_percentual, preco_venda,
     estoqueInicial, estoque_minimo || 0, fornecedor,
     ncm, cfop, csosn, origem, cest, codigo_barras == null ? null : String(codigo_barras),
@@ -2974,6 +2999,15 @@ router.put('/:id', (req, res) => {
     if (!old) {
       res.status(404).json({ error: 'Produto não encontrado' });
       return;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'tipo_operacional') || Object.prototype.hasOwnProperty.call(req.body, 'tipo')) {
+      bodyUpdates.tipo_operacional = normalizarTipoOperacional(
+        req.body.tipo_operacional ?? req.body.tipo ?? old?.tipo_operacional ?? old?.tipo ?? TIPOS_OPERACIONAIS.COMERCIAL
+      );
+      if (Object.prototype.hasOwnProperty.call(req.body, 'tipo')) {
+        bodyUpdates.tipo = bodyUpdates.tipo_operacional;
+      }
     }
 
     const aplicarSaldosIniciaisSePermitido = (callback) => {

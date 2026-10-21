@@ -45,6 +45,29 @@ function chaveEvento(correlationId, cnpj, ambiente, local, remoto) {
   return `nsu:${cnpj || ''}:${ambiente || ''}:${local}:${remoto}`;
 }
 
+function evidenciaSequenciaValida(evidencia, controle, nsuLocal, params) {
+  if (!evidencia || evidencia.confirmada !== true) return false;
+  const cnpj = String(controle.cnpj || '').replace(/\D/g, '');
+  const cnpjEvidencia = String(evidencia.cnpj || '').replace(/\D/g, '');
+  const ambiente = Number(controle.ambiente) === 1 ? 1 : 2;
+  const ambienteEvidencia = Number(evidencia.ambiente) === 1 ? 1 : 2;
+  const cursorLocal = normalizarNsu(evidencia.cursorLocal);
+  const nsuEnviado = normalizarNsu(evidencia.nsuEnviado);
+
+  return Boolean(
+    String(evidencia.confirmadoPor || '').trim()
+    && String(evidencia.requestId || '').trim()
+    && cnpj
+    && cnpj === cnpjEvidencia
+    && ambiente === ambienteEvidencia
+    && cursorLocal === nsuLocal
+    && nsuEnviado === nsuLocal
+    && String(evidencia.requestId || '') === String(params.requestId || '')
+    && String(params.requestId || '').trim() !== ''
+    && (!params.correlationId || String(evidencia.correlationId || '') === String(params.correlationId))
+  );
+}
+
 /**
  * Resolve NSU a partir de param do parser ou fallback XML.
  * @returns {{ valor: string|null, origem: string, recuperadoDoXml: boolean }}
@@ -157,6 +180,24 @@ class NsuRecoveryService {
     const maxRemoto = resolucaoMax.valor;
     const nsuLocal = normalizarNsuOuZero(controle.ultNsu);
 
+    if (!evidenciaSequenciaValida(params.evidenciaSequencia, controle, nsuLocal, params)) {
+      return {
+        ...base,
+        motivo: 'EVIDENCIA_SEQUENCIA_NAO_VERIFICADA',
+        nsuLocal,
+        nsuRemoto
+      };
+    }
+
+    if (nsuNumerico(maxRemoto) < nsuNumerico(nsuRemoto)) {
+      return {
+        ...base,
+        motivo: 'FAIXA_NSU_RETORNADA_INCONSISTENTE',
+        nsuLocal,
+        nsuRemoto
+      };
+    }
+
     if (nsuNumerico(nsuRemoto) <= nsuNumerico(nsuLocal)) {
       this._logNsu({
         correlationId,
@@ -181,9 +222,13 @@ class NsuRecoveryService {
     }
 
     const agora = this._agora();
+    const maxNsuLocal = normalizarNsuOuZero(controle.maxNsu);
+    const maxNsuSeguro = nsuNumerico(maxRemoto) >= nsuNumerico(maxNsuLocal)
+      ? maxRemoto
+      : maxNsuLocal;
     const atualizado = await this._repository.atualizarSincronizacaoSegura(controle.id, {
       ultNsu: nsuRemoto,
-      maxNsu: maxRemoto,
+      maxNsu: maxNsuSeguro,
       ultimoCstat: '656',
       dataSincronizacao: agora.toISOString()
     });
@@ -225,7 +270,7 @@ class NsuRecoveryService {
       nsuLocal,
       nsuRemoto,
       nsuAtualizado: novoLocal,
-      maxNsu: normalizarNsuOuZero(atualizado?.maxNsu || maxRemoto),
+      maxNsu: normalizarNsuOuZero(atualizado?.maxNsu || maxNsuSeguro),
       correlationId,
       data: agora.toISOString(),
       origemUltNsu: resolucaoUlt.origem,
@@ -271,7 +316,7 @@ class NsuRecoveryService {
 
     let status = 'Sincronizado';
     if (recuperacao?.atualizou) {
-      status = 'Atualizado automaticamente';
+      status = 'Reconciliação controlada';
     } else if (cooldownAtivo && String(ultimoCstat) === '656') {
       status = 'Aguardando cooldown';
     } else if (String(ultimoCstat) === '656') {
@@ -291,12 +336,17 @@ class NsuRecoveryService {
 
   /** @private */
   _logNsu({ correlationId, nsuLocal, nsuRemoto, atualizado, motivo, origem, cooldownAte }) {
+    const mascararNsu = (nsu) => {
+      if (nsu == null) return '—';
+      const digitos = String(nsu).replace(/\D/g, '');
+      return digitos.length > 4 ? `…${digitos.slice(-4)}` : digitos;
+    };
     if (motivo === 'avaliacao') {
       console.log([
         '[NSU]',
         `Origem: ${origem || ORIGEM_NSU.AUSENTE}`,
-        `Local: ${nsuLocal ?? '—'}`,
-        `Remoto: ${nsuRemoto ?? '—'}`,
+        `Local: ${mascararNsu(nsuLocal)}`,
+        `Remoto: ${mascararNsu(nsuRemoto)}`,
         correlationId ? `CorrelationId: ${correlationId}` : null
       ].filter(Boolean).join('\n'));
       return;
@@ -305,8 +355,8 @@ class NsuRecoveryService {
     const linhas = [
       '[NSU]',
       `Origem: ${origem || ORIGEM_NSU.AUSENTE}`,
-      `Local: ${nsuLocal ?? '—'}`,
-      `Remoto: ${nsuRemoto ?? '—'}`,
+      `Local: ${mascararNsu(nsuLocal)}`,
+      `Remoto: ${mascararNsu(nsuRemoto)}`,
       `Atualizado: ${atualizado ? 'Sim' : 'Não'}`,
       `Motivo: ${motivo || '—'}`,
       `Cooldown: ${cooldownAte || '—'}`,

@@ -61,18 +61,39 @@ function criarScheduler(opts = {}) {
       validade: '2027-01-01T00:00:00.000Z'
     })
   });
+  const obterOrchestrator = opts.obterOrchestrator || (() => ({
+    async processarCicloDfeDocumento() { return { xmlCompleto: false, cStat: '137' }; }
+  }));
   const svc = new CentralXmlWaitScheduler({
     documentosRepository: opts.docs || criarRepoDocs([]),
     configRepository: config,
     tickMs: 20,
     agora: opts.agora || (() => new Date('2026-07-18T20:00:00.000Z')),
-    obterOrchestrator: opts.obterOrchestrator || (() => ({
-      async processarCicloDfeDocumento() { return { xmlCompleto: false, cStat: '137' }; }
-    })),
+    eventosRepository: opts.eventosRepository || {
+      async existePorTipoDocumento() { return true; },
+      async listar() { return []; }
+    },
+    obterOrchestrator: () => {
+      const orchestrator = obterOrchestrator();
+      const processar = orchestrator.processarCicloDfeDocumento.bind(orchestrator);
+      return {
+        ...orchestrator,
+        async processarCicloDfeDocumento(...args) {
+          const resultado = await processar(...args);
+          if (resultado?.cStat && resultado.gateProcessado !== true) {
+            await gate.processarRespostaSefaz(resultado, {
+              cnpjXml: resultado.cnpjXml,
+              cnpjCertificado: resultado.cnpjCertificado
+            });
+          }
+          return resultado;
+        }
+      };
+    },
     gate,
     obterFingerprintConfig: async () => fingerprint.atual
   });
-  gate.vincularPersistencia(() => { svc._persistirEstado().catch(() => {}); });
+  gate.vincularPersistencia(() => svc._mirx._persistirEstado());
   return { svc, gate, config, fingerprint };
 }
 
@@ -271,10 +292,10 @@ async function caso6_ReinicioRecuperaEstado() {
     cnpjXml: '1',
     cnpjCertificado: '2'
   });
-  await svc1._persistirEstado();
+  await svc1._mirx._persistirEstado();
 
   const { svc: svc2, gate: g2 } = criarScheduler({ config, agora });
-  await svc2._carregarEstado();
+  await svc2._mirx._carregarEstado();
   assert.strictEqual(g2.estaBloqueado656(), true);
   assert.strictEqual(g2.estaSuspenso593(), true);
   assert.ok(g2.obterBloqueio656().bloqueadoAte);
