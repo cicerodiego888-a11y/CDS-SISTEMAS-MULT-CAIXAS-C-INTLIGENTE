@@ -33,6 +33,35 @@ function executar(db, sql, params = []) {
   });
 }
 
+async function garantirSchema(db) {
+  await new Promise((resolve, reject) => {
+    garantirSchemaFechamentoFiscal(db, (err) => (err ? reject(err) : resolve()));
+  });
+}
+
+async function inserirRecebimentosMaquina(db, valores) {
+  for (const [index, valor] of valores.entries()) {
+    await executar(
+      db,
+      `INSERT INTO fechamentos_fiscais_recebimentos
+       (fechamento_fiscal_id, operadora, valor) VALUES (1, ?, ?)`,
+      [`Máquina ${index + 1}`, valor]
+    );
+  }
+}
+
+async function inserirComprovantes(db, valores) {
+  for (const [index, valor] of valores.entries()) {
+    await executar(
+      db,
+      `INSERT INTO fechamentos_fiscais_recebimentos_comprovantes
+       (fechamento_fiscal_id, valor, ordem, operadora, forma_pagamento)
+       VALUES (1, ?, ?, ?, 'pix')`,
+      [valor, index + 1, `Operadora ${index + 1}`]
+    );
+  }
+}
+
 function criarLotesComValores(valorCentavos) {
   return valorCentavos.map((valor, index) => ({
     produto_id: index + 1,
@@ -357,6 +386,7 @@ describe('Sprint por comprovante — informar comprovantes', () => {
       id: 1,
       data: '2026-10-01',
       valor_informado: 148,
+      modo_recebimento: 'por_venda',
       persistir: true
     }, { db, moduloOn: true, capturarSnapshot: false });
     const fechamento = await obterPorId(1, { db });
@@ -390,11 +420,15 @@ describe('Sprint por comprovante — informar comprovantes', () => {
       garantirSchemaFechamentoFiscal(db, (err) => err ? reject(err) : resolve());
     });
     await executar(db, 'DELETE FROM fechamentos_fiscais_previa_itens WHERE fechamento_fiscal_id = 1');
+    await executar(db, `INSERT INTO fechamentos_fiscais_recebimentos_comprovantes
+      (fechamento_fiscal_id, valor, ordem, operadora, forma_pagamento)
+      VALUES (1, 50, 1, 'Operadora A', 'pix'), (1, 75, 2, 'Operadora B', 'cartao_credito')`);
 
     const resultado = await gerarPrevia({
       id: 1,
       data: '2026-10-01',
       valor_informado: 125,
+      modo_recebimento: 'por_comprovante',
       comprovantes: [50, 75],
       persistir: true
     }, {
@@ -445,6 +479,7 @@ describe('Sprint por comprovante — informar comprovantes', () => {
     const resultado = await gerarPrevia({
       data: '2026-10-01',
       valor_informado: 60,
+      modo_recebimento: 'por_comprovante',
       comprovantes: [10, 20, 30],
       persistir: false
     }, {
@@ -1178,5 +1213,194 @@ describe('Sprint por comprovante — informar comprovantes', () => {
       && item.dados.etapa === 'T9-persistence'));
     assert.ok(rastros.some((item) => item.evento === 'previa_geracao_fim'
       && item.dados.resultado === 'sucesso'));
+  });
+
+  it('por_maquina soma recebimentos persistidos de várias máquinas e ignora o total do cliente', async () => {
+    const db = abrirDb();
+    await prepararCenario(db);
+    await garantirSchema(db);
+    await inserirRecebimentosMaquina(db, [50, 75]);
+
+    const resultado = await gerarPrevia({
+      id: 1,
+      data: '2026-10-01',
+      valor_informado: 999,
+      modo_recebimento: 'por_maquina',
+      persistir: false
+    }, { db, moduloOn: true, capturarSnapshot: false });
+
+    assert.equal(resultado.previa.valor_informado, 125);
+    assert.equal(resultado.previa.valor_distribuido, 125);
+    db.close();
+  });
+
+  it('por_maquina ignora comprovantes antigos ao alternar o modo', async () => {
+    const db = abrirDb();
+    await prepararCenario(db);
+    await garantirSchema(db);
+    await inserirRecebimentosMaquina(db, [50, 75]);
+    await inserirComprovantes(db, [50, 75]);
+
+    const resultado = await gerarPrevia({
+      id: 1,
+      data: '2026-10-01',
+      valor_informado: 125,
+      modo_recebimento: 'por_maquina',
+      persistir: false
+    }, { db, moduloOn: true, capturarSnapshot: false });
+
+    assert.equal(resultado.previa.valor_informado, 125);
+    assert.equal(resultado.previa.quantidade_vendas, 1);
+    db.close();
+  });
+
+  it('por_comprovante não soma recebimentos persistidos por máquina', async () => {
+    const db = abrirDb();
+    await prepararCenario(db);
+    await garantirSchema(db);
+    await inserirRecebimentosMaquina(db, [100, 100]);
+    await inserirComprovantes(db, [50, 75]);
+
+    const resultado = await gerarPrevia({
+      id: 1,
+      data: '2026-10-01',
+      valor_informado: 200,
+      modo_recebimento: 'por_comprovante',
+      persistir: false
+    }, { db, moduloOn: true, capturarSnapshot: false });
+
+    assert.equal(resultado.previa.valor_informado, 125);
+    assert.deepEqual(resultado.previa.vendas.map((venda) => venda.valor), [50, 75]);
+    db.close();
+  });
+
+  it('alternar modos preserva fontes e substitui a prévia sem duplicar valores', async () => {
+    const db = abrirDb();
+    await prepararCenario(db);
+    await garantirSchema(db);
+    await inserirRecebimentosMaquina(db, [50, 75]);
+    await inserirComprovantes(db, [25, 25]);
+
+    const deps = { db, moduloOn: true, capturarSnapshot: false };
+    const comprovante = await gerarPrevia({
+      id: 1,
+      data: '2026-10-01',
+      modo_recebimento: 'por_comprovante',
+      persistir: true
+    }, deps);
+    const maquina = await gerarPrevia({
+      id: 1,
+      data: '2026-10-01',
+      modo_recebimento: 'por_maquina',
+      persistir: true
+    }, deps);
+    const reaberto = await obterPorId(1, { db });
+
+    assert.equal(comprovante.previa.valor_informado, 50);
+    assert.equal(maquina.previa.valor_informado, 125);
+    assert.equal(reaberto.valor_informado, 125);
+    assert.equal(reaberto.previa_vendas.length, maquina.previa.vendas.length);
+    const totaisFontes = await new Promise((resolve, reject) => {
+      db.get(`SELECT
+        (SELECT COUNT(*) FROM fechamentos_fiscais_recebimentos WHERE fechamento_fiscal_id = 1) AS maquinas,
+        (SELECT COUNT(*) FROM fechamentos_fiscais_recebimentos_comprovantes WHERE fechamento_fiscal_id = 1) AS comprovantes`,
+      (err, row) => (err ? reject(err) : resolve(row)));
+    });
+    assert.equal(totaisFontes.maquinas, 2);
+    assert.equal(totaisFontes.comprovantes, 2);
+    db.close();
+  });
+
+  it('rejeita modo de recebimento inválido explicitamente', async () => {
+    const db = abrirDb();
+    await prepararCenario(db);
+
+    await assert.rejects(
+      gerarPrevia({
+        id: 1,
+        data: '2026-10-01',
+        modo_recebimento: 'por_qualquer_coisa'
+      }, { db, moduloOn: true, capturarSnapshot: false }),
+      (err) => err.code === 'MODO_RECEBIMENTO_INVALIDO' && err.statusCode === 400
+    );
+    db.close();
+  });
+
+  it('não compõe valores acima da capacidade fiscal disponível', async () => {
+    const db = abrirDb();
+    await prepararCenario(db);
+    await garantirSchema(db);
+    await inserirRecebimentosMaquina(db, [100000]);
+
+    const resultado = await gerarPrevia({
+      id: 1,
+      data: '2026-10-01',
+      modo_recebimento: 'por_maquina',
+      persistir: false
+    }, { db, moduloOn: true, capturarSnapshot: false });
+
+    assert.ok(resultado.previa.valor_elegivel < resultado.previa.valor_informado);
+    assert.ok(resultado.previa.valor_distribuido <= resultado.previa.valor_elegivel);
+    assert.ok(resultado.previa.diferenca > 0);
+    db.close();
+  });
+
+  it('mantém composição vazia quando não há itens fiscais elegíveis', async () => {
+    const db = abrirDb();
+    await prepararCenario(db);
+    await garantirSchema(db);
+    await executar(db, 'UPDATE produtos SET item_fiscal = 0, saldo_fiscal = 0 WHERE id = 1');
+    await inserirRecebimentosMaquina(db, [50]);
+
+    const resultado = await gerarPrevia({
+      id: 1,
+      data: '2026-10-01',
+      modo_recebimento: 'por_maquina',
+      persistir: false
+    }, { db, moduloOn: true, capturarSnapshot: false });
+
+    assert.equal(resultado.previa.valor_distribuido, 0);
+    assert.equal(resultado.previa.quantidade_vendas, 0);
+    assert.equal(resultado.previa.diferenca, 50);
+    db.close();
+  });
+
+  it('preserva divergência de um centavo sem ajustar artificialmente a composição', async () => {
+    const db = abrirDb();
+    await prepararCenario(db);
+    await garantirSchema(db);
+    await inserirRecebimentosMaquina(db, [124.99]);
+
+    const resultado = await gerarPrevia({
+      id: 1,
+      data: '2026-10-01',
+      modo_recebimento: 'por_maquina',
+      persistir: false
+    }, { db, moduloOn: true, capturarSnapshot: false });
+
+    assert.equal(Math.round(resultado.previa.valor_distribuido * 100), 12500);
+    assert.equal(Math.abs(Math.round(resultado.previa.diferenca * 100)), 1);
+    db.close();
+  });
+
+  it('persiste a prévia por máquina e a recupera ao reabrir o fechamento', async () => {
+    const db = abrirDb();
+    await prepararCenario(db);
+    await garantirSchema(db);
+    await inserirRecebimentosMaquina(db, [50, 75]);
+
+    const gerada = await gerarPrevia({
+      id: 1,
+      data: '2026-10-01',
+      modo_recebimento: 'por_maquina',
+      persistir: true
+    }, { db, moduloOn: true, capturarSnapshot: false });
+    const reaberta = await obterPorId(1, { db });
+
+    assert.equal(gerada.previa.valor_distribuido, 125);
+    assert.equal(reaberta.valor_informado, 125);
+    assert.equal(reaberta.valor_distribuido, 125);
+    assert.equal(reaberta.previa_vendas.length, gerada.previa.vendas.length);
+    db.close();
   });
 });

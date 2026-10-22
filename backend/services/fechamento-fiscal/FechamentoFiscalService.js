@@ -1134,8 +1134,11 @@ async function persistirPrevia(db, fechamento, previa, produtos, opts, metricasP
            atualizado_em = ?
        WHERE id = ?`,
       [
-        // valor_principal imutável: não reduzir valor_informado original após autorizações
-        (Number(fechamento.valor_principal) > 0 || Number(fechamento.valor_emitido_autorizado) > 0)
+        // Keep the original principal immutable only after an amount was authorized.
+        (
+          Number(fechamento.valor_emitido_autorizado) > 0
+          || ![STATUS.RASCUNHO, STATUS.PREVIA].includes(String(fechamento.status || '').toUpperCase())
+        )
           ? arredondarMoeda(fechamento.valor_principal || fechamento.valor_informado)
           : previa.valor_informado,
         previa.valor_distribuido,
@@ -1340,6 +1343,15 @@ function gerarPreviaPorComprovante(comprovantes, lotes, opts = {}) {
  */
 async function gerarPreviaInterna(params = {}, deps = {}, rastreio = {}) {
   const inicioTotal = performance.now();
+  const modosRecebimentoSuportados = ['por_maquina', 'por_comprovante', 'por_venda'];
+  const modoRecebimentoInformado = params.modo_recebimento != null;
+  const modoRecebimento = modoRecebimentoInformado ? String(params.modo_recebimento) : null;
+  if (modoRecebimentoInformado && !modosRecebimentoSuportados.includes(modoRecebimento)) {
+    const err = new Error(`Modo de recebimento inválido. Valores suportados: ${modosRecebimentoSuportados.join(', ')}.`);
+    err.statusCode = 400;
+    err.code = 'MODO_RECEBIMENTO_INVALIDO';
+    throw err;
+  }
   const db = getDb(deps.db);
   await medirEtapaRastreada('T1-module-check', () => assertModuloAtivo(db, deps), {}, rastreio);
 
@@ -1389,6 +1401,74 @@ async function gerarPreviaInterna(params = {}, deps = {}, rastreio = {}) {
 
   if (valorInformado == null) valorInformado = 0;
 
+  const fechamentoIdValido = Number.isInteger(Number(fechamento?.id)) && Number(fechamento?.id) > 0;
+  let origemRecebimentos = 'valor_informado';
+  let quantidadeRegistrosRecebimento = 0;
+  let comprovantesPersistidos = [];
+
+  if (modoRecebimento === 'por_maquina' && fechamentoIdValido && !params.continuar_emissao) {
+    const recebimentos = await listarRecebimentos(db, Number(fechamento.id));
+    valorInformado = somarMoeda(recebimentos.map((item) => item.valor));
+    quantidadeRegistrosRecebimento = recebimentos.length;
+    origemRecebimentos = 'fechamentos_fiscais_recebimentos';
+  } else if (modoRecebimento === 'por_comprovante' && !params.continuar_emissao) {
+    if (fechamentoIdValido) {
+      const linhas = await all(
+        db,
+        `SELECT valor, ordem FROM fechamentos_fiscais_recebimentos_comprovantes
+         WHERE fechamento_fiscal_id = ?
+         ORDER BY ordem ASC, id ASC`,
+        [Number(fechamento.id)]
+      );
+      comprovantesPersistidos = linhas
+        .map((linha) => ({ valor: normalizarValorMonetarioComprovante(linha.valor), ordem: Number(linha.ordem || 0) || 0 }))
+        .filter((item) => item.valor !== null);
+      origemRecebimentos = 'fechamentos_fiscais_recebimentos_comprovantes';
+    } else {
+      comprovantesPersistidos = normalizarListaComprovantes(params.comprovantes);
+      origemRecebimentos = 'comprovantes_requisicao_sem_fechamento';
+    }
+    quantidadeRegistrosRecebimento = comprovantesPersistidos.length;
+    if (fechamentoIdValido) {
+      valorInformado = somarMoeda(comprovantesPersistidos.map((item) => item.valor));
+    }
+  } else if (modoRecebimento === 'por_venda' && fechamentoIdValido && !params.continuar_emissao) {
+    const recebimentosVendas = await all(
+      db,
+      `SELECT valor_comprovante FROM fechamentos_fiscais_recebimentos_vendas
+       WHERE fechamento_fiscal_id = ? AND valor_comprovante IS NOT NULL
+       ORDER BY venda_id ASC`,
+      [Number(fechamento.id)]
+    );
+    valorInformado = somarMoeda(recebimentosVendas.map((item) => item.valor_comprovante));
+    quantidadeRegistrosRecebimento = recebimentosVendas.length;
+    origemRecebimentos = 'fechamentos_fiscais_recebimentos_vendas';
+  } else if (!modoRecebimentoInformado) {
+    const comprovantesExplicitos = Array.isArray(params.comprovantes) && params.comprovantes.length > 0;
+    if (comprovantesExplicitos) {
+      comprovantesPersistidos = normalizarListaComprovantes(params.comprovantes);
+      origemRecebimentos = 'comprovantes_requisicao_legada';
+    } else if (fechamentoIdValido) {
+      const linhas = await all(
+        db,
+        `SELECT valor, ordem FROM fechamentos_fiscais_recebimentos_comprovantes
+         WHERE fechamento_fiscal_id = ?
+         ORDER BY ordem ASC, id ASC`,
+        [Number(fechamento.id)]
+      );
+      comprovantesPersistidos = linhas
+        .map((linha) => ({ valor: normalizarValorMonetarioComprovante(linha.valor), ordem: Number(linha.ordem || 0) || 0 }))
+        .filter((item) => item.valor !== null);
+      origemRecebimentos = comprovantesPersistidos.length
+        ? 'fechamentos_fiscais_recebimentos_comprovantes_legado'
+        : 'valor_informado_legado';
+    }
+    if (comprovantesPersistidos.length) {
+      quantidadeRegistrosRecebimento = comprovantesPersistidos.length;
+      valorInformado = somarMoeda(comprovantesPersistidos.map((item) => item.valor));
+    }
+  }
+
   // Proteção de saldo: após NFC-e autorizada, nova prévia usa somente o pendente
   if (fechamento && [STATUS.AUTORIZACAO_PARCIAL, STATUS.PENDENTE_RECUPERACAO, STATUS.REJEITADO, STATUS.ERRO].includes(fechamento.status)) {
     const saldoSvc = require('./FechamentoFiscalSaldoService');
@@ -1402,7 +1482,7 @@ async function gerarPreviaInterna(params = {}, deps = {}, rastreio = {}) {
     }
     if (toCentavos(saldo.valor_emitido_autorizado) > 0) {
       if (params.valor_informado != null) {
-        saldoSvc.assertValorTentativaPermitido(saldo, params.valor_informado);
+        saldoSvc.assertValorTentativaPermitido(saldo, valorInformado);
       }
       valorInformado = arredondarMoeda(saldo.valor_pendente_emissao);
       logTecnico('previa_base_pendente', {
@@ -1434,24 +1514,11 @@ async function gerarPreviaInterna(params = {}, deps = {}, rastreio = {}) {
 
   const devePersistir = Boolean(fechamento) && params.persistir !== false;
 
-  let comprovantesPersistidos = [];
-  const temComprovantesExplitos = Array.isArray(params.comprovantes) && params.comprovantes.length > 0;
-  if (temComprovantesExplitos) {
-    comprovantesPersistidos = normalizarListaComprovantes(params.comprovantes);
-  } else if (fechamento && Number.isInteger(Number(fechamento.id)) && Number(fechamento.id) > 0) {
-    const linhas = await all(
-      db,
-      `SELECT valor, ordem FROM fechamentos_fiscais_recebimentos_comprovantes
-       WHERE fechamento_fiscal_id = ?
-       ORDER BY ordem ASC, id ASC`,
-      [Number(fechamento.id)]
-    );
-    comprovantesPersistidos = linhas
-      .map((linha) => ({ valor: normalizarValorMonetarioComprovante(linha.valor), ordem: Number(linha.ordem || 0) || 0 }))
-      .filter((item) => item.valor !== null);
-  }
-
-  if (comprovantesPersistidos.length) {
+  if (
+    (modoRecebimento === 'por_comprovante' || !modoRecebimentoInformado)
+    && !params.continuar_emissao
+    && comprovantesPersistidos.length
+  ) {
     const produtosComp = await complementacao.obterProdutosFiscaisDisponiveisParaComplementacao(
       db,
       contextoDia?.produtosFiscais || null
@@ -1478,6 +1545,26 @@ async function gerarPreviaInterna(params = {}, deps = {}, rastreio = {}) {
       lotes,
       opcoes: { ...opts, metricasExecucao }
     }, rastreio), poolMetric, rastreio);
+    logTecnico('previa_composicao_diagnostico', {
+      ...rastreio,
+      correlation_id: rastreio.correlationId || rastreio.correlation_id || null,
+      modo_selecionado: modoRecebimento || 'legado_sem_modo',
+      total_informado: valorInformado,
+      total_informado_requisicao: params.valor_informado != null ? arredondarMoeda(params.valor_informado) : null,
+      origem_recebimentos: origemRecebimentos,
+      registros_utilizados: {
+        por_maquina: modoRecebimento === 'por_maquina' ? quantidadeRegistrosRecebimento : 0,
+        por_comprovante: modoRecebimento === 'por_comprovante' ? quantidadeRegistrosRecebimento : 0,
+        por_venda: modoRecebimento === 'por_venda' ? quantidadeRegistrosRecebimento : 0,
+        legado_sem_modo: modoRecebimentoInformado ? 0 : quantidadeRegistrosRecebimento
+      },
+      codigo_resultado: previa.codigo,
+      valor_elegivel: previa.valor_elegivel,
+      valor_distribuido: previa.valor_distribuido,
+      diferenca_centavos: toCentavos(previa.diferenca),
+      quantidade_vendas: previa.vendas.length,
+      quantidade_itens: previa.vendas.reduce((total, venda) => total + (venda.itens || []).length, 0)
+    });
     logTecnico('previa_etapa_fim', {
       ...rastreio,
       etapa: 'T6-groups',
@@ -1605,6 +1692,26 @@ async function gerarPreviaInterna(params = {}, deps = {}, rastreio = {}) {
     valorInformado,
     opcoes: { ...opts, metricasExecucao }
   }, rastreio), poolMetric, rastreio);
+  logTecnico('previa_composicao_diagnostico', {
+    ...rastreio,
+    correlation_id: rastreio.correlationId || rastreio.correlation_id || null,
+    modo_selecionado: modoRecebimento || 'legado_sem_modo',
+    total_informado: valorInformado,
+    total_informado_requisicao: params.valor_informado != null ? arredondarMoeda(params.valor_informado) : null,
+    origem_recebimentos: origemRecebimentos,
+    registros_utilizados: {
+      por_maquina: modoRecebimento === 'por_maquina' ? quantidadeRegistrosRecebimento : 0,
+      por_comprovante: modoRecebimento === 'por_comprovante' ? quantidadeRegistrosRecebimento : 0,
+      por_venda: modoRecebimento === 'por_venda' ? quantidadeRegistrosRecebimento : 0,
+      legado_sem_modo: modoRecebimentoInformado ? 0 : quantidadeRegistrosRecebimento
+    },
+    codigo_resultado: previa.codigo,
+    valor_elegivel: previa.valor_elegivel,
+    valor_distribuido: previa.valor_distribuido,
+    diferenca_centavos: toCentavos(previa.diferenca),
+    quantidade_vendas: previa.vendas.length,
+    quantidade_itens: previa.vendas.reduce((total, venda) => total + (venda.itens || []).length, 0)
+  });
   logTecnico('previa_etapa_fim', {
     ...rastreio,
     etapa: 'T6-groups',
@@ -1987,7 +2094,8 @@ async function continuarEmissaoFiscal(id, opts = {}, deps = {}) {
     valor_alvo: opts.valor_alvo,
     valor_min: opts.valor_min,
     valor_max: opts.valor_max,
-    continuar_emissao: true
+    continuar_emissao: true,
+    modo_recebimento: opts.modo_recebimento || 'por_maquina'
   }, deps);
 
   let preparacao = null;

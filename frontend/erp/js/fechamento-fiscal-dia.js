@@ -4046,6 +4046,7 @@ async function ffdAtualizarPrevia() {
         valor_max: Number($('#ffdValorMax').val() || 400),
         distribuicao_automatica: $('#ffdAuto').is(':checked'),
         modo: __ffdEstado.vista || 'venda',
+        modo_recebimento: __ffdEstado.modoRecebimento,
         ...( __ffdEstado.modoRecebimento === 'por_comprovante' && comprovantesParaPrevia.length ? { comprovantes: comprovantesParaPrevia } : {} ),
         correlation_id: correlationId
       };

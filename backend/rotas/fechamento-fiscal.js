@@ -120,6 +120,7 @@ router.get('/previa', async (req, res) => {
       valor_min: req.query.valor_min != null ? Number(req.query.valor_min) : undefined,
       valor_max: req.query.valor_max != null ? Number(req.query.valor_max) : undefined,
       fechamento_id: req.query.fechamento_id ? Number(req.query.fechamento_id) : undefined,
+      modo_recebimento: req.query.modo_recebimento || 'por_maquina',
       persistir: String(req.query.persistir || '0') === '1'
     });
     res.json(result);
@@ -409,6 +410,12 @@ router.post('/:id/previa', async (req, res) => {
   });
   try {
     const body = req.body || {};
+    if (body.modo_recebimento == null) {
+      const err = new Error('Informe um modo de recebimento válido para gerar a prévia.');
+      err.statusCode = 400;
+      err.code = 'MODO_RECEBIMENTO_INVALIDO';
+      throw err;
+    }
     const comprovantes = Array.isArray(body.comprovantes) ? body.comprovantes : [];
     const result = await service.gerarPrevia({
       id: Number(req.params.id),
@@ -418,6 +425,7 @@ router.post('/:id/previa', async (req, res) => {
       valor_alvo: body.valor_alvo != null ? Number(body.valor_alvo) : undefined,
       valor_min: body.valor_min != null ? Number(body.valor_min) : undefined,
       valor_max: body.valor_max != null ? Number(body.valor_max) : undefined,
+      modo_recebimento: body.modo_recebimento,
       comprovantes,
       persistir: true,
       correlation_id: correlationId

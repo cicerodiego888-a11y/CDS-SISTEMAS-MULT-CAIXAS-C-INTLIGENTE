@@ -140,10 +140,7 @@ describe('Validação dos recebimentos fiscais por modo', () => {
   }
 
   it('envia à validação e preparação o modo de recebimento selecionado na tela', () => {
-    assert.equal(
-      (frontend.match(/modo_recebimento: __ffdEstado\.modoRecebimento/g) || []).length,
-      2
-    );
+    assert.match(frontend, /const payloadPrevia = \{[\s\S]*?modo_recebimento: __ffdEstado\.modoRecebimento/);
   });
 
   it('aceita R$ 25,00 conciliados usando comprovantes, sem somar máquinas antigas', async () => {

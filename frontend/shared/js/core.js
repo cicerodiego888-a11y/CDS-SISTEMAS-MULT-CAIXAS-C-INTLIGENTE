@@ -241,11 +241,18 @@ async function atualizarVisibilidadeMenuFechamentoFiscalDia() {
     try {
         const response = await fetch(`${API_URL}/configuracoes/fechamento_fiscal_do_dia`, {
             headers: {
-                Authorization: `******'token') || ''}`
+                Authorization: `Bearer ${localStorage.getItem('token') || ''}`
             }
         });
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+            const corpoErro = typeof response.json === 'function'
+                ? await response.json().catch(() => ({}))
+                : {};
+            if (typeof isErroSessaoExpirada === 'function'
+                && isErroSessaoExpirada({ status: response.status, responseJSON: corpoErro })) {
+                handleUnauthorized();
+            }
+            throw new Error(`HTTP ${response.status}${corpoErro.erro ? ` ${corpoErro.erro}` : ''}`);
         }
 
         const data = await response.json();

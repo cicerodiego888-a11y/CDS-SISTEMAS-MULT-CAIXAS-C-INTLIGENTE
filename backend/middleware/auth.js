@@ -86,7 +86,14 @@ function verificarToken(req, res, next) {
       if (!api && req.accepts('html')) {
         return res.redirect('/login');
       }
-      return res.status(403).json({ error: 'Token inválido ou expirado' });
+      const expirado = err && err.name === 'TokenExpiredError';
+      console.warn(
+        `[AUTH] 403 ${req.method} ${String(req.originalUrl || '').split('?')[0]} motivo=${expirado ? 'TOKEN_EXPIRADO' : 'TOKEN_INVALIDO'} (${err && err.name})`
+      );
+      return res.status(403).json({
+        error: 'Token inválido ou expirado',
+        erro: expirado ? 'TOKEN_EXPIRADO' : 'TOKEN_INVALIDO'
+      });
     }
 
     req.user = user;
