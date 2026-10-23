@@ -531,9 +531,7 @@ function pdvProdutoEhNaoFiscal(produto) {
 }
 
 function pdvProdutoPermitidoNoModoAtual(produto) {
-    if (!produto) return false;
-    const tipo = String(produto.tipo_operacional ?? produto.tipo ?? 'COMERCIAL').trim().toUpperCase();
-    return tipo !== 'INSUMO';
+    return !!produto;
 }
 
 function filtrarCatalogoPdvModoAtual(lista) {

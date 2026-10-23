@@ -10,6 +10,7 @@ const {
   xmlEscape
 } = require('./utils');
 
+const { criarErroItemFiscal, criarErroItensFiscais } = require('./diagnosticoItensFiscais');
 const { extrairNomeEmpresaDoCertificado } = require('./certificateService');
 const { normalizarUnidadeComercialFiscal } = require('./unidadeFiscal');
 const {
@@ -70,9 +71,13 @@ function montarBlocoIcmsSimplesNacional(origem, csosnRaw, csosnPadrao = '102') {
             </ICMSSN900>`;
   }
 
-  throw new Error(
+  const erro = new Error(
     `CSOSN ${csosn} inválido para NFC-e. Use 101, 102, 103, 300, 400, 500 ou 900 no cadastro do produto.`
   );
+  erro.campoFiscal = 'CSOSN';
+  erro.valorEncontrado = csosn;
+  erro.valorEsperado = '101, 102, 103, 300, 400, 500 ou 900';
+  throw erro;
 }
 
 function splitEnderecoLivre(endereco) {
@@ -760,7 +765,9 @@ function buildNfceXml({ config, venda, itens, numero, cNF: cNFTentativa }) {
 
   const descricaoHomologacao = 'NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL';
 
+  const errosItens = [];
   const dets = itensVenda.map((item, idx) => {
+   try {
     const quantidade = obterQuantidadeFiscalItem(item);
     const subtotal = round2(obterValorFiscalItem(item));
     const valorUnitario = obterPrecoUnitarioFiscalItem(item);
@@ -773,7 +780,10 @@ function buildNfceXml({ config, venda, itens, numero, cNF: cNFTentativa }) {
 
     const ncmRaw = onlyDigits(item.ncm || item.produto_ncm || '');
     if (!ncmRaw || ncmRaw.length !== 8) {
-      throw new Error(`Produto ${item.produto_nome || item.nome || 'desconhecido'} sem NCM válido (deve ter 8 dígitos).`);
+      throw Object.assign(
+        new Error(`Produto ${item.produto_nome || item.nome || 'desconhecido'} sem NCM válido (deve ter 8 dígitos).`),
+        { campoFiscal: 'NCM', valorEncontrado: ncmRaw || '(vazio)', valorEsperado: '8 dígitos' }
+      );
     }
     const ncm = ncmRaw;
     const cfop = item.cfop || '5102';
@@ -825,7 +835,13 @@ function buildNfceXml({ config, venda, itens, numero, cNF: cNFTentativa }) {
         </imposto>
       </det>
     `;
+   } catch (erroItem) {
+    errosItens.push(criarErroItemFiscal(erroItem, item, idx));
+    return '';
+   }
   }).join('');
+
+  if (errosItens.length) throw criarErroItensFiscais(errosItens);
 
   vProd = round2(vProd);
   vDesc = round2(usarModeloBruto ? vDesc : 0);

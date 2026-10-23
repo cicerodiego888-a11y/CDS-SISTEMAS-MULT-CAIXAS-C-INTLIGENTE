@@ -113,6 +113,48 @@ function ffdTextoDiagnostico(valor, limite = 500) {
     .slice(0, limite);
 }
 
+function ffdTextoCampoItem(valor, limite = 120) {
+  if (valor == null) return '';
+  return String(valor)
+    .replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, limite);
+}
+
+function ffdNormalizarErrosItens(lista) {
+  if (!Array.isArray(lista)) return [];
+  return lista.filter((e) => e && typeof e === 'object' && !Array.isArray(e))
+    .map((e) => ({
+      produto_id: e.produto_id != null && Number.isSafeInteger(Number(e.produto_id)) ? Number(e.produto_id) : null,
+      codigo: ffdTextoCampoItem(e.codigo),
+      nome: ffdTextoCampoItem(e.nome),
+      codigo_barras: ffdTextoCampoItem(e.codigo_barras, 40),
+      numero_item: e.numero_item != null && Number.isSafeInteger(Number(e.numero_item)) ? Number(e.numero_item) : null,
+      campo: ffdTextoCampoItem(e.campo, 30),
+      valor_encontrado: ffdTextoCampoItem(e.valor_encontrado, 60),
+      valor_esperado: ffdTextoCampoItem(e.valor_esperado, 120),
+      mensagem: ffdTextoDiagnostico(e.mensagem, 300)
+    }));
+}
+
+function ffdDescreverErroItem(item) {
+  const produto = [
+    item.nome ? `"${item.nome}"` : 'Produto não identificado',
+    item.produto_id != null ? `ID ${item.produto_id}` : '',
+    item.codigo ? `código ${item.codigo}` : '',
+    item.codigo_barras ? `cód. barras ${item.codigo_barras}` : ''
+  ].filter(Boolean);
+  const nome = produto.shift();
+  const identificacao = produto.length ? ` (${produto.join(', ')})` : '';
+  const numero = item.numero_item != null ? `Item ${item.numero_item} — ` : '';
+  const campo = item.campo
+    ? `campo ${item.campo}${item.valor_encontrado ? ` = "${item.valor_encontrado}"` : ''}${item.valor_esperado ? `; esperado: ${item.valor_esperado}` : ''}. `
+    : '';
+  return `  • ${numero}${nome}${identificacao}: ${campo}${item.mensagem}`;
+}
+
 function ffdNormalizarDiagnosticos(documentos) {
   if (!Array.isArray(documentos)) return [];
   return documentos.filter((doc) => doc && typeof doc === 'object' && !Array.isArray(doc))
@@ -128,7 +170,8 @@ function ffdNormalizarDiagnosticos(documentos) {
       code: /^[A-Za-z0-9_-]{1,64}$/.test(String(doc.codigo || doc.code || ''))
         ? String(doc.codigo || doc.code)
         : 'XML_ERRO',
-      message: ffdTextoDiagnostico(doc.mensagem || doc.message)
+      message: ffdTextoDiagnostico(doc.mensagem || doc.message),
+      erros_itens: ffdNormalizarErrosItens(doc.erros_itens)
     }))
     .filter((doc) => doc.message);
 }
@@ -147,15 +190,27 @@ function ffdErroApi(body, fallback) {
       if (texto) linhas.push(texto);
     });
   }
+  let haErrosItens = false;
   documentos.forEach((doc) => {
     const documento = doc.sequencia != null
       ? `Documento ${doc.sequencia}`
       : (doc.id != null ? `Documento ID ${doc.id}` : 'Documento');
-    linhas.push(`${documento} — ${doc.etapa} (${doc.code}): ${doc.message}`);
+    if (doc.erros_itens.length) {
+      haErrosItens = true;
+      linhas.push(`${documento} — ${doc.etapa} (${doc.code}): ${doc.erros_itens.length} item(ns) com dado fiscal inválido:`);
+      doc.erros_itens.forEach((item) => linhas.push(ffdDescreverErroItem(item)));
+    } else {
+      linhas.push(`${documento} — ${doc.etapa} (${doc.code}): ${doc.message}`);
+    }
   });
+  if (haErrosItens) {
+    linhas.push('Orientação: corrija os dados fiscais no cadastro de cada produto indicado (Produtos → dados fiscais) e execute a preparação novamente.');
+  }
   if (payload.code === 'XML_ERRO' && documentos.length === 0) {
     linhas.push('Diagnóstico individual não disponível.');
   }
+  const correlacao = ffdTextoDiagnostico(payload.correlationId, 100);
+  if (correlacao && payload.code === 'XML_ERRO') linhas.push(`Correlação para suporte: ${correlacao}`);
   const msg = linhas.filter(Boolean).join('\n') || fallback || 'Erro ao processar.';
   console.error('[FFD] erro API', {
     error: mensagemGeral || undefined,

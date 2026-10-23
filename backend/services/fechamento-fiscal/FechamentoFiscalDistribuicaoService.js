@@ -193,42 +193,353 @@ function agruparUnidadesExpandidas(unidades) {
   return [...gruposMap.values()].sort(compararUnidade);
 }
 
-function calcularConcentracao(estado, usoPorProduto) {
-  let concentracao = 0;
-  for (const [produtoId, quantidade] of estado.quantidadePorProduto) {
-    const acumulada = Number(usoPorProduto.get(produtoId) || 0) + quantidade;
-    concentracao += acumulada * acumulada;
-  }
-  return concentracao;
-}
+const ORCAMENTO_BITS_PODA_BYTES = 128 * 1024 * 1024;
 
-function compararEstadoCompacto(a, b, grupos, usoPorProduto, ordemProdutos) {
-  const prioridade = compararPrioridadeProdutos(a, b, ordemProdutos);
-  if (prioridade !== 0) return prioridade;
-  if (a.produtos.size !== b.produtos.size) return b.produtos.size - a.produtos.size;
-  if (a.unidades !== b.unidades) return a.unidades - b.unidades;
-  const concentracaoA = calcularConcentracao(a, usoPorProduto);
-  const concentracaoB = calcularConcentracao(b, usoPorProduto);
-  if (concentracaoA !== concentracaoB) return concentracaoA - concentracaoB;
+/**
+ * Programação dinâmica exata por soma em centavos (0/1 sobre blocos binários dos grupos).
+ * Mantém por soma o melhor estado segundo os mesmos critérios da implementação original
+ * (prioridade de produtos por saldo, mais produtos, menos unidades, menor concentração e
+ * desempate lexicográfico), mas com estados em vetores tipados e sem alocação por transição.
+ * - Atualização in-place percorrendo as somas em ordem decrescente (cada estado lido ainda
+ *   é o do bloco anterior), com resultado idêntico ao da atualização em duas fases.
+ * - Poda exata por alcançabilidade: soma que os blocos restantes não conseguem levar até a
+ *   faixa final aceita nunca vira resultado (propriedade monotônica, preserva a ordem
+ *   de criação das somas que sobrevivem).
+ * Retorna { somaCents, quantidades } ou null quando não há solução na faixa.
+ */
+function executarProgramacaoDinamica(ctx) {
+  const {
+    grupos, blocos, alvo, limiteBusca, minSomaCents, maxSomaCents, minVendaCents, maxVendaCents,
+    produtoDoGrupo, totalProdutos, usoDoProduto, ordemIndices, metricasExecucao
+  } = ctx;
+  const G = grupos.length;
+  const P = totalProdutos;
+  const L = limiteBusca + 1;
+  const nOrdem = ordemIndices.length;
 
-  let indiceA = 0;
-  let indiceB = 0;
-  let restanteA = 0;
-  let restanteB = 0;
-  while (true) {
-    while (restanteA === 0 && indiceA < grupos.length) restanteA = a.quantidades[indiceA++];
-    while (restanteB === 0 && indiceB < grupos.length) restanteB = b.quantidades[indiceB++];
-    if (restanteA === 0 || restanteB === 0) return 0;
-    const grupoA = grupos[indiceA - 1];
-    const grupoB = grupos[indiceB - 1];
-    const chaveA = `${grupoA.produto_id}:${grupoA.venda_item_id}:${grupoA.key}`;
-    const chaveB = `${grupoB.produto_id}:${grupoB.venda_item_id}:${grupoB.key}`;
-    const comparacao = chaveA.localeCompare(chaveB);
-    if (comparacao !== 0) return comparacao;
-    const consumidas = Math.min(restanteA, restanteB);
-    restanteA -= consumidas;
-    restanteB -= consumidas;
+  const quantidadePorUnidade = Float64Array.from(grupos, (grupo) => Number(grupo.quantidade_por_unidade || 0));
+  // A quantidade acumulada por produto (qp) pode ser recalculada a partir das quantidades por
+  // grupo com o mesmo resultado bit a bit quando as somas independem da ordem: todas as
+  // quantidades por unidade do produto são inteiras, ou todos os seus grupos têm uma única
+  // unidade (soma na ordem dos grupos, igual à ordem de aplicação dos blocos). Fora disso,
+  // mantém-se qp por linha como antes.
+  const inicioProduto = new Int32Array(P + 1);
+  const listaGruposProduto = new Int32Array(G);
+  let qpDerivavel = true;
+  {
+    const contagem = new Int32Array(P);
+    for (let g = 0; g < G; g += 1) contagem[ctx.produtoDoGrupo[g]] += 1;
+    for (let p = 0; p < P; p += 1) inicioProduto[p + 1] = inicioProduto[p] + contagem[p];
+    const cursor = inicioProduto.slice(0, P);
+    for (let g = 0; g < G; g += 1) listaGruposProduto[cursor[ctx.produtoDoGrupo[g]]++] = g;
+    for (let p = 0; p < P && qpDerivavel; p += 1) {
+      let todosInteiros = true;
+      let todosUnicos = true;
+      for (let k = inicioProduto[p]; k < inicioProduto[p + 1]; k += 1) {
+        const g = listaGruposProduto[k];
+        if (!Number.isInteger(quantidadePorUnidade[g])) todosInteiros = false;
+        if (Number(grupos[g].quantidade_unidades) !== 1 || !Number.isFinite(quantidadePorUnidade[g])) todosUnicos = false;
+      }
+      if (!todosInteiros && !todosUnicos) qpDerivavel = false;
+    }
   }
+  let maiorQuantidade = 0;
+  for (const grupo of grupos) maiorQuantidade = Math.max(maiorQuantidade, Number(grupo.quantidade_unidades));
+  const TipoQ = maiorQuantidade <= 255 ? Uint8Array : (maiorQuantidade <= 65535 ? Uint16Array : Int32Array);
+
+  let existe;
+  let nProd;
+  let unid;
+  let conc;
+  let qFlat;
+  let qpFlat = null;
+  let presFlat;
+  let posicao;
+  let novoPorPosicao;
+  try {
+    existe = new Uint8Array(L);
+    nProd = new Int32Array(L);
+    unid = new Float64Array(L);
+    conc = new Float64Array(L);
+    qFlat = new TipoQ(L * G);
+    if (!qpDerivavel) qpFlat = new Float64Array(L * P);
+    presFlat = new Uint8Array(L * P);
+    posicao = new Int32Array(L);
+    novoPorPosicao = new Int32Array(L).fill(-1);
+  } catch (erroAlocacao) {
+    const erro = new Error('Memória insuficiente para compor a prévia fiscal com o volume informado.');
+    erro.code = 'PREVIA_MEMORIA_INSUFICIENTE';
+    erro.cause = erroAlocacao;
+    throw erro;
+  }
+
+  const quantidadeDoProdutoNaLinha = (linha, produto) => {
+    if (!qpDerivavel) return qpFlat[linha * P + produto];
+    const base = linha * G;
+    let soma = 0;
+    for (let k = inicioProduto[produto]; k < inicioProduto[produto + 1]; k += 1) {
+      const g = listaGruposProduto[k];
+      const quantidade = qFlat[base + g];
+      if (quantidade !== 0) soma += quantidadePorUnidade[g] * quantidade;
+    }
+    return soma;
+  };
+  const chaves = grupos.map((grupo) => `${grupo.produto_id}:${grupo.venda_item_id}:${grupo.key}`);
+  // Posto de cada chave na ordem de localeCompare (iguais compartilham o posto), para
+  // que o desempate compare inteiros com o mesmo resultado de chaveA.localeCompare(chaveB).
+  const postos = new Int32Array(G);
+  {
+    const ordenados = Array.from({ length: G }, (_, i) => i)
+      .sort((a, b) => chaves[a].localeCompare(chaves[b]));
+    let posto = 0;
+    for (let i = 0; i < G; i += 1) {
+      if (i > 0 && chaves[ordenados[i - 1]].localeCompare(chaves[ordenados[i]]) !== 0) posto += 1;
+      postos[ordenados[i]] = posto;
+    }
+  }
+
+  // Mesma regra de compararPrioridadeProdutos. Cada linha guarda a presença dos produtos com
+  // saldo fiscal como máscara de bits na ordem de prioridade. A regra original compara,
+  // em ordem, as posições dos produtos presentes: no primeiro bit em que as máscaras divergem
+  // vence quem o possui, desde que o outro ainda tenha algum produto presente depois dele
+  // (caso contrário a lista menor se esgotou e o resultado é empate).
+  const palavrasMascara = nOrdem ? ((nOrdem + 31) >>> 5) : 0;
+  const posicaoNaOrdem = new Int32Array(P).fill(-1);
+  for (let k = 0; k < nOrdem; k += 1) posicaoNaOrdem[ordemIndices[k]] = k;
+  const mascaraFlat = nOrdem ? new Uint32Array(L * palavrasMascara) : null;
+  const mascaraCandidata = new Uint32Array(palavrasMascara);
+  const prioridadePresenca = (linhaA, produtoA, linhaB) => {
+    const baseA = linhaA * palavrasMascara;
+    const baseB = linhaB * palavrasMascara;
+    for (let w = 0; w < palavrasMascara; w += 1) mascaraCandidata[w] = mascaraFlat[baseA + w];
+    if (produtoA >= 0) {
+      const posicaoProduto = posicaoNaOrdem[produtoA];
+      if (posicaoProduto >= 0) mascaraCandidata[posicaoProduto >>> 5] |= (1 << (posicaoProduto & 31));
+    }
+    for (let w = 0; w < palavrasMascara; w += 1) {
+      const a = mascaraCandidata[w];
+      const b = mascaraFlat[baseB + w];
+      const diferenca = (a ^ b) >>> 0;
+      if (diferenca === 0) continue;
+      const bit = 31 - Math.clz32((diferenca & -diferenca) >>> 0);
+      const aTem = ((a >>> bit) & 1) === 1;
+      const outro = aTem ? b : a;
+      let outroTemDepois = bit < 31 && (outro >>> (bit + 1)) !== 0;
+      for (let x = w + 1; !outroTemDepois && x < palavrasMascara; x += 1) {
+        if ((aTem ? mascaraFlat[baseB + x] : mascaraCandidata[x]) !== 0) outroTemDepois = true;
+      }
+      if (!outroTemDepois) return 0;
+      return aTem ? -1 : 1;
+    }
+    return 0;
+  };
+
+  // Desempate lexicográfico por quantidades por grupo; o lado A pode ter um acréscimo virtual.
+  const desempateQuantidades = (linhaA, grupoExtra, quantidadeExtra, linhaB) => {
+    const baseA = linhaA * G;
+    const baseB = linhaB * G;
+    let indiceA = 0;
+    let indiceB = 0;
+    let restanteA = 0;
+    let restanteB = 0;
+    while (true) {
+      while (restanteA === 0 && indiceA < G) {
+        restanteA = qFlat[baseA + indiceA] + (indiceA === grupoExtra ? quantidadeExtra : 0);
+        indiceA += 1;
+      }
+      while (restanteB === 0 && indiceB < G) {
+        restanteB = qFlat[baseB + indiceB];
+        indiceB += 1;
+      }
+      if (restanteA === 0 || restanteB === 0) return 0;
+      const comparacao = postos[indiceA - 1] - postos[indiceB - 1];
+      if (comparacao !== 0) return comparacao < 0 ? -1 : 1;
+      const consumidas = Math.min(restanteA, restanteB);
+      restanteA -= consumidas;
+      restanteB -= consumidas;
+    }
+  };
+
+  const comparar = (aN, aU, aC, linhaA, produtoA, grupoExtra, quantidadeExtra, linhaB) => {
+    if (nOrdem) {
+      const prioridade = prioridadePresenca(linhaA, produtoA, linhaB);
+      if (prioridade !== 0) return prioridade;
+    }
+    if (aN !== nProd[linhaB]) return nProd[linhaB] - aN;
+    if (aU !== unid[linhaB]) return aU - unid[linhaB];
+    if (aC !== conc[linhaB]) return aC - conc[linhaB];
+    return desempateQuantidades(linhaA, grupoExtra, quantidadeExtra, linhaB);
+  };
+
+  const somaFinalMin = Math.max(alvo, minSomaCents == null ? 0 : minSomaCents);
+  const somaFinalMax = maxSomaCents == null ? limiteBusca : Math.min(limiteBusca, maxSomaCents);
+  const palavras = (L >> 5) + 2;
+  let bom = null;
+  if (blocos.length && somaFinalMin <= somaFinalMax
+    && (blocos.length + 1) * palavras * 4 <= ORCAMENTO_BITS_PODA_BYTES) {
+    bom = new Array(blocos.length + 1);
+    const base = new Uint32Array(palavras);
+    for (let s = somaFinalMin; s <= somaFinalMax; s += 1) base[s >> 5] |= (1 << (s & 31));
+    bom[blocos.length] = base;
+    for (let i = blocos.length - 1; i >= 0; i -= 1) {
+      const origem = bom[i + 1];
+      const destino = new Uint32Array(palavras);
+      const deslocPalavras = blocos[i].valor >> 5;
+      const deslocBits = blocos[i].valor & 31;
+      for (let w = 0; w < palavras; w += 1) {
+        const a = w + deslocPalavras;
+        let v = origem[w];
+        if (a < palavras) {
+          v |= origem[a] >>> deslocBits;
+          if (deslocBits && a + 1 < palavras) v |= origem[a + 1] << (32 - deslocBits);
+        }
+        destino[w] = v;
+      }
+      bom[i] = destino;
+    }
+  }
+
+  existe[0] = 1;
+  const ordemSomas = [0];
+  posicao[0] = 0;
+  let topo = 0;
+
+  for (let indiceBloco = 0; indiceBloco < blocos.length; indiceBloco += 1) {
+    const bloco = blocos[indiceBloco];
+    const valorBloco = bloco.valor;
+    const quantidadeBloco = bloco.quantidade;
+    const indiceGrupo = bloco.indice;
+    const indiceProduto = produtoDoGrupo[indiceGrupo];
+    const acrescimo = quantidadePorUnidade[indiceGrupo] * quantidadeBloco;
+    const bomAtual = bom ? bom[indiceBloco] : null;
+    const bomProximo = bom ? bom[indiceBloco + 1] : null;
+
+    if (bomAtual) {
+      let escrita = 0;
+      topo = 0;
+      for (let leitura = 0; leitura < ordemSomas.length; leitura += 1) {
+        const soma = ordemSomas[leitura];
+        if (bomAtual[soma >> 5] & (1 << (soma & 31))) {
+          ordemSomas[escrita] = soma;
+          posicao[soma] = escrita;
+          if (soma > topo) topo = soma;
+          escrita += 1;
+        } else {
+          existe[soma] = 0;
+        }
+      }
+      ordemSomas.length = escrita;
+    }
+
+    const totalEstados = ordemSomas.length;
+    if (metricasExecucao) {
+      metricasExecucao.estadosAvaliados = (metricasExecucao.estadosAvaliados || 0) + totalEstados;
+      metricasExecucao.transicoesAvaliadas = (metricasExecucao.transicoesAvaliadas || 0) + totalEstados;
+    }
+
+    let novoTopo = topo;
+    for (let origem = topo; origem >= 0; origem -= 1) {
+      if (existe[origem] === 0) continue;
+      const destino = origem + valorBloco;
+      if (destino > limiteBusca) continue;
+      if (maxSomaCents != null && destino > maxSomaCents) continue;
+      if (bomProximo && !(bomProximo[destino >> 5] & (1 << (destino & 31)))) continue;
+
+      const baseProdutoOrigem = origem * P;
+      const primeiraDoProduto = presFlat[baseProdutoOrigem + indiceProduto] === 0;
+      const quantidadeAnterior = quantidadeDoProdutoNaLinha(origem, indiceProduto);
+      const acumuladaAnterior = usoDoProduto[indiceProduto] + quantidadeAnterior;
+      const acumuladaNova = acumuladaAnterior + acrescimo;
+      const candidatoN = nProd[origem] + (primeiraDoProduto ? 1 : 0);
+      const candidatoU = unid[origem] + quantidadeBloco;
+      const candidatoC = conc[origem]
+        + (acumuladaNova * acumuladaNova)
+        - (primeiraDoProduto ? 0 : acumuladaAnterior * acumuladaAnterior);
+
+      const jaExistia = existe[destino] === 1;
+      if (jaExistia && comparar(
+        candidatoN, candidatoU, candidatoC, origem, indiceProduto, indiceGrupo, quantidadeBloco, destino
+      ) >= 0) continue;
+
+      const baseGrupoOrigem = origem * G;
+      const baseGrupoDestino = destino * G;
+      const baseProdutoDestino = destino * P;
+      qFlat.copyWithin(baseGrupoDestino, baseGrupoOrigem, baseGrupoOrigem + G);
+      qFlat[baseGrupoDestino + indiceGrupo] += quantidadeBloco;
+      if (!qpDerivavel) {
+        qpFlat.copyWithin(baseProdutoDestino, baseProdutoOrigem, baseProdutoOrigem + P);
+        qpFlat[baseProdutoDestino + indiceProduto] = quantidadeAnterior + acrescimo;
+      }
+      presFlat.copyWithin(baseProdutoDestino, baseProdutoOrigem, baseProdutoOrigem + P);
+      presFlat[baseProdutoDestino + indiceProduto] = 1;
+      if (nOrdem) {
+        const baseMascaraDestino = destino * palavrasMascara;
+        const baseMascaraOrigem = origem * palavrasMascara;
+        mascaraFlat.copyWithin(baseMascaraDestino, baseMascaraOrigem, baseMascaraOrigem + palavrasMascara);
+        const posicaoProduto = posicaoNaOrdem[indiceProduto];
+        if (posicaoProduto >= 0) mascaraFlat[baseMascaraDestino + (posicaoProduto >>> 5)] |= (1 << (posicaoProduto & 31));
+      }
+      nProd[destino] = candidatoN;
+      unid[destino] = candidatoU;
+      conc[destino] = candidatoC;
+      if (!jaExistia) {
+        existe[destino] = 1;
+        novoPorPosicao[posicao[origem]] = destino;
+        if (destino > novoTopo) novoTopo = destino;
+      }
+    }
+
+    // Somas novas entram na ordem de criação original: pela posição da origem.
+    for (let p = 0; p < totalEstados; p += 1) {
+      const destino = novoPorPosicao[p];
+      if (destino < 0) continue;
+      novoPorPosicao[p] = -1;
+      posicao[destino] = ordemSomas.length;
+      ordemSomas.push(destino);
+    }
+    topo = novoTopo;
+    if (metricasExecucao) {
+      metricasExecucao.maxEstados = Math.max(metricasExecucao.maxEstados || 0, ordemSomas.length);
+    }
+  }
+
+  let melhor = -1;
+  for (const soma of ordemSomas) {
+    if (soma < alvo) continue;
+    if (minSomaCents != null && soma < minSomaCents) continue;
+    if (maxSomaCents != null && soma > maxSomaCents) continue;
+    if (minVendaCents != null && maxVendaCents != null
+      && !totalCabeEmVendas(soma, minVendaCents, maxVendaCents)) continue;
+    if (melhor < 0) {
+      melhor = soma;
+      continue;
+    }
+    const exata = soma === alvo;
+    const melhorExata = melhor === alvo;
+    if (exata !== melhorExata) {
+      if (exata) melhor = soma;
+      continue;
+    }
+    const excesso = soma - alvo;
+    const melhorExcesso = melhor - alvo;
+    const distancia = Math.abs(soma - alvo);
+    const melhorDistancia = Math.abs(melhor - alvo);
+    const prioridade = nOrdem ? prioridadePresenca(soma, -1, melhor) : 0;
+    if (prioridade < 0 || (prioridade === 0 && (
+      (minSomaCents != null ? distancia < melhorDistancia : excesso < melhorExcesso) || (
+        (minSomaCents != null ? distancia === melhorDistancia : excesso === melhorExcesso)
+        && comparar(nProd[soma], unid[soma], conc[soma], soma, -1, -1, 0, melhor) < 0
+      )
+    ))) {
+      melhor = soma;
+    }
+  }
+
+  if (melhor < 0) return null;
+  return {
+    somaCents: melhor,
+    quantidades: qFlat.slice(melhor * G, melhor * G + G)
+  };
 }
 
 function totalCabeEmVendas(totalCents, valorMinCents, valorMaxCents) {
@@ -286,13 +597,18 @@ function selecionarUnidadesCompactas(gruposEntrada, targetCents, opts = {}) {
     Math.max(alvo, minSomaCents == null ? alvo : minSomaCents)
       + Math.max(0, maiorUnidade - 1)
   );
-  const dp = new Map([[0, {
-    soma: 0,
-    quantidades: Array(grupos.length).fill(0),
-    produtos: new Set(),
-    quantidadePorProduto: new Map(),
-    unidades: 0
-  }]]);
+  const indicePorProduto = new Map();
+  for (const grupo of grupos) {
+    const produtoId = Number(grupo.produto_id);
+    if (!indicePorProduto.has(produtoId)) indicePorProduto.set(produtoId, indicePorProduto.size);
+  }
+  const totalProdutos = indicePorProduto.size;
+  const produtoDoGrupo = grupos.map((grupo) => indicePorProduto.get(Number(grupo.produto_id)));
+  const usoDoProduto = new Float64Array(totalProdutos);
+  for (const [produtoId, indiceProduto] of indicePorProduto) {
+    usoDoProduto[indiceProduto] = Number(usoPorProduto.get(produtoId) || 0);
+  }
+  const ordemIndices = ordemProdutos.map((produtoId) => indicePorProduto.get(produtoId));
   const blocos = [];
 
   for (let indice = 0; indice < grupos.length; indice += 1) {
@@ -306,89 +622,26 @@ function selecionarUnidadesCompactas(gruposEntrada, targetCents, opts = {}) {
     }
   }
 
-  for (const bloco of blocos) {
-    const estados = [...dp.entries()];
-    if (metricasExecucao) {
-      metricasExecucao.estadosAvaliados = (metricasExecucao.estadosAvaliados || 0) + estados.length;
-    }
-    for (const [somaAtual, estado] of estados) {
-      if (metricasExecucao) {
-        metricasExecucao.transicoesAvaliadas = (metricasExecucao.transicoesAvaliadas || 0) + 1;
-      }
-      const soma = somaAtual + bloco.valor;
-      if (soma > limiteBusca) continue;
-      if (maxSomaCents != null && soma > maxSomaCents) continue;
-      const quantidades = [...estado.quantidades];
-      const grupo = grupos[bloco.indice];
-      const produtoId = Number(grupo.produto_id);
-      const primeiraDoProduto = !estado.produtos.has(produtoId);
-      quantidades[bloco.indice] += bloco.quantidade;
-      const produtos = new Set(estado.produtos);
-      if (primeiraDoProduto) produtos.add(produtoId);
-      const quantidadePorProduto = new Map(estado.quantidadePorProduto);
-      quantidadePorProduto.set(
-        produtoId,
-        (quantidadePorProduto.get(produtoId) || 0)
-          + Number(grupo.quantidade_por_unidade || 0) * bloco.quantidade
-      );
-      const proximo = {
-        soma,
-        quantidades,
-        produtos,
-        quantidadePorProduto,
-        unidades: estado.unidades + bloco.quantidade
-      };
-      const existente = dp.get(soma);
-      if (!existente || compararEstadoCompacto(
-        proximo, existente, grupos, usoPorProduto, ordemProdutos
-      ) < 0) {
-        dp.set(soma, proximo);
-      }
-    }
-    if (metricasExecucao) {
-      metricasExecucao.maxEstados = Math.max(metricasExecucao.maxEstados || 0, dp.size);
-    }
-  }
-
-  let melhor = null;
-  for (const [soma, estado] of dp) {
-    if (soma < alvo) continue;
-    if (minSomaCents != null && soma < minSomaCents) continue;
-    if (maxSomaCents != null && soma > maxSomaCents) continue;
-    if (minVendaCents != null && maxVendaCents != null
-      && !totalCabeEmVendas(soma, minVendaCents, maxVendaCents)) continue;
-    if (!melhor) {
-      melhor = estado;
-      continue;
-    }
-    const exata = soma === alvo;
-    const melhorExata = melhor.soma === alvo;
-    if (exata !== melhorExata) {
-      if (exata) melhor = estado;
-      continue;
-    }
-    const excesso = soma - alvo;
-    const melhorExcesso = melhor.soma - alvo;
-    const distancia = Math.abs(soma - alvo);
-    const melhorDistancia = Math.abs(melhor.soma - alvo);
-    const prioridade = compararPrioridadeProdutos(estado, melhor, ordemProdutos);
-    if (prioridade < 0 || (prioridade === 0 && (
-      (minSomaCents != null ? distancia < melhorDistancia : excesso < melhorExcesso) || (
-        (minSomaCents != null ? distancia === melhorDistancia : excesso === melhorExcesso)
-        && compararEstadoCompacto(
-          estado, melhor, grupos, usoPorProduto, ordemProdutos
-        ) < 0
-      )
-    ))) {
-      melhor = estado;
-    }
-  }
-
-  if (!melhor) return { selecionadasAgrupadas: [], somaCents: 0, capacidadeCents };
+  const resultadoDp = executarProgramacaoDinamica({
+    grupos,
+    blocos,
+    alvo,
+    limiteBusca,
+    minSomaCents,
+    maxSomaCents,
+    minVendaCents,
+    maxVendaCents,
+    produtoDoGrupo,
+    totalProdutos,
+    usoDoProduto,
+    ordemIndices,
+    metricasExecucao
+  });
+  if (!resultadoDp) return { selecionadasAgrupadas: [], somaCents: 0, capacidadeCents };
   const selecionadasAgrupadas = grupos
-    .map((grupo, indice) => ({ ...grupo, quantidade_selecionada: melhor.quantidades[indice] }))
+    .map((grupo, indice) => ({ ...grupo, quantidade_selecionada: resultadoDp.quantidades[indice] }))
     .filter((grupo) => grupo.quantidade_selecionada > 0);
-  return { selecionadasAgrupadas, somaCents: melhor.soma, capacidadeCents };
+  return { selecionadasAgrupadas, somaCents: resultadoDp.somaCents, capacidadeCents };
 }
 
 function expandirGruposSelecionados(grupos) {

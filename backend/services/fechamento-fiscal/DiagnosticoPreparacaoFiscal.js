@@ -1,5 +1,7 @@
 'use strict';
 
+const { sanitizarErroItem } = require('../fiscal/diagnosticoItensFiscais');
+
 const MAX_MESSAGE_LENGTH = 500;
 
 function sanitizarMensagem(valor) {
@@ -33,8 +35,10 @@ function criarDiagnosticoPreparacao({
   mensagem,
   correlationId,
   ocorridoEm,
-  componente
+  componente,
+  errosItens
 }) {
+  const itens = sanitizarErrosItens(errosItens);
   return {
     etapa: ['montagem_xml', 'validacao_xml', 'geracao_xml'].includes(etapa)
       ? etapa
@@ -45,8 +49,17 @@ function criarDiagnosticoPreparacao({
     ocorridoEm: String(ocorridoEm || new Date().toISOString()),
     componente: componente === 'xmlBuilder' || componente === 'validarXmlFiscal'
       ? componente
-      : 'FechamentoFiscalPreparacaoService'
+      : 'FechamentoFiscalPreparacaoService',
+    ...(itens.length ? { erros_itens: itens } : {})
   };
+}
+
+function sanitizarErrosItens(lista) {
+  if (!Array.isArray(lista)) return [];
+  return lista.map(sanitizarErroItem).filter(Boolean).map((e) => ({
+    ...e,
+    mensagem: sanitizarMensagem(e.mensagem)
+  }));
 }
 
 function sanitizarDiagnosticosDocumentos(documentos) {
@@ -54,21 +67,25 @@ function sanitizarDiagnosticosDocumentos(documentos) {
 
   return documentos.flatMap((documento) => {
     if (!documento || typeof documento !== 'object' || !Array.isArray(documento.erros)) return [];
-    return documento.erros.map((erro) => ({
-      id: documento.id != null && documento.id !== ''
-        && Number.isSafeInteger(Number(documento.id))
-        ? Number(documento.id)
-        : undefined,
-      sequencia: documento.sequencia != null && documento.sequencia !== ''
-        && Number.isSafeInteger(Number(documento.sequencia))
-        ? Number(documento.sequencia)
-        : undefined,
-      etapa: ['montagem_xml', 'validacao_xml', 'geracao_xml'].includes(erro?.etapa)
-        ? erro.etapa
-        : 'geracao_xml',
-      codigo: normalizarCodigo(erro?.codigo),
-      mensagem: sanitizarMensagem(erro?.mensagem)
-    }));
+    return documento.erros.map((erro) => {
+      const itens = sanitizarErrosItens(erro?.erros_itens);
+      return {
+        id: documento.id != null && documento.id !== ''
+          && Number.isSafeInteger(Number(documento.id))
+          ? Number(documento.id)
+          : undefined,
+        sequencia: documento.sequencia != null && documento.sequencia !== ''
+          && Number.isSafeInteger(Number(documento.sequencia))
+          ? Number(documento.sequencia)
+          : undefined,
+        etapa: ['montagem_xml', 'validacao_xml', 'geracao_xml'].includes(erro?.etapa)
+          ? erro.etapa
+          : 'geracao_xml',
+        codigo: normalizarCodigo(erro?.codigo),
+        mensagem: sanitizarMensagem(erro?.mensagem),
+        ...(itens.length ? { erros_itens: itens } : {})
+      };
+    });
   });
 }
 
@@ -76,11 +93,18 @@ function criarPayloadErroXml(erro) {
   const correlationId = /^[A-Za-z0-9._-]{1,100}$/.test(String(erro?.correlationId || ''))
     ? String(erro.correlationId)
     : undefined;
+  const documentos = sanitizarDiagnosticosDocumentos(erro?.documentos);
+  const errosItens = documentos.flatMap((d) => (d.erros_itens || []).map((item) => ({
+    documento_id: d.id,
+    sequencia: d.sequencia,
+    ...item
+  })));
   return {
     error: 'Falha ao gerar XML de um ou mais documentos.',
     code: 'XML_ERRO',
     ...(correlationId ? { correlationId } : {}),
-    documentos: sanitizarDiagnosticosDocumentos(erro?.documentos)
+    documentos,
+    ...(errosItens.length ? { erros_itens: errosItens } : {})
   };
 }
 

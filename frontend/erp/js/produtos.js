@@ -1,3 +1,25 @@
+// Padrão NCM: 0000.00.00 (aceita entrada com ou sem pontos)
+window.formatarNcm = function formatarNcm(valor) {
+    const d = String(valor || '').replace(/\D/g, '').slice(0, 8);
+    if (d.length <= 4) return d;
+    if (d.length <= 6) return `${d.slice(0, 4)}.${d.slice(4)}`;
+    return `${d.slice(0, 4)}.${d.slice(4, 6)}.${d.slice(6)}`;
+};
+
+if (!window.__ncmMascaraAtiva) {
+    window.__ncmMascaraAtiva = true;
+    document.addEventListener('input', (e) => {
+        if (e.target && e.target.id === 'ncm') {
+            e.target.value = window.formatarNcm(e.target.value);
+        }
+    });
+    document.addEventListener('blur', (e) => {
+        if (e.target && e.target.id === 'ncm') {
+            e.target.value = window.formatarNcm(e.target.value);
+        }
+    }, true);
+}
+
 function normalizarTexto(texto) {
     return String(texto || '')
         .normalize('NFD')
@@ -3763,7 +3785,7 @@ function showProdutoModal(produto = null, opcoes = {}) {
                                         <div class="row g-3">
                                             <div class="col-md-3">
                                                 <label for="ncm" class="form-label">NCM</label>
-                                                <input type="text" class="form-control" id="ncm" value="${isEdit ? escapeHtml(produto.ncm || '') : ''}">
+                                                <input type="text" class="form-control" id="ncm" maxlength="10" placeholder="0000.00.00" inputmode="numeric" value="${isEdit ? escapeHtml(window.formatarNcm(produto.ncm)) : ''}">
                                             </div>
                                             <div class="col-md-3">
                                                 <label for="cfop" class="form-label">CFOP</label>
@@ -5792,7 +5814,7 @@ async function saveProduto(opcoes) {
         dias_alerta_validade: parseInt($('#dias_alerta_validade').val(), 10) || 30,
         controlar_validade: ($('#controlar_validade').is(':checked') && !$('#controlar_validade').prop('disabled')) ? 1 : 0,
         controla_estoque: $('#controla_estoque').is(':checked') ? 1 : 0,
-        ncm: ($('#ncm').val() || '').trim(),
+        ncm: window.formatarNcm($('#ncm').val()),
         cfop: resolverCfopSalvarNovoProduto(($('#cfop').val() || '').trim()),
         csosn: ($('#csosn').val() || '').trim(),
         origem: $('#origem').val() !== '' ? parseInt($('#origem').val(), 10) : 0,

@@ -482,6 +482,57 @@ async function main() {
     assert.ok(registros.length > 1);
   });
 
+  await test('26b — Falha de CSOSN identifica cada produto inválido na API, no banco e sem alterar o cadastro', async () => {
+    await run(db2, `UPDATE fechamentos_fiscais SET status = 'CANCELADO' WHERE status != 'CANCELADO'`);
+    const ff = await montarFechamentoPrevia(db2);
+    await run(db2, `UPDATE produtos SET csosn = '060' WHERE id IN (1, 2)`);
+    try {
+      let erroPreparacao = null;
+      try {
+        await prepararEmissao(ff.id, {}, depsPrep(db2));
+      } catch (erro) {
+        erroPreparacao = erro;
+      }
+      assert.ok(erroPreparacao);
+      assert.strictEqual(erroPreparacao.code, 'XML_ERRO');
+
+      const { criarPayloadErroXml } = require('../../backend/services/fechamento-fiscal/DiagnosticoPreparacaoFiscal');
+      const payload = criarPayloadErroXml(erroPreparacao);
+      assert.strictEqual(payload.code, 'XML_ERRO');
+      assert.ok(payload.correlationId);
+      assert.ok(Array.isArray(payload.documentos) && payload.documentos.length > 0);
+      assert.ok(payload.erros_itens.length >= 1);
+
+      const nomes = { 1: 'Pastel Carne', 2: 'Pastel Frango' };
+      for (const e of payload.erros_itens) {
+        assert.ok([1, 2].includes(e.produto_id), `produto inesperado ${e.produto_id}`);
+        assert.strictEqual(e.nome, nomes[e.produto_id]);
+        assert.strictEqual(e.codigo, String(e.produto_id));
+        assert.strictEqual(e.campo, 'CSOSN');
+        assert.strictEqual(e.valor_encontrado, '060');
+        assert.ok(e.numero_item >= 1);
+        assert.ok(e.documento_id);
+        const doc = erroPreparacao.documentos.find((d) => d.id === e.documento_id);
+        assert.strictEqual(Number(doc.itens[e.numero_item - 1].produto_id), e.produto_id);
+      }
+
+      const registro = await get(
+        db2,
+        `SELECT erros_json FROM fechamentos_fiscais_documentos
+         WHERE fechamento_fiscal_id = ? AND status = ? ORDER BY sequencia LIMIT 1`,
+        [ff.id, DOC_STATUS.ERRO]
+      );
+      const persistido = JSON.parse(registro.erros_json);
+      assert.ok(persistido[0].erros_itens[0].nome);
+      assert.match(persistido[0].mensagem, /produto "Pastel (Carne|Frango)"/);
+
+      const csosn = await all(db2, `SELECT id, csosn FROM produtos WHERE id IN (1, 2) ORDER BY id`);
+      assert.deepStrictEqual(csosn.map((p) => p.csosn), ['060', '060']);
+    } finally {
+      await run(db2, `UPDATE produtos SET csosn = '102' WHERE id IN (1, 2)`);
+    }
+  });
+
   await test('27 — Falha de persistência desfaz a preparação no banco temporário', async () => {
     await run(db2, `UPDATE fechamentos_fiscais SET status = 'CANCELADO' WHERE status != 'CANCELADO'`);
     const ff = await montarFechamentoPrevia(db2);

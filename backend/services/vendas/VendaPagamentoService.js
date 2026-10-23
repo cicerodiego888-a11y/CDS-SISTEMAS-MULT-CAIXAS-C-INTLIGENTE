@@ -34,7 +34,6 @@ const {
   consumirReservasPedidoNaVendaCb
 } = require('../estoque/pedidoReservaPonteNucleo');
 const { validarIdentidadeFinanceiraVenda } = require('../caixa/ValidacaoIdentidadeVenda');
-const { normalizarTipoOperacional, validarProdutosParaVenda } = require('../produtosTipoOperacional');
 
 function iniciarTransacaoVendaComTransferenciaPdv(dbConn, aplicacoes, usuarioId, next) {
   dbConn.run('BEGIN IMMEDIATE', (beginErr) => {
@@ -641,7 +640,6 @@ db.all(`
   SELECT
     id,
     nome,
-    COALESCE(tipo_operacional, tipo, 'COMERCIAL') AS tipo_operacional,
     saldo_fiscal,
     saldo_nao_fiscal,
     estoque_atual,
@@ -660,20 +658,7 @@ db.all(`
   const { saldosDisponiveisMotorFxNf } = require('../estoque/EstoqueDisponivelService');
   const { saldosParaDistribuicaoVenda } = require('../estoque/produtoControlaEstoque');
 
-  const produtosNormalizados = (produtos || []).map((produto) => ({
-    ...produto,
-    tipo_operacional: normalizarTipoOperacional(produto?.tipo_operacional ?? produto?.tipo ?? 'COMERCIAL')
-  }));
-
-  const validacaoTipo = validarProdutosParaVenda(produtosNormalizados);
-  if (!validacaoTipo.ok) {
-    return res.status(400).json({
-      sucesso: false,
-      error: validacaoTipo.error
-    });
-  }
-
-  const produtoMap = produtosNormalizados.reduce((map, produto) => {
+  const produtoMap = produtos.reduce((map, produto) => {
     map[produto.id] = produto;
     return map;
   }, {});

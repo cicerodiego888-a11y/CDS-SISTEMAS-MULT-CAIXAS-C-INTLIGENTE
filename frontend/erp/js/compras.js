@@ -5028,7 +5028,7 @@ function abrirCadastroProdutoDesdeCompra(opcoes = {}) {
         if (prefill.codigo_barras && $('#codigo_barras').length) {
             $('#codigo_barras').val(prefill.codigo_barras).trigger('input.espelhoCodigo');
         }
-        if (prefill.ncm && $('#ncm').length) $('#ncm').val(prefill.ncm);
+        if (prefill.ncm && $('#ncm').length) $('#ncm').val(window.formatarNcm ? window.formatarNcm(prefill.ncm) : prefill.ncm);
         if (prefill.unidade && $('#unidade').length) {
             selecionarUnidadeCadastroProduto($('#unidade'), prefill.unidade);
             $('#unidade').trigger('change');
@@ -7769,7 +7769,7 @@ function abrirCadastroProdutoCentralMiip(item, callback) {
         elevar();
         $('#nome').val(item.produto_nome || '');
         if ($('#codigo_barras').length) $('#codigo_barras').val(item.codigo_barras || '').trigger('input.espelhoCodigo');
-        if ($('#ncm').length) $('#ncm').val(item.ncm || '');
+        if ($('#ncm').length) $('#ncm').val(window.formatarNcm ? window.formatarNcm(item.ncm) : (item.ncm || ''));
         if ($('#unidade').length) {
             selecionarUnidadeCadastroProduto($('#unidade'), item.unidade || 'UN');
             $('#unidade').trigger('change');

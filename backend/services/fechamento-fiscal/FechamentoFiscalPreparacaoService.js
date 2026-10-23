@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const { arredondarMoeda, toCentavos } = require('../fiscal/modeloTotais');
 const { STATUS, DOC_STATUS, STATUS_PODEM_PREPARAR, TP_EMIS } = require('./constants');
 const { criarDiagnosticoPreparacao } = require('./DiagnosticoPreparacaoFiscal');
+const { descreverErroItem } = require('../fiscal/diagnosticoItensFiscais');
 const {
   validarPreparacaoFiscal,
   ratearRecebimentosPorDocumentos,
@@ -159,6 +160,18 @@ function marcarEtapaErro(erro, etapa) {
   throw erro;
 }
 
+async function colunasProdutoDiagnostico(db) {
+  const base = ['id', 'nome', 'ncm', 'cest', 'cfop', 'csosn', 'origem', 'unidade'];
+  try {
+    const info = await all(db, 'PRAGMA table_info(produtos)');
+    const existentes = new Set(info.map((c) => c.name));
+    for (const extra of ['codigo', 'codigo_barras']) {
+      if (existentes.has(extra)) base.push(extra);
+    }
+  } catch (_) { /* identificação extra é opcional */ }
+  return base.join(', ');
+}
+
 async function carregarProdutos(db, produtoIds) {
   const ids = [...new Set((produtoIds || []).map(Number).filter((n) => n > 0))];
   const map = new Map();
@@ -166,7 +179,7 @@ async function carregarProdutos(db, produtoIds) {
   const placeholders = ids.map(() => '?').join(',');
   const rows = await all(
     db,
-    `SELECT id, nome, ncm, cest, cfop, csosn, origem, unidade
+    `SELECT ${await colunasProdutoDiagnostico(db)}
      FROM produtos WHERE id IN (${placeholders})`,
     ids
   );
@@ -264,6 +277,10 @@ function peekNumeroProvisorio(config, sequencia) {
 function montarItemXml(snapshot) {
   return {
     produto_id: snapshot.produto_id,
+    identificacao_diagnostico: {
+      codigo: snapshot.codigo || null,
+      codigo_barras: snapshot.codigo_barras || null
+    },
     produto_nome: snapshot.descricao,
     nome: snapshot.descricao,
     ncm: snapshot.ncm,
@@ -613,7 +630,10 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
         try {
           const gerado = await gerarXmlDocumento({
             config: configFiscal,
-            snapshotItens: snapshots,
+            snapshotItens: snapshots.map((s) => {
+              const p = produtosPorId.get(s.produto_id);
+              return { ...s, codigo: p?.codigo || null, codigo_barras: p?.codigo_barras || null };
+            }),
             pagamentos: pags,
             valorTotal: arredondarMoeda(v.valor),
             numero: numeroProv,
@@ -625,10 +645,14 @@ async function prepararEmissao(fechamentoId, opts = {}, deps = {}) {
           checklist = checklist.map((c) => (c.key === 'xml' ? { ...c, ok: true } : c));
           docStatus = DOC_STATUS.PRONTO_EMISSAO;
         } catch (xmlErr) {
+          const itensErros = Array.isArray(xmlErr?.itensErros) ? xmlErr.itensErros : [];
           diagnosticoXml = criarDiagnosticoPreparacao({
             etapa: xmlErr?.etapa,
             codigo: xmlErr?.code || 'XML_ERRO',
-            mensagem: xmlErr?.message || String(xmlErr),
+            mensagem: itensErros.length
+              ? itensErros.map(descreverErroItem).join(' | ')
+              : (xmlErr?.message || String(xmlErr)),
+            errosItens: itensErros,
             correlationId,
             ocorridoEm: new Date().toISOString(),
             componente: xmlErr?.etapa === 'montagem_xml'

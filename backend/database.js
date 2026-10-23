@@ -1593,7 +1593,6 @@ function criarTabelas() {
         nome VARCHAR(200) NOT NULL,
         categoria_id INTEGER,
         subcategoria_id INTEGER,
-        tipo_operacional TEXT DEFAULT 'COMERCIAL',
         unidade VARCHAR(20),
         preco_compra DECIMAL(10,2),
         preco_venda DECIMAL(18,6) NOT NULL,

@@ -1,9 +1,9 @@
 {
   "sprint": "TEF-DESTAXA-07B",
   "modo": "preflight",
-  "timestamp": "2026-10-19T18:52:48.204Z",
+  "timestamp": "2026-10-23T00:26:30.477Z",
   "erros": [
-    "engine: Isolamento de teste ativo: recusado abrir o banco real. Defina DB_DIR para um diretório temporário."
+    "engine: TEF não configurado"
   ],
   "result": "BLOCKED",
   "gateNoFimDoProcesso": "OFF"
