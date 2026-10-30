@@ -1,0 +1,236 @@
+{
+  "sprint": "TEF-PPC930-05",
+  "title": "Inicialização real do Client Destaxa/V$Pague",
+  "generatedAt": "2026-10-29T19:19:35.960Z",
+  "verdict": "CLIENT_INITIALIZED_CONFIRMED",
+  "operationalIntegrationDeclared": false,
+  "tefReadyForSaleDeclared": false,
+  "architecturePreserved": "TefManager → tefFactory → DestaxaRealAdapter → DestaxaHostBridge → Native Host → koffi → DLL",
+  "financialGate": {
+    "env": "DESTAXA_REAL_TRANSACTION_ENABLED",
+    "enabled": false,
+    "remainsDisabled": true
+  },
+  "ownerProvidedData": {
+    "numeroLogicoInformado": "419515099277948",
+    "pvInformado": "099277948",
+    "pinpad": "Gertec PPC930",
+    "portaDetectadaConfirmada": "COM3",
+    "provedorConfirmado": "destaxa"
+  },
+  "credentialMapping": {
+    "documentacaoDestaxa": {
+      "fonte": "C:/Users/cicer/Desktop/DLL DESTAXA/1_83-.../docs/05-api-iniciaclientdestaxa.md",
+      "camposEntradaDocumentados": [
+        "versao (obrigatório)",
+        "aplicacao (obrigatório)",
+        "estabelecimento (opcional) — código do estabelecimento no V$Pague",
+        "loja (opcional)",
+        "terminal (opcional)",
+        "porta_comunicacao_cliente / endereco_comunicacao_client (opcionais TCP Client)"
+      ],
+      "termosAusentesNaDoc": [
+        "número lógico",
+        "PV",
+        "ponto de venda"
+      ]
+    },
+    "configuracaoPersistidaCds": {
+      "empresa_codigo_para_estabelecimento": null,
+      "loja_codigo": null,
+      "terminal_codigo": null,
+      "pdv_codigo": null,
+      "caixa_codigo": null,
+      "bridgeMapping": "DestaxaNativeBridge.montarEntradaClient: empresa_codigo|empresaCodigo → estabelecimento; loja_* → loja; terminal_* → terminal"
+    },
+    "dadosRecebidos": {
+      "numeroLogicoInformado": "419515099277948",
+      "pvInformado": "099277948",
+      "pinpad": "Gertec PPC930",
+      "portaDetectadaConfirmada": "COM3",
+      "provedorConfirmado": "destaxa"
+    },
+    "observacaoNumerica": {
+      "pvEhSufixoDoNumeroLogico": true,
+      "interpretacao": "Observação estrutural apenas; não prova equivalência a estabelecimento/loja/terminal Destaxa."
+    },
+    "mapeamentoComprovado": false,
+    "pendencia": "Número lógico e PV informados pelo proprietário não possuem mapeamento comprovado para campos Destaxa (estabelecimento/loja/terminal) nem estão persistidos em tef_configuracao. Valores não foram inventados nem gravados.",
+    "initUsaraValoresInventados": false
+  },
+  "persistedConfiguration": {
+    "path": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+    "provider": "destaxa",
+    "environment": "homologacao",
+    "empresa_codigo": null,
+    "loja_codigo": null,
+    "terminal_codigo": null,
+    "pdv_codigo": null,
+    "pinpad": {
+      "codigo": "GERTEC_PPC930",
+      "modelo": "PPC930",
+      "porta_com": "COM3",
+      "tipo_conexao": "serial"
+    },
+    "integrity": {
+      "beforeSha256": "883E293D4863C389CB875CF38A352F5B9EF9383BBE9CC9199BCA2C500DDD28E2",
+      "afterSha256": "883E293D4863C389CB875CF38A352F5B9EF9383BBE9CC9199BCA2C500DDD28E2",
+      "mainUnchanged": true
+    },
+    "databaseMutated": false
+  },
+  "pinpadPort": {
+    "configured": {
+      "original": "COM3",
+      "normalizada": "COM3",
+      "valida": true,
+      "suspeita": false
+    },
+    "detectedWindows": {
+      "original": "COM3",
+      "normalizada": "COM3",
+      "valida": true,
+      "suspeita": false,
+      "enumeration": {
+        "portas": [
+          {
+            "porta": "COM3",
+            "nome": "PPC-920/930 CDC USB-to-Serial Port (COM3)",
+            "fonte": "Win32_SerialPort"
+          },
+          {
+            "porta": "COM3",
+            "nome": "PPC-920/930 CDC USB-to-Serial Port (COM3)",
+            "fonte": "Get-PnpDevice"
+          }
+        ],
+        "candidatosPpc": [
+          {
+            "porta": "COM3",
+            "nome": "PPC-920/930 CDC USB-to-Serial Port (COM3)",
+            "fonte": "Win32_SerialPort"
+          },
+          {
+            "porta": "COM3",
+            "nome": "PPC-920/930 CDC USB-to-Serial Port (COM3)",
+            "fonte": "Get-PnpDevice"
+          }
+        ]
+      }
+    },
+    "consistent": true,
+    "serialOpenedOrWritten": false
+  },
+  "dll": {
+    "processArch": "x64",
+    "resolverSuccess": true,
+    "path": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+    "exists": true,
+    "sizeBytes": 136782,
+    "sha256": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+    "peMachine": "0x8664",
+    "architecture": "x64",
+    "exports": {
+      "required": [
+        "iniciaClientDestaxa",
+        "iniciaTransacaoDestaxa",
+        "continuaTransacaoDestaxa",
+        "finalizaTransacaoDestaxa"
+      ],
+      "found": [
+        "iniciaClientDestaxa",
+        "iniciaTransacaoDestaxa",
+        "continuaTransacaoDestaxa",
+        "finalizaTransacaoDestaxa"
+      ],
+      "expectedExportsPresent": true
+    },
+    "origem": "recursos_aplicacao",
+    "koffi": {
+      "available": true,
+      "resolved": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\koffi\\index.cjs",
+      "loaded": false
+    },
+    "deliberatelyLoadedOnlyForInitClient": true
+  },
+  "vspague": {
+    "detectado": true,
+    "executando": true,
+    "pid": 26568,
+    "caminho": "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
+    "commandLine": "VSPagueClient  -Xms64m -Xmx512m -Dfile.encoding=ISO8859-1 -Duser.timezone=America/Recife -jar C:\\VBI\\V$Pague\\Client\\V$PagueClient.jar -h app-partner.destaxa.cloud -p 60410 -atv server -tls",
+    "responding": true,
+    "functionalProtocolProven": false,
+    "note": "Processo observado; Responding Windows ≠ prova de protocolo Destaxa"
+  },
+  "initClient": {
+    "executed": "EXECUTADO",
+    "reason": "Uma única chamada DestaxaRealAdapter.testarConexao → bridge.iniciarClient → INIT_CLIENT",
+    "codigoDestaxa": "00",
+    "sucesso": true,
+    "estado": "CLIENT_INITIALIZED",
+    "entrada": "versao=1.0.3;aplicacao=CDS Sistemas",
+    "mensagem": "Client Destaxa inicializado",
+    "duracaoMs": null,
+    "execucaoNativa": "native-host",
+    "diagnostico": {
+      "provider": "DESTAXA",
+      "mode": "REAL",
+      "processArch": "x64",
+      "dllArch": "x64",
+      "dllPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+      "dllExists": true,
+      "dllLoaded": true,
+      "exportsValid": true,
+      "exports": {
+        "iniciaClientDestaxa": true,
+        "iniciaTransacaoDestaxa": true,
+        "continuaTransacaoDestaxa": true,
+        "finalizaTransacaoDestaxa": true
+      },
+      "clientInitialized": true,
+      "clientResultCode": "00",
+      "estado": "CLIENT_INITIALIZED",
+      "tefDisponivel": false,
+      "transactionCommunicationValidated": false,
+      "authorizationAvailable": false,
+      "ultimoCodigoClient": "00",
+      "ultimoErro": null,
+      "codigoDestaxa": "00",
+      "entrada": "versao=1.0.3;aplicacao=CDS Sistemas",
+      "tamanhoEntrada": 35
+    },
+    "clientInitialized": true
+  },
+  "initializationState": {
+    "clientInitializedConfirmed": true,
+    "onlyProcessOpenIsNotEnough": true,
+    "onlyDllLoadedIsNotEnough": true
+  },
+  "blockers": [],
+  "pendencias": [
+    "Número lógico e PV informados pelo proprietário não possuem mapeamento comprovado para campos Destaxa (estabelecimento/loja/terminal) nem estão persistidos em tef_configuracao. Valores não foram inventados nem gravados."
+  ],
+  "financialSafety": {
+    "iniciaTransacaoDestaxa": false,
+    "continuaTransacaoDestaxa": false,
+    "finalizaTransacaoDestaxa": false,
+    "DESTAXA_REAL_TRANSACTION_ENABLED": false,
+    "retries": 0,
+    "providerUnchanged": true,
+    "simulationUsedAsRealEvidence": false
+  },
+  "tests": {
+    "directedStatic": "npm run test:tef-ppc930-05",
+    "staticResults": { "total": 6, "passed": 6, "failed": 0 },
+    "controlledInitScript": "scripts/tef/ppc930-05/init-client-controlado.js",
+    "note": "Testes estáticos não substituem o retorno real do INIT_CLIENT deste relatório"
+  },
+  "limitations": [
+    "Número lógico/PV sem mapeamento Destaxa comprovado — não enviados na entrada do INIT_CLIENT.",
+    "empresa_codigo/loja_codigo/terminal_codigo permanecem null; INIT usou apenas versao+aplicacao (válido e suficiente na doc Destaxa 1.83 para iniciaClientDestaxa).",
+    "Porta persistida observada nesta execução: COM3 (= detectada). Relatório anterior desta sprint havia registrado CON3; esta execução não alterou o banco (hash principal inalterado).",
+    "tefDisponivel/authorizationAvailable/transactionCommunicationValidated permanecem false — Client inicializado ≠ TEF pronto para venda.",
+    "Integração operacional / TEF pronto para venda NÃO declarados."
+  ]
+}

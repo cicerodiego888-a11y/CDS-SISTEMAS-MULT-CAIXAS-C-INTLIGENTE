@@ -1,0 +1,204 @@
+{
+  "sprint": "MRT-23",
+  "title": "Auditoria de integração real PDV ↔ Native Host ↔ Destaxa",
+  "generatedAt": "2026-10-30T19:09:42.376Z",
+  "classificacao": "INTEGRAÇÃO PARCIALMENTE VALIDADA",
+  "restricoesObservadas": {
+    "crt": false,
+    "est": false,
+    "init": false,
+    "enableReal": false,
+    "cobranca": false,
+    "cancelamento": false,
+    "estorno": false,
+    "gateOff": true,
+    "configDestaxaAlterada": false,
+    "bancoProducao": false,
+    "migrations": false
+  },
+  "arquivosAuditados": [
+    "backend/services/tef/destaxa/DestaxaHostBridge.js",
+    "backend/services/tef/destaxa/DestaxaNativeHostClient.js",
+    "backend/services/tef/destaxa/DestaxaNativeHost.js",
+    "backend/services/tef/adapters/DestaxaRealAdapter.js",
+    "backend/services/tef/destaxa/destaxaCrtCicloOrquestracao.js",
+    "backend/services/tef/TefManager.js",
+    "backend/services/tef/tefAdapterCiclo.js",
+    "backend/rotas/tef.js",
+    "frontend/pdv/js/pdvTefContinuidade.js",
+    "frontend/pdv/js/pdv.js"
+  ],
+  "arquivosAlterados": [
+    "backend/services/tef/destaxa/DestaxaHostBridge.js",
+    "backend/services/tef/TefManager.js",
+    "tests/tef/mrt-23-integracao-real-native-host.test.js",
+    "docs/build/mrt-23-integracao-real-native-host-report.json"
+  ],
+  "riscoMrt22Investigado": {
+    "descricao": "Adapter recriado na continuidade enquanto Native Host deve preservar sessão",
+    "conclusao": "Sessão nativa vive no processo DestaxaNativeHost (singleton DestaxaNativeHostClient). Adapter/HostBridge wrappers podem ser novos desde que usem o mesmo client e o mesmo PID.",
+    "bugEncontrado": "DestaxaHostBridge.continuar/finalizar ignoravam opcoes.transactionId e usavam this._transactionId null no bridge novo",
+    "correcaoAplicada": true
+  },
+  "evidenciasComunicacaoReal": {
+    "nativeHostPid": 11512,
+    "nativeHostEstado": "READY",
+    "statusHost": {
+      "error": null,
+      "modoTeste": false,
+      "tripwire": true,
+      "diagnostics": {
+        "dllLoaded": false,
+        "clientInitialized": false,
+        "estado": "DLL_NOT_FOUND"
+      },
+      "contexto": null
+    },
+    "vspagueClient": {
+      "responding": true,
+      "pid": 8740,
+      "path": "C:\\VBI\\Java\\bin\\VSPagueClient.exe"
+    },
+    "clienteCompartilhadoMesmoProcesso": true,
+    "operacoesProibidasNaoExecutadas": [
+      "INIT_CLIENT",
+      "TX_START",
+      "TX_CONTINUE",
+      "TX_FINALIZE",
+      "ENABLE_REAL"
+    ],
+    "nota": "STATUS/PID/V$Pague são evidência real de processo. Mock in-process NÃO conta como sessão Destaxa."
+  },
+  "estadoSessao": {
+    "clientInitialized": false,
+    "dllLoaded": false,
+    "initMrt16Historencia": {
+      "resultado": "MRT-16 CONCLUÍDA — INIT DESTAXA OK (SEM PAGAMENTO)",
+      "hostPidNaEpoca": null
+    },
+    "sessaoInitVivaNesteProbe": false
+  },
+  "estadoVsPagueClient": {
+    "pid": 8740,
+    "running": false,
+    "responding": true
+  },
+  "testesSimulados": [
+    {
+      "nome": "Continuidade na mesma sessão (transactionId no IPC após adapter novo)",
+      "ok": true,
+      "camada": "simulado"
+    },
+    {
+      "nome": "Adapters recriados compartilham DestaxaNativeHostClient singleton",
+      "ok": true,
+      "camada": "simulado",
+      "detalhe": "Objetos adapter/bridge distintos; client idêntico"
+    },
+    {
+      "nome": "Ausência de novo TX_START na continuidade",
+      "ok": true,
+      "camada": "simulado"
+    },
+    {
+      "nome": "Preservação da identidade da transação (transactionId no CONTINUE)",
+      "ok": true,
+      "camada": "simulado"
+    },
+    {
+      "nome": "Segunda cobrança bloqueada (continuidade ativa marcada)",
+      "ok": true,
+      "camada": "simulado",
+      "detalhe": "codigoAutorizar=TEF_CRT_CONTINUIDADE_ATIVA"
+    },
+    {
+      "nome": "Timeout durante CONTINUE",
+      "ok": true,
+      "camada": "simulado"
+    },
+    {
+      "nome": "Perda do processo Native Host (validação PID)",
+      "ok": true,
+      "camada": "simulado",
+      "detalhe": "TEF_NATIVE_HOST_SESSAO_PERDIDA"
+    },
+    {
+      "nome": "Recuperação após reinicialização (sessão antiga inválida)",
+      "ok": true,
+      "camada": "simulado",
+      "detalhe": "TEF_NATIVE_HOST_SESSAO_PERDIDA"
+    },
+    {
+      "nome": "POST /tef/continuar + adapter vinculado ao host compartilhado",
+      "ok": true,
+      "camada": "simulado"
+    }
+  ],
+  "evidenciasReais": [
+    {
+      "nome": "Gate financeiro OFF (evidência de ambiente)",
+      "ok": true,
+      "camada": "real"
+    },
+    {
+      "nome": "V$Pague Client detectado no ambiente",
+      "ok": true,
+      "camada": "real",
+      "detalhe": "pid=8740; running=undefined; responding=true"
+    },
+    {
+      "nome": "Native Host disponível (PID real + STATUS)",
+      "ok": true,
+      "camada": "real",
+      "detalhe": "pid=11512; estado=READY; clientInitialized=false"
+    },
+    {
+      "nome": "Continuidade na mesma sessão IPC (bridges distintos, mesmo client/PID)",
+      "ok": true,
+      "camada": "real",
+      "detalhe": "pid=11512"
+    },
+    {
+      "nome": "Native Host indisponível / sessão perdida → retorno seguro ao PDV",
+      "ok": true,
+      "camada": "real",
+      "detalhe": "validação de PID sem host âncora (código de produção)"
+    },
+    {
+      "nome": "INIT já realizado na sessão do Native Host atual",
+      "ok": false,
+      "camada": "real",
+      "detalhe": "clientInitialized≠true — sessão INIT MRT-16 não está neste processo (INIT proibido nesta sprint)"
+    }
+  ],
+  "problemasEncontrados": [
+    {
+      "item": "INIT na sessão atual",
+      "erro": "Sessão Destaxa CLIENT_INITIALIZED não presente no Native Host probe (esperado sem INIT nesta sprint)"
+    }
+  ],
+  "correcoesRealizadas": [
+    {
+      "arquivo": "backend/services/tef/destaxa/DestaxaHostBridge.js",
+      "correcao": "continuar/finalizar passam opcoes.transactionId (não só this._transactionId)"
+    },
+    {
+      "arquivo": "backend/services/tef/TefManager.js",
+      "correcao": "_continuidadeCrt.sessaoHost + validação PID antes de continuarAutorizacao"
+    }
+  ],
+  "oQueAindaImpedeCrtReal": [
+    "Gate financeiro OFF (DESTAXA_REAL_TRANSACTION_ENABLED ≠ 1)",
+    "Sessão INIT Destaxa (clientInitialized) não está viva neste Native Host — INIT proibido nesta sprint",
+    "CRT real ainda não autorizada (MRT-23 não executa TX)",
+    "Homologação CRT R$1,00 exige procedimento controlado em sprint futura"
+  ],
+  "confirmacaoNenhumaOperacaoFinanceiraReal": {
+    "gateOff": true,
+    "crt": false,
+    "init": false,
+    "enableReal": false,
+    "mensagem": "Nenhuma operação financeira real, INIT ou ENABLE_REAL foi executada nesta sprint"
+  },
+  "resultadoFinal": "MRT-23 CONCLUÍDA — INTEGRAÇÃO PARCIALMENTE VALIDADA"
+}

@@ -1,0 +1,125 @@
+{
+  "sprint": "MRT-06",
+  "title": "Integração controlada do Terminal Router com TefManager",
+  "generatedAt": "2026-10-30T02:40:00.000Z",
+  "status": "MRT-06 CONCLUÍDA — INTEGRAÇÃO CONTROLADA VALIDADA",
+  "restricoesObservadas": {
+    "tefManagerReescrito": false,
+    "adaptersAlterados": false,
+    "dllOuNativeHostAlterados": false,
+    "bridgeRemotoImplementado": false,
+    "pagamentosSimultaneosDestaxa": false,
+    "bancoOficialAlterado": false,
+    "migrationsAplicadas": false,
+    "initClient": false,
+    "transacaoFinanceiraReal": false,
+    "gates": false,
+    "regrasTef13a17Alteradas": false
+  },
+  "pontoIntegracao": {
+    "arquivo": "backend/services/tef/TefManager.js",
+    "metodo": "autorizar",
+    "posicao": "após validação fiscal; antes de fraude/idempotência/pendências/adapter/lock financeiro",
+    "helper": "backend/services/tef/tefRouterIntegration.js",
+    "chamada": "tefRouterIntegration.resolverRotaAutorizacao(dadosNormalizados)",
+    "flags": {
+      "allocate": true,
+      "exigirExecucaoLocal": true
+    },
+    "adapterSelection": "inalterada — continua obterAdapter() (COMPAT_SINGLETON factory LIMIT 1)",
+    "contextoPropagado": [
+      "dadosNormalizados._routeDecision",
+      "resposta.routeDecision",
+      "resposta.terminalLeaseId",
+      "resposta.executionContext"
+    ]
+  },
+  "fluxoAnterior": [
+    "validação fiscal",
+    "Router.resolve sem allocate (só identidade + singleton)",
+    "fraude → idempotência TEF-13 → pendências TEF-14 → mutex",
+    "obterAdapter → prepararAutorizacao → lock financeiro → TX → adapter.autorizarPagamento"
+  ],
+  "fluxoNovo": [
+    "validação fiscal",
+    "resolverRotaAutorizacao: mapa PDV→estação + resolve(allocate + exigirExecucaoLocal)",
+    "bloqueio se REMOTA_REQUERIDA / dispositivo inativo / ocupação / identidade inválida",
+    "fraude → idempotência TEF-13 → pendências TEF-14 → mutex (inalterados)",
+    "obterAdapter → preparar → lock financeiro TEF-13 → TX → adapter",
+    "fecharLeaseTerminal: LIBERAR se confirmado; MARCAR_INCONCLUSIVO se PENDENTE/TIMEOUT/UNKNOWN (TEF-14)"
+  ],
+  "cicloAquisicaoLiberacao": {
+    "aquisicao": "Router._aplicarAlocacao após ExecutionContext não bloqueante",
+    "leaseId": "routeDecision.isolamento.leaseId",
+    "liberacaoConfirmada": ["SUCESSO_CONFIRMADO", "FALHA_CONFIRMADA"],
+    "inconclusivo": "marcarAlocacaoInconclusiva — NÃO libera por timeout de ocupação",
+    "earlyExit": "fraude alta / duplicata / pendência TEF-14 / prepare fail → LIBERAR (sem TX nova)",
+    "finally": "rede de segurança se lease aberto sem tratamento",
+    "ortogonalidade": "lease de terminal ≠ tefLockService / idempotency_key"
+  },
+  "preservacaoGarantiasFinanceiras": {
+    "TEF-13": "idempotency_key + tefLockService.comLock inalterados; chave não depende do lease",
+    "TEF-14": "pendências bloqueiam nova autorização; inconclusivo mantém lease + trava financeira",
+    "TEF-15": "vínculo venda_id / rotas / enfileirarVinculosSqlite não tocados",
+    "TEF-17": "destaxaCancelamentoPolitica não referenciada nesta sprint"
+  },
+  "comportamentoPorTopologia": {
+    "ESTACAO_UNICA_PDV_UNICO": "LOCAL + allocate; Destaxa Native Host serializado trivialmente",
+    "ESTACAO_UNICA_MULTI_PDV": "allocate + GLOBAL_SERIALIZE → RUNTIME_OCUPADO no 2º PDV Destaxa",
+    "MULTI_ESTACAO_LOCAL": "mapa multi-host mas hostHints = estação do PDV → autoriza local",
+    "MULTI_ESTACAO_REMOTA": "REMOTA_REQUERIDA + exigirExecucaoLocal → ESTACAO_REMOTA_NAO_SUPORTADA (sem bridge)",
+    "COMPAT_SINGLETON": "pdvId omitido → SINGLETON_FALLBACK + lease singleton:instalacao"
+  },
+  "arquivosCriados": [
+    "backend/services/tef/tefRouterIntegration.js",
+    "tests/tef/mrt-06-integracao-tefmanager.test.js",
+    "docs/build/mrt-06-integracao-tefmanager-report.json"
+  ],
+  "arquivosAlterados": [
+    "backend/services/tef/TefManager.js",
+    "backend/services/tef/terminalRouter/index.js",
+    "tests/tef/mrt-02-contrato-identidade-pdv.test.js",
+    "tests/tef/mrt-04-alocacao-isolamento.test.js",
+    "tests/tef/mrt-05-topologias-contexto.test.js"
+  ],
+  "testes": {
+    "comandoMrt06": "node tests/tef/mrt-06-integracao-tefmanager.test.js",
+    "resultadoMrt06": "14/14 OK",
+    "cenarios": [
+      "COMPAT_SINGLETON + allocate",
+      "PDV com terminal lógico",
+      "PDV sem Registry → fallback",
+      "terminal ocupado",
+      "runtime Destaxa ocupado",
+      "dispositivo indisponível",
+      "REMOTA_REQUERIDA bloqueada",
+      "timeout/inconclusivo não libera",
+      "liberação após confirmado",
+      "falha na aquisição",
+      "mapa PDV estação read-only"
+    ],
+    "regressaoMrt02": "15/15 OK",
+    "regressaoMrt03": "15/15 OK",
+    "regressaoMrt04": "15/15 OK",
+    "regressaoMrt05": "13/13 OK",
+    "regressaoTef13": "13/13 OK",
+    "regressaoTef14": "11/11 OK",
+    "regressaoTef15": "12/12 OK"
+  },
+  "riscosRemanescentes": [
+    "obterAdapter ainda não usa adapterBinding do Registry — cutover de seleção de adapter pendente",
+    "Lease em memória: restart limpa ocupação; TEF-14 cobre o financeiro inconclusivo",
+    "Bridge remota MULTI_ESTACAO Destaxa não existe — remoto permanece bloqueado",
+    "Mapa de estações depende de terminais.hostname; hosts nulos reduzem precisão da topologia",
+    "allocate ocorre antes do mutex financeiro — early-exit libera lease; corrida curta entre dois PDVs mitigada pelo Allocator"
+  ],
+  "proximaEtapaSugerida": {
+    "candidato": "MRT-07 — binding Registry → factory/adapter sem romper COMPAT_SINGLETON",
+    "naoFazerAinda": [
+      "Bridge remoto Destaxa",
+      "Pagamentos Destaxa paralelos",
+      "Migration oficial MRT-03"
+    ]
+  },
+  "conclusao": "Integração controlada: TefManager.autorizar resolve rota com allocate e bloqueio REMOTA antes da execução financeira; libera ou marca inconclusivo o lease sem alterar TEF-13/14/15/17, adapters ou Native Host."
+}

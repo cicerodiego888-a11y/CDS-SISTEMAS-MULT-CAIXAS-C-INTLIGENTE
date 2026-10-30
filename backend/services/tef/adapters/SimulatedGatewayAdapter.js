@@ -88,6 +88,9 @@ class SimulatedGatewayAdapter extends BaseAdapter {
       autorizacao: info.autorizacao,
       transacaoId: info.transacao_id,
       mensagem: 'Transação TEF cancelada com sucesso (simulação)',
+      cancelConfirmed: true,
+      cancelOutcome: 'CANCELAMENTO_CONFIRMADO',
+      financialState: 'CANCELLED',
       payloadRetorno: {
         ambiente: 'simulacao',
         transacao_id: info.transacao_id,

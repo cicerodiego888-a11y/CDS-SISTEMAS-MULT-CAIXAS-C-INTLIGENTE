@@ -1,0 +1,152 @@
+{
+  "sprint": "TEF-PPC930-10",
+  "title": "Diagnóstico do HTTP 422 e rejeição de PIX",
+  "generatedAt": "2026-10-29T20:20:00.000Z",
+  "verdict": "CAUSE_IDENTIFIED_PRE_DLL_PIX_REJECTED_HTTP_422_CDS",
+  "tefReadyForSaleDeclared": false,
+  "financialGate": {
+    "env": "DESTAXA_REAL_TRANSACTION_ENABLED",
+    "enabled": false,
+    "remainsDisabled": true
+  },
+  "constraintsHonored": {
+    "noFinancialTransactionExecuted": true,
+    "noInitClientRetry": true,
+    "noOfficialDatabaseMutation": true,
+    "noProviderSwitch": true,
+    "noPixBypass": true
+  },
+  "http422": {
+    "endpoint": "POST /api/tef/pagar",
+    "routeFile": "backend/rotas/tef.js",
+    "origin": "CDS_BACKEND",
+    "notFromDestaxaDll": true,
+    "condition": "resultado.sucesso === false && resultado.codigo && !tefContrato.estaAprovado(resultado) → res.status(422).json(resultado)",
+    "expectedBodyFields": {
+      "sucesso": false,
+      "aprovado": false,
+      "status": "erro",
+      "codigo": "DESTAXA_OPERACAO_NAO_PERMITIDA",
+      "mensagem": "Operação PIX não permitida; somente CRT",
+      "transacaoId": null,
+      "transactionAttempted": false,
+      "retryAllowed": false
+    },
+    "correlationId": "UNKNOWN_FOR_REPORTED_ATTEMPT",
+    "note": "Corpo esperado comprovado por código + testes. Captura HTTP da tentativa específica do operador não estava disponível nesta sessão (sem Network/HAR)."
+  },
+  "modalityTrace": {
+    "operatorSelectionEvidence": "INFERRED_FROM_ERROR_MESSAGE_AND_CODE_PATH",
+    "pdvFormaFiscal": {
+      "function": "obterFormaPagamentoFiscal",
+      "file": "frontend/pdv/js/pdv.js",
+      "source": "formaPagamentoSelecionadaPDV || #formaPagamentoPdv || 'cartao'",
+      "selectedValueForThisIncident": "pix"
+    },
+    "normalization": {
+      "file": "backend/services/tef/tefFluxoPagamento.js",
+      "rule": "normalizarTipoTef('pix') → 'pix_tef'",
+      "silentConversionToCrt": false
+    },
+    "payloadField": {
+      "name": "tipo",
+      "valueSent": "pix_tef",
+      "endpoint": "POST /api/tef/pagar",
+      "otherFields": ["valor", "parcelas", "venda_id", "idempotency_key"]
+    },
+    "adapterMapping": {
+      "file": "backend/services/tef/adapters/DestaxaRealAdapter.js",
+      "function": "_resolverOperacao",
+      "pix_tef": "OPERACOES.PIX",
+      "creditoDebitoCartao": "OPERACOES.CRT"
+    },
+    "rejectionLayer": {
+      "component": "DestaxaRealAdapter.prepararAutorizacao",
+      "before": [
+        "validação de valor R$1,00",
+        "carga DLL",
+        "INIT_CLIENT",
+        "detecção PinPad",
+        "gate DESTAXA_REAL_TRANSACTION_ENABLED",
+        "iniciaTransacaoDestaxa",
+        "TefManager.criarTransacaoExclusiva"
+      ],
+      "codigo": "DESTAXA_OPERACAO_NAO_PERMITIDA",
+      "mensagem": "Operação PIX não permitida; somente CRT"
+    },
+    "configPixTrueConfusion": {
+      "configFlag": "tef_operacoes.pix / UI pix:'true'",
+      "usedByDestaxaRealAdapterToAllowPix": false,
+      "allowedOperationsConstant": ["CRT"],
+      "conclusion": "Flag genérica de operações da Configuração TEF não autoriza PIX no adapter Destaxa real."
+    }
+  },
+  "pdvUserVisibleSequence": [
+    "processarVendaFiscalNaoFiscal → obterFormaPagamentoFiscal() → 'pix'",
+    "processarPagamentoTEF('pix') → tipoTef='pix_tef' → POST /tef/pagar",
+    "HTTP 422 + mensagem Operação PIX não permitida; somente CRT",
+    "processarPagamentoTEF retorna null (catch / !response.ok)",
+    "throw 'Recebimento A não aprovado.'",
+    "pagamentoFiscalAtual = null; sucesso:false"
+  ],
+  "financialExecution": {
+    "iniciaTransacaoDestaxa": {
+      "occurredForReportedAttempt": false,
+      "evidenceClass": "CODE_PATH_PROOF",
+      "details": "prepararAutorizacao rejeita PIX antes de autorizarPagamento chegar a bridge.iniciarTransacaoDestaxa; TefManager retorna preparacaoAdapter.resposta antes de criarTransacaoExclusiva."
+    },
+    "continuaTransacaoDestaxa": false,
+    "finalizaTransacaoDestaxa": false,
+    "transactionAttemptedFlag": false,
+    "dllFinancialCall": "NOT_REACHED",
+    "classification": "REQUEST_REJECTED_BEFORE_DLL",
+    "insufficientToProveChargeOnAcquirer": true,
+    "officialDbPixRowsReadonly": {
+      "path": "C:/ProgramData/MercantilFiscal/dados/mercadao.db",
+      "query": "tef_transacoes WHERE tipo LIKE '%pix%'",
+      "rowsFound": 0,
+      "sha256Unchanged": true,
+      "interpretation": "No caminho atual, rejeição de modalidade não persiste linha pendente/aprovada. Ausência de linhas PIX no DB é consistente com bloqueio pré-persistência; não reconstitui o HAR da tentativa específica."
+    }
+  },
+  "saleAndRecebimentoState": {
+    "recebimentoA": "NAO_APROVADO",
+    "pagamentoFiscalAtual": null,
+    "aprovadoFlagOnResponse": false,
+    "reconciliationPendingFromThisPixAttempt": "NONE_EVIDENCED_IN_TEF_TRANSACOES",
+    "unknownAspects": [
+      "Se a venda fiscal/não-fiscal ficou aberta no PDV UI após o erro (estado de carrinho) — não inspecionado em runtime nesta sprint."
+    ]
+  },
+  "destaxaOperationalBlockersStillPending": [
+    "V$Pague 00151 terminal não cadastrado/desabilitado",
+    ".conf ausente",
+    "mapeamento oficial estabelecimento/loja/terminal pendente",
+    "INIT_CLIENT histórico 00 ≠ transação financeira operacional"
+  ],
+  "testsExecuted": [
+    {
+      "command": "npm run test:tef-ppc930-10",
+      "file": "tests/tef/tef-ppc930-10-pix-http422.test.js",
+      "result": { "passed": 7, "failed": 0 }
+    }
+  ],
+  "filesChanged": [
+    "tests/tef/tef-ppc930-10-pix-http422.test.js",
+    "scripts/tef/ppc930-10/ler-tentativas-pix-readonly.js",
+    "package.json",
+    "docs/build/tef-ppc930-10-report.json"
+  ],
+  "missingEvidenceForFutureControlledCapture": [
+    "Console PDV: objeto CHAMANDO TEF / RETORNO TEF da tentativa",
+    "DevTools Network: request/response completos de POST /api/tef/pagar (sem Authorization token no relatório)",
+    "idempotency_key e correlacao da tentativa específica",
+    "Screenshot da forma selecionada no Recebimento A no momento do clique"
+  ],
+  "conclusion": {
+    "causeIdentified": true,
+    "summary": "O operador acionou PIX no Recebimento A; o PDV normalizou para tipo=pix_tef e chamou POST /api/tef/pagar; o DestaxaRealAdapter rejeitou a operação PIX (somente CRT) em prepararAutorizacao; a rota CDS devolveu HTTP 422; o PDV não marcou o recebimento como aprovado. Nenhuma chamada financeira à DLL foi alcançada neste caminho.",
+    "notASilentCrtConversion": true,
+    "notDestaxaDllHttp422": true
+  }
+}

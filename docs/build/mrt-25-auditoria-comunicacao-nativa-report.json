@@ -1,0 +1,223 @@
+{
+  "sprint": "MRT-25",
+  "title": "Auditoria de comunicação nativa Destaxa (READ-ONLY)",
+  "generatedAt": "2026-10-30T20:04:53.608Z",
+  "classificacao": "CAUSA PARCIALMENTE IDENTIFICADA",
+  "restricoesObservadas": {
+    "init": false,
+    "txStart": false,
+    "crt": false,
+    "continueFinanceiro": false,
+    "finalizeFinanceiro": false,
+    "est": false,
+    "enableReal": false,
+    "cobranca": false,
+    "alteracaoArquitetura": false,
+    "bancoProducao": false,
+    "dllAtualizada": false
+  },
+  "arquivosAnalisados": [
+    "backend/services/tef/destaxa/DestaxaNativeHost.js",
+    "backend/services/tef/destaxa/DestaxaNativeHostClient.js",
+    "backend/services/tef/destaxa/DestaxaHostBridge.js",
+    "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+    "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js",
+    "backend/services/tef/destaxa/destaxaKoffiLoader.js",
+    "backend/services/tef/destaxa/destaxaCrtCicloOrquestracao.js",
+    "backend/services/tef/destaxa/destaxaProtocolo.js",
+    "backend/services/tef/destaxa/destaxaNativeHostProtocolo.js",
+    "backend/services/tef/adapters/DestaxaRealAdapter.js",
+    "docs/build/mrt-15-dll-diagnostico-real-report.json",
+    "docs/build/mrt-24-primeira-crt-homologacao-report.json",
+    "docs/build/mrt-24-1-reconciliacao-crt-report.json"
+  ],
+  "fluxoRealComunicacao": [
+    "PDV/API → TefManager.autorizar (ou MRT-24: DestaxaRealAdapter direto)",
+    "DestaxaRealAdapter.autorizarPagamento → habilitarTransacaoReal (ENABLE_REAL IPC)",
+    "executarCicloCrt → DestaxaHostBridge.iniciarTransacaoDestaxa",
+    "DestaxaNativeHostClient.enviar(TX_START) via child_process/utilityProcess IPC",
+    "DestaxaNativeHost (processo filho) → DestaxaNativeBridge → DestaxaTransacaoOrquestrador",
+    "Koffi → iniciaTransacaoDestaxa(resultado, operacao, entrada, tamanho, saida, *tamanho_saida)",
+    "DLL Destaxa conecta ao V$Pague Client Background (LISTEN 60906) — CDS Node NÃO abre 60906",
+    "DLL bloqueia até retorno; Host responde IPC; Adapter/Ciclo interpreta código"
+  ],
+  "parametrosEfetivosCds": {
+    "operacaoDll": "CRT",
+    "entradaDll": "transacao_valor=1.00",
+    "chavesEntrada": [
+      "transacao_valor"
+    ],
+    "valorCentavos": 100,
+    "transactionIdIpc": "correlation CDS↔Host (MRT-24: mrt24_5d70e3fb2328da54) — NÃO enviado no texto entrada da DLL",
+    "ipcOperation": "TX_START",
+    "serializacao": "chave=valor;… (latin1/encoding Destaxa no buffer Koffi)"
+  },
+  "porta60906": {
+    "protocolo": "V$Pague Background / VeSComm (TCP) — NÃO é HTTP",
+    "listen": "V$Pague Client (ex.: PID 8740) em 0.0.0.0:60906",
+    "quemAbreConexaoCliente": "DLL Destaxa (libdll-integracao-tef.dll) no processo Native Host — não o processo CDS principal",
+    "quemEncerraObservadoMrt24": "Connection reset (127.0.0.1) no log Client — compatível com queda/abort do processo que abriu o socket (Native Host/DLL) antes do handshake/processamento completo",
+    "cdsAbre60906": false,
+    "evidenciaCodigo": "Nenhuma referência a 60906 no stack Destaxa CDS; MRT-15: CDS não usa 60603/60906"
+  },
+  "dadosTransmitidos": {
+    "ipcTxStartEnviadoAoHost": true,
+    "logTransacaoStartNoHost": true,
+    "evidênciaDllChamouIniciaTransacao": "provável — log transacao.start ocorre imediatamente antes da chamada Koffi síncrona",
+    "evidênciaPayloadCompletoNoVsPague": false,
+    "evidênciaProcessamentoFinanceiroNoClient": false,
+    "nota": "Conexão TCP chegou ao LISTEN 60906; reset imediato sugere que o enquadramento VeSComm/solicitação CRT não foi processado até o fim pelo Client"
+  },
+  "erroDllAntesDaInterrupcao": {
+    "codigoDestaxaCapturado": null,
+    "throwKoffiCapturadoNoCds": false,
+    "txStartResultRecebido": false,
+    "conclusao": "Sem retorno DLL capturado pelo CDS — não há evidência de código Destaxa (00/99/03/…) antes da interrupção"
+  },
+  "pontoDeInterrupcao": {
+    "camadaMaisProvavel": "Native Host / ciclo de vida do processo filho durante chamada DLL síncrona",
+    "naoExclui": [
+      "falha interna da DLL ao falar com Background",
+      "abort do processo pai CDS derrubando o IPC"
+    ],
+    "evidenciaCriticaCodigo": {
+      "hostDisconnectExit": "DestaxaNativeHost.js: process.on('disconnect', () => process.exit(0))",
+      "clientUnrefChannel": "DestaxaNativeHostClient spawner unref() + channel.unref()",
+      "efeito": "Se o processo pai CDS encerra ou o canal IPC desconecta durante iniciaTransacaoDestaxa, o Host termina com exit(0) no meio da chamada Koffi → socket TCP com 60906 é resetado → V$Pague registra Connection reset → CDS não recebe TX_START_RESULT"
+    },
+    "correlacaoMrt24": {
+      "transactionId": "mrt24_5d70e3fb2328da54",
+      "nativeHostPid": 10952,
+      "vspaguePid": 8740,
+      "logsCds": [
+        "transacao.real.driver.habilitado",
+        "transacao.start … CRT"
+      ],
+      "logsVsPague": "16:20:49 Connected 127.0.0.1:56138→60906; Connection reset",
+      "processoPai": "encerrou ~5,6s sem gravar relatório completo no próprio runtime"
+    }
+  },
+  "ipcVsDllVsClient": {
+    "ipc": "Funcionou até TX_START (ENABLE_REAL + START logados)",
+    "dll": "Chamada síncrona iniciada; retorno não observado",
+    "vspagueClient": "Aceitou TCP e resetou — sem log de autorização/NSU",
+    "classificacaoCamada": "Interrupção entre Native Host/DLL e canal Background do Client (pós-IPC OK, pré-resultado financeiro)"
+  },
+  "evidenciasTestesEstaticos": [
+    {
+      "nome": "Host IPC usa child_process.fork ou Electron utilityProcess",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "Host filho sai em disconnect IPC",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "Cliente faz unref do processo e do channel IPC",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "TX nativo é síncrono (Koffi bloqueia thread do Host)",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "CDS não referencia porta 60906 no código TEF Destaxa",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "Valor homologação 100 → transacao_valor=1.00",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "operacao CRT é parâmetro separado (não entra na string entrada)",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "HostBridge TX_START envia operacao+campos+transactionId IPC",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "transactionId CDS fica no orquestrador/IPC — não no texto DLL entrada",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "Documentado: CDS não usa 60906; Client LISTEN Background",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "MRT-24.1 correlacionou Connection reset às 16:20:49",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "MRT-24: TX_START enviado sem TX_START_RESULT",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "Hipótese código: disconnect→exit(0) mata Host no meio da DLL",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "encerrar() adia se emVoo — mas disconnect do parent não passa por encerrar()",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "Orquestrador captura throw da DLL em _montarErroFinanceiro",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "Host devolve HOST_INTERNAL_ERROR + resultado UNKNOWN em TX se throw",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "Cliente: operação transacional sem timeout IPC padrão (aguarda Host ou queda)",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "Gate OFF nesta auditoria",
+      "ok": true,
+      "detalhe": null
+    }
+  ],
+  "causasConfirmadas": [
+    "CDS não comunica diretamente com a porta 60906; quem conecta é a DLL no Native Host",
+    "Protocolo local é Background/VeSComm TCP, não HTTP",
+    "Parâmetros CRT do CDS para a DLL: operacao=CRT + entrada transacao_valor=1.00",
+    "Native Host encerra com process.exit(0) ao receber disconnect do IPC pai",
+    "MRT-24: TX_START enviado; TX_START_RESULT ausente; V$Pague Connection reset no mesmo intervalo"
+  ],
+  "hipotesesNaoComprovadas": [
+    "Qual sinal exato derrubou o processo pai CDS na MRT-24 (harness/Cursor/exceção não capturada)",
+    "Se a DLL chegou a enviar frame VeSComm completo antes do reset",
+    "Se houve crash nativo (AV) dentro da DLL distinto de exit(0) por disconnect",
+    "Se INIT 00 da mesma sessão estabeleceu canal Background persistente ou só a CRT abriu o TCP"
+  ],
+  "recomendacoesParaSprintCorrecao": [
+    "Não fazer unref do channel IPC enquanto houver operação transacional em voo",
+    "Não process.exit(0) no disconnect se houver chamada Koffi ativa — ou impedir disconnect do pai durante TX",
+    "Garantir que o processo pai não encerre durante TX_START (checkpoint/flush + keep-alive explícito)",
+    "Capturar exit code/signal do Host e correlacionar com Connection reset",
+    "Somente após correção de ciclo de vida: nova CRT autorizada (não nesta sprint)"
+  ],
+  "confirmacaoNenhumaOperacaoFinanceira": {
+    "gateOff": true,
+    "mensagem": "MRT-25 somente leitura de código/logs e asserts estáticos — sem INIT/TX/ENABLE_REAL"
+  },
+  "resultadoFinal": "MRT-25 CONCLUÍDA — CAUSA PARCIALMENTE IDENTIFICADA"
+}

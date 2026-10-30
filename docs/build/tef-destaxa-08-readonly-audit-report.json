@@ -1,0 +1,307 @@
+{
+  "sprint": "TEF-DESTAXA-08",
+  "title": "Auditoria Read-Only de Prontidão Destaxa",
+  "generatedAt": "2026-10-27T19:00:00.000Z",
+  "verdict": "DIAGNOSTIC_COMPLETE",
+  "transactionExecuted": false,
+  "codeOrConfigChanged": false,
+  "dllLoadedOrInvoked": false,
+  "databaseOpened": false,
+  "resumo": {
+    "caminhoRealTef": "Destaxa (TefManager → tefFactory → DestaxaRealAdapter → DestaxaHostBridge → DestaxaNativeHostClient → DestaxaNativeHost → DestaxaNativeBridge/koffi → libdll-integracao-tef.dll). Stone/PIX não substituem este caminho.",
+    "gateFinanceiro": "DESTAXA_REAL_TRANSACTION_ENABLED ausente/≠1 no shell atual → caminho real de TX desabilitado",
+    "estadoObservavelHoje": {
+      "cdsProcesso": "não em execução",
+      "vspagueProcesso": "não em execução (binário presente em C:\\VBI)",
+      "com4Gertec": "ausente; única porta serial = COM7 VID_11CA PID_AAAA",
+      "dllNoPacoteInstalado": "ausente sob Program Files\\CDS ERP (regressão vs TEF-DESTAXA-07J de 2026-10-19)",
+      "dllNoCheckoutDev": "presente win-x64/win-ia32 com hashes estáveis"
+    },
+    "causaComprovadaDoGargaloAtual": null,
+    "causaProvavelDoGargaloAtual": "Prontidão operacional quebrada em múltiplos pré-requisitos externos ao Native Host: (1) PinPad Gertec COM4 não enumerado, (2) VSPagueClient parado, (3) DLL Destaxa não empacotada no instalado atual. O Native Host/IPC em si não apresenta evidência nova de EPIPE nesta sessão.",
+    "epipe": "Historicamente (07-PREP-FINAL-EPIPE) era stdio do harness Electron, não o canal IPC postMessage do Native Host. Sem runtime Destaxa hoje, EPIPE atual = não observado."
+  },
+  "arquivosEComponentesInspecionados": {
+    "codigo": [
+      "backend/services/tef/TefManager.js",
+      "backend/services/tef/tefFactory.js",
+      "backend/services/tef/adapters/DestaxaRealAdapter.js",
+      "backend/services/tef/adapters/destaxaAdapter.js",
+      "backend/services/tef/destaxa/DestaxaHostBridge.js",
+      "backend/services/tef/destaxa/DestaxaNativeHostClient.js",
+      "backend/services/tef/destaxa/DestaxaNativeHost.js",
+      "backend/services/tef/destaxa/destaxaNativeHostProtocolo.js",
+      "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+      "backend/services/tef/destaxa/destaxaKoffiLoader.js",
+      "backend/services/tef/destaxa/destaxaDllResolver.js",
+      "backend/services/tef/destaxa/destaxaConstantes.js",
+      "backend/services/tef/tefFinancialSafetyPolicy.js",
+      "backend/services/tef/tefLockService.js"
+    ],
+    "binariosDev": [
+      "resources/tef/destaxa/win-x64/libdll-integracao-tef.dll",
+      "resources/tef/destaxa/win-ia32/libdll-integracao-tef.dll"
+    ],
+    "instalacao": [
+      "C:\\Program Files\\CDS ERP\\CDS ERP.exe (existe)",
+      "C:\\Program Files\\CDS ERP\\resources\\app.asar",
+      "C:\\Program Files\\CDS ERP\\resources\\app.asar.unpacked (somente node_modules nativos; sem resources/tef/destaxa)"
+    ],
+    "middlewareFs": [
+      "C:\\VBI\\Java\\bin\\VSPagueClient.exe (existe)",
+      "C:\\VBI\\V$Pague\\Client\\V$PagueClient.jar (existe)"
+    ],
+    "relatoriosAnteriores": [
+      "docs/build/tef-destaxa-07-prep-final-epipe-report.json",
+      "docs/build/tef-destaxa-07i-configuracao-readonly-report.json",
+      "docs/build/tef-destaxa-07j-precheck-installacao-real-report.json",
+      "docs/build/stone-tef-01-auditoria-arquitetural-report.json"
+    ]
+  },
+  "fluxoDeChamadas": {
+    "diagrama": [
+      "PDV/ERP → TefManager.iniciarPagamento",
+      "→ tefFactory.criarAdapter (provedor=destaxa, ambiente homologacao|producao → DestaxaRealAdapter)",
+      "→ DestaxaRealAdapter (default usaHostNativo → DestaxaHostBridge)",
+      "→ DestaxaNativeHostClient.enviar(operation)",
+      "→ IPC cds-tef-native-host/1 (utilityProcess.fork | child_process.fork)",
+      "→ DestaxaNativeHost (serializa 1 nativa; HOST_BUSY se concorrente)",
+      "→ DestaxaNativeBridge + destaxaKoffiLoader",
+      "→ DLL: iniciaClientDestaxa | iniciaTransacaoDestaxa | continuaTransacaoDestaxa | finalizaTransacaoDestaxa",
+      "→ Client Destaxa ↔ VSPague ↔ PinPad (fora do processo CDS)"
+    ],
+    "simulacao": "ambiente=simulacao → destaxaAdapter (não é caminho real)",
+    "stonePix": "fora do escopo Destaxa; não usados como substitutos"
+  },
+  "contratoIpcNativeHost": {
+    "protocolo": "cds-tef-native-host/1",
+    "request": ["protocol", "requestId", "operation", "transactionId", "payload", "nativeSeq", "sentAt"],
+    "response": ["protocol", "requestId", "transactionId", "resultCode", "output", "error", "nativeSeq"],
+    "operacoes": {
+      "naoFinanceiras": ["PING", "STATUS", "LOAD", "INIT_CLIENT", "UNLOAD", "SHUTDOWN", "ENABLE_REAL"],
+      "transacionais": ["TX_START", "TX_CONTINUE", "TX_FINALIZE"],
+      "testeSomente": ["CONFIGURE_MOCK", "SIMULATE_BLOCKING", "SIMULATE_CRASH"]
+    },
+    "timeouts": {
+      "clientePadraoMs": 120000,
+      "timeoutInicioHostMs": 20000,
+      "transacional": "timeout IPC explícito → HOST_TIMEOUT (UNKNOWN); lock/reconciliação permanece até resposta ou morte do host",
+      "documentacaoDestaxa": "sem timeout global CRT documentado; campo timeout só em coleta"
+    },
+    "stdio": {
+      "utilityProcess": "stdio: inherit",
+      "child_process.fork": "['ignore','inherit','inherit','ipc']",
+      "canalControle": "postMessage/IPC — não é stdout de resultado transacional"
+    },
+    "errosHost": ["HOST_OFFLINE", "HOST_CRASHED", "HOST_UNAVAILABLE", "HOST_BUSY", "HOST_TIMEOUT", "HOST_SHUTTING_DOWN", "HOST_INVALID_REQUEST", "HOST_OPERATION_NOT_ALLOWED", "HOST_TRANSACTION_MISMATCH", "HOST_TRANSACTION_ACTIVE", "HOST_RECONCILIATION_PENDING", "HOST_INTERNAL_ERROR"],
+    "encerramento": "shutdown adia kill se operação nativa em voo; nunca marca aprovado/negado por queda de pipe"
+  },
+  "estadoNativeHostEEpipe": {
+    "hostProcessoObservadoNestaSessao": false,
+    "epipeNestaSessao": "não observado (sem host/Electron Destaxa ativo)",
+    "historicoEpipeComprovado": {
+      "fonte": "docs/build/tef-destaxa-07-prep-final-epipe-report.json",
+      "causa": "leitor de stdout/stderr do Electron fechado cedo em execução ad hoc do fixture 07-PREP; console.log → EPIPE → diálogo main process",
+      "naoEra": "falha intrínseca do protocolo IPC Native Host nem da DLL",
+      "mitigacaoRegistrada": "harness spawn com consumo contínuo de stdio até close; fixture aguarda flush antes de app.exit"
+    },
+    "respostasInvalidasOuTimeout": "sem logs de runtime Destaxa nesta sessão; código prevê HOST_TIMEOUT + reconciliacaoPendente bloqueando novo TX_START"
+  },
+  "compatibilidadeEstaticaDll": {
+    "dev_win_x64": {
+      "path": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+      "exists": true,
+      "sizeBytes": 136782,
+      "sha256": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+      "peMachine": "0x8664",
+      "architecture": "x64",
+      "peFormat": "PE32+",
+      "matches07JInstalledHash": true,
+      "exportsFromPriorStaticParse07J": [
+        "iniciaClientDestaxa",
+        "iniciaTransacaoDestaxa",
+        "continuaTransacaoDestaxa",
+        "finalizaTransacaoDestaxa"
+      ],
+      "runtimeLoadProven": false
+    },
+    "dev_win_ia32": {
+      "path": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-ia32\\libdll-integracao-tef.dll",
+      "exists": true,
+      "sizeBytes": 130997,
+      "sha256": "0160FAD1EF27D6EF6FB79AD4899998B36FAFD2FA836BF20039104CF6364C10CE",
+      "peMachine": "0x14c",
+      "architecture": "i386",
+      "peFormat": "PE32"
+    },
+    "processoHospedeiroEsperado": "Electron x64 / Native Host x64 carrega win-x64 DLL via koffi (compatível estaticamente com AMD64)",
+    "instaladoProgramFiles": {
+      "expectedUnpackedPath": "C:\\Program Files\\CDS ERP\\resources\\app.asar.unpacked\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+      "exists": false,
+      "anyLibDllUnderCdsErpTree": false,
+      "appAsarUnpackedContents": "somente node_modules (sqlite3, usb, …) — sem árvore resources/tef/destaxa",
+      "regressaoVs07J": "Em 2026-10-19 a DLL x64 existia no unpacked com o mesmo SHA256 do checkout; em 2026-10-27 não está no pacote instalado inspecionado"
+    },
+    "dllInvocadaNestaAuditoria": false
+  },
+  "comEVsPagueObservaveis": {
+    "com": {
+      "portasEnumeradas": ["COM7"],
+      "com4Presente": false,
+      "com7": {
+        "name": "Dispositivo Serial USB (COM7)",
+        "pnpDeviceId": "USB\\VID_11CA&PID_AAAA&MI_02\\6&11D40A23&0&0002",
+        "vid": "11CA",
+        "pid": "AAAA",
+        "nota": "Não é VID 1753 / PID C902 (Gertec PPC-920/930 da auditoria 07J)"
+      },
+      "configPersistidaHistorica07I_07J": {
+        "pinpadCode": "GERTEC_PPC930",
+        "configuredComPort": "COM4",
+        "nota": "Configuração lida em sprints anteriores; mercadao.db NÃO reaberto nesta sprint (SQLITE_CORRUPT + sidecars)"
+      },
+      "comunicacaoTefComprovada": false,
+      "portaAbertaOuEscritaPorAuditoria": false
+    },
+    "vspague": {
+      "processoEmExecucao": false,
+      "binarioExiste": true,
+      "jarExiste": true,
+      "caminhoExe": "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
+      "caminhoJar": "C:\\VBI\\V$Pague\\Client\\V$PagueClient.jar",
+      "argsObservadosEm07J": "VSPagueClient … -jar …\\V$PagueClient.jar -h app-partner.destaxa.cloud -p 60410 -atv server -tls",
+      "prontidaoOperacionalComprovada": false,
+      "reiniciadoPorAuditoria": false
+    }
+  },
+  "gatesESeguranca": {
+    "DESTAXA_REAL_TRANSACTION_ENABLED": {
+      "shellAtual": null,
+      "habilitaSomenteSe": "=== '1'",
+      "estado": "DESLIGADO"
+    },
+    "operacaoRealPermitidaNoCodigo": {
+      "operacoes": ["CRT"],
+      "ambiente": "homologacao",
+      "valorCentavos": 100
+    },
+    "DestaxaNativeBridge": "recusa TX se !transacaoRealHabilitada → DESTAXA_REAL_TRANSACTION_DISABLED",
+    "DestaxaRealAdapter": "preparaAutorizacao/gates antes de transactionId",
+    "tripwireHistorico07Prep": "inicia/continua/finaliza = 0 com gate OFF",
+    "stoneNaoUsadoComoSubstituto": true
+  },
+  "transacoesPendentesLocksResultadosTardios": {
+    "consultaBancoOficialNestaSprint": false,
+    "motivo": "DB-FORENSE-01 comprovou SQLITE_CORRUPT; abrir mercadao.db mesmo em RO pode tocar WAL/SHM; proibido gravar/apagar sidecars",
+    "evidenciaHistorica07J_07I": {
+      "pendingTransactions": 0,
+      "tefLocksActive": 0,
+      "lateResultsAwaitingReconciliation": 0,
+      "limitacao": "contagens persistidas ≠ prova de estado volátil em processo CDS ativo"
+    },
+    "codigo": {
+      "tef_locks": "tefLockService.js",
+      "reconciliacaoPendenteHost": "DestaxaNativeHostClient._reconciliacaoPendente bloqueia TX_START",
+      "resultadoTardio": "TefManager + DestaxaRealAdapter.contratoTimeout.resultadoTardio=true"
+    },
+    "mercadaoMetadataSomente": {
+      "path": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+      "exists": true,
+      "lengthObserved": 15466496,
+      "lastWriteTimeLocal": "2026-10-27T15:55:00",
+      "walShmPresentAtObservation": false,
+      "openedByAudit": false
+    }
+  },
+  "itensComprovados": [
+    "Fluxo de código Destaxa com Native Host e exports DLL mapeados no loader",
+    "Gate DESTAXA_REAL_TRANSACTION_ENABLED efetivamente off no ambiente da auditoria",
+    "DLL x64/ia32 no checkout: PE válido, arquiteturas corretas, SHA256 estáveis (=07J)",
+    "Instalação Program Files sem libdll-integracao-tef.dll no unpacked",
+    "VSPague Client instalado em disco mas processo ausente",
+    "COM4 Gertec ausente; COM7 não-Gertec presente",
+    "CDS/Electron não em execução no momento da inspeção",
+    "EPIPE histórico documentado como stdio harness, não como IPC Native Host"
+  ],
+  "itensNaoComprovados": [
+    "Carga efetiva da DLL pelo processo CDS instalado",
+    "iniciaClientDestaxa bem-sucedido contra VSPague",
+    "Comunicação TEF com PinPad (qualquer modelo)",
+    "Identidade exata PPC930 vs PPC920",
+    "Prontidão/handshake operacional do VSPague com Destaxa cloud",
+    "Locks/pendências atuais no mercadao.db (banco não aberto)",
+    "Estado volátil de reconciliação no Native Host (processo inexistente)"
+  ],
+  "itensBloqueados": [
+    {
+      "item": "Chamar INIT_CLIENT / LOAD DLL / STATUS nativo real",
+      "motivo": "Exige carga nativa / possível side-effect; proibido nesta sprint"
+    },
+    {
+      "item": "Abrir COM4/COM7 ou iniciar CRT/PIX/R$1",
+      "motivo": "Proibido — operação financeira ou conexão de transação"
+    },
+    {
+      "item": "SELECT em mercadao.db oficial",
+      "motivo": "Corrupção conhecida + risco de sidecars; preservado sem abertura"
+    },
+    {
+      "item": "Reiniciar VSPague/CDS para observar host",
+      "motivo": "Proibido alterar estado de serviços"
+    }
+  ],
+  "gargalo": {
+    "comprovado": "Não há uma única falha de runtime Destaxa observável agora porque o stack completo (CDS+Host+VSPague+PinPad) não está ativo. Comprovado: pré-requisitos de prontidão estão incompletos (DLL instalada ausente, VSPague parado, COM Gertec ausente, gate off).",
+    "provavelOrdenadoPorImpacto": [
+      {
+        "rank": 1,
+        "componente": "PinPad / COM",
+        "hipotese": "Sem COM4 VID_1753&PID_C902 o Client/PinPad não tem caminho serial esperado pela config histórica",
+        "evidencia": "enumeração PnP atual"
+      },
+      {
+        "rank": 2,
+        "componente": "VSPague",
+        "hipotese": "Sem VSPagueClient em execução o Client Destaxa não tem middleware local",
+        "evidencia": "processo ausente; binários presentes"
+      },
+      {
+        "rank": 3,
+        "componente": "Empacotamento DLL",
+        "hipotese": "Instalação atual não contém libdll-integracao-tef.dll no asar.unpacked → DestaxaRealAdapter/resolver falharia com DLL_NOT_FOUND mesmo com hardware ok",
+        "evidencia": "árvore Program Files vs checkout e vs 07J"
+      },
+      {
+        "rank": 4,
+        "componente": "Native Host / EPIPE",
+        "hipotese": "Não é o gargalo atual; EPIPE documentado era harness stdio",
+        "evidencia": "código IPC + relatório 07-PREP-FINAL-EPIPE + host ausente hoje"
+      }
+    ]
+  },
+  "proximaSprintRecomendada": {
+    "id": "TEF-DESTAXA-09",
+    "titulo": "Restaurar empacotamento da DLL Destaxa + checklist de prontidão sem CRT",
+    "escopoMinimo": [
+      "Corrigir o build/instalador para publicar resources/tef/destaxa/{win-x64,win-ia32}/libdll-integracao-tef.dll em app.asar.unpacked",
+      "Verificar pós-instalação: existência + SHA256 da DLL e resolução do destaxaDllResolver no pacote",
+      "Checklist read-only/ops: VSPague em execução (sem iniciar TX), COM do Gertec enumerada e alinhada à config — ainda sem DESTAXA_REAL_TRANSACTION_ENABLED=1 e sem CRT"
+    ],
+    "foraDeEscopo": [
+      "Homologação R$1,00",
+      "Chamadas iniciaTransacaoDestaxa / continua / finaliza",
+      "Reparo do mercadao.db (permanece sob DB-FORENSE)"
+    ]
+  },
+  "restricoesRespeitadas": {
+    "dllFunctionsTxNotCalled": true,
+    "crtPixNotStarted": true,
+    "homologacao1RealNotRun": true,
+    "pinpadTxConnectionNotOpened": true,
+    "envConfigCodeDllNotAltered": true,
+    "officialDbNotWritten": true,
+    "walShmNotDeleted": true,
+    "servicesNotRestarted": true,
+    "financialTestsNotRun": true
+  }
+}

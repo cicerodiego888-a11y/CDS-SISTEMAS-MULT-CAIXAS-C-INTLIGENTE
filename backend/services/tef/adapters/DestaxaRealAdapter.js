@@ -471,16 +471,51 @@ class DestaxaRealAdapter extends BaseAdapter {
   }
 
   /**
-   * CRT real: validações → gate → DestaxaTransacaoOrquestrador → iniciaTransacaoDestaxa.
-   * Não finaliza automaticamente: após 00 o chamador decide finalizarTransacao(0|9).
-   * @param {object} dados - { tipo, valor (reais) | valorCentavos }
-   * @param {object} [preparacao] - resultado de prepararAutorizacao (+ transactionId)
+   * CRT real (fluxo TefManager): validações → persistência obrigatória → gate → ciclo
+   * completo no mesmo bridge/host: TX_START → (99 → TX_CONTINUE)* → TX_FINALIZE(0).
+   * Não repete TX_START. Não trata 99 como aprovação. Timeout → inconclusivo (sem cancel).
+   * MRT-27: chamada direta sem TefManager/persistência é bloqueada (exceto harness simulado gate OFF).
+   * @param {object} dados - { tipo, valor | valorCentavos, respostasContinuidade?, venda_id? }
+   * @param {object} [preparacao] - resultado de prepararAutorizacao (+ transactionId + persistenciaConfirmada)
    */
   async autorizarPagamento(dados = {}, preparacao = null) {
     const preparo = preparacao?.pronto === true ? preparacao : await this.prepararAutorizacao(dados);
     if (!preparo.pronto) {
       return preparo.resposta;
     }
+
+    // MRT-27 — bloquear bypass de produção antes de qualquer chamada financeira à DLL
+    const {
+      validarPersistenciaAntesEnvioFinanceiro,
+      ERROS_PERSISTENCIA
+    } = require('../tefPersistenciaObrigatoria');
+    const guardPersistencia = validarPersistenciaAntesEnvioFinanceiro(preparacao, dados, {
+      gateOn: transacaoRealHabilitada()
+    });
+    if (!guardPersistencia.ok) {
+      return this._respostaBloqueio(
+        guardPersistencia.codigo || ERROS.TEF_PERSISTENCIA_OBRIGATORIA || ERROS_PERSISTENCIA.OBRIGATORIA,
+        guardPersistencia.mensagem,
+        preparo.contexto?.checks || {},
+        { tipoErro: 'persistencia_obrigatoria' }
+      );
+    }
+
+    // MRT-31 — evidência: Adapter aceitou identidade persistida (antes do gate/DLL)
+    try {
+      const { registrarEtapaFluxo, ETAPAS_FLUXO } = require('../destaxa/destaxaFluxoInstrumentacao');
+      registrarEtapaFluxo(ETAPAS_FLUXO.ADAPTER_AUTORIZADO, {
+        operation_id: preparacao?.operation_id || dados.operation_id || null,
+        transactionId: guardPersistencia.transactionId,
+        venda_id: dados.venda_id != null ? dados.venda_id : null,
+        fingerprint: preparacao?.fingerprint || dados._fingerprint || null,
+        provedor: 'destaxa'
+      }, {
+        persistenciaConfirmada: true,
+        gateFinanceiro: transacaoRealHabilitada() === true,
+        preparacaoPronta: true
+      });
+    } catch (_) { /* instrumentação best-effort */ }
 
     const habilitacao = await this.bridge.habilitarTransacaoReal();
     if (!habilitacao.sucesso) {
@@ -489,26 +524,227 @@ class DestaxaRealAdapter extends BaseAdapter {
       });
     }
 
-    const resultado = await this.bridge.iniciarTransacaoDestaxa(
-      preparo.contexto.operacao,
-      preparo.contexto.camposEntrada,
-      { transactionId: preparacao?.transactionId || dados.transacao_id || null }
-    );
-    return this._mapearResultadoCrt(resultado, preparo.contexto);
+    const { executarCicloCrt } = require('../destaxa/destaxaCrtCicloOrquestracao');
+    const transactionId = guardPersistencia.transactionId
+      || preparacao?.transactionId
+      || dados.transacao_id
+      || null;
+    const ciclo = await executarCicloCrt({
+      bridge: this.bridge,
+      operacao: preparo.contexto.operacao,
+      camposEntrada: preparo.contexto.camposEntrada,
+      transactionId,
+      exigirPersistencia: true,
+      respostasContinuidade: dados.respostasContinuidade || dados.continuidade || [],
+      maxContinues: dados.maxContinuesCrt
+    });
+
+    const vinculo = {
+      venda_id: dados.venda_id != null ? dados.venda_id : null,
+      pdv_codigo: dados.pdv_codigo || dados.pdvCodigo || this.config.pdvCodigo || null,
+      caixa_codigo: dados.caixa_codigo || dados.caixaCodigo || this.config.caixaCodigo || null,
+      transactionId: ciclo.transactionId || transactionId
+    };
+
+    return this._mapearSaidaCiclo(ciclo, preparo.contexto, vinculo, transactionId);
   }
 
-  async cancelarPagamento(dados) {
-    const info = this._normalizarDadosCancelamento(dados);
-    return tefContrato.criarRespostaCancelamento({
-      sucesso: false,
-      status: tefContrato.STATUS.ERRO,
-      nsu: info.nsu,
-      autorizacao: info.autorizacao,
-      transacaoId: info.transacao_id,
-      codigo: 'DESTAXA_TRANSACAO_NAO_IMPLEMENTADA',
-      mensagem: 'TEF-DESTAXA-02: cancelamento Destaxa não implementado nesta sprint',
-      modo: this.modo
+  _mapearSaidaCiclo(ciclo, contextoChecks, vinculo, transactionId) {
+    const { CICLO_ERROS } = require('../destaxa/destaxaCrtCicloOrquestracao');
+    const {
+      normalizarAcaoContinuidade
+    } = require('../destaxa/destaxaContinuidadeContrato');
+
+    if (ciclo.inconclusivo === true || ciclo.reconciliacaoObrigatoria === true) {
+      return {
+        ...this._mapearResultadoCrt(ciclo.resultadoUltimo || {
+          sucesso: false,
+          codigoDestaxa: ciclo.codigoDestaxa,
+          codigo: ciclo.codigo,
+          mensagem: ciclo.mensagem,
+          financialState: ciclo.financialState,
+          estado: ciclo.estado,
+          retryAllowed: false
+        }, contextoChecks || {}),
+        sucesso: false,
+        status: tefContrato.STATUS.PENDENTE,
+        codigo: ciclo.codigo || CICLO_ERROS.INCONCLUSIVO,
+        mensagem: ciclo.mensagem,
+        financialState: ciclo.financialState || 'UNKNOWN',
+        retryAllowed: false,
+        inconclusivo: true,
+        reconciliacaoObrigatoria: true,
+        transactionAttempted: true,
+        cicloCrt: ciclo.ciclo,
+        vinculoVendaPdv: vinculo
+      };
+    }
+
+    if (ciclo.codigo === CICLO_ERROS.HOST_BUSY || ciclo.codigo === CICLO_ERROS.HOST_ENCERRADO) {
+      return {
+        ...this._respostaBloqueio(ciclo.codigo, ciclo.mensagem, contextoChecks?.checks || {}, {
+          tipoErro: 'infraestrutura'
+        }),
+        transactionAttempted: ciclo.ciclo?.txStartExecutado === true,
+        retryAllowed: false,
+        cicloCrt: ciclo.ciclo,
+        vinculoVendaPdv: vinculo
+      };
+    }
+
+    if (ciclo.codigo === CICLO_ERROS.CONTINUIDADE_SEM_RESPOSTA || ciclo.requerContinuacao === true) {
+      const acao = normalizarAcaoContinuidade(ciclo.acao || ciclo.resultadoUltimo?.acao);
+      return {
+        ...this._mapearResultadoCrt(ciclo.resultadoUltimo || {
+          sucesso: false,
+          codigoDestaxa: '99',
+          requerContinuacao: true,
+          acao: ciclo.acao,
+          mensagem: ciclo.mensagem,
+          retryAllowed: false
+        }, contextoChecks || {}),
+        sucesso: false,
+        status: tefContrato.STATUS.PENDENTE,
+        codigo: ciclo.codigo || CICLO_ERROS.CONTINUIDADE_SEM_RESPOSTA,
+        mensagem: ciclo.mensagem,
+        retryAllowed: false,
+        requerContinuacao: true,
+        acao,
+        transactionAttempted: true,
+        cicloCrt: ciclo.ciclo,
+        vinculoVendaPdv: vinculo
+      };
+    }
+
+    if (ciclo.negado === true) {
+      const mapeado = this._mapearResultadoCrt(ciclo.resultadoUltimo, contextoChecks || {});
+      return {
+        ...mapeado,
+        sucesso: false,
+        status: tefContrato.STATUS.NEGADO,
+        retryAllowed: false,
+        cicloCrt: ciclo.ciclo,
+        vinculoVendaPdv: vinculo
+      };
+    }
+
+    if (ciclo.sucesso === true && ciclo.conclusivo === true) {
+      const mapeado = this._mapearResultadoCrt({
+        ...(ciclo.resultadoUltimo || {}),
+        sucesso: true,
+        codigoDestaxa: ciclo.codigoDestaxa || '00',
+        classificacao: CLASSIFICACAO_CODIGO.SUCCESS,
+        financialState: ciclo.financialState || 'CONFIRMED_SUCCESS',
+        contexto: {
+          ...(ciclo.resultadoUltimo?.contexto || {}),
+          transactionId: ciclo.transactionId || transactionId
+        },
+        retryAllowed: false
+      }, contextoChecks || {});
+      return {
+        ...mapeado,
+        sucesso: true,
+        status: tefContrato.STATUS.APROVADO,
+        retryAllowed: false,
+        cicloCrt: ciclo.ciclo,
+        vinculoVendaPdv: vinculo,
+        requerFinalizacao: false,
+        requerContinuacao: false
+      };
+    }
+
+    return {
+      ...this._mapearResultadoCrt(ciclo.resultadoUltimo || {
+        sucesso: false,
+        codigo: ciclo.codigo,
+        mensagem: ciclo.mensagem,
+        retryAllowed: false
+      }, contextoChecks || {}),
+      retryAllowed: false,
+      cicloCrt: ciclo.ciclo,
+      vinculoVendaPdv: vinculo
+    };
+  }
+
+  /**
+   * MRT-22 — Continuidade CRT (COLETA/OPCAO) no mesmo Native Host.
+   * Não chama TX_START. Não gera nova cobrança.
+   */
+  async continuarPagamento(dados = {}) {
+    const {
+      continuarCicloCrt
+    } = require('../destaxa/destaxaCrtCicloOrquestracao');
+    const {
+      validarRespostaOperador,
+      normalizarAcaoContinuidade
+    } = require('../destaxa/destaxaContinuidadeContrato');
+
+    const transactionId = dados.transacao_id || dados.transacaoId || dados.transactionId || null;
+    const acao = normalizarAcaoContinuidade(dados.acao);
+    const validacao = validarRespostaOperador(acao, dados.resposta_continuidade ?? dados.resposta ?? dados.respostaOperador);
+    if (!validacao.ok) {
+      return {
+        sucesso: false,
+        status: tefContrato.STATUS.PENDENTE,
+        codigo: validacao.codigo,
+        mensagem: validacao.mensagem,
+        retryAllowed: false,
+        requerContinuacao: true,
+        acao,
+        transactionAttempted: true,
+        vinculoVendaPdv: {
+          venda_id: dados.venda_id != null ? dados.venda_id : null,
+          transactionId
+        }
+      };
+    }
+
+    const ciclo = await continuarCicloCrt({
+      bridge: this.bridge,
+      transactionId,
+      respostaOperador: validacao.resposta,
+      respostasContinuidade: dados.respostasContinuidade || [],
+      acaoAtual: acao,
+      maxContinues: dados.maxContinuesCrt
     });
+
+    const vinculo = {
+      venda_id: dados.venda_id != null ? dados.venda_id : null,
+      pdv_codigo: dados.pdv_codigo || dados.pdvCodigo || this.config.pdvCodigo || null,
+      caixa_codigo: dados.caixa_codigo || dados.caixaCodigo || this.config.caixaCodigo || null,
+      transactionId: ciclo.transactionId || transactionId
+    };
+
+    return this._mapearSaidaCiclo(ciclo, {}, vinculo, transactionId);
+  }
+
+  /**
+   * TEF-17 — cancelamento/estorno comercial Destaxa.
+   * Não executa EST nem INIT: campos de entrada EST não documentados.
+   * finalizaTransacaoDestaxa(9) aborta tx corrente (docs/08) e NÃO é estorno.
+   * Testes podem injetar resultadoProvedorSimulado sem chamar a DLL.
+   */
+  async cancelarPagamento(dados = {}, opcoes = {}) {
+    const info = this._normalizarDadosCancelamento(dados);
+    const {
+      responderCancelamentoSeguro
+    } = require('../destaxa/destaxaCancelamentoPolitica');
+
+    return responderCancelamentoSeguro(
+      {
+        ...info,
+        ...dados,
+        transacao_id: info.transacao_id,
+        nsu: info.nsu,
+        autorizacao: info.autorizacao
+      },
+      {
+        modo: this.modo,
+        permitirSimulacaoProvedor: opcoes.permitirSimulacaoProvedor === true
+          || opcoes.resultadoProvedorSimulado != null,
+        resultadoProvedorSimulado: opcoes.resultadoProvedorSimulado
+      }
+    );
   }
 
   async status() {

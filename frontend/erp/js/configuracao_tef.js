@@ -216,7 +216,11 @@ async function salvarConfiguracaoTEF() {
         aplicarValoresNaAbaAtual();
 
         if (typeof showNotification === 'function') {
-            showNotification(data.message || 'Configuração TEF salva com sucesso.', 'success');
+            let msg = data.message || 'Configuração TEF salva com sucesso.';
+            if (String(tefConfigCache.tefProvedor || '').toLowerCase() === 'destaxa') {
+                msg += ' Provedor Destaxa: gravação local não homologa o PDV nem resolve 00151/.conf.';
+            }
+            showNotification(msg, 'success');
         }
     } catch (error) {
         console.error(error);
@@ -347,33 +351,64 @@ function renderizarAbaGeralTEF(conteudo) {
     `;
 }
 
+function provedorTefAtual() {
+    return String(obterValorCampoTEF('tefProvedor') || '').toLowerCase().trim();
+}
+
 function renderizarAbaEmpresaTEF(conteudo) {
+    // MRT-10 — nomenclatura genérica de provedor TEF (não acoplar UI à marca Destaxa).
+    // Campos persistidos continuam empresa_codigo/loja_codigo/terminal_codigo/pdv_codigo/caixa_codigo;
+    // cada adapter interpreta conforme o contrato do provedor selecionado na aba Geral.
+    const destaxa = provedorTefAtual() === 'destaxa';
+    const alertaMapeamento = `
+                <div class="alert alert-warning py-2 small" id="alertaMapeamentoTef">
+                    <strong>Mapeamento TEF:</strong> estabelecimento, loja e terminal lógico devem ser
+                    preenchidos <em>somente</em> com códigos oficiais do <strong>provedor</strong> selecionado na aba Geral.
+                    <strong>PDV CDS</strong> e <strong>Caixa CDS</strong> são identificadores internos do CDS e
+                    <strong>não</strong> devem ser enviados como identificadores do provedor.
+                    ${destaxa
+        ? '<br><span class="d-inline-block mt-1">Nota Destaxa/V$Pague: gravação local <strong>não</strong> homologa o PDV nem resolve <code>00151</code> / ausência de <code>.conf</code>; PDV/caixa não entram em <code>iniciaClientDestaxa</code>.</span>'
+        : '<br><span class="text-muted d-inline-block mt-1">Os valores são salvos no banco; a interpretação depende do provedor ativo.</span>'}
+                </div>`;
+
+    const phProvedor = 'Somente código oficial do provedor';
+    const labelEmpresa = 'Estabelecimento do provedor <span class="text-muted fw-normal">(empresa_codigo)</span>';
+    const labelLoja = 'Loja do provedor <span class="text-muted fw-normal">(loja_codigo)</span>';
+    const labelTerminal = 'Terminal lógico do provedor <span class="text-muted fw-normal">(terminal_codigo)</span>';
+    const labelPdv = 'PDV CDS <span class="text-muted fw-normal">(identidade local)</span>';
+    const labelCaixa = 'Caixa CDS <span class="text-muted fw-normal">(identidade local)</span>';
+
     conteudo.innerHTML = `
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title mb-4">Empresa</h5>
-                <p class="text-muted small">Códigos específicos de cada cliente. Os valores são salvos no banco de dados.</p>
+                <h5 class="card-title mb-4">Empresa / Mapeamento TEF</h5>
+                ${alertaMapeamento}
                 <form id="formTefEmpresa">
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label for="empresaCodigo" class="form-label fw-bold">Código da Empresa</label>
-                            <input id="empresaCodigo" type="text" class="form-control" autocomplete="off">
+                            <label for="empresaCodigo" class="form-label fw-bold">${labelEmpresa}</label>
+                            <input id="empresaCodigo" type="text" class="form-control" autocomplete="off"
+                                placeholder="${phProvedor}">
                         </div>
                         <div class="col-md-6">
-                            <label for="lojaCodigo" class="form-label fw-bold">Código da Loja</label>
-                            <input id="lojaCodigo" type="text" class="form-control" autocomplete="off">
+                            <label for="lojaCodigo" class="form-label fw-bold">${labelLoja}</label>
+                            <input id="lojaCodigo" type="text" class="form-control" autocomplete="off"
+                                placeholder="${phProvedor}">
                         </div>
                         <div class="col-md-6">
-                            <label for="pdvCodigo" class="form-label fw-bold">Código do PDV</label>
-                            <input id="pdvCodigo" type="text" class="form-control" autocomplete="off">
+                            <label for="pdvCodigo" class="form-label fw-bold">${labelPdv}</label>
+                            <input id="pdvCodigo" type="text" class="form-control" autocomplete="off"
+                                placeholder="Identidade local CDS">
                         </div>
                         <div class="col-md-6">
-                            <label for="terminalCodigo" class="form-label fw-bold">Código do Terminal</label>
-                            <input id="terminalCodigo" type="text" class="form-control" autocomplete="off">
+                            <label for="terminalCodigo" class="form-label fw-bold">${labelTerminal}</label>
+                            <input id="terminalCodigo" type="text" class="form-control" autocomplete="off"
+                                placeholder="${phProvedor}">
                         </div>
                         <div class="col-md-6">
-                            <label for="caixaCodigo" class="form-label fw-bold">Código do Caixa</label>
-                            <input id="caixaCodigo" type="text" class="form-control" autocomplete="off">
+                            <label for="caixaCodigo" class="form-label fw-bold">${labelCaixa}</label>
+                            <input id="caixaCodigo" type="text" class="form-control" autocomplete="off"
+                                placeholder="Identidade local CDS">
                         </div>
                     </div>
                 </form>
@@ -438,8 +473,8 @@ function renderizarAbaPinPadTEF(conteudo) {
             <div class="card-body">
                 <h5 class="card-title mb-4">PinPad</h5>
                 <p class="text-muted small mb-3">
-                    O CDS registra o modelo e a conexão do PinPad. A comunicação física depende do
-                    <strong>adapter do provedor</strong> configurado (arquitetura agnóstica).
+                    O CDS registra fabricante, modelo e conexão física do PinPad.
+                    O <strong>provedor TEF</strong> (ex.: Destaxa) é o selecionado na aba Geral — o rótulo do modelo não escolhe adquirente nem adapter.
                 </p>
                 <form id="formTefPinpad">
                     <div class="row g-3">
@@ -454,7 +489,9 @@ function renderizarAbaPinPadTEF(conteudo) {
                             <select id="pinpadModelo" class="form-select">
                                 <option value="">Selecione...</option>
                                 <option value="GERTEC_PPC930">Gertec PPC930 (USB CDC → COM virtual)</option>
+                                <option value="VERIFONE_P200">Verifone P200 (cadastro — TEF ainda não integrado)</option>
                             </select>
+                            <small id="pinpadIntegracaoAviso" class="text-warning d-none"></small>
                         </div>
                         <div class="col-md-6">
                             <label for="fabricante" class="form-label fw-bold">Fabricante</label>
@@ -468,9 +505,9 @@ function renderizarAbaPinPadTEF(conteudo) {
                             <label for="tipoConexao" class="form-label fw-bold">Tipo de Conexão</label>
                             <select id="tipoConexao" class="form-select">
                                 <option value="">Selecione...</option>
-                                <option value="serial">Serial</option>
-                                <option value="ip">IP</option>
+                                <option value="serial">Serial / USB serial (COM)</option>
                                 <option value="usb">USB</option>
+                                <option value="ip">IP / RNDIS (rede)</option>
                             </select>
                         </div>
                         <div class="col-md-4">
@@ -500,8 +537,37 @@ function renderizarAbaPinPadTEF(conteudo) {
 }
 
 const PINPAD_MODELOS_MAPA = {
-    GERTEC_PPC930: { fabricante: 'Gertec', modelo: 'PPC930' }
+    GERTEC_PPC930: {
+        fabricante: 'Gertec',
+        modelo: 'PPC930',
+        integracaoTefStatus: 'INTEGRADO'
+    },
+    VERIFONE_P200: {
+        fabricante: 'Verifone',
+        modelo: 'P200',
+        integracaoTefStatus: 'NAO_INTEGRADO'
+    }
 };
+
+function atualizarAvisoIntegracaoPinpadTEF(codigo) {
+    const aviso = document.getElementById('pinpadIntegracaoAviso');
+    if (!aviso) return;
+    const meta = PINPAD_MODELOS_MAPA[codigo] || {};
+    if (codigo === 'VERIFONE_P200' || meta.integracaoTefStatus === 'NAO_INTEGRADO') {
+        aviso.textContent = 'Verifone P200 está cadastrada para seleção. A integração TEF financeira ainda não está disponível — pagamentos não serão enviados a este PinPad.';
+        aviso.classList.remove('d-none');
+        aviso.classList.remove('text-muted');
+        aviso.classList.add('text-warning');
+    } else if (codigo === 'GERTEC_PPC930') {
+        aviso.textContent = 'Gertec PPC930: identificação = fabricante/modelo + USB CDC→COM virtual. Provedor TEF = aba Geral (ex.: Destaxa). Cadastro/detecção ≠ pronto para venda.';
+        aviso.classList.remove('d-none');
+        aviso.classList.remove('text-warning');
+        aviso.classList.add('text-muted');
+    } else {
+        aviso.textContent = '';
+        aviso.classList.add('d-none');
+    }
+}
 
 function aplicarModeloPinpadSelecionado(codigo) {
     const meta = PINPAD_MODELOS_MAPA[codigo];
@@ -530,7 +596,18 @@ function aplicarModeloPinpadSelecionado(codigo) {
         }
     }
 
+    // P200: sugere USB serial (COM) se vazio — não declara TEF funcional; RNDIS mapeia à opção IP já existente.
+    if (codigo === 'VERIFONE_P200' && tipoConexaoEl && !tipoConexaoEl.value) {
+        const tipoSalvo = obterValorCampoTEF('tipoConexao');
+        if (!tipoSalvo) {
+            tipoConexaoEl.value = 'usb';
+            definirValorCampoTEF('tipoConexao', 'usb');
+        }
+    }
+
     definirValorCampoTEF('pinpadModelo', codigo || '');
+    definirValorCampoTEF('pinpadCodigo', codigo || '');
+    atualizarAvisoIntegracaoPinpadTEF(codigo);
 }
 
 function configurarEventosPinpadTEF() {
@@ -563,7 +640,13 @@ async function carregarCatalogoPinpadsTEF() {
             const valorAtual = select.value || obterValorCampoTEF('pinpadModelo') || obterValorCampoTEF('pinpadCodigo');
             select.innerHTML = '<option value="">Selecione...</option>' + pinpads.map((p) => {
                 const label = p.nomeExibicao || p.nome;
-                PINPAD_MODELOS_MAPA[p.codigo] = { fabricante: p.fabricante, modelo: p.modelo };
+                PINPAD_MODELOS_MAPA[p.codigo] = {
+                    fabricante: p.fabricante,
+                    modelo: p.modelo,
+                    integracaoTefStatus: p.integracaoTefStatus || 'NAO_INTEGRADO',
+                    descricaoConexao: p.descricaoConexao || null,
+                    observacaoAdquirente: p.observacaoAdquirente || null
+                };
                 return `<option value="${escapeHtml(p.codigo)}">${escapeHtml(label)}</option>`;
             }).join('');
             if (valorAtual) {
@@ -572,7 +655,7 @@ async function carregarCatalogoPinpadsTEF() {
             }
         }
     } catch (error) {
-        console.warn('Catálogo PinPad TEF indisponível, usando opções padrão.', error);
+        console.warn('Catálogo PinPad TEF indisponível, usando opções padrão (modelo/conexão física).', error);
     }
 }
 
@@ -729,7 +812,7 @@ async function atualizarMonitorTEF() {
             document.getElementById('monitorPinpadStatus').className =
                 `badge fs-5 ${data.pinpad?.configurado ? 'bg-info text-dark' : 'bg-secondary'}`;
             document.getElementById('monitorPinpadStatus').textContent =
-                data.pinpad?.configurado ? 'Configurado' : 'Não configurado';
+                data.pinpad?.configurado ? 'Parâmetros cadastrados' : 'Sem parâmetros';
 
             const servidor = data.servidor || {};
             const estadosServidor = {
@@ -771,11 +854,12 @@ function renderizarAbaDiagnosticoTEF(conteudo) {
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title mb-4">Diagnóstico TEF</h5>
+                <p class="text-muted small">Indicadores usam evidência explícita: CONFIRMADO, NAO_VALIDADO, INDISPONIVEL ou BLOQUEADO. Cadastro/detecção ≠ pronto para venda.</p>
                 <div class="row g-3">
                     <div class="col-md-6">
                         <div class="card bg-light">
                             <div class="card-body d-flex align-items-center">
-                                <div id="diagConfiguracao" class="badge bg-secondary me-2">Pendente</div>
+                                <div id="diagConfiguracao" class="badge bg-secondary me-2">NAO_VALIDADO</div>
                                 <span>Configuração carregada</span>
                             </div>
                         </div>
@@ -783,7 +867,7 @@ function renderizarAbaDiagnosticoTEF(conteudo) {
                     <div class="col-md-6">
                         <div class="card bg-light">
                             <div class="card-body d-flex align-items-center">
-                                <div id="diagAdapter" class="badge bg-secondary me-2">Pendente</div>
+                                <div id="diagAdapter" class="badge bg-secondary me-2">NAO_VALIDADO</div>
                                 <span>Adapter carregado</span>
                             </div>
                         </div>
@@ -791,7 +875,7 @@ function renderizarAbaDiagnosticoTEF(conteudo) {
                     <div class="col-md-6">
                         <div class="card bg-light">
                             <div class="card-body d-flex align-items-center">
-                                <div id="diagBanco" class="badge bg-secondary me-2">Pendente</div>
+                                <div id="diagBanco" class="badge bg-secondary me-2">NAO_VALIDADO</div>
                                 <span>Banco conectado</span>
                             </div>
                         </div>
@@ -799,55 +883,55 @@ function renderizarAbaDiagnosticoTEF(conteudo) {
                     <div class="col-md-6">
                         <div class="card bg-light">
                             <div class="card-body d-flex align-items-center">
-                                <div id="diagMonitor" class="badge bg-secondary me-2">Pendente</div>
-                                <span>Monitor ativo</span>
+                                <div id="diagMonitor" class="badge bg-secondary me-2">NAO_VALIDADO</div>
+                                <span>PinPad com parâmetros cadastrados</span>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="card bg-light">
                             <div class="card-body d-flex align-items-center">
-                                <div id="diagReimpressao" class="badge bg-secondary me-2">Pendente</div>
-                                <span>Reimpressão ativa</span>
+                                <div id="diagReimpressao" class="badge bg-secondary me-2">NAO_VALIDADO</div>
+                                <span>Reimpressão TEF (capacidade Destaxa)</span>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="card bg-light">
                             <div class="card-body d-flex align-items-center">
-                                <div id="diagConciliacao" class="badge bg-secondary me-2">Pendente</div>
-                                <span>Conciliação ativa</span>
+                                <div id="diagConciliacao" class="badge bg-secondary me-2">NAO_VALIDADO</div>
+                                <span>Conciliação TEF (capacidade Destaxa)</span>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="card bg-light">
                             <div class="card-body d-flex align-items-center">
-                                <div id="diagCancelamento" class="badge bg-secondary me-2">Pendente</div>
-                                <span>Cancelamento ativo</span>
+                                <div id="diagCancelamento" class="badge bg-secondary me-2">INDISPONIVEL</div>
+                                <span>Cancelamento Destaxa</span>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="card bg-light">
                             <div class="card-body d-flex align-items-center">
-                                <div id="diagVenda" class="badge bg-secondary me-2">Pendente</div>
-                                <span>Venda integrada</span>
+                                <div id="diagVenda" class="badge bg-secondary me-2">BLOQUEADO</div>
+                                <span>Venda / autorização Destaxa</span>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="card bg-light">
                             <div class="card-body d-flex align-items-center">
-                                <div id="diagNfce" class="badge bg-secondary me-2">Pendente</div>
-                                <span>NFC-e integrada</span>
+                                <div id="diagNfce" class="badge bg-secondary me-2">NAO_VALIDADO</div>
+                                <span>NFC-e (fluxo fiscal CDS)</span>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="card bg-light">
                             <div class="card-body d-flex align-items-center">
-                                <div id="diagSDK" class="badge bg-secondary me-2">Pendente</div>
+                                <div id="diagSDK" class="badge bg-secondary me-2">NAO_VALIDADO</div>
                                 <span>SDK / Middleware real</span>
                             </div>
                         </div>
@@ -855,11 +939,16 @@ function renderizarAbaDiagnosticoTEF(conteudo) {
                     <div class="col-md-6">
                         <div class="card bg-light">
                             <div class="card-body d-flex align-items-center">
-                                <div id="diagModoAdapter" class="badge bg-secondary me-2">Pendente</div>
+                                <div id="diagModoAdapter" class="badge bg-secondary me-2">NAO_VALIDADO</div>
                                 <span>Modo do adapter</span>
                             </div>
                         </div>
                     </div>
+                </div>
+                <div id="diagDestaxaPainel" class="mt-4 d-none">
+                    <h6 class="mb-2">Destaxa / V$Pague (evidências separadas)</h6>
+                    <div class="row g-2" id="diagDestaxaIndicadores"></div>
+                    <div id="diagDestaxaBloqueios" class="mt-2"></div>
                 </div>
                 <div class="mt-3">
                     <button type="button" class="btn btn-primary" onclick="executarDiagnosticoCompleto()">
@@ -904,55 +993,45 @@ async function executarDiagnosticoCompleto() {
 
         (relatorio.itens || []).forEach((item) => {
             const elId = mapaBadges[item.chave];
-            if (elId) atualizarStatus(elId, item.ok);
+            if (elId) {
+                atualizarStatusEvidencia(elId, item.ok ? 'CONFIRMADO' : 'NAO_VALIDADO');
+            }
         });
 
-        atualizarStatus('diagReimpressao', true);
-        atualizarStatus('diagConciliacao', true);
-        atualizarStatus('diagCancelamento', true);
-        atualizarStatus('diagVenda', true);
-        atualizarStatus('diagNfce', true);
+        const caps = relatorio.evidenciasDestaxa?.capacidadesGenericas || {};
+        atualizarStatusEvidencia('diagReimpressao', caps.reimpressaoTef?.estado || 'NAO_VALIDADO');
+        atualizarStatusEvidencia('diagConciliacao', caps.conciliacaoTef?.estado || 'NAO_VALIDADO');
+        atualizarStatusEvidencia('diagCancelamento', caps.cancelamentoDestaxa?.estado || 'INDISPONIVEL');
+        atualizarStatusEvidencia('diagVenda', caps.vendaDestaxa?.estado || 'BLOQUEADO');
+        atualizarStatusEvidencia('diagNfce', caps.nfceIntegrada?.estado || 'NAO_VALIDADO');
+
+        renderizarPainelDestaxaDiagnostico(relatorio);
 
         if (resultadoDiv) {
             const pct = relatorio.percentualProntidao || 0;
-            const pendencias = (relatorio.pendencias || []).map((p) => `<li>${p}</li>`).join('');
+            const pendencias = (relatorio.pendencias || []).map((p) => `<li>${escapeHtml(String(p))}</li>`).join('');
             const pinpad = relatorio.pinpad || {};
             const hw = pinpad.hardware || pinpad.deteccaoFisica || null;
             const estados = relatorio.estadosIntegracao || {};
-            const badge = (ok, yes, no) => `<span class="badge ${ok ? 'bg-success' : 'bg-secondary'}">${escapeHtml(ok ? yes : no)}</span>`;
-            const comunicacaoValidada = estados.transactionCommunication?.validated === true;
+            const evid = relatorio.evidenciasDestaxa;
             const autorizacaoDisponivel = estados.authorization?.available === true;
-            const middlewareConfig = relatorio.middleware?.configuracaoValidaProvedor || {};
-            const estadoTecnico = [
-                `<div><strong>Adapter instanciado:</strong> ${badge(estados.adapter?.instantiated, 'Sim', estados.adapter?.error ? `Não · ${estados.adapter.error}` : 'Não')}</div>`,
-                `<div><strong>Diagnóstico do adapter:</strong> ${badge(estados.adapter?.diagnosisSucceeded, 'Sucesso', 'Não concluído ou falhou')}</div>`,
-                `<div><strong>DLL carregada:</strong> ${badge(estados.dll?.loaded, 'Sim', 'Não confirmado')}</div>`,
-                `<div><strong>Exports validados:</strong> ${badge(estados.dll?.exportsValidated, 'Sim', 'Não confirmado')}</div>`,
-                `<div><strong>Client Destaxa inicializado:</strong> ${badge(estados.client?.initialized, 'Sim', 'Não')}</div>`,
-                `<div><strong>Código do Client:</strong> ${badge(estados.client?.code === '00', estados.client?.code || 'Não informado', estados.client?.code || 'Não informado')}</div>`,
-                ...(relatorio.resumo?.provedor === 'destaxa'
-                    ? [`<div><strong>Snapshots do Client consistentes:</strong> ${badge(estados.client?.snapshotsConsistent, 'Sim', 'Não')}</div>`]
-                    : []),
-                `<div><strong>Middleware do provedor detectado:</strong> ${badge(relatorio.conceitos?.middlewareInstalado, 'Sim', 'Não confirmado')}</div>`,
-                `<div><strong>Processo V$Pague:</strong> ${badge(estados.vspague?.detected && estados.vspague?.running, 'Detectado em execução', 'Não confirmado')}</div>`,
-                `<div><strong>PPC930 enumerado no Windows:</strong> ${badge(estados.pinpad?.ppc930Enumerated, 'Sim', 'Não')}</div>`,
-                `<div><strong>Porta COM consistente:</strong> ${badge(estados.pinpad?.comConsistent === true, `${estados.pinpad?.configuredPort || '-'} = ${estados.pinpad?.detectedPort || '-'}`, 'Não confirmada')}</div>`,
-                `<div><strong>Comunicação transacional:</strong> ${badge(comunicacaoValidada, 'Validada', 'Não validada')}</div>`,
-                `<div><strong>Disponibilidade para autorizar:</strong> ${badge(autorizacaoDisponivel, 'Disponível', 'Não comprovada')}</div>`,
-                `<div><strong>Validação de configuração middleware:</strong> ${middlewareConfig.aplicavel ? badge(middlewareConfig.valida, middlewareConfig.valida ? 'Válida' : 'Inválida', 'Inválida') : badge(false, '', 'Não aplicável')}${middlewareConfig.explicacao ? ` <small>${escapeHtml(middlewareConfig.explicacao)}</small>` : ''}</div>`
-            ].join('');
+            const prontoVenda = relatorio.tefProntoParaVenda === true;
+            const initHist = evid?.indicadores?.inicializacaoClient?.historicoComprovado;
+            const alertClass = prontoVenda && autorizacaoDisponivel
+                ? 'alert-success'
+                : (evid?.bloqueios?.length ? 'alert-danger' : (pct >= 70 ? 'alert-warning' : 'alert-danger'));
 
             resultadoDiv.innerHTML = `
-                <div class="alert ${pct >= 90 && autorizacaoDisponivel ? 'alert-success' : pct >= 70 ? 'alert-warning' : 'alert-danger'}">
-                    <strong>Prontidão técnica TEF:</strong> ${pct}%
-                    <div class="small mt-1">Provedor: ${relatorio.resumo?.provedor || '-'} | Ambiente: ${relatorio.resumo?.ambiente || '-'} | Modo adapter: ${relatorio.resumo?.modoAdapter || relatorio.adapter?.modo || '-'}</div>
-                    <div class="small mt-1">Adapter: ${relatorio.conceitos?.adapterCarregado ? 'carregado' : 'não'} | Middleware real: ${relatorio.conceitos?.middlewareInstalado ? 'sim' : 'não'} | Comunicação real: ${relatorio.conceitos?.comunicacaoRealDisponivel ? 'sim' : 'não'}</div>
-                    <div class="small mt-2 d-grid gap-1">${estadoTecnico}</div>
-                    ${pinpad.rotulo || pinpad.codigo ? `<div class="small mt-1"><strong>PinPad:</strong> ${pinpad.rotulo || pinpad.codigo} | <strong>Conexão:</strong> ${pinpad.tipoConexao || '-'} ${pinpad.portaCom || ''} | <strong>Status:</strong> ${pinpad.status}</div>` : ''}
-                    ${hw ? `<div class="small mt-1"><strong>Hardware:</strong> ${hw.mensagem || (hw.detectado ? 'detectado' : 'não detectado')} | <strong>Driver:</strong> ${rotuloStatusEvidencia(hw.driverStatus, hw.driver)} | <strong>USB:</strong> ${rotuloStatusEvidencia(hw.usbStatus, hw.usb)}</div>` : ''}
+                <div class="alert ${alertClass}">
+                    <strong>TEF pronto para venda:</strong> ${htmlBadgeEstadoEvidencia(prontoVenda ? 'CONFIRMADO' : 'BLOQUEADO', prontoVenda ? 'SIM' : 'NÃO')}
+                    <div class="small mt-1">Índice técnico auxiliar: ${pct}% (não autoriza venda sozinho).</div>
+                    <div class="small mt-1">Provedor: ${escapeHtml(relatorio.resumo?.provedor || '-')} | Ambiente: ${escapeHtml(relatorio.resumo?.ambiente || '-')} | Modo adapter: ${escapeHtml(String(relatorio.resumo?.modoAdapter || relatorio.adapter?.modo || '-'))}</div>
+                    ${initHist ? `<div class="small mt-1"><strong>INIT_CLIENT histórico (não reexecutado):</strong> código ${escapeHtml(initHist.codigoDestaxa)} · ${escapeHtml(initHist.nota)}</div>` : ''}
+                    ${pinpad.rotulo || pinpad.codigo ? `<div class="small mt-1"><strong>PinPad:</strong> ${escapeHtml(pinpad.rotulo || pinpad.codigo)} | <strong>Conexão:</strong> ${escapeHtml(pinpad.tipoConexao || '-')} ${escapeHtml(pinpad.portaCom || '')} | cadastro/detecção ≠ venda</div>` : ''}
+                    ${hw ? `<div class="small mt-1"><strong>Hardware:</strong> ${escapeHtml(hw.mensagem || (hw.detectado ? 'detectado' : 'não detectado'))} | <strong>Driver:</strong> ${escapeHtml(rotuloStatusEvidencia(hw.driverStatus, hw.driver))} | <strong>USB:</strong> ${escapeHtml(rotuloStatusEvidencia(hw.usbStatus, hw.usb))}</div>` : ''}
                 </div>
                 ${pendencias ? `<ul class="small text-muted">${pendencias}</ul>` : ''}
-                <pre class="small bg-light p-2 rounded" style="max-height:240px;overflow:auto;">${JSON.stringify(relatorio, null, 2)}</pre>
+                <pre class="small bg-light p-2 rounded" style="max-height:240px;overflow:auto;">${escapeHtml(JSON.stringify(relatorio, null, 2))}</pre>
             `;
         }
     } catch (error) {
@@ -960,11 +1039,68 @@ async function executarDiagnosticoCompleto() {
         if (resultadoDiv) {
             resultadoDiv.innerHTML = `
                 <div class="alert alert-danger">
-                    <strong>Erro:</strong> ${error.message}
+                    <strong>Erro:</strong> ${escapeHtml(error.message || String(error))}
                 </div>
             `;
         }
     }
+}
+
+function htmlBadgeEstadoEvidencia(estado, texto) {
+    const st = String(estado || 'NAO_VALIDADO');
+    const cls = st === 'CONFIRMADO' ? 'bg-success'
+        : st === 'BLOQUEADO' ? 'bg-danger'
+        : st === 'INDISPONIVEL' ? 'bg-dark'
+        : 'bg-secondary';
+    return `<span class="badge ${cls}">${escapeHtml(texto || st)}</span>`;
+}
+
+function renderizarPainelDestaxaDiagnostico(relatorio) {
+    const painel = document.getElementById('diagDestaxaPainel');
+    const alvo = document.getElementById('diagDestaxaIndicadores');
+    const bloqueiosEl = document.getElementById('diagDestaxaBloqueios');
+    if (!painel || !alvo || !bloqueiosEl) return;
+
+    const evid = relatorio.evidenciasDestaxa;
+    if (!evid || String(relatorio.resumo?.provedor || '').toLowerCase() !== 'destaxa') {
+        painel.classList.add('d-none');
+        alvo.innerHTML = '';
+        bloqueiosEl.innerHTML = '';
+        return;
+    }
+
+    painel.classList.remove('d-none');
+    const ind = evid.indicadores || {};
+    const linhas = [
+        ['DLL e exports', ind.dllExports?.estado, ind.dllExports?.dllLoaded ? 'DLL/load+exports' : 'não confirmado'],
+        ['Porta COM', ind.portaCom?.estado, `${ind.portaCom?.configuredPort || '-'} / ${ind.portaCom?.detectedPort || '-'}`],
+        ['Processo V$Pague', ind.processoVsPague?.estado, ind.processoVsPague?.nota || ''],
+        ['Inicialização do Client (sessão)', ind.inicializacaoClient?.estadoSessaoAtual, `sessão=${ind.inicializacaoClient?.initClientExecuted || 'NAO_EXECUTADO'}; histórico 00 preservado sem reexecução`],
+        ['Cadastro do terminal V$Pague', ind.cadastroTerminalVsPague?.estado, ind.cadastroTerminalVsPague?.erro00151?.mensagem || ''],
+        ['Arquivo .conf V$Pague', ind.identidadeClientVsPague?.estado, ind.identidadeClientVsPague?.confMensagemLog || `arquivos .conf=${ind.identidadeClientVsPague?.confArquivos ?? '?'}`],
+        ['Mapeamento estabelecimento/loja/terminal', ind.mapeamentoEstabelecimentoLojaTerminal?.estado, ind.mapeamentoEstabelecimentoLojaTerminal?.mensagem || ''],
+        ['Prontidão para transação', ind.prontidaoTransacao?.estado, ind.prontidaoTransacao?.mensagem || '']
+    ];
+    if (evid.tefProntoParaVenda === true) {
+        // Defesa de UI: nunca tratar diagnóstico Destaxa como venda liberada só por persistência.
+        evid.tefProntoParaVenda = false;
+    }
+
+    alvo.innerHTML = linhas.map(([titulo, estado, detalhe]) => `
+        <div class="col-md-6">
+            <div class="card bg-light">
+                <div class="card-body py-2">
+                    ${htmlBadgeEstadoEvidencia(estado)} <strong>${escapeHtml(titulo)}</strong>
+                    <div class="small text-muted mt-1">${escapeHtml(detalhe || '')}</div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+    const bloqueios = evid.bloqueios || [];
+    bloqueiosEl.innerHTML = bloqueios.length
+        ? `<div class="alert alert-danger py-2 mb-0"><strong>Bloqueios Destaxa:</strong><ul class="mb-0 small">${bloqueios.map((b) => `<li><code>${escapeHtml(b.codigo)}</code> — ${escapeHtml(b.mensagem)}</li>`).join('')}</ul></div>`
+        : '<div class="alert alert-secondary py-2 mb-0 small">Nenhum bloqueio estruturado adicional listado.</div>';
 }
 
 function rotuloStatusEvidencia(status, valor) {
@@ -975,12 +1111,20 @@ function rotuloStatusEvidencia(status, valor) {
     return 'não confirmado';
 }
 
-function atualizarStatus(elementId, ok) {
+function atualizarStatusEvidencia(elementId, estado) {
     const elemento = document.getElementById(elementId);
-    if (elemento) {
-        elemento.className = `badge me-2 ${ok ? 'bg-success' : 'bg-danger'}`;
-        elemento.textContent = ok ? '✓' : '✗';
-    }
+    if (!elemento) return;
+    const st = String(estado || 'NAO_VALIDADO');
+    const cls = st === 'CONFIRMADO' ? 'bg-success'
+        : st === 'BLOQUEADO' ? 'bg-danger'
+        : st === 'INDISPONIVEL' ? 'bg-dark'
+        : 'bg-secondary';
+    elemento.className = `badge me-2 ${cls}`;
+    elemento.textContent = st;
+}
+
+function atualizarStatus(elementId, ok) {
+    atualizarStatusEvidencia(elementId, ok ? 'CONFIRMADO' : 'NAO_VALIDADO');
 }
 
 async function verificarSDK() {

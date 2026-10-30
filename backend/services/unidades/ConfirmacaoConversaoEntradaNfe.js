@@ -209,7 +209,12 @@ function contextoSeloConversao(pendencia = {}) {
     unidade_estoque: unidade(pendencia.unidade_estoque),
     quantidade_proposta: quatroCasas(pendencia.quantidade_resultante_proposta),
     apresentacao_id: inteiroOuNull(pendencia.produto_apresentacao_id),
-    fator_conversao: quatroCasas(pendencia.fator_conversao_validado),
+    // Fator validado pela apresentação, ou o fator sugerido da NF-e que o operador confirma no SIM.
+    fator_conversao: quatroCasas(
+      pendencia.fator_conversao_validado
+      || pendencia.fator_sugerido
+      || pendencia.diagnostico?.fator_conversao
+    ),
     tipo_conversao: texto(pendencia.tipo_conversao_validado) || null
   };
 }
@@ -254,13 +259,24 @@ function montarPendencia(item, produto, resultado, index, extras = {}) {
   const xml = snapshotXmlLinha(item, index);
   const quantidadeCalculada = resultado?.quantidadeConvertida
     ?? resultado?.quantidadeEstoque
-    ?? resultado?.quantidadeTributavel
     ?? null;
-  const qEstoqueProposta = resultado?.ok
-    ? resultado.quantidadeEstoque
-    : (resultado?.codigo === 'DIVERGENCIA_QTRIB_FATOR' && xml.qTrib > 0
-      ? xml.qTrib
-      : quantidadeCalculada || null);
+  const fatorSugeridoNum = Number(resultado?.fatorSugerido);
+  let qEstoqueProposta = null;
+  if (resultado?.ok) {
+    qEstoqueProposta = resultado.quantidadeEstoque;
+  } else if (resultado?.codigo === 'DIVERGENCIA_QTRIB_FATOR' && xml.qTrib > 0) {
+    qEstoqueProposta = xml.qTrib;
+  } else if (
+    resultado?.codigo === 'FATOR_CONVERSAO_AUSENTE'
+    && Number.isFinite(fatorSugeridoNum)
+    && fatorSugeridoNum > 0
+    && xml.qCom > 0
+  ) {
+    // Proposta exibida = qCom × fator sugerido da NF-e (o que o operador confirma no SIM).
+    qEstoqueProposta = Math.round(xml.qCom * fatorSugeridoNum * 10000) / 10000;
+  } else {
+    qEstoqueProposta = quantidadeCalculada || null;
+  }
   const codigo = resultado?.codigo || (resultado?.ok ? resultado.origem : 'FATOR_CONVERSAO_AUSENTE');
   const estado = extras.estadoDecisao || ESTADOS_DECISAO.PENDENTE;
   const pendencia = {
@@ -452,6 +468,27 @@ function aplicarSim(item, produto, resultado, index, contexto) {
     };
   }
 
+  // CE-MUC-03: SIM confirma a proposta da NF-e somente com aceite explícito do operador
+  // (Central / selo validado). Sem isso, não inventa fator a partir de qTrib incompatível.
+  if (
+    resultado?.codigo === 'FATOR_CONVERSAO_AUSENTE'
+    && contexto.aceitarFatorSugerido === true
+  ) {
+    const fator = Number(resultado.fatorSugerido);
+    if (Number.isFinite(fator) && fator > 0 && xml.qCom > 0) {
+      const quantidadeEstoque = Math.round(xml.qCom * fator * 10000) / 10000;
+      return {
+        ok: true,
+        quantidadeEstoque,
+        fatorConversao: fator,
+        origem: 'FATOR_SUGERIDO_NFE_CONFIRMADO',
+        conversao_aplicada: true,
+        aprendizado_permanente: false,
+        xml
+      };
+    }
+  }
+
   return {
     ok: false,
     pendencia: montarPendencia(item, produto, resultado, index, {
@@ -586,7 +623,11 @@ function validarPendenciasConversaoEntrada(itens = [], {
       }
     }
     if (estado === ESTADOS_DECISAO.SIM) {
-      const aplicado = aplicarSim(item, produto, avaliacao.resultado, index, contextoNota);
+      const aplicado = aplicarSim(item, produto, avaliacao.resultado, index, {
+        ...contextoNota,
+        // Selo já validado acima quando há documento — operador confirmou a proposta exibida.
+        aceitarFatorSugerido: temDocumento(documentoId)
+      });
       if (!aplicado.ok) pendencias.push(aplicado.pendencia);
       continue;
     }
@@ -660,7 +701,11 @@ function aplicarDecisoesNosItens(itens = [], {
     if (temDocumento(documentoId) && verificarSeloDecisao(decisaoBruta, avaliacao.pendencia)) return base;
     const estado = estadoDecisao(decisaoBruta?.confirmacao);
     if (estado === ESTADOS_DECISAO.SIM) {
-      const aplicado = aplicarSim(item, produto, avaliacao.resultado, index, { documentoId, chaveAcesso });
+      const aplicado = aplicarSim(item, produto, avaliacao.resultado, index, {
+        documentoId,
+        chaveAcesso,
+        aceitarFatorSugerido: temDocumento(documentoId)
+      });
       if (!aplicado.ok) return base;
       return {
         ...base,

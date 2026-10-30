@@ -1,0 +1,209 @@
+{
+  "sprint": "TEF-CONFIG-STONE-01",
+  "title": "Auditoria das opções de integração — Stone e modos DLL/EXE/API/TCP",
+  "generatedAt": "2026-10-27T19:30:00.000Z",
+  "verdict": "DIAGNOSTIC_COMPLETE",
+  "codeOrConfigChanged": false,
+  "dllLoaded": false,
+  "transactionExecuted": false,
+  "resumoExecutivo": {
+    "stoneNaTela": "Opção `stone` existe no select Provedor da aba Geral.",
+    "stoneNoMotor": "tefFactory mapeia stone → StoneAdapter → SimulatedGatewayAdapter (modo sempre simulacao). Homologação/produção NÃO disparam adapter real Stone.",
+    "tipoIntegracao": "Campos DLL/EXE/API/TCP são persistidos em tef_configuracao, mas nenhum adapter (incluindo Stone) lê tipo_integracao para escolher implementação.",
+    "verifoneP200": "Não há modelo P200 no pinpadCatalog; VerifonePinpad.js é stub com setTimeout (sem SDK/USB/TCP real). Contrato técnico para P200 está ausente.",
+    "motorUnico": "Fluxo oficial permanece TefManager → tefFactory → adapter. Nenhum segundo motor TEF Stone foi criado."
+  },
+  "telaConfiguracaoTef": {
+    "entradaUi": [
+      "frontend/erp/pages/ConfiguracaoTEF.html (shell de abas)",
+      "frontend/erp/js/configuracao_tef.js (render + save)",
+      "lazy: feature:configuracao-tef via app.js / CdsErpLazyLoader"
+    ],
+    "abas": ["geral", "empresa", "servidor", "pinpad", "operacoes", "monitor", "diagnostico", "reimpressao"],
+    "camposAbaGeral": {
+      "tefHabilitado": "checkbox",
+      "tefProvedor": ["destaxa", "rede", "paygo", "sitef", "stone", "getnet", "cielo"],
+      "tipoIntegracao": ["dll", "exe", "api", "tcp"],
+      "sdkPath": "texto (rótulo SDK)",
+      "exePath": "texto (rótulo Executável)",
+      "ipTef": "texto",
+      "portaTef": "number 1–65535",
+      "tefAmbiente": ["simulacao", "homologacao", "producao"],
+      "tefTimeout": "number (segundos)",
+      "tefTentativas": "number"
+    },
+    "camposEmpresaRelevantesParaStone": ["empresaCodigo", "lojaCodigo", "pdvCodigo", "terminalCodigo", "caixaCodigo"],
+    "apiHttp": {
+      "get": "GET /api/tef/configuracao (super-admin)",
+      "postPut": "POST|PUT /api/tef/configuracao",
+      "rotas": "backend/rotas/tefConfiguracao.js → tefConfiguracaoController → tefConfigService"
+    }
+  },
+  "persistencia": {
+    "tabelaPrincipal": "tef_configuracao",
+    "mapeamentoUiParaColuna": {
+      "tefProvedor": "provedor",
+      "tipoIntegracao": "tipo_integracao",
+      "sdkPath": "sdk_path",
+      "exePath": "exe_path",
+      "ipTef": "ip_tef",
+      "portaTef": "porta_tef",
+      "tefAmbiente": "ambiente",
+      "tefTimeout": "timeout",
+      "tefTentativas": "tentativas",
+      "tefHabilitado": "habilitado"
+    },
+    "arquivos": [
+      "backend/services/tef/tefConfigService.js (mapearPayloadEntrada / mapearConfiguracaoSaida / configParaRegistroAdapter)",
+      "backend/repositories/tefConfigRepository.js (INSERT/UPDATE)",
+      "backend/database.js (DDL + ALTER COLUMN tipo_integracao, sdk_path, exe_path, ip_tef, porta_tef)"
+    ],
+    "tabelasAuxiliares": [
+      "tef_servidores (base_url, ip, porta, tokens — aba Servidor; legado HTTP)",
+      "tef_pinpads (modelo, porta_com, ip, … — aba PinPad)"
+    ],
+    "observacao": "Valores salvos são genéricos por configuração única (ORDER BY id ASC LIMIT 1); não há registro por provedor separado."
+  },
+  "tefFactoryInterpretacao": {
+    "arquivo": "backend/services/tef/tefFactory.js",
+    "chaveDeSelecao": "provedor (+ ambiente apenas para sitef/paygo/destaxa)",
+    "porProvedor": {
+      "sitef": "simulacao → SitefAdapter; homologacao/producao → SitefRealAdapter se DLL disponível",
+      "paygo": "simulacao → PaygoAdapter; homologacao/producao → PaygoRealAdapter se DLL disponível",
+      "destaxa": "criarAdapterDestaxa — simulacao → destaxaAdapter; homologacao/producao → DestaxaRealAdapter (sem fallback silencioso)",
+      "stone": "sempre StoneAdapter(registro) — ignora ambiente e tipo_integracao",
+      "cielo": "sempre CieloAdapter → SimulatedGatewayAdapter",
+      "rede": "sempre RedeAdapter → SimulatedGatewayAdapter",
+      "getnet": "sempre GetnetAdapter → SimulatedGatewayAdapter"
+    },
+    "tipoIntegracaoDllExeApiTcp": {
+      "lidoPelaFactory": false,
+      "lidoPorAdaptersEmAdaptersDir": false,
+      "efeitoPratico": "UI e DB armazenam o campo; runtime TEF não ramifica por ele"
+    },
+    "camposIpPortaSdkExe": {
+      "passadosAoRegistroViaConfigParaRegistroAdapter": true,
+      "usadosPorStoneAdapter": false,
+      "usoConhecido": "sdkPath/exePath exigidos na validação só para sitef/paygo em modo real; destaxaDllResolver pode usar sdkPath; ip_tef/porta_tef sem consumidor Stone"
+    }
+  },
+  "adapterStone": {
+    "arquivo": "backend/services/tef/adapters/stoneAdapter.js",
+    "implementacao": "factory thin → new SimulatedGatewayAdapter({ nome: 'Stone', adquirente: 'STONE' })",
+    "modo": "simulacao (hardcoded na classe SimulatedGatewayAdapter)",
+    "autorizarPagamento": "aprova sempre após delays de UI pinpad simulada; gera NSU/AUT sintéticos",
+    "cancelarConsultar": "simulados",
+    "integracaoReal": false,
+    "dllExeApiTcp": "não implementados",
+    "pixSeparado": {
+      "arquivo": "backend/services/pix/providers/stoneProvider.js",
+      "natureza": "HTTP PIX invoices (baseUrl/token/stoneAccountId) — NÃO é adapter TEF cartão/PinPad",
+      "naoSubstituiStoneTefNemP200": true
+    }
+  },
+  "validacoesEDependenciasPorModalidade": {
+    "nota": "validarConfiguracao em tefConfigService NÃO valida o valor de tipoIntegracao (dll|exe|api|tcp).",
+    "comumSeTefHabilitado": ["provedor", "ambiente ∈ simulacao|homologacao|producao"],
+    "stoneCieloRedeGetnetSitefPaygo": {
+      "exigeCodigosEstabelecimento": ["empresaCodigo", "lojaCodigo", "terminalCodigo"]
+    },
+    "pinpadSeHabilitado": ["modelo/código", "porta COM (usb/serial) ou IP+porta"],
+    "modoRealSitefPaygo": "exige sdkPath OU exePath",
+    "modoRealDestaxa": "não exige sdkPath genérico; caminho via destaxaDllResolver + gate DESTAXA_REAL_TRANSACTION_ENABLED + VSPague/PinPad (fora desta auditoria Stone)",
+    "modoRealStone": "inexistente — mesmo com ambiente homologacao/producao o adapter continua simulado",
+    "dll": {
+      "ui": "selecionável",
+      "runtimeStone": "não carrega DLL Stone",
+      "runtimeDestaxa": "único caminho DLL real documentado no CDS (libdll-integracao-tef.dll)"
+    },
+    "exe": {
+      "ui": "selecionável + campo exePath",
+      "runtimeStone": "não spawna EXE",
+      "validacao": "só sitef/paygo real exigem caminho"
+    },
+    "api": {
+      "ui": "selecionável",
+      "runtimeStoneTef": "não há cliente API Stone TEF/P200",
+      "relacionado": "aba Servidor (tef_servidores) é legado HTTP genérico; Stone TEF não consome"
+    },
+    "tcp": {
+      "ui": "selecionável + ipTef/portaTef",
+      "runtimeStone": "não abre socket TEF",
+      "pinpadIp": "campos pinpadIp/pinpadPorta existem na aba PinPad, separados de ipTef/portaTef"
+    }
+  },
+  "comparacaoComFluxoOficialTefManager": {
+    "fluxo": "TefManager.iniciarPagamento → locks → (opcional prepararAutorizacao) → adapter.autorizarPagamento → tefContrato",
+    "stoneEncaixaComo": "gateway simulado no mesmo contrato BaseAdapter/tefContrato",
+    "naoCriaSegundoMotor": true,
+    "diferencaCriticaVsDestaxa": "Destaxa tem ramo real (Native Host/DLL/gates); Stone não"
+  },
+  "pinpadEVerifoneP200": {
+    "pinpadCatalogAtivo": ["GERTEC_PPC930 apenas"],
+    "VerifonePinpadJs": {
+      "path": "backend/services/tef/pinpads/VerifonePinpad.js",
+      "comportamento": "stub: conectar/iniciarPagamento via setTimeout; sem driver, sem USB, sem POS Link, sem Deep Link",
+      "modeloP200": "não referenciado"
+    },
+    "PinpadFactory": "escolhe VerifonePinpad se fabricante==='Verifone', senão GertecPPC930 se catalog match; sem entry P200 no catálogo",
+    "contratoTecnicoFaltanteParaP200": [
+      "Especificação oficial Stone/Verifone P200 (USB HID? serial? POS Link? Intent/Deep Link Android? Windows SDK?)",
+      "Adapter real Stone (não SimulatedGatewayAdapter) integrado ao TefManager/tefContrato",
+      "Interpretação efetiva de tipoIntegracao (ou contrato dedicado) para o meio físico/API escolhido",
+      "Entrada no pinpadCatalog (codigo, interface, aliases P200) e detecção não invasiva",
+      "Mapeamento de operações CRT/cancelamento/PIX TEF ↔ protocolo P200",
+      "Gates de segurança (homologação/produção) equivalentes ao padrão Destaxa, sem reutilizar Stone PIX HTTP como TEF cartão",
+      "Empacotamento de dependências nativas (se DLL/EXE) em app.asar.unpacked, se aplicável"
+    ]
+  },
+  "modosRealmenteImplementados": {
+    "stone_simulacao": {
+      "implementado": true,
+      "evidencia": "stoneAdapter.js + SimulatedGatewayAdapter.js"
+    },
+    "stone_dll_real": { "implementado": false },
+    "stone_exe_real": { "implementado": false },
+    "stone_api_tef_real": { "implementado": false },
+    "stone_tcp_real": { "implementado": false },
+    "ui_persistencia_tipo_integracao": {
+      "implementado": true,
+      "efeitoNoRuntimeStone": false
+    },
+    "destaxa_dll_real": {
+      "implementado": true,
+      "nota": "caminho oficial real do projeto; fora do escopo Stone mas relevante para não confundir opções da tela"
+    }
+  },
+  "pendencias": [
+    "tipoIntegracao é cosmético/persistido sem branching na factory",
+    "Stone em homologacao/producao ainda simula aprovação — risco operacional se operador achar que é real",
+    "Sem StoneRealAdapter / SDK / contrato P200",
+    "Catálogo PinPad sem Verifone P200",
+    "Validação não amarra tipoIntegracao a provedor (ex.: Stone+DLL sem checar SDK Stone)",
+    "Não confundir stoneProvider PIX HTTP com TEF cartão P200"
+  ],
+  "arquivosInspecionados": [
+    "frontend/erp/pages/ConfiguracaoTEF.html",
+    "frontend/erp/js/configuracao_tef.js",
+    "backend/rotas/tefConfiguracao.js",
+    "backend/controllers/tefConfiguracaoController.js",
+    "backend/services/tef/tefConfigService.js",
+    "backend/repositories/tefConfigRepository.js",
+    "backend/database.js (schema tef_configuracao)",
+    "backend/services/tef/tefFactory.js",
+    "backend/services/tef/adapters/stoneAdapter.js",
+    "backend/services/tef/adapters/SimulatedGatewayAdapter.js",
+    "backend/services/tef/TefManager.js (contrato de uso via factory)",
+    "backend/services/tef/pinpads/pinpadCatalog.js",
+    "backend/services/tef/pinpads/PinpadFactory.js",
+    "backend/services/tef/pinpads/VerifonePinpad.js",
+    "backend/services/pix/providers/stoneProvider.js"
+  ],
+  "restricoesRespeitadas": {
+    "arquivosNaoAlteradosExcetoRelatorio": true,
+    "configBancoGatesIntocados": true,
+    "dllNaoCarregada": true,
+    "pagamentoNaoIniciado": true
+  },
+  "conclusaoP200": "Com o código atual, selecionar Stone + DLL/EXE/API/TCP na Configuração TEF apenas grava preferências; o TefManager continuará usando simulação Stone. Para integrar Verifone P200 falta um contrato técnico real (adapter + protocolo + catálogo PinPad + wiring de tipoIntegracao ou equivalente) sobre o motor único existente — não há implementação pronta a ligar."
+}

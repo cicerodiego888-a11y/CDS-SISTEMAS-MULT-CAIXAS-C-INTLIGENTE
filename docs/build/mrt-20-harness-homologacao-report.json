@@ -1,0 +1,149 @@
+{
+  "sprint": "MRT-20",
+  "title": "Harness controlado de homologação CRT Destaxa",
+  "generatedAt": "2026-10-30T18:40:20.432Z",
+  "classificacao": "HARNESS PRONTO PARA HOMOLOGAÇÃO CONTROLADA",
+  "restricoesObservadas": {
+    "initReal": false,
+    "crtReal": false,
+    "transacaoFinanceiraReal": false,
+    "dllFinanceiraChamada": false,
+    "gateLiberado": false,
+    "gateValor": "(vazio)",
+    "tefManagerAlterado": false,
+    "pdvAlterado": false,
+    "bancoAlterado": false,
+    "migrations": false,
+    "configDestaxaAlterada": false
+  },
+  "arquivosCriados": [
+    "backend/services/tef/destaxa/destaxaHomologacaoCrtHarness.js",
+    "tests/tef/mrt-20-harness-homologacao.test.js",
+    "docs/build/mrt-20-harness-homologacao-report.json"
+  ],
+  "funcoesReutilizadas": [
+    "DestaxaTransacaoOrquestrador",
+    "DestaxaTransacaoMockDriver",
+    "buildCrtInput / destaxaProtocolo",
+    "destaxaConstantes (CRT, VALOR_HOMOLOGACAO_CENTAVOS, AMBIENTE_TRANSACAO_REAL, gate)",
+    "ERROS_HOST (BUSY, OFFLINE, RECONCILIATION_PENDING)"
+  ],
+  "sequenciaExecucao": [
+    "1. validarAmbiente (homologacao, CRT, R$1,00, V$Pague, gate OFF na sprint)",
+    "2. obter sessão/host (mesmo hostId durante o ciclo)",
+    "3. LOAD se necessário",
+    "4. INIT único se necessário — exige código 00",
+    "5. prepararEnableReal",
+    "6. iniciarCrt → TX_START(CRT, transacao_valor=1.00) uma vez",
+    "7. se 99 → continuar() explícito → TX_CONTINUE",
+    "8. se 00 → finalizar(0|9) → TX_FINALIZE",
+    "9. registrar resultado; inconclusivo → reconciliação obrigatória"
+  ],
+  "testesSimulados": [
+    {
+      "nome": "1. INIT com código 00",
+      "ok": true,
+      "codigoDestaxa": "00",
+      "hostId": "host_sim_9babc36a72c5"
+    },
+    {
+      "nome": "2. INIT com falha bloqueia TX_START",
+      "ok": true,
+      "prep": "DESTAXA_HARNESS_INIT_FALHOU",
+      "tx": "DESTAXA_HARNESS_INIT_FALHOU"
+    },
+    {
+      "nome": "3. TX_START com retorno 00",
+      "ok": true,
+      "codigo": "00"
+    },
+    {
+      "nome": "4. TX_START com retorno 99",
+      "ok": true,
+      "estado": "AGUARDANDO_CONTINUACAO"
+    },
+    {
+      "nome": "5. Continuação explícita após 99",
+      "ok": true,
+      "r1": "99",
+      "r2": "00"
+    },
+    {
+      "nome": "6. Finalização conforme retorno do provedor",
+      "ok": true,
+      "confirmacao": 0
+    },
+    {
+      "nome": "7. Timeout sem repetição",
+      "ok": true,
+      "primeira": "08",
+      "segunda": "DESTAXA_HARNESS_TX_START_JA_EXECUTADO"
+    },
+    {
+      "nome": "8. Host encerrado bloqueia continuidade",
+      "ok": true,
+      "codigo": "DESTAXA_HARNESS_HOST_ENCERRADO"
+    },
+    {
+      "nome": "9. Segunda requisição simultânea bloqueada",
+      "ok": true,
+      "codigo": "DESTAXA_HARNESS_HOST_BUSY"
+    },
+    {
+      "nome": "10. Resultado inconclusivo bloqueia nova cobrança",
+      "ok": true,
+      "codigo": "DESTAXA_HARNESS_RECONCILIACAO_PENDENTE"
+    },
+    {
+      "nome": "extra. produção bloqueada",
+      "ok": true
+    },
+    {
+      "nome": "extra. valor ≠ R$1,00 bloqueado",
+      "ok": true
+    },
+    {
+      "nome": "extra. PIX bloqueado",
+      "ok": true
+    },
+    {
+      "nome": "extra. modo controlado sem env bloqueado",
+      "ok": true
+    },
+    {
+      "nome": "extra. sem repetição automática de TX_START",
+      "ok": true
+    }
+  ],
+  "protecoesImplementadas": [
+    "Somente CRT / R$1,00 / homologacao",
+    "Produção e PIX/débito-crédito-como-op/EST bloqueados no harness",
+    "Uma requisição em voo (HOST_BUSY)",
+    "Sem retry automático; TX_START único por run",
+    "Timeout/inconclusivo → reconciliação; nova cobrança bloqueada",
+    "INIT falho bloqueia TX_START",
+    "Host encerrado bloqueia continuidade",
+    "INIT concorrente bloqueado",
+    "Modo controlado exige DESTAXA_HOMOLOGACAO_CRT_HARNESS=1",
+    "Não é caminho de produção; isolado do TefManager/PDV",
+    "Gate OFF nesta sprint; TX real do modo controlado não liberada aqui"
+  ],
+  "limitacoesIdentificadas": [
+    "Modo controlado (HostBridge real) ainda não executa CRT — reservado a sprint futura com gate pontual",
+    "Loop 99 exige chamadas explícitas continuar() — sem auto-orquestração de coleta PinPad",
+    "Sessão simulada não carrega DLL; validação física PinPad/V$Pague no caminho controlado futuro",
+    "Env flags: DESTAXA_HOMOLOGACAO_CRT_HARNESS (controlado), DESTAXA_HOMOLOGACAO_CRT_SIMULADO (opcional para simulado)"
+  ],
+  "isolamento": {
+    "tefManagerReferenciaHarness": false,
+    "pdvJsPresente": true,
+    "nota": "Harness é módulo isolado; TefManager.autorizar não foi alterado nesta sprint"
+  },
+  "confirmacaoNenhumaTransacaoReal": {
+    "gateOff": true,
+    "modoTestes": "simulado",
+    "dllFinanceira": false,
+    "mensagem": "Nenhuma transação financeira real foi executada nesta sprint"
+  },
+  "resultadoFinal": "MRT-20 CONCLUÍDA — HARNESS PRONTO PARA HOMOLOGAÇÃO CONTROLADA"
+}

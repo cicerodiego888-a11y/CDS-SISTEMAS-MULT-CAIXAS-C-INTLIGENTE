@@ -649,6 +649,21 @@ function validarConfiguracao(config = {}, opcoes = {}) {
     }
   }
 
+  // Destaxa: estabelecimento/loja/terminal são opcionais na DLL — avisos, não pendências bloqueantes.
+  // Persistência local nunca declara homologação (tefProntoParaVenda permanece false).
+  const avisos = [];
+  let mapeamentoDestaxa = null;
+  if (provedor === 'destaxa') {
+    const { avaliarMapeamentoTerminal } = require('./destaxa/destaxaMapeamentoTerminal');
+    mapeamentoDestaxa = avaliarMapeamentoTerminal(config, { provedor: 'destaxa' });
+    for (const aviso of mapeamentoDestaxa.avisos || []) {
+      avisos.push(aviso);
+    }
+    if (mapeamentoDestaxa.codigo === 'MAPEAMENTO_OFICIAL_PENDENTE') {
+      avisos.push('Mapeamento do provedor Destaxa pendente no fornecedor (00151/.conf não são resolvidos só gravando tef_configuracao).');
+    }
+  }
+
   const pinpadHabilitado = normalizarBoolean(config.pinpadHabilitado);
   if (pinpadHabilitado) {
     const temModelo = Boolean(config.pinpadModelo || config.pinpadCodigo);
@@ -687,6 +702,10 @@ function validarConfiguracao(config = {}, opcoes = {}) {
   const resultado = {
     valida: pendencias.length === 0,
     pendencias,
+    avisos,
+    mapeamentoDestaxa,
+    tefProntoParaVenda: false,
+    homologacaoDeclarada: false,
     ambiente,
     modoAdapter
   };
@@ -695,7 +714,8 @@ function validarConfiguracao(config = {}, opcoes = {}) {
     valida: resultado.valida,
     ambiente,
     modoAdapter,
-    pendenciasCount: pendencias.length
+    pendenciasCount: pendencias.length,
+    avisosCount: avisos.length
   });
 
   return resultado;
@@ -860,7 +880,7 @@ async function testarConexao() {
       tipo: 'pinpad',
       sucesso: pinpadConfigurado,
       mensagem: pinpadConfigurado
-        ? 'PinPad configurado e pronto para teste.'
+        ? 'PinPad com parâmetros cadastrados (cadastro ≠ operacional / ≠ pronto para venda).'
         : 'PinPad habilitado, mas sem parâmetros de conexão.'
     });
 
@@ -907,27 +927,106 @@ async function testarConexao() {
   };
 }
 
+/**
+ * Normaliza porta COM válida (ex.: "COM 3" → "COM3").
+ * Não converte silenciosamente formas suspeitas como "CON3".
+ */
 function normalizarPortaCom(porta) {
-  const texto = String(porta || '').trim().toUpperCase();
-  if (!texto) return '';
-  const match = texto.match(/COM\s*(\d+)/i);
-  return match ? `COM${match[1]}` : texto.replace(/\s+/g, '');
+  return analisarPortaCom(porta).normalizada;
+}
+
+/**
+ * Analisa porta COM preservando o valor original.
+ * CON3 é sinalizada como suspeita (possível typo de COM3), sem conversão silenciosa.
+ */
+function analisarPortaCom(porta) {
+  const original = String(porta == null ? '' : porta).trim();
+  const upper = original.toUpperCase().replace(/\s+/g, ' ');
+  if (!upper) {
+    return {
+      original: '',
+      normalizada: '',
+      valida: false,
+      suspeita: false,
+      correcaoAplicada: null,
+      motivoSuspeita: null
+    };
+  }
+
+  const matchCom = upper.match(/^COM\s*(\d+)$/i);
+  if (matchCom) {
+    const normalizada = `COM${matchCom[1]}`;
+    const correcaoAplicada = original !== normalizada
+      ? {
+        de: original,
+        para: normalizada,
+        motivo: 'espaco_ou_caixa_normalizados'
+      }
+      : null;
+    return {
+      original,
+      normalizada,
+      valida: true,
+      suspeita: false,
+      correcaoAplicada,
+      motivoSuspeita: null
+    };
+  }
+
+  const matchCon = upper.match(/^CON\s*(\d+)$/i);
+  if (matchCon) {
+    return {
+      original,
+      normalizada: upper.replace(/\s+/g, ''),
+      valida: false,
+      suspeita: true,
+      correcaoAplicada: null,
+      motivoSuspeita: `Valor suspeito CON${matchCon[1]} (possível digitação de COM${matchCon[1]}); conversão silenciosa não aplicada`
+    };
+  }
+
+  return {
+    original,
+    normalizada: upper.replace(/\s+/g, ''),
+    valida: false,
+    suspeita: true,
+    correcaoAplicada: null,
+    motivoSuspeita: `Porta inválida ou não reconhecida: ${upper.replace(/\s+/g, '')}`
+  };
 }
 
 /**
  * Compara porta COM persistida com a detectada no Windows.
  * Não presume COM3/COM4; não afirma PinPad operacional só por enumeração.
+ * Não converte CON3 → COM3 sem registrar; CON* fica suspeita/inválida.
  */
 function compararPortaPinpad(portaConfigurada, portaDetectada) {
-  const salva = normalizarPortaCom(portaConfigurada);
-  const detectada = normalizarPortaCom(portaDetectada);
+  const analiseSalva = analisarPortaCom(portaConfigurada);
+  const analiseDetectada = analisarPortaCom(portaDetectada);
+  const salva = analiseSalva.normalizada;
+  const detectada = analiseDetectada.normalizada;
+  const baseMeta = {
+    salvaOriginal: analiseSalva.original,
+    detectadaOriginal: analiseDetectada.original,
+    salvaSuspeita: analiseSalva.suspeita === true,
+    detectadaSuspeita: analiseDetectada.suspeita === true,
+    salvaValida: analiseSalva.valida === true,
+    detectadaValida: analiseDetectada.valida === true,
+    correcaoAplicadaSalva: analiseSalva.correcaoAplicada,
+    correcaoAplicadaDetectada: analiseDetectada.correcaoAplicada,
+    motivoSuspeitaSalva: analiseSalva.motivoSuspeita,
+    motivoSuspeitaDetectada: analiseDetectada.motivoSuspeita,
+    correcaoSilenciosa: false
+  };
+
   if (!salva && !detectada) {
     return {
       salva: '',
       detectada: '',
       coincidem: true,
       mudou: false,
-      status: 'sem_porta'
+      status: 'sem_porta',
+      ...baseMeta
     };
   }
   if (!salva) {
@@ -936,7 +1035,8 @@ function compararPortaPinpad(portaConfigurada, portaDetectada) {
       detectada,
       coincidem: false,
       mudou: Boolean(detectada),
-      status: 'somente_detectada'
+      status: 'somente_detectada',
+      ...baseMeta
     };
   }
   if (!detectada) {
@@ -945,16 +1045,18 @@ function compararPortaPinpad(portaConfigurada, portaDetectada) {
       detectada: '',
       coincidem: false,
       mudou: false,
-      status: 'somente_configurada'
+      status: 'somente_configurada',
+      ...baseMeta
     };
   }
-  const coincidem = salva === detectada;
+  const coincidem = analiseSalva.valida && analiseDetectada.valida && salva === detectada;
   return {
     salva,
     detectada,
     coincidem,
     mudou: !coincidem,
-    status: coincidem ? 'coincidem' : 'divergente'
+    status: coincidem ? 'coincidem' : (analiseSalva.suspeita || analiseDetectada.suspeita ? 'suspeita_ou_divergente' : 'divergente'),
+    ...baseMeta
   };
 }
 
@@ -1005,6 +1107,7 @@ module.exports = {
   resolverModoAdapter,
   resolverEstadoServidorMonitor,
   normalizarPortaCom,
+  analisarPortaCom,
   compararPortaPinpad,
   configParaRegistroAdapter,
   ESCOPO_CONFIGURACAO_TEF,

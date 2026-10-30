@@ -1,6 +1,7 @@
-const { obterAdapter } = require('./tefFactory');
+const { obterAdapterDaTransacao } = require('./tefAdapterCiclo');
 const repository = require('./tefRepository');
 const tefEvents = require('./tefEvents');
+const tefContrato = require('./tefContrato');
 
 async function executarReversaoAutomatica(transacaoId, motivo = 'Reversão automática por falha na venda') {
   try {
@@ -25,18 +26,52 @@ async function executarReversaoAutomatica(transacaoId, motivo = 'Reversão autom
       throw new Error(`Transação não pode ser revertida. Status atual: ${transacao.status}`);
     }
 
-    tefEvents.emitirEstado('PROCESSANDO', { 
-      acao: 'reversao', 
-      transacao_id: transacaoId 
+    tefEvents.emitirEstado('PROCESSANDO', {
+      acao: 'reversao',
+      transacao_id: transacaoId
     });
 
-    const adapter = await obterAdapter();
+    // MRT-13 — estorno/reversão no provedor original da transação
+    const ciclo = await obterAdapterDaTransacao(transacao);
+    const adapter = ciclo.adapter;
     const resultado = await adapter.cancelarPagamento({
       transacao_id: transacaoId,
       nsu: transacao.nsu,
       autorizacao: transacao.autorizacao,
       motivo
     });
+
+    const confirmado = tefContrato.cancelamentoConfirmado(resultado);
+
+    // TEF-17: sem confirmação financeira, não marca cancelado / reversao_executada.
+    if (!confirmado) {
+      repository.registrarLog(
+        transacaoId,
+        'REVERSAO_NAO_CONFIRMADA',
+        `Reversão não confirmada pelo provedor: ${resultado?.mensagem || motivo}`,
+        {
+          resultado,
+          statusAnterior: transacao.status,
+          financialState: 'UNCHANGED'
+        }
+      );
+
+      tefEvents.emitirEstado('ERRO_COMUNICACAO', {
+        transacao_id: transacaoId,
+        erro: resultado?.mensagem || 'Cancelamento TEF não confirmado',
+        cancelOutcome: resultado?.cancelOutcome || null
+      });
+
+      return {
+        sucesso: false,
+        cancelConfirmed: false,
+        financialState: 'UNCHANGED',
+        transacao_id: transacaoId,
+        status: transacao.status,
+        resultado,
+        mensagem: resultado?.mensagem || 'Reversão TEF não confirmada pelo provedor — estado financeiro inalterado'
+      };
+    }
 
     await new Promise((resolve, reject) => {
       db.run(`
@@ -50,7 +85,7 @@ async function executarReversaoAutomatica(transacaoId, motivo = 'Reversão autom
           atualizado_em = datetime('now')
         WHERE id = ?
       `, [
-        resultado.status,
+        tefContrato.STATUS.CANCELADO,
         JSON.stringify(resultado),
         motivo,
         transacaoId
@@ -60,21 +95,22 @@ async function executarReversaoAutomatica(transacaoId, motivo = 'Reversão autom
       });
     });
 
-    await new Promise((resolve, reject) => {
-      repository.registrarLog(transacaoId, 'REVERSAO_SUCESSO', 
-        `Reversão automática executada: ${motivo}`, resultado, (err) => {
-          if (err) return reject(err);
-          resolve();
-        });
-    });
+    repository.registrarLog(
+      transacaoId,
+      'REVERSAO_SUCESSO',
+      `Reversão automática executada: ${motivo}`,
+      resultado
+    );
 
-    tefEvents.emitirEstado('CANCELADO', { 
-      transacao_id: transacaoId, 
-      motivo 
+    tefEvents.emitirEstado('CANCELADO', {
+      transacao_id: transacaoId,
+      motivo
     });
 
     return {
       sucesso: true,
+      cancelConfirmed: true,
+      financialState: 'CANCELLED',
       transacao_id: transacaoId,
       resultado,
       mensagem: 'Reversão automática executada com sucesso'
@@ -83,17 +119,16 @@ async function executarReversaoAutomatica(transacaoId, motivo = 'Reversão autom
   } catch (error) {
     console.error('Erro ao executar reversão automática:', error);
 
-    await new Promise((resolve, reject) => {
-      repository.registrarLog(transacaoId, 'REVERSAO_ERRO', 
-        `Erro na reversão automática: ${error.message}`, { error: error.message }, (err) => {
-          if (err) return reject(err);
-          resolve();
-        });
-    });
+    repository.registrarLog(
+      transacaoId,
+      'REVERSAO_ERRO',
+      `Erro na reversão automática: ${error.message}`,
+      { error: error.message }
+    );
 
-    tefEvents.emitirEstado('ERRO_COMUNICACAO', { 
-      transacao_id: transacaoId, 
-      erro: error.message 
+    tefEvents.emitirEstado('ERRO_COMUNICACAO', {
+      transacao_id: transacaoId,
+      erro: error.message
     });
 
     throw error;
@@ -126,7 +161,12 @@ async function verificarReversoesPendentes() {
           transacao.id,
           'Reversão por timeout de confirmação da venda'
         );
-        resultados.push({ transacao_id: transacao.id, sucesso: true, resultado });
+        resultados.push({
+          transacao_id: transacao.id,
+          sucesso: resultado.sucesso === true,
+          cancelConfirmed: resultado.cancelConfirmed === true,
+          resultado
+        });
       } catch (error) {
         resultados.push({ transacao_id: transacao.id, sucesso: false, erro: error.message });
       }

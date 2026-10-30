@@ -1,0 +1,140 @@
+{
+  "sprint": "TEF-PINPAD-01",
+  "title": "Cadastro do modelo Verifone P200 na configuração TEF",
+  "generatedAt": "2026-10-27T19:45:00.000Z",
+  "verdict": "CONCLUIDO",
+  "criterioConclusao": "P200 cadastrada e selecionável, sem falsa indicação de compatibilidade financeira",
+  "codeOrConfigChanged": true,
+  "dllLoaded": false,
+  "transactionExecuted": false,
+  "officialDbOpened": false,
+  "resumoExecutivo": {
+    "causaEncontrada": "Antes do sprint, o catálogo PinPad ativo era efetivamente só GERTEC_PPC930 (estático + seed). VerifonePinpad.js existia como stub que simula sucesso via setTimeout, sem SDK/USB real. Não havia código VERIFONE_P200 nem status de integração no catálogo.",
+    "solucaoAplicada": "Cadastro VERIFONE_P200 com integracaoTefStatus=NAO_INTEGRADO; factory roteia P200 para PinpadNaoIntegrado (recusa conectar/pagamento); UI lista o modelo com aviso explícito; seed INSERT OR IGNORE na tabela tef_pinpad_catalogo. Gertec PPC930 preservado integralmente.",
+    "naoFeitoDeProposito": [
+      "Integração TEF financeira real da P200",
+      "Carga de DLL / Native Host / Destaxa para P200",
+      "Atribuição de protocolo Gertec, driver V$Pague ou GertecPPC930 à P200",
+      "Uso do stub VerifonePinpad (simulado) para P200",
+      "Segundo motor TEF",
+      "Alteração de gates financeiros / TefManager / Destaxa"
+    ]
+  },
+  "auditoria": {
+    "origemOpcoesTela": {
+      "fallbackHtml": "frontend/erp/js/configuracao_tef.js — <select id=pinpadModelo> com options estáticas",
+      "dinamico": "GET catálogo via pinpadCatalogService.listarCatalogoAtivo() (rota TEF) mesclado no select",
+      "mapaUi": "PINPAD_MODELOS_MAPA preenche fabricante/modelo e aviso de integração"
+    },
+    "catalogo": {
+      "estaticoAutoridade": "backend/services/tef/pinpads/pinpadCatalog.js",
+      "persistidoComplementar": "tabela tef_pinpad_catalogo (seed INSERT OR IGNORE em backend/database.js e database.js raiz)",
+      "natureza": "Híbrido: metadados/status de integração são estáticos; DB espelha códigos ativos sem sobrescrever status"
+    },
+    "gertecPpc930": {
+      "codigo": "GERTEC_PPC930",
+      "classe": "GertecPPC930",
+      "integracaoTefStatus": "INTEGRADO",
+      "adquirenteSugerido": "Rede",
+      "conexaoDocumentada": "USB físico → driver Gertec → COM virtual → V$Pague",
+      "preservado": true
+    },
+    "validacoesPersistenciaContratos": {
+      "payloadPinpad": "tefConfigService.resolverPinpadPayload → pinpadCatalog.resolver",
+      "tabelaConfig": "tef_pinpads (codigo, fabricante, modelo, tipo_conexao, porta_com, ip, …)",
+      "tipoConexaoUi": ["serial", "usb", "ip"],
+      "mapeamentoFisicoP200DocumentadoSemCompatTef": {
+        "USB_CDC_SERIAL": "representável como serial/usb na UI existente",
+        "USB_RNDIS": "representável como ip na UI existente (rede)",
+        "declaracaoCompatibilidadeTef": false
+      }
+    }
+  },
+  "cadastroVerifoneP200": {
+    "codigo": "VERIFONE_P200",
+    "nomeExibicao": "Verifone P200 (cadastro — TEF ainda não integrado)",
+    "integracaoTefStatus": "NAO_INTEGRADO",
+    "classeFactory": "PinpadNaoIntegrado",
+    "erroOperacao": "PINPAD_NAO_INTEGRADO",
+    "naoUsa": ["GertecPPC930", "GertecPinpad", "VerifonePinpad (stub simulado)", "DestaxaRealAdapter", "SimulatedGatewayAdapter via pinpad"]
+  },
+  "arquivosAlterados": [
+    {
+      "path": "backend/services/tef/pinpads/pinpadCatalog.js",
+      "change": "MODELOS.VERIFONE_P200 + INTEGRACAO_TEF + isIntegracaoTefDisponivel; PPC930 intacto"
+    },
+    {
+      "path": "backend/services/tef/pinpads/PinpadNaoIntegrado.js",
+      "change": "Novo — recusa conectar/iniciarPagamento/cancelar; status online=false"
+    },
+    {
+      "path": "backend/services/tef/pinpads/PinpadFactory.js",
+      "change": "Roteia NAO_INTEGRADO / VERIFONE_P200 → PinpadNaoIntegrado antes de stubs/Gertec"
+    },
+    {
+      "path": "backend/services/tef/pinpadCatalogService.js",
+      "change": "Merge estático+DB; expõe integracaoTefStatus e interfacesFisicasDocumentadas"
+    },
+    {
+      "path": "backend/database.js",
+      "change": "seed INSERT OR IGNORE VERIFONE_P200"
+    },
+    {
+      "path": "database.js",
+      "change": "seed INSERT OR IGNORE VERIFONE_P200 (espelho raiz)"
+    },
+    {
+      "path": "frontend/erp/js/configuracao_tef.js",
+      "change": "option P200, mapa, aviso NAO_INTEGRADO, labels serial/usb/ip sem declarar TEF comprovado"
+    },
+    {
+      "path": "tests/tef/tef-pinpad-01-verifone-p200.test.js",
+      "change": "Harness isolado (8 asserts)"
+    },
+    {
+      "path": "docs/build/tef-pinpad-01-report.json",
+      "change": "Este relatório"
+    }
+  ],
+  "testes": {
+    "comando": "node tests/tef/tef-pinpad-01-verifone-p200.test.js",
+    "ambiente": "isolado (temp SQLite; sem mercadao.db)",
+    "passou": 8,
+    "falhou": 0,
+    "casos": [
+      "Catálogo lista GERTEC_PPC930 e VERIFONE_P200",
+      "Status INTEGRADO vs NAO_INTEGRADO",
+      "P200 não herda protocolo/driver Gertec",
+      "Factory P200 → PinpadNaoIntegrado (não VerifonePinpad)",
+      "Factory PPC930 → GertecPPC930",
+      "P200 recusa conectar e iniciarPagamento",
+      "UI fallback contém option + aviso",
+      "Persistência isolada seed + round-trip tef_pinpads"
+    ]
+  },
+  "limitacoes": [
+    "Selecionar P200 na tela NÃO habilita pagamentos TEF reais nem simulados via PinPad.",
+    "O stub legado VerifonePinpad permanece para fabricante Verifone genérico sem código P200 — não é usado pela P200 cadastrada.",
+    "Provedor/ambiente (Stone simulação, Destaxa, etc.) continuam governados por tefFactory; este sprint não altera o motor de adquirente.",
+    "Seed INSERT OR IGNORE só inclui P200 em bases que ainda não possuem o código; bases oficiais não foram abertas neste sprint.",
+    "Interfaces USB serial / USB RNDIS são inventário físico documentado — não validação de interoperabilidade TEF no CDS."
+  ],
+  "requisitosPendentesIntegracaoReal": [
+    "Contrato oficial do adquirente/middleware para Verifone P200 (Stone ou outro) — protocolo, DLL/SDK, modo USB serial vs RNDIS",
+    "Adapter PinPad específico (não reutilizar GertecPPC930 nem VerifonePinpad stub)",
+    "Homologação de conexão física e enumeração de porta/IP",
+    "Gates financeiros e fluxo TefManager alinhados ao adapter real, sem fallback silencioso para simulação",
+    "Atualizar integracaoTefStatus para INTEGRADO somente após validação comprovada",
+    "Atualizar nomeExibicao removendo o sufixo de cadastro/não integrado"
+  ],
+  "segurancaEscopo": {
+    "transacoesReais": false,
+    "gatesFinanceirosAlterados": false,
+    "dllCarregada": false,
+    "operacoesTefIniciadas": false,
+    "bancoOficialAlterado": false,
+    "segundoMotorTef": false,
+    "fluxoDestaxaModificado": false,
+    "integracaoDeclaradaComoConcluida": false
+  }
+}

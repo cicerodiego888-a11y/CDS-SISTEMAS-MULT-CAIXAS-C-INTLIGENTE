@@ -1,0 +1,227 @@
+{
+  "sprint": "MRT-19",
+  "title": "Validação final do fluxo CRT de homologação Destaxa",
+  "generatedAt": "2026-10-30T18:32:53.029Z",
+  "restricoesObservadas": {
+    "load": false,
+    "init": false,
+    "crt": false,
+    "transacaoFinanceira": false,
+    "gatesLiberados": false,
+    "configAlterada": false,
+    "bancoAlterado": false,
+    "migrations": false,
+    "comandosPinPad": false
+  },
+  "1_sequenciaTecnicaConfirmada": {
+    "passos": [
+      {
+        "passo": 1,
+        "componente": "TefManager.autorizar",
+        "acao": "Normaliza tipo; valida fiscal; resolve RouteDecision via tefRouterIntegration.resolverRotaAutorizacao; lease terminal",
+        "comprovado": true
+      },
+      {
+        "passo": 2,
+        "componente": "RouteDecision → tefAdapterSelection",
+        "acao": "selecionarAdapterPorRouteDecision(routeDecision) — sem fallback LIMIT 1 cego",
+        "comprovado": true
+      },
+      {
+        "passo": 3,
+        "componente": "DestaxaRealAdapter.prepararAutorizacao",
+        "acao": "Valida provedor=destaxa, ambiente=homologacao, CRT, valor=100 centavos, config/PinPad, LOAD se necessário, INIT se !clientInitialized, V$Pague, PinPad COM; monta buildCrtInput; verifica gate",
+        "comprovado": true
+      },
+      {
+        "passo": 4,
+        "componente": "TefManager (pós-preparo)",
+        "acao": "Cria linha pendente + lock; chama autorizarPagamento com transactionId",
+        "comprovado": true
+      },
+      {
+        "passo": 5,
+        "componente": "DestaxaRealAdapter.autorizarPagamento",
+        "acao": "habilitarTransacaoReal (ENABLE_REAL) → iniciarTransacaoDestaxa(CRT, campos)",
+        "comprovado": true
+      },
+      {
+        "passo": 6,
+        "componente": "DestaxaHostBridge / NativeHostClient",
+        "acao": "IPC: ENABLE_REAL → TX_START (operacao, campos, transactionId)",
+        "comprovado": true
+      },
+      {
+        "passo": 7,
+        "componente": "DestaxaNativeHost → DestaxaNativeBridge → Orquestrador",
+        "acao": "iniciaTransacaoDestaxa(operacao, entrada) na DLL; código 99 → requerContinuacao",
+        "comprovado": true
+      },
+      {
+        "passo": 8,
+        "componente": "continuarTransacaoDestaxa / TX_CONTINUE",
+        "acao": "Disponível no adapter/bridge/host; NÃO orquestrado automaticamente por TefManager.autorizar",
+        "comprovado": true
+      },
+      {
+        "passo": 9,
+        "componente": "finalizarTransacaoDestaxa / TX_FINALIZE",
+        "acao": "Disponível (confirmacao 0|9); NÃO chamado automaticamente por autorizarPagamento após 00",
+        "comprovado": true
+      },
+      {
+        "passo": "parametrosCRT",
+        "componente": "buildCrtInput",
+        "acao": "operacao DLL separada=CRT; entrada=transacao_valor=1.00",
+        "comprovado": true
+      }
+    ],
+    "parametrosCrt": {
+      "operacao": "CRT",
+      "entrada": "transacao_valor=1.00",
+      "campos": {
+        "transacao_valor": "1.00"
+      },
+      "valorCentavos": 100
+    },
+    "ipc": {
+      "ENABLE_REAL": "ENABLE_REAL",
+      "TX_START": "TX_START",
+      "TX_CONTINUE": "TX_CONTINUE",
+      "TX_FINALIZE": "TX_FINALIZE"
+    }
+  },
+  "2_auditoriaTentativasIdempotencia": {
+    "tefConfiguracaoTentativasDocumentado": 3,
+    "tentativasLidoNoCaminhoAutorizarTefManager": false,
+    "autorizarComRetrySemLoop": true,
+    "autorizarComRetryChamadasSimuladas": 1,
+    "retryAllowedEmTimeout": false,
+    "retryAllowedEm99": true,
+    "retryAllowedEmRespostaTefManager": true,
+    "idempotencyKey": true,
+    "lockOperacional": true,
+    "bloqueioPendenciaResultadoTardio": true,
+    "bloqueioReconciliacaoHostTxStart": true,
+    "absenciaRepeticaoAutomaticaCrt": true,
+    "nota": "tef_configuracao.tentativas=3 NÃO é consumido por TefManager.autorizar nem por autorizarComRetry. executarComRetry(maxRetries=3) existe só para cancelarComRetry — Destaxa EST comercial permanece bloqueado."
+  },
+  "3_escopoRestricoesFinanceiras": {
+    "operacoesReaisPermitidas": [
+      "CRT"
+    ],
+    "somenteCrt": true,
+    "valorObrigatorioCentavos": 100,
+    "valorObrigatorioReais": "1.00",
+    "ambienteObrigatorio": "homologacao",
+    "adapterBloqueiaNaoCrt": true,
+    "adapterBloqueiaValorNao100": true,
+    "adapterBloqueiaAmbienteNaoHomologacao": true,
+    "pixMapeadoMasBloqueado": true,
+    "debitoCreditoComoCrt": true,
+    "notaDebitoCredito": "tipos debito/credito normalizam para operação CRT (cartão); valor continua travado em R$1,00 e gate OFF bloqueia TX",
+    "cancelamentoEstornoBloqueado": true,
+    "gateEnv": "DESTAXA_REAL_TRANSACTION_ENABLED",
+    "gateValorAtual": "(vazio)",
+    "gateAbertoAgora": false,
+    "gateOffImpedeTx": true,
+    "gateNaoPermanente": {
+      "mecanismo": "process.env por chamada (transacaoRealHabilitada); ENABLE_REAL e TX_* reavaliam o env",
+      "orquestradorRechecGateEmTx": true,
+      "naoPersisteEmBanco": true,
+      "notaOperacional": "Após CRT: remover DESTAXA_REAL_TRANSACTION_ENABLED=1 do ambiente do processo"
+    },
+    "operacoesHostFinanceiras": [
+      "TX_START",
+      "TX_CONTINUE",
+      "TX_FINALIZE",
+      "ENABLE_REAL"
+    ]
+  },
+  "4_cicloVidaNativeHost": {
+    "mesmoHostLoadInitTx": {
+      "comprovado": true,
+      "detalhe": "Um DestaxaNativeHostClient compartilhado por processo CDS; LOAD/INIT/TX no mesmo child DestaxaNativeHost"
+    },
+    "umaRequisicaoEmVoo": {
+      "comprovado": true,
+      "detalhe": "Segunda chamada enquanto _emVoo → HOST_BUSY sem enviar"
+    },
+    "encerrarAdiadoSeEmVoo": {
+      "comprovado": true,
+      "detalhe": "encerrar() com operação em voo não mata a DLL no meio da chamada"
+    },
+    "falhaInitBloqueiaCrt": {
+      "comprovado": true,
+      "detalhe": "prepararAutorizacao bloqueia se INIT ≠ 00; habilitarTransacaoReal exige clientInitialized"
+    },
+    "hostEncerradoExigeNovaSessao": {
+      "comprovado": true,
+      "detalhe": "Host STOPPED/CRASHED → operação não enviada; novo INIT necessário no host novo"
+    },
+    "timeoutNaoAutorizaRetry": {
+      "comprovado": true,
+      "detalhe": "Timeout IPC → HOST_TIMEOUT / UNKNOWN; lock/reconciliação; retryAllowed=false"
+    },
+    "txSemTimeoutIpcPadrao": {
+      "comprovado": true,
+      "detalhe": "TX_START/CONTINUE/FINALIZE sem timeout IPC padrão (Destaxa não documenta timeout global)"
+    },
+    "loadResetaClientInitialized": {
+      "comprovado": true,
+      "detalhe": "Novo LOAD zera sessão — INIT deve seguir no mesmo host antes da CRT"
+    },
+    "initNaoExecutadoNestaSprint": true,
+    "loadNaoExecutadoNestaSprint": true,
+    "crtNaoExecutadoNestaSprint": true
+  },
+  "5_riscosEncontrados": [
+    {
+      "id": "R1_LOOP_99",
+      "severidade": "alta",
+      "item": "TefManager.autorizar não orquestra TX_CONTINUE após código 99 (coleta/display/opção)",
+      "impacto": "CRT física no PinPad tipicamente retorna 99; autorizarPagamento só faz TX_START e devolve PENDENTE/requerContinuacao sem loop",
+      "mitigacaoOperacional": "Primeira CRT controlada deve usar harness/procedimento que chame continuarTransacao/finalizarTransacao no mesmo Native Host após TX_START — não depender só do PDV→autorizar"
+    },
+    {
+      "id": "R2_TENTATIVAS_CONFIG",
+      "severidade": "baixa",
+      "item": "tef_configuracao.tentativas=3 pode sugerir retry financeiro",
+      "impacto": "Campo não alimenta autorizarComRetry — risco operacional/confusão, não de cobrança dupla no caminho Destaxa atual",
+      "mitigacaoOperacional": "Documentar na runbook; opcionalmente alinhar tentativas=1 no DB em sprint futura (não alterar nesta)"
+    },
+    {
+      "id": "R3_SESSAO_HOST",
+      "severidade": "media",
+      "item": "Sessão INIT da MRT-16 não está viva; LOAD+INIT obrigatório no host da CRT",
+      "impacto": "TX em host sem clientInitialized falha em preparar/ENABLE_REAL",
+      "mitigacaoOperacional": "INIT único imediatamente antes da CRT no mesmo processo host; não encerrar entre INIT e TX"
+    },
+    {
+      "id": "R4_GATE_JANELA",
+      "severidade": "media",
+      "item": "Gate env deve ficar =1 só durante a CRT",
+      "impacto": "Enquanto =1, ENABLE_REAL + CRT R$1,00 ficam liberados no processo",
+      "mitigacaoOperacional": "Habilitar só no momento da chamada; desligar em seguida; não deixar permanente no SO"
+    }
+  ],
+  "6_correcoesIndispensaveis": [
+    {
+      "indispensavelParaPdvAutorizar": true,
+      "indispensavelParaHarnessControlado": false,
+      "descricao": "Antes de CRT via PDV/TefManager.autorizar: implementar orquestração segura do loop 99→continua→finaliza (0|9) no mesmo host, sem retry automático. Fora desta sprint se a CRT for via harness explícito."
+    }
+  ],
+  "7_parecerFinal": {
+    "classificacao": "APTO COM RESSALVAS",
+    "parecer": "Caminho CRT (gate, valor, ambiente, host, anti-retry) está consistente para homologação controlada via harness que execute TX_START → TX_CONTINUE* → TX_FINALIZE no mesmo Native Host. Não liberar CRT exclusiva via TefManager.autorizar/PDV até existir orquestração do loop 99.",
+    "primeiraCrtR1": "Liberar somente sob procedimento controlado: mesmo Native Host; LOAD+INIT 00; gate ON pontual; um CRT R$1,00; loop continua/finaliza explícito; gate OFF; sem retry em inconclusivo"
+  },
+  "testesSimulados": {
+    "autorizarComRetrySingleShot": true,
+    "classificacao99_08_00_semRetry": true,
+    "buildCrtInput1Real": "transacao_valor=1.00",
+    "gateOffConfirmado": true
+  },
+  "resultadoFinal": "MRT-19 CONCLUÍDA — APTO COM RESSALVAS"
+}

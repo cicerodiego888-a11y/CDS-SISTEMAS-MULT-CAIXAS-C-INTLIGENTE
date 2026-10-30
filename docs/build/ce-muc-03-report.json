@@ -1,0 +1,82 @@
+{
+  "sprint": "CE-MUC-03",
+  "title": "Correção do MUC e cadastro flexível de unidades",
+  "generatedAt": "2026-10-27T19:00:00.000Z",
+  "verdict": "CONCLUIDO_COM_LIMITACOES",
+  "diagnosticoInicial": {
+    "causaRaizSimNaoReavaliar": {
+      "resumo": "A UI exibia conversao_sugerida / quantidade_resultante_proposta para FATOR_CONVERSAO_AUSENTE (ex.: PR→UN), mas ConfirmacaoConversaoEntradaNfe.aplicarSim só aceitava resultado.ok ou DIVERGENCIA_QTRIB_FATOR com uTrib=estoque. SIM gravava estado local sem limpar pendências → bloqueia_efetivacao permanecia true.",
+      "evidencia": "backend/services/unidades/ConfirmacaoConversaoEntradaNfe.js aplicarSim (pré-correção); MotorUnidadesMedida.resolverQuantidadeEntradaNfe retorna ok:false + fatorSugerido"
+    },
+    "finalizarEntrada": {
+      "ui": "miip-central-revisao.js — botão desabilitado quando estado.conversoes.bloqueia_efetivacao",
+      "backendAntes": "POST finalizar-entrada não revalidava conversões (só Compras save → 422)",
+      "backendAgora": "CentralComprasBridgeService._executarFinalizarEntrada chama avaliarConversoes e retorna 422 PENDENCIAS_CONVERSAO se ainda houver pendências"
+    },
+    "sqliteCorrupt": {
+      "status": "AINDA_PRESENTE na cópia forense (doc id=136 miip_resumo_json)",
+      "bancoOficial": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db — NÃO reparado, NÃO usado nos testes desta sprint",
+      "testes": "somente SQLite temporário em os.tmpdir() + asserts unitários em memória"
+    },
+    "csp": "CSP-DIAG-01 já moveu CDS_BOOT_ID para arquivo externo; esta sprint não alterou CSP"
+  },
+  "correcaoMuc": {
+    "aplicarSim": "Aceita FATOR_CONVERSAO_AUSENTE com fatorSugerido>0 somente se contexto.aceitarFatorSugerido===true (Central/selo com documento)",
+    "origem": "FATOR_SUGERIDO_NFE_CONFIRMADO",
+    "aprendizadoPermanente": false,
+    "montarPendencia": "quantidade_resultante_proposta = qCom × fatorSugerido para FATOR_CONVERSAO_AUSENTE",
+    "selo": "fator_conversao no contexto usa fator_sugerido quando fator validado ausente",
+    "persistenciaCentral": "SIM ok grava quantidade_estoque_confirmada / fator_conversao_confirmado no item do parseJson",
+    "feedbackUi": "persistirConversaoLinha notifica resultado real de SIM/NÃO/Reavaliar",
+    "nao": "continua bloqueando efetivação quando unidades diferem e não há quantidade segura (regra preservada)",
+    "mapaUcom": "PR, PAR, COPO, KIT/DISPLAY/BOBINA/GALAO; códigos alfanuméricos custom não colapsam para UN em normalizarUnidadeComercial"
+  },
+  "catalogoUnidades": {
+    "abordagem": "Tabela unidades_medida + UnidadesMedidaCatalogoService; MUC permanece motor único de conversão",
+    "api": "/api/unidades-medida (GET/POST/PUT/DELETE) e /opcoes",
+    "regras": [
+      "código único (case-insensitive)",
+      "descrição obrigatória",
+      "exclusão bloqueada se referenciada em produtos/produto_embalagens",
+      "unidades sistema (seed) não excluem nem mudam código"
+    ],
+    "ui": "Cadastro de produto: select enriquecido via /opcoes + botão + para nova unidade",
+    "compraVsEstoque": "calcularCompraEmbalagem / calcularFormacaoPrecoCadastro já separam embalagem×fator e custo unitário — validados no exemplo PACOTE/12/R$40/margem 50%"
+  },
+  "contratosUtilizados": [
+    "ConfirmacaoConversaoEntradaNfe.aplicarSim / validarPendenciasConversaoEntrada / gerarSeloConversao",
+    "MotorUnidadesMedida.resolverQuantidadeEntradaNfe / calcularCompraEmbalagem",
+    "CentralRevisaoPersistenteService.salvarDecisaoConversao / avaliarConversoes",
+    "CentralComprasBridgeService._executarFinalizarEntrada",
+    "UnidadesMedidaCatalogoService"
+  ],
+  "arquivosAlterados": [
+    "backend/services/unidades/ConfirmacaoConversaoEntradaNfe.js",
+    "backend/services/unidades/MotorUnidadesMedida.js",
+    "backend/services/unidades/UnidadesMedidaCatalogoService.js",
+    "backend/rotas/unidades-medida.js",
+    "backend/server.js",
+    "backend/motores/central-entradas/services/CentralRevisaoPersistenteService.js",
+    "backend/motores/central-entradas/services/CentralComprasBridgeService.js",
+    "frontend/erp/js/miip-central-revisao.js",
+    "frontend/erp/js/produtos.js",
+    "tests/unidades/ce-muc-03-conversao-e-catalogo.test.js",
+    "docs/build/ce-muc-03-report.json"
+  ],
+  "testes": {
+    "tests/unidades/ce-muc-03-conversao-e-catalogo.test.js": "SIM PR→UN, NÃO bloqueia, PACOTE 12×40 margem 50%, CRUD catálogo isolado",
+    "tests/compras/sprint2-confirmacao-conversao.test.js": "regressão — incluindo 'qTrib incompatível não inventa fator' sem documento",
+    "bancoOficialUsado": false,
+    "operacoesFiscaisFinanceiras": false
+  },
+  "limitacoes": [
+    "SQLITE_CORRUPT no mercadao.db oficial/forense permanece — Central real com doc 136 ainda pode falhar em listagens (DB-FORENSE-01); não reparado aqui",
+    "UI de edição/exclusão de unidades é mínima (prompt + API); exclusão completa via API",
+    "Não houve smoke E2E na UI Electron com documento real (banco corrompido + restrição de não gravar compra)",
+    "ensureSchema de unidades_medida roda na primeira chamada da API no CDS — CREATE IF NOT EXISTS (não é reparo de corrupção)"
+  ],
+  "proximosPassos": [
+    "Sprint de recuperação SQLite autorizada sobre cópia forense (DB-FORENSE)",
+    "Smoke manual: reabrir Conferir produtos → SIM em PR→UN → Finalizar Entrada após pendências zeradas"
+  ]
+}

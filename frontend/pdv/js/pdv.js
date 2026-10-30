@@ -1255,6 +1255,10 @@ function mostrarModalAutorizacaoSupervisor(onAuthorized, onCancel) {
 }
 
 async function processarPagamentoTEF(tipo, valor, parcelas = 1, opcoes = {}) {
+    const Idem = window.TefIdempotencia;
+    let idempotencyKey = null;
+    let envioIniciado = false;
+
     try {
         if (window.__tefPagamentoEmAndamento) {
             showNotification('Já existe um pagamento TEF em andamento.', 'warning');
@@ -1265,45 +1269,146 @@ async function processarPagamentoTEF(tipo, valor, parcelas = 1, opcoes = {}) {
 
         const tipoTef = TefFluxoPagamento.normalizarTipoTef(tipo);
         const ehPixTef = TefFluxoPagamento.ehPagamentoPixTef(tipoTef);
+        const parcelasTef = Number(parcelas || 1);
+        const valorTef = Number(valor);
+        const vendaId = opcoes.venda_id || null;
 
-        showNotification(
-            ehPixTef ? 'Gerando PIX TEF...' : 'Processando pagamento TEF...',
-            'info'
-        );
-
-        const idempotencyKey = opcoes.idempotency_key
-            || `pdv-${tipoTef}-${Number(valor).toFixed(2)}-${Date.now()}`;
-
-        console.log('CHAMANDO TEF:', { tipo, tipoTef, valor, parcelas, idempotencyKey });
-
-        const response = await fetch(`${API_URL}/tef/pagar`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${localStorage.getItem('token') || ''}`
-            },
-            body: JSON.stringify({
+        const identidade = Idem && typeof Idem.obterOuCriarChave === 'function'
+            ? Idem.obterOuCriarChave({
                 tipo: tipoTef,
-                valor: Number(valor),
-                parcelas: Number(parcelas || 1),
-                venda_id: opcoes.venda_id || null,
-                idempotency_key: idempotencyKey
+                valor: valorTef,
+                parcelas: parcelasTef,
+                venda_id: vendaId,
+                idempotency_key: opcoes.idempotency_key || null,
+                novaOperacao: opcoes.novaOperacao === true
             })
+            : {
+                chave: opcoes.idempotency_key
+                    || `pdv-op-fallback-${tipoTef}-${valorTef.toFixed(2)}`,
+                reutilizada: Boolean(opcoes.idempotency_key)
+            };
+
+        idempotencyKey = identidade.chave;
+
+        if (identidade.reutilizada && Idem?.snapshot?.()?.estado === 'inconclusivo') {
+            showNotification(
+                'Reutilizando a mesma operação TEF (timeout/inconclusivo). Não inicie outra cobrança.',
+                'warning'
+            );
+        } else {
+            showNotification(
+                ehPixTef ? 'Gerando PIX TEF...' : 'Processando pagamento TEF...',
+                'info'
+            );
+        }
+
+        console.log('CHAMANDO TEF:', {
+            tipo,
+            tipoTef,
+            valor: valorTef,
+            parcelas: parcelasTef,
+            idempotencyKey,
+            chaveReutilizada: identidade.reutilizada === true
         });
 
-        const data = await response.json();
+        if (Idem && typeof Idem.marcarEnviado === 'function') {
+            Idem.marcarEnviado(idempotencyKey);
+        }
+        envioIniciado = true;
+
+        let response;
+        try {
+            response = await fetch(`${API_URL}/tef/pagar`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+                },
+                body: JSON.stringify({
+                    tipo: tipoTef,
+                    valor: valorTef,
+                    parcelas: parcelasTef,
+                    venda_id: vendaId,
+                    idempotency_key: idempotencyKey
+                })
+            });
+        } catch (networkError) {
+            if (Idem && typeof Idem.registrarResultado === 'function') {
+                Idem.registrarResultado(idempotencyKey, {
+                    codigo: 'TEF_NETWORK',
+                    status: 'pendente',
+                    retryAllowed: false
+                }, { networkError: true, httpStatus: 0 });
+            }
+            showNotification(
+                'Falha de rede após envio TEF. Não tente outro pagamento: a operação pode estar em andamento. Use a mesma tentativa.',
+                'warning'
+            );
+            return {
+                sucesso: false,
+                aprovado: false,
+                status: 'pendente',
+                codigo: 'TEF_NETWORK',
+                mensagem: networkError.message || 'Falha de rede TEF',
+                idempotency_key: idempotencyKey,
+                inconclusivo: true,
+                retryAllowed: false
+            };
+        }
+
+        let data = await response.json().catch(() => ({}));
+        data.idempotency_key = data.idempotency_key || idempotencyKey;
 
         console.log('RETORNO TEF:', data);
 
+        // MRT-22 — ciclo CRT com COLETA/OPCAO: mesma chave / mesma transação / sem novo /tef/pagar
+        const Cont = window.PdvTefContinuidade;
+        if (Cont && typeof Cont.ehContinuidade === 'function' && Cont.ehContinuidade(data)) {
+            showNotification('TEF solicita informação adicional do operador...', 'info');
+            data = await Cont.conduzirContinuidade(data, {
+                apiUrl: API_URL,
+                token: localStorage.getItem('token') || '',
+                idempotencyKey,
+                vendaId
+            });
+            data.idempotency_key = data.idempotency_key || idempotencyKey;
+            console.log('RETORNO TEF APÓS CONTINUIDADE:', data);
+        }
+
+        if (Idem && typeof Idem.registrarResultado === 'function') {
+            Idem.registrarResultado(idempotencyKey, data, { httpStatus: response.status });
+        }
+
         if (response.status === 409 && data.codigo === 'TRANSACAO_DUPLICADA') {
-            if (data.transacao_id && (data.aprovado || data.status === 'aprovado')) {
+            const aprovadoDup = data.aprovado === true
+                || data.sucesso === true
+                || data.status === 'aprovado';
+            if (aprovadoDup) {
                 showNotification('Pagamento TEF já autorizado.', 'info');
                 return data;
+            }
+            if (String(data.status || '').toLowerCase() === 'pendente') {
+                showNotification(
+                    'Já existe operação TEF pendente com esta chave. Não inicie nova cobrança.',
+                    'warning'
+                );
+                return { ...data, inconclusivo: true, retryAllowed: false };
             }
             throw new Error(data.mensagem || 'Transação TEF duplicada.');
         }
 
-        if (!response.ok) {
+        // 202 = continuidade já tratada acima; demais !ok
+        if (!response.ok && response.status !== 202) {
+            const classificacao = Idem && typeof Idem.classificarResposta === 'function'
+                ? Idem.classificarResposta(data, { httpStatus: data.httpStatus || response.status })
+                : null;
+            if (classificacao?.inconclusivo || data.inconclusivo === true) {
+                showNotification(
+                    data.mensagem || 'TEF inconclusivo (timeout/pendente). Não gere nova cobrança — a mesma chave será reutilizada.',
+                    'warning'
+                );
+                return { ...data, inconclusivo: true, retryAllowed: false, idempotency_key: idempotencyKey };
+            }
             throw new Error(data.error || data.mensagem || 'Erro ao processar TEF.');
         }
 
@@ -1312,6 +1417,28 @@ async function processarPagamentoTEF(tipo, valor, parcelas = 1, opcoes = {}) {
             || data.status === 'aprovado';
 
         if (!aprovado) {
+            const status = String(data.status || '').toLowerCase();
+            const codigo = String(data.codigo || '').toUpperCase();
+            // Continuidade pendente de operador (sem timeout) não vira "inconclusivo financeiro"
+            if (Cont && Cont.ehContinuidade(data)) {
+                showNotification(
+                    data.mensagem || 'TEF ainda aguarda continuidade. Não inicie outra cobrança.',
+                    'warning'
+                );
+                return { ...data, retryAllowed: false, idempotency_key: idempotencyKey };
+            }
+            const inconclusivo = data.inconclusivo === true
+                || status === 'pendente'
+                || codigo === 'TIMEOUT'
+                || codigo === 'TEF_UNKNOWN'
+                || codigo === 'DESTAXA_CICLO_INCONCLUSIVO';
+            if (inconclusivo) {
+                showNotification(
+                    data.mensagem || 'Resultado TEF inconclusivo. Não inicie outro pagamento com nova chave.',
+                    'warning'
+                );
+                return { ...data, inconclusivo: true, retryAllowed: false, idempotency_key: idempotencyKey };
+            }
             throw new Error(data.mensagem || 'Pagamento TEF negado.');
         }
 
@@ -1342,6 +1469,13 @@ async function processarPagamentoTEF(tipo, valor, parcelas = 1, opcoes = {}) {
 
     } catch (error) {
         console.error('Erro TEF:', error);
+        if (Idem && idempotencyKey && typeof Idem.registrarResultado === 'function') {
+            Idem.registrarResultado(
+                idempotencyKey,
+                { codigo: 'TEF_ERRO', status: 'erro', mensagem: error.message },
+                { falhaAntesEnvio: !envioIniciado }
+            );
+        }
         showNotification(error.message || 'Erro ao processar TEF.', 'danger');
         return null;
     } finally {
@@ -2058,13 +2192,19 @@ function anexarTefAoPrimeiroPagamento(pagamentos, tef) {
     }
     return pagamentos.map((pagamento, indice) => {
         if (indice !== 0) return pagamento;
+        const tefObj = typeof tef === 'object' ? tef : { transacao_id: tef };
         return {
             ...pagamento,
-            tef_transacao_id: tef.transacao_id || pagamento.tef_transacao_id,
-            nsu: tef.nsu || pagamento.nsu,
-            autorizacao: tef.autorizacao || pagamento.autorizacao,
-            bandeira: tef.bandeira || pagamento.bandeira,
-            adquirente: tef.adquirente || pagamento.adquirente
+            tef_transacao_id: tefObj.transacao_id || pagamento.tef_transacao_id,
+            nsu: tefObj.nsu || pagamento.nsu,
+            autorizacao: tefObj.autorizacao || pagamento.autorizacao,
+            bandeira: tefObj.bandeira || pagamento.bandeira,
+            adquirente: tefObj.adquirente || pagamento.adquirente,
+            tef: {
+                ...(pagamento.tef || {}),
+                ...tefObj,
+                transacao_id: tefObj.transacao_id || pagamento.tef_transacao_id
+            }
         };
     });
 }
@@ -2310,7 +2450,7 @@ function obterFormaPagamentoFiscal() {
 
 function montarObjetoTEF(retornoTef) {
     return {
-        transacao_id: retornoTef.transacao_id,
+        transacao_id: retornoTef.transacao_id || retornoTef.tef_transacao_id,
         provedor: retornoTef.provedor,
         adquirente: retornoTef.adquirente,
         bandeira: retornoTef.bandeira,
@@ -2319,7 +2459,12 @@ function montarObjetoTEF(retornoTef) {
         codigo_transacao: retornoTef.codigo_transacao,
         comprovante_cliente: retornoTef.comprovante_cliente,
         comprovante_estabelecimento: retornoTef.comprovante_estabelecimento,
-        cnpj_credenciadora: retornoTef.cnpj_credenciadora
+        cnpj_credenciadora: retornoTef.cnpj_credenciadora,
+        // TEF-15: rastreio da operação (não usar valor/ordem para associar)
+        idempotency_key: retornoTef.idempotency_key || null,
+        operation_id: retornoTef.operation_id || null,
+        estado_vinculo: retornoTef.estado_vinculo || retornoTef.vinculo?.estado_vinculo || null,
+        venda_id: retornoTef.venda_id != null ? retornoTef.venda_id : null
     };
 }
 
@@ -5680,6 +5825,9 @@ function limparCarrinho() {
     formaPagamentoSelecionada = null;
     vendaPrazoInfo = null;
     clienteSelecionado = null;
+    if (window.TefIdempotencia && typeof window.TefIdempotencia.marcarNovaVenda === 'function') {
+        window.TefIdempotencia.marcarNovaVenda();
+    }
     $('#descontoPdv').val(0);
     $('#formaPagamentoPdv').val('');
     $('#pdvClienteBox').hide();
@@ -7150,6 +7298,9 @@ function finalizarPosVenda() {
     supervisorAuthToken = null;
     pdvEmitirFiscalNaVenda = null;
     valorRecebidoDinheiroPDV = null;
+    if (window.TefIdempotencia && typeof window.TefIdempotencia.marcarNovaVenda === 'function') {
+        window.TefIdempotencia.marcarNovaVenda();
+    }
     window.pdvTipoVenda = 'BALCAO';
     $('#descontoPdv').val(0);
     $('#formaPagamentoPdv').val('');
@@ -7191,10 +7342,10 @@ async function cancelarVendaAtual() {
 
     if (!window.confirm('Tem certeza que deseja cancelar esta venda?')) return;
 
-    // Cancelar pagamento fiscal se existir
+    // Cancelar pagamento fiscal se existir (TEF-17: só limpa se provedor confirmou)
     if (pagamentoFiscalAtual && pagamentoFiscalAtual.transacao_id) {
         try {
-            await fetch(`${API_URL}/tef/cancelar`, {
+            const cancelResp = await fetch(`${API_URL}/tef/cancelar`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -7205,17 +7356,31 @@ async function cancelarVendaAtual() {
                     motivo: 'Cancelamento operador'
                 })
             });
-            console.log('Pagamento fiscal cancelado pelo operador');
+            const cancelJson = await cancelResp.json().catch(() => ({}));
+            if (cancelJson && cancelJson.sucesso === true && cancelJson.cancelConfirmed !== false) {
+                console.log('Pagamento fiscal cancelado pelo operador');
+                pagamentoFiscalAtual = null;
+            } else {
+                showNotification(
+                    cancelJson?.mensagem
+                      || 'TEF não confirmou o cancelamento. A transação permanece rastreável — não trate como estornada.',
+                    'warning'
+                );
+                // Mantém referência da tx aprovada; não afirma estorno falso.
+            }
         } catch (cancelError) {
             console.error('Erro ao cancelar Recebimento A:', cancelError);
+            showNotification('Falha ao solicitar cancelamento TEF. Transação não foi marcada como estornada.', 'warning');
         }
-        pagamentoFiscalAtual = null;
     }
 
     carrinho = [];
     formaPagamentoSelecionada = null;
     clienteSelecionado = null;
     vendaPrazoInfo = null;
+    if (window.TefIdempotencia && typeof window.TefIdempotencia.marcarNovaVenda === 'function') {
+        window.TefIdempotencia.marcarNovaVenda();
+    }
     $('#descontoPdv').val(0);
     $('#formaPagamentoPdv').val('');
     $('#valorRecebidoPDV').val('');

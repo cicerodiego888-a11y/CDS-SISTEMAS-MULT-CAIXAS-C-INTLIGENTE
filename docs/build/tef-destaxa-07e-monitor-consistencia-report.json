@@ -1,7 +1,7 @@
 {
   "sprint": "TEF-DESTAXA-07E",
   "status": "READY_FOR_07F_PRECHECK",
-  "geradoEm": "2026-10-23T00:26:30.646Z",
+  "geradoEm": "2026-10-29T19:07:52.169Z",
   "ambiente": {
     "bancoAplicacaoAcessado": false,
     "bancoTeste": ":memory:",

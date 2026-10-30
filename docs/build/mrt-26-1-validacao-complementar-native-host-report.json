@@ -1,0 +1,214 @@
+{
+  "sprint": "MRT-26.1",
+  "title": "Validação complementar do Native Host",
+  "generatedAt": "2026-10-30T20:17:35.062Z",
+  "classificacao": "VALIDAÇÃO COMPLEMENTAR APROVADA",
+  "restricoesObservadas": {
+    "init": false,
+    "txStart": false,
+    "crt": false,
+    "continueFinanceiro": false,
+    "finalizeFinanceiro": false,
+    "enableReal": false,
+    "gateOff": true,
+    "bancoProducao": false,
+    "tefManagerRouterAdapter": false
+  },
+  "limitacaoSimulateBlocking": {
+    "reproduzFilaNativaSingleFlight": true,
+    "reproduzBusyWaitNaThreadHost": true,
+    "reproduzKoffiSincrono": false,
+    "reproduzChamadaDll": false,
+    "reproduzTcp60906": false,
+    "documento": "SIMULATE_BLOCKING valida IPC/ciclo de vida do Host, não a chamada Koffi/DLL Destaxa."
+  },
+  "diferenciacaoEncerramentos": {
+    "CONCLUSAO_NORMAL": "Operação IPC concluiu com sucesso; Host ainda vivo",
+    "ENCERRAMENTO_CONTROLADO": "SHUTDOWN explícito → STOPPED (nunca crash)",
+    "ENCERRAMENTO_INESPERADO": "Exit sem SHUTDOWN (ex.: exit 0 pós-disconnect adiado)",
+    "PERDA_IPC": "disconnect do canal com flag perdaIpc",
+    "CRASH_HOST": "code≠0, signal, ou SIMULATE_CRASH / kill"
+  },
+  "arquivosAlterados": [
+    "backend/services/tef/destaxa/DestaxaNativeHostClient.js (classificarEncerramentoHost)",
+    "tests/tef/mrt-26-1-validacao-complementar-native-host.test.js",
+    "docs/build/mrt-26-1-validacao-complementar-native-host-report.json"
+  ],
+  "pidsCriadosPeloTeste": [
+    13012,
+    3804,
+    8644,
+    11932,
+    1364
+  ],
+  "orfaosDetectados": [],
+  "cenarios": [
+    {
+      "nome": "SHUTDOWN → ENCERRAMENTO_CONTROLADO",
+      "ok": true
+    },
+    {
+      "nome": "perda IPC → PERDA_IPC (não controlado)",
+      "ok": true
+    },
+    {
+      "nome": "signal/code≠0 → CRASH_HOST",
+      "ok": true
+    },
+    {
+      "nome": "HOST_CRASHED code 0 sem SHUTDOWN → ENCERRAMENTO_INESPERADO (não controlado)",
+      "ok": true
+    },
+    {
+      "nome": "Operação interrompida permanece UNKNOWN (não aprovado/negado)",
+      "ok": true
+    },
+    {
+      "nome": "A. PID Host criado e vivo (conclusão normal)",
+      "ok": true,
+      "pid": 13012
+    },
+    {
+      "nome": "A. Conclusão normal da operação simulada",
+      "ok": true,
+      "pid": 13012,
+      "classificacao": "CONCLUSAO_NORMAL"
+    },
+    {
+      "nome": "A→encerrar: ENCERRAMENTO_CONTROLADO (não crash)",
+      "ok": true,
+      "pid": 13012,
+      "saida": {
+        "code": 0,
+        "signal": null,
+        "motivo": "SHUTDOWN",
+        "motivoIpc": null,
+        "operacaoEmVoo": null,
+        "transactionIdEmVoo": null,
+        "duracaoOperacaoMs": null,
+        "pidPai": 15200,
+        "em": "2026-10-30T20:17:35.177Z",
+        "classificacaoEncerramento": "ENCERRAMENTO_CONTROLADO"
+      },
+      "encerrado": true
+    },
+    {
+      "nome": "B. Encerramento controlado distinto de crash",
+      "ok": true,
+      "pid": 3804,
+      "saida": {
+        "code": 0,
+        "signal": null,
+        "motivo": "SHUTDOWN",
+        "motivoIpc": null,
+        "operacaoEmVoo": null,
+        "transactionIdEmVoo": null,
+        "duracaoOperacaoMs": null,
+        "pidPai": 15200,
+        "em": "2026-10-30T20:17:35.233Z",
+        "classificacaoEncerramento": "ENCERRAMENTO_CONTROLADO"
+      }
+    },
+    {
+      "nome": "C. Host vivo no início do bloqueio (PID do teste)",
+      "ok": true,
+      "pid": 8644
+    },
+    {
+      "nome": "C. Host permanece vivo após perda IPC durante nativa (adiamento MRT-26)",
+      "ok": true,
+      "pid": 8644,
+      "aindaVivoAposDisconnect": true
+    },
+    {
+      "nome": "C. Perda IPC classificada como PERDA_IPC (não ENCERRAMENTO_CONTROLADO)",
+      "ok": true,
+      "pid": 8644,
+      "saida": {
+        "code": 1,
+        "signal": null,
+        "motivo": "HOST_CRASHED",
+        "motivoIpc": "IPC_DISCONNECT",
+        "operacaoEmVoo": "SIMULATE_BLOCKING",
+        "transactionIdEmVoo": null,
+        "duracaoOperacaoMs": 513,
+        "pidPai": 15200,
+        "em": "2026-10-30T20:17:35.794Z",
+        "classificacaoEncerramento": "PERDA_IPC"
+      },
+      "resultadoErro": "HOST_CRASHED"
+    },
+    {
+      "nome": "C. Desfecho não é aprovação/negação financeira",
+      "ok": true,
+      "financialState": null
+    },
+    {
+      "nome": "D. SIMULATE_CRASH agenda crash (resposta crashAgendado ou canal cai)",
+      "ok": true,
+      "erro": null
+    },
+    {
+      "nome": "D. Crash do Host ≠ ENCERRAMENTO_CONTROLADO",
+      "ok": true,
+      "pid": 11932,
+      "saida": {
+        "code": 1,
+        "signal": null,
+        "motivo": "HOST_CRASHED",
+        "motivoIpc": null,
+        "operacaoEmVoo": null,
+        "transactionIdEmVoo": null,
+        "duracaoOperacaoMs": null,
+        "pidPai": 15200,
+        "em": "2026-10-30T20:17:35.846Z",
+        "classificacaoEncerramento": "CRASH_HOST"
+      },
+      "estado": "CRASHED"
+    },
+    {
+      "nome": "E. Kill externo → CRASH_HOST ou ENCERRAMENTO_INESPERADO (não controlado)",
+      "ok": true,
+      "pid": 1364,
+      "saida": {
+        "code": 1,
+        "signal": null,
+        "motivo": "HOST_CRASHED",
+        "motivoIpc": null,
+        "operacaoEmVoo": null,
+        "transactionIdEmVoo": null,
+        "duracaoOperacaoMs": null,
+        "pidPai": 15200,
+        "em": "2026-10-30T20:17:36.169Z",
+        "classificacaoEncerramento": "CRASH_HOST"
+      }
+    },
+    {
+      "nome": "Nenhum PID criado pelo teste permanece vivo (órfão)",
+      "ok": true,
+      "pidsCriados": [
+        13012,
+        3804,
+        8644,
+        11932,
+        1364
+      ],
+      "orfaos": []
+    },
+    {
+      "nome": "Gate financeiro OFF",
+      "ok": true
+    },
+    {
+      "nome": "Documentação: SIMULATE_BLOCKING ≠ Koffi integral",
+      "ok": true
+    }
+  ],
+  "tratamentoUnknownPreservado": {
+    "resultadoHostIndisponivel": true,
+    "financialState": "UNKNOWN",
+    "classificacao": "UNKNOWN"
+  },
+  "confirmacaoGateOff": true,
+  "resultadoFinal": "MRT-26.1 CONCLUÍDA — VALIDAÇÃO COMPLEMENTAR APROVADA"
+}

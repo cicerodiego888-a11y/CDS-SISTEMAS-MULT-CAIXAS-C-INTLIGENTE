@@ -1,0 +1,366 @@
+{
+  "sprint": "MRT-27",
+  "title": "Persistência obrigatória das operações TEF",
+  "generatedAt": "2026-10-30T20:25:21.985Z",
+  "classificacao": "PERSISTENCIA_OBRIGATORIA_APROVADA",
+  "restricoesObservadas": {
+    "init": false,
+    "txStart": false,
+    "crt": false,
+    "continueFinanceiro": false,
+    "finalizeFinanceiro": false,
+    "est": false,
+    "cancelamento": false,
+    "estorno": false,
+    "enableReal": false,
+    "gateOff": true,
+    "bancoProducao": false,
+    "mrt24Repetida": false,
+    "mrt24Liberada": false,
+    "operacaoFinanceira": false
+  },
+  "fluxoAnterior": {
+    "descricao": "MRT-24 chamou DestaxaRealAdapter.autorizarPagamento diretamente — sem TefManager.autorizar, sem INSERT em tef_transacoes; idempotency só em memória",
+    "risco": "Identidade perdida após queda do processo; impossível reconciliar"
+  },
+  "fluxoCorrigido": {
+    "passos": [
+      "PDV/API",
+      "TefManager.autorizar",
+      "garantirIdentidadeOperacao (fingerprint/operation_id/idempotency_key)",
+      "classificarIdempotencia (bloquear reenvio inconclusivo; preservar aprovado/negado)",
+      "criarTransacaoExclusiva + payload.persistencia",
+      "adapter.autorizarPagamento({ persistenciaConfirmada, transactionId })",
+      "DestaxaRealAdapter valida persistência",
+      "Native Host / DLL"
+    ],
+    "bypassBloqueado": true
+  },
+  "evidencias": {
+    "persistenciaAntesDll": {
+      "operation_id": "op-cliente-abc",
+      "fingerprint": "389ef02aba7044b3e6f027d0711978a3",
+      "idempotency_key": "tef-fp-389ef02aba7044b3e6f027d0711978a3",
+      "venda_id": 42,
+      "pdvId": "pdv-1",
+      "terminalTefId": "term-1",
+      "provedor": "destaxa",
+      "valor": 1,
+      "tipo": "credito",
+      "estadoFinanceiroInicial": "UNKNOWN",
+      "dataHora": "2026-10-30T20:25:21.993Z",
+      "persistidoAntesDll": true,
+      "sprint": "MRT-27"
+    },
+    "bloqueioSemPersistencia": {
+      "ok": false,
+      "codigo": "TEF_PERSISTENCIA_OBRIGATORIA",
+      "mensagem": "Operação financeira Destaxa exige TefManager.autorizar com identidade persistida antes da DLL",
+      "caminho": "PRODUCAO_TEF_MANAGER",
+      "transactionId": null,
+      "persistenciaConfirmada": false
+    },
+    "bloqueioChamadaDiretaAdapter": {
+      "codigo": "TEF_PERSISTENCIA_OBRIGATORIA",
+      "bridgeChamadas": {
+        "inicia": 0,
+        "enable": 1
+      }
+    },
+    "idempotenciaInconclusiva": {
+      "acao": "BLOQUEAR_REENVIAR",
+      "codigo": "TEF_OPERACAO_INCONCLUSIVA_SEM_REENVIO",
+      "reutilizar": true,
+      "bloquearEnvio": true,
+      "transacaoId": 12,
+      "status": "pendente",
+      "provedor": "destaxa",
+      "idempotency_key": "tef-fp-389ef02aba7044b3e6f027d0711978a3",
+      "financialState": "UNKNOWN",
+      "mesmoFingerprint": true,
+      "preservarUnknown": true
+    },
+    "recuperacaoAposReinicio": {
+      "transacaoId": "12",
+      "operation_id": "op-cliente-abc",
+      "idempotency_key": "tef-fp-389ef02aba7044b3e6f027d0711978a3",
+      "fingerprint": "389ef02aba7044b3e6f027d0711978a3",
+      "provedor": "destaxa",
+      "venda_id": 42,
+      "pdvId": "pdv-1",
+      "terminalTefId": "term-1",
+      "valor": 1,
+      "tipo": "credito",
+      "status": "pendente",
+      "financialState": "UNKNOWN",
+      "reenvioAutomaticoProibido": true,
+      "preservarUnknown": true
+    },
+    "provedorPreservado": "destaxa",
+    "unknownPreservado": true
+  },
+  "arquivosAnalisados": [
+    "backend/services/tef/TefManager.js",
+    "backend/services/tef/tefRepository.js",
+    "backend/services/tef/tefPersistenciaObrigatoria.js",
+    "backend/services/tef/adapters/DestaxaRealAdapter.js",
+    "backend/services/tef/destaxa/DestaxaHostBridge.js",
+    "backend/services/tef/destaxa/destaxaCrtCicloOrquestracao.js",
+    "backend/services/tef/destaxa/destaxaHomologacaoCrtHarness.js",
+    "backend/database.js (schema tef_transacoes — reutilizado, sem migration)"
+  ],
+  "arquivosAlterados": [
+    "backend/services/tef/tefPersistenciaObrigatoria.js",
+    "backend/services/tef/TefManager.js",
+    "backend/services/tef/tefRepository.js",
+    "backend/services/tef/adapters/DestaxaRealAdapter.js",
+    "backend/services/tef/destaxa/DestaxaHostBridge.js",
+    "backend/services/tef/destaxa/destaxaCrtCicloOrquestracao.js",
+    "backend/services/tef/destaxa/destaxaConstantes.js",
+    "backend/services/tef/destaxa/destaxaHomologacaoCrtHarness.js",
+    "tests/tef/mrt-27-persistencia-obrigatoria-tef.test.js",
+    "docs/build/mrt-27-persistencia-obrigatoria-tef-report.json"
+  ],
+  "migration": {
+    "criada": false,
+    "motivo": "Schema tef_transacoes já possui idempotency_key, provedor, codigo_transacao, payload_retorno, venda_id — fingerprint/operation_id em payload.persistencia"
+  },
+  "testes": [
+    {
+      "nome": "Identidade não usa Date.now exclusivo",
+      "ok": true,
+      "operation_id": "op-cliente-abc",
+      "fingerprint": "389ef02aba7044b3e6f027d0711978a3",
+      "idempotency_key": "tef-fp-389ef02aba7044b3e6f027d0711978a3"
+    },
+    {
+      "nome": "Mesma operação → mesmo fingerprint",
+      "ok": true,
+      "fpA": "389ef02aba7044b3e6f027d0711978a3",
+      "fpB": "389ef02aba7044b3e6f027d0711978a3"
+    },
+    {
+      "nome": "1. Persistência pré-envio contém campos obrigatórios",
+      "ok": true,
+      "bloco": {
+        "operation_id": "op-cliente-abc",
+        "fingerprint": "389ef02aba7044b3e6f027d0711978a3",
+        "idempotency_key": "tef-fp-389ef02aba7044b3e6f027d0711978a3",
+        "venda_id": 42,
+        "pdvId": "pdv-1",
+        "terminalTefId": "term-1",
+        "provedor": "destaxa",
+        "valor": 1,
+        "tipo": "credito",
+        "estadoFinanceiroInicial": "UNKNOWN",
+        "dataHora": "2026-10-30T20:25:21.993Z",
+        "persistidoAntesDll": true,
+        "sprint": "MRT-27"
+      }
+    },
+    {
+      "nome": "2. Sem persistência → bloqueio",
+      "ok": true,
+      "guardSemPersistencia": {
+        "ok": false,
+        "codigo": "TEF_PERSISTENCIA_OBRIGATORIA",
+        "mensagem": "Operação financeira Destaxa exige TefManager.autorizar com identidade persistida antes da DLL",
+        "caminho": "PRODUCAO_TEF_MANAGER",
+        "transactionId": null,
+        "persistenciaConfirmada": false
+      }
+    },
+    {
+      "nome": "Com persistência confirmada → libera caminho TefManager",
+      "ok": true,
+      "guardComPersistencia": {
+        "ok": true,
+        "caminho": "PRODUCAO_TEF_MANAGER",
+        "transactionId": "9001",
+        "operation_id": "op-cliente-abc",
+        "fingerprint": "389ef02aba7044b3e6f027d0711978a3",
+        "persistenciaConfirmada": true
+      }
+    },
+    {
+      "nome": "8. Chamada direta Adapter sem persistência → bloqueada",
+      "ok": true,
+      "codigo": "TEF_PERSISTENCIA_OBRIGATORIA",
+      "bridgeChamadas": {
+        "inicia": 0,
+        "enable": 1
+      }
+    },
+    {
+      "nome": "Com persistência + gate OFF → não chama TX_START (gate bloqueia)",
+      "ok": true,
+      "codigo": "DESTAXA_REAL_TRANSACTION_DISABLED",
+      "bridgeChamadas": {
+        "inicia": 0,
+        "enable": 1
+      }
+    },
+    {
+      "nome": "4. Aprovada → preservar aprovação / bloquear reenvio",
+      "ok": true,
+      "idemAprov": {
+        "acao": "PRESERVAR_APROVACAO",
+        "codigo": "TEF_OPERACAO_APROVADA_PRESERVADA",
+        "reutilizar": true,
+        "bloquearEnvio": true,
+        "transacaoId": 10,
+        "status": "aprovado",
+        "provedor": "destaxa",
+        "idempotency_key": "tef-fp-389ef02aba7044b3e6f027d0711978a3",
+        "mesmoFingerprint": true
+      }
+    },
+    {
+      "nome": "Negada → preservar negativa conclusiva",
+      "ok": true,
+      "idemNeg": {
+        "acao": "PRESERVAR_NEGATIVA",
+        "codigo": "TEF_OPERACAO_NEGADA_PRESERVADA",
+        "reutilizar": true,
+        "bloquearEnvio": true,
+        "transacaoId": 11,
+        "status": "negado",
+        "provedor": "destaxa",
+        "idempotency_key": "tef-fp-389ef02aba7044b3e6f027d0711978a3",
+        "mesmoFingerprint": true
+      }
+    },
+    {
+      "nome": "3/5. Mesma operation/fingerprint inconclusiva → reutiliza e bloqueia 2º envio",
+      "ok": true,
+      "idemInc": {
+        "acao": "BLOQUEAR_REENVIAR",
+        "codigo": "TEF_OPERACAO_INCONCLUSIVA_SEM_REENVIO",
+        "reutilizar": true,
+        "bloquearEnvio": true,
+        "transacaoId": 12,
+        "status": "pendente",
+        "provedor": "destaxa",
+        "idempotency_key": "tef-fp-389ef02aba7044b3e6f027d0711978a3",
+        "financialState": "UNKNOWN",
+        "mesmoFingerprint": true,
+        "preservarUnknown": true
+      }
+    },
+    {
+      "nome": "6. Recuperação preserva transactionId / idempotency / provedor",
+      "ok": true,
+      "recuperada": {
+        "transacaoId": "12",
+        "operation_id": "op-cliente-abc",
+        "idempotency_key": "tef-fp-389ef02aba7044b3e6f027d0711978a3",
+        "fingerprint": "389ef02aba7044b3e6f027d0711978a3",
+        "provedor": "destaxa",
+        "venda_id": 42,
+        "pdvId": "pdv-1",
+        "terminalTefId": "term-1",
+        "valor": 1,
+        "tipo": "credito",
+        "status": "pendente",
+        "financialState": "UNKNOWN",
+        "reenvioAutomaticoProibido": true,
+        "preservarUnknown": true
+      }
+    },
+    {
+      "nome": "7. Provedor original preservado na recuperação",
+      "ok": true,
+      "provedor": "destaxa"
+    },
+    {
+      "nome": "9. venda_id recuperável no vínculo",
+      "ok": true,
+      "venda_id": 42
+    },
+    {
+      "nome": "10. UNKNOWN preservado sem evidência conclusiva",
+      "ok": true,
+      "financialState": "UNKNOWN"
+    },
+    {
+      "nome": "TX_START gate ON sem transactionId → bloqueado",
+      "ok": true,
+      "txSemId": {
+        "ok": false,
+        "codigo": "TEF_TX_START_SEM_IDENTIDADE_PERSISTIDA",
+        "mensagem": "TX_START com gate ON exige transactionId persistido (TefManager)",
+        "exigido": true
+      }
+    },
+    {
+      "nome": "TX_START gate ON com transactionId → ok",
+      "ok": true,
+      "txComId": {
+        "ok": true,
+        "exigido": true,
+        "transactionId": "9001"
+      }
+    },
+    {
+      "nome": "Ciclo CRT sem transactionId + exigirPersistencia → sem TX_START",
+      "ok": true,
+      "codigo": "TEF_PERSISTENCIA_OBRIGATORIA",
+      "ciclo": {
+        "passos": [
+          {
+            "passo": "TX_START_BLOQUEADO",
+            "em": "2026-10-30T20:25:21.994Z",
+            "motivo": "TEF_PERSISTENCIA_OBRIGATORIA"
+          }
+        ],
+        "txStartExecutado": false,
+        "continues": 0,
+        "finalizado": false
+      }
+    },
+    {
+      "nome": "TefManager persiste antes de autorizarPagamento",
+      "ok": true
+    },
+    {
+      "nome": "TefManager: falha de persistência resolve TEF_PERSISTENCIA_FALHOU",
+      "ok": true
+    },
+    {
+      "nome": "Adapter exige validarPersistenciaAntesEnvioFinanceiro",
+      "ok": true
+    },
+    {
+      "nome": "Repository grava operation_id em codigo_transacao",
+      "ok": true
+    },
+    {
+      "nome": "Harness documenta separação PRODUCAO vs HARNESS",
+      "ok": true
+    },
+    {
+      "nome": "Idempotência classificada no TefManager",
+      "ok": true
+    },
+    {
+      "nome": "Caminho harness simulado (gate OFF) separado da produção",
+      "ok": true,
+      "harnessSim": {
+        "ok": true,
+        "caminho": "HARNESS_SIMULADO",
+        "transactionId": null,
+        "aviso": "Caminho harness simulado — sem envio financeiro real"
+      }
+    },
+    {
+      "nome": "Gate financeiro OFF",
+      "ok": true,
+      "REAL_TRANSACTION_ENV": null
+    }
+  ],
+  "confirmacoes": {
+    "operacaoFinanceira": false,
+    "gateFinanceiroOff": true,
+    "dllNaoChamada": true
+  }
+}

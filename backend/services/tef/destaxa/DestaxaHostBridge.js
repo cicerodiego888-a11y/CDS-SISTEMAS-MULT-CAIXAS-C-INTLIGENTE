@@ -108,6 +108,38 @@ class DestaxaHostBridge {
 
   async iniciarTransacaoDestaxa(operacao, camposEntrada = {}, opcoes = {}) {
     const transactionId = opcoes.transactionId != null ? String(opcoes.transactionId) : null;
+    // MRT-27 — com gate financeiro ON, TX_START exige identidade persistida
+    const { validarTxStartComPersistencia } = require('../tefPersistenciaObrigatoria');
+    const guardTx = validarTxStartComPersistencia({ transactionId }, null);
+    if (!guardTx.ok) {
+      return {
+        sucesso: false,
+        codigo: guardTx.codigo,
+        codigoDestaxa: guardTx.codigo,
+        mensagem: guardTx.mensagem,
+        estado: null,
+        naoExecutada: true,
+        retryAllowed: false,
+        retryReason: guardTx.codigo,
+        requerContinuacao: false,
+        contexto: null
+      };
+    }
+    // MRT-31 — documenta envelope IPC (transactionId ≠ campos DLL); não altera envio
+    try {
+      const { montarEnvelopeIpcTxStart } = require('./destaxaFluxoInstrumentacao');
+      const envelope = montarEnvelopeIpcTxStart({
+        operacao,
+        campos: sanitizar(camposEntrada),
+        transactionId
+      });
+      require('./destaxaLogger').registrar('fluxo.IPC_TX_START_ENVELOPE', {
+        transactionId: envelope.transactionId,
+        operacao: envelope.payload.operacao,
+        chavesCampos: Object.keys(envelope.payload.campos || {}),
+        transactionIdForaDaEntradaDll: true
+      });
+    } catch (_) { /* instrumentação best-effort */ }
     const r = await this._chamar(
       OPERACOES_HOST.TX_START,
       { operacao, campos: sanitizar(camposEntrada) },
@@ -118,18 +150,33 @@ class DestaxaHostBridge {
   }
 
   async continuarTransacaoDestaxa(respostaEntrada = {}, opcoes = {}) {
+    // MRT-23 — adapter pode ser recriado na continuidade; o IPC deve levar o
+    // transactionId do ciclo (não só this._transactionId do bridge novo).
+    const transactionId = opcoes.transactionId != null
+      ? String(opcoes.transactionId)
+      : (this._transactionId != null ? String(this._transactionId) : null);
+    if (transactionId) this._transactionId = transactionId;
     const r = await this._chamar(
       OPERACOES_HOST.TX_CONTINUE,
       { resposta: sanitizar(respostaEntrada) },
-      this._transactionId,
+      transactionId,
       opcoes
     );
-    return this._resultadoTransacional(r, this._transactionId);
+    return this._resultadoTransacional(r, transactionId);
   }
 
   async finalizarTransacaoDestaxa(confirmacao, opcoes = {}) {
-    const r = await this._chamar(OPERACOES_HOST.TX_FINALIZE, { confirmacao }, this._transactionId, opcoes);
-    return this._resultadoTransacional(r, this._transactionId);
+    const transactionId = opcoes.transactionId != null
+      ? String(opcoes.transactionId)
+      : (this._transactionId != null ? String(this._transactionId) : null);
+    if (transactionId) this._transactionId = transactionId;
+    const r = await this._chamar(
+      OPERACOES_HOST.TX_FINALIZE,
+      { confirmacao },
+      transactionId,
+      opcoes
+    );
+    return this._resultadoTransacional(r, transactionId);
   }
 
   async getTransacaoContexto() {

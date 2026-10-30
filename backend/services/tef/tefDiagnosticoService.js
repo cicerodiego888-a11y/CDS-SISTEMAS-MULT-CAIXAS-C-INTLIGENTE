@@ -7,6 +7,9 @@ const {
   ESTADOS,
   ESTADOS_PREPARACAO
 } = require('./destaxa/destaxaConstantes');
+const {
+  avaliarEvidenciasDestaxa
+} = require('./destaxa/destaxaEvidenciasOperacionais');
 const db = require('../../database');
 
 function promisifyGet(sql, params = []) {
@@ -173,6 +176,59 @@ function montarDiagnosticoPinpad(config, statusConfig, sdk, provedor, middleware
   };
 }
 
+function resolverEstadoInitClient(adapterTeste) {
+  const detalhes = adapterTeste && typeof adapterTeste === 'object'
+    ? (adapterTeste.detalhes || adapterTeste)
+    : null;
+
+  if (!detalhes || typeof detalhes !== 'object') {
+    return {
+      executed: 'NAO_EXECUTADO',
+      initialized: false,
+      code: null,
+      codeStatus: 'NAO_EXECUTADO'
+    };
+  }
+
+  if (detalhes.initClientExecuted === 'NAO_EXECUTADO' || detalhes.initClientExecuted === false) {
+    return {
+      executed: 'NAO_EXECUTADO',
+      initialized: false,
+      code: null,
+      codeStatus: 'NAO_EXECUTADO'
+    };
+  }
+
+  const codigoBruto = detalhes.clientResultCode ?? detalhes.codigoDestaxa;
+  const codigo = codigoBruto == null || codigoBruto === '' ? null : String(codigoBruto);
+  const marcadoExecutado = detalhes.initClientExecuted === true
+    || detalhes.initClientExecuted === 'EXECUTADO';
+  const evidenciaExecucao = marcadoExecutado
+    || codigo != null
+    || detalhes.estado === ESTADOS.CLIENT_INITIALIZED
+    || detalhes.estado === ESTADOS.CLIENT_ERROR;
+
+  // Nunca inferir execução/inicialização a partir de DLL ou processo V$Pague.
+  if (!evidenciaExecucao) {
+    return {
+      executed: 'NAO_EXECUTADO',
+      initialized: false,
+      code: null,
+      codeStatus: 'NAO_EXECUTADO'
+    };
+  }
+
+  const initialized = detalhes.clientInitialized === true
+    || detalhes.estado === ESTADOS.CLIENT_INITIALIZED;
+
+  return {
+    executed: 'EXECUTADO',
+    initialized,
+    code: codigo,
+    codeStatus: codigo != null ? 'INFORMADO' : 'NAO_INFORMADO'
+  };
+}
+
 function montarEstadoPreparacaoDestaxa({
   adapterDiag,
   adapterTeste,
@@ -180,13 +236,11 @@ function montarEstadoPreparacaoDestaxa({
   vspague,
   pinpad
 } = {}) {
-  const detalhesClient = adapterTeste?.detalhes || {};
-  const detalhesDll = adapterDiag?.detalhes || detalhesClient || {};
+  const detalhesDll = adapterDiag?.detalhes || {};
   const dllEncontrada = detalhesDll.dllExists === true
     || middlewareDestaxa?.dllEncontrada === true;
   const dllCarregada = detalhesDll.dllLoaded === true;
-  const clientInicializado = detalhesClient.clientInitialized === true
-    || detalhesClient.estado === ESTADOS.CLIENT_INITIALIZED;
+  const initClient = resolverEstadoInitClient(adapterTeste);
   const pinpadDetectado = pinpad?.hardware?.detectado === true;
 
   return {
@@ -204,12 +258,11 @@ function montarEstadoPreparacaoDestaxa({
       arquitetura: detalhesDll.dllArch || middlewareDestaxa?.dllArch || null
     },
     client: {
-      estado: clientInicializado ? ESTADOS.CLIENT_INITIALIZED : ESTADOS.CLIENT_NOT_INITIALIZED,
-      inicializado: clientInicializado,
-      codigo: detalhesClient.clientResultCode
-        || detalhesClient.codigoDestaxa
-        || adapterTeste?.detalhes?.codigoDestaxa
-        || null
+      estado: initClient.initialized ? ESTADOS.CLIENT_INITIALIZED : ESTADOS.CLIENT_NOT_INITIALIZED,
+      inicializado: initClient.initialized,
+      initClientExecuted: initClient.executed,
+      codigo: initClient.code,
+      codeStatus: initClient.codeStatus
     },
     vspague: {
       detectado: vspague?.detectado === true,
@@ -259,25 +312,34 @@ function montarEstadosIntegracao({
   const teste = adapterTeste?.detalhes || {};
   const diagnosticoTemEstadoClient = typeof diagnostico.clientInitialized === 'boolean'
     || typeof diagnostico.estado === 'string';
-  const clientInitialized = typeof diagnostico.clientInitialized === 'boolean'
+  const diagnosticoClientInitialized = typeof diagnostico.clientInitialized === 'boolean'
     ? diagnostico.clientInitialized
     : diagnostico.estado === ESTADOS.CLIENT_INITIALIZED;
-  const clientResultCode = diagnostico.clientResultCode || diagnostico.codigoDestaxa || null;
+  const diagnosticoClientCode = diagnostico.clientResultCode || diagnostico.codigoDestaxa || null;
   const testeTemEstadoClient = typeof teste.clientInitialized === 'boolean'
     || typeof teste.estado === 'string';
   const testeClientInitialized = typeof teste.clientInitialized === 'boolean'
     ? teste.clientInitialized
     : teste.estado === ESTADOS.CLIENT_INITIALIZED;
   const testeClientCode = teste.clientResultCode || teste.codigoDestaxa || null;
+  const initClient = resolverEstadoInitClient(adapterTeste);
   const clientSnapshotConsistent = diagnosticoTemEstadoClient
     && testeTemEstadoClient
-    && clientInitialized === testeClientInitialized
-    && (!clientResultCode || !testeClientCode || clientResultCode === testeClientCode);
+    && diagnosticoClientInitialized === testeClientInitialized
+    && (
+      !diagnosticoClientCode
+      || !testeClientCode
+      || String(diagnosticoClientCode) === String(testeClientCode)
+    );
   const pinpadDetectado = pinpad?.hardware?.detectado === true;
-  const portaConfigurada = String(config?.portaCom || '').trim().toUpperCase();
-  const portaDetectada = String(pinpad?.hardware?.porta || '').trim().toUpperCase();
+  const analisePortaConfigurada = tefConfigService.analisarPortaCom(config?.portaCom);
+  const analisePortaDetectada = tefConfigService.analisarPortaCom(pinpad?.hardware?.porta);
+  const comparacaoPorta = tefConfigService.compararPortaPinpad(
+    config?.portaCom,
+    pinpad?.hardware?.porta
+  );
   const portaConsistente = pinpad?.codigo === 'GERTEC_PPC930'
-    ? Boolean(portaConfigurada && portaDetectada && portaConfigurada === portaDetectada)
+    ? comparacaoPorta.coincidem === true
     : null;
 
   return {
@@ -292,8 +354,11 @@ function montarEstadosIntegracao({
       exportsValidated: diagnostico.exportsValid === true
     },
     client: {
-      initialized: clientInitialized,
-      code: clientResultCode,
+      // Nunca inferir a partir de V$Pague ou sucesso de DLL.
+      initialized: initClient.initialized,
+      initClientExecuted: initClient.executed,
+      code: initClient.code,
+      codeStatus: initClient.codeStatus,
       snapshotsConsistent: clientSnapshotConsistent
     },
     vspague: {
@@ -303,8 +368,17 @@ function montarEstadosIntegracao({
     },
     pinpad: {
       ppc930Enumerated: pinpadDetectado,
-      configuredPort: portaConfigurada || null,
-      detectedPort: portaDetectada || null,
+      configuredPort: analisePortaConfigurada.normalizada || null,
+      detectedPort: analisePortaDetectada.normalizada || null,
+      configuredPortOriginal: analisePortaConfigurada.original || null,
+      detectedPortOriginal: analisePortaDetectada.original || null,
+      configuredPortSuspeita: analisePortaConfigurada.suspeita === true,
+      detectedPortSuspeita: analisePortaDetectada.suspeita === true,
+      configuredPortValida: analisePortaConfigurada.valida === true,
+      detectedPortValida: analisePortaDetectada.valida === true,
+      portCorrectionApplied: analisePortaConfigurada.correcaoAplicada || analisePortaDetectada.correcaoAplicada || null,
+      portCorrectionSilent: false,
+      motivoSuspeitaPorta: analisePortaConfigurada.motivoSuspeita || analisePortaDetectada.motivoSuspeita || null,
       comConsistent: portaConsistente
     },
     transactionCommunication: {
@@ -385,7 +459,9 @@ async function executarDiagnosticoCompleto() {
   try {
     if (statusConfig?.configurado !== false) {
       adapter = await obterAdapter();
-      adapterTeste = await adapter.testarConexao();
+      // TEF-PPC930-04: não executar INIT_CLIENT automaticamente no diagnóstico.
+      // AdapterDiag permanece só com LOAD/exports; initClientExecuted = NAO_EXECUTADO.
+      adapterTeste = null;
       adapterDiag = await adapter.diagnosticar();
     }
   } catch (error) {
@@ -474,6 +550,8 @@ async function executarDiagnosticoCompleto() {
     configuracaoValida,
     comunicacaoRealDisponivel,
     clientInicializado: estadosIntegracao.client.initialized,
+    initClientExecutado: estadosIntegracao.client.initClientExecuted,
+    clientCodigoStatus: estadosIntegracao.client.codeStatus,
     vspagueExecutando: estadosIntegracao.vspague.running,
     ppc930Enumerado: estadosIntegracao.pinpad.ppc930Enumerated,
     portaComConsistente: estadosIntegracao.pinpad.comConsistent,
@@ -529,26 +607,64 @@ async function executarDiagnosticoCompleto() {
         : estadosIntegracao.transactionCommunication.explanation
     },
     {
+      chave: 'init_client_executado',
+      ok: estadosIntegracao.client.initClientExecuted === 'EXECUTADO',
+      detalhe: {
+        status: estadosIntegracao.client.initClientExecuted,
+        codigo: estadosIntegracao.client.code,
+        codeStatus: estadosIntegracao.client.codeStatus
+      }
+    },
+    {
+      chave: 'client_destaxa_codigo',
+      ok: estadosIntegracao.client.codeStatus === 'INFORMADO' && estadosIntegracao.client.code === '00',
+      detalhe: {
+        codeStatus: estadosIntegracao.client.codeStatus,
+        codigo: estadosIntegracao.client.codeStatus === 'NAO_EXECUTADO'
+          ? 'NAO_EXECUTADO'
+          : estadosIntegracao.client.code
+      }
+    },
+    {
       chave: 'client_destaxa_inicializado',
       ok: estadosIntegracao.client.initialized,
       detalhe: {
-        codigo: estadosIntegracao.client.code,
+        initClientExecuted: estadosIntegracao.client.initClientExecuted,
+        codigo: estadosIntegracao.client.codeStatus === 'NAO_EXECUTADO'
+          ? 'NAO_EXECUTADO'
+          : estadosIntegracao.client.code,
         snapshotsConsistent: estadosIntegracao.client.snapshotsConsistent
       }
     },
     {
       chave: 'client_destaxa_snapshots_consistentes',
-      ok: provedor !== 'destaxa' || estadosIntegracao.client.snapshotsConsistent,
+      ok: provedor !== 'destaxa'
+        || estadosIntegracao.client.initClientExecuted !== 'EXECUTADO'
+        || estadosIntegracao.client.snapshotsConsistent,
       detalhe: provedor === 'destaxa'
-        ? estadosIntegracao.client.snapshotsConsistent
-          ? 'Snapshots de teste e diagnóstico coerentes.'
-          : 'Snapshots de Client divergentes ou ausentes.'
+        ? (estadosIntegracao.client.initClientExecuted === 'NAO_EXECUTADO'
+          ? 'INIT_CLIENT não executado — consistência de snapshots não aplicável.'
+          : (estadosIntegracao.client.snapshotsConsistent
+            ? 'Snapshots de teste e diagnóstico coerentes.'
+            : 'Snapshots de Client divergentes ou ausentes.'))
         : 'Não aplicável a este provedor.'
     },
     {
       chave: 'vspague_detectado',
       ok: estadosIntegracao.vspague.detected && estadosIntegracao.vspague.running,
-      detalhe: estadosIntegracao.vspague
+      detalhe: {
+        ...estadosIntegracao.vspague,
+        observacao: 'Processo detectado não implica Client Destaxa inicializado.'
+      }
+    },
+    {
+      chave: 'dll_carregada_exports',
+      ok: estadosIntegracao.dll.loaded && estadosIntegracao.dll.exportsValidated,
+      detalhe: {
+        loaded: estadosIntegracao.dll.loaded,
+        exportsValidated: estadosIntegracao.dll.exportsValidated,
+        observacao: 'Sucesso de DLL/exports não implica Client inicializado.'
+      }
     },
     {
       chave: 'pinpad_windows_enumerado',
@@ -558,7 +674,12 @@ async function executarDiagnosticoCompleto() {
     {
       chave: 'porta_com_consistente',
       ok: estadosIntegracao.pinpad.comConsistent === true,
-      detalhe: estadosIntegracao.pinpad
+      detalhe: {
+        ...estadosIntegracao.pinpad,
+        observacao: estadosIntegracao.pinpad.configuredPortSuspeita
+          ? 'Porta configurada suspeita (ex.: CON3); sem conversão silenciosa.'
+          : 'Valor configurado distinto do detectado pelo Windows quando divergente.'
+      }
     },
     {
       chave: 'autorizacao_disponivel',
@@ -632,9 +753,22 @@ async function executarDiagnosticoCompleto() {
   const totalOk = itens.filter((i) => i.ok).length;
   const percentual = Math.round((totalOk / itens.length) * 100);
 
+  const evidenciasDestaxa = provedor === 'destaxa'
+    ? avaliarEvidenciasDestaxa({
+      config,
+      estadosIntegracao,
+      adapterDiag
+    })
+    : null;
+
+  const pendenciasDestaxa = (evidenciasDestaxa?.bloqueios || []).map(
+    (b) => `[${b.codigo}] ${b.mensagem}`
+  );
+
   return {
     sucesso: percentual >= 70,
     percentualProntidao: percentual,
+    tefProntoParaVenda: false,
     timestamp: new Date().toISOString(),
     resumo: {
       provedor,
@@ -642,10 +776,12 @@ async function executarDiagnosticoCompleto() {
       modoAdapter: modoAdapterFinal,
       tefHabilitado: config.tefHabilitado === 'true' || config.tefHabilitado === true,
       pinpad: pinpadDiagnostico.rotulo || pinpadDiagnostico.codigo || null,
+      tefProntoParaVenda: false,
       ...conceitos
     },
     conceitos,
     estadosIntegracao,
+    evidenciasDestaxa,
     pinpad: pinpadDiagnostico,
     preparacaoDestaxa,
     pinpadAbstracao: pinpadInstancia
@@ -676,7 +812,8 @@ async function executarDiagnosticoCompleto() {
         : []),
       ...(adapter?.modo === 'real_pendente_sdk'
         ? ['Estrutura real pronta — falta conectar SDK no adapter']
-        : [])
+        : []),
+      ...pendenciasDestaxa
     ]
   };
 }
@@ -688,6 +825,8 @@ module.exports = {
   montarDiagnosticoPinpad,
   montarEstadoPreparacaoDestaxa,
   montarEstadosIntegracao,
+  resolverEstadoInitClient,
   resolverValidacaoMiddleware,
-  resolverStatusPinpad
+  resolverStatusPinpad,
+  avaliarEvidenciasDestaxa
 };

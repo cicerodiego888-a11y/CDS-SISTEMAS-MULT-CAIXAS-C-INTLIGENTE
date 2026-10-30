@@ -74,11 +74,12 @@ function criarTransacaoExclusiva(dados, callback) {
       status,
       provedor,
       idempotency_key,
+      codigo_transacao,
       payload_retorno,
       criado_em,
       atualizado_em
     )
-    SELECT ?, ?, ?, ?, 'pendente', ?, ?, ?, datetime('now'), datetime('now')
+    SELECT ?, ?, ?, ?, 'pendente', ?, ?, ?, ?, datetime('now'), datetime('now')
     WHERE NOT EXISTS (SELECT 1 FROM tef_transacoes WHERE status = 'pendente')
   `, [
     dados.venda_id || null,
@@ -87,6 +88,7 @@ function criarTransacaoExclusiva(dados, callback) {
     dados.parcelas || 1,
     dados.provedor || 'SITEF',
     dados.idempotency_key || null,
+    dados.codigo_transacao || dados.operation_id || null,
     payloadRetornoCriptografado
   ], function (err) {
     if (err) return callback(err, null);
@@ -104,7 +106,8 @@ function listarTransacoesPendentes(callback) {
 
 function consultarPendentes(callback) {
   db.all(`
-    SELECT id, status, provedor, tipo, codigo_transacao, payload_retorno, criado_em, atualizado_em
+    SELECT id, status, provedor, tipo, valor, venda_id, idempotency_key,
+           codigo_transacao, payload_retorno, criado_em, atualizado_em
     FROM tef_transacoes
     WHERE status = 'pendente'
     ORDER BY id ASC

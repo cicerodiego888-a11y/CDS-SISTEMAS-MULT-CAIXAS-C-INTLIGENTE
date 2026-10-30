@@ -1,0 +1,178 @@
+{
+  "sprint": "MRT-14",
+  "title": "Auditoria de persistência da identidade do provedor",
+  "generatedAt": "2026-10-30T12:35:00.000Z",
+  "status": "MRT-14 CONCLUÍDA — PERSISTÊNCIA VALIDADA",
+  "tipo": "diagnostico_com_correcoes_pontuais",
+  "restricoesObservadas": {
+    "bancoOficialAlterado": false,
+    "migrationsAplicadas": false,
+    "initReal": false,
+    "pagamentoCancelamentoEstornoReal": false,
+    "paygoImplementado": false,
+    "sitefImplementado": false,
+    "adaptersAlterados": false,
+    "mrt01a13Preservados": true,
+    "tef13a17Preservados": true,
+    "destaxaSingleton": true
+  },
+  "1_camposPersistidos": {
+    "tef_transacoes.provedor": {
+      "duravel": true,
+      "ancoraPosReinicio": true,
+      "nota": "Gravado no INSERT (criarTransacaoExclusiva); atualizarTransacao NÃO altera esta coluna — impede troca de provedor"
+    },
+    "tef_transacoes.payload_retorno.identidadeAdapter": {
+      "duravel": true,
+      "conteudo": [
+        "provedor",
+        "adapterNome",
+        "terminalTefId",
+        "ambiente",
+        "fonte",
+        "executionMode",
+        "registro (snapshot empresa/loja/terminal)"
+      ],
+      "criptografia": "via tefRepository (criptografarObjeto)"
+    },
+    "payload_retorno.roteamento": {
+      "duravel": true,
+      "conteudo": ["terminalTefId", "dispositivoId", "pdvId", "leaseId", "runtimeKey", "topologia", "modo"]
+    },
+    "payload_retorno.execucao": {
+      "duravel": true,
+      "conteudo": ["instancia", "pid", "iniciadoEm"],
+      "uso": "TEF-14 — distinguir processo vivo vs órfão na recuperação"
+    },
+    "tef_transacoes.id": {
+      "duravel": true,
+      "papel": "identificador CDS da transação TEF"
+    },
+    "nsu / autorizacao / codigo_transacao": {
+      "duravel": true,
+      "papel": "identificadores no provedor para consulta/cancelamento/estorno"
+    }
+  },
+  "2_camposTemporariosMemoria": {
+    "_pendencias": "Map em TefManager — espelho de linhas pendente; reconstruído por recarregarPendencias após reinício",
+    "_emExecucao": "Set de TX em voo na instância atual — perdido no restart (esperado)",
+    "_autorizacaoEmCurso": "mutex de processo — perdido no restart",
+    "RouteDecision / adapterSelection": "somente durante autorização em curso — não sobrevivem sozinhos; materializados em provedor + payload",
+    "lease TerminalAllocator": "memória; holds MRT-07 após restart sem repetir pagamento"
+  },
+  "3_comportamentoAposReinicializacao": {
+    "1_aprovada": {
+      "resultado": "APROVADO",
+      "provedorOriginal": "recuperado da coluna provedor (+ identidadeAdapter se merge preservou)",
+      "consultaCancelamento": "obterAdapterDaTransacao — sem LIMIT 1 cego"
+    },
+    "2_inconclusiva": {
+      "resultado": "APROVADO",
+      "nota": "status/erro com identidade preservada no merge de timeout pré-envio; coluna provedor intacta"
+    },
+    "3_pendenteReconciliacao": {
+      "resultado": "APROVADO",
+      "fluxo": "recarregarPendencias lê provedor da linha; trava RECONCILIACAO_PENDENTE; nova autorização bloqueada"
+    },
+    "4_resultadoTardioAposReinicio": {
+      "resultado": "APROVADO",
+      "fluxo": "_registrarResultadoTardio agora lê payload anterior e mescla identidade antes de gravar"
+    },
+    "5_consultaAposReinicio": {
+      "resultado": "APROVADO",
+      "fluxo": "_buscarTransacaoCompleta hidrata payload; ciclo resolve provedor (coluna ou identidadeAdapter)"
+    },
+    "6_cancelamentoAposReinicio": {
+      "resultado": "APROVADO",
+      "fluxo": "obterAdapterDaTransacao + merge de payload no cancel; TEF-17 inalterado"
+    },
+    "7_adapterIndisponivel": {
+      "resultado": "APROVADO",
+      "fluxo": "erro explícito (ex. DESTAXA_AMBIENTE_INVALIDO) — sem fallback para outro provedor"
+    }
+  },
+  "4_cenarios": {
+    "aprovados": [
+      "Âncora coluna provedor sobrevive a qualquer UPDATE de status/payload",
+      "Merge preserva identidadeAdapter/roteamento/execucao nos rewrites",
+      "Reinício recupera provedor original para consulta/cancelamento",
+      "Ausência de provedor → erro explícito sem LIMIT 1",
+      "Adapter indisponível → erro explícito",
+      "Inconclusivos permanecem bloqueados (TEF-14)",
+      "Timeout não vira cancelamento",
+      "Recuperação não chama autorizarPagamento automaticamente"
+    ],
+    "reprovadosAntesDaCorrecaoPontual": [
+      {
+        "id": "R1",
+        "descricao": "atualizarTransacao após aprovação/tardio/reconciliação/cancel substituía payload_retorno e apagava identidadeAdapter/roteamento/execucao",
+        "correcao": "mesclarPayloadPreservandoIdentidade + hidratação no _buscarTransacaoCompleta"
+      }
+    ],
+    "aindaLimitadosSemMigration": [
+      "terminal_tef_id / provedor_chave não existem como colunas indexáveis — ficam no JSON",
+      "TX legadas só com adapter.nome dependem de aliases",
+      "DEFAULT SQL SITEF permanece no schema (não alterado)"
+    ]
+  },
+  "5_riscosPerdaIdentidade": [
+    {
+      "risco": "Rewrite de payload sem merge",
+      "mitigacao": "aplicada nos caminhos TefManager identificados (auth, timeout pré-envio, tardio, reconciliação, cancel)"
+    },
+    {
+      "risco": "Payload criptografado lido cru em cancel/consulta",
+      "mitigacao": "lerPayloadTransacao / hidratarTransacaoParaCiclo descriptografam"
+    },
+    {
+      "risco": "Memória _pendencias perdida no restart",
+      "mitigacao": "esperado — reconstrução a partir de linhas pendente + coluna provedor"
+    },
+    {
+      "risco": "Config instalação trocada após TX",
+      "mitigacao": "ciclo força provedor da TX; snapshot registro em identidadeAdapter reduz dependência do LIMIT 1 atual"
+    }
+  ],
+  "6_migrationPropostaNaoAplicada": {
+    "id": "MRT-14-PROP-colunas-identidade-tef",
+    "objetivo": "Tornar identidade indexável e auditável sem depender só do JSON criptografado",
+    "sqlSugerido": [
+      "ALTER TABLE tef_transacoes ADD COLUMN provedor_chave TEXT",
+      "ALTER TABLE tef_transacoes ADD COLUMN terminal_tef_id TEXT",
+      "ALTER TABLE tef_transacoes ADD COLUMN adapter_nome TEXT",
+      "ALTER TABLE tef_transacoes ADD COLUMN ambiente_tef TEXT",
+      "CREATE INDEX IF NOT EXISTS idx_tef_tx_provedor_chave ON tef_transacoes(provedor_chave)",
+      "CREATE INDEX IF NOT EXISTS idx_tef_tx_terminal_tef ON tef_transacoes(terminal_tef_id)"
+    ],
+    "backfill": "FROM provedor + json_extract/descriptografia de payload.identidadeAdapter",
+    "aplicacao": "NÃO aplicada nesta sprint"
+  },
+  "7_alteracoesPontuais": [
+    {
+      "path": "backend/services/tef/tefAdapterCiclo.js",
+      "acao": "mesclarPayloadPreservandoIdentidade, hidratarTransacaoParaCiclo, lerPayload com decrypt"
+    },
+    {
+      "path": "backend/services/tef/TefManager.js",
+      "acao": "merge de identidade em auth/timeout/tardio/reconciliação/cancel; hidratar _buscarTransacaoCompleta"
+    },
+    {
+      "path": "tests/tef/mrt-14-persistencia-identidade.test.js",
+      "acao": "criado"
+    },
+    {
+      "path": "docs/build/mrt-14-persistencia-identidade-report.json",
+      "acao": "criado"
+    }
+  ],
+  "testes": {
+    "arquivo": "tests/tef/mrt-14-persistencia-identidade.test.js",
+    "resultado": "OK",
+    "regressoes": [
+      "mrt-13-ciclo-adapter.test.js — OK",
+      "mrt-12-route-decision-adapter.test.js — OK"
+    ]
+  },
+  "parecerTecnico": "A âncora durável é tef_transacoes.provedor (imutável nos UPDATEs). A lacuna crítica era o rewrite de payload_retorno apagando identidadeAdapter após desfecho/tardio/cancel — corrigida pontualmente com merge, sem migration. Após reinício, consulta/cancelamento/estorno recuperam o provedor original via ciclo; ausência ou adapter indisponível falham de forma explícita; inconclusivos e TEF-14/17 permanecem seguros. Colunas dedicadas continuam recomendadas, mas não bloqueiam a validação atual.",
+  "resultadoFinal": "MRT-14 CONCLUÍDA — PERSISTÊNCIA VALIDADA"
+}

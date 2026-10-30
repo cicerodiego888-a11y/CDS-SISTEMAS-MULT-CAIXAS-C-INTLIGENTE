@@ -1,0 +1,48 @@
+{
+  "sprint": "TEF-13",
+  "title": "Idempotência estável e retry seguro após timeout",
+  "generatedAt": "2026-10-30T01:20:00.000Z",
+  "status": "TEF-13 CONCLUÍDA — IDEMPOTÊNCIA ESTÁVEL VALIDADA",
+  "officialDbMutated": false,
+  "financialTransaction": false,
+  "initClient": false,
+  "gatesEnabled": false,
+  "tefManagerRewritten": false,
+  "orphanPendingPolicyChanged": false,
+  "arquivosModificados": [
+    "frontend/shared/js/tefIdempotencia.js (novo)",
+    "frontend/pdv/js/pdv.js",
+    "frontend/pdv/index.html",
+    "tests/tef/tef-13-idempotencia-estavel.test.js (novo)",
+    "docs/build/tef-13-idempotencia-estavel-report.json"
+  ],
+  "regraAnterior": "idempotency_key = pdv-{tipo}-{valor}-{Date.now()} — cada retry/timeout gerava identidade nova",
+  "regraNova": {
+    "chave": "pdv-op-{operationId}",
+    "fingerprint": "venda_id|tipo|valor|parcelas",
+    "reutilizaQuando": ["criado", "enviado", "inconclusivo", "abortado_antes_envio", "aprovado (anti 2ª cobrança UI)"],
+    "novaChaveQuando": ["fingerprint diferente", "estado negado", "marcarNovaVenda()", "novaOperacao:true"],
+    "timeout": "marca inconclusivo; retry reutiliza a mesma chave; não presume cancelamento"
+  },
+  "cicloDeVida": [
+    "obterOuCriarChave no início de processarPagamentoTEF",
+    "marcarEnviado imediatamente antes do fetch",
+    "registrarResultado com classificação aprovado/negado/inconclusivo",
+    "limpar via marcarNovaVenda em limparCarrinho, finalizarPosVenda, cancelarVendaAtual"
+  ],
+  "backendDuplicidade": {
+    "TefManager._verificarIdempotencia": "retorna TRANSACAO_DUPLICADA com transação existente",
+    "criarTransacaoExclusiva": "uma pendente global (TEF-14 trata órfãs)",
+    "timeout": "retryAllowed:false — PDV não trata como cancelado"
+  },
+  "testes": {
+    "comando": "node tests/tef/tef-13-idempotencia-estavel.test.js",
+    "resultado": "13 ok, 0 falha(s)"
+  },
+  "riscosRemanescentes": [
+    "TEF-14: pendente órfã global ainda pode bloquear novas autorizações",
+    "venda_id frequentemente null — fingerprint depende também de limpar sessão na nova venda",
+    "Cancelamento Destaxa ainda não implementado (TEF-12/17)",
+    "Duplo clique coberto por __tefPagamentoEmAndamento + mesma chave; concorrência multi-aba não coberta"
+  ]
+}

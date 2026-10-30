@@ -1,0 +1,164 @@
+{
+  "sprint": "MRT-24",
+  "title": "Primeira CRT real de homologação Destaxa — R$ 1,00",
+  "generatedAt": "2026-10-30T19:25:00.000Z",
+  "classificacao": "CRT INCONCLUSIVA",
+  "distinguicao": "Operação iniciada sem resultado conclusivo",
+  "restricoesObservadas": {
+    "crtUnica": true,
+    "valorCentavos": 100,
+    "ambiente": "homologacao",
+    "est": false,
+    "cancelamento": false,
+    "estorno": false,
+    "segundaCobranca": false,
+    "segundaTentativaAposInconclusivo": false,
+    "producao": false,
+    "migration": false,
+    "configDestaxaAlterada": false,
+    "bancoProducaoAlterado": false
+  },
+  "preValidacao": {
+    "ok": true,
+    "vspague": {
+      "detectado": true,
+      "executando": true,
+      "responding": true,
+      "pid": 8740,
+      "caminho": "C:\\VBI\\Java\\bin\\VSPagueClient.exe"
+    },
+    "pinpad": {
+      "modelo": "Gertec PPC930",
+      "porta": "COM4",
+      "detectado": true,
+      "estado": "DETECTADO",
+      "usb": true,
+      "dispositivo": {
+        "porta": "COM4",
+        "nome": "PPC-920/930 CDC USB-to-Serial Port (COM4)"
+      }
+    },
+    "crt": {
+      "provedor": "destaxa",
+      "ambiente": "homologacao",
+      "operacao": "CRT",
+      "valorCentavos": 100,
+      "somenteCrt": true,
+      "valorExatoR1": true
+    },
+    "load": {
+      "sucesso": true,
+      "exportsValid": true,
+      "estado": "EXPORTS_VALID",
+      "dllPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll"
+    },
+    "init": {
+      "sucesso": true,
+      "codigoDestaxa": "00",
+      "estado": "CLIENT_INITIALIZED",
+      "clientInitialized": true,
+      "clientResultCode": "00",
+      "chamadasInit": 1,
+      "pid": 10952
+    },
+    "gateFinanceiro": {
+      "env": "DESTAXA_REAL_TRANSACTION_ENABLED",
+      "enabled": true,
+      "nota": "Gate ligado somente após pré-validação, antes da CRT"
+    }
+  },
+  "execucao": {
+    "inicio": "2026-10-30T19:20:00.000Z",
+    "transactionId": "mrt24_5d70e3fb2328da54",
+    "idempotencyKey": "registrada_no_runtime_nao_persistida_apos_queda",
+    "valorCentavos": 100,
+    "resultado": {
+      "sucesso": false,
+      "status": "pendente",
+      "codigo": "MRT24_PROCESSO_INTERROMPIDO",
+      "mensagem": "TX_START foi enviado ao Native Host (log transacao.start). O processo Node encerrou em ~5,6s sem capturar TX_START_RESULT nem TX_FINALIZE. Sem aprovação/negação Destaxa registrada.",
+      "financialState": "UNKNOWN",
+      "inconclusivo": true,
+      "reconciliacaoObrigatoria": true,
+      "retryAllowed": false,
+      "requerContinuacao": false
+    },
+    "evidenciaLogRuntime": [
+      "transacao.real.driver.habilitado",
+      "transacao.start operation=CRT transactionId=mrt24_5d70e3fb2328da54 inputKeys=[transacao_valor]"
+    ],
+    "ausencias": [
+      "TX_START_RESULT",
+      "TX_CONTINUE",
+      "TX_FINALIZE",
+      "codigo Destaxa conclusivo 00/03/04/09",
+      "relatório JSON gerado pelo próprio processo (queda antecipada)"
+    ]
+  },
+  "evidencias": {
+    "dataHora": "2026-10-30 (execução MRT-24)",
+    "ambiente": "homologacao",
+    "provedor": "destaxa",
+    "nativeHostPid": 10952,
+    "vspagueClientPid": 8740,
+    "init": "00 / CLIENT_INITIALIZED",
+    "dll": "resources/tef/destaxa/win-x64/libdll-integracao-tef.dll",
+    "exports": {
+      "iniciaClientDestaxa": true,
+      "iniciaTransacaoDestaxa": true,
+      "continuaTransacaoDestaxa": true,
+      "finalizaTransacaoDestaxa": true
+    },
+    "pinpadModelo": "Gertec PPC930",
+    "pinpadPorta": "COM4",
+    "transactionId": "mrt24_5d70e3fb2328da54",
+    "valorSolicitadoCentavos": 100,
+    "sequenciaObservada": [
+      "ENABLE_REAL",
+      "TX_START (enviado; resultado não capturado)"
+    ],
+    "segundoTxStart": false,
+    "tefManager": {
+      "usado": false,
+      "motivo": "CRT via DestaxaRealAdapter (caminho CDS TEF do adapter); sem gravação em banco de produção"
+    },
+    "vinculoVendaPdv": null,
+    "vspagueClientLog": {
+      "caminho": "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+      "lastWriteTime": "2026-10-30T14:39:16",
+      "nota": "Sem atualização no horário da CRT — não há evidência de conclusão no Client log"
+    },
+    "gateFinalOff": true,
+    "hostAposQueda": "clienteCompartilhadoExistente()=null/ausente no processo atual — host da tentativa não permanece neste processo Node"
+  },
+  "confirmacoes": {
+    "umUnicoTxStartObservadoNosLogs": true,
+    "nenhumaSegundaCrtExecutadaAposInconclusivo": true,
+    "nenhumEst": true,
+    "nenhumCancelamentoEstorno": true,
+    "semRetryAutomatico": true,
+    "semDadosSensiveisCartaoNoRelatorio": true,
+    "politicaInconclusivoRespeitada": "Não repetir CRT; não nova idempotency_key; timeout/queda ≠ negativa; 99 ≠ aprovação"
+  },
+  "problemas": [
+    {
+      "item": "captura_resultado",
+      "erro": "Processo de teste encerrou após TX_START sem gravar relatório nem TX_START_RESULT — estado financeiro UNKNOWN"
+    },
+    {
+      "item": "reconciliação",
+      "erro": "Transação mrt24_5d70e3fb2328da54 deve ser tratada como inconclusiva até reconciliação segura; bloqueio de nova cobrança mantido"
+    }
+  ],
+  "oQueImpedeClassificarSucessoOuNegada": [
+    "Ausência de código Destaxa conclusivo após TX_START",
+    "Ausência de TX_FINALIZE",
+    "Sem evidência no log V$Pague Client no horário da tentativa"
+  ],
+  "confirmacaoNenhumaSegundaOperacaoFinanceira": {
+    "mensagem": "Após o TX_START inconclusivo, nenhuma segunda CRT/EST/cancelamento/estorno foi executada (proibido pela sprint)",
+    "gateOffAposRegistro": true
+  },
+  "resultadoFinal": "MRT-24 CONCLUÍDA — CRT INCONCLUSIVA",
+  "aguardando": "Revisão do Tech Lead — não iniciar MRT-25; não repetir CRT sem nova autorização expressa"
+}

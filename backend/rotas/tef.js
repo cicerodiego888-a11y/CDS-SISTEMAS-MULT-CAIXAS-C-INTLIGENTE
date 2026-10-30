@@ -38,12 +38,21 @@ router.get('/fluxo-pdv', verificarToken, async (req, res) => {
 
 router.post('/pagar', async (req, res) => {
   try {
+    const tefVinculoVendaService = require('../services/tef/tefVinculoVendaService');
     const {
       venda_id,
       tipo,
       valor,
       parcelas,
-      idempotency_key
+      idempotency_key,
+      pdv_id,
+      pdvId,
+      terminal_id,
+      terminalId,
+      empresa_id,
+      empresaId,
+      loja_id,
+      lojaId
     } = req.body;
 
     if (!tipo) {
@@ -54,20 +63,55 @@ router.post('/pagar', async (req, res) => {
       return res.status(400).json({ error: 'Valor TEF inválido.' });
     }
 
+    const validacaoVenda = await tefVinculoVendaService.validarVendaIdParaPagamento(venda_id);
+    if (!validacaoVenda.ok) {
+      return res.status(400).json({
+        sucesso: false,
+        codigo: validacaoVenda.codigo,
+        error: validacaoVenda.mensagem,
+        estado_vinculo: validacaoVenda.estadoVinculo
+      });
+    }
+
     const resultado = await tefService.iniciarPagamento({
-      venda_id: venda_id || null,
+      venda_id: validacaoVenda.venda_id,
       tipo,
       valor: Number(valor),
       parcelas: Number(parcelas || 1),
-      idempotency_key: idempotency_key || null
+      idempotency_key: idempotency_key || null,
+      // MRT-02: identidade PDV = terminais.id (nunca hostname/MAC)
+      pdv_id: pdv_id ?? pdvId ?? terminal_id ?? terminalId ?? req.terminalId ?? null,
+      empresa_id: empresa_id ?? empresaId ?? null,
+      loja_id: loja_id ?? lojaId ?? null
     });
 
+    const transacaoId = resultado?.transacao_id || resultado?.transacaoId || resultado?.id || null;
+    const metaVinculo = tefVinculoVendaService.montarMetaRespostaPagamento({
+      vendaId: validacaoVenda.venda_id,
+      estadoVinculo: validacaoVenda.venda_id
+        ? tefVinculoVendaService.ESTADOS_VINCULO.VENDA_INFORMADA
+        : tefVinculoVendaService.ESTADOS_VINCULO.PENDENTE_FINALIZACAO,
+      idempotencyKey: idempotency_key || resultado?.idempotency_key || null,
+      transacaoId
+    });
+
+    const resposta = {
+      ...resultado,
+      ...metaVinculo,
+      vinculo: metaVinculo
+    };
+
     if (resultado.codigo === 'TRANSACAO_DUPLICADA' && !resultado.aprovado && resultado.sucesso !== true) {
-      return res.status(409).json(resultado);
+      return res.status(409).json(resposta);
+    }
+
+    // MRT-22 — continuidade CRT (99/COLETA/OPCAO): não é falha financeira definitiva
+    if (resultado.requerContinuacao === true) {
+      return res.status(202).json(resposta);
     }
 
     if (resultado.sucesso === false && resultado.codigo && !tefContrato.estaAprovado(resultado)) {
-      return res.status(422).json(resultado);
+      return res.status(422).json(resposta);
     }
 
     gravarAuditoria({
@@ -76,9 +120,11 @@ router.post('/pagar', async (req, res) => {
       modulo: 'tef',
       acao: 'iniciar_pagamento',
       referencia_tipo: 'tef_transacao',
-      referencia_id: resultado?.transacao_id || resultado?.id || null,
+      referencia_id: transacaoId,
       detalhes: {
-        venda_id: venda_id || null,
+        venda_id: validacaoVenda.venda_id,
+        estado_vinculo: metaVinculo.estado_vinculo,
+        idempotency_key: metaVinculo.idempotency_key,
         tipo,
         valor: Number(valor),
         aprovado: tefContrato.estaAprovado(resultado),
@@ -87,11 +133,82 @@ router.post('/pagar', async (req, res) => {
       ip_requisicao: req.ip || null
     }).catch((auditErr) => console.error('Erro ao gravar auditoria TEF pagar:', auditErr));
 
-    res.json(resultado);
+    res.json(resposta);
   } catch (error) {
     console.error('Erro TEF:', error);
     res.status(500).json({
       error: error.message || 'Erro ao processar TEF.'
+    });
+  }
+});
+
+/** MRT-22 — Continuidade CRT (COLETA/OPCAO). Sem TX_START / sem nova cobrança. */
+router.post('/continuar', async (req, res) => {
+  try {
+    const {
+      transacao_id,
+      transacaoId,
+      idempotency_key,
+      venda_id,
+      resposta_continuidade,
+      resposta,
+      acao
+    } = req.body || {};
+
+    const id = transacao_id ?? transacaoId;
+    if (id == null || String(id).trim() === '') {
+      return res.status(400).json({
+        sucesso: false,
+        codigo: 'TEF_CONTINUIDADE_SEM_TRANSACAO',
+        error: 'transacao_id obrigatório',
+        retryAllowed: false
+      });
+    }
+
+    const resultado = await tefService.continuarPagamento({
+      transacao_id: id,
+      idempotency_key: idempotency_key || null,
+      venda_id: venda_id != null ? venda_id : null,
+      resposta_continuidade: resposta_continuidade ?? resposta ?? null,
+      acao: acao || null
+    });
+
+    if (resultado.requerContinuacao === true) {
+      return res.status(202).json(resultado);
+    }
+
+    if (resultado.inconclusivo === true) {
+      return res.status(422).json({ ...resultado, retryAllowed: false });
+    }
+
+    if (resultado.sucesso === false && !tefContrato.estaAprovado(resultado)) {
+      const statusHttp = resultado.codigo === 'TEF_TRANSACAO_NAO_ENCONTRADA' ? 404 : 422;
+      return res.status(statusHttp).json(resultado);
+    }
+
+    gravarAuditoria({
+      usuario_id: req.user?.id || null,
+      usuario_nome: req.user?.username || req.user?.nome || null,
+      modulo: 'tef',
+      acao: 'continuar_pagamento_crt',
+      referencia_tipo: 'tef_transacao',
+      referencia_id: id,
+      detalhes: {
+        venda_id: venda_id || null,
+        idempotency_key: idempotency_key || null,
+        aprovado: tefContrato.estaAprovado(resultado),
+        ip: req.ip || null
+      },
+      ip_requisicao: req.ip || null
+    }).catch((auditErr) => console.error('Erro ao gravar auditoria TEF continuar:', auditErr));
+
+    return res.json(resultado);
+  } catch (error) {
+    console.error('Erro TEF continuar:', error);
+    res.status(500).json({
+      sucesso: false,
+      error: error.message || 'Erro ao continuar TEF.',
+      retryAllowed: false
     });
   }
 });
@@ -351,25 +468,9 @@ router.get('/eventos', (req, res) => {
 
 router.get('/transacoes-pendentes', async (req, res) => {
   try {
-    db.all(`
-      SELECT id, venda_id, tipo, valor, status, provedor, criado_em
-      FROM tef_transacoes
-      WHERE status = 'pendente'
-      ORDER BY criado_em DESC
-    `, (err, rows) => {
-      if (err) {
-        return res.status(500).json({
-          sucesso: false,
-          erro: err.message
-        });
-      }
-
-      res.json({
-        sucesso: true,
-        quantidade: rows.length,
-        transacoes: rows || []
-      });
-    });
+    const tefPendenciasService = require('../services/tef/tefPendenciasService');
+    const relatorio = await tefPendenciasService.listarPendenciasOperacionais({ db });
+    res.json(relatorio);
   } catch (error) {
     res.status(500).json({
       sucesso: false,
@@ -378,74 +479,80 @@ router.get('/transacoes-pendentes', async (req, res) => {
   }
 });
 
+/** Lote automático desativado (TEF-14) — risco de aprovar/descartar inconclusivas. */
 router.post('/reconciliar-pendentes', async (req, res) => {
+  const tefPendenciasService = require('../services/tef/tefPendenciasService');
+  const recusa = tefPendenciasService.rejeitarReconcilicaoEmLoteAutomatica();
+  return res.status(409).json(recusa);
+});
+
+/**
+ * Reconciliação explícita de uma pendência (operador).
+ * Body: { financialState, usuario?, observacao, confirmacao_explicita: true }
+ */
+router.post('/transacao/:id/reconciliar', async (req, res) => {
   try {
-    const tefManager = require('../services/tef/TefManager');
-
-    db.all(`
-      SELECT id, venda_id, tipo, valor, status, provedor, criado_em
-      FROM tef_transacoes
-      WHERE status = 'pendente'
-      ORDER BY criado_em DESC
-    `, async (err, rows) => {
-      if (err) {
-        return res.status(500).json({
-          sucesso: false,
-          erro: err.message
-        });
-      }
-
-      if (!rows || rows.length === 0) {
-        return res.json({
-          sucesso: true,
-          mensagem: 'Nenhuma transação pendente encontrada',
-          reconciliadas: 0
-        });
-      }
-
-      let reconciliadas = 0;
-      let falhas = 0;
-
-      for (const transacao of rows) {
-        try {
-          const resultado = await tefManager.consultar(transacao.id);
-
-          if (resultado && resultado.status && resultado.status !== 'pendente') {
-            await new Promise((resolve, reject) => {
-              db.run(`
-                UPDATE tef_transacoes
-                SET status = ?, nsu = COALESCE(?, nsu), autorizacao = COALESCE(?, autorizacao),
-                    atualizado_em = datetime('now')
-                WHERE id = ?
-              `, [resultado.status, resultado.nsu || null, resultado.autorizacao || null, transacao.id], (updateErr) => {
-                if (updateErr) return reject(updateErr);
-                resolve();
-              });
-            });
-            reconciliadas++;
-          } else {
-            falhas++;
-          }
-        } catch (error) {
-          console.error(`Erro ao reconciliar transação ${transacao.id}:`, error);
-          falhas++;
-        }
-      }
-
-      res.json({
-        sucesso: true,
-        mensagem: 'Reconciliação concluída',
-        total: rows.length,
-        reconciliadas,
-        falhas
+    const tefPendenciasService = require('../services/tef/tefPendenciasService');
+    const transacaoId = Number(req.params.id);
+    if (!Number.isFinite(transacaoId) || transacaoId <= 0) {
+      return res.status(400).json({
+        sucesso: false,
+        codigo: 'TEF_RECONCILIACAO_INVALIDA',
+        erro: 'ID de transação inválido'
       });
+    }
+
+    const financialState = req.body?.financialState;
+    const observacao = req.body?.observacao;
+    const confirmacao = req.body?.confirmacao_explicita === true;
+    const usuario = req.body?.usuario
+      || req.user?.username
+      || req.user?.nome
+      || null;
+
+    const resultado = tefPendenciasService.reconciliarExplicita({
+      transacaoId,
+      financialState,
+      usuario,
+      observacao,
+      confirmacao_explicita: confirmacao
     });
+
+    gravarAuditoria({
+      usuario_id: req.user?.id || null,
+      usuario_nome: usuario,
+      modulo: 'tef',
+      acao: 'reconciliar_pendencia_explicita',
+      referencia_tipo: 'tef_transacao',
+      referencia_id: transacaoId,
+      detalhes: {
+        financialState,
+        confirmacao_explicita: true,
+        travaLiberada: resultado.travaLiberada === true
+      },
+      ip_requisicao: req.ip || null
+    }).catch((auditErr) => console.error('Erro auditoria TEF reconciliar:', auditErr));
+
+    res.json(resultado);
   } catch (error) {
-    res.status(500).json({
+    const codigo = error.code || 'TEF_RECONCILIACAO_FALHOU';
+    const statusHttp = codigo === 'TEF_RECONCILIACAO_PREMATURA'
+      || codigo === 'TEF_LIBERACAO_INCONCLUSIVA_PROIBIDA'
+      ? 409
+      : (codigo.startsWith('TEF_RECONCILIACAO') ? 400 : 500);
+    res.status(statusHttp).json({
       sucesso: false,
+      codigo,
       erro: error.message
     });
   }
+});
+
+/** Tentativa de liberar inconclusiva — sempre recusada (evidência operacional). */
+router.post('/pendencias/liberar-inconclusiva', async (req, res) => {
+  const tefPendenciasService = require('../services/tef/tefPendenciasService');
+  const recusa = tefPendenciasService.tentarLiberarInconclusiva();
+  return res.status(409).json(recusa);
 });
 
 router.get('/monitor-status', async (req, res) => {

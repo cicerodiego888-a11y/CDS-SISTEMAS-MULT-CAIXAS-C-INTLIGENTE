@@ -1,0 +1,257 @@
+{
+  "sprint": "DB-FORENSE-01",
+  "title": "Diagnóstico de SQLITE_CORRUPT na Central de Entradas",
+  "generatedAt": "2026-10-27T18:40:00.000Z",
+  "verdict": "DIAGNOSTIC_COMPLETE",
+  "reparoAutorizado": false,
+  "bancoOriginalAlterado": false,
+  "resumoExecutivo": {
+    "caminhoEfetivo": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+    "corrupcaoConfirmada": true,
+    "localizacao": "Arquivo principal mercadao.db (não exclusivo do WAL). Corrupção estrutural de páginas + overflow; linhas específicas ilegíveis.",
+    "impactoCentralEntradas": "GET /api/central-entradas/ e consultas que leem miip_resumo_json / colunas posteriores do documento id=136 falham com SQLITE_CORRUPT → HTTP 500. central_entradas_config id=2460 também ilegível em SELECT *.",
+    "http422": "NÃO COMPROVADO nesta forense (sem captura da requisição). Rotas de sync/certificado/SEFAZ mapeiam catch → 422; distinto do 500 de listagem/inteligência."
+  },
+  "fase1Preservacao": {
+    "processosCdsElectron": {
+      "electronEmExecucao": false,
+      "portas3000_3001": "sem listener",
+      "observacao": "Havia processos node de build (electron-builder / build:erp), sem handle no mercadao.db",
+      "testeExclusivoLeitura": {
+        "mercadao.db": "EXCLUSIVE_OK",
+        "mercadao.db-wal": "EXCLUSIVE_OK",
+        "mercadao.db-shm": "EXCLUSIVE_OK"
+      }
+    },
+    "caminhoEfetivoComoDeterminado": {
+      "resolver": "backend/diagnostics/databasePath.js → PROGRAMDATA/MercantilFiscal/dados/mercadao.db (DB_DIR não definido)",
+      "evidenciaRuntimePrevia": "docs/build e auditorias anteriores apontam o mesmo path",
+      "atividadeRecente": "LastWriteTime do principal/WAL/SHM em 2026-10-27 (~15:28–15:30), coerente com uso da Central",
+      "candidatosDescartadosComoRuntime": [
+        {
+          "path": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\backend\\banco\\mercadao.db",
+          "length": 1335296,
+          "lastWriteTime": "2026-09-18T14:32:18.1957712-03:00",
+          "sha256": "217583885CFC31E2597AA9F2B1332712CE267F021BBD1FA2400F97BFE76C9A6D",
+          "motivo": "cópia de workspace antiga; não é o path do resolver em produção"
+        },
+        {
+          "path": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\dados\\mercadao.db",
+          "length": 217088,
+          "lastWriteTime": "2026-09-18T14:32:18.1807031-03:00",
+          "sha256": "E3F3639F20DF33BCBBBAB76AA25A501CA4E8921142DEBC8F030131A7E190DD95",
+          "motivo": "cópia de workspace antiga"
+        }
+      ]
+    },
+    "inventarioOriginais": [
+      {
+        "name": "mercadao.db",
+        "path": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+        "length": 15343616,
+        "lastWriteTime": "2026-10-27T15:28:14.0637328-03:00",
+        "sha256": "E994F8FAEDFFBE76BA59480670487F6457DC690EF7C5C88F8277E7ED385856BF"
+      },
+      {
+        "name": "mercadao.db-wal",
+        "path": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db-wal",
+        "length": 840512,
+        "lastWriteTime": "2026-10-27T15:30:46.9841518-03:00",
+        "sha256": "5B898241DFB2ADCA33636FB2B6CBA2E1A3E675AF3999A8F4BC15D4229D9CD87B"
+      },
+      {
+        "name": "mercadao.db-shm",
+        "path": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db-shm",
+        "length": 32768,
+        "lastWriteTime": "2026-10-27T15:30:24.7544544-03:00",
+        "sha256": "2B3562D46EF1BD8D0EA4E0B934475317C948F7756894BB14CFE7A65D3A47CE42"
+      },
+      {
+        "name": "mercadao.bak",
+        "path": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.bak",
+        "length": 884736,
+        "lastWriteTime": "2026-07-22T09:30:32.0000000-03:00",
+        "sha256": "7288AEDA23D1A24DE0D24C896F81155002880157081EBBC43027DB2EB612977E",
+        "nota": "backup legado pequeno; NÃO usar como restauração sem sprint dedicada"
+      }
+    ],
+    "copiaSeguranca": {
+      "diretorio": "C:\\ProgramData\\MercantilFiscal\\forense\\DB-FORENSE-01_20261027_153244",
+      "incluiu": ["mercadao.db", "mercadao.db-wal", "mercadao.db-shm", "mercadao.bak"],
+      "hashesCopiasIguaisAosOriginais": true,
+      "originaisInalteradosAposCopia": true,
+      "inventoryFile": "C:\\ProgramData\\MercantilFiscal\\forense\\DB-FORENSE-01_20261027_153244\\_inventory.json",
+      "consistenciaCopia": "Processos sem lock exclusivo; cópia integral db+wal+shm; hashes revalidados após diagnóstico"
+    }
+  },
+  "fase2DiagnosticoIsolado": {
+    "somenteCopia": true,
+    "worksets": {
+      "dbMaisWal": "C:\\ProgramData\\MercantilFiscal\\forense\\DB-FORENSE-01_20261027_153244\\work_readonly",
+      "mainOnlySemWal": "C:\\ProgramData\\MercantilFiscal\\forense\\DB-FORENSE-01_20261027_153244\\work_main_only"
+    },
+    "meta": {
+      "journal_mode": "wal",
+      "page_size": 4096,
+      "page_count": 3729,
+      "freelist_count": 35,
+      "encoding": "UTF-8",
+      "openMode": "sqlite3.OPEN_READONLY"
+    },
+    "quick_check": {
+      "resultado": "SQLITE_CORRUPT: database disk image is malformed",
+      "ok": false,
+      "igualEmMainOnlyEComWal": true
+    },
+    "integrity_check": {
+      "comando": "PRAGMA integrity_check(20)",
+      "ok": false,
+      "igualEmMainOnlyEComWal": true,
+      "mensagens": [
+        "Main freelist: freelist leaf count too big on page 3576",
+        "Main freelist: invalid page number 3730",
+        "On tree page 671 cell 0: overflow list length is 18 but should be 22",
+        "On tree page 1279 cell 1: overflow list length is 8 but should be 2",
+        "On tree page 1240 cell 0: overflow list length is 1 but should be 50",
+        "On tree page 1186 cell 0: 2nd reference to page 1561",
+        "Pages never used: 672,673,753,755,756,758,759,762,3375,3377,3378,3391,3392,3393"
+      ],
+      "interpretacao": "Corrupção no arquivo MAIN (freelist + overflow/páginas de árvore). Reproduzível sem WAL → não é apenas sidecar inconsistente."
+    },
+    "tabelasIndicesAfetados": {
+      "falhaSelectEstrela": [
+        "central_entradas_documentos",
+        "central_entradas_config"
+      ],
+      "linhasIlegiveisComprovadas": [
+        {
+          "tabela": "central_entradas_documentos",
+          "id": 136,
+          "colunaPrimariaQuebrada": "miip_resumo_json",
+          "colunasTambemIlegiveisNaMesmaLinha": [
+            "processado_em",
+            "created_at",
+            "updated_at",
+            "tipo_documento",
+            "status_recuperacao",
+            "recuperacao_tentativas",
+            "recuperacao_ultima_tentativa",
+            "recuperacao_proxima_tentativa",
+            "recuperacao_ultimo_cstat",
+            "recuperacao_ultimo_xmotivo",
+            "recuperacao_primeira_tentativa"
+          ],
+          "colunasLegiveisNaMesmaLinha": [
+            "id", "chave", "numero", "serie", "modelo", "fornecedor", "cnpj_fornecedor",
+            "data_emissao", "data_entrada", "valor_total", "xml", "nsu", "origem", "status",
+            "status_detalhe", "parse_json", "miip_sessao_id", "compra_id", "usuario_id",
+            "empresa_id", "recuperacao_ultimo_request_id", "recuperacao_prioridade"
+          ],
+          "nota": "Padrão típico de overflow corrompido a partir de miip_resumo_json na célula da linha 136."
+        },
+        {
+          "tabela": "central_entradas_config",
+          "id": 2460,
+          "efeito": "SELECT * na tabela falha; demais ids lidos individualmente OK no isolamento por id"
+        }
+      ],
+      "contagensQueAindaFuncionam": {
+        "central_entradas_documentos": 146,
+        "central_entradas_eventos": 1656,
+        "central_entradas_revisao_itens": 22,
+        "central_entradas_revisao_sessoes": 5
+      },
+      "fullTableStar": {
+        "ok": 222,
+        "falhas": 2
+      },
+      "paginasSuspeitasNearestRootHeuristica": {
+        "aviso": "nearest-rootpage é heurística ordinal, não prova de ownership btree",
+        "exemplos": [
+          { "page": 671, "nearest": "idx_cfl_lote / conversoes_fisicas_lotes" },
+          { "page": 1186, "nearest": "muc_auditoria_conversao" },
+          { "page": 1240, "nearest": "sqlite_autoindex_muc_aprendizado_1" },
+          { "page": 1279, "nearest": "idx_produto_embalagem_historico_emb" },
+          { "page": 1561, "nearest": "idx_dfe_auditoria_created" },
+          { "page": 3576, "nearest": "idx_mie_assinatura / equipamentos_identidades" }
+        ]
+      },
+      "rootpagesCentrais": {
+        "central_entradas_documentos": 2602,
+        "central_entradas_config": 138,
+        "central_entradas_eventos": 141
+      }
+    },
+    "reproducaoEndpoints500": {
+      "GET_/api/central-entradas/": {
+        "handler": "router.get('/') → CentralEntradasService.listarDocumentos → CentralDocumentosRepository.listar",
+        "sql": "SELECT COLUNAS_LISTAGEM (inclui miip_resumo_json, created_at, updated_at, tipo_documento, …) FROM central_entradas_documentos …",
+        "arquivo": "backend/motores/central-entradas/repositories/CentralDocumentosRepository.js",
+        "evidenciaCopia": {
+          "listWithMiip": "SQLITE_CORRUPT",
+          "listWithMiipWHERE_id_ne_136": "OK (100 rows)",
+          "conclusao": "A listagem oficial lê colunas quebradas da linha 136 → 500"
+        }
+      },
+      "GET_/api/central-entradas/inteligencia": {
+        "handler": "router.get('/inteligencia') → obterInteligenciaOperacional → alertas/pendencias/operacional/atenção",
+        "dependencia": "Consultas sobre documentos/config/eventos; GROUP BY status ainda OK, mas caminhos que materializam linhas completas ou config podem CORRUPT",
+        "central_entradas_config_id_2460": "ilegível — risco adicional se inteligência/config carregar SELECT * / dump de config",
+        "mapeamentoHttp": "catch → res.status(500).json({ error })"
+      }
+    },
+    "http422": {
+      "status": "NOT_PROVEN",
+      "rotasQueRetornam422EmCatch": [
+        "POST /diagnostico/acoes/sincronizar",
+        "POST /sincronizar-ao-abrir",
+        "POST /sincronizar",
+        "POST /configuracao/testar-sefaz",
+        "POST /configuracao/testar-certificado"
+      ],
+      "outras422DeValidacao": [
+        "CentralRevisaoPersistenteService (motivo obrigatório, produto inexistente/inativo, chave divergente)",
+        "CentralSincronizacaoService / CentralConfiguracaoController"
+      ],
+      "limitacao": "Sem log/HAR da requisição 422 do incidente; não atribuir 422 à corrupção sem evidência da URL e body de erro."
+    },
+    "walVsMain": {
+      "walPresenteNoOriginal": true,
+      "corrupcaoReproduzidaSemWal": true,
+      "conclusao": "Problema no main db; WAL/SHM órfãos após encerramento são sintoma de shutdown sem checkpoint, não a causa exclusiva do SQLITE_CORRUPT observado."
+    },
+    "concorrencia": {
+      "noMomentoDaCopia": "nenhum processo com lock; exclusive open OK",
+      "hipoteseHistorica": "Corrupção pré-existente (overflow/freelist) compatível com interrupção/escrita concorrente anterior; não recriada nesta sprint."
+    }
+  },
+  "arquivosAlterados": [
+    "docs/build/db-forense-01-central-entradas-report.json"
+  ],
+  "artefatosForensesNaoNoRepo": [
+    "C:\\ProgramData\\MercantilFiscal\\forense\\DB-FORENSE-01_20261027_153244\\_inventory.json",
+    "C:\\ProgramData\\MercantilFiscal\\forense\\DB-FORENSE-01_20261027_153244\\work_readonly\\pragma-results.json",
+    "C:\\ProgramData\\MercantilFiscal\\forense\\DB-FORENSE-01_20261027_153244\\scan-results.json",
+    "C:\\ProgramData\\MercantilFiscal\\forense\\DB-FORENSE-01_20261027_153244\\page-map-results.json"
+  ],
+  "restricoesRespeitadas": {
+    "reparoNoOriginal": false,
+    "deleteOuRenameWalShmOriginal": false,
+    "migracoesOuSqlEscritaNoOriginal": false,
+    "entradaCompraEstoqueFiscal": false,
+    "restoreSobreCliente": false,
+    "novaInstanciaCdsAbertaPeloAgente": false
+  },
+  "limitacoes": [
+    "HTTP 422 do incidente sem captura de request/response — causa não comprovada",
+    "dbstat indisponível (também SQLITE_CORRUPT) — ownership exato de todas as páginas suspeitas é heurístico",
+    "Não se abriu a UI da Central nesta sprint (CDS permaneceu fechado por preservação)",
+    "mercadao.bak de julho/2026 é antigo e pequeno; não validado como restore point"
+  ],
+  "proximosPassosSugeridosForaDestaSprint": [
+    "Sprint de recuperação autorizada: trabalhar APENAS sobre cópia forense; avaliar .recover / export seletivo excluindo id 136 e config 2460; NUNCA reparar in-place o original sem plano e nova cópia",
+    "Após recover em cópia: integrity_check completo + smoke da Central em ambiente isolado",
+    "Capturar URL + JSON do HTTP 422 na próxima ocorrência",
+    "Não apagar WAL/SHM do original manualmente; qualquer checkpoint/repair só com autorização explícita"
+  ]
+}

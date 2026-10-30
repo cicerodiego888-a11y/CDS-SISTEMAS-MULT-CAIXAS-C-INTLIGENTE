@@ -34,6 +34,37 @@ const ESTADOS_CLIENTE = Object.freeze({
   STOPPED: 'STOPPED'
 });
 
+/** MRT-26.1 — classificação de encerramento (nunca confunde crash com SHUTDOWN). */
+const CLASSIFICACAO_ENCERRAMENTO = Object.freeze({
+  CONCLUSAO_NORMAL: 'CONCLUSAO_NORMAL',
+  ENCERRAMENTO_CONTROLADO: 'ENCERRAMENTO_CONTROLADO',
+  ENCERRAMENTO_INESPERADO: 'ENCERRAMENTO_INESPERADO',
+  PERDA_IPC: 'PERDA_IPC',
+  CRASH_HOST: 'CRASH_HOST'
+});
+
+/**
+ * @param {{ motivo?: string, code?: number|null, signal?: string|null, operacaoEmVoo?: string|null }} saida
+ * @param {{ perdaIpc?: boolean, encerramentoLimpo?: boolean }} [ctx]
+ */
+function classificarEncerramentoHost(saida, ctx = {}) {
+  if (!saida) return CLASSIFICACAO_ENCERRAMENTO.ENCERRAMENTO_INESPERADO;
+  if (ctx.encerramentoLimpo === true || saida.motivo === 'SHUTDOWN') {
+    return CLASSIFICACAO_ENCERRAMENTO.ENCERRAMENTO_CONTROLADO;
+  }
+  if (ctx.perdaIpc === true || saida.motivoIpc === 'IPC_DISCONNECT') {
+    return CLASSIFICACAO_ENCERRAMENTO.PERDA_IPC;
+  }
+  if (saida.signal || (saida.code != null && Number(saida.code) !== 0)) {
+    return CLASSIFICACAO_ENCERRAMENTO.CRASH_HOST;
+  }
+  if (saida.motivo === 'HOST_CRASHED') {
+    // exit(0) após disconnect adiado ou queda sem sinal — inesperado, NÃO controlado
+    return CLASSIFICACAO_ENCERRAMENTO.ENCERRAMENTO_INESPERADO;
+  }
+  return CLASSIFICACAO_ENCERRAMENTO.ENCERRAMENTO_INESPERADO;
+}
+
 const HOST_PATH = path.join(__dirname, 'DestaxaNativeHost.js');
 
 function criarSpawnerPadrao() {
@@ -45,35 +76,53 @@ function criarSpawnerPadrao() {
         serviceName: 'CDS TEF Native Host',
         stdio: 'inherit'
       });
-      return {
-        tipo: 'utilityProcess',
-        get pid() { return child.pid || null; },
-        enviar: (mensagem) => child.postMessage(mensagem),
-        aoReceber: (fn) => child.on('message', fn),
-        aoSair: (fn) => child.on('exit', (code) => fn(code, null)),
-        matar: () => child.kill()
-      };
-    }
-
-    const { fork } = require('child_process');
-    const child = fork(hostPath, [], {
-      env: process.versions.electron ? { ...env, ELECTRON_RUN_AS_NODE: '1' } : env,
-      stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
-      windowsHide: true
-    });
     return {
-      tipo: 'child_process',
+      tipo: 'utilityProcess',
       get pid() { return child.pid || null; },
-      enviar: (mensagem) => { if (child.connected) child.send(mensagem); },
+      enviar: (mensagem) => child.postMessage(mensagem),
       aoReceber: (fn) => child.on('message', fn),
-      aoSair: (fn) => child.on('exit', (code, signal) => fn(code, signal)),
-      aoErro: (fn) => child.on('error', fn),
+      aoSair: (fn) => child.on('exit', (code) => fn(code, null)),
       matar: () => child.kill(),
-      unref: () => {
-        child.unref();
-        if (child.channel && typeof child.channel.unref === 'function') child.channel.unref();
-      }
+      // MRT-26 — utilityProcess: sem unref automático do canal
+      ref: () => {},
+      unref: () => {},
+      desconectarIpc: () => {
+        try { if (typeof child.kill === 'function') child.kill(); } catch (_) { /* */ }
+      },
+      get connected() { return true; }
     };
+  }
+
+  const { fork } = require('child_process');
+  const child = fork(hostPath, [], {
+    env: process.versions.electron ? { ...env, ELECTRON_RUN_AS_NODE: '1' } : env,
+    stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
+    windowsHide: true
+  });
+  return {
+    tipo: 'child_process',
+    get pid() { return child.pid || null; },
+    get connected() { return child.connected === true; },
+    enviar: (mensagem) => { if (child.connected) child.send(mensagem); },
+    aoReceber: (fn) => child.on('message', fn),
+    aoSair: (fn) => child.on('exit', (code, signal) => fn(code, signal)),
+    aoErro: (fn) => child.on('error', fn),
+    matar: () => child.kill(),
+    // MRT-26 — ref/unref explícitos; NÃO unref automático no start
+    ref: () => {
+      if (typeof child.ref === 'function') child.ref();
+      if (child.channel && typeof child.channel.ref === 'function') child.channel.ref();
+    },
+    unref: () => {
+      child.unref();
+      if (child.channel && typeof child.channel.unref === 'function') child.channel.unref();
+    },
+    desconectarIpc: () => {
+      try {
+        if (child.connected) child.disconnect();
+      } catch (_) { /* já desconectado */ }
+    }
+  };
   };
 }
 
@@ -98,6 +147,54 @@ class DestaxaNativeHostClient extends EventEmitter {
     this._aguardandoSaida = null;
     this._shutdownRequestId = null;
     this._respostasTardias = [];
+    /** MRT-26 — referência ativa do pai ao host (evita unref durante nativa). */
+    this._hostRefAtiva = false;
+    this._eventosCicloCliente = [];
+    /** MRT-26.1 — IPC disconnect detectado neste cliente (não é SHUTDOWN). */
+    this._perdaIpcDetectada = false;
+  }
+
+  _registrarEventoCliente(tipo, detalhe = {}) {
+    const entrada = {
+      tipo,
+      em: new Date().toISOString(),
+      pidPai: process.pid,
+      pidHost: this._info?.pid || this._processo?.pid || null,
+      estado: this._estado,
+      ...detalhe
+    };
+    this._eventosCicloCliente.push(entrada);
+    if (this._eventosCicloCliente.length > 40) this._eventosCicloCliente.shift();
+    this.emit('ciclo-vida', entrada);
+    return entrada;
+  }
+
+  /**
+   * Mantém o event loop do pai referenciando o Host (MRT-26).
+   * Obrigatório durante operações nativas/transacionais.
+   */
+  _segurarReferenciaHost(motivo) {
+    if (!this._processo) return;
+    if (typeof this._processo.ref === 'function') this._processo.ref();
+    this._hostRefAtiva = true;
+    this._registrarEventoCliente('host.ref', { motivo });
+  }
+
+  /**
+   * Libera unref somente quando ocioso e explicitamente permitido.
+   * Nunca durante emVoo.
+   */
+  liberarReferenciaHostSeOcioso({ forcar = false } = {}) {
+    if (this._emVoo && !forcar) {
+      return { liberado: false, motivo: 'em_voo' };
+    }
+    if (!this._processo || typeof this._processo.unref !== 'function') {
+      return { liberado: false, motivo: 'sem_processo' };
+    }
+    this._processo.unref();
+    this._hostRefAtiva = false;
+    this._registrarEventoCliente('host.unref', { forcar: forcar === true });
+    return { liberado: true };
   }
 
   get estado() {
@@ -108,8 +205,11 @@ class DestaxaNativeHostClient extends EventEmitter {
     return {
       estado: this._estado,
       pid: this._info?.pid || null,
+      pidPai: process.pid,
       processType: this._info?.processType || null,
       versions: this._info?.versions || null,
+      hostRefAtiva: this._hostRefAtiva === true,
+      connected: this._processo?.connected !== false,
       emVoo: this._emVoo && this._emVoo.req
         ? {
           requestId: this._emVoo.req.requestId,
@@ -122,7 +222,8 @@ class DestaxaNativeHostClient extends EventEmitter {
       encerramentoPendente: this._encerramentoPendente,
       reconciliacaoPendente: this._reconciliacaoPendente ? { ...this._reconciliacaoPendente } : null,
       ultimaSaida: this._ultimaSaida ? { ...this._ultimaSaida } : null,
-      respostasTardias: this._respostasTardias.length
+      respostasTardias: this._respostasTardias.length,
+      eventosCiclo: this._eventosCicloCliente.slice(-12)
     };
   }
 
@@ -193,7 +294,13 @@ class DestaxaNativeHostClient extends EventEmitter {
           this._ultimaSaida = { motivo: `erro no processo host: ${error.message}`, em: new Date().toISOString() };
         });
       }
-      if (processo.unref) processo.unref();
+      // MRT-26 — NÃO unref automático no start: o pai mantém referência ao Host.
+      // unref explícito só via liberarReferenciaHostSeOcioso() quando ocioso.
+      this._segurarReferenciaHost('start');
+      this._registrarEventoCliente('host.spawn', {
+        processType: processo.tipo,
+        pidHost: processo.pid
+      });
     });
     return this._iniciando;
   }
@@ -271,6 +378,14 @@ class DestaxaNativeHostClient extends EventEmitter {
         ));
       }, timeoutMs);
       this._estado = ESTADOS_CLIENTE.BUSY;
+      // MRT-26 — durante qualquer IPC nativo/transacional, reforça ref do Host
+      this._segurarReferenciaHost(`enviar:${operation}`);
+      this._registrarEventoCliente('nativa.envio', {
+        operation,
+        requestId: req.requestId,
+        transactionId: req.transactionId || null,
+        transacional: OPERACOES_TRANSACIONAIS.has(operation)
+      });
       try {
         this._processo.enviar(req);
       } catch (error) {
@@ -280,6 +395,17 @@ class DestaxaNativeHostClient extends EventEmitter {
         resolve(this._respostaLocal(ERROS_HOST.HOST_UNAVAILABLE, req, `IPC falhou: ${error.message}`));
       }
     });
+  }
+
+  /** Expõe desconexão IPC para testes de ciclo de vida (MRT-26). Não usa em produção. */
+  desconectarIpcParaTeste() {
+    this._perdaIpcDetectada = true;
+    this._registrarEventoCliente('ipc.disconnect.teste', {});
+    if (this._processo && typeof this._processo.desconectarIpc === 'function') {
+      this._processo.desconectarIpc();
+      return true;
+    }
+    return false;
   }
 
   _aoMensagem(mensagem) {
@@ -349,14 +475,38 @@ class DestaxaNativeHostClient extends EventEmitter {
     const encerramentoLimpo = this._estado === ESTADOS_CLIENTE.SHUTTING_DOWN;
     const antesDePronto = this._estado === ESTADOS_CLIENTE.STARTING || this._estado === ESTADOS_CLIENTE.OFFLINE;
 
+    const motivo = encerramentoLimpo
+      ? 'SHUTDOWN'
+      : (antesDePronto ? 'saiu antes de HOST_READY' : 'HOST_CRASHED');
     this._ultimaSaida = {
       code: code ?? null,
       signal: signal || null,
-      motivo: encerramentoLimpo ? 'SHUTDOWN' : (antesDePronto ? 'saiu antes de HOST_READY' : 'HOST_CRASHED'),
+      motivo,
+      motivoIpc: this._perdaIpcDetectada ? 'IPC_DISCONNECT' : null,
       operacaoEmVoo: emVoo?.req?.operation || null,
       transactionIdEmVoo: emVoo?.req?.transactionId || null,
+      duracaoOperacaoMs: emVoo?.inicio != null ? Date.now() - emVoo.inicio : null,
+      pidPai: process.pid,
       em: new Date().toISOString()
     };
+    this._ultimaSaida.classificacaoEncerramento = classificarEncerramentoHost(this._ultimaSaida, {
+      perdaIpc: this._perdaIpcDetectada === true,
+      encerramentoLimpo: encerramentoLimpo === true
+    });
+    // Crash/perda IPC nunca viram ENCERRAMENTO_CONTROLADO
+    if (this._ultimaSaida.classificacaoEncerramento === CLASSIFICACAO_ENCERRAMENTO.ENCERRAMENTO_CONTROLADO
+      && !encerramentoLimpo) {
+      this._ultimaSaida.classificacaoEncerramento = CLASSIFICACAO_ENCERRAMENTO.ENCERRAMENTO_INESPERADO;
+    }
+    this._hostRefAtiva = false;
+    this._registrarEventoCliente('host.exit', {
+      code: code ?? null,
+      signal: signal || null,
+      motivo: this._ultimaSaida.motivo,
+      classificacaoEncerramento: this._ultimaSaida.classificacaoEncerramento,
+      operacaoEmVoo: this._ultimaSaida.operacaoEmVoo
+    });
+    this._perdaIpcDetectada = false;
 
     if (encerramentoLimpo) {
       this._estado = ESTADOS_CLIENTE.STOPPED;
@@ -369,15 +519,19 @@ class DestaxaNativeHostClient extends EventEmitter {
 
     if (emVoo && emVoo.req) {
       clearTimeout(emVoo.timer);
-      if (OPERACOES_TRANSACIONAIS.has(emVoo.req.operation)) {
-        this._registrarReconciliacao(emVoo.req.transactionId, emVoo.req.operation, emVoo.req.requestId);
+      // Nunca aprovar/negar: UNKNOWN / reconciliação
+      if (OPERACOES_TRANSACIONAIS.has(emVoo.req.operation)
+        || OPERACOES_HOST.SIMULATE_BLOCKING === emVoo.req.operation) {
+        if (OPERACOES_TRANSACIONAIS.has(emVoo.req.operation)) {
+          this._registrarReconciliacao(emVoo.req.transactionId, emVoo.req.operation, emVoo.req.requestId);
+        }
       }
       if (emVoo.resolve) {
         emVoo.resolve(this._respostaLocal(
           ERROS_HOST.HOST_CRASHED,
           emVoo.req,
           `TEF Native Host encerrou durante ${emVoo.req.operation} (code=${code ?? '-'}, signal=${signal || '-'})`,
-          { executadaTalvez: true }
+          { executadaTalvez: OPERACOES_TRANSACIONAIS.has(emVoo.req.operation) }
         ));
       }
     }
@@ -464,6 +618,8 @@ function clienteCompartilhadoExistente() {
 module.exports = {
   DestaxaNativeHostClient,
   ESTADOS_CLIENTE,
+  CLASSIFICACAO_ENCERRAMENTO,
+  classificarEncerramentoHost,
   HOST_PATH,
   criarSpawnerPadrao,
   obterClienteCompartilhado,

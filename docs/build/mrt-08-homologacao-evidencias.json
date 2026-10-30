@@ -1,0 +1,137 @@
+{
+  "geradoEm": "2026-10-30T09:54:46.819Z",
+  "total": 13,
+  "aprovados": 13,
+  "reprovados": 0,
+  "cenarios": [
+    {
+      "cenario": "C1: 1 PC / 1 PDV / 1 terminal TEF",
+      "esperado": "sucesso LOCAL + lease + identidades separadas",
+      "obtido": "sucesso=true lease=lease_01925d4a1e5fa61a tip=tef-pdv1 loc=LOCAL",
+      "ok": true,
+      "evidencia": {
+        "codigo": "REGISTRY_RESOLVED",
+        "topologia": "MULTI_ESTACAO",
+        "modo": "ALLOCATE"
+      }
+    },
+    {
+      "cenario": "C2: 1 PC / 2+ PDVs",
+      "esperado": "topologia ESTACAO_UNICA_MULTI_PDV + Destaxa GLOBAL_SERIALIZE",
+      "obtido": "topo=ESTACAO_UNICA_MULTI_PDV sucesso=true serialize=GLOBAL_SERIALIZE",
+      "ok": true,
+      "evidencia": {
+        "pdvsNaEstacao": 2
+      }
+    },
+    {
+      "cenario": "C3/C4: concorrência Destaxa — 2º PDV bloqueado (RUNTIME_OCUPADO)",
+      "esperado": "1º aloca; 2º RUNTIME_OCUPADO",
+      "obtido": "a=true b=false/RUNTIME_OCUPADO",
+      "ok": true,
+      "evidencia": {
+        "leaseA": "lease_239bd0a52ed434f5",
+        "conflito": "RUNTIME"
+      }
+    },
+    {
+      "cenario": "C5: liberação após resultado financeiro definitivo",
+      "esperado": "LIBERAR SUCESSO_CONFIRMADO + runtime livre",
+      "obtido": "acao=LIBERAR libOk=true runtimeLivre=true",
+      "ok": true,
+      "evidencia": {
+        "motivo": "SUCESSO_CONFIRMADO"
+      }
+    },
+    {
+      "cenario": "C6: manutenção do HOLD após resultado inconclusivo",
+      "esperado": "MARCAR_INCONCLUSIVO; timeout não libera; runtime ocupado",
+      "obtido": "acao=MARCAR_INCONCLUSIVO inconclusivo=true bloqueio=LIBERACAO_BLOQUEADA_INCONCLUSIVA",
+      "ok": true,
+      "evidencia": {
+        "aplicado": "MARCAR_INCONCLUSIVO"
+      }
+    },
+    {
+      "cenario": "C7: recuperação após reinicialização simulada",
+      "esperado": "holds Destaxa; sem auto aprovar/cancelar/retry",
+      "obtido": "holds=1 autoAprov=false autoRetry=false",
+      "ok": true,
+      "evidencia": {
+        "codigo": "HOLDS_APLICADOS",
+        "acoesProibidas": 5
+      }
+    },
+    {
+      "cenario": "C8: tentativa de uso com operação financeira pendente (hold)",
+      "esperado": "nova alocação Destaxa bloqueada",
+      "obtido": "sucesso=false codigo=RUNTIME_OCUPADO",
+      "ok": true,
+      "evidencia": {
+        "leaseId": null
+      }
+    },
+    {
+      "cenario": "C9: identidade inválida de PDV (hostname/MAC)",
+      "esperado": "PDV_HOSTNAME_OU_MAC_PROIBIDO",
+      "obtido": "host=PDV_HOSTNAME_OU_MAC_PROIBIDO mac=PDV_HOSTNAME_OU_MAC_PROIBIDO",
+      "ok": true,
+      "evidencia": {
+        "pdvIdContinuaComercial": true
+      }
+    },
+    {
+      "cenario": "C10: PDV sem terminal lógico provisionado",
+      "esperado": "fallback COMPAT_SINGLETON preservado + lease instalacao",
+      "obtido": "sucesso=true modo=ALLOCATE tip=singleton:instalacao miss=true",
+      "ok": true,
+      "evidencia": {
+        "leaseId": "lease_425f359ce1a56c58",
+        "codigo": "ROUTE_OK"
+      }
+    },
+    {
+      "cenario": "C11: terminal indisponível ou sem dispositivo",
+      "esperado": "falha TERMINAL_INDISPONIVEL / TERMINAL_SEM_DISPOSITIVO",
+      "obtido": "indisp=TERMINAL_INDISPONIVEL semDev=TERMINAL_SEM_DISPOSITIVO",
+      "ok": true,
+      "evidencia": {
+        "indispOk": true,
+        "semDevOk": true
+      }
+    },
+    {
+      "cenario": "C12: topologia multi-PC → REMOTA_REQUERIDA (sem bridge)",
+      "esperado": "bloqueio ESTACAO_REMOTA_NAO_SUPORTADA",
+      "obtido": "sucesso=false codigo=ESTACAO_REMOTA_NAO_SUPORTADA loc=REMOTA_REQUERIDA",
+      "ok": true,
+      "evidencia": {
+        "topologia": "MULTI_ESTACAO",
+        "bridge": false
+      }
+    },
+    {
+      "cenario": "INT: integridade arquitetura (Router≠Manager; adapters intactos)",
+      "esperado": "TefManager financeiro + Router rota; adapters sem MRT",
+      "obtido": "routerInt=true adaptersLimpos=true",
+      "ok": true,
+      "evidencia": {
+        "pdvId": "terminais.id comercial",
+        "terminalTefId": "lógico",
+        "dispositivoId": "PinPad",
+        "estacao": "hostname/MAC ≠ pdvId"
+      }
+    },
+    {
+      "cenario": "SEC: sem INIT/TX real; proibições de recuperação respeitadas",
+      "esperado": "nenhuma ação financeira real; ACOES_PROIBIDAS presentes",
+      "obtido": "cenariosOk=12 proibidas=5",
+      "ok": true,
+      "evidencia": {
+        "initReal": false,
+        "pagamentoReal": false,
+        "cancelamentoReal": false
+      }
+    }
+  ]
+}

@@ -470,6 +470,27 @@ class CentralComprasBridgeService {
         throw erro;
       }
 
+      etapa = 'conversoes';
+      // CE-MUC-03: conclusão da revisão de produtos ≠ resolução das conversões MUC.
+      try {
+        const revisaoSvc = this._obterRevisaoService();
+        if (revisaoSvc && typeof revisaoSvc.avaliarConversoes === 'function') {
+          const conv = await revisaoSvc.avaliarConversoes(documentoId);
+          if (conv?.bloqueia_efetivacao) {
+            const erro = new Error(
+              'Existem conversões de unidade pendentes. Confirme SIM/NÃO no painel MUC antes de finalizar a entrada.'
+            );
+            erro.statusCode = 422;
+            erro.codigo = 'PENDENCIAS_CONVERSAO';
+            erro.pendencias = conv.pendencias || [];
+            throw erro;
+          }
+        }
+      } catch (convErr) {
+        if (convErr.codigo === 'PENDENCIAS_CONVERSAO' || convErr.statusCode === 422) throw convErr;
+        console.warn('[CentralEntradas][finalizarEntrada] avaliação de conversões indisponível:', convErr.message);
+      }
+
       etapa = 'abrir_compra';
       const docAposRevisao = await this._documentosRepository.buscarPorId(documentoId);
       const statusApos = normalizarStatus(docAposRevisao?.status);

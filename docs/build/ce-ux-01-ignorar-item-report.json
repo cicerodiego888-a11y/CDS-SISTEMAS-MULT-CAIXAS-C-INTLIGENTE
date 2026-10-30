@@ -1,0 +1,105 @@
+{
+  "sprint": "CE-UX-01",
+  "title": "Diagnosticar e corrigir botão Ignorar item sem resposta",
+  "generatedAt": "2026-10-27T18:20:00.000Z",
+  "verdict": "FIXED",
+  "causaComprovada": {
+    "resumo": "O clique em Ignorar item falhava de forma silenciosa: early-returns sem feedback, botão com disabled nativo engolindo o evento, e comparação de índices inconsistente (string vs number) em resolvidas/ignoradas. A pendência de conversão de unidade NÃO era a causa do clique sem efeito — ela só bloqueia Finalizar Entrada.",
+    "evidenciasCodigo": [
+      {
+        "ponto": "ignorarAtual early-return",
+        "antes": "if (!pendencia || !pendenciaAberta(...)) return; if (estado._persistindoDecisao) return; — sem notificar",
+        "efeito": "Usuário clica e a UI não muda nem exibe mensagem"
+      },
+      {
+        "ponto": "disabled HTML + UX-ENTRADAS-BOTOES-01",
+        "antes": "$ignorar.prop('disabled', !aberta) — clique em botão disabled não dispara handler",
+        "efeito": "Quando o item atual não estava aberto (fase final, índice já resolvido, ou mismatch string/number), o botão parecia clicável (opacity 0.45) mas o evento era engolido"
+      },
+      {
+        "ponto": "pendenciaAberta + Array.includes",
+        "antes": "resolvidas.includes(pendencia.indice) — [0].includes('0') === false",
+        "efeito": "Índice '2' vs 2 fazia item parecer aberto/fechado de forma inconsistente após retomada/persistência"
+      },
+      {
+        "ponto": "_persistindoDecisao sem finally",
+        "antes": "flag true + throw síncrono em persistirDecisaoItem deixava flag presa; próximos Ignorar retornavam no início",
+        "efeito": "Ignorar parava de responder após falha anterior"
+      },
+      {
+        "ponto": "conversão pendente (LUVA DE VAQUETA NATURAL G)",
+        "avaliacao": "Comprovado que NÃO bloqueia ignorarAtual. bloqueia_efetivacao só atua em Finalizar Entrada. Painel de conversão permanece independente da decisão IGNORAR/CONFIRMAR do produto."
+      }
+    ],
+    "fluxoComprovado": [
+      "1. Clique recebido no #miipCentralBtnIgnorar (ou engolido se disabled nativo)",
+      "2. Handler ignorarAtual executava ou retornava cedo sem feedback",
+      "3. Quando avançava: POST /revisar/itens/:indice/decisao com decisao=IGNORAR",
+      "4. Contadores/local state só atualizavam após salvo=true; falhas/early-exit deixavam 0 ignorados"
+    ]
+  },
+  "correcaoAplicada": {
+    "arquivoPrincipal": "frontend/erp/js/miip-central-revisao.js",
+    "mudancas": [
+      "indiceCanonico + listaContemIndice — comparação estável de índices string/number",
+      "pendenciaAberta normalizada; rejeita pendência sem índice válido",
+      "ignorarAtual: feedback em todos os caminhos; Promise.finally libera _persistindoDecisao; atualiza miip_revisao_status local; notifica sucesso; recarrega conversões sem auto-confirmar",
+      "Ignorar usa aria-disabled + classe disabled (não disabled nativo) para o clique chegar ao handler e exibir mensagem quando indisponível",
+      "Binding delegado click.miipCentralIgnorar (sem duplicar regra de negócio)",
+      "Finalizar Entrada com bloqueio de conversão: mensagem lista as linhas pendentes (ex.: LUVA…)"
+    ],
+    "naoAlterado": [
+      "Backend / regras fiscais",
+      "Mecanismo de associação de produtos",
+      "Regras de conversão de unidade (SIM/NÃO)",
+      "Atalhos Enter/F2/F3/Tab/Esc",
+      "Banco de produção"
+    ]
+  },
+  "arquivosAlterados": [
+    "frontend/erp/js/miip-central-revisao.js",
+    "tests/miip/ce-ux-01-ignorar-item.test.js",
+    "docs/build/ce-ux-01-ignorar-item-report.json"
+  ],
+  "evidenciasAntesDepois": {
+    "antes": {
+      "cliqueIgnorar": "Sem resposta visual quando early-return ou disabled nativo",
+      "contadores": "ignoradas permanecia 0 se o fluxo parava antes do push",
+      "faseFinal": "Botão podia aparecer indisponível sem explicar a conversão pendente",
+      "finalizarComConversao": "Mensagem genérica sem nome da linha"
+    },
+    "depois": {
+      "cliqueIgnorarDisponivel": "POST IGNORAR → item em ignoradas → notificação 'Item ignorado: …' → avança ou abre tela final",
+      "cliqueIgnorarIndisponivel": "Notificação explícita (sem item pendente / salvando / revisão concluída)",
+      "indicesMistos": "pendenciaAberta('2') e resolvidas[2] coerentes",
+      "finalizarComConversao": "Informa painel de conversões e nomes pendentes (ex.: LUVA DE VAQUETA NATURAL G)"
+    }
+  },
+  "testesExecutados": [
+    {
+      "nome": "tests/miip/ce-ux-01-ignorar-item.test.js",
+      "resultado": "4/4 pass",
+      "cobertura": "persistência IGNORAR, contadores, índice string/number, fase final com feedback, atalhos preservados"
+    },
+    {
+      "nome": "tests/miip/rc75-confirmar-produto.test.js",
+      "resultado": "11/11 pass"
+    },
+    {
+      "nome": "tests/miip/sprint32-revisao-sem-dashboard-ui.test.js",
+      "resultado": "10/10 pass"
+    },
+    {
+      "nome": "tests/miip/ux-entradas-botoes-01-static.test.js",
+      "resultado": "6/6 pass"
+    }
+  ],
+  "confirmacaoSeguranca": {
+    "operacaoFiscalExecutada": false,
+    "compraExecutada": false,
+    "movimentacaoEstoqueExecutada": false,
+    "bancoProducaoAlteradoManual": false,
+    "conversaoAutoConfirmada": false,
+    "validacoesFiscaisContornadas": false
+  }
+}

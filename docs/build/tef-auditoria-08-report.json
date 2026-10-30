@@ -1,0 +1,354 @@
+{
+  "sprint": "TEF-AUDITORIA-08",
+  "title": "Consistência das telas e configuração Destaxa",
+  "generatedAt": "2026-10-29T19:55:00.000Z",
+  "verdict": "UI_CATALOG_DIVERGENCE_AND_DESTAXA_FIELDS_PARTIAL",
+  "tefReadyForSaleDeclared": false,
+  "operationalIntegrationDeclared": false,
+  "auditMode": "read_only",
+  "constraintsHonored": {
+    "noCodeChanges": true,
+    "noOfficialDatabaseMutation": true,
+    "noInitClient": true,
+    "noFinancialCalls": true,
+    "noDestaxaRealTransactionGateEnabled": true,
+    "noStoneSitefPaygoMixedAsDestaxaEvidence": true
+  },
+  "architectureObserved": "UI Configuração TEF → GET/POST /api/tef/configuracao → tefConfigService → tefConfigRepository → tefFactory.obterAdapter → DestaxaRealAdapter → DestaxaNativeBridge.montarEntradaClient",
+  "tabsInspected": [
+    {
+      "id": "geral",
+      "label": "Geral",
+      "source": "frontend/erp/js/configuracao_tef.js#renderizarAbaGeralTEF",
+      "fields": ["tefHabilitado", "tefProvedor", "tipoIntegracao", "sdkPath", "exePath", "ipTef", "portaTef", "tefAmbiente", "tefTimeout", "tefTentativas"],
+      "destaxaRelevance": {
+        "usedByDestaxaRealPath": ["tefHabilitado", "tefProvedor", "tefAmbiente", "tefTimeout", "tefTentativas"],
+        "genericNotAppliedToDestaxaInitOrCrt": ["tipoIntegracao", "sdkPath", "exePath", "ipTef", "portaTef"],
+        "notes": "Destaxa real usa DLL/V$Pague; caminhos SDK/EXE/IP/porta TEF genéricos são legado SiTef/PayGo/HTTP e não entram em montarEntradaClient."
+      }
+    },
+    {
+      "id": "empresa",
+      "label": "Empresa",
+      "source": "frontend/erp/js/configuracao_tef.js#renderizarAbaEmpresaTEF",
+      "fields": ["empresaCodigo", "lojaCodigo", "pdvCodigo", "terminalCodigo", "caixaCodigo"],
+      "destaxaRelevance": {
+        "mappedToDestaxaInit": {
+          "empresaCodigo": "estabelecimento",
+          "lojaCodigo": "loja",
+          "terminalCodigo": "terminal"
+        },
+        "persistedButNotSentToDestaxa": ["pdvCodigo", "caixaCodigo"],
+        "uiLabelGap": "UI diz 'Código da Empresa'; Destaxa documenta 'estabelecimento'."
+      }
+    },
+    {
+      "id": "servidor",
+      "label": "Servidor",
+      "source": "frontend/erp/js/configuracao_tef.js#renderizarAbaServidorTEF",
+      "fields": ["baseUrl", "ipServidor", "portaServidor", "clientId", "clientSecret", "accessToken", "refreshToken", "chaveComunicacao", "operador"],
+      "destaxaRelevance": {
+        "usedByDestaxaRealPath": [],
+        "notes": "tefConfigService.resolverEstadoServidorMonitor marca servidor como nao_aplicavel para Destaxa. Persistido, mas não comprova Client/DLL/transação."
+      }
+    },
+    {
+      "id": "pinpad",
+      "label": "PinPad",
+      "source": "frontend/erp/js/configuracao_tef.js#renderizarAbaPinPadTEF",
+      "fields": ["pinpadHabilitado", "pinpadModelo", "fabricante", "modelo", "tipoConexao", "portaCom", "pinpadIp", "pinpadPorta", "serial"],
+      "destaxaRelevance": {
+        "usedByDestaxaRealPath": ["pinpadHabilitado", "pinpadModelo/pinpadCodigo", "tipoConexao", "portaCom"],
+        "optionalOrIrrelevantForPpc930Serial": ["pinpadIp", "pinpadPorta", "serial"],
+        "notes": "PPC930 no fluxo Destaxa: serial/USB CDC → COM virtual; IP/RNDIS não é o caminho comprovado desta instalação (COM3)."
+      }
+    },
+    {
+      "id": "operacoes",
+      "label": "Operações",
+      "source": "frontend/erp/js/configuracao_tef.js#renderizarAbaOperacoesTEF",
+      "fields": ["debito", "creditoAvista", "creditoParcelado", "voucher", "pix", "cancelamento", "reimpressao", "preAutorizacao"],
+      "destaxaRelevance": {
+        "usedByDestaxaRealPath": [],
+        "notes": "Flags persistidas em tef_operacoes. DestaxaRealAdapter.prepararAutorizacao restringe CRT/homologação/R$1,00 independentemente desses checkboxes; cancelamento Destaxa permanece não implementado."
+      }
+    },
+    {
+      "id": "monitor",
+      "label": "Monitor",
+      "source": "frontend/erp/js/configuracao_tef.js#renderizarAbaMonitorTEF",
+      "persistsConfig": false,
+      "endpoint": "GET /api/tef/status → tefConfigService.obterStatus",
+      "destaxaRelevance": {
+        "notes": "Exibe PinPad 'Configurado' e Servidor 'Não aplicável' para Destaxa. Não prova INIT_CLIENT, Identificar V$Pague nem autorização."
+      }
+    },
+    {
+      "id": "diagnostico",
+      "label": "Diagnóstico",
+      "source": "frontend/erp/js/configuracao_tef.js#renderizarAbaDiagnosticoTEF",
+      "persistsConfig": false,
+      "endpoint": "GET /api/tef/diagnostico-completo",
+      "destaxaRelevance": {
+        "autoRunsOnTabOpen": true,
+        "initClientInDiagnostico": "NAO_EXECUTADO por design (TEF-PPC930-04); adapter.diagnosticar = LOAD/exports only",
+        "authorizationAvailableForcedFalse": true,
+        "transactionCommunicationValidatedForcedFalse": true
+      }
+    },
+    {
+      "id": "reimpressao",
+      "label": "Reimpressão",
+      "source": "frontend/erp/js/configuracao_tef.js#renderizarAbaReimpressaoTEF",
+      "persistsConfig": false,
+      "notes": "Lista/consulta comprovantes; independente do mapeamento Destaxa estabelecimento/loja/terminal."
+    }
+  ],
+  "htmlShell": {
+    "paths": [
+      "frontend/erp/pages/ConfiguracaoTEF.html",
+      "frontend/pages/ConfiguracaoTEF.html"
+    ],
+    "tabsDeclared": ["geral", "empresa", "servidor", "pinpad", "operacoes", "monitor", "diagnostico", "reimpressao"],
+    "outdatedComment": {
+      "text": "PinPads suportados: Gertec PPC930 (Rede/Itaú) via CliSiTef/PayGo",
+      "issue": "Associa PPC930 a CliSiTef/PayGo; instalação atual opera Destaxa/V$Pague. Mistura provedores."
+    }
+  },
+  "ppc930LabelConsistency": {
+    "persistsDivergence": true,
+    "sources": {
+      "uiHardcodedFallbackOption": {
+        "file": "frontend/erp/js/configuracao_tef.js",
+        "label": "Gertec PPC930 (USB CDC → COM virtual)",
+        "value": "GERTEC_PPC930",
+        "whenShown": "enquanto catálogo API não sobrescreve o <select>; fallback se /tef/pinpads-catalogo falhar"
+      },
+      "catalogNomeExibicao": {
+        "file": "backend/services/tef/pinpads/pinpadCatalog.js",
+        "nomeExibicao": "Gertec PPC930 (Rede/Itaú)",
+        "descricaoConexao": "USB físico → driver Gertec → COM virtual → V$Pague",
+        "interfaceEsperada": "USB_CDC_SERIAL",
+        "adquirenteSugerido": "Rede",
+        "whenShown": "após carregarCatalogoPinpadsTEF substituir options por nomeExibicao"
+      },
+      "dbPinpadNome": {
+        "table": "tef_pinpads",
+        "nome": "Gertec PPC930",
+        "codigo": "GERTEC_PPC930"
+      },
+      "htmlComment": "Gertec PPC930 (Rede/Itaú) via CliSiTef/PayGo"
+    },
+    "analysis": {
+      "codigoUnico": "GERTEC_PPC930",
+      "conexaoFisicaDocumentadaNoCatalogo": "USB_CDC_SERIAL / COM virtual — alinhada ao fallback UI e a COM3 observada",
+      "rotuloRedeItau": "marca comercial/adquirente sugerido no catálogo; não é tipo de conexão",
+      "risk": "Operador pode achar que 'Rede/Itaú' muda o provedor TEF; provedor persistido é destaxa, não rede."
+    },
+    "executedUiExpectation": "Com API de catálogo saudável, a opção selecionável exibida é 'Gertec PPC930 (Rede/Itaú)'; o HTML inicial hardcoded 'USB CDC → COM virtual' é substituído."
+  },
+  "saveAndReadPath": {
+    "uiSave": "montarPayloadConfiguracaoTEF → POST /api/tef/configuracao",
+    "controller": "backend/controllers/tefConfiguracaoController.js#postConfiguracao",
+    "serviceMapIn": "tefConfigService.mapearPayloadEntrada",
+    "repository": "tefConfigRepository.salvarConfiguracaoCompleta → tef_configuracao / tef_servidores / tef_pinpads / tef_operacoes",
+    "serviceMapOut": "tefConfigService.mapearConfiguracaoSaida",
+    "adapterSelection": {
+      "factory": "tefFactory.obterAdapter",
+      "merge": "registroDb + configParaRegistroAdapter(config)",
+      "destaxaHomologacao": "DestaxaRealAdapter (modo real)"
+    },
+    "currentPersistedReadonly": {
+      "dbPath": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+      "sha256Observed": "92a9cf9df6192dbd5cb1229836836073bb79af555a9e888d1efd20a7b7f58d1b",
+      "databaseMutatedByThisSprint": false,
+      "tef_configuracao": {
+        "provedor": "destaxa",
+        "ambiente": "homologacao",
+        "habilitado": 1,
+        "tipo_integracao": "dll",
+        "empresa_codigo": null,
+        "loja_codigo": null,
+        "terminal_codigo": null,
+        "pdv_codigo": null,
+        "caixa_codigo": null,
+        "sdk_path": null,
+        "exe_path": null,
+        "ip_tef": null,
+        "porta_tef": null
+      },
+      "tef_pinpads": {
+        "codigo": "GERTEC_PPC930",
+        "porta_com": "COM3",
+        "tipo_conexao": "serial",
+        "habilitado": 1
+      },
+      "tef_servidores": {
+        "base_url": "",
+        "secretsPresent": false
+      },
+      "adapterExpected": "DestaxaRealAdapter"
+    }
+  },
+  "empresaLojaTerminalToBridge": {
+    "file": "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+    "function": "montarEntradaClient + valorConfig",
+    "whenFilled": {
+      "empresa_codigo|empresaCodigo|estabelecimento": "incluído como estabelecimento=<valor>",
+      "loja_codigo|lojaCodigo|loja": "incluído como loja=<valor>",
+      "terminal_codigo|terminalCodigo|terminal": "incluído como terminal=<valor>"
+    },
+    "whenEmptyNullOrWhitespace": {
+      "behavior": "valorConfig retorna null; chave omitida da string de entrada",
+      "exampleFromPpc93005": "versao=1.0.3;aplicacao=CDS Sistemas",
+      "documentedAsValidForInit": true
+    },
+    "configPathToBridge": [
+      "UI empresaCodigo/lojaCodigo/terminalCodigo",
+      "tef_configuracao.empresa_codigo/loja_codigo/terminal_codigo",
+      "mapearConfiguracaoSaida → empresaCodigo/lojaCodigo/terminalCodigo",
+      "configParaRegistroAdapter → empresa_codigo/loja_codigo/terminal_codigo",
+      "DestaxaRealAdapter(this.config) → bridge.iniciarClient(this.config) → montarEntradaClient"
+    ],
+    "currentValuesSentIfInitRepeated": "nenhum dos três (todos null/empty) — INIT não foi repetido nesta auditoria"
+  },
+  "falseReadyRisks": [
+    {
+      "priority": "P1",
+      "location": "frontend/erp/js/configuracao_tef.js#executarDiagnosticoCompleto",
+      "finding": "Após diagnóstico, badges diagReimpressao/diagConciliacao/diagCancelamento/diagVenda/diagNfce são forçados com atualizarStatus(..., true) sem evidência do relatório.",
+      "misleadingAs": "módulos ativos/integrados"
+    },
+    {
+      "priority": "P1",
+      "location": "percentualProntidao + alert class",
+      "finding": "percentualProntidao agrega dezenas de itens (adapter, DLL encontrada, pinpad, banco, ambiente homologacao, etc.). Pode subir alto mesmo com authorization.available=false e transactionCommunication.validated=false. Mitigação parcial: alert-success exige pct>=90 E autorizacaoDisponivel.",
+      "misleadingAs": "Prontidão técnica TEF N%"
+    },
+    {
+      "priority": "P2",
+      "location": "Monitor PinPad badge 'Configurado'",
+      "finding": "validarPinpadConfigurado = habilitado + (codigo|porta_com|ip). Não exige INIT, Identificar V$Pague nem COM consistente no momento.",
+      "misleadingAs": "PinPad operacional para venda"
+    },
+    {
+      "priority": "P2",
+      "location": "tefConfigService.testarConexao mensagem",
+      "finding": "Texto 'PinPad configurado e pronto para teste.' quando só parâmetros de conexão existem.",
+      "misleadingAs": "pronto para teste financeiro"
+    },
+    {
+      "priority": "P2",
+      "location": "Diagnóstico estados V$Pague/DLL",
+      "finding": "Processo V$Pague detectado e DLL/exports podem ficar verdes enquanto Identificar retorna 00151 e .conf ausente — não refletidos nos badges principais.",
+      "misleadingAs": "Client Destaxa operacional"
+    },
+    {
+      "priority": "P3",
+      "location": "Catálogo PPC930 'INTEGRADO' + aviso só para P200",
+      "finding": "integracaoTefStatus=INTEGRADO para PPC930 significa caminho de PinPad/provedor reconhecido, não TEF pronto para venda.",
+      "misleadingAs": "integração financeira completa"
+    }
+  ],
+  "documentedBlockersStillPresent": [
+    {
+      "id": "vspague_00151",
+      "status": "CONFIRMED",
+      "evidence": "C:/VBI/V$Pague/Client/logs/vspague-client.log — [00151] Terminal não cadastrado ou desabilitado",
+      "sourceSprint": "TEF-PPC930-06"
+    },
+    {
+      "id": "vspague_conf_missing",
+      "status": "CONFIRMED",
+      "evidence": "Log: Nenhum ou mais de um .conf encontrado no diretorio.; Get-ChildItem *.conf sob C:\\VBI\\V$Pague = 0 arquivos",
+      "sourceSprint": "TEF-PPC930-06"
+    },
+    {
+      "id": "oficial_mapping_pending",
+      "status": "CONFIRMED",
+      "evidence": "empresa_codigo/loja_codigo/terminal_codigo null; número lógico/PV sem mapeamento oficial (tef-ppc930-06-report.json)",
+      "sourceSprint": "TEF-PPC930-06"
+    },
+    {
+      "id": "financial_gate_disabled",
+      "status": "CONFIRMED_INTENTIONAL",
+      "evidence": "DESTAXA_REAL_TRANSACTION_ENABLED != 1"
+    }
+  ],
+  "fieldsEffectivelyUsedByDestaxa": {
+    "initClientEntrada": ["versao(app)", "aplicacao", "estabelecimento?", "loja?", "terminal?"],
+    "prepararAutorizacaoChecks": [
+      "provedor=destaxa",
+      "ambiente=homologacao",
+      "modo=real",
+      "operacao=CRT",
+      "valor=100 centavos",
+      "pinpad habilitado + portaCom",
+      "DLL/exports",
+      "CLIENT_INITIALIZED",
+      "V$Pague running",
+      "PPC930 detectado porta consistente",
+      "DESTAXA_REAL_TRANSACTION_ENABLED"
+    ],
+    "uiGenericIgnoredByDestaxaRuntime": [
+      "Servidor HTTP completo",
+      "sdkPath/exePath/ipTef/portaTef",
+      "pdvCodigo/caixaCodigo",
+      "flags Operações (para gate CRT homologação)",
+      "pinpadIp/pinpadPorta no caminho serial COM3"
+    ]
+  },
+  "inspectedFiles": [
+    "frontend/erp/pages/ConfiguracaoTEF.html",
+    "frontend/pages/ConfiguracaoTEF.html",
+    "frontend/erp/js/configuracao_tef.js",
+    "backend/services/tef/pinpads/pinpadCatalog.js",
+    "backend/services/tef/pinpadCatalogService.js",
+    "backend/services/tef/tefConfigService.js",
+    "backend/controllers/tefConfiguracaoController.js",
+    "backend/rotas/tefConfiguracao.js",
+    "backend/rotas/tef.js",
+    "backend/services/tef/tefFactory.js",
+    "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+    "backend/services/tef/adapters/DestaxaRealAdapter.js",
+    "backend/services/tef/tefDiagnosticoService.js",
+    "docs/build/tef-ppc930-06-report.json",
+    "C:/VBI/V$Pague/Client/logs/vspague-client.log"
+  ],
+  "prioritizedRecommendations": [
+    {
+      "priority": "P0",
+      "action": "Manter bloqueio: não gravar empresa/loja/terminal sem confirmação Destaxa; não abrir gate financeiro; não repetir INIT até cadastro V$Pague (00151/.conf) resolvido."
+    },
+    {
+      "priority": "P1",
+      "action": "Unificar rótulo PPC930: separar 'modelo/conexão USB CDC→COM' de 'adquirente sugerido Rede/Itaú' e remover comentário HTML CliSiTef/PayGo."
+    },
+    {
+      "priority": "P1",
+      "action": "Remover ou condicionar badges forçados true (reimpressão/conciliação/cancelamento/venda/NFC-e) no diagnóstico; amarrar a evidências reais."
+    },
+    {
+      "priority": "P2",
+      "action": "Na aba Empresa com provedor Destaxa, rotular estabelecimento/loja/terminal conforme doc Destaxa e ocultar/desmarcar pdv/caixa/servidor HTTP como não aplicáveis."
+    },
+    {
+      "priority": "P2",
+      "action": "Incluir no diagnóstico Destaxa evidência explícita de 00151/.conf/mapeamento pendente para não confundir processo V$Pague com terminal cadastrado."
+    },
+    {
+      "priority": "P3",
+      "action": "Suavizar texto 'pronto para teste' do testarConexao/Monitor para 'parâmetros de PinPad persistidos'."
+    }
+  ],
+  "conclusion": {
+    "adapterSelectionConsistentWithPersistedConfig": true,
+    "uiCatalogLabelDivergencePersists": true,
+    "destaxaUsesSubsetOfGenericTefFields": true,
+    "emptyEmpresaLojaTerminalOmittedFromInit": true,
+    "falseReadySignalsExistEspeciallyForcedDiagBadges": true,
+    "blockers00151ConfMappingRemain": true,
+    "tefReadyForSale": false,
+    "recommendedNextStep": "Corrigir consistência de rótulos/diagnóstico em sprint de UI (sem gravar códigos Destaxa) em paralelo ao suporte Destaxa sobre 00151/.conf e mapeamento oficial."
+  }
+}

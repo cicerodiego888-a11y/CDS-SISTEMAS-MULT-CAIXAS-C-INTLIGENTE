@@ -1279,20 +1279,12 @@ db.all(`
           }
         });
 
-        [...new Set(transacoesTefParaVincular)].forEach((transacaoId) => {
-          db.run(`
-            UPDATE tef_transacoes
-            SET venda_id = ?
-            WHERE id = ?
-          `, [
-            vendaId,
-            transacaoId
-          ], (tefErr) => {
-            if (tefErr) {
-              console.error('Erro ao vincular TEF à venda:', tefErr);
-            }
-          });
-        });
+        // TEF-15: vínculo somente por tef_transacao_id (nunca por valor/ordem).
+        require('../tef/tefVinculoVendaService').enfileirarVinculosSqlite(
+          db,
+          vendaId,
+          transacoesTefParaVincular
+        );
 
         let itensProcessados = 0;
         distribuicaoItens.forEach(item => {
@@ -1649,20 +1641,12 @@ const executarVenda = async () => {
         }
       });
 
-      [...new Set(transacoesTefParaVincular)].forEach((transacaoId) => {
-        db.run(`
-          UPDATE tef_transacoes
-          SET venda_id = ?
-          WHERE id = ?
-        `, [
-          vendaId,
-          transacaoId
-        ], (tefErr) => {
-          if (tefErr) {
-            console.error('Erro ao vincular TEF à venda:', tefErr);
-          }
-        });
-      });
+      // TEF-15: vínculo somente por tef_transacao_id (nunca por valor/ordem).
+      require('../tef/tefVinculoVendaService').enfileirarVinculosSqlite(
+        db,
+        vendaId,
+        transacoesTefParaVincular
+      );
 
       let itensProcessados = 0;
       distribuicaoItens.forEach(item => {

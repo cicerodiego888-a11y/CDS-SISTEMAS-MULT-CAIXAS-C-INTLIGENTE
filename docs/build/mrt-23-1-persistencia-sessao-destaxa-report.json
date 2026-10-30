@@ -1,0 +1,206 @@
+{
+  "sprint": "MRT-23.1",
+  "title": "Validação de persistência da sessão Destaxa",
+  "generatedAt": "2026-10-30T19:14:56.438Z",
+  "classificacao": "SESSÃO PERSISTENTE VALIDADA",
+  "restricoesObservadas": {
+    "initHomologacao": true,
+    "crt": false,
+    "est": false,
+    "enableReal": false,
+    "cobranca": false,
+    "cancelamento": false,
+    "estorno": false,
+    "gateOff": true,
+    "configDestaxaAlterada": false,
+    "bancoProducao": false
+  },
+  "auditoriaCodigoMrt23": {
+    "hostBridgePropagaTransactionId": true,
+    "tefManagerAncoraSessaoHost": true,
+    "continuarUsaHostCompartilhado": true,
+    "pidDivergenteInconclusivo": true
+  },
+  "evidencias": {
+    "vspague": {
+      "detectado": true,
+      "executando": true,
+      "responding": true,
+      "pid": 8740,
+      "caminho": "C:\\VBI\\Java\\bin\\VSPagueClient.exe"
+    },
+    "configSomenteLeitura": {
+      "ok": true,
+      "provedor": null,
+      "ambiente": "simulacao",
+      "empresaCodigo": null,
+      "lojaCodigo": null,
+      "terminalCodigo": null,
+      "pdvCodigo": null,
+      "caixaCodigo": null,
+      "defaults": true
+    },
+    "entradaInit": {
+      "texto": "versao=1.0.3;aplicacao=CDS Sistemas",
+      "chaves": [
+        "versao",
+        "aplicacao"
+      ],
+      "incluiPdvOuCaixa": false,
+      "ambiente": "homologacao"
+    },
+    "load": {
+      "sucesso": true,
+      "estado": "EXPORTS_VALID",
+      "dllLoaded": true,
+      "exportsValid": true,
+      "clientInitializedAntes": false,
+      "codigo": null,
+      "mensagem": null
+    },
+    "pidAntesInit": 20400,
+    "statusAntesInit": {
+      "disponivel": true,
+      "pid": 20400,
+      "clientInitialized": false,
+      "estado": "EXPORTS_VALID",
+      "processType": "child_process"
+    },
+    "init": {
+      "sucesso": true,
+      "codigoDestaxa": "00",
+      "codigo": "00",
+      "estado": "CLIENT_INITIALIZED",
+      "mensagem": "Client Destaxa inicializado",
+      "duracaoWallMs": 2,
+      "chamadasInit": 1,
+      "erro": null,
+      "diagnostico": {
+        "clientInitialized": true,
+        "clientResultCode": "00",
+        "estado": "CLIENT_INITIALIZED",
+        "dllLoaded": true
+      }
+    },
+    "pidDepoisInit": 20400,
+    "statusDepoisInit": {
+      "disponivel": true,
+      "pid": 20400,
+      "clientInitialized": true,
+      "clientResultCode": "00",
+      "estado": "CLIENT_INITIALIZED",
+      "dllLoaded": true
+    },
+    "adapterRecriadoMesmaSessao": {
+      "mesmoClient": true,
+      "bridgesDistintos": true,
+      "pid": 20400,
+      "clientInitialized": true,
+      "estado": "CLIENT_INITIALIZED"
+    },
+    "ancoraContinuidade": {
+      "pid": 20400,
+      "estado": "READY",
+      "processType": "child_process",
+      "capturadoEm": "2026-10-30T19:14:57.439Z"
+    },
+    "ipcTransactionId": {
+      "continue": "persist-231",
+      "finalize": "persist-231",
+      "nota": "Prova de contrato IPC — TX não enviada ao Native Host real (guard ativo)"
+    },
+    "hostEncerradoAoFim": true,
+    "notaEncerramento": "Sessão CLIENT_INITIALIZED vive no processo host; encerrar ao fim da sprint destrói a sessão (esperado)."
+  },
+  "testes": [
+    {
+      "nome": "Código: transactionId no IPC (HostBridge)",
+      "ok": true
+    },
+    {
+      "nome": "Código: sessaoHost.pid ancorada",
+      "ok": true
+    },
+    {
+      "nome": "Código: /continuar usa hostClient compartilhado",
+      "ok": true
+    },
+    {
+      "nome": "Código: PID divergente → inconclusivo",
+      "ok": true
+    },
+    {
+      "nome": "Gate financeiro OFF",
+      "ok": true
+    },
+    {
+      "nome": "V$Pague Client ativo",
+      "ok": true,
+      "detalhe": "pid=8740"
+    },
+    {
+      "nome": "Identidade host compartilhado (singleton)",
+      "ok": true
+    },
+    {
+      "nome": "Segundo Native Host não substitui o compartilhado (instância distinta)",
+      "ok": true
+    },
+    {
+      "nome": "Native Host compartilhado READY",
+      "ok": true
+    },
+    {
+      "nome": "LOAD pré-INIT",
+      "ok": true
+    },
+    {
+      "nome": "INIT único (sem retry)",
+      "ok": true
+    },
+    {
+      "nome": "Nenhuma TX / ENABLE_REAL durante INIT",
+      "ok": true
+    },
+    {
+      "nome": "clientInitialized=true após INIT",
+      "ok": true
+    },
+    {
+      "nome": "Mesmo PID antes e depois do INIT",
+      "ok": true,
+      "detalhe": "20400→20400"
+    },
+    {
+      "nome": "Continuidade: adapter recriado usa mesma sessão (PID + clientInitialized)",
+      "ok": true,
+      "detalhe": "pid=20400"
+    },
+    {
+      "nome": "Continuidade: validação PID aceita sessão atual do host compartilhado",
+      "ok": true
+    },
+    {
+      "nome": "transactionId propagada no IPC CONTINUE/FINALIZE (bridge novo)",
+      "ok": true
+    },
+    {
+      "nome": "PID divergente → estado inconclusivo (sem retry financeiro)",
+      "ok": true,
+      "detalhe": "TEF_NATIVE_HOST_SESSAO_REINICIADA"
+    },
+    {
+      "nome": "Nenhuma TX real / ENABLE_REAL no ciclo completo",
+      "ok": true
+    }
+  ],
+  "problemas": [],
+  "resultadoFinal": "MRT-23.1 CONCLUÍDA — SESSÃO PERSISTENTE VALIDADA",
+  "confirmacaoNenhumaOperacaoFinanceiraReal": {
+    "gateOff": true,
+    "crt": false,
+    "enableReal": false,
+    "txBloqueadasPeloGuard": 0,
+    "mensagem": "INIT homologação executado; nenhuma CRT/EST/ENABLE_REAL/cobrança"
+  }
+}

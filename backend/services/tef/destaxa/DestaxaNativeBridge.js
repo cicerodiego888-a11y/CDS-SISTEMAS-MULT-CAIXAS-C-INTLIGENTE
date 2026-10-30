@@ -5,6 +5,7 @@ const destaxaDllResolver = require('./destaxaDllResolver');
 const destaxaLogger = require('./destaxaLogger');
 const DestaxaTransacaoOrquestrador = require('./destaxaTransacaoOrquestrador');
 const DestaxaTransacaoMockDriver = require('./destaxaTransacaoMockDriver');
+const { projetarEntradaIniciaClient } = require('./destaxaMapeamentoTerminal');
 const {
   PROVIDER,
   MODO_REAL,
@@ -27,19 +28,6 @@ function obterVersaoAplicacao() {
   return String(pkg.version || '').trim();
 }
 
-function valorConfig(config, ...chaves) {
-  for (const chave of chaves) {
-    const valor = config?.[chave];
-    if (valor == null) continue;
-    if (typeof valor === 'object') continue;
-    const texto = String(valor).trim();
-    if (!texto) continue;
-    if (texto === 'undefined' || texto === 'null' || texto === '[object Object]') continue;
-    return texto;
-  }
-  return null;
-}
-
 function montarEntradaClient(config = {}) {
   const versao = obterVersaoAplicacao();
   if (!versao) {
@@ -49,29 +37,15 @@ function montarEntradaClient(config = {}) {
     );
   }
 
-  const pares = [
-    ['versao', versao],
-    ['aplicacao', APLICACAO]
-  ];
-
-  // Destaxa 1.83: estabelecimento / loja / terminal (não existe chave "empresa").
-  const estabelecimento = valorConfig(
-    config,
-    'estabelecimento',
-    'empresa_codigo',
-    'empresaCodigo'
-  );
-  const loja = valorConfig(config, 'loja', 'loja_codigo', 'lojaCodigo');
-  const terminal = valorConfig(config, 'terminal', 'terminal_codigo', 'terminalCodigo');
-
-  if (estabelecimento) pares.push(['estabelecimento', estabelecimento]);
-  if (loja) pares.push(['loja', loja]);
-  if (terminal) pares.push(['terminal', terminal]);
-
+  // Destaxa 1.83: estabelecimento/loja/terminal opcionais; pdv/caixa CDS nunca entram.
+  // MRT-28: parâmetros de log oficiais anexados na mesma string `entrada`.
+  const projecao = projetarEntradaIniciaClient(config, { versao, aplicacao: APLICACAO });
   return {
-    texto: pares.map(([chave, valor]) => `${chave}=${valor}`).join(';'),
-    chaves: pares.map(([chave]) => chave),
-    versao
+    texto: projecao.texto,
+    chaves: projecao.chaves,
+    versao,
+    incluiPdvOuCaixa: projecao.incluiPdvOuCaixa === true,
+    camposLogDll: projecao.camposLogDll || null
   };
 }
 
@@ -131,9 +105,19 @@ function criarDriverTransacaoNativo(exportsNativos, opcoes = {}) {
     capacidadeSaida,
     iniciaTransacaoDestaxa(operacao, entrada) {
       const e = montarBufferEntrada(entrada);
-      return chamarComSaida('iniciaTransacaoDestaxa', (resultado, saida, tamanhoSaida) => [
-        resultado, String(operacao), e.buffer, e.tamanho, saida, tamanhoSaida
-      ]);
+      // MRT-31/32 — BEGIN/END best-effort; exceção nativa sempre repropagada
+      const { envolverChamadaInstrumentada } = require('./destaxaFluxoInstrumentacao');
+      return envolverChamadaInstrumentada({
+        exportNome: 'iniciaTransacaoDestaxa',
+        contexto: { provedor: 'destaxa' },
+        extraBegin: {
+          operacao: String(operacao || ''),
+          tamanhoEntrada: e.tamanho
+        },
+        fn: () => chamarComSaida('iniciaTransacaoDestaxa', (resultado, saida, tamanhoSaida) => [
+          resultado, String(operacao), e.buffer, e.tamanho, saida, tamanhoSaida
+        ])
+      });
     },
     continuaTransacaoDestaxa(entrada) {
       const e = montarBufferEntrada(entrada);
@@ -206,7 +190,8 @@ class DestaxaNativeBridge {
         ? {
           codigo: this._ultimoErro.codigo,
           mensagem: this._ultimoErro.mensagem,
-          windows: this._ultimoErro.windows || null
+          windows: this._ultimoErro.windows || null,
+          classeDiagnostico: this._ultimoErro.classeDiagnostico || null
         }
         : null
     };
@@ -227,16 +212,23 @@ class DestaxaNativeBridge {
       codigo: resolucao.codigo || null
     });
 
-    if (!this._dllExists) {
-      this._estado = ESTADOS.DLL_NOT_FOUND;
+    if (!resolucao.sucesso || !this._dllExists) {
+      const codigo = resolucao.codigo || ERROS.DESTAXA_DLL_NOT_FOUND;
+      const classeDiagnostico = codigo === ERROS.DESTAXA_ARCHITECTURE_MISMATCH
+        ? 'ARQUITETURA_INCOMPATIVEL'
+        : codigo === ERROS.DESTAXA_ARCHITECTURE_NOT_SUPPORTED
+          ? 'ARQUITETURA_PROCESSO_NAO_SUPORTADA'
+          : 'DLL_AUSENTE';
+      this._estado = this._dllExists ? ESTADOS.DLL_FOUND : ESTADOS.DLL_NOT_FOUND;
       this._ultimoErro = {
-        codigo: resolucao.codigo || ERROS.DESTAXA_DLL_NOT_FOUND,
-        mensagem: resolucao.mensagem
+        codigo,
+        mensagem: resolucao.mensagem || 'DLL Destaxa indisponível',
+        classeDiagnostico
       };
       return {
         sucesso: false,
         codigo: this._ultimoErro.codigo,
-        mensagem: resolucao.mensagem,
+        mensagem: this._ultimoErro.mensagem,
         estado: this._estado,
         diagnostico: this.getDiagnostics()
       };
@@ -251,12 +243,16 @@ class DestaxaNativeBridge {
       this._ultimoErro = {
         codigo: error.codigo || ERROS.DESTAXA_DLL_LOAD_FAILED,
         mensagem: error.message,
-        windows: error.detalhes?.windows || null
+        windows: error.detalhes?.windows || null,
+        classeDiagnostico: error.detalhes?.classeDiagnostico
+          || error.detalhes?.windows?.classeDiagnostico
+          || 'ERRO_CARREGAMENTO'
       };
       destaxaLogger.registrar('dll.load.failed', {
         processArch: this._arch,
         dllPath: this._dllPath,
         codigo: this._ultimoErro.codigo,
+        classeDiagnostico: this._ultimoErro.classeDiagnostico,
         windows: this._ultimoErro.windows
       });
       return {
@@ -340,6 +336,39 @@ class DestaxaNativeBridge {
         sucesso: false,
         codigo: this._ultimoErro.codigo,
         mensagem: error.message,
+        estado: this._estado,
+        diagnostico: this.getDiagnostics()
+      };
+    }
+
+    // MRT-28 — diretório de log pronto antes de iniciaClientDestaxa (sem alterar TX).
+    try {
+      const { garantirDiretorioLogDll, DESTAXA_DLL_LOG_PARAMS } = require('./destaxaDllLogConfig');
+      const paramsLog = cfg.destaxaDllLog && typeof cfg.destaxaDllLog === 'object'
+        ? { ...DESTAXA_DLL_LOG_PARAMS, ...cfg.destaxaDllLog }
+        : DESTAXA_DLL_LOG_PARAMS;
+      const dirLog = garantirDiretorioLogDll(paramsLog);
+      if (!dirLog.ok) {
+        this._estado = ESTADOS.CLIENT_ERROR;
+        this._ultimoErro = { codigo: dirLog.codigo, mensagem: dirLog.mensagem };
+        return {
+          sucesso: false,
+          codigo: dirLog.codigo,
+          mensagem: `Diretório de log Destaxa indisponível: ${dirLog.mensagem}`,
+          estado: this._estado,
+          diagnostico: this.getDiagnostics()
+        };
+      }
+    } catch (errorDir) {
+      this._estado = ESTADOS.CLIENT_ERROR;
+      this._ultimoErro = {
+        codigo: ERROS.DESTAXA_INVALID_CONFIGURATION,
+        mensagem: errorDir.message
+      };
+      return {
+        sucesso: false,
+        codigo: ERROS.DESTAXA_INVALID_CONFIGURATION,
+        mensagem: errorDir.message,
         estado: this._estado,
         diagnostico: this.getDiagnostics()
       };

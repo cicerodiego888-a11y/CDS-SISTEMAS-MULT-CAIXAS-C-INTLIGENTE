@@ -1,0 +1,187 @@
+{
+  "sprint": "MRT-05",
+  "title": "Topologias de execução e contexto físico",
+  "generatedAt": "2026-10-30T02:30:00.000Z",
+  "status": "MRT-05 CONCLUÍDA — TOPOLOGIAS VALIDADAS",
+  "restricoesObservadas": {
+    "pagamentosSimultaneosLiberados": false,
+    "adaptersAlterados": false,
+    "initClient": false,
+    "transacaoReal": false,
+    "gates": false,
+    "bancoOficialAlterado": false,
+    "migrationsAplicadas": false,
+    "multiTerminalDestaxaInventado": false,
+    "locksMrt04Substituidos": false,
+    "cicloFinanceiroTefManagerAlterado": false
+  },
+  "contratoExecutionContext": {
+    "modulo": "backend/services/tef/executionContext",
+    "campos": [
+      "topologia",
+      "pdvId",
+      "terminalTefId",
+      "dispositivoId",
+      "estacao { id, hostname, mac, local, origem }",
+      "localidadeExecucao",
+      "runtime { provedor, isolamento, runtimeKey, singletonDestaxa }",
+      "dispositivo { presente, disponivel, motivo, codigo }",
+      "codigo",
+      "mensagem",
+      "limitacoes",
+      "compatibilidade",
+      "identidades"
+    ],
+    "topologias": [
+      "ESTACAO_UNICA_PDV_UNICO",
+      "ESTACAO_UNICA_MULTI_PDV",
+      "MULTI_ESTACAO",
+      "DESCONHECIDA"
+    ],
+    "localidades": ["LOCAL", "REMOTA_REQUERIDA", "INDETERMINADA"],
+    "codigos": [
+      "EXEC_OK",
+      "ESTACAO_NAO_VINCULADA",
+      "ESTACAO_REMOTA_NAO_SUPORTADA",
+      "DISPOSITIVO_INDISPONIVEL",
+      "TERMINAL_SEM_DISPOSITIVO",
+      "TOPOLOGIA_INCOMPATIVEL_PROVEDOR",
+      "HOSTNAME_MAC_NAO_SAO_PDV",
+      "EXEC_INDETERMINADO"
+    ],
+    "apis": [
+      "resolver(entrada)",
+      "inferirTopologia(mapaPdvEstacao, pdvId)",
+      "avaliarDispositivo(dispositivo)",
+      "compararEstacaoLocal(estacaoPdv, hostHints)",
+      "matrizProvedor(provedor)"
+    ]
+  },
+  "modeloIdentidadeFisicaEComercial": {
+    "comercial": "pdvId = terminais.id (NUNCA hostname/MAC)",
+    "terminalLogico": "terminalTefId — provedor/ambiente/codigoLogicoProvedor",
+    "dispositivoFisico": "dispositivoId — porta COM / IP / serial",
+    "estacaoExecucao": "estacao.id = host:* ou mac:* — máquina onde Native Host/SDK roda",
+    "hostHints": "apenas comparação de localidade; nunca viram pdvId",
+    "separacaoGarantida": "estacao.identidadeEhPdv=false; chaveEstacao ≠ pdvId"
+  },
+  "resolucaoContextoPorTopologia": {
+    "ESTACAO_UNICA_PDV_UNICO": {
+      "inferencia": "1 chave de estação e 1 PDV no mapa",
+      "execucao": "LOCAL quando hostHints coincidem com terminais.hostname",
+      "destaxa": "Native Host local + GLOBAL_SERIALIZE trivial"
+    },
+    "ESTACAO_UNICA_MULTI_PDV": {
+      "inferencia": "1 estação, N PDVs",
+      "execucao": "LOCAL serializado via Allocator MRT-04",
+      "destaxa": "limitação SERIALIZACAO_GLOBAL_OBRIGATORIA — sem pagamentos simultâneos"
+    },
+    "MULTI_ESTACAO": {
+      "inferencia": "≥2 hostnames/MACs distintos no mapa",
+      "execucao": "REMOTA_REQUERIDA se PDV estiver em outra máquina que hostHints",
+      "destaxa": "não suportado sem bridge entre PCs; remote-future"
+    },
+    "DESCONHECIDA": {
+      "inferencia": "mapa vazio / singleton sem vínculo",
+      "execucao": "INDETERMINADA — fallback singleton preservado"
+    },
+    "router": {
+      "ordem": "identidade PDV → Registry → ExecutionContext → allocate(opt-in)",
+      "anexacao": "decision.executionContext sempre que decisão passa pelo finalizador",
+      "bloqueioDefault": "dispositivo ativo=false → DISPOSITIVO_INDISPONIVEL",
+      "flagsOptIn": ["exigirDispositivo", "exigirExecucaoLocal", "exigirEstacaoVinculada"],
+      "fallbackSingleton": "preservado (MRT-02/03); ausência de device anota TERMINAL_SEM_DISPOSITIVO sem hard-fail"
+    }
+  },
+  "matrizCompatibilidadeProvedores": {
+    "destaxa": {
+      "runtimeSingleton": true,
+      "isolamento": "GLOBAL_SERIALIZE",
+      "ESTACAO_UNICA_PDV_UNICO": { "suportado": true, "pagamentosSimultaneos": false },
+      "ESTACAO_UNICA_MULTI_PDV": { "suportado": true, "execucao": "LOCAL_NATIVE_HOST_SERIALIZADO", "pagamentosSimultaneos": false },
+      "MULTI_ESTACAO": { "suportado": false, "execucao": "REQUER_COMUNICACAO_ENTRE_PCS" }
+    },
+    "sitef": {
+      "runtimeSingleton": false,
+      "isolamento": "PER_TERMINAL",
+      "ESTACAO_UNICA_PDV_UNICO": { "suportado": true },
+      "ESTACAO_UNICA_MULTI_PDV": { "suportado": true, "pagamentosSimultaneos": false },
+      "MULTI_ESTACAO": { "suportado": "parcial", "nota": "cada PC com próprio SDK; sem bridge CDS" }
+    },
+    "paygo": {
+      "runtimeSingleton": false,
+      "isolamento": "PER_TERMINAL",
+      "ESTACAO_UNICA_PDV_UNICO": { "suportado": true },
+      "ESTACAO_UNICA_MULTI_PDV": { "suportado": true, "pagamentosSimultaneos": false },
+      "MULTI_ESTACAO": { "suportado": "parcial" }
+    }
+  },
+  "limitacoesConfirmadas": [
+    "Destaxa Native Host + V$Pague por hostname/MAC — MULTI_ESTACAO exige comunicação entre computadores (não implementada)",
+    "Não há suporte multi-terminal Destaxa documentado — não inventado nesta sprint",
+    "Allocator MRT-04 permanece a fonte de ocupação; ExecutionContext não libera locks",
+    "TefManager ainda não passa mapaPdvEstacao / exigirExecucaoLocal — topologia rica depende de cutover",
+    "Registry em memória + migration MRT-03 não aplicada — mapa de estações parcial",
+    "Pagamentos simultâneos continuam proibidos em todas as topologias Destaxa"
+  ],
+  "comportamentoDispositivoIndisponivel": {
+    "ativoFalse": "EXEC/ROUTE DISPOSITIVO_INDISPONIVEL — bloqueante por default",
+    "ausente": "TERMINAL_SEM_DISPOSITIVO — anota; bloqueia só com exigirDispositivo=true",
+    "estacaoRemotaDestaxa": "ESTACAO_REMOTA_NAO_SUPORTADA — bloqueia com exigirExecucaoLocal=true",
+    "pdvSemHostname": "ESTACAO_NAO_VINCULADA — anota; bloqueia com exigirEstacaoVinculada=true"
+  },
+  "arquivosCriados": [
+    "backend/services/tef/executionContext/contracts.js",
+    "backend/services/tef/executionContext/ExecutionContextResolver.js",
+    "backend/services/tef/executionContext/index.js",
+    "tests/tef/mrt-05-topologias-contexto.test.js",
+    "docs/build/mrt-05-topologias-contexto-report.json"
+  ],
+  "arquivosAlterados": [
+    "backend/services/tef/terminalRouter/contracts.js",
+    "backend/services/tef/terminalRouter/TerminalRouter.js",
+    "backend/services/tef/terminalRouter/index.js"
+  ],
+  "testes": {
+    "comandoMrt05": "node tests/tef/mrt-05-topologias-contexto.test.js",
+    "resultadoMrt05": "13/13 OK",
+    "cenarios": [
+      "uma estação / um PDV",
+      "uma estação / múltiplos PDVs",
+      "múltiplas estações",
+      "PDV sem estação vinculada",
+      "dispositivo indisponível",
+      "terminal lógico sem dispositivo físico",
+      "hostname/MAC ≠ identidade comercial",
+      "runtime Destaxa singleton",
+      "Router sem allocate (path TefManager)",
+      "estação remota + exigirExecucaoLocal"
+    ],
+    "regressaoMrt02": "15/15 OK",
+    "regressaoMrt03": "15/15 OK",
+    "regressaoMrt04": "15/15 OK"
+  },
+  "riscosRemanescentes": [
+    "Sem bridge remota, PDV em PC-B não executa Destaxa no Native Host de PC-A",
+    "Mapa de estações incompleto se Registry/meta.estacaoHostname não for alimentado",
+    "SiTef/PayGo MULTI_ESTACAO 'parcial' ainda sem orquestração multi-host",
+    "Cutover TefManager para usar ExecutionContext/allocate permanece futuro",
+    "Persistência oficial do Registry ainda pendente (migration MRT-03)"
+  ],
+  "planoProximaEtapa": {
+    "candidato": "MRT-06 — cutover incremental do TefManager ao RouteDecision + ExecutionContext",
+    "passos": [
+      "1. Propagar mapaPdvEstacao a partir de terminais.hostname (read-only, sem migration)",
+      "2. Opt-in allocate=true apenas em caminho Destaxa após RouteDecision sucesso",
+      "3. Respeitar DISPOSITIVO_INDISPONIVEL / ESTACAO_REMOTA sem alterar TEF-13/14/15/17",
+      "4. Telemetria de topologia nas evidências operacionais Destaxa",
+      "5. Avaliar bridge remota só após evidência formal Destaxa multi-host (não presumir)"
+    ],
+    "naoFazerAinda": [
+      "Habilitar gates de pagamento paralelo",
+      "Aplicar migration MRT-03 no banco oficial sem sprint dedicada",
+      "Alterar adapters / INIT / cancelamento TEF-17"
+    ]
+  },
+  "conclusao": "ExecutionContext separa pdvId, terminalTefId, dispositivoId e estação física; classifica as três topologias; compatibiliza Destaxa GLOBAL_SERIALIZE; documenta MULTI_ESTACAO como dependente de comunicação entre PCs; integra o Router sem alterar o ciclo financeiro do TefManager nem os locks MRT-04."
+}

@@ -3,6 +3,7 @@ const SitefRealAdapter = require('./adapters/sitefRealAdapter');
 const PaygoAdapter = require('./adapters/paygoAdapter');
 const PaygoRealAdapter = require('./adapters/paygoRealAdapter');
 const StoneAdapter = require('./adapters/stoneAdapter');
+const { StoneUnavailableAdapter } = StoneAdapter;
 const CieloAdapter = require('./adapters/cieloAdapter');
 const RedeAdapter = require('./adapters/redeAdapter');
 const GetnetAdapter = require('./adapters/getnetAdapter');
@@ -138,8 +139,13 @@ function criarAdapter(registro, opcoes = {}) {
     return criarAdapterDestaxa(registroNormalizado, opcoes);
   }
 
+  // TEF-STONE-01: Stone só simula com ambiente explícito "simulacao".
+  // Homologação/produção sem integração real → indisponibilidade explícita (sem NSU/AUT).
+  if (provedor === 'stone') {
+    return criarAdapterStone(registroNormalizado);
+  }
+
   const gateways = {
-    stone: StoneAdapter,
     cielo: CieloAdapter,
     rede: RedeAdapter,
     getnet: GetnetAdapter
@@ -154,7 +160,35 @@ function criarAdapter(registro, opcoes = {}) {
 }
 
 /**
- * Fonte oficial: tefConfigService → registro coerente para a fábrica.
+ * Stone — simulação somente com ambiente === "simulacao".
+ * Sem adapter real: homologacao/producao retornam StoneUnavailableAdapter
+ * (nunca SimulatedGatewayAdapter).
+ */
+function criarAdapterStone(registro = {}) {
+  const ambienteRaw = registro.ambiente != null && registro.ambiente !== ''
+    ? registro.ambiente
+    : registro.tefAmbiente;
+  const ambiente = String(ambienteRaw || '').trim().toLowerCase();
+
+  if (ambiente === 'simulacao') {
+    return StoneAdapter({ ...registro, ambiente: 'simulacao' });
+  }
+
+  if (ambienteUsaMiddlewareReal(ambiente)) {
+    return new StoneUnavailableAdapter({ ...registro, ambiente: ambienteRaw || ambiente });
+  }
+
+  // Ambiente ausente/inválido: não cair em simulação implícita.
+  throw erroAdapterProvedor(
+    'STONE_AMBIENTE_INVALIDO',
+    `Stone só permite simulação quando o ambiente está explicitamente configurado como "simulacao". Ambiente atual: "${ambienteRaw || ''}".`,
+    { ambiente: ambienteRaw || null, provedor: 'stone' }
+  );
+}
+
+/**
+ * Compatibilidade singleton (LIMIT 1) — cancelamento/consulta/status/diagnóstico.
+ * Autorização (MRT-12): usar tefAdapterSelection.selecionarAdapterPorRouteDecision.
  * Não inventa provedor Rede quando a linha ainda não existe.
  */
 async function obterAdapter(opcoes = {}) {
@@ -179,6 +213,7 @@ module.exports = {
   obterAdapter,
   criarAdapter,
   criarAdapterDestaxa,
+  criarAdapterStone,
   ambienteUsaMiddlewareReal,
   provedorReconhecido,
   PROVEDORES

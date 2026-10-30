@@ -1,0 +1,90 @@
+{
+  "sprint": "TEF-17",
+  "title": "Política segura de cancelamento Destaxa",
+  "generatedAt": "2026-10-30T02:00:00.000Z",
+  "status": "TEF-17 CONCLUÍDA — POLÍTICA DE CANCELAMENTO VALIDADA",
+  "restricoesObservadas": {
+    "initClient": false,
+    "transacaoFinanceiraReal": false,
+    "cancelamentoEstornoReal": false,
+    "gatesProducao": false,
+    "bancoOficialAlterado": false,
+    "migrations": false,
+    "tef13Alterada": false,
+    "tef14Alterada": false,
+    "multiPdv": false,
+    "camposEstInventados": false
+  },
+  "contratoReal": {
+    "fonte": "PARCERIA-DESTAXA 1.83 docs (Desktop/DLL DESTAXA/.../1_83/docs)",
+    "dllExports": [
+      "iniciaClientDestaxa",
+      "iniciaTransacaoDestaxa",
+      "continuaTransacaoDestaxa",
+      "finalizaTransacaoDestaxa"
+    ],
+    "exportCancelamentoDedicado": false,
+    "operacaoEstorno": {
+      "codigo": "EST",
+      "descricaoDoc": "Estorno de transação",
+      "api": "iniciaTransacaoDestaxa(operacao=EST)",
+      "camposEntradaDocumentados": null,
+      "nota": "docs/06 lista EST na tabela de operações, mas só exemplifica campos de entrada de CRT (transacao_pagamento/tipo_cartao/valor). Sem contrato de NSU/autorização/data para EST — execução real bloqueada."
+    },
+    "abortarTransacaoCorrente": {
+      "api": "finalizaTransacaoDestaxa",
+      "confirmacao": 9,
+      "distintoDeEstorno": true,
+      "podeSerRecusado": true,
+      "codigoRecusaContinuar": "99",
+      "fonte": "08-api-finalizatransacaodestaxa.md"
+    },
+    "timeoutNaoCancela": true
+  },
+  "estadosImplementados": {
+    "CANCELAMENTO_CONFIRMADO": "sucesso=true, status=cancelado, financialState=CANCELLED, cancelConfirmed=true",
+    "CANCELAMENTO_RECUSADO": "sucesso=false, financialState=UNCHANGED",
+    "CANCELAMENTO_NAO_SUPORTADO": "padrão Destaxa real (EST sem contrato de entrada)",
+    "CANCELAMENTO_INCONCLUSIVO": "resultado ambíguo; tx rastreável",
+    "CANCELAMENTO_DADOS_INSUFICIENTES": "nsu/autorizacao ausentes (modo preparação/teste)",
+    "CANCELAMENTO_TIMEOUT": "timeout ≠ estorno"
+  },
+  "regras": [
+    "CDS nunca afirma cancelado/estornado sem cancelConfirmed do provedor",
+    "TefManager.cancelar não altera status financeiro se não confirmado (preserva aprovado)",
+    "tefReversalService não marca reversao_executada nem emite CANCELADO sem confirmação",
+    "VendaCancelamentoService bloqueia baixa/estorno local (HTTP 409) sem TEF confirmado",
+    "PDV não limpa pagamentoFiscalAtual como cancelado sem sucesso confirmado",
+    "EST real não é chamado; simulação só em testes via resultadoProvedorSimulado"
+  ],
+  "arquivosModificados": [
+    "backend/services/tef/destaxa/destaxaCancelamentoPolitica.js (novo)",
+    "backend/services/tef/adapters/DestaxaRealAdapter.js",
+    "backend/services/tef/tefContrato.js",
+    "backend/services/tef/TefManager.js",
+    "backend/services/tef/tefReversalService.js",
+    "backend/services/tef/adapters/SimulatedGatewayAdapter.js",
+    "backend/services/vendas/VendaCancelamentoService.js",
+    "frontend/pdv/js/pdv.js",
+    "tests/tef/tef-17-cancelamento-destaxa.test.js (novo)",
+    "docs/build/tef-17-cancelamento-destaxa-report.json (novo)"
+  ],
+  "testes": {
+    "comando": "node tests/tef/tef-17-cancelamento-destaxa.test.js",
+    "resultado": "10/10 OK",
+    "regressao": {
+      "tef-13-idempotencia-estavel": "13/13 OK",
+      "tef-14-pendencias-orfas": "11/11 OK",
+      "tef-15-vinculo-venda": "12/12 OK"
+    }
+  },
+  "dependenciasExternas": [
+    "Documentação oficial dos campos de entrada EST (NSU/autorização/data/terminal) para habilitar estorno comercial real",
+    "Homologação futura de EST com gate DESTAXA_REAL_TRANSACTION_ENABLED (fora desta sprint)"
+  ],
+  "riscosRemanescentes": [
+    "Vendas com TEF Destaxa aprovado não podem ser estornadas automaticamente até contrato EST — operador precisa processo manual/reconciliação",
+    "finalizaTransacaoDestaxa(9) permanece disponível no bridge para abortar fluxo corrente, mas não é usado como falso estorno comercial",
+    "Adapters legados sem cancelConfirmed continuam pelo caminho legado do contrato"
+  ]
+}

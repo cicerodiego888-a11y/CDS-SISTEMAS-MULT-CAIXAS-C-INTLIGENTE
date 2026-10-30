@@ -26,6 +26,19 @@ function estaAprovado(retorno) {
   return normalizarStatus(retorno.status) === STATUS.APROVADO;
 }
 
+/** TEF-17 — só confirma cancelamento/estorno com evidência explícita do provedor. */
+function cancelamentoConfirmado(retorno) {
+  if (!retorno || typeof retorno !== 'object') return false;
+  if (retorno.cancelConfirmed === false) return false;
+  if (retorno.cancelConfirmed === true && retorno.sucesso === true) return true;
+  if (retorno.financialState === 'CANCELLED' && retorno.sucesso === true) return true;
+  // Legado: adapters antigos sem cancelConfirmed
+  if (retorno.cancelConfirmed == null) {
+    return retorno.sucesso === true && normalizarStatus(retorno.status) === STATUS.CANCELADO;
+  }
+  return false;
+}
+
 /**
  * @param {object} params
  * @returns {object} Contrato padronizado de autorização
@@ -84,19 +97,39 @@ function criarRespostaCancelamento({
   codigo = null,
   mensagem = '',
   payloadRetorno = null,
-  modo = 'simulacao'
+  modo = 'simulacao',
+  cancelConfirmed = null,
+  cancelOutcome = null,
+  financialState = null
 } = {}) {
   const statusNorm = normalizarStatus(status);
+  // TEF-17: cancelConfirmed=false nunca promove a cancelado; null preserva legado (simuladores).
+  let confirmado;
+  if (cancelConfirmed === true) {
+    confirmado = true;
+  } else if (cancelConfirmed === false) {
+    confirmado = false;
+  } else {
+    confirmado = sucesso === true || statusNorm === STATUS.CANCELADO;
+  }
+
+  const statusFinal = confirmado
+    ? STATUS.CANCELADO
+    : (statusNorm === STATUS.CANCELADO ? STATUS.ERRO : statusNorm);
+
   return {
-    sucesso: sucesso === true || statusNorm === STATUS.CANCELADO,
-    status: statusNorm,
+    sucesso: confirmado,
+    status: statusFinal,
     nsu: nsu || null,
     autorizacao: autorizacao || null,
     transacaoId: transacaoId != null ? String(transacaoId) : null,
     codigo: codigo || null,
     mensagem: mensagem || '',
     payloadRetorno: payloadRetorno || null,
-    modo
+    modo,
+    cancelConfirmed: confirmado,
+    cancelOutcome: cancelOutcome || (confirmado ? 'CANCELAMENTO_CONFIRMADO' : null),
+    financialState: confirmado ? 'CANCELLED' : (financialState || 'UNCHANGED')
   };
 }
 
@@ -200,6 +233,8 @@ function paraRespostaApi(retorno, transacaoId = null) {
     mensagem: retorno.mensagem || '',
     modo: retorno.modo || null,
     financialState: retorno.financialState || null,
+    cancelConfirmed: retorno.cancelConfirmed === true,
+    cancelOutcome: retorno.cancelOutcome || null,
     protocolState: retorno.protocolState || null,
     retryAllowed: retorno.retryAllowed === true,
     retryReason: retorno.retryReason || null,
@@ -221,6 +256,7 @@ module.exports = {
   STATUS,
   normalizarStatus,
   estaAprovado,
+  cancelamentoConfirmado,
   criarRespostaAutorizacao,
   criarRespostaCancelamento,
   criarRespostaConsulta,

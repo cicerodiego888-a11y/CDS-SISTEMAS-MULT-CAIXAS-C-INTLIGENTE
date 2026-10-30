@@ -1,0 +1,532 @@
+{
+  "sprint": "STONE-TEF-01",
+  "title": "Auditoria arquitetural e inventário da integração Stone P200 USB",
+  "generatedAt": "2026-10-27T17:50:00.000Z",
+  "verdict": "READY_FOR_STONE_TEF_02",
+  "scopeConfirmation": {
+    "implementationPerformed": false,
+    "productionFilesModified": false,
+    "clientConfigChanged": false,
+    "databaseOrWalOrShmTouched": false,
+    "windowsRegistryOrDriversTouched": false,
+    "destaxaClientStarted": false,
+    "financialOperationsExecuted": false,
+    "financialLocksEnabled": false,
+    "dependenciesInstalled": false,
+    "migrationsRun": false,
+    "pdvChanged": false,
+    "secondCdsInstanceAgainstClientDb": false,
+    "filesModifiedExpected": ["docs/build/stone-tef-01-auditoria-arquitetural-report.json"],
+    "zeroNativeFinancialCalls": true,
+    "zeroPayments": true
+  },
+  "summary": {
+    "tefMotorUnico": "TefManager + tefFactory + BaseAdapter/tefContrato — preservar; não criar segundo motor",
+    "stoneTefHoje": "stoneAdapter.js é SimulatedGatewayAdapter (simulação). Sem SDK/DLL/serviço Stone TEF no repositório",
+    "stonePixSeparado": "backend/services/pix/providers/stoneProvider.js é API cloud PIX — não é PinPad USB P200 nem TEF local",
+    "redeItauEfetivo": "redeAdapter.js também é simulação; caminho real observado no projeto é Destaxa + V$Pague/VSPagueClient + Gertec PPC930 (catálogo rotula Rede/Itaú)",
+    "destaxaEfetivo": "DLL libdll-integracao-tef.dll via koffi; execução preferencial em TEF Native Host isolado; gate DESTAXA_REAL_TRANSACTION_ENABLED",
+    "p200NoProjeto": "Nenhuma referência a P200, VID/PID Stone PinPad, DLL Stone TEF, ou docs oficiais Stone Windows no workspace",
+    "descobertaHardwareExistente": "sdkDetector.listarDispositivosUsb / listarPortasCOM + deviceEnumeration (PnP não invasivo); detector específico só para Gertec PPC930"
+  },
+  "arquivosEComponentes": {
+    "nucleo": [
+      {
+        "path": "backend/services/tef/TefManager.js",
+        "role": "Motor financeiro único; autorizar/cancelar/consultar/reimprimir/status; idempotência; trava resultado tardio; circuit breaker; fraude; recuperação de pendências"
+      },
+      {
+        "path": "backend/services/tef/index.js",
+        "role": "Fachada iniciarPagamento/cancelar/consultar/reimprimir → TefManager"
+      },
+      {
+        "path": "backend/services/tef/tefFactory.js",
+        "role": "Seleção de adapter por provedor+ambiente persistidos; PROVEDORES inclui stone"
+      },
+      {
+        "path": "backend/services/tef/tefContrato.js",
+        "role": "Contrato comum de resposta (autorização, cancelamento, consulta, reimpressão, diagnóstico)"
+      },
+      {
+        "path": "backend/services/tef/adapters/BaseAdapter.js",
+        "role": "Interface oficial dos adapters TEF"
+      },
+      {
+        "path": "backend/services/tef/tefFluxoPagamento.js",
+        "role": "Normalização de tipos TEF e flags de fluxo"
+      },
+      {
+        "path": "backend/services/tef/tefFinancialSafetyPolicy.js",
+        "role": "Classificação financeira; retryAllowed sempre false após resultado conclusivo/inconclusivo"
+      },
+      {
+        "path": "backend/services/tef/tefConfigService.js",
+        "role": "Configuração oficial; defaults sem inventar provedor; validação por contrato de provedor"
+      },
+      {
+        "path": "backend/repositories/tefConfigRepository.js",
+        "role": "Persistência tef_configuracao / servidores / pinpads / operações"
+      },
+      {
+        "path": "backend/services/tef/tefDiagnosticoService.js",
+        "role": "Diagnóstico TEF (config + sdkDetector); não autoriza"
+      },
+      {
+        "path": "backend/services/tef/sdkDetector.js",
+        "role": "Detecção SiTef/PayGo/Destaxa DLL, VSPagueClient, PPC930, listarPortasCOM, listarDispositivosUsb (VID/PID)"
+      },
+      {
+        "path": "backend/services/tef/tefEvents.js",
+        "role": "Eventos pinpad / progresso TEF"
+      }
+    ],
+    "adapters": [
+      {
+        "path": "backend/services/tef/adapters/stoneAdapter.js",
+        "tecnologia": "SimulatedGatewayAdapter",
+        "modoReal": false
+      },
+      {
+        "path": "backend/services/tef/adapters/redeAdapter.js",
+        "tecnologia": "SimulatedGatewayAdapter",
+        "modoReal": false
+      },
+      {
+        "path": "backend/services/tef/adapters/destaxaAdapter.js",
+        "tecnologia": "SimulatedGatewayAdapter",
+        "modo": "simulacao"
+      },
+      {
+        "path": "backend/services/tef/adapters/DestaxaRealAdapter.js",
+        "tecnologia": "DestaxaNativeBridge ou DestaxaHostBridge → DLL Destaxa",
+        "modo": "real"
+      },
+      {
+        "path": "backend/services/tef/adapters/sitefAdapter.js",
+        "tecnologia": "simulação"
+      },
+      {
+        "path": "backend/services/tef/adapters/sitefRealAdapter.js",
+        "tecnologia": "estrutura real CliSiTef (DLL)"
+      },
+      {
+        "path": "backend/services/tef/adapters/paygoAdapter.js",
+        "tecnologia": "simulação"
+      },
+      {
+        "path": "backend/services/tef/adapters/paygoRealAdapter.js",
+        "tecnologia": "estrutura real PayGo (DLL)"
+      },
+      {
+        "path": "backend/services/tef/adapters/cieloAdapter.js",
+        "tecnologia": "SimulatedGatewayAdapter"
+      },
+      {
+        "path": "backend/services/tef/adapters/getnetAdapter.js",
+        "tecnologia": "SimulatedGatewayAdapter"
+      },
+      {
+        "path": "backend/services/tef/adapters/SimulatedGatewayAdapter.js",
+        "role": "Base de gateways simulados (Stone/Cielo/Rede/Getnet/Destaxa sim)"
+      }
+    ],
+    "destaxa": [
+      "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+      "backend/services/tef/destaxa/DestaxaHostBridge.js",
+      "backend/services/tef/destaxa/DestaxaNativeHost.js",
+      "backend/services/tef/destaxa/DestaxaNativeHostClient.js",
+      "backend/services/tef/destaxa/destaxaNativeHostProtocolo.js",
+      "backend/services/tef/destaxa/destaxaNativeHostVerifier.js",
+      "backend/services/tef/destaxa/destaxaKoffiLoader.js",
+      "backend/services/tef/destaxa/destaxaDllResolver.js",
+      "backend/services/tef/destaxa/destaxaProtocolo.js",
+      "backend/services/tef/destaxa/destaxaConstantes.js",
+      "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js",
+      "backend/services/tef/destaxa/destaxaBinarios.js",
+      "resources/tef/destaxa/win-x64/libdll-integracao-tef.dll",
+      "resources/tef/destaxa/win-ia32/libdll-integracao-tef.dll"
+    ],
+    "pinpads": [
+      "backend/services/tef/pinpads/pinpadCatalog.js",
+      "backend/services/tef/pinpads/PinpadFactory.js",
+      "backend/services/tef/pinpads/detectarPpc930.js",
+      "backend/services/tef/pinpads/GertecPPC930.js",
+      "backend/services/tef/pinpads/GertecPinpad.js",
+      "backend/services/tef/pinpads/IngenicoPinpad.js",
+      "backend/services/tef/pinpads/VerifonePinpad.js",
+      "backend/services/tef/pinpads/PaxPinpad.js",
+      "backend/services/tef/pinpadCatalogService.js"
+    ],
+    "descobertaHardware": [
+      "backend/motores/equipamentos/discovery/deviceEnumeration.js",
+      "backend/rotas/integracao-equipamentos.js (POST /tef/descobrir)"
+    ],
+    "rotasEFluxoPdv": [
+      "backend/rotas/tef.js",
+      "backend/rotas/tefConfiguracao.js",
+      "backend/controllers/tefConfiguracaoController.js",
+      "backend/services/vendas/VendaPagamentoService.js",
+      "backend/services/OrquestradorPagamento.js",
+      "frontend/shared/js/tefFluxoPagamento.js",
+      "frontend/erp/js/configuracao_tef.js"
+    ],
+    "stoneRelacionadosMasNaoTefPinpad": [
+      {
+        "path": "backend/services/pix/providers/stoneProvider.js",
+        "nota": "PIX HTTP cloud; não comunica P200 USB"
+      },
+      {
+        "path": "backend/services/pix/providerCatalog.js",
+        "nota": "Catálogo PIX inclui stone (baseUrl/token/accountId)"
+      }
+    ],
+    "documentacaoInterna": [
+      "docs/tef/TEF-03-descoberta-integracao-rede.md",
+      "backend/services/tef/README_INTEGRACAO_REAL.md",
+      "backend/services/tef/README_CERTIFICACAO.md",
+      "backend/services/tef/CHECKLIST_HOMOLOGACAO_TEF.md",
+      "docs/motores/equipamentos/INTEGRACAO_EQUIPAMENTOS_RC5.md",
+      "docs/build/tef-destaxa-*.json (histórico Destaxa)"
+    ],
+    "ausentesRelevantes": [
+      "resources/tef/stone/**",
+      "docs/tef/*stone*",
+      "qualquer DLL/SDK Stone TEF/PinPad",
+      "modelo STONE_P200 no pinpadCatalog",
+      "detector específico P200 / VID-PID Stone PinPad",
+      "credenciais de homologação Stone TEF versionadas no projeto"
+    ]
+  },
+  "contratoPublicoTefManager": {
+    "export": "singleton + classe TefManager",
+    "metodosPublicos": [
+      "autorizar(dados, timeoutMs?)",
+      "cancelar(transacaoId, motivo?)",
+      "consultar(transacaoId)",
+      "reimprimir(transacaoId, tipo?)",
+      "status()",
+      "garantirRecuperacao()",
+      "recarregarPendencias()",
+      "obterTravaResultadoTardio()",
+      "reconciliarResultadoTardio(transacaoId, dados)",
+      "prepararHarnessDestaxaReal()",
+      "vincularNfce(transacaoId, nfceNumero, nfceChave)"
+    ],
+    "selecaoAdapter": "await obterAdapter() dentro de autorizar — nunca hardcode de fabricante no Manager",
+    "hooksAdapterOpcionais": [
+      "prepararAutorizacao(dados) — gate pré-transactionId (DestaxaRealAdapter)",
+      "contratoTimeout.resultadoTardio — Destaxa real"
+    ],
+    "fachadaIndex": {
+      "iniciarPagamento": "tefManager.autorizar + tefContrato.paraRespostaApi",
+      "cancelarPagamento": "tefManager.cancelar",
+      "consultarPagamento": "tefManager.consultar",
+      "reimprimirPagamento": "tefManager.reimprimir"
+    }
+  },
+  "fluxoSelecaoAdaptadores": {
+    "fonteConfig": "tefConfigRepository.buscarConfiguracaoPrincipal + tefConfigService.obterConfiguracao / configParaRegistroAdapter",
+    "semConfig": "lança 'TEF não configurado' (não inventa Rede nem Stone)",
+    "defaultsAplicados": "se _defaultsAplicados → TEF não configurado (defaults: tefHabilitado=false, tefProvedor='')",
+    "regras": [
+      {
+        "provedor": "sitef",
+        "simulacao": "SitefAdapter",
+        "homologacaoProducao": "SitefRealAdapter se podeUsarModoReal(); senão SITEF_REAL_ADAPTER_INDISPONIVEL"
+      },
+      {
+        "provedor": "paygo",
+        "simulacao": "PaygoAdapter",
+        "homologacaoProducao": "PaygoRealAdapter se podeUsarModoReal(); senão PAYGO_REAL_ADAPTER_INDISPONIVEL"
+      },
+      {
+        "provedor": "destaxa",
+        "simulacao": "destaxaAdapter (simulado)",
+        "homologacaoProducao": "DestaxaRealAdapter se verificarDisponibilidade; senão DESTAXA_REAL_ADAPTER_INDISPONIVEL; ambiente inválido → DESTAXA_AMBIENTE_INVALIDO; sem fallback silencioso"
+      },
+      {
+        "provedor": "stone|cielo|rede|getnet",
+        "qualquerAmbiente": "SimulatedGatewayAdapter correspondente — sem ramo real na factory"
+      }
+    ],
+    "provedoresRegistrados": ["sitef", "paygo", "cielo", "stone", "rede", "getnet", "destaxa"],
+    "pinpadNaoSelecionaProvedor": true,
+    "observacao": "Detecção física (PPC930/COM/USB) alimenta diagnóstico e prepararAutorizacao Destaxa; não escolhe adapter financeiro sozinha"
+  },
+  "contratoComumAdaptadores": {
+    "base": "BaseAdapter",
+    "metodos": [
+      "autorizarPagamento",
+      "cancelarPagamento",
+      "consultarTransacao",
+      "reimprimirComprovante",
+      "diagnosticar",
+      "testarConexao",
+      "status",
+      "emitirEventoPinpad"
+    ],
+    "normalizacao": "tefContrato.criarRespostaAutorizacao / paraPersistencia / paraRespostaApi",
+    "camposCriticosFiscais": ["nsu", "autorizacao", "adquirente", "bandeira", "cnpj_credenciadora", "comprovanteCliente", "comprovanteLoja", "financialState", "retryAllowed"]
+  },
+  "registroEDeteccaoSdks": {
+    "sitef": "pastas CliSiTef + DLLs Clisitef*; ini; serviços Windows",
+    "paygo": "pastas PayGo + PayGo.dll; ini; serviços",
+    "destaxa": "destaxaDllResolver (config/DESTAXA_DLL_PATH → resources → resources/tef/destaxa/{arch})",
+    "vspague": "detecção processo VSPagueClient.exe (CIM) — não inicia o client",
+    "gertecPpc930": "COM + PnP FriendlyName + InstanceId USB\\VID_ + drivers Gertec; estados evidência ≠ operação",
+    "usbGenerico": "listarDispositivosUsb extrai VID/PID/serial de Get-PnpDevice PresentOnly",
+    "stoneSdk": "não há detector nem path de busca"
+  },
+  "fluxoPdvAteResultadoFinanceiro": {
+    "entradas": [
+      "POST /api/tef/pagar → tefService.iniciarPagamento",
+      "VendaPagamentoService → tefManager.autorizar",
+      "OrquestradorPagamento → tefManager.autorizar"
+    ],
+    "pipeline": [
+      "1. validação fiscal (TefFiscalValidator)",
+      "2. fraude (tefFraudDetectionService)",
+      "3. idempotência (idempotency_key)",
+      "4. recuperação / trava pendências / mutex autorização",
+      "5. obterAdapter() via factory",
+      "6. opcional prepararAutorizacao (Destaxa real) — bloqueio sem transactionId",
+      "7. lock + criarTransacaoExclusiva (status pendente)",
+      "8. adapter.autorizarPagamento",
+      "9. classificar resultado (tefFinancialSafetyPolicy)",
+      "10. persistir + eventos + resposta tefContrato.paraRespostaApi",
+      "11. timeout operacional: UNKNOWN/PENDING + trava resultado tardio se contratoTimeout.resultadoTardio"
+    ],
+    "posVendaFiscal": "tef_transacao_id no recebimento → hydrator NFC-e; sem inferir adquirente do nome do pinpad",
+    "restricaoSprint": "fluxo fiscal/não fiscal não alterado nesta auditoria"
+  },
+  "nativeHostEIsolamento": {
+    "existe": true,
+    "escopoAtual": "somente Destaxa",
+    "componentes": {
+      "host": "DestaxaNativeHost.js — utilityProcess/fork; única carga DLL transacional",
+      "client": "DestaxaNativeHostClient.js — IPC do processo principal",
+      "bridge": "DestaxaHostBridge.js — mesma superfície do NativeBridge, sem DLL no main",
+      "protocolo": "destaxaNativeHostProtocolo.js — HOST_BUSY; serialização 1 nativa por vez; sem fila",
+      "loader": "destaxaKoffiLoader.js (FFI koffi)"
+    },
+    "padraoRecomendadoStone": "se Stone exigir DLL síncrona no Windows, reutilizar padrão Native Host isolado sob o mesmo TefManager — não criar segundo motor; não misturar DLL Stone no processo Destaxa"
+  },
+  "integracaoRedeItau": {
+    "tecnologiaEfetivaNoCodigo": "SIMULAÇÃO (SimulatedGatewayAdapter via redeAdapter.js)",
+    "arquivos": [
+      "backend/services/tef/adapters/redeAdapter.js",
+      "backend/services/tef/adapters/SimulatedGatewayAdapter.js"
+    ],
+    "dependenciasReaisRedeNoRepo": "nenhuma DLL/EXE/SDK Rede encontrado",
+    "criteriosSelecao": "tef_configuracao.provedor === 'rede' → RedeAdapter simulado em qualquer ambiente",
+    "rotuloComercialPinpad": "pinpadCatalog GERTEC_PPC930 nomeExibicao 'Gertec PPC930 (Rede/Itaú)'; adquirenteSugerido=Rede; conexão descrita como USB→driver→COM→V$Pague",
+    "caminhoOperacionalObservadoNoProjeto": {
+      "descricao": "Clientes com TEF real no CDS usam provedor destaxa + VSPagueClient + PPC930; não o redeAdapter",
+      "evidencia": "DestaxaRealAdapter.prepararAutorizacao exige VSPague + PPC930; docs/build TEF-DESTAXA-07*; TEF-03 concluiu integração Rede não identificada"
+    },
+    "limitacoesEPressupostos": [
+      "Não há integração oficial Rede/Itaú implementada no adapter 'rede'",
+      "TEF-03 (docs/tef/TEF-03-descoberta-integracao-rede.md): OPÇÃO B — integração Rede não identificada",
+      "Label Rede/Itaú no catálogo não prova adquirente fiscal nem seleciona Destaxa",
+      "Presença de PPC930 USB não implica provedor Rede configurado"
+    ]
+  },
+  "integracaoDestaxa": {
+    "tecnologiaEfetiva": "DLL Windows libdll-integracao-tef.dll + FFI koffi + (opcional) processo V$Pague/VSPagueClient; CRT via protocolo Destaxa",
+    "separacaoCamadas": {
+      "deteccao": "sdkDetector.detectarDestaxa / detectarVsPagueClient / detectarGertecPPC930 — sem autorizar",
+      "inicializacao": "bridge.load + iniciarClient (iniciaClientDestaxa) — não é autorização financeira",
+      "autorizacao": "prepararAutorizacao → gate → inicia/continua/finalizaTransacaoDestaxa (CRT) somente se DESTAXA_REAL_TRANSACTION_ENABLED=1"
+    },
+    "controlesAntiRepeticaoEAmbiguosidade": [
+      "tefFinancialSafetyPolicy: retryAllowed=false para SUCCESS/DENIED/TIMEOUT/UNKNOWN/A0/A1",
+      "TefManager: idempotency_key; mutex _autorizacaoEmCurso; pendências bloqueiam nova autorização",
+      "Native Host: HOST_BUSY; uma operação nativa por vez; sem enfileirar",
+      "prepararAutorizacao cria bloqueio sem transactionId se pré-condições falharem",
+      "resultado tardio: trava + reconciliação manual; timeout CDS não cancela DLL",
+      "OPERACOES_REAIS_PERMITIDAS restritas; valor homologação R$1,00; ambiente homologacao"
+    ],
+    "naoSubstituir": true
+  },
+  "evidenciasStoneP200": {
+    "stoneAdapterTef": {
+      "existe": true,
+      "tipo": "simulação apenas",
+      "path": "backend/services/tef/adapters/stoneAdapter.js"
+    },
+    "stonePixCloud": {
+      "existe": true,
+      "tipo": "HTTP PIX — fora do escopo PinPad USB",
+      "path": "backend/services/pix/providers/stoneProvider.js"
+    },
+    "uiOpcaoProvedorStone": {
+      "existe": true,
+      "path": "frontend/erp/js/configuracao_tef.js (option value=stone)"
+    },
+    "p200": {
+      "referenciasCodigo": 0,
+      "referenciasDocs": 0,
+      "modeloCatalogo": false
+    },
+    "sdkDllServicoStoneTef": {
+      "resourcesTefStone": false,
+      "dllEncontrada": false,
+      "servicoWindowsDocumentado": false,
+      "credenciaisHomologacaoNoRepo": false,
+      "documentacaoOficialStoneWindowsNoProjeto": false
+    },
+    "aviso": "Dispositivo USB plugado (se houver) não prova compatibilidade com SDK Stone; projeto não possui SDK Stone TEF versionado"
+  },
+  "documentacaoOficialNecessariaDaStoneOuIntegradora": {
+    "contratoOficialWindowsPendente": true,
+    "itensAObter": [
+      "Produto oficial de integração Windows para P200 USB (nome comercial + pacote)",
+      "Tipo de integração: DLL nativa, serviço local, TCP, HTTP, Deep Link, PosLink, middleware de terceiros",
+      "Exports/API: init, sale, cancel, query, print, events pinpad",
+      "Como o P200 é endereçado (USB HID, CDC/COM, auto-discovery, serial)",
+      "VID/PID oficiais e FriendlyName PnP esperados no Windows",
+      "Drivers Windows necessários e assinatura",
+      "Credenciais: merchant, stone code, terminal, ambiente homologação/produção",
+      "Mapeamento de códigos de retorno → aprovado/negado/pendente/desconhecido",
+      "Regras oficiais de retry, timeout, confirmação/desfazimento e comprovantes",
+      "Campos fiscais: NSU, autorização, bandeira, adquirente, CNPJ credenciadora",
+      "Licenciamento/homologação e restrições de multiprocessamento/FFI",
+      "Se a integração exige aplicativo Stone instalado no caixa (análogo a VSPague)"
+    ],
+    "naoInferirDe": [
+      "nome comercial 'Stone' na UI",
+      "stoneProvider PIX",
+      "porta COM genérica",
+      "FriendlyName parcial sem VID/PID validado pela Stone"
+    ]
+  },
+  "propostaDescobertaHardware": {
+    "principio": "enumeração PnP/USB/COM não invasiva; zero open de porta; zero comando ao PinPad",
+    "reutilizar": [
+      "sdkDetector.listarDispositivosUsb()",
+      "sdkDetector.listarPortasCOM()",
+      "deviceEnumeration.listarDispositivosUsb / listarPortasSerial"
+    ],
+    "camadas": {
+      "dispositivoDetectado": "PresentOnly no PnP/COM — existência física/enumerada",
+      "dispositivoIdentificado": "VID/PID (+ serial/FriendlyName) batem com catálogo validado pela Stone; ainda sem SDK",
+      "integracaoOperacional": "componente TEF Stone carregável + config cliente provedor=stone + diagnóstico OK + (se exigido) serviço/app Stone ativo — só então elegível a autorizar"
+    },
+    "regras": [
+      "Não inferir provedor só pelo nome comercial ou COM",
+      "Não abrir porta serial/USB nem enviar APDUs/comandos",
+      "Não alterar tef_configuracao automaticamente a partir da detecção",
+      "Ambiguidade (0 ou N candidatos compatíveis) → não selecionar adapter financeiro"
+    ],
+    "extensaoFuturaSugerida": "detector stoneP200 espelhando detectarPpc930 (evidências status: nao_confirmado/confirmado) + entrada STONE_P200 no pinpadCatalog — apenas após contrato oficial VID/PID"
+  },
+  "arquiteturaRecomendada": {
+    "preservar": ["TefManager", "tefFactory", "tefContrato", "BaseAdapter", "fluxo Destaxa", "fluxo Rede simulado", "fluxo fiscal"],
+    "naoFazer": [
+      "segundo motor TEF",
+      "Stone obrigatório para todos os clientes",
+      "substituir Destaxa ou Rede",
+      "seleção automática financeira só por USB",
+      "alterar config/banco de clientes nesta fase"
+    ],
+    "caminhoTecnico": [
+      "1. STONE-TEF-02: obter e versionar contrato/SDK oficial Stone Windows (sem pagamento)",
+      "2. Estender pinpadCatalog + detector evidência P200 (somente leitura PnP)",
+      "3. Introduzir StoneRealAdapter (ou middleware) atrás de tefFactory quando provedor=stone e ambiente homologacao/producao e disponibilidade validada — espelhar padrão Destaxa (sem fallback silencioso)",
+      "4. Se DLL síncrona: Native Host dedicado Stone ou host TEF genérico multi-provider — processo isolado, serialização, HOST_BUSY",
+      "5. prepararAutorizacao no adapter Stone: config + SDK + (serviço se houver) + pinpad identificado; gate financeiro explícito",
+      "6. Seleção: compatibilidade validada ∩ config.cliente.provedor ∩ componente disponível; ambiguidade → erro explícito TEF_ADAPTER_AMBIGUO / não operar",
+      "7. Manter stone simulado para ambiente simulacao; PIX stoneProvider permanece canal separado"
+    ],
+    "selecaoSeguraProposta": {
+      "formula": "adapter = f(config.provedor, ambiente, disponibilidadeComponente, evidenciaHardwareOpcional)",
+      "hardwareSoComoPreCondicao": true,
+      "semMatchUnico": "não selecionar",
+      "stoneNuncaDefaultGlobal": true
+    }
+  },
+  "riscosEIncompatibilidades": [
+    {
+      "id": "STONE_TEF_SIM_ONLY",
+      "severidade": "alta",
+      "descricao": "Selecionar provedor stone em homologação/produção hoje autorizaria apenas simulação — risco de falso positivo operacional"
+    },
+    {
+      "id": "CONFUSAO_STONE_PIX_VS_TEF",
+      "severidade": "media",
+      "descricao": "stoneProvider PIX cloud não serve P200; risco de misturar contratos na implementação"
+    },
+    {
+      "id": "INFERIR_PROVEDOR_POR_USB",
+      "severidade": "alta",
+      "descricao": "Auto-selecionar Stone por nome PnP quebraria multi-provedor e clientes Destaxa/Rede"
+    },
+    {
+      "id": "REUSAR_DESTAXA_DLL_PARA_STONE",
+      "severidade": "alta",
+      "descricao": "DLL Destaxa não é SDK Stone; P200 não é PPC930"
+    },
+    {
+      "id": "SEM_VID_PID_OFICIAL",
+      "severidade": "alta",
+      "descricao": "Sem contrato Stone, identificação P200 permanece especulativa"
+    },
+    {
+      "id": "FFI_NO_MAIN_PROCESS",
+      "severidade": "media",
+      "descricao": "Carregar DLL Stone no Electron main sem Native Host pode travar UI e conflitar com Destaxa"
+    },
+    {
+      "id": "LABEL_REDE_ITAU_NO_CATALOGO",
+      "severidade": "baixa",
+      "descricao": "Nome comercial no catálogo PPC930 pode confundir auditoria de adquirente; não alterar nesta sprint"
+    }
+  ],
+  "testesExecutados": [
+    {
+      "tipo": "inspecao_estatica",
+      "descricao": "Leitura de TefManager, tefFactory, tefContrato, BaseAdapter, adapters stone/rede/destaxa, sdkDetector, pinpadCatalog, Destaxa Native Host, deviceEnumeration, rotas TEF, docs TEF-03",
+      "inicializouSdkReal": false,
+      "acessouHardwareComComandos": false,
+      "resultado": "ok"
+    },
+    {
+      "tipo": "node_script_leitura",
+      "descricao": "Verificação fs.exists de resources/tef/stone (ausente), DLL Destaxa (presente); construção StoneAdapter/RedeAdapter em simulacao; listagem pinpadCatalog; grep P200/Stone SDK",
+      "inicializouSdkReal": false,
+      "carregouDllDestaxa": false,
+      "iniciouNativeHost": false,
+      "chamouAutorizar": false,
+      "resultado": "ok",
+      "achados": {
+        "provedoresFactory": ["sitef", "paygo", "cielo", "stone", "rede", "getnet", "destaxa"],
+        "stoneAdapterModo": "simulacao",
+        "pinpadModelosAtivos": ["GERTEC_PPC930"],
+        "stoneInCatalog": false,
+        "resourcesTefStone": false
+      }
+    }
+  ],
+  "arquivosModificados": [
+    "docs/build/stone-tef-01-auditoria-arquitetural-report.json"
+  ],
+  "confirmacaoSeguranca": {
+    "zeroChamadasFinanceirasNativas": true,
+    "zeroPagamentos": true,
+    "zeroCrtPixAutorizacaoVendaCancelamento": true,
+    "zeroInicioClientDestaxa": true,
+    "zeroTravaFinanceiraHabilitada": true
+  },
+  "verdictDetail": {
+    "code": "READY_FOR_STONE_TEF_02",
+    "rationale": "Inventário arquitetural TEF completo e seguro: motor único mapeado, Rede/Destaxa/Stone classificados, Native Host documentado, lacunas Stone/P200 explícitas, proposta de descoberta e seleção sem ambiguidade automática. Implementação bloqueada até contrato oficial Stone Windows — isso é pré-requisito de STONE-TEF-02, não falha desta auditoria.",
+    "prerequisitesForStoneTef02": [
+      "Contrato/SDK oficial Stone P200 Windows (tipo de integração + API)",
+      "VID/PID e identificação PnP oficiais",
+      "Pacote binário/licença homologação (se aplicável)",
+      "Decisão: adapter real próprio vs middleware de terceiros",
+      "Definir gate financeiro explícito (análogo DESTAXA_REAL_TRANSACTION_ENABLED) antes de qualquer CRT"
+    ],
+    "blockedFindings": []
+  }
+}

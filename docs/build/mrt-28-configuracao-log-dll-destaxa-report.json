@@ -1,0 +1,313 @@
+{
+  "sprint": "MRT-28",
+  "title": "Configuração de log da DLL Destaxa 1.83",
+  "generatedAt": "2026-10-30T20:56:00.666Z",
+  "classificacao": "CONFIG_LOG_DLL_APROVADA",
+  "restricoesObservadas": {
+    "init": false,
+    "txStart": false,
+    "crt": false,
+    "continueFinanceiro": false,
+    "finalizeFinanceiro": false,
+    "est": false,
+    "cancelamento": false,
+    "estorno": false,
+    "enableReal": false,
+    "gateOff": true,
+    "bancoProducao": false,
+    "dllAtualizada": false,
+    "mrt24Repetida": false,
+    "operacaoFinanceira": false
+  },
+  "assinaturaIniciaClient": {
+    "documentacao": "void iniciaClientDestaxa(char *resultado, char *entrada, int tamanho_entrada)",
+    "koffi": "void iniciaClientDestaxa(uint8 *resultado, uint8 *entrada, int tamanho_entrada)",
+    "formatoEntrada": "chave=valor;chave=valor",
+    "logComoArgumentosCSeparados": false,
+    "logNaStringEntrada": true
+  },
+  "tiposFormatosConfirmados": {
+    "diretorio_trabalho": {
+      "tipoEntrada": "string path",
+      "valor": "C:\\CDS-SISTEMAS\\logs\\destaxa"
+    },
+    "nivel_log": {
+      "tipoEntrada": "string numérica 5..0 / <0",
+      "valor": "1",
+      "significado": "DEBUG"
+    },
+    "nome_arquivo_log": {
+      "tipoEntrada": "string",
+      "valor": "destaxa-dll.log"
+    },
+    "tam_max_log": {
+      "tipoEntrada": "string numérica em mega bytes (doc 1.83)",
+      "valorEnviado": "10",
+      "bytesConfirmadosEspecialista": 10485760,
+      "nota": "Especialista confirmou 10485760 bytes (=10 MiB); DLL exige megabytes → enviado 10"
+    },
+    "total_bkp_log": {
+      "tipoEntrada": "string numérica",
+      "valor": "5"
+    }
+  },
+  "configCentralizada": {
+    "params": {
+      "diretorio_trabalho": "C:\\CDS-SISTEMAS\\logs\\destaxa",
+      "nivel_log": "1",
+      "nome_arquivo_log": "destaxa-dll.log",
+      "tam_max_log": "10",
+      "total_bkp_log": "5"
+    },
+    "meta": {
+      "sprint": "MRT-28",
+      "fonteEspecialista": {
+        "diretorio_trabalho": "C:\\CDS-SISTEMAS\\logs\\destaxa",
+        "nivel_log": 1,
+        "nome_arquivo_log": "destaxa-dll.log",
+        "tam_max_log": 10485760,
+        "total_bkp_log": 5
+      },
+      "documentacaoOficial": {
+        "arquivo": "05-api-iniciaclientdestaxa.md",
+        "pacote": "1.83",
+        "nivel_log_escala": "5=FATAL … 0=TRACE; 1=DEBUG; <0 desativa",
+        "tam_max_log_unidade": "mega bytes",
+        "exemploOficial": "diretorio_trabalho=c:\\tmp;nome_arquivo_log=logs.txt;tam_max_log=3",
+        "assinaturaKoffi": "void iniciaClientDestaxa(uint8 *resultado, uint8 *entrada, int tamanho_entrada)",
+        "nota": "Os cinco parâmetros de log entram na string `entrada`, não como argumentos C separados."
+      },
+      "caminhoArquivoLogEsperado": "C:\\CDS-SISTEMAS\\logs\\destaxa\\destaxa-dll.log",
+      "tamMaxBytesEquivalente": 10485760,
+      "tamMaxMegabytesEnviadoDll": 10
+    },
+    "chaves": [
+      "diretorio_trabalho",
+      "nivel_log",
+      "nome_arquivo_log",
+      "tam_max_log",
+      "total_bkp_log"
+    ]
+  },
+  "amostraEntrada": "versao=1.0.3;aplicacao=CDS Sistemas;diretorio_trabalho=C:\\CDS-SISTEMAS\\logs\\destaxa;nivel_log=1;nome_arquivo_log=destaxa-dll.log;tam_max_log=10;total_bkp_log=5",
+  "diretorio": {
+    "ok": true,
+    "diretorio": "C:\\CDS-SISTEMAS\\logs\\destaxa",
+    "arquivoLog": "C:\\CDS-SISTEMAS\\logs\\destaxa\\destaxa-dll.log",
+    "gravavel": true
+  },
+  "arquivosAnalisados": [
+    "C:/Users/cicer/Desktop/DLL DESTAXA/.../docs/05-api-iniciaclientdestaxa.md",
+    "backend/services/tef/destaxa/destaxaKoffiLoader.js",
+    "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+    "backend/services/tef/destaxa/destaxaMapeamentoTerminal.js",
+    "examples clang/dotnet (pacote 1.83)"
+  ],
+  "arquivosAlterados": [
+    "backend/services/tef/destaxa/destaxaDllLogConfig.js",
+    "backend/services/tef/destaxa/destaxaMapeamentoTerminal.js",
+    "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+    "tests/tef/mrt-28-configuracao-log-dll-destaxa.test.js",
+    "docs/build/mrt-28-configuracao-log-dll-destaxa-report.json"
+  ],
+  "testes": [
+    {
+      "nome": "Koffi: iniciaClientDestaxa(resultado, entrada, tamanho_entrada)",
+      "ok": true,
+      "assinaturaDoc": "void iniciaClientDestaxa(char *resultado, char *entrada, int tamanho_entrada)",
+      "nota": "Log params NÃO são argumentos C — entram em `entrada` como chave=valor"
+    },
+    {
+      "nome": "Doc 1.83 lista os cinco parâmetros de log",
+      "ok": true,
+      "docExiste": true,
+      "docOficialPath": "C:\\Users\\cicer\\Desktop\\DLL DESTAXA\\1_83-20260831T165940Z-1-001\\1_83\\docs\\05-api-iniciaclientdestaxa.md"
+    },
+    {
+      "nome": "Cinco chaves na ordem da sprint",
+      "ok": true,
+      "CHAVES_LOG_DLL": [
+        "diretorio_trabalho",
+        "nivel_log",
+        "nome_arquivo_log",
+        "tam_max_log",
+        "total_bkp_log"
+      ],
+      "pares": [
+        [
+          "diretorio_trabalho",
+          "C:\\CDS-SISTEMAS\\logs\\destaxa"
+        ],
+        [
+          "nivel_log",
+          "1"
+        ],
+        [
+          "nome_arquivo_log",
+          "destaxa-dll.log"
+        ],
+        [
+          "tam_max_log",
+          "10"
+        ],
+        [
+          "total_bkp_log",
+          "5"
+        ]
+      ]
+    },
+    {
+      "nome": "nivel_log === 1 (DEBUG na escala 5…0)",
+      "ok": true,
+      "nivel_log": "1",
+      "escala": "5=FATAL … 0=TRACE; 1=DEBUG; <0 desativa"
+    },
+    {
+      "nome": "Caminho e nome do arquivo",
+      "ok": true,
+      "diretorio_trabalho": "C:\\CDS-SISTEMAS\\logs\\destaxa",
+      "nome_arquivo_log": "destaxa-dll.log",
+      "caminhoCompleto": "C:\\CDS-SISTEMAS\\logs\\destaxa\\destaxa-dll.log"
+    },
+    {
+      "nome": "Tamanho 10 MB (DLL em megabytes) + 5 backups",
+      "ok": true,
+      "bytesConfirmadosEspecialista": 10485760,
+      "megabytesEnviadosDll": "10",
+      "total_bkp_log": "5",
+      "unidadeDoc": "mega bytes"
+    },
+    {
+      "nome": "Parâmetros atuais preservados (versao + aplicacao)",
+      "ok": true,
+      "texto": "versao=1.0.3;aplicacao=CDS Sistemas;diretorio_trabalho=C:\\CDS-SISTEMAS\\logs\\destaxa;nivel_log=1;nome_arquivo_log=destaxa-dll.log;tam_max_log=10;total_bkp_log=5",
+      "chaves": [
+        "versao",
+        "aplicacao",
+        "diretorio_trabalho",
+        "nivel_log",
+        "nome_arquivo_log",
+        "tam_max_log",
+        "total_bkp_log"
+      ]
+    },
+    {
+      "nome": "Cinco params de log presentes na mesma string entrada",
+      "ok": true,
+      "camposLogDll": {
+        "diretorio_trabalho": "C:\\CDS-SISTEMAS\\logs\\destaxa",
+        "nivel_log": "1",
+        "nome_arquivo_log": "destaxa-dll.log",
+        "tam_max_log": "10",
+        "total_bkp_log": "5"
+      },
+      "parsedLog": {
+        "diretorio_trabalho": "C:\\CDS-SISTEMAS\\logs\\destaxa",
+        "nivel_log": "1",
+        "nome_arquivo_log": "destaxa-dll.log",
+        "tam_max_log": "10",
+        "total_bkp_log": "5"
+      }
+    },
+    {
+      "nome": "Preserva estabelecimento/loja/terminal + log",
+      "ok": true,
+      "texto": "versao=1.0.3;aplicacao=CDS Sistemas;estabelecimento=EST1;loja=LJ1;terminal=T1;diretorio_trabalho=C:\\CDS-SISTEMAS\\logs\\destaxa;nivel_log=1;nome_arquivo_log=destaxa-dll.log;tam_max_log=10;total_bkp_log=5"
+    },
+    {
+      "nome": "anexarParamsLogEntrada não duplica chaves",
+      "ok": true,
+      "anexado": [
+        [
+          "versao",
+          "1.0.3"
+        ],
+        [
+          "aplicacao",
+          "CDS Sistemas"
+        ],
+        [
+          "diretorio_trabalho",
+          "C:\\CDS-SISTEMAS\\logs\\destaxa"
+        ],
+        [
+          "nivel_log",
+          "1"
+        ],
+        [
+          "nome_arquivo_log",
+          "destaxa-dll.log"
+        ],
+        [
+          "tam_max_log",
+          "10"
+        ],
+        [
+          "total_bkp_log",
+          "5"
+        ]
+      ]
+    },
+    {
+      "nome": "montarEntradaClient inclui log sem carregar DLL",
+      "ok": true,
+      "chaves": [
+        "versao",
+        "aplicacao",
+        "diretorio_trabalho",
+        "nivel_log",
+        "nome_arquivo_log",
+        "tam_max_log",
+        "total_bkp_log"
+      ],
+      "camposLogDll": {
+        "diretorio_trabalho": "C:\\CDS-SISTEMAS\\logs\\destaxa",
+        "nivel_log": "1",
+        "nome_arquivo_log": "destaxa-dll.log",
+        "tam_max_log": "10",
+        "total_bkp_log": "5"
+      }
+    },
+    {
+      "nome": "Diretório criado e gravável",
+      "ok": true,
+      "dirResult": {
+        "ok": true,
+        "diretorio": "C:\\CDS-SISTEMAS\\logs\\destaxa",
+        "arquivoLog": "C:\\CDS-SISTEMAS\\logs\\destaxa\\destaxa-dll.log",
+        "gravavel": true
+      }
+    },
+    {
+      "nome": "garantirDiretorioLogDll chamado em iniciarClient (pré-INIT)",
+      "ok": true
+    },
+    {
+      "nome": "Ciclo CRT não referencia config de log (TX intacto)",
+      "ok": true
+    },
+    {
+      "nome": "Gate financeiro OFF",
+      "ok": true,
+      "env": null
+    },
+    {
+      "nome": "INIT não executado nesta sprint",
+      "ok": true,
+      "iniciaClientDestaxaChamado": false,
+      "autorizacao": "requer autorização expressa do usuário"
+    }
+  ],
+  "resultadoEsperado": {
+    "arquivo": "C:\\CDS-SISTEMAS\\logs\\destaxa\\destaxa-dll.log",
+    "nivel": 1,
+    "backups": 5,
+    "tamanhoMaxMb": 10,
+    "nota": "Arquivo será gerado pela DLL após INIT autorizado (não executado nesta sprint)"
+  },
+  "confirmacoes": {
+    "operacaoFinanceira": false,
+    "gateFinanceiroOff": true,
+    "initNaoExecutado": true
+  }
+}

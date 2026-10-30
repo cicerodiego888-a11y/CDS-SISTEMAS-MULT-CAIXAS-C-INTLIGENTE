@@ -1,0 +1,156 @@
+{
+  "sprint": "TEF-PPC930-11",
+  "title": "Validação do fluxo CRT sem transação financeira",
+  "status": "COMPLETED_CRT_PREP_BLOCKED_AT_GATE_AND_DESTAXA_PROVISIONING",
+  "generatedAt": "2026-10-29T20:50:00.000Z",
+  "tefReadyForSaleDeclared": false,
+  "architecturePreserved": "TefManager → tefFactory → DestaxaRealAdapter → DestaxaHostBridge → Native Host → koffi → DLL",
+  "crtContract": {
+    "pdvFormaValues": ["credito", "debito", "cartao", "cartao_credito", "cartao_debito", "tef"],
+    "httpPayloadField": "tipo",
+    "httpEndpoint": "POST /api/tef/pagar",
+    "pdvDoesNotSendLiteralCrt": true,
+    "backendResolver": {
+      "file": "backend/services/tef/adapters/DestaxaRealAdapter.js",
+      "function": "_resolverOperacao",
+      "tiposCrtSet": ["", "credito", "debito", "cartao", "cartao_credito", "cartao_debito", "tef"],
+      "resolvedOperation": "CRT"
+    },
+    "allowedRealOperations": ["CRT"],
+    "homologationValueCents": 100,
+    "crtInputBuiltAs": "transacao_valor=1.00",
+    "sources": [
+      "frontend/pdv/js/pdv.js#processarPagamentoTEF",
+      "backend/services/tef/tefFluxoPagamento.js#normalizarTipoTef",
+      "backend/services/tef/adapters/DestaxaRealAdapter.js#prepararAutorizacao",
+      "backend/services/tef/destaxa/destaxaConstantes.js#OPERACOES_REAIS_PERMITIDAS",
+      "backend/services/tef/destaxa/destaxaProtocolo.js#buildCrtInput"
+    ]
+  },
+  "crtPreparationResult": {
+    "modalityAcceptedInPreparation": true,
+    "reachedFinancialGate": true,
+    "readinessWhenPreconditionsMet": "READY_FOR_REAL_TRANSACTION",
+    "blockedBy": "DESTAXA_REAL_TRANSACTION_DISABLED",
+    "pronto": false,
+    "transactionAttempted": false,
+    "initClientCalledInThisSprint": false,
+    "note": "Com bridge/detector/config injetados (Client já CLIENT_INITIALIZED/00), prepararAutorizacao(CRT, R$1,00) completa checks até o gate e para. Não declara venda real autorizada."
+  },
+  "requiredConfigurationFields": {
+    "cdsValidarConfiguracaoDestaxa": {
+      "required": [
+        "tefHabilitado",
+        "tefProvedor=destaxa",
+        "tefAmbiente=homologacao",
+        "pinpadHabilitado + pinpadModelo/codigo",
+        "portaCom (serial)"
+      ],
+      "notRequiredForDestaxa": [
+        "empresaCodigo",
+        "lojaCodigo",
+        "terminalCodigo",
+        "pdvCodigo",
+        "caixaCodigo",
+        "sdkPath",
+        "exePath",
+        "servidor HTTP"
+      ],
+      "evidence": "tefConfigService.validarConfiguracao: exigeCodigosEstabelecimento exclui destaxa"
+    },
+    "prepararAutorizacaoAdditionalRuntime": [
+      "DLL loaded + 4 exports",
+      "CLIENT_INITIALIZED código 00",
+      "V$Pague running/responding",
+      "PPC930 detectado na mesma porta COM configurada",
+      "DESTAXA_REAL_TRANSACTION_ENABLED=1 (somente para liberar iniciaTransacaoDestaxa — permanece off)"
+    ],
+    "montarEntradaClientOptionalWhenPresent": {
+      "empresa_codigo": "→ estabelecimento",
+      "loja_codigo": "→ loja",
+      "terminal_codigo": "→ terminal",
+      "emptyBehavior": "omitidos da string INIT; não preenchidos automaticamente"
+    }
+  },
+  "missingConfigurationFields": {
+    "persistedReadonlyOfficialDb": {
+      "path": "C:/ProgramData/MercantilFiscal/dados/mercadao.db",
+      "provedor": "destaxa",
+      "ambiente": "homologacao",
+      "empresa_codigo": null,
+      "loja_codigo": null,
+      "terminal_codigo": null,
+      "pdv_codigo": null,
+      "caixa_codigo": null,
+      "pinpad": { "codigo": "GERTEC_PPC930", "porta_com": "COM3", "habilitado": 1 }
+    },
+    "cdsLocalBlockFromEmptyCodes": false,
+    "destaxaOfficialMappingStillPending": true,
+    "doNotAssumeLogicalNumberOrPvMapping": true
+  },
+  "destaxaProvisioningStatus": {
+    "vspagueLog": "C:/VBI/V$Pague/Client/logs/vspague-client.log",
+    "error00151": {
+      "observed": true,
+      "message": "Terminal não cadastrado ou desabilitado",
+      "classification": "DESTAXA_PROVISIONING_DEPENDENCY"
+    },
+    "confFiles": {
+      "observed": "Nenhum ou mais de um .conf encontrado no diretorio.",
+      "classification": "DESTAXA_PROVISIONING_DEPENDENCY"
+    },
+    "cdsCanResolveLocally": false
+  },
+  "financialFunctionsCalled": false,
+  "realTransactionGateEnabled": false,
+  "testsPassed": 8,
+  "testsFailed": 0,
+  "tests": {
+    "command": "npm run test:tef-ppc930-11",
+    "file": "tests/tef/tef-ppc930-11-crt-prep.test.js",
+    "coverage": [
+      "CRT contract mapping",
+      "CRT prep stops at gate without INIT/financial DLL",
+      "PIX still rejected / no silent CRT conversion",
+      "pix:true config not treated as Destaxa PIX support",
+      "empty empresa/loja/terminal not CDS validation failure; diagnostic BLOQUEADO mapeamento",
+      "gate remains off"
+    ]
+  },
+  "filesChanged": [
+    "tests/tef/tef-ppc930-11-crt-prep.test.js",
+    "package.json",
+    "docs/build/tef-ppc930-11-report.json"
+  ],
+  "remainingBlockers": [
+    {
+      "id": "GATE_FINANCEIRO",
+      "type": "CDS_LOCAL_INTENTIONAL",
+      "detail": "DESTAXA_REAL_TRANSACTION_ENABLED != 1 — bloqueia iniciaTransacaoDestaxa mesmo com readiness READY_FOR_REAL_TRANSACTION"
+    },
+    {
+      "id": "VSPAGUE_00151",
+      "type": "DESTAXA_PROVISIONING",
+      "detail": "Terminal não cadastrado ou desabilitado no V$PagueServer"
+    },
+    {
+      "id": "VSPAGUE_CONF",
+      "type": "DESTAXA_PROVISIONING",
+      "detail": "Arquivo .conf ausente/ambíguo sob C:\\VBI\\V$Pague"
+    },
+    {
+      "id": "MAPEAMENTO_OFICIAL",
+      "type": "DESTAXA_CONFIRMATION_REQUIRED",
+      "detail": "empresa/loja/terminal vazios; equivalência com número lógico/PV não comprovada — não inventar valores"
+    },
+    {
+      "id": "FIRST_REAL_CRT",
+      "type": "REQUIRES_EXPLICIT_FUTURE_AUTHORIZATION",
+      "detail": "Esta sprint não autoriza nem executa a primeira venda/CRT real no PinPad"
+    }
+  ],
+  "nextAuthorizedStep": "Após Destaxa confirmar cadastro do terminal (.conf/00151) e o mapeamento oficial estabelecimento/loja/terminal, autorizar explicitamente uma sprint de CRT controlado R$1,00 com gate temporário — fora do escopo desta sprint.",
+  "unknowns": [
+    "Estado runtime atual do processo V$PagueClient/INIT na sessão do operador no momento desta sprint (não reexecutado; histórico 00 preservado da PPC930-05)."
+  ]
+}

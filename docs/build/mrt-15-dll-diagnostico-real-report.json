@@ -1,0 +1,199 @@
+{
+  "sprint": "MRT-15",
+  "title": "Diagnóstico real DLL Destaxa e V$Pague Client",
+  "generatedAt": "2026-10-30T17:58:58.503Z",
+  "restricoes": {
+    "initExecutado": false,
+    "pagamento": false,
+    "cancelamento": false,
+    "estorno": false,
+    "configAlterada": false,
+    "bancoAlterado": false,
+    "migrations": false
+  },
+  "auditoriaFluxo": {
+    "diagnosticarChamaInit": false,
+    "testarConexaoChamaInit": true,
+    "nota": "Usar somente diagnosticar/LOAD/STATUS; NÃO chamar testarConexao()"
+  },
+  "detectarVsPagueClient": {
+    "ok": true,
+    "detectado": true,
+    "executando": true,
+    "responding": true,
+    "pid": 8740,
+    "caminho": "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
+    "commandLine": "VSPagueClient  -Xms64m -Xmx512m -Dfile.encoding=ISO8859-1 -Duser.timezone=America/Recife -jar C:\\VBI\\V$Pague\\Client\\V$PagueClient.jar -h app-partner.destaxa.cloud -p 60410 -atv server -tls",
+    "erro": null,
+    "bruto": {
+      "detectado": true,
+      "executando": true,
+      "pid": 8740,
+      "caminho": "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
+      "responding": true,
+      "commandLine": "VSPagueClient  -Xms64m -Xmx512m -Dfile.encoding=ISO8859-1 -Duser.timezone=America/Recife -jar C:\\VBI\\V$Pague\\Client\\V$PagueClient.jar -h app-partner.destaxa.cloud -p 60410 -atv server -tls"
+    }
+  },
+  "load": {
+    "ok": true,
+    "bruto": {
+      "sucesso": true,
+      "estado": "EXPORTS_VALID",
+      "diagnostico": {
+        "provider": "DESTAXA",
+        "mode": "REAL",
+        "processArch": "x64",
+        "dllArch": "x64",
+        "dllPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+        "dllExists": true,
+        "dllLoaded": true,
+        "exportsValid": true,
+        "exports": {
+          "iniciaClientDestaxa": true,
+          "iniciaTransacaoDestaxa": true,
+          "continuaTransacaoDestaxa": true,
+          "finalizaTransacaoDestaxa": true
+        },
+        "clientInitialized": false,
+        "clientResultCode": null,
+        "estado": "EXPORTS_VALID",
+        "tefDisponivel": false,
+        "transactionCommunicationValidated": false,
+        "authorizationAvailable": false,
+        "ultimoCodigoClient": null,
+        "ultimoErro": null
+      }
+    },
+    "sucesso": true,
+    "codigo": null,
+    "mensagem": null,
+    "dllPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll"
+  },
+  "status": {
+    "ok": true,
+    "disponivel": true,
+    "pid": 1656,
+    "processType": "child_process",
+    "diagnostics": {
+      "provider": "DESTAXA",
+      "mode": "REAL",
+      "processArch": "x64",
+      "dllArch": "x64",
+      "dllPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+      "dllExists": true,
+      "dllLoaded": true,
+      "exportsValid": true,
+      "exports": {
+        "iniciaClientDestaxa": true,
+        "iniciaTransacaoDestaxa": true,
+        "continuaTransacaoDestaxa": true,
+        "finalizaTransacaoDestaxa": true
+      },
+      "clientInitialized": false,
+      "clientResultCode": null,
+      "estado": "EXPORTS_VALID",
+      "tefDisponivel": false,
+      "transactionCommunicationValidated": false,
+      "authorizationAvailable": false,
+      "ultimoCodigoClient": null,
+      "ultimoErro": null
+    },
+    "erro": null,
+    "brutoResumo": {
+      "disponivel": true,
+      "pid": 1656,
+      "processType": "child_process",
+      "dllLoaded": true,
+      "exportsValid": true,
+      "clientInitialized": false,
+      "estado": "EXPORTS_VALID",
+      "dllPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+      "ultimoErro": null
+    }
+  },
+  "diagnosticar": {
+    "ok": true,
+    "sucesso": true,
+    "mensagem": "DLL Destaxa carregada e exports validados — Client ainda não inicializado",
+    "detalhes": {
+      "provider": "DESTAXA",
+      "mode": "REAL",
+      "processArch": "x64",
+      "dllArch": "x64",
+      "dllPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+      "dllExists": true,
+      "dllLoaded": true,
+      "exportsValid": true,
+      "exports": {
+        "iniciaClientDestaxa": true,
+        "iniciaTransacaoDestaxa": true,
+        "continuaTransacaoDestaxa": true,
+        "finalizaTransacaoDestaxa": true
+      },
+      "clientInitialized": false,
+      "clientResultCode": null,
+      "estado": "EXPORTS_VALID",
+      "tefDisponivel": false,
+      "transactionCommunicationValidated": false,
+      "authorizationAvailable": false,
+      "ultimoCodigoClient": null,
+      "ultimoErro": null
+    },
+    "dllLoaded": true,
+    "exportsValid": true,
+    "clientInitialized": false,
+    "clientResultCode": null,
+    "estado": "EXPORTS_VALID",
+    "dllPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+    "ultimoErro": null,
+    "transactionCommunicationValidated": false,
+    "authorizationAvailable": false
+  },
+  "dllCarregada": true,
+  "comunicacaoFuncionalComClient": {
+    "comprovada": false,
+    "motivo": "INIT_CLIENT não executado (proibido nesta sprint). LOAD/STATUS validam DLL, não Identificar/Background channel.",
+    "processoClientDetectado": true,
+    "dllCarregada": true,
+    "clientInitializedNaDll": false
+  },
+  "proximoBloqueio": {
+    "codigo": "AGUARDANDO_INIT_CONTROLADO",
+    "mensagem": "DLL OK e Client em processo. Próximo passo (fora desta sprint): INIT_CLIENT controlado para comprovar canal DLL↔Client Background — ainda sem pagamento."
+  },
+  "erros": [],
+  "resultadoFinal": "MRT-15 CONCLUÍDA — DLL DIAGNOSTICADA (SEM INIT)",
+  "criterioConclusao": {
+    "evidenciaObjetivaLoadDiagnostico": true,
+    "initExecutado": false,
+    "operacaoFinanceira": false
+  },
+  "analiseBackgroundEPortas": {
+    "dllIdentificaClientBackgroundNoLoad": false,
+    "nota": "LOAD/STATUS/diagnosticar não consultam TCP 60603/60906 nem modo Background; só carregam a DLL e leem exports. Detecção de Client é via Win32 process (PID 8740 Responding).",
+    "commandLineClient": {
+      "hostPartnerCloud": "app-partner.destaxa.cloud",
+      "portaPartnerCloud": 60410,
+      "flags": ["-atv server", "-tls"],
+      "interpretacao": "Client aponta ao Partner Cloud Destaxa (-h/-p 60410). Portas locais 60603/60906 são LISTEN do próprio Client; CDS não as usa."
+    },
+    "bloqueiosDetectadosNestaCorrida": {
+      "configuracaoProvedor": false,
+      "dependenciaNativaKoffi": false,
+      "arquitetura": false,
+      "dllAusente": false,
+      "exportsAusentes": false,
+      "comunicacaoDllClient": "nao_testada_sem_init"
+    }
+  },
+  "entregaObrigatoria": {
+    "deteccaoClient": "OK — PID 8740, Responding=true, path C:\\VBI\\Java\\bin\\VSPagueClient.exe",
+    "load": "OK — sucesso=true, estado=EXPORTS_VALID, 4 exports true",
+    "status": "OK — Native Host child_process pid=1656, dllLoaded=true, clientInitialized=false",
+    "diagnostico": "OK — mensagem: DLL Destaxa carregada e exports validados — Client ainda não inicializado",
+    "errosCodigosOriginais": "nenhum erro nesta corrida",
+    "dllCarregada": true,
+    "comunicacaoFuncionalComClient": false,
+    "proximoBloqueioTecnico": "AGUARDANDO_INIT_CONTROLADO"
+  }
+}

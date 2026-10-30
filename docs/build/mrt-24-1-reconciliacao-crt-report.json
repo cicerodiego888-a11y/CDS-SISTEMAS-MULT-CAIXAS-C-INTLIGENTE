@@ -1,0 +1,250 @@
+{
+  "sprint": "MRT-24.1",
+  "title": "Reconciliação da CRT inconclusiva MRT-24",
+  "generatedAt": "2026-10-30T19:45:40.537Z",
+  "restricoesObservadas": {
+    "txStart": false,
+    "txContinue": false,
+    "txFinalize": false,
+    "init": false,
+    "est": false,
+    "cancelamento": false,
+    "estorno": false,
+    "segundaCrt": false,
+    "novaIdempotencyKey": false,
+    "gateOff": true,
+    "historicoOriginalAlterado": false,
+    "bloqueioInconclusivoLiberado": false
+  },
+  "operacaoOriginal": {
+    "sprintOrigem": "MRT-24",
+    "provedor": "destaxa",
+    "ambiente": "homologacao",
+    "operacao": "CRT",
+    "valorCentavos": 100,
+    "transactionId": "mrt24_5d70e3fb2328da54",
+    "idempotencyKey": "registrada_no_runtime_nao_persistida_apos_queda",
+    "estadoConhecidoAnterior": "UNKNOWN",
+    "nativeHostPidMrt24": 10952,
+    "vspaguePidMrt24": 8740
+  },
+  "estadoEncontradoNoCds": {
+    "encontradaEmPersistencia": false,
+    "registros": [],
+    "motivoAusencia": "MRT-24 executou DestaxaRealAdapter sem TefManager.autorizar — não houve INSERT em tef_transacoes; transactionId só existiu no IPC/runtime"
+  },
+  "tefManagerProcessoAtual": {
+    "continuidadeCrt": null,
+    "nota": "Singleton deste processo Node ≠ processo da MRT-24; continuidade em memória da tentativa original não está aqui"
+  },
+  "persistencia": {
+    "bancoTeste": {
+      "path": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-sistemas-test-db\\mercadao.db",
+      "existe": true,
+      "tables": [
+        "tef_transacoes",
+        "tef_logs",
+        "tef_configuracoes",
+        "tef_tokens",
+        "tef_locks",
+        "tef_auditoria_acesso",
+        "tef_alertas_fraude",
+        "tef_notificacoes_falha",
+        "tef_tokens_cartao",
+        "tef_conciliacao",
+        "tef_backups",
+        "tef_metricas",
+        "tef_alertas_monitoramento",
+        "tef_configuracao",
+        "tef_servidores",
+        "tef_pinpads",
+        "tef_pinpad_catalogo",
+        "tef_operacoes",
+        "tef_conciliacoes",
+        "tef_fechamentos"
+      ],
+      "hitCount": 0,
+      "recentesResumo": []
+    },
+    "bancoProducao": {
+      "path": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+      "existe": true,
+      "tables": [
+        "tef_transacoes",
+        "tef_logs",
+        "tef_configuracoes",
+        "tef_tokens",
+        "tef_locks",
+        "tef_auditoria_acesso",
+        "tef_alertas_fraude",
+        "tef_notificacoes_falha",
+        "tef_tokens_cartao",
+        "tef_conciliacao",
+        "tef_backups",
+        "tef_metricas",
+        "tef_alertas_monitoramento",
+        "tef_configuracao",
+        "tef_servidores",
+        "tef_pinpads",
+        "tef_operacoes",
+        "tef_conciliacoes",
+        "tef_fechamentos",
+        "tef_pinpad_catalogo"
+      ],
+      "hitCount": 0,
+      "leituraSomente": true,
+      "alterado": false,
+      "recentesResumo": []
+    }
+  },
+  "logs": {
+    "mrt24Report": {
+      "path": "docs/build/mrt-24-primeira-crt-homologacao-report.json",
+      "classificacao": "CRT INCONCLUSIVA",
+      "evidenciaLogRuntime": [
+        "transacao.real.driver.habilitado",
+        "transacao.start operation=CRT transactionId=mrt24_5d70e3fb2328da54 inputKeys=[transacao_valor]"
+      ],
+      "ausencias": [
+        "TX_START_RESULT",
+        "TX_CONTINUE",
+        "TX_FINALIZE",
+        "codigo Destaxa conclusivo 00/03/04/09",
+        "relatório JSON gerado pelo próprio processo (queda antecipada)"
+      ]
+    },
+    "vspagueClient": {
+      "existe": true,
+      "path": "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+      "lastWriteTime": "2026-10-30T19:20:49.977Z",
+      "size": 8239,
+      "linhasRelevantes": [
+        "2026-10-30 14:35:38,661 INFO lib.VBI [V$PagueClientTransactionManager: Disconnect from Server] vespague.client.interaction.VeSPagueClientTransactionManager$34.run(VeSPagueClientTransactionManager.java:1914) vspg-id-dc1282a5: V$PagueClient: Fechando...",
+        "2026-10-30 14:35:38,772 INFO lib.VBI [V$PagueClientTransactionManager: Disconnect from Server] vespague.client.interaction.VeSPagueClientTransactionManager$34.run(VeSPagueClientTransactionManager.java:1926) vspg-id-dc1282a5: V$PagueServer: Desconectando...",
+        "2026-10-30 14:35:39,284 INFO vespague.client.interaction.VeSPagueClientToServer [V$PagueClientTransactionManager: Disconnect from Server] Desconectado do V$PagueServer",
+        "2026-10-30 14:35:39,285 INFO lib.VBI [V$PagueClientTransactionManager: Disconnect from Server] vespague.client.interaction.VeSPagueClientTransactionManager$34.run(VeSPagueClientTransactionManager.java:1931) vspg-id-dc1282a5: V$PagueServer: Desconectado!",
+        "2026-10-30 14:35:39,288 INFO vespague.client.interaction.VeSPagueClientTransactionManager$34 [V$PagueClientTransactionManager: Disconnect from Server] vspg-id-dc1282a5: Threads em processamento ao finalizar o V$PagueClient: 5",
+        "Thread[#54,V$PagueClientTransactionManager: Disconnect from Server,5,main]",
+        "2026-10-30 14:35:39,289 INFO lib.VBI [V$PagueClientTransactionManager: Disconnect from Server] vespague.client.interaction.VeSPagueClientTransactionManager$34.run(VeSPagueClientTransactionManager.java:1958) vspg-id-dc1282a5: V$PagueClient: Fechado!",
+        "2026-10-30 14:38:11,791 INFO vespague.client.interaction.VeSPagueClientTransactionManager [main] Desconectado do V$PagueServer 2",
+        "2026-10-30 14:38:12,347 INFO vespague.client.interaction.VeSPagueClientTransactionManager [ThreadParametrosAtualizar-vspg-id-01560606] Desconectado do V$PagueServer 4",
+        "2026-10-30 14:38:12,488 INFO lib.comm.VeSComm [ThreadParametrosAtualizar-vspg-id-01560606] VBIComm(>listen<:60906(0)) - Connection procedure started",
+        "2026-10-30 16:20:49,947 INFO lib.comm.VeSComm [VBICommSocket.Listen] VBIComm(>listen<:60906(0)<>1/2026-10-30 16:20:49.891/Socket:Socket[addr=/127.0.0.1,port=56138,localport=60906]) - Connected successfull",
+        "2026-10-30 16:20:49,974 WARN lib.comm.VeSComm [VBIComm.ReceiveWait(>listen<:60906(0))] VBIComm(>listen<:60906(0)) - Connection breaked: Connection reset (127.0.0.1)"
+      ],
+      "observacaoIntervaloCrt": "Em 2026-10-30 16:20:49 há conexão localhost→60906 seguida de Connection reset — compatível com tentativa de comunicação no horário da MRT-24; sem linha de aprovação/negação/NSU"
+    },
+    "nativeHost": {
+      "pidOriginal": 10952,
+      "processoAtualCompartilhado": null,
+      "nota": "Host PID 10952 da MRT-24 não está vivo neste processo; sessão/runtime da tentativa original não é recuperável via singleton atual"
+    }
+  },
+  "consultaProvedor": {
+    "avaliada": true,
+    "utilizada": false,
+    "motivoNaoUtilizada": "DestaxaRealAdapter NÃO implementa consultarTransacao — sem API oficial de consulta de situação no adapter; DLL Destaxa 1.83 só expõe INIT/TX_START/CONTINUE/FINALIZE (sem export de consulta)",
+    "naturezaSeExistisse": "deveria ser somente leitura / não financeira",
+    "detalheCodigo": {
+      "destaxaRealAdapterImplementaConsultarTransacao": false,
+      "baseAdapterTemConsultarTransacao": true,
+      "tefManagerChamaConsultar": true,
+      "operacoesHostDisponiveis": [
+        "PING",
+        "STATUS",
+        "LOAD",
+        "INIT_CLIENT",
+        "ENABLE_REAL",
+        "TX_START",
+        "TX_CONTINUE",
+        "TX_FINALIZE",
+        "UNLOAD",
+        "SHUTDOWN",
+        "CONFIGURE_MOCK",
+        "SIMULATE_BLOCKING",
+        "SIMULATE_CRASH"
+      ],
+      "hostTemOperacaoConsulta": false,
+      "dllExportsDocumentados": [
+        "iniciaClientDestaxa",
+        "iniciaTransacaoDestaxa",
+        "continuaTransacaoDestaxa",
+        "finalizaTransacaoDestaxa"
+      ],
+      "conclusao": "DestaxaRealAdapter NÃO implementa consultarTransacao — sem API oficial de consulta de situação no adapter; DLL Destaxa 1.83 só expõe INIT/TX_START/CONTINUE/FINALIZE (sem export de consulta)",
+      "baseAdapterConsultarTransacaoSnippet": "return tefContrato.criarRespostaConsulta({\n      sucesso: false,\n      suportado: false,\n      status: tefContrato.STATUS.PENDENTE,\n      transacaoId,\n      mensagem: `Consulta não implementada para ${this.nome}`,\n      modo: this.modo"
+    },
+    "evidenciaDocumental": {
+      "exportsDll": [
+        "iniciaClientDestaxa",
+        "iniciaTransacaoDestaxa",
+        "continuaTransacaoDestaxa",
+        "finalizaTransacaoDestaxa"
+      ],
+      "exportConsulta": false,
+      "operacaoConsultaNoHost": false
+    }
+  },
+  "evidenciaProvedorExterna": {
+    "aprovacao": null,
+    "negativa": null,
+    "nsu": null,
+    "autorizacao": null,
+    "processamentoConfirmado": null,
+    "nota": "Sem comprovante Destaxa/V$Pague de aprovação ou negação para transactionId mrt24_5d70e3fb2328da54"
+  },
+  "analiseEncerramento": {
+    "txStartEnviado": true,
+    "txStartResultRecebido": false,
+    "txFinalizeConfirmado": false,
+    "processoNodeEncerrouSemCapturarResultado": true,
+    "conexaoVsPagueNoHorario": [
+      "2026-10-30 14:35:38,661 INFO lib.VBI [V$PagueClientTransactionManager: Disconnect from Server] vespague.client.interaction.VeSPagueClientTransactionManager$34.run(VeSPagueClientTransactionManager.java:1914) vspg-id-dc1282a5: V$PagueClient: Fechando...",
+      "2026-10-30 14:35:38,772 INFO lib.VBI [V$PagueClientTransactionManager: Disconnect from Server] vespague.client.interaction.VeSPagueClientTransactionManager$34.run(VeSPagueClientTransactionManager.java:1926) vspg-id-dc1282a5: V$PagueServer: Desconectando...",
+      "2026-10-30 14:35:39,284 INFO vespague.client.interaction.VeSPagueClientToServer [V$PagueClientTransactionManager: Disconnect from Server] Desconectado do V$PagueServer",
+      "2026-10-30 14:35:39,285 INFO lib.VBI [V$PagueClientTransactionManager: Disconnect from Server] vespague.client.interaction.VeSPagueClientTransactionManager$34.run(VeSPagueClientTransactionManager.java:1931) vspg-id-dc1282a5: V$PagueServer: Desconectado!",
+      "2026-10-30 14:35:39,288 INFO vespague.client.interaction.VeSPagueClientTransactionManager$34 [V$PagueClientTransactionManager: Disconnect from Server] vspg-id-dc1282a5: Threads em processamento ao finalizar o V$PagueClient: 5",
+      "Thread[#54,V$PagueClientTransactionManager: Disconnect from Server,5,main]",
+      "2026-10-30 14:35:39,289 INFO lib.VBI [V$PagueClientTransactionManager: Disconnect from Server] vespague.client.interaction.VeSPagueClientTransactionManager$34.run(VeSPagueClientTransactionManager.java:1958) vspg-id-dc1282a5: V$PagueClient: Fechado!",
+      "2026-10-30 14:38:11,791 INFO vespague.client.interaction.VeSPagueClientTransactionManager [main] Desconectado do V$PagueServer 2",
+      "2026-10-30 14:38:12,347 INFO vespague.client.interaction.VeSPagueClientTransactionManager [ThreadParametrosAtualizar-vspg-id-01560606] Desconectado do V$PagueServer 4",
+      "2026-10-30 14:38:12,488 INFO lib.comm.VeSComm [ThreadParametrosAtualizar-vspg-id-01560606] VBIComm(>listen<:60906(0)) - Connection procedure started",
+      "2026-10-30 16:20:49,947 INFO lib.comm.VeSComm [VBICommSocket.Listen] VBIComm(>listen<:60906(0)<>1/2026-10-30 16:20:49.891/Socket:Socket[addr=/127.0.0.1,port=56138,localport=60906]) - Connected successfull",
+      "2026-10-30 16:20:49,974 WARN lib.comm.VeSComm [VBIComm.ReceiveWait(>listen<:60906(0))] VBIComm(>listen<:60906(0)) - Connection breaked: Connection reset (127.0.0.1)"
+    ],
+    "conclusao": "Não é possível determinar se o provedor processou após o TX_START — encerramento ocorreu sem resposta capturada; conexão V$Pague resetada não prova desfecho"
+  },
+  "classificacaoReconciliacao": "INCONCLUSIVA",
+  "justificativa": [
+    "TX_START foi enviado ao Native Host (log transacao.start) sem TX_START_RESULT capturado",
+    "Sem registro em tef_transacoes / TefManager da tentativa",
+    "V$Pague registra conexão/reset às 16:20:49 sem desfecho financeiro explícito",
+    "DestaxaRealAdapter não oferece consulta oficial de situação de transação",
+    "DLL Destaxa 1.83 sem export de consulta — não é possível consultar sem TX/INIT",
+    "Ausência de logs ≠ evidência de não processamento (regra MRT-24.1)"
+  ],
+  "bloqueiosMantidos": {
+    "novaCobrancaAutomatica": true,
+    "retryCrtMesmaOperacao": true,
+    "liberacaoInconclusivo": false,
+    "cancelamentoEstornoAutomatico": true,
+    "gateFinanceiro": "OFF",
+    "motivo": "Sem evidência conclusiva do provedor — operação original permanece protegida/UNKNOWN"
+  },
+  "proximaAcaoSeguraRecomendada": [
+    "Manter bloqueio de nova CRT até tratamento formal",
+    "Solicitar ao suporte/portal Destaxa (homologação) verificação da tentativa no horário da MRT-24 usando evidências de terminal/loja/horário — sem nova cobrança no CDS",
+    "Não repetir CRT com nova idempotency_key até o Tech Lead autorizar após desfecho conhecido",
+    "Se Destaxa confirmar formalmente NÃO PROCESSADA ou NEGADA/APROVADA, registrar evidência e só então reconciliar explicitamente no CDS",
+    "Não iniciar MRT-25 nesta condição"
+  ],
+  "confirmacaoNenhumaOperacaoFinanceira": {
+    "gateOff": true,
+    "tx": false,
+    "init": false,
+    "crt": false,
+    "est": false,
+    "mensagem": "MRT-24.1 não executou INIT/TX/CRT/EST/cancelamento/estorno"
+  },
+  "resultadoFinal": "MRT-24.1 CONCLUÍDA — RECONCILIAÇÃO: INCONCLUSIVA"
+}

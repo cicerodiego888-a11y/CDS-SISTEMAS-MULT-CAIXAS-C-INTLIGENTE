@@ -1,0 +1,193 @@
+{
+  "sprint": "MRT-12",
+  "title": "Seleção de adapter orientada pelo RouteDecision",
+  "generatedAt": "2026-10-30T12:05:00.000Z",
+  "status": "MRT-12 CONCLUÍDA — SELEÇÃO ORIENTADA PELO ROUTER",
+  "restricoesObservadas": {
+    "bancoOficialAlterado": false,
+    "migrationsExecutadas": false,
+    "initReal": false,
+    "transacaoFinanceira": false,
+    "gatesAtivados": false,
+    "paygoImplementado": false,
+    "sitefImplementado": false,
+    "cutoverFinanceiroEntreProvedores": false,
+    "operacaoSimultaneaReal": false,
+    "adaptersAlterados": false,
+    "compatibilidadeSingletonDestaxa": true,
+    "tef13a17Preservados": true
+  },
+  "auditoriaPrevia": {
+    "obterAdapter": {
+      "arquivo": "backend/services/tef/tefFactory.js",
+      "comportamento": "buscarConfiguracaoPrincipal LIMIT 1 + configParaRegistroAdapter + criarAdapter",
+      "usoAnteriorAutorizacao": "TefManager.autorizar ignorava RouteDecision.adapterBinding e chamava obterAdapter()"
+    },
+    "origemRegistroProvedor": {
+      "singleton": "tef_configuracao.provedor via singletonFallback.carregarBindingSingleton",
+      "registry": "TerminalTef.provedor + merge com base singleton em montarBinding"
+    },
+    "relacao": {
+      "RouteDecision": "carrega adapterBinding (COMPAT_SINGLETON ou REGISTRY_RESOLVE)",
+      "TerminalRegistry": "resolve terminal lógico + montarBinding",
+      "TefFactory": "criarAdapter(registro.provedor) — seleção concreta do middleware"
+    },
+    "pontosChamadaAdapter": {
+      "autorizar": "agora selecionarAdapterPorRouteDecision(routeDecision)",
+      "cancelar_consultar_reimprimir_status": "permanecem obterAdapter (compat singleton; sem RouteDecision de autorização)",
+      "tefReversalService_diagnostico": "obterAdapter inalterado"
+    },
+    "compatSingletonDestaxa": "Router COMPAT_SINGLETON já embute binding LIMIT 1; MRT-12 consome esse binding sem segunda consulta cega"
+  },
+  "fluxoAnterior": [
+    "TefManager.autorizar → resolverRotaAutorizacao → RouteDecision (lease/contexto)",
+    "obterAdapter() → LIMIT 1 independente do binding da rota",
+    "adapter.autorizar / preparacao"
+  ],
+  "fluxoNovo": [
+    "TefManager.autorizar → resolverRotaAutorizacao → RouteDecision",
+    "selecionarAdapterPorRouteDecision(routeDecision) → inspeciona adapterBinding.registro",
+    "criarAdapter(registro) — provedor/terminal do binding",
+    "erro explícito se binding/provedor/adapter ausente — sem fallback LIMIT 1",
+    "singleton Destaxa: modo COMPAT_SINGLETON + fonte tef_configuracao_singleton"
+  ],
+  "contratoSelecao": {
+    "arquivo": "backend/services/tef/tefAdapterSelection.js",
+    "apis": [
+      "inspecionarSelecaoPorRouteDecision",
+      "selecionarAdapterPorRouteDecision"
+    ],
+    "identifica": [
+      "provedor",
+      "terminalTefId",
+      "adapter (instância)",
+      "executionContext",
+      "modo/fonte/executionMode"
+    ],
+    "codigos": [
+      "ADAPTER_OK",
+      "ADAPTER_ROUTE_DECISION_AUSENTE",
+      "ADAPTER_ROUTE_DECISION_FALHOU",
+      "ADAPTER_BINDING_AUSENTE",
+      "ADAPTER_REGISTRO_AUSENTE",
+      "ADAPTER_PROVEDOR_AUSENTE",
+      "ADAPTER_PROVEDOR_NAO_RECONHECIDO",
+      "ADAPTER_CRIACAO_FALHOU"
+    ]
+  },
+  "arquivosAlterados": [
+    {
+      "path": "backend/services/tef/tefAdapterSelection.js",
+      "acao": "criado",
+      "motivo": "contrato de seleção orientada pelo RouteDecision"
+    },
+    {
+      "path": "backend/services/tef/TefManager.js",
+      "acao": "modificado",
+      "motivo": "autorizar usa seleção por RouteDecision; anexa adapterSelection na resposta"
+    },
+    {
+      "path": "backend/services/tef/tefFactory.js",
+      "acao": "documentado",
+      "motivo": "obterAdapter marcado como compat cancel/consulta/status"
+    },
+    {
+      "path": "backend/services/tef/tefProvedorCampos.js",
+      "acao": "documentado",
+      "motivo": "nota MRT-12 cutover autorização"
+    },
+    {
+      "path": "backend/services/tef/terminalRouter/contracts.js",
+      "acao": "extensão EXTENSION_POINTS.adapterSelection",
+      "motivo": "documentar ponto de extensão MRT-12"
+    },
+    {
+      "path": "tests/tef/mrt-12-route-decision-adapter.test.js",
+      "acao": "criado",
+      "motivo": "testes direcionados MRT-12"
+    },
+    {
+      "path": "docs/build/mrt-12-route-decision-adapter-report.json",
+      "acao": "criado",
+      "motivo": "relatório da sprint"
+    }
+  ],
+  "multiprovedor": {
+    "preparado": true,
+    "implementadoPayGoSiTef": false,
+    "caminho": "Registry + RouteDecision.adapterBinding.provedor + criarAdapter; persistência N configs ainda LIMIT 1",
+    "migrationPropostaNaoAplicada": {
+      "id": "MRT-12-PROP-tef-config-por-provedor",
+      "objetivo": "Permitir N configurações TEF por instalação (provedor + ambiente) e vincular TerminalTef → config_id",
+      "tabelasSugeridas": [
+        {
+          "nome": "tef_configuracao_provedor",
+          "colunas": [
+            "id INTEGER PK",
+            "provedor TEXT NOT NULL",
+            "ambiente TEXT NOT NULL",
+            "empresa_codigo TEXT",
+            "loja_codigo TEXT",
+            "terminal_codigo TEXT",
+            "pdv_codigo TEXT",
+            "caixa_codigo TEXT",
+            "ativo INTEGER DEFAULT 1",
+            "UNIQUE(provedor, ambiente) enquanto coexistência controlada"
+          ]
+        },
+        {
+          "nome": "tef_terminais_logicos",
+          "colunas": [
+            "id TEXT PK",
+            "pdv_id INTEGER NOT NULL",
+            "config_provedor_id INTEGER FK",
+            "codigo_logico_provedor TEXT",
+            "estado TEXT",
+            "dispositivo_json TEXT"
+          ],
+          "nota": "materializa Registry em persistência oficial (já proposto em MRT-03)"
+        }
+      ],
+      "compat": "Manter view/alias de tef_configuracao LIMIT 1 como projeção do provedor padrão Destaxa até cutover UI",
+      "aplicacao": "NÃO aplicada nesta sprint — somente proposta"
+    }
+  },
+  "testes": {
+    "arquivo": "tests/tef/mrt-12-route-decision-adapter.test.js",
+    "resultado": "OK",
+    "casos": [
+      "RouteDecision seleciona adapter correspondente",
+      "Destaxa singleton COMPAT_SINGLETON",
+      "provedor ausente → erro explícito",
+      "provedor inexistente → erro explícito",
+      "sem fallback LIMIT 1 (binding ausente)",
+      "identidade terminalTefId preservada",
+      "TEF-13/14/17 / inconclusivos preservados (estático)",
+      "regressões factory/UI MRT-10"
+    ],
+    "regressoesExecutadas": [
+      "tests/tef/mrt-11-auditoria-extensibilidade.test.js — OK",
+      "tests/tef/mrt-06-integracao-tefmanager.test.js — OK",
+      "tests/tef/mrt-10-generalizacao-provedores.test.js — OK",
+      "tests/tef/mrt-04-alocacao-isolamento.test.js — OK"
+    ]
+  },
+  "riscos": [
+    "RouteDecision sucesso com adapterBinding null (singleton ausente) agora falha na autorização com BINDING_AUSENTE em vez de tentar obterAdapter — alinhado a erro explícito; comportamento mais estrito",
+    "cancelar/consultar ainda usam obterAdapter LIMIT 1 — se no futuro o Registry tiver provedor ≠ singleton, cancelamento pode divergir até cutover específico",
+    "persistência ainda singleton — multi-config real depende da migration proposta",
+    "seleção de adapter PayGo/SiTef em teste usa apenas ambiente simulacao — sem cutover financeiro real"
+  ],
+  "compatibilidade": {
+    "destaxaSingleton": "preservada via COMPAT_SINGLETON.adapterBinding",
+    "terminalAllocator": "inalterado",
+    "terminalRegistry": "inalterado (montarBinding já alimenta a seleção)",
+    "executionContextResolver": "inalterado",
+    "idempotenciaTef13": "preservada",
+    "recuperacaoTef14": "preservada",
+    "vinculoTef15": "não tocado",
+    "cancelamentoTef17": "obterAdapter no cancelar; política cancelConfirmed inalterada"
+  },
+  "parecerTecnico": "Autorização deixou de depender de obterAdapter cego. A decisão do TerminalRouter passa a ser a fonte do registro/provedor/adapter. Singleton Destaxa permanece funcional porque o Router já projeta o binding LIMIT 1. Multi-provedor persistido fica para migration futura; o caminho arquitetural de seleção já está aberto.",
+  "resultadoFinal": "MRT-12 CONCLUÍDA — SELEÇÃO ORIENTADA PELO ROUTER"
+}

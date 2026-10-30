@@ -1,5 +1,13 @@
 const crypto = require('crypto');
 const { obterAdapter, criarAdapter } = require('./tefFactory');
+const { selecionarAdapterPorRouteDecision } = require('./tefAdapterSelection');
+const {
+  obterAdapterDaTransacao,
+  montarIdentidadeAdapterPersistencia,
+  mesclarPayloadPreservandoIdentidade,
+  hidratarTransacaoParaCiclo,
+  lerPayloadTransacao
+} = require('./tefAdapterCiclo');
 const repository = require('./tefRepository');
 const tefEvents = require('./tefEvents');
 const tefContrato = require('./tefContrato');
@@ -11,6 +19,8 @@ const tefRetryService = require('./tefRetryService');
 const tefCircuitBreakerService = require('./tefCircuitBreakerService');
 const tefFailureNotificationService = require('./tefFailureNotificationService');
 const tefFluxoPagamento = require('./tefFluxoPagamento');
+const tefRouterIntegration = require('./tefRouterIntegration');
+const { obterTerminalRecoveryService } = require('./terminalRecovery');
 const {
   FINANCIAL_STATES,
   classificarErroFinanceiro,
@@ -18,6 +28,13 @@ const {
   decidirResultadoTardio,
   montarLogDecisao
 } = require('./tefFinancialSafetyPolicy');
+const {
+  garantirIdentidadeOperacao,
+  montarBlocoPersistenciaPreEnvio,
+  classificarIdempotencia,
+  projetarRecuperacaoIdentidade,
+  ERROS_PERSISTENCIA
+} = require('./tefPersistenciaObrigatoria');
 
 const ESTADOS_TRAVA_RESULTADO_TARDIO = Object.freeze({
   AGUARDANDO_RESULTADO: 'AGUARDANDO_RESULTADO_TARDIO',
@@ -54,10 +71,79 @@ class TefManager {
     this._idsRecuperadosRegistrados = new Set();
     this._recuperacao = null;
     this._autorizacaoEmCurso = false;
+    /** MRT-22 — ciclo CRT aguardando COLETA/OPCAO do PDV (mesmo transactionId / sem novo TX_START). */
+    this._continuidadeCrt = null;
     this._instanciaId = `${process.pid}-${crypto.randomBytes(4).toString('hex')}`;
     if (opcoes.recuperarNoInicio !== false) {
       setImmediate(() => this.garantirRecuperacao().catch(() => {}));
     }
+  }
+
+  _capturarSessaoNativeHost() {
+    try {
+      const { clienteCompartilhadoExistente } = require('./destaxa/DestaxaNativeHostClient');
+      const cliente = clienteCompartilhadoExistente();
+      if (!cliente) return null;
+      const estado = cliente.getEstado();
+      return {
+        pid: estado.pid || null,
+        estado: estado.estado || null,
+        processType: estado.processType || null,
+        capturadoEm: new Date().toISOString()
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /**
+   * MRT-23 — Continuidade exige o mesmo Native Host (PID) da marcação.
+   * Adapter pode ser recriado; o processo host e a sessão Destaxa não.
+   */
+  _validarSessaoNativeHostContinuidade(sessaoMarcada) {
+    if (!sessaoMarcada || sessaoMarcada.pid == null) {
+      return { ok: true, motivo: 'sem_pid_ancora' };
+    }
+    const atual = this._capturarSessaoNativeHost();
+    if (!atual || atual.pid == null) {
+      return {
+        ok: false,
+        codigo: 'TEF_NATIVE_HOST_SESSAO_PERDIDA',
+        mensagem: 'Native Host indisponível durante continuidade CRT — reconciliação obrigatória; sem nova cobrança'
+      };
+    }
+    if (String(atual.pid) !== String(sessaoMarcada.pid)) {
+      return {
+        ok: false,
+        codigo: 'TEF_NATIVE_HOST_SESSAO_REINICIADA',
+        mensagem: `Native Host reiniciado (pid ${sessaoMarcada.pid}→${atual.pid}) — sessão Destaxa da continuidade perdida`
+      };
+    }
+    if (['CRASHED', 'OFFLINE', 'STOPPED', 'SHUTTING_DOWN'].includes(String(atual.estado || ''))) {
+      return {
+        ok: false,
+        codigo: 'TEF_NATIVE_HOST_SESSAO_PERDIDA',
+        mensagem: `Native Host estado=${atual.estado} durante continuidade — reconciliação obrigatória`
+      };
+    }
+    return { ok: true, sessao: atual };
+  }
+
+  _marcarContinuidadeCrt(transacaoId, dados = {}, retorno = {}) {
+    this._continuidadeCrt = {
+      transacaoId: String(transacaoId),
+      idempotencyKey: dados.idempotency_key || null,
+      vendaId: dados.venda_id != null ? dados.venda_id : null,
+      acao: retorno.acao || null,
+      desde: new Date().toISOString(),
+      sessaoHost: this._capturarSessaoNativeHost()
+    };
+  }
+
+  _limparContinuidadeCrt(transacaoId = null) {
+    if (!this._continuidadeCrt) return;
+    if (transacaoId != null && String(this._continuidadeCrt.transacaoId) !== String(transacaoId)) return;
+    this._continuidadeCrt = null;
   }
 
   async autorizar(dados, timeoutMs) {
@@ -65,14 +151,49 @@ class TefManager {
     let transacaoEmCursoId = null;
     let provedorEmCurso = null;
     let mutexAdquirido = false;
+    let leaseId = null;
+    let leaseFechado = false;
     const dadosNormalizados = {
       ...dados,
       tipo: tefFluxoPagamento.normalizarTipoTef(dados.tipo)
     };
+
+    const fecharLeaseTerminal = (resultado, contextoLease = {}) => {
+      if (!leaseId || leaseFechado) return null;
+      leaseFechado = true;
+      const classificacao = tefRouterIntegration.classificarPosAutorizacao(
+        resultado || {},
+        {
+          transacaoId: contextoLease.transacaoId != null
+            ? contextoLease.transacaoId
+            : transacaoEmCursoId,
+          ...contextoLease
+        }
+      );
+      const aplicado = tefRouterIntegration.aplicarPosAutorizacao(leaseId, classificacao);
+      try {
+        repository.registrarLog(
+          contextoLease.transacaoId != null ? contextoLease.transacaoId : transacaoEmCursoId,
+          'MRT06_LEASE',
+          classificacao.mensagem,
+          { leaseId, acao: classificacao.acao, motivo: classificacao.motivo, aplicado }
+        );
+      } catch (_) { /* log best-effort */ }
+      return aplicado;
+    };
+
+    const anexarContextoRota = (resposta) => ({
+      ...resposta,
+      routeDecision: dadosNormalizados._routeDecision || resposta.routeDecision || null,
+      terminalLeaseId: leaseId,
+      executionContext: dadosNormalizados._routeDecision?.executionContext || null,
+      adapterSelection: dadosNormalizados._adapterSelection || resposta.adapterSelection || null
+    });
     
-    // Determinar chave do lock (usar idempotency_key ou venda_id)
-    const lockKey = dadosNormalizados.idempotency_key || dadosNormalizados.venda_id || `tef_${Date.now()}`;
-    
+    // MRT-27 — identidade estável antes do lock (não usa Date.now como identidade exclusiva)
+    let identidadeOperacao = null;
+    let lockKey = dadosNormalizados.idempotency_key || dadosNormalizados.venda_id || null;
+
     try {
       // Validar regras fiscais antes de autorizar
       const validacaoFiscal = TefFiscalValidator.validarTransacao(dadosNormalizados);
@@ -84,6 +205,33 @@ class TefManager {
           erros: validacaoFiscal.erros
         };
       }
+
+      // MRT-06/12 — Router antes da execução financeira: resolve + allocate +
+      // ExecutionContext. Bloqueia REMOTA_REQUERIDA (sem bridge). Adapter
+      // de autorização vem do RouteDecision (MRT-12), não de obterAdapter cego.
+      const rota = await tefRouterIntegration.resolverRotaAutorizacao(dadosNormalizados);
+      const routeDecision = rota.routeDecision;
+      dadosNormalizados._routeDecision = routeDecision;
+      if (!rota.sucesso) {
+        return anexarContextoRota({
+          sucesso: false,
+          codigo: routeDecision.codigo,
+          mensagem: routeDecision.mensagem,
+          routeDecision
+        });
+      }
+      leaseId = rota.leaseId;
+
+      identidadeOperacao = garantirIdentidadeOperacao(dadosNormalizados, {
+        provedor: routeDecision.provedor || null,
+        pdvId: routeDecision.pdvId || null,
+        terminalTefId: routeDecision.terminalTefId || null
+      });
+      dadosNormalizados.idempotency_key = identidadeOperacao.idempotency_key;
+      dadosNormalizados.operation_id = identidadeOperacao.operation_id;
+      dadosNormalizados._fingerprint = identidadeOperacao.fingerprint;
+      // TEF-13: chave financeira inalterada — lease de terminal é ortogonal.
+      lockKey = identidadeOperacao.idempotency_key;
 
       // Detectar transações suspeitas (fraude)
       const contexto = {
@@ -101,21 +249,31 @@ class TefManager {
         
         // Se risco alto, bloquear transação
         if (analiseFraude.nivel_risco === 'alto') {
-          return {
+          fecharLeaseTerminal({ sucesso: false, status: tefContrato.STATUS.ERRO, codigo: 'TRANSACAO_SUSPEITA' });
+          return anexarContextoRota({
             sucesso: false,
             codigo: 'TRANSACAO_SUSPEITA',
             mensagem: 'Transação bloqueada por suspeita de fraude',
             alertas: analiseFraude.alertas,
             nivel_risco: analiseFraude.nivel_risco
-          };
+          });
         }
       }
 
-      // Verificar idempotência para evitar duplicação
+      // MRT-27 — idempotência: preservar aprovação/negativa; bloquear reenvio inconclusivo/pendente
       if (dadosNormalizados.idempotency_key) {
         const transacaoExistente = await this._verificarIdempotencia(dadosNormalizados.idempotency_key);
         if (transacaoExistente) {
           const completa = await this._buscarTransacaoCompleta(transacaoExistente.id);
+          const decisaoIdem = classificarIdempotencia(
+            completa || transacaoExistente,
+            identidadeOperacao.fingerprint
+          );
+          fecharLeaseTerminal({
+            sucesso: tefContrato.estaAprovado({ status: transacaoExistente.status }),
+            status: transacaoExistente.status,
+            codigo: decisaoIdem.codigo || 'TRANSACAO_DUPLICADA'
+          }, { transacaoId: transacaoExistente.id });
           const resposta = tefContrato.paraRespostaApi({
             sucesso: tefContrato.estaAprovado({ status: transacaoExistente.status }),
             status: transacaoExistente.status,
@@ -125,13 +283,24 @@ class TefManager {
             bandeira: completa?.bandeira,
             comprovanteCliente: completa?.comprovante_cliente,
             comprovanteLoja: completa?.comprovante_estabelecimento,
-            codigo: 'TRANSACAO_DUPLICADA',
-            mensagem: 'Transação duplicada detectada — retornando existente'
+            codigo: decisaoIdem.codigo || 'TRANSACAO_DUPLICADA',
+            mensagem: decisaoIdem.acao === 'BLOQUEAR_REENVIAR'
+              ? 'Operação inconclusiva/pendente — identidade reutilizada; novo envio bloqueado'
+              : 'Transação duplicada detectada — retornando existente',
+            financialState: decisaoIdem.financialState
+              || (decisaoIdem.preservarUnknown ? FINANCIAL_STATES.UNKNOWN : undefined)
           }, transacaoExistente.id);
-          return {
+          return anexarContextoRota({
             ...resposta,
-            transacao_existente: true
-          };
+            transacao_existente: true,
+            retryAllowed: false,
+            operation_id: projetarRecuperacaoIdentidade(completa || transacaoExistente)?.operation_id
+              || identidadeOperacao.operation_id,
+            idempotency_key: dadosNormalizados.idempotency_key,
+            fingerprint: identidadeOperacao.fingerprint,
+            provedorPreservado: decisaoIdem.provedor || completa?.provedor || null,
+            decisaoIdempotencia: decisaoIdem.acao
+          });
         }
       }
 
@@ -142,18 +311,75 @@ class TefManager {
         await this._aguardarEscritas();
         if (this._pendencias.size > 0) await this.recarregarPendencias();
       } catch (error) {
-        return this._respostaSemRecuperacao(error);
+        fecharLeaseTerminal({ sucesso: false, status: tefContrato.STATUS.ERRO, codigo: 'RECUPERACAO_FALHOU' });
+        return anexarContextoRota(this._respostaSemRecuperacao(error));
       }
       if (this._pendencias.size > 0) {
-        return this._respostaTravaResultadoTardio();
+        // TEF-14: pendência financeira bloqueia nova autorização; libera só o lease de ocupação
+        // (não há TX nova). A pendência existente permanece. Holds MRT-07 inalterados.
+        fecharLeaseTerminal({ sucesso: false, status: tefContrato.STATUS.ERRO, codigo: 'TRAVADO_RESULTADO_TARDIO' });
+        return anexarContextoRota(this._respostaTravaResultadoTardio());
+      }
+      // MRT-07: sem pendência financeira → libera holds de recuperação órfãos (nunca aprova/cancela TX)
+      try {
+        obterTerminalRecoveryService().sincronizarHoldsComPendencias({
+          pendenciasCompletas: this.listarTravasPendencias()
+        });
+      } catch (_) { /* best-effort */ }
+      if (this._continuidadeCrt) {
+        fecharLeaseTerminal({
+          sucesso: false,
+          status: tefContrato.STATUS.PENDENTE,
+          codigo: 'TEF_CRT_CONTINUIDADE_ATIVA'
+        });
+        return anexarContextoRota({
+          sucesso: false,
+          status: tefContrato.STATUS.PENDENTE,
+          codigo: 'TEF_CRT_CONTINUIDADE_ATIVA',
+          mensagem: `CRT aguarda continuidade (transacao ${this._continuidadeCrt.transacaoId}) — não inicie segunda cobrança`,
+          retryAllowed: false,
+          requerContinuacao: true,
+          acao: this._continuidadeCrt.acao || null,
+          transacaoId: this._continuidadeCrt.transacaoId,
+          transacao_id: this._continuidadeCrt.transacaoId,
+          idempotency_key: this._continuidadeCrt.idempotencyKey
+        });
       }
       if (this._autorizacaoEmCurso) {
-        return this._respostaAutorizacaoEmCurso();
+        fecharLeaseTerminal({ sucesso: false, status: tefContrato.STATUS.ERRO, codigo: 'AUTORIZACAO_EM_CURSO' });
+        return anexarContextoRota(this._respostaAutorizacaoEmCurso());
       }
       this._autorizacaoEmCurso = true;
       mutexAdquirido = true;
 
-      const adapter = await obterAdapter();
+      // MRT-12 — seleção orientada pelo RouteDecision (sem fallback LIMIT 1).
+      // Singleton Destaxa: binding COMPAT_SINGLETON já carregado pelo Router.
+      let selecao;
+      try {
+        selecao = selecionarAdapterPorRouteDecision(routeDecision);
+      } catch (erroSelecao) {
+        fecharLeaseTerminal({
+          sucesso: false,
+          status: tefContrato.STATUS.ERRO,
+          codigo: erroSelecao.codigo || erroSelecao.code || 'ADAPTER_SELECAO_FALHOU'
+        });
+        return anexarContextoRota({
+          sucesso: false,
+          codigo: erroSelecao.codigo || erroSelecao.code || 'ADAPTER_SELECAO_FALHOU',
+          mensagem: erroSelecao.message,
+          detalhes: erroSelecao.detalhes || null,
+          adapterSelection: null
+        });
+      }
+      dadosNormalizados._adapterSelection = {
+        provedor: selecao.provedor,
+        terminalTefId: selecao.terminalTefId,
+        modo: selecao.modo,
+        fonte: selecao.fonte,
+        executionMode: selecao.executionMode || null,
+        codigo: selecao.codigo
+      };
+      const adapter = selecao.adapter;
       provedorEmCurso = adapter.nome;
 
       // Adapters com gate financeiro (Destaxa real) validam pré-condições antes
@@ -162,13 +388,18 @@ class TefManager {
       if (typeof adapter.prepararAutorizacao === 'function') {
         preparacaoAdapter = await adapter.prepararAutorizacao(dadosNormalizados);
         if (!preparacaoAdapter.pronto) {
-          return preparacaoAdapter.resposta;
+          fecharLeaseTerminal(preparacaoAdapter.resposta || {
+            sucesso: false,
+            status: tefContrato.STATUS.ERRO,
+            codigo: 'PREPARACAO_ADAPTER'
+          });
+          return anexarContextoRota(preparacaoAdapter.resposta);
         }
       }
 
       // Circuit breaker permanece; autorização financeira, porém, tem uma
       // única tentativa. O retry service aplica a política sem retry.
-      return await tefCircuitBreakerService.executarComCircuitBreaker(
+      const resultadoAutorizacao = await tefCircuitBreakerService.executarComCircuitBreaker(
         'tef_autorizacao',
         async () => {
           return await tefRetryService.autorizarComRetry(async () => {
@@ -185,20 +416,55 @@ class TefManager {
                   reject(new Error(`Timeout de ${operacaoTimeout}ms excedido na operação TEF`));
                 }, operacaoTimeout);
 
+                const blocoPersistencia = montarBlocoPersistenciaPreEnvio({
+                  operationId: identidadeOperacao?.operation_id || dadosNormalizados.operation_id,
+                  fingerprint: identidadeOperacao?.fingerprint || dadosNormalizados._fingerprint,
+                  idempotencyKey: dadosNormalizados.idempotency_key,
+                  vendaId: dadosNormalizados.venda_id || null,
+                  pdvId: dadosNormalizados._routeDecision?.pdvId || null,
+                  terminalTefId: selecao.terminalTefId
+                    || dadosNormalizados._routeDecision?.terminalTefId
+                    || null,
+                  provedor: selecao.provedor || dadosNormalizados._adapterSelection?.provedor || adapter.nome,
+                  valor: dadosNormalizados.valor,
+                  tipo: dadosNormalizados.tipo,
+                  estadoFinanceiroInicial: FINANCIAL_STATES.UNKNOWN
+                });
+
                 repository.criarTransacaoExclusiva({
                   venda_id: dadosNormalizados.venda_id || null,
                   tipo: dadosNormalizados.tipo,
                   valor: dadosNormalizados.valor,
                   parcelas: dadosNormalizados.parcelas || 1,
-                  provedor: adapter.nome,
+                  // MRT-13 — chave canônica do provedor (não só adapter.nome de display)
+                  provedor: selecao.provedor || dadosNormalizados._adapterSelection?.provedor || adapter.nome,
                   idempotency_key: dadosNormalizados.idempotency_key || null,
+                  operation_id: blocoPersistencia.operation_id,
+                  codigo_transacao: blocoPersistencia.operation_id,
                   payload_retorno: {
-                    execucao: { instancia: this._instanciaId, pid: process.pid, iniciadoEm: new Date().toISOString() }
+                    execucao: { instancia: this._instanciaId, pid: process.pid, iniciadoEm: new Date().toISOString() },
+                    // MRT-13 — identidade contínua do adapter no ciclo
+                    identidadeAdapter: montarIdentidadeAdapterPersistencia(selecao, adapter),
+                    // MRT-27 — identidade obrigatória antes da DLL
+                    persistencia: blocoPersistencia,
+                    financialState: FINANCIAL_STATES.UNKNOWN,
+                    // MRT-07 — correlação lease×transação (somente metadado; não altera TEF-13/14/15)
+                    roteamento: dadosNormalizados._routeDecision ? {
+                      terminalTefId: dadosNormalizados._routeDecision.terminalTefId || null,
+                      dispositivoId: dadosNormalizados._routeDecision.dispositivoId || null,
+                      pdvId: dadosNormalizados._routeDecision.pdvId || null,
+                      leaseId: leaseId || null,
+                      runtimeKey: dadosNormalizados._routeDecision.isolamento?.runtimeKey
+                        || dadosNormalizados._routeDecision.executionContext?.runtime?.runtimeKey
+                        || null,
+                      topologia: dadosNormalizados._routeDecision.executionContext?.topologia || null,
+                      modo: dadosNormalizados._routeDecision.modo || null
+                    } : null
                   }
                 }, async (err, transacaoId) => {
                   if (err) {
                     clearTimeout(timeoutId);
-                    // Se erro for de chave duplicada (idempotency_key), buscar transação existente
+                    // MRT-27 — falha de persistência bloqueia Adapter/DLL
                     if (err.message && err.message.includes('UNIQUE constraint')) {
                       const transacaoExistente = await this._buscarPorIdempotencyKey(dadosNormalizados.idempotency_key);
                       if (transacaoExistente) {
@@ -208,11 +474,18 @@ class TefManager {
                           mensagem: 'Transação duplicada detectada',
                           transacao_id: transacaoExistente.id,
                           status: transacaoExistente.status,
-                          transacao_existente: true
+                          transacao_existente: true,
+                          retryAllowed: false
                         });
                       }
                     }
-                    return reject(err);
+                    return resolve({
+                      sucesso: false,
+                      codigo: ERROS_PERSISTENCIA.FALHOU,
+                      mensagem: `Persistência TEF falhou — envio financeiro bloqueado: ${err.message}`,
+                      retryAllowed: false,
+                      transactionAttempted: false
+                    });
                   }
 
                   if (transacaoId == null) {
@@ -226,9 +499,30 @@ class TefManager {
 
                   if (expirado) {
                     // O chamador já recebeu TIMEOUT: a autorização não é mais enviada.
+                    // MRT-14 — preservar identidadeAdapter/roteamento/execucao no rewrite.
+                    const identidadeTimeout = montarIdentidadeAdapterPersistencia(selecao, adapter);
                     this._gravar((pronto) => repository.atualizarTransacao(transacaoId, {
                       status: tefContrato.STATUS.ERRO,
-                      payload_retorno: { codigo: 'TEF_TIMEOUT_ANTES_DO_ENVIO', transactionAttempted: false }
+                      payload_retorno: mesclarPayloadPreservandoIdentidade(
+                        { codigo: 'TEF_TIMEOUT_ANTES_DO_ENVIO', transactionAttempted: false },
+                        {
+                          execucao: {
+                            instancia: this._instanciaId,
+                            pid: process.pid,
+                            iniciadoEm: new Date().toISOString()
+                          },
+                          identidadeAdapter: identidadeTimeout,
+                          persistencia: blocoPersistencia,
+                          roteamento: dadosNormalizados._routeDecision ? {
+                            terminalTefId: dadosNormalizados._routeDecision.terminalTefId || null,
+                            dispositivoId: dadosNormalizados._routeDecision.dispositivoId || null,
+                            pdvId: dadosNormalizados._routeDecision.pdvId || null,
+                            leaseId: leaseId || null,
+                            modo: dadosNormalizados._routeDecision.modo || null
+                          } : null
+                        },
+                        identidadeTimeout
+                      )
                     }, () => pronto()));
                     repository.registrarLog(transacaoId, 'TIMEOUT_ANTES_DO_ENVIO', 'Timeout operacional antes do envio ao adapter — autorização não enviada', {
                       transactionAttempted: false
@@ -241,17 +535,66 @@ class TefManager {
 
                   // Mascarar dados sensíveis nos logs
                   const dadosMascarados = DataMaskingService.mascararObjeto(dadosNormalizados);
-                  repository.registrarLog(transacaoId, 'INICIO', 'Transação TEF iniciada', dadosMascarados);
+                  repository.registrarLog(transacaoId, 'INICIO', 'Transação TEF iniciada — persistida antes do Adapter/DLL', {
+                    ...dadosMascarados,
+                    persistencia: blocoPersistencia
+                  });
+
+                  // MRT-31 — evidência: INSERT confirmado antes do Adapter (não altera fluxo)
+                  try {
+                    const { registrarEtapaFluxo, ETAPAS_FLUXO } = require('./destaxa/destaxaFluxoInstrumentacao');
+                    registrarEtapaFluxo(ETAPAS_FLUXO.PERSISTENCIA_CONFIRMADA, {
+                      operation_id: blocoPersistencia.operation_id,
+                      transactionId: String(transacaoId),
+                      venda_id: dadosNormalizados.venda_id || null,
+                      pdvId: dadosNormalizados._routeDecision?.pdvId || null,
+                      terminalTefId: selecao.terminalTefId
+                        || dadosNormalizados._routeDecision?.terminalTefId
+                        || null,
+                      fingerprint: blocoPersistencia.fingerprint,
+                      idempotency_key: blocoPersistencia.idempotency_key,
+                      provedor: blocoPersistencia.provedor
+                    }, {
+                      resultadoPersistencia: 'INSERT_OK',
+                      persistenciaConfirmada: true
+                    });
+                  } catch (_) { /* instrumentação best-effort */ }
 
                   tefEvents.emitirEstado(tefEvents.estados.INSIRA_CARTAO);
 
                   try {
-                    const retornoBruto = preparacaoAdapter
-                      ? await adapter.autorizarPagamento(dadosNormalizados, {
-                        ...preparacaoAdapter,
-                        transactionId: String(transacaoId)
-                      })
-                      : await adapter.autorizarPagamento(dadosNormalizados);
+                    // Destaxa (MRT-21/27): só após INSERT — autorizarPagamento exige
+                    // persistenciaConfirmada + transactionId (bloqueia bypass).
+                    const preparacaoComPersistencia = {
+                      ...(preparacaoAdapter && preparacaoAdapter.pronto ? preparacaoAdapter : {}),
+                      transactionId: String(transacaoId),
+                      persistenciaConfirmada: true,
+                      operation_id: blocoPersistencia.operation_id,
+                      fingerprint: blocoPersistencia.fingerprint
+                    };
+                    const retornoBruto = await adapter.autorizarPagamento(
+                      dadosNormalizados,
+                      preparacaoComPersistencia
+                    );
+                    if (retornoBruto?.cicloCrt) {
+                      repository.registrarLog(transacaoId, 'CICLO_CRT', 'Orquestração CRT Destaxa', {
+                        passos: retornoBruto.cicloCrt.passos || null,
+                        continues: retornoBruto.cicloCrt.continues,
+                        finalizado: retornoBruto.cicloCrt.finalizado === true,
+                        vinculo: retornoBruto.vinculoVendaPdv || {
+                          venda_id: dadosNormalizados.venda_id || null
+                        },
+                        inconclusivo: retornoBruto.inconclusivo === true,
+                        retryAllowed: false
+                      });
+                    }
+                    if (retornoBruto?.requerContinuacao === true) {
+                      this._marcarContinuidadeCrt(transacaoId, dadosNormalizados, retornoBruto);
+                    } else if (retornoBruto?.inconclusivo === true || retornoBruto?.sucesso === true
+                      || retornoBruto?.status === tefContrato.STATUS.NEGADO
+                      || retornoBruto?.status === tefContrato.STATUS.APROVADO) {
+                      this._limparContinuidadeCrt(transacaoId);
+                    }
                     if (expirado) {
                       this._registrarResultadoTardio(transacaoId, adapter.nome, dadosNormalizados.tipo, retornoBruto);
                       return;
@@ -284,16 +627,46 @@ class TefManager {
 
                     const persistencia = tefContrato.paraPersistencia(retorno);
                     const payloadPersistido = persistencia.payload_retorno;
+                    // MRT-14 — não descartar identidade do ciclo ao gravar desfecho
+                    const identidadeAuth = montarIdentidadeAdapterPersistencia(selecao, adapter);
+                      const payloadComIdentidade = mesclarPayloadPreservandoIdentidade(
+                      {
+                        ...(payloadPersistido && typeof payloadPersistido === 'object'
+                          ? payloadPersistido
+                          : { resposta: payloadPersistido }),
+                        financialState: retorno.financialState,
+                        cicloCrt: retornoBruto.cicloCrt || null,
+                        vinculoVendaPdv: retornoBruto.vinculoVendaPdv || {
+                          venda_id: dadosNormalizados.venda_id || null
+                        },
+                        reconciliacaoObrigatoria: retornoBruto.reconciliacaoObrigatoria === true
+                      },
+                      {
+                        execucao: {
+                          instancia: this._instanciaId,
+                          pid: process.pid,
+                          iniciadoEm: new Date().toISOString()
+                        },
+                        identidadeAdapter: identidadeAuth,
+                        roteamento: dadosNormalizados._routeDecision ? {
+                          terminalTefId: dadosNormalizados._routeDecision.terminalTefId || null,
+                          dispositivoId: dadosNormalizados._routeDecision.dispositivoId || null,
+                          pdvId: dadosNormalizados._routeDecision.pdvId || null,
+                          leaseId: leaseId || null,
+                          runtimeKey: dadosNormalizados._routeDecision.isolamento?.runtimeKey
+                            || dadosNormalizados._routeDecision.executionContext?.runtime?.runtimeKey
+                            || null,
+                          topologia: dadosNormalizados._routeDecision.executionContext?.topologia || null,
+                          modo: dadosNormalizados._routeDecision.modo || null
+                        } : null
+                      },
+                      identidadeAuth
+                    );
 
                     repository.atualizarTransacao(transacaoId, {
                       venda_id: dados.venda_id || null,
                       ...persistencia,
-                      payload_retorno: {
-                        ...(payloadPersistido && typeof payloadPersistido === 'object'
-                          ? payloadPersistido
-                          : { resposta: payloadPersistido }),
-                        financialState: retorno.financialState
-                      }
+                      payload_retorno: payloadComIdentidade
                     }, (updateErr) => {
                       if (updateErr) {
                         clearTimeout(timeoutId);
@@ -375,6 +748,14 @@ class TefManager {
           timeoutAberto: 60000
         }
       );
+
+      fecharLeaseTerminal(resultadoAutorizacao, {
+        transacaoId: transacaoEmCursoId
+          ?? resultadoAutorizacao?.transacao_id
+          ?? resultadoAutorizacao?.transacaoId
+          ?? null
+      });
+      return anexarContextoRota(resultadoAutorizacao);
     } catch (error) {
       const decisaoFinanceira = error.tefFinancialDecision || classificarErroFinanceiro(error);
       const logDecisao = montarLogDecisao({
@@ -393,7 +774,7 @@ class TefManager {
           provider: provedorEmCurso,
           operation: dadosNormalizados.tipo
         });
-        return {
+        const respTimeout = {
           sucesso: false,
           status: tefContrato.STATUS.PENDENTE,
           codigo: 'TIMEOUT',
@@ -406,30 +787,39 @@ class TefManager {
           retryAllowed: false,
           retryReason: decisaoFinanceira.retryReason
         };
+        fecharLeaseTerminal(respTimeout, {
+          transacaoId: transacaoEmCursoId,
+          forcarInconclusivo: transacaoEmCursoId != null
+        });
+        return anexarContextoRota(respTimeout);
       }
       if (error.message && error.message.includes('lock')) {
         repository.registrarLog(null, 'ERRO_LOCK', error.message, { error: error.message });
-        return {
+        const respLock = {
           sucesso: false,
           codigo: 'LOCK_NAO_ADQUIRIDO',
           mensagem: 'Operação em andamento, tente novamente',
           tipo_erro: 'conflito'
         };
+        fecharLeaseTerminal(respLock);
+        return anexarContextoRota(respLock);
       }
       if (error.message && error.message.includes('Circuit breaker')) {
         repository.registrarLog(null, 'ERRO_CIRCUIT_BREAKER', error.message, { error: error.message });
         await tefFailureNotificationService.notificarFalhaCircuitBreaker('tef_autorizacao', tefCircuitBreakerService.obterEstado('tef_autorizacao'), error);
-        return {
+        const respCb = {
           sucesso: false,
           codigo: 'CIRCUIT_BREAKER_ABERTO',
           mensagem: 'Serviço TEF temporariamente indisponível devido a falhas consecutivas',
           tipo_erro: 'servico_indisponivel'
         };
+        fecharLeaseTerminal(respCb);
+        return anexarContextoRota(respCb);
       }
       if (error.message && error.message.includes('TRANSACAO_SUSPEITA')) {
         repository.registrarLog(null, 'ALERTA_FRAUDE', 'Transação bloqueada por suspeita de fraude', error);
         await tefFailureNotificationService.notificarFalhaFraude(error);
-        return {
+        const respFraude = {
           sucesso: false,
           codigo: 'TRANSACAO_SUSPEITA',
           mensagem: error.mensagem,
@@ -437,6 +827,8 @@ class TefManager {
           nivel_risco: error.nivel_risco,
           tipo_erro: 'seguranca'
         };
+        fecharLeaseTerminal(respFraude);
+        return anexarContextoRota(respFraude);
       }
 
       // Depois que a linha pendente foi criada, qualquer erro de transporte ou
@@ -448,7 +840,7 @@ class TefManager {
           error.message,
           logDecisao
         );
-        return {
+        const respInc = {
           sucesso: false,
           status: tefContrato.STATUS.PENDENTE,
           codigo: decisaoFinanceira.resultCode || 'TEF_UNKNOWN',
@@ -461,6 +853,11 @@ class TefManager {
           retryAllowed: false,
           retryReason: decisaoFinanceira.retryReason
         };
+        fecharLeaseTerminal(respInc, {
+          transacaoId: transacaoEmCursoId,
+          forcarInconclusivo: true
+        });
+        return anexarContextoRota(respInc);
       }
       
       // Erro genérico
@@ -470,9 +867,31 @@ class TefManager {
         provider: provedorEmCurso,
         operation: dadosNormalizados.tipo
       });
+      fecharLeaseTerminal({
+        sucesso: false,
+        status: tefContrato.STATUS.ERRO,
+        codigo: 'ERRO_GENERICO'
+      }, { transacaoId: transacaoEmCursoId, forcarInconclusivo: transacaoEmCursoId != null });
       return Promise.reject(error);
     } finally {
       if (mutexAdquirido) this._autorizacaoEmCurso = false;
+      // Rede de segurança: lease aberto sem tratamento explícito
+      if (leaseId && !leaseFechado) {
+        if (transacaoEmCursoId != null) {
+          fecharLeaseTerminal({
+            sucesso: false,
+            status: tefContrato.STATUS.PENDENTE,
+            codigo: 'TEF_UNKNOWN',
+            financialState: FINANCIAL_STATES.UNKNOWN
+          }, { transacaoId: transacaoEmCursoId, forcarInconclusivo: true });
+        } else {
+          fecharLeaseTerminal({
+            sucesso: false,
+            status: tefContrato.STATUS.ERRO,
+            codigo: 'LEASE_FINALIZER'
+          });
+        }
+      }
     }
   }
 
@@ -518,16 +937,44 @@ class TefManager {
 
   /**
    * Recuperação no startup (uma vez por instância; refeita se falhar).
-   * Reconstrói a trava a partir das linhas `pendente` de tef_transacoes.
+   * Reconstrói a trava a partir das linhas `pendente` de tef_transacoes (TEF-14).
+   * MRT-07: após pendências, aplica recuperação segura de leases (holds Destaxa)
+   * sem aprovar/cancelar/repetir pagamento.
    */
   garantirRecuperacao() {
     if (!this._recuperacao) {
-      this._recuperacao = this.recarregarPendencias().catch((error) => {
-        this._recuperacao = null;
-        throw error;
-      });
+      this._recuperacao = this.recarregarPendencias()
+        .then((trava) => {
+          try {
+            const recovery = obterTerminalRecoveryService();
+            this._ultimaRecuperacaoTerminais = recovery.recuperarAposReinicio({
+              pendenciasCompletas: this.listarTravasPendencias()
+            });
+          } catch (_) {
+            this._ultimaRecuperacaoTerminais = null;
+          }
+          return trava;
+        })
+        .catch((error) => {
+          this._recuperacao = null;
+          throw error;
+        });
     }
     return this._recuperacao;
+  }
+
+  /**
+   * MRT-07 — snapshot readonly do monitor de terminais (agrega Registry/Allocator/pendências).
+   */
+  monitorarTerminaisTef(opcoes = {}) {
+    return obterTerminalRecoveryService().monitorar({
+      pendenciasCompletas: this.listarTravasPendencias(),
+      ...opcoes
+    });
+  }
+
+  obterRecuperacaoTerminais() {
+    return this._ultimaRecuperacaoTerminais || null;
   }
 
   /**
@@ -558,6 +1005,10 @@ class TefManager {
       if (conhecida && !(conhecida.estado === ESTADOS_TRAVA_RESULTADO_TARDIO.AGUARDANDO_RESULTADO && !emAndamento && !propria)) {
         continue;
       }
+      const identidadeRecuperada = projetarRecuperacaoIdentidade({
+        ...linha,
+        payload_retorno: payload
+      });
       this._definirPendencia(id, {
         provedor: linha.provedor,
         operacao: linha.tipo,
@@ -568,7 +1019,9 @@ class TefManager {
         origem: propria ? 'instancia-atual' : 'persistida',
         financialState: payload.resultadoTardio?.financialState || payload.financialState || FINANCIAL_STATES.UNKNOWN,
         codigo: payload.resultadoTardio?.codigo || payload.codigoDestaxa || null,
-        resultadoTardio: payload.resultadoTardio || null
+        resultadoTardio: payload.resultadoTardio || null,
+        // MRT-27 — identidade recuperável após reinício (sem reenvio automático)
+        recuperacao: identidadeRecuperada
       });
 
       if (!propria && !this._idsRecuperadosRegistrados.has(id)) {
@@ -614,6 +1067,22 @@ class TefManager {
       resultadoTardio: primeira.resultadoTardio ? { ...primeira.resultadoTardio } : null,
       pendentes: [...this._pendencias.keys()]
     };
+  }
+
+  /**
+   * TEF-14 — listagem readonly das travas em memória (espelho das pendentes).
+   * Não altera estado e não aprova/libera nada.
+   */
+  listarTravasPendencias() {
+    return [...this._pendencias.entries()].map(([id, trava]) => ({
+      transacaoId: String(id),
+      estado: trava.estado || null,
+      provedor: trava.provedor || null,
+      operacao: trava.operacao || null,
+      financialState: trava.financialState || null,
+      codigo: trava.codigo || null,
+      resultadoTardio: trava.resultadoTardio ? { ...trava.resultadoTardio } : null
+    }));
   }
 
   _respostaTravaResultadoTardio() {
@@ -703,18 +1172,29 @@ class TefManager {
     const persistencia = tefContrato.paraPersistencia(retorno);
     const payloadPersistido = persistencia.payload_retorno;
 
-    this._gravar((pronto) => repository.atualizarTransacao(transacaoId, {
-      ...persistencia,
-      payload_retorno: {
-        ...(payloadPersistido && typeof payloadPersistido === 'object'
-          ? payloadPersistido
-          : { resposta: payloadPersistido }),
-        resultadoTardio
-      }
-    }, (err) => {
-      if (err) repository.registrarLog(transacaoId, 'ERRO', err.message, { error: err.message });
-      pronto();
-    }));
+    // MRT-14 — ler payload atual e preservar identidadeAdapter antes do rewrite
+    this._gravar((pronto) => {
+      const db = require('../../database');
+      db.get('SELECT provedor, payload_retorno FROM tef_transacoes WHERE id = ?', [transacaoId], (errLeitura, row) => {
+        const anterior = row ? lerPayloadTransacao(row) : {};
+        const payloadNovo = mesclarPayloadPreservandoIdentidade(
+          {
+            ...(payloadPersistido && typeof payloadPersistido === 'object'
+              ? payloadPersistido
+              : { resposta: payloadPersistido }),
+            resultadoTardio
+          },
+          anterior
+        );
+        repository.atualizarTransacao(transacaoId, {
+          ...persistencia,
+          payload_retorno: payloadNovo
+        }, (err) => {
+          if (err) repository.registrarLog(transacaoId, 'ERRO', err.message, { error: err.message });
+          pronto();
+        });
+      });
+    });
     repository.registrarLog(transacaoId, 'RESULTADO_TARDIO', retorno.mensagem, {
       ...montarLogDecisao({ transactionId: transacaoId, provider: provedor, operation: operacao, decision: decisao }),
       resolution: decisao.resolution,
@@ -764,21 +1244,30 @@ class TefManager {
       falhar('TEF_RECONCILIACAO_INVALIDA', 'Reconciliação exige usuário e observação');
     }
 
-    this._gravar((pronto) => repository.atualizarTransacao(transacaoId, {
-      status,
-      payload_retorno: {
-        resultadoTardio: trava.resultadoTardio,
-        reconciliacao: {
-          financialState: dados.financialState,
-          usuario: String(dados.usuario),
-          observacao: String(dados.observacao),
-          em: new Date().toISOString()
-        }
-      }
-    }, (err) => {
-      if (err) repository.registrarLog(transacaoId, 'ERRO', err.message, { error: err.message });
-      pronto();
-    }));
+    this._gravar((pronto) => {
+      const db = require('../../database');
+      db.get('SELECT payload_retorno FROM tef_transacoes WHERE id = ?', [transacaoId], (errLeitura, row) => {
+        const anterior = row ? lerPayloadTransacao(row) : {};
+        repository.atualizarTransacao(transacaoId, {
+          status,
+          payload_retorno: mesclarPayloadPreservandoIdentidade(
+            {
+              resultadoTardio: trava.resultadoTardio,
+              reconciliacao: {
+                financialState: dados.financialState,
+                usuario: String(dados.usuario),
+                observacao: String(dados.observacao),
+                em: new Date().toISOString()
+              }
+            },
+            anterior
+          )
+        }, (err) => {
+          if (err) repository.registrarLog(transacaoId, 'ERRO', err.message, { error: err.message });
+          pronto();
+        });
+      });
+    });
     repository.registrarLog(transacaoId, 'RECONCILIACAO_RESULTADO_TARDIO', `Reconciliado como ${dados.financialState}`, {
       transactionId: String(transacaoId),
       financialState: dados.financialState,
@@ -827,9 +1316,237 @@ class TefManager {
       const db = require('../../database');
       db.get('SELECT * FROM tef_transacoes WHERE id = ?', [transacaoId], (err, row) => {
         if (err) return reject(err);
-        resolve(row || null);
+        // MRT-14 — hidratar payload criptografado para o ciclo pós-reinício
+        resolve(hidratarTransacaoParaCiclo(row));
       });
     });
+  }
+
+  /**
+   * MRT-22 — Continuidade CRT (COLETA/OPCAO). Mesma transação e idempotency_key.
+   * Não chama TX_START. Não cria nova cobrança.
+   */
+  async continuarAutorizacao(dados = {}) {
+    const transacaoId = dados.transacao_id || dados.transacaoId;
+    if (transacaoId == null || String(transacaoId).trim() === '') {
+      return {
+        sucesso: false,
+        codigo: 'TEF_CONTINUIDADE_SEM_TRANSACAO',
+        mensagem: 'transacao_id obrigatório para continuidade CRT',
+        retryAllowed: false
+      };
+    }
+
+    const db = require('../../database');
+    const transacao = await new Promise((resolve, reject) => {
+      db.get('SELECT * FROM tef_transacoes WHERE id = ?', [transacaoId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row || null);
+      });
+    });
+
+    if (!transacao) {
+      return {
+        sucesso: false,
+        codigo: 'TEF_TRANSACAO_NAO_ENCONTRADA',
+        mensagem: 'Transação TEF não encontrada para continuidade',
+        retryAllowed: false
+      };
+    }
+
+    if (String(transacao.status || '').toLowerCase() !== tefContrato.STATUS.PENDENTE
+      && String(transacao.status || '').toLowerCase() !== 'pendente') {
+      return {
+        sucesso: false,
+        codigo: 'TEF_CONTINUIDADE_STATUS_INVALIDO',
+        mensagem: `Continuidade só para status pendente; atual=${transacao.status}`,
+        retryAllowed: false,
+        status: transacao.status
+      };
+    }
+
+    if (dados.idempotency_key && transacao.idempotency_key
+      && String(dados.idempotency_key) !== String(transacao.idempotency_key)) {
+      return {
+        sucesso: false,
+        codigo: 'TEF_IDEMPOTENCY_DIVERGENTE',
+        mensagem: 'idempotency_key diverge da transação em continuidade — nova chave/cobrança proibida',
+        retryAllowed: false
+      };
+    }
+
+    if (this._continuidadeCrt
+      && String(this._continuidadeCrt.transacaoId) !== String(transacaoId)) {
+      return {
+        sucesso: false,
+        codigo: 'TEF_CRT_CONTINUIDADE_ATIVA',
+        mensagem: `Outra continuidade CRT ativa (${this._continuidadeCrt.transacaoId})`,
+        retryAllowed: false,
+        requerContinuacao: true
+      };
+    }
+
+    const validacaoHost = this._validarSessaoNativeHostContinuidade(this._continuidadeCrt?.sessaoHost);
+    if (!validacaoHost.ok) {
+      return {
+        sucesso: false,
+        status: tefContrato.STATUS.PENDENTE,
+        codigo: validacaoHost.codigo,
+        mensagem: validacaoHost.mensagem,
+        retryAllowed: false,
+        inconclusivo: true,
+        reconciliacaoObrigatoria: true,
+        transacao_id: Number(transacaoId) || transacaoId,
+        transacaoId: String(transacaoId),
+        idempotency_key: dados.idempotency_key || transacao.idempotency_key || null
+      };
+    }
+
+    try {
+      // MRT-23 — recria o wrapper adapter, mas força o mesmo DestaxaNativeHostClient
+      // compartilhado (sessão nativa vive no processo host, não no objeto adapter).
+      const { obterClienteCompartilhado } = require('./destaxa/DestaxaNativeHostClient');
+      const cicloAdapter = await obterAdapterDaTransacao(transacao, {
+        adapterOpcoes: {
+          executionMode: 'native-host',
+          hostClient: obterClienteCompartilhado()
+        }
+      });
+      const adapter = cicloAdapter.adapter;
+      if (typeof adapter.continuarPagamento !== 'function') {
+        return {
+          sucesso: false,
+          codigo: 'TEF_CONTINUIDADE_NAO_SUPORTADA',
+          mensagem: `Adapter ${adapter.nome || '?'} não implementa continuarPagamento`,
+          retryAllowed: false
+        };
+      }
+
+      repository.registrarLog(transacaoId, 'CICLO_CRT_CONTINUE', 'Continuidade CRT PDV', {
+        idempotency_key: dados.idempotency_key || transacao.idempotency_key || null,
+        venda_id: dados.venda_id != null ? dados.venda_id : transacao.venda_id,
+        temResposta: dados.resposta_continuidade != null || dados.resposta != null
+      });
+
+      const retornoBruto = await adapter.continuarPagamento({
+        ...dados,
+        transacao_id: Number(transacaoId) || transacaoId,
+        venda_id: dados.venda_id != null ? dados.venda_id : transacao.venda_id,
+        acao: dados.acao || this._continuidadeCrt?.acao || null
+      });
+
+      const decisaoFinanceira = classificarResultadoFinanceiro(retornoBruto);
+      const retorno = tefContrato.criarRespostaAutorizacao({
+        sucesso: retornoBruto.sucesso,
+        status: retornoBruto.status,
+        nsu: retornoBruto.nsu,
+        autorizacao: retornoBruto.autorizacao,
+        cnpj_credenciadora: retornoBruto.cnpj_credenciadora,
+        provedor: adapter.nome,
+        adquirente: retornoBruto.adquirente,
+        bandeira: retornoBruto.bandeira,
+        comprovanteCliente: retornoBruto.comprovanteCliente || retornoBruto.comprovante_cliente,
+        comprovanteLoja: retornoBruto.comprovanteLoja || retornoBruto.comprovante_estabelecimento,
+        transacaoId: String(transacaoId),
+        codigo: retornoBruto.codigo,
+        mensagem: retornoBruto.mensagem,
+        payloadRetorno: retornoBruto.payloadRetorno || retornoBruto.payload_retorno,
+        modo: retornoBruto.modo,
+        financialState: retornoBruto.financialState || decisaoFinanceira.financialState,
+        protocolState: retornoBruto.estado || decisaoFinanceira.state,
+        retryAllowed: false,
+        retryReason: retornoBruto.retryReason || decisaoFinanceira.retryReason
+      });
+
+      const persistencia = tefContrato.paraPersistencia(retorno);
+      const identidadeAuth = montarIdentidadeAdapterPersistencia(
+        {
+          provedor: cicloAdapter.provedor,
+          registro: cicloAdapter.registro,
+          terminalTefId: cicloAdapter.terminalTefId,
+          ambiente: cicloAdapter.ambiente,
+          fonte: cicloAdapter.fonte
+        },
+        adapter
+      );
+      const payloadAnterior = lerPayloadTransacao(transacao);
+      const payloadComIdentidade = mesclarPayloadPreservandoIdentidade(
+        {
+          ...(persistencia.payload_retorno && typeof persistencia.payload_retorno === 'object'
+            ? persistencia.payload_retorno
+            : { resposta: persistencia.payload_retorno }),
+          financialState: retorno.financialState,
+          cicloCrt: retornoBruto.cicloCrt || null,
+          vinculoVendaPdv: retornoBruto.vinculoVendaPdv || null,
+          continuidade: {
+            requerContinuacao: retornoBruto.requerContinuacao === true,
+            acao: retornoBruto.acao || null
+          },
+          reconciliacaoObrigatoria: retornoBruto.reconciliacaoObrigatoria === true
+        },
+        payloadAnterior,
+        identidadeAuth
+      );
+
+      await new Promise((resolve, reject) => {
+        repository.atualizarTransacao(transacaoId, {
+          venda_id: transacao.venda_id || dados.venda_id || null,
+          ...persistencia,
+          payload_retorno: payloadComIdentidade
+        }, (err) => (err ? reject(err) : resolve()));
+      });
+
+      if (retornoBruto.requerContinuacao === true) {
+        this._marcarContinuidadeCrt(transacaoId, {
+          idempotency_key: dados.idempotency_key || transacao.idempotency_key,
+          venda_id: dados.venda_id != null ? dados.venda_id : transacao.venda_id
+        }, retornoBruto);
+      } else {
+        this._limparContinuidadeCrt(transacaoId);
+      }
+
+      if (retornoBruto.inconclusivo === true) {
+        this._concluirExecucao(transacaoId, tefContrato.STATUS.PENDENTE, {
+          provedor: adapter.nome,
+          operacao: 'CRT_CONTINUE',
+          financialState: FINANCIAL_STATES.UNKNOWN,
+          codigo: retorno.codigo
+        });
+      } else if (!retornoBruto.requerContinuacao) {
+        this._concluirExecucao(transacaoId, retorno.status, {
+          provedor: adapter.nome,
+          operacao: 'CRT_CONTINUE',
+          financialState: retorno.financialState,
+          codigo: retorno.codigo
+        });
+      }
+
+      const api = tefContrato.paraRespostaApi(retorno, transacaoId);
+      return {
+        ...api,
+        requerContinuacao: retornoBruto.requerContinuacao === true,
+        acao: retornoBruto.acao || null,
+        inconclusivo: retornoBruto.inconclusivo === true,
+        reconciliacaoObrigatoria: retornoBruto.reconciliacaoObrigatoria === true,
+        cicloCrt: retornoBruto.cicloCrt || null,
+        vinculoVendaPdv: retornoBruto.vinculoVendaPdv || null,
+        idempotency_key: dados.idempotency_key || transacao.idempotency_key || null,
+        retryAllowed: false
+      };
+    } catch (error) {
+      repository.registrarLog(transacaoId, 'CICLO_CRT_CONTINUE_ERRO', error.message, {
+        codigo: error.codigo || error.code || null
+      });
+      return {
+        sucesso: false,
+        status: tefContrato.STATUS.PENDENTE,
+        codigo: error.codigo || error.code || 'TEF_CONTINUIDADE_ERRO',
+        mensagem: error.message,
+        retryAllowed: false,
+        transacao_id: Number(transacaoId) || transacaoId,
+        transacaoId: String(transacaoId)
+      };
+    }
   }
 
   async cancelar(transacaoId, motivo = 'Cancelamento da venda') {
@@ -862,7 +1579,9 @@ class TefManager {
         });
 
         try {
-          const adapter = await obterAdapter();
+          // MRT-13 — cancelamento no provedor original da transação (não LIMIT 1 cego)
+          const ciclo = await obterAdapterDaTransacao(transacao);
+          const adapter = ciclo.adapter;
           const retornoBruto = await adapter.cancelarPagamento({
             transacao_id: transacaoId,
             nsu: transacao.nsu,
@@ -873,35 +1592,70 @@ class TefManager {
           const retorno = tefContrato.criarRespostaCancelamento({
             sucesso: retornoBruto.sucesso,
             status: retornoBruto.status,
-            nsu: retornoBruto.nsu,
-            autorizacao: retornoBruto.autorizacao,
+            nsu: retornoBruto.nsu != null ? retornoBruto.nsu : transacao.nsu,
+            autorizacao: retornoBruto.autorizacao != null ? retornoBruto.autorizacao : transacao.autorizacao,
             transacaoId: String(transacaoId),
             codigo: retornoBruto.codigo,
             mensagem: retornoBruto.mensagem,
             payloadRetorno: retornoBruto.payloadRetorno || retornoBruto.payload_retorno,
-            modo: retornoBruto.modo
+            modo: retornoBruto.modo,
+            cancelConfirmed: retornoBruto.cancelConfirmed,
+            cancelOutcome: retornoBruto.cancelOutcome,
+            financialState: retornoBruto.financialState
           });
 
-          db.run(`
-            UPDATE tef_transacoes
-            SET
-              status = ?,
-              payload_retorno = ?,
-              atualizado_em = datetime('now')
-            WHERE id = ?
-          `, [
-            retorno.status,
-            JSON.stringify(retorno),
-            transacaoId
-          ], (updateErr) => {
+          const confirmado = tefContrato.cancelamentoConfirmado(retorno);
+
+          // TEF-17: sem confirmação do provedor, status financeiro original permanece.
+          if (!confirmado) {
+            repository.registrarLog(
+              transacaoId,
+              'CANCELAMENTO_NAO_CONFIRMADO',
+              retorno.mensagem || 'Cancelamento TEF não confirmado pelo provedor',
+              {
+                ...retorno,
+                statusAnterior: transacao.status,
+                financialState: 'UNCHANGED'
+              }
+            );
+
+            return resolve(tefContrato.paraRespostaApi({
+              ...retorno,
+              sucesso: false,
+              status: transacao.status,
+              cancelConfirmed: false,
+              financialState: 'UNCHANGED'
+            }, transacaoId));
+          }
+
+          // MRT-14 — cancelamento preserva identidadeAdapter via merge + repository
+          // (repassa NSU/autorização para não zerar colunas no UPDATE do repository)
+          const payloadCancel = mesclarPayloadPreservandoIdentidade(
+            {
+              cancelamento: retorno,
+              financialState: 'CANCELLED'
+            },
+            lerPayloadTransacao(transacao)
+          );
+          repository.atualizarTransacao(transacaoId, {
+            status: tefContrato.STATUS.CANCELADO,
+            adquirente: transacao.adquirente || null,
+            bandeira: transacao.bandeira || null,
+            nsu: transacao.nsu || null,
+            autorizacao: transacao.autorizacao || null,
+            codigo_transacao: transacao.codigo_transacao || null,
+            payload_retorno: payloadCancel
+          }, (updateErr) => {
             if (updateErr) return reject(updateErr);
 
             repository.registrarLog(transacaoId, 'CANCELAMENTO_RETORNO', retorno.mensagem, retorno);
 
             resolve(tefContrato.paraRespostaApi({
               ...retorno,
-              status: retorno.status,
-              sucesso: retorno.sucesso
+              status: tefContrato.STATUS.CANCELADO,
+              sucesso: true,
+              cancelConfirmed: true,
+              financialState: 'CANCELLED'
             }, transacaoId));
           });
 
@@ -918,8 +1672,15 @@ class TefManager {
 
   async consultar(transacaoId) {
     try {
-      const adapter = await obterAdapter();
-      return await adapter.consultarTransacao(transacaoId);
+      const transacao = await this._buscarTransacaoCompleta(transacaoId);
+      if (!transacao) {
+        const error = new Error('Transação TEF não encontrada.');
+        error.codigo = 'TEF_TRANSACAO_NAO_ENCONTRADA';
+        throw error;
+      }
+      // MRT-13 — consulta no provedor original da transação
+      const ciclo = await obterAdapterDaTransacao(transacao);
+      return await ciclo.adapter.consultarTransacao(transacaoId);
     } catch (error) {
       return Promise.reject(error);
     }
@@ -927,8 +1688,14 @@ class TefManager {
 
   async reimprimir(transacaoId, tipo = 'cliente') {
     try {
-      const adapter = await obterAdapter();
-      return await adapter.reimprimirComprovante(transacaoId, tipo);
+      const transacao = await this._buscarTransacaoCompleta(transacaoId);
+      if (!transacao) {
+        const error = new Error('Transação TEF não encontrada.');
+        error.codigo = 'TEF_TRANSACAO_NAO_ENCONTRADA';
+        throw error;
+      }
+      const ciclo = await obterAdapterDaTransacao(transacao);
+      return await ciclo.adapter.reimprimirComprovante(transacaoId, tipo);
     } catch (error) {
       return Promise.reject(error);
     }
@@ -936,6 +1703,7 @@ class TefManager {
 
   async status() {
     try {
+      // Status de instalação (sem vínculo de transação) — singleton compat
       const adapter = await obterAdapter();
       return await adapter.status();
     } catch (error) {

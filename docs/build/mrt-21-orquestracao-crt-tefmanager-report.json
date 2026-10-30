@@ -1,0 +1,115 @@
+{
+  "sprint": "MRT-21",
+  "title": "Orquestração do ciclo CRT no TefManager",
+  "generatedAt": "2026-10-30T18:53:36.322Z",
+  "classificacao": "ORQUESTRAÇÃO CRT VALIDADA",
+  "restricoesObservadas": {
+    "harnessControladoReal": false,
+    "initReal": false,
+    "crtReal": false,
+    "gatesHabilitados": false,
+    "gateValor": "(vazio)",
+    "configDestaxaAlterada": false,
+    "bancoProducaoAlterado": false,
+    "migrations": false
+  },
+  "arquivosAlterados": [
+    "backend/services/tef/destaxa/destaxaCrtCicloOrquestracao.js (novo)",
+    "backend/services/tef/adapters/DestaxaRealAdapter.js",
+    "backend/services/tef/TefManager.js",
+    "tests/tef/mrt-21-orquestracao-crt-tefmanager.test.js (novo)",
+    "docs/build/mrt-21-orquestracao-crt-tefmanager-report.json (este)"
+  ],
+  "fluxoImplementado": [
+    "TefManager.autorizar → RouteDecision → DestaxaRealAdapter.prepararAutorizacao",
+    "ENABLE_REAL (gate) → executarCicloCrt no mesmo bridge/host",
+    "TX_START(CRT) único → 99* TX_CONTINUE → TX_FINALIZE(0) se 00",
+    "Log CICLO_CRT + vinculoVendaPdv no payload; retryAllowed=false"
+  ],
+  "testesExecutados": [
+    {
+      "nome": "1. CRT com retorno 00",
+      "ok": true,
+      "codigo": "00"
+    },
+    {
+      "nome": "2. CRT com retorno 99 e continuação",
+      "ok": true
+    },
+    {
+      "nome": "3. Múltiplas continuações",
+      "ok": true
+    },
+    {
+      "nome": "4. Finalização aprovada",
+      "ok": true
+    },
+    {
+      "nome": "5. Finalização negada",
+      "ok": true
+    },
+    {
+      "nome": "6. INIT falho",
+      "ok": true
+    },
+    {
+      "nome": "7. Timeout em TX_START",
+      "ok": true
+    },
+    {
+      "nome": "8. Timeout em TX_CONTINUE",
+      "ok": true
+    },
+    {
+      "nome": "9. Host encerrado durante o ciclo",
+      "ok": true
+    },
+    {
+      "nome": "10. Requisição concorrente",
+      "ok": true
+    },
+    {
+      "nome": "11. Resultado inconclusivo",
+      "ok": true
+    },
+    {
+      "nome": "12. Preservação da idempotência e reconciliação",
+      "ok": true
+    },
+    {
+      "nome": "extra. gate OFF bloqueia antes do ciclo",
+      "ok": true
+    },
+    {
+      "nome": "extra. um TX_START por ciclo",
+      "ok": true
+    }
+  ],
+  "tratamentoDeCadaRetorno": {
+    "99": "Ação requerida — NÃO aprovação; TX_CONTINUE com displayAck ou fila explícita",
+    "00": "Sucesso → TX_FINALIZE(0) → aprovado conclusivo",
+    "03/04/09": "Negado conclusivo — sem finalize(0); sem EST comercial",
+    "08": "Timeout inconclusivo — reconciliação; retryAllowed=false; sem cancel implícito",
+    "HOST_BUSY": "Sem TX efetiva; retryAllowed=false",
+    "HOST_OFFLINE": "Ciclo interrompido; reconciliacaoObrigatoria",
+    "INIT_FALHOU": "prepararAutorizacao bloqueia antes de TX_START"
+  },
+  "garantiasContraDuplicidade": [
+    "Um TX_START por execução de ciclo",
+    "autorizarComRetry permanece single-shot",
+    "idempotency_key + lock TefManager preservados",
+    "inconclusivo → reconciliacaoObrigatoria; sem nova cobrança automática",
+    "HOST_BUSY não conta como start efetivo no provedor"
+  ],
+  "riscosRemanescentes": [
+    "COLETA/OPCAO sem fila respostasContinuidade interrompe com pendente operacional (PDV deve fornecer respostas ou UI)",
+    "CRT real ainda exige gate pontual + INIT no host — fora desta sprint",
+    "Timeout operacional do TefManager vs ciclo longo de 99 — resultado tardio já previsto no contrato Destaxa"
+  ],
+  "confirmacaoNenhumaOperacaoFinanceiraReal": {
+    "gateOff": true,
+    "dllFinanceira": false,
+    "mensagem": "Nenhuma operação financeira real foi executada nesta sprint"
+  },
+  "resultadoFinal": "MRT-21 CONCLUÍDA — ORQUESTRAÇÃO CRT VALIDADA"
+}

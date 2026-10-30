@@ -30,24 +30,54 @@ function obterKoffi() {
     throw criarErro(
       ERROS.DESTAXA_DLL_LOAD_FAILED,
       'Biblioteca nativa koffi indisponível para carregar a DLL Destaxa',
-      { causa: error.message }
+      { causa: error.message, classeDiagnostico: 'KOFFI_AUSENTE' }
     );
   }
 }
 
+/**
+ * Classifica falha de LoadLibrary/koffi.load sem INIT.
+ * Win32 126 = módulo/dependência ausente; 193 = formato/arquitetura inválida.
+ */
 function extrairErroWindows(error, dllPath) {
   const mensagem = String(error?.message || error || '');
-  const dependenciaAusente = /specified module could not be found|não foi possível encontrar o módulo|126|193|The specified procedure could not be found/i.test(mensagem);
+  const errno = error?.errno != null ? Number(error.errno) : null;
+  const code = error?.code != null ? String(error.code) : null;
+  const win32 = errno != null && Number.isFinite(errno) ? Math.abs(errno) : null;
+
+  const is193 = win32 === 193
+    || /193|not a valid Win32 application|não é um aplicativo Win32 válido|Bad EXE format/i.test(mensagem);
+  const is126 = win32 === 126
+    || /126|specified module could not be found|não foi possível encontrar o módulo especificado/i.test(mensagem);
+  const procedureMissing = /The specified procedure could not be found|não foi possível encontrar o procedimento/i.test(mensagem);
+
+  let classeDiagnostico = 'ERRO_CARREGAMENTO';
+  let codigoErro = ERROS.DESTAXA_DLL_LOAD_FAILED;
+  let dependencia = null;
+
+  if (is193) {
+    classeDiagnostico = 'ARQUITETURA_INCOMPATIVEL';
+    codigoErro = ERROS.DESTAXA_ARCHITECTURE_MISMATCH;
+  } else if (is126) {
+    classeDiagnostico = 'DEPENDENCIA_NATIVA_AUSENTE';
+    codigoErro = ERROS.DESTAXA_NATIVE_DEPENDENCY_MISSING;
+    dependencia = 'DLL Destaxa presente, mas dependência nativa do Windows (CRT/WS2) ou módulo satélite ausente';
+  } else if (procedureMissing) {
+    classeDiagnostico = 'EXPORT_OU_DEPENDENCIA';
+    codigoErro = ERROS.DESTAXA_DLL_LOAD_FAILED;
+    dependencia = 'Procedimento/exportação não encontrada no módulo carregado';
+  }
+
   return {
-    codigo: error?.code || null,
-    errno: error?.errno || null,
-    win32: error?.errno || error?.code || null,
+    codigo: code,
+    errno,
+    win32: win32 || code,
     mensagem,
     arquitetura: process.arch,
     caminho: dllPath,
-    dependencia: dependenciaAusente
-      ? 'DLL Destaxa ou dependência nativa ausente no Windows (não baixar DLL de fonte não oficial)'
-      : null
+    classeDiagnostico,
+    codigoErro,
+    dependencia
   };
 }
 
@@ -59,9 +89,9 @@ function carregarBiblioteca(dllPath) {
   } catch (error) {
     const windows = extrairErroWindows(error, dllPath);
     throw criarErro(
-      ERROS.DESTAXA_DLL_LOAD_FAILED,
+      windows.codigoErro || ERROS.DESTAXA_DLL_LOAD_FAILED,
       `Falha ao carregar DLL Destaxa: ${windows.mensagem}`,
-      { dllPath, windows }
+      { dllPath, windows, classeDiagnostico: windows.classeDiagnostico }
     );
   }
 
@@ -89,7 +119,7 @@ function carregarBiblioteca(dllPath) {
     throw criarErro(
       ERROS.DESTAXA_EXPORT_MISSING,
       `Exports Destaxa ausentes: ${ausentes.join(', ')}`,
-      { dllPath, exports: presentes, ausentes }
+      { dllPath, exports: presentes, ausentes, classeDiagnostico: 'EXPORT_AUSENTE' }
     );
   }
 

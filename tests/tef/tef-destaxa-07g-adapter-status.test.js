@@ -154,10 +154,13 @@ registrarTeste('badge Adapter usa somente instância, não seleção nem operaci
   assert.doesNotMatch(mapa[1], /adapter_selecionado|adapter_operacional/);
   assert.match(frontend, /Adapter instanciado:/);
   assert.match(frontend, /Diagnóstico do adapter:/);
+  assert.match(frontend, /Processo V\$Pague:/);
   assert.match(frontend, /DLL carregada:/);
   assert.match(frontend, /Exports validados:/);
+  assert.match(frontend, /INIT_CLIENT:/);
+  assert.match(frontend, /Código de retorno Destaxa:/);
   assert.match(frontend, /Client Destaxa inicializado:/);
-  assert.match(frontend, /Código do Client:/);
+  assert.match(frontend, /NAO_EXECUTADO/);
   assert.match(frontend, /Comunicação transacional:/);
   assert.match(frontend, /Disponibilidade para autorizar:/);
 });

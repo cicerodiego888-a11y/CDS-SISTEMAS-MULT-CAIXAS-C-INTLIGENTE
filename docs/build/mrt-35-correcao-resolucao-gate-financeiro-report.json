@@ -1,0 +1,132 @@
+{
+  "sprint": "MRT-35",
+  "title": "Diagnóstico e correção do carregamento do Gate Financeiro Destaxa",
+  "generatedAt": "2026-10-30T21:34:58.283Z",
+  "classificacao": "CAUSA_IDENTIFICADA_SEM_CORRECAO",
+  "causaRaiz": {
+    "codigo": "MODULO_INEXISTENTE_NO_DIAGNOSTICO",
+    "resumo": "O require de destaxaGateFinanceiro veio de um node -e diagnóstico da MRT-34 que inventou um caminho. O arquivo nunca existiu no repositório. O gate real vive em destaxaConstantes.js (transacaoRealHabilitada / REAL_TRANSACTION_ENV).",
+    "pontoExatoDoRequire": {
+      "tipo": "node -e [eval]",
+      "contexto": "diagnóstico MRT-34 (Shell)",
+      "caminhoTentado": "./backend/services/tef/destaxa/destaxaGateFinanceiro",
+      "baseResolucao": "process.cwd() do shell = raiz do repo",
+      "requireStackTipico": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\[eval]"
+    },
+    "porQueFalhou": "MODULE_NOT_FOUND — nome/arquivo inexistente; não é falha de cwd entre Electron/backend.",
+    "moduloCorreto": {
+      "caminhoAbsoluto": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\backend\\services\\tef\\destaxa\\destaxaConstantes.js",
+      "exports": [
+        "REAL_TRANSACTION_ENV",
+        "transacaoRealHabilitada"
+      ],
+      "consumidores": [
+        "backend/services/tef/adapters/DestaxaRealAdapter.js",
+        "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+        "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js",
+        "backend/services/tef/destaxa/DestaxaNativeHost.js"
+      ]
+    }
+  },
+  "evidenciaAntes": {
+    "mensagem": "Cannot find module './backend/services/tef/destaxa/destaxaGateFinanceiro'\nRequire stack:\n- C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\[eval]",
+    "code": "MODULE_NOT_FOUND",
+    "arquivoExiste": false
+  },
+  "evidenciaDepois": {
+    "requireCorretoOk": true,
+    "resolved": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\backend\\services\\tef\\destaxa\\destaxaConstantes.js",
+    "gateOff": true,
+    "correcaoCodigoProducao": false,
+    "motivoSemCorrecao": "Nenhuma importação de produção quebrada; criar destaxaGateFinanceiro.js seria facade inventada sem consumidor."
+  },
+  "caminhosValidados": {
+    "absolutoConstantes": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\backend\\services\\tef\\destaxa\\destaxaConstantes.js",
+    "relativoAdapter": "../destaxa/destaxaConstantes",
+    "relativoCwdRepo": "./backend/services/tef/destaxa/destaxaConstantes"
+  },
+  "arquivosAlterados": [
+    "tests/tef/mrt-35-resolucao-gate-financeiro.test.js",
+    "docs/build/mrt-35-correcao-resolucao-gate-financeiro-report.json"
+  ],
+  "diferencaContextos": {
+    "nodeEval": "require(relativo) resolve a partir de process.cwd(); __filename = [eval]",
+    "backendScript": "require relativo ao arquivo do módulo (__dirname)",
+    "electronMain": "mesmo mecanismo Node; Adapter usa caminho relativo ao próprio arquivo → destaxaConstantes",
+    "conclusao": "Não há divergência Electron vs backend no gate; o erro era só o nome fantasma no eval"
+  },
+  "resultadosTeste": [
+    {
+      "nome": "1) arquivo destaxaGateFinanceiro NÃO existe",
+      "ok": true,
+      "caminhoAbsoluto": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\backend\\services\\tef\\destaxa\\destaxaGateFinanceiro.js"
+    },
+    {
+      "nome": "2) arquivo destaxaConstantes.js existe",
+      "ok": true,
+      "caminhoAbsoluto": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\backend\\services\\tef\\destaxa\\destaxaConstantes.js"
+    },
+    {
+      "nome": "3) require relativo fantasma reproduz MODULE_NOT_FOUND",
+      "ok": true,
+      "cwdUsado": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE",
+      "rel": "./backend/services/tef/destaxa/destaxaGateFinanceiro",
+      "message": "Cannot find module './backend/services/tef/destaxa/destaxaGateFinanceiro'\nRequire stack:\n- C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\[eval]",
+      "nota": "node -e resolve relativo a process.cwd(); [eval] no require stack — módulo nunca existiu"
+    },
+    {
+      "nome": "4) require correto via destaxaConstantes resolve e exporta gate",
+      "ok": true,
+      "resolved": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\backend\\services\\tef\\destaxa\\destaxaConstantes.js",
+      "REAL_TRANSACTION_ENV": "DESTAXA_REAL_TRANSACTION_ENABLED",
+      "gateOff": true
+    },
+    {
+      "nome": "5) gate permanece OFF no contexto do teste",
+      "ok": true,
+      "env": ""
+    },
+    {
+      "nome": "6) resolução relativa ao DestaxaRealAdapter aponta para destaxaConstantes",
+      "ok": true,
+      "fromAdapter": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\backend\\services\\tef\\destaxa\\destaxaConstantes.js",
+      "mecanismo": "require('../destaxa/destaxaConstantes') em DestaxaRealAdapter.js"
+    },
+    {
+      "nome": "7) DestaxaRealAdapter NÃO referencia destaxaGateFinanceiro",
+      "ok": true,
+      "importGate": "transacaoRealHabilitada de destaxaConstantes"
+    },
+    {
+      "nome": "8) nenhum require/código de produção referencia destaxaGateFinanceiro",
+      "ok": true,
+      "hits": []
+    },
+    {
+      "nome": "9) createRequire absoluto carrega o mesmo gate OFF",
+      "ok": true,
+      "mecanismo": "Module.createRequire(caminhoAbsoluto destaxaConstantes.js)"
+    }
+  ],
+  "restricoesObservadas": {
+    "init": false,
+    "enableReal": false,
+    "txStart": false,
+    "crt": false,
+    "est": false,
+    "dll": false,
+    "nativeHost": false,
+    "vspague": false,
+    "dbWrite": false,
+    "venda": false,
+    "gateOff": true,
+    "mrt24": "UNKNOWN"
+  },
+  "confirmacoes": {
+    "zeroOperacoesFinanceiras": true,
+    "gatePermaneceOff": true,
+    "mrt24UnknownPreservado": true,
+    "crtNaoAvancada": true
+  },
+  "recomendacao": "Nenhuma correção de importação de produção. Diagnósticos futuros devem require destaxaConstantes (ou caminho absoluto validado neste relatório). Aguardar Tech Lead; não avançar CRT nesta sprint."
+}

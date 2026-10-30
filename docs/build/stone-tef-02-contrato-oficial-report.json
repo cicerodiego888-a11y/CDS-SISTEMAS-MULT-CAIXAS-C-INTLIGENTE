@@ -1,0 +1,280 @@
+{
+  "sprint": "STONE-TEF-02",
+  "title": "Validação do contrato oficial Stone P200 Windows",
+  "generatedAt": "2026-10-27T18:20:00.000Z",
+  "verdict": "BLOCKED_WAITING_VENDOR_ARTIFACTS",
+  "scopeConfirmation": {
+    "sdkInstalled": false,
+    "dllInstalled": false,
+    "driverInstalled": false,
+    "serviceInstalled": false,
+    "stoneBinaryExecuted": false,
+    "usbOrComPortOpened": false,
+    "commandsSentToP200": false,
+    "tefManagerModified": false,
+    "tefFactoryModified": false,
+    "adaptersModified": false,
+    "clientConfigModified": false,
+    "databaseModified": false,
+    "stoneRealModeEnabled": false,
+    "crtPixSaleAuthCancelExecuted": false,
+    "adapterCreatedFromAssumptions": false,
+    "destaxaPreserved": true,
+    "singleTefMotorPreserved": true,
+    "filesModifiedExpected": [
+      "docs/build/stone-tef-02-contrato-oficial-report.json"
+    ],
+    "zeroApplicationCodeChanges": true,
+    "zeroFinancialOperations": true
+  },
+  "summary": {
+    "produtoOficialIdentificado": null,
+    "modalidadeIntegracaoIdentificada": null,
+    "contratoOficialComprovado": false,
+    "compatibilidadeP200UsbComprovada": false,
+    "stoneNoCdsHoje": "Somente simulação TEF (stoneAdapter) + PIX HTTP cloud (stoneProvider) — nenhum é integração PinPad P200 Windows",
+    "artefatosNoAmbiente": "Ausentes: pasta resources/tef/stone, DLL/SDK Stone, docs oficiais Stone Windows, VID/PID oficiais, credenciais de homologação TEF Stone",
+    "pacoteDesktopObservado": "C:\\Users\\cicer\\Desktop\\DLL DESTAXA contém apenas Destaxa/V$Pague/drivers Gertec/Ingenico — sem menção a Stone/P200 no leia-me.txt"
+  },
+  "fontesEDocumentosExaminados": [
+    {
+      "fonte": "docs/build/stone-tef-01-auditoria-arquitetural-report.json",
+      "tipo": "auditoria interna CDS",
+      "resultado": "Confirma ausência de SDK/DLL/doc Stone TEF e P200; pré-requisitos de TEF-02 listados"
+    },
+    {
+      "fonte": "backend/services/tef/adapters/stoneAdapter.js",
+      "tipo": "código CDS",
+      "resultado": "SimulatedGatewayAdapter apenas — sem contrato real"
+    },
+    {
+      "fonte": "backend/services/pix/providers/stoneProvider.js",
+      "tipo": "código CDS",
+      "resultado": "API HTTP PIX (/api/v1/pix_payment_invoices) — não é TEF PinPad USB"
+    },
+    {
+      "fonte": "backend/services/tef/README_INTEGRACAO_REAL.md",
+      "tipo": "doc interna",
+      "resultado": "Cobre SiTef/PayGo; não menciona Stone TEF/P200"
+    },
+    {
+      "fonte": "backend/services/tef/CHECKLIST_HOMOLOGACAO_TEF.md",
+      "tipo": "doc interna",
+      "resultado": "Checklist genérico PinPad/SSE; sem contrato Stone"
+    },
+    {
+      "fonte": "backend/services/tef/README_CERTIFICACAO.md",
+      "tipo": "doc interna",
+      "resultado": "Orientação genérica de SDK/FFI; sem pacote Stone"
+    },
+    {
+      "fonte": "docs/tef/TEF-03-descoberta-integracao-rede.md",
+      "tipo": "auditoria Rede",
+      "resultado": "Paralelo metodológico; Rede também sem integração real identificada"
+    },
+    {
+      "fonte": "backend/services/tef/pinpads/pinpadCatalog.js",
+      "tipo": "catálogo",
+      "resultado": "Somente GERTEC_PPC930; sem STONE_P200"
+    },
+    {
+      "fonte": "resources/tef/",
+      "tipo": "binários versionados",
+      "resultado": "Apenas destaxa/libdll-integracao-tef.dll (win-x64/win-ia32); resources/tef/stone inexistente"
+    },
+    {
+      "fonte": "C:\\Users\\cicer\\Desktop\\DLL DESTAXA\\leia-me.txt",
+      "tipo": "artefato ambiente (Destaxa)",
+      "resultado": "Roteiro V$PagueClient + drivers Gertec/Ingenico; sem Stone/P200"
+    },
+    {
+      "fonte": "C:\\Users\\cicer\\Desktop\\DLL DESTAXA\\ (listagem)",
+      "tipo": "inventário ambiente",
+      "resultado": "DESTAXA.zip, V$paguePARTNER*.msi, Driver Pinpad Gertec/Ingenico, Manual Portal Destaxa — zero pacote Stone"
+    },
+    {
+      "fonte": "Program Files / LocalAppData / Roaming caminhos Stone|POSLink",
+      "tipo": "existência de pastas (listagem)",
+      "resultado": "Caminhos Stone/POSLink ausentes; nenhum software Stone TEF instalado detectado por nome de pasta"
+    },
+    {
+      "fonte": "Downloads / Documents (nomes Stone|P200)",
+      "tipo": "scan superficial de nomes",
+      "resultado": "Nenhum artefato Stone/P200 encontrado"
+    }
+  ],
+  "produtoEModalidade": {
+    "produtoOficialWindows": {
+      "nome": null,
+      "status": "NAO_IDENTIFICADO",
+      "evidencia": "Nenhum documento ou pacote no ambiente nomeia o produto oficial para P200 USB"
+    },
+    "modalidadeComunicacao": {
+      "dllNativa": "DESCONHECIDO_SEM_EVIDENCIA",
+      "servicoLocal": "DESCONHECIDO_SEM_EVIDENCIA",
+      "usbHid": "DESCONHECIDO_SEM_EVIDENCIA",
+      "usbCdcCom": "DESCONHECIDO_SEM_EVIDENCIA",
+      "middlewareTerceiros": "DESCONHECIDO_SEM_EVIDENCIA",
+      "httpCloudPix": "PRESENTE_NO_CDS_MAS_FORA_DO_ESCOPO_P200 (stoneProvider)"
+    },
+    "exigeAppOuServicoStoneNoPc": {
+      "status": "PENDENTE_DOCUMENTACAO_OFICIAL",
+      "evidenciaLocal": "Nenhum serviço/app Stone instalado nas pastas padrão inspecionadas"
+    }
+  },
+  "evidenciasCompatibilidadeP200Usb": {
+    "referenciasP200NoRepo": 0,
+    "vidPidOficiaisNoProjeto": null,
+    "procedimentoIdentificacaoDocumentado": false,
+    "modeloNoPinpadCatalog": false,
+    "hardwareEnumeradoNestaSprint": false,
+    "nota": "Enumeração PnP/COM foi deliberadamente NÃO executada nesta sprint (restrição: não abrir porta nem interagir com P200). Compatibilidade não pode ser inferida por dispositivo plugado."
+  },
+  "sdkApiEDependencias": {
+    "sdkOficialDisponivelNoAmbiente": false,
+    "apiDocumentada": false,
+    "dependenciasIdentificadas": [],
+    "contratosOperacionais": {
+      "autorizacao": "NAO_DOCUMENTADO_NO_AMBIENTE",
+      "cancelamento": "NAO_DOCUMENTADO_NO_AMBIENTE",
+      "consulta": "NAO_DOCUMENTADO_NO_AMBIENTE",
+      "comprovantes": "NAO_DOCUMENTADO_NO_AMBIENTE",
+      "codigosResultado": "NAO_DOCUMENTADO_NO_AMBIENTE"
+    },
+    "aviso": "Nenhum parâmetro de API/DLL foi inventado. stoneProvider PIX não substitui o contrato TEF PinPad."
+  },
+  "identificadoresHardware": {
+    "vidConfirmado": null,
+    "pidConfirmado": null,
+    "friendlyNameEsperado": null,
+    "status": "PENDENTE",
+    "fonteOficial": null
+  },
+  "requisitosHomologacao": {
+    "status": "PENDENTE_FORNECEDOR",
+    "itensDesconhecidosSemDoc": [
+      "Processo de credenciamento Stone / parceiro integrador",
+      "Ambiente de homologação (sandbox) e credenciais",
+      "Roteiro oficial de testes P200 USB Windows",
+      "Requisitos de certificado/licença de software",
+      "Regras de retry, timeout, confirmação e desfazimento",
+      "Campos fiscais obrigatórios (NSU, autorização, bandeira, adquirente, CNPJ credenciadora)"
+    ]
+  },
+  "artefatosASolicitarAoFornecedor": {
+    "destinatarioSugerido": "Stone (ou integradora TEF autorizada pela Stone para P200 USB Windows)",
+    "listaObrigatoria": [
+      {
+        "id": "DOC-01",
+        "item": "Documento oficial do produto de integração Windows para PinPad Stone P200 USB",
+        "porQue": "Nomear o produto e a modalidade (DLL/serviço/HID/CDC/middleware)"
+      },
+      {
+        "id": "PKG-01",
+        "item": "Pacote SDK/binário Windows (ou referência de download autenticada) compatível com P200",
+        "porQue": "Sem binário oficial não há caminho técnico comprovado"
+      },
+      {
+        "id": "API-01",
+        "item": "Manual de API/exports: init, venda/autorização, cancelamento, consulta, comprovantes, eventos PinPad",
+        "porQue": "Mapear para BaseAdapter/tefContrato sem inventar assinaturas"
+      },
+      {
+        "id": "HW-01",
+        "item": "Tabela oficial VID/PID + FriendlyName PnP + procedimento de identificação Windows",
+        "porQue": "Descoberta segura sem abrir porta nem inferir por nome comercial"
+      },
+      {
+        "id": "DRV-01",
+        "item": "Drivers Windows assinados e instrução de instalação (se aplicável)",
+        "porQue": "Pré-requisito de ambiente de caixa"
+      },
+      {
+        "id": "APP-01",
+        "item": "Confirmação se exige aplicativo/serviço Stone residente (análogo a VSPagueClient)",
+        "porQue": "Arquitetura Native Host / processo isolado"
+      },
+      {
+        "id": "HOM-01",
+        "item": "Roteiro e credenciais de homologação + regras fiscais de retorno",
+        "porQue": "Gate financeiro e campos NFC-e"
+      },
+      {
+        "id": "LIC-01",
+        "item": "Autorização comercial / contrato de integração para o CDS Sistemas",
+        "porQue": "Uso legítimo do SDK em produção"
+      }
+    ],
+    "naoAceitarComoSubstituto": [
+      "stoneAdapter simulado",
+      "stoneProvider PIX cloud",
+      "DLL Destaxa / V$Pague",
+      "Driver Gertec/Ingenico do pacote Destaxa",
+      "Inferência por porta COM ou nome PnP sem VID/PID oficial"
+    ]
+  },
+  "decisaoArquiteturalRecomendada": {
+    "ateContratoComprovado": "NÃO iniciar StoneRealAdapter; manter stone apenas em simulação; Destaxa permanece caminho real existente",
+    "aposReceberArtefatos": [
+      "Reabrir STONE-TEF-02 com os documentos anexados e revalidar modalidade",
+      "Só então STONE-TEF-03: desenho do adapter atrás de tefFactory (provedor=stone opcional por cliente)",
+      "Se DLL síncrona: Native Host isolado (padrão Destaxa), sem segundo motor TEF",
+      "Seleção por config.cliente ∩ disponibilidade do componente ∩ evidência hardware validada; ambiguidade não seleciona"
+    ],
+    "preservar": [
+      "TefManager",
+      "tefFactory",
+      "DestaxaRealAdapter / Native Host",
+      "fluxo fiscal/não fiscal"
+    ]
+  },
+  "testesEComandosExecutados": [
+    {
+      "comando": "Inventário estático Node (fs.exists + walk nomes stone/p200/poslink sob resources/docs/tef/pix)",
+      "invasivo": false,
+      "resultado": "resources/tef/stone ausente; apenas stoneAdapter + stoneProvider + relatório TEF-01"
+    },
+    {
+      "comando": "Listagem resources/tef e docs/tef",
+      "invasivo": false,
+      "resultado": "Somente Destaxa DLL + TEF-03 Rede"
+    },
+    {
+      "comando": "Test-Path pastas Program Files/AppData Stone|POSLink",
+      "invasivo": false,
+      "resultado": "Todas ausentes"
+    },
+    {
+      "comando": "Scan superficial Downloads/Desktop/Documents por nomes Stone|P200",
+      "invasivo": false,
+      "resultado": "Desktop tem DLL DESTAXA (não Stone)"
+    },
+    {
+      "comando": "Leitura leia-me.txt Destaxa (Desktop)",
+      "invasivo": false,
+      "resultado": "Integração Destaxa/V$Pague/Gertec/Ingenico apenas"
+    },
+    {
+      "comando": "Get-PnpDevice / abertura COM / execução de MSI/DLL Stone",
+      "executado": false,
+      "motivo": "Proibido pelas restrições da sprint (não enumerar/comandar hardware; não executar binários)"
+    }
+  ],
+  "arquivosModificados": [
+    "docs/build/stone-tef-02-contrato-oficial-report.json"
+  ],
+  "verdictDetail": {
+    "code": "BLOCKED_WAITING_VENDOR_ARTIFACTS",
+    "rationale": "O contrato oficial necessário para integrar a Stone P200 USB no Windows não está comprovado no ambiente nem no repositório. Sem produto, modalidade, SDK/API, VID/PID e homologação oficiais, qualquer adapter real seria especulativo e viola as restrições da sprint.",
+    "blockingArtifacts": [
+      "DOC-01 Documento oficial do produto Windows P200 USB",
+      "PKG-01 Pacote SDK/binário autenticado",
+      "API-01 Manual de API/exports e códigos de resultado",
+      "HW-01 VID/PID e procedimento de identificação",
+      "HOM-01 Roteiro/credenciais de homologação",
+      "LIC-01 Autorização comercial de integração"
+    ],
+    "readyForStoneTef03": false,
+    "nextStep": "Solicitar a lista artefatosASolicitarAoFornecedor à Stone/integradora; ao receber, reexecutar STONE-TEF-02 de validação documental antes de qualquer implementação"
+  }
+}

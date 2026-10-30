@@ -1,0 +1,165 @@
+{
+  "sprint": "MRT-13",
+  "title": "Unificação do contexto de adapter no ciclo TEF",
+  "generatedAt": "2026-10-30T12:20:00.000Z",
+  "status": "MRT-13 CONCLUÍDA — IDENTIDADE DO ADAPTER AUDITADA",
+  "restricoesObservadas": {
+    "initReal": false,
+    "pagamentoOuEstornoReal": false,
+    "bancoOficialAlterado": false,
+    "migrationsAplicadas": false,
+    "paygoImplementado": false,
+    "sitefImplementado": false,
+    "inconclusivosLiberados": false,
+    "timeoutTransformadoEmCancelamento": false,
+    "tef13a17Preservados": true,
+    "mrt01a12Preservados": true,
+    "destaxaSingleton": true
+  },
+  "mapaFluxos": {
+    "autorizacao": {
+      "origemAdapter": "selecionarAdapterPorRouteDecision(RouteDecision) — MRT-12",
+      "identidadeProvedor": "selecao.provedor (canônico) persistido em tef_transacoes.provedor + payload.identidadeAdapter",
+      "antes": "provedor: adapter.nome (display Destaxa/CliSiTef/PayGo)",
+      "depois": "provedor canônico + snapshot identidadeAdapter/registro"
+    },
+    "consulta": {
+      "antes": "obterAdapter() LIMIT 1",
+      "depois": "carregar transação → obterAdapterDaTransacao(transacao)",
+      "arquivo": "TefManager.consultar"
+    },
+    "cancelamento": {
+      "antes": "obterAdapter() LIMIT 1",
+      "depois": "obterAdapterDaTransacao(transacao) — TEF-17 inalterado",
+      "arquivo": "TefManager.cancelar"
+    },
+    "reimpressao": {
+      "antes": "obterAdapter() LIMIT 1",
+      "depois": "obterAdapterDaTransacao(transacao)"
+    },
+    "statusInstalacao": {
+      "origemAdapter": "obterAdapter() singleton — sem vínculo de transação",
+      "nota": "status de instalação não é ciclo de uma TX"
+    },
+    "recuperacaoPendencias": {
+      "origemIdentidade": "linha.provedor + payload (TEF-14)",
+      "adapter": "não recria adapter; reconstrói trava em memória",
+      "bloqueio": "pendência bloqueia nova autorização; não libera inconclusivo"
+    },
+    "resultadoTardio": {
+      "vinculo": "_abrirTravaResultadoTardio / _registrarResultadoTardio com transacaoId + provedor da autorização em curso",
+      "adapter": "mesmo adapter da autorização — sem troca"
+    },
+    "estornoReversao": {
+      "antes": "tefReversalService → obterAdapter()",
+      "depois": "obterAdapterDaTransacao(transacao) + cancelamentoConfirmado (TEF-17)"
+    }
+  },
+  "divergenciasIdentificadas": [
+    {
+      "id": "D1",
+      "severidade": "corrigida",
+      "descricao": "Pós-autorização usava LIMIT 1 independente do provedor da TX",
+      "mitigacao": "tefAdapterCiclo.obterAdapterDaTransacao"
+    },
+    {
+      "id": "D2",
+      "severidade": "corrigida",
+      "descricao": "Coluna provedor gravava adapter.nome (Destaxa/CliSiTef) em vez da chave factory",
+      "mitigacao": "persistir selecao.provedor + aliases legados em normalizarProvedorCiclo"
+    },
+    {
+      "id": "D3",
+      "severidade": "residual_documentada",
+      "descricao": "Sem colunas dedicadas terminal_tef_id / adapter_id no schema oficial",
+      "mitigacao": "payload.identidadeAdapter + roteamento.terminalTefId; migration proposta não aplicada"
+    },
+    {
+      "id": "D4",
+      "severidade": "residual_documentada",
+      "descricao": "Config multi-provedor ainda LIMIT 1 — snapshot de registro na TX mitiga troca de config",
+      "mitigacao": "registroSnapshot em identidadeAdapter; coexistência plena → migration MRT-12/13"
+    }
+  ],
+  "alteracoesRealizadas": [
+    {
+      "path": "backend/services/tef/tefAdapterCiclo.js",
+      "acao": "criado",
+      "motivo": "contrato de continuidade: extrair identidade + obterAdapterDaTransacao"
+    },
+    {
+      "path": "backend/services/tef/TefManager.js",
+      "acao": "modificado",
+      "motivo": "persistir identidadeAdapter; cancelar/consultar/reimprimir via ciclo"
+    },
+    {
+      "path": "backend/services/tef/tefReversalService.js",
+      "acao": "modificado",
+      "motivo": "reversão pelo provedor da transação"
+    },
+    {
+      "path": "backend/services/tef/tefAdapterSelection.js",
+      "acao": "documentado",
+      "motivo": "apontar pós-autorização para tefAdapterCiclo"
+    },
+    {
+      "path": "tests/tef/mrt-13-ciclo-adapter.test.js",
+      "acao": "criado"
+    },
+    {
+      "path": "docs/build/mrt-13-ciclo-adapter-report.json",
+      "acao": "criado"
+    }
+  ],
+  "regraArquitetural": {
+    "enunciado": "Transação iniciada por um provedor preserva identidade no ciclo; operações posteriores resolvem adapter pelo vínculo da TX",
+    "considera": [
+      "provedor original (canônico)",
+      "adapterNome (display)",
+      "terminalTefId (quando existir)",
+      "codigo_transacao do provedor (quando existir)",
+      "snapshot de registro essencial + contexto de roteamento"
+    ],
+    "naoPresumeParidadeOperacoes": true,
+    "matrizDocumental": "capacidadeOperacaoDocumental(provedor, operacao)"
+  },
+  "migrationPropostaNaoAplicada": {
+    "id": "MRT-13-PROP-tef-transacao-identidade-adapter",
+    "objetivo": "Persistir identidade do ciclo em colunas indexáveis (além do JSON payload)",
+    "alteracoesSugeridas": [
+      "ALTER TABLE tef_transacoes ADD COLUMN provedor_chave TEXT",
+      "ALTER TABLE tef_transacoes ADD COLUMN terminal_tef_id TEXT",
+      "ALTER TABLE tef_transacoes ADD COLUMN adapter_nome TEXT",
+      "ALTER TABLE tef_transacoes ADD COLUMN ambiente_tef TEXT",
+      "CREATE INDEX IF NOT EXISTS idx_tef_tx_provedor_chave ON tef_transacoes(provedor_chave)"
+    ],
+    "compat": "Backfill a partir de provedor + payload.identidadeAdapter; manter coluna provedor legada",
+    "aplicacao": "NÃO aplicada — somente proposta"
+  },
+  "testes": {
+    "arquivo": "tests/tef/mrt-13-ciclo-adapter.test.js",
+    "resultado": "OK",
+    "casos": [
+      "autorização+consulta mesma identidade",
+      "cancelamento preserva provedor (mesmo com config global divergente)",
+      "recuperação pendência sem troca de adapter",
+      "resultado tardio vinculado à TX",
+      "provedor ausente erro explícito",
+      "adapter indisponível sem fallback",
+      "Destaxa singleton + aliases",
+      "inconclusivos / TEF-17 / reversão"
+    ],
+    "regressoes": [
+      "mrt-12-route-decision-adapter.test.js — OK",
+      "mrt-06-integracao-tefmanager.test.js — OK"
+    ]
+  },
+  "riscos": [
+    "TX legadas só com adapter.nome dependem de aliases (Destaxa→destaxa, CliSiTef→sitef)",
+    "DEFAULT SQL SITEF em tef_transacoes.provedor permanece no schema — ciclo trata SITEF como sitef",
+    "Sem multi-config: snapshot mitiga, mas campos ausentes no snapshot usam base da instalação",
+    "status() ainda singleton — intencional"
+  ],
+  "parecerTecnico": "Auditoria confirmou divergência pós-autorização (LIMIT 1). Correção prepara continuidade via tefAdapterCiclo sem migration oficial: autorização grava identidade canônica; consulta/cancelamento/estorno/reimpressão resolvem pelo vínculo da TX. Recuperação e resultado tardio já estavam atados ao provedor/transacaoId. Destaxa singleton, TEF-13/14/15/17 e MRT-01..12 preservados.",
+  "resultadoFinal": "MRT-13 CONCLUÍDA — IDENTIDADE DO ADAPTER AUDITADA"
+}

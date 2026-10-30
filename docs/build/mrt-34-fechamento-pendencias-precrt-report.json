@@ -1,0 +1,259 @@
+{
+  "sprint": "MRT-34",
+  "title": "Fechamento das pendências pré-CRT Destaxa",
+  "generatedAt": "2026-10-30T21:35:00.000Z",
+  "origem": "MRT-33 pendenciasExternas P1–P4",
+  "classificacaoGeral": "READY_FOR_AUTHORIZATION",
+  "decisao": {
+    "codigo": "READY_FOR_AUTHORIZATION",
+    "mensagem": "As quatro pendências da MRT-33 foram resolvidas ou documentadas com evidência local, sem inventar códigos, sem operação financeira e sem tocar INIT/ENABLE_REAL/TX/CRT/DLL. Aguarda autorização expressa do Tech Lead para UMA única CRT R$1,00.",
+    "crtExecutadaNestaSprint": false,
+    "aguardaRevisaoTechLead": true
+  },
+  "restricoesObservadas": {
+    "init": false,
+    "enableReal": false,
+    "txStart": false,
+    "crt": false,
+    "est": false,
+    "continueFinanceiro": false,
+    "finalizeFinanceiro": false,
+    "dllCarregadaOuChamada": false,
+    "nativeHostIniciadoOuReiniciado": false,
+    "vspagueReiniciado": false,
+    "bancoProducaoAlterado": false,
+    "vendaOuOperacaoFinanceiraCriada": false,
+    "codigosDestaxaInventadosOuGravados": false,
+    "gateOff": true,
+    "mrt24Estado": "UNKNOWN"
+  },
+  "pendencias": [
+    {
+      "id": "P1",
+      "frente": 1,
+      "tema": "Identificação Destaxa (estabelecimentoCodigo / lojaCodigo / terminalCodigo)",
+      "classificacao": "RESOLVIDA",
+      "obrigatoriosNaDll": false,
+      "configAtualSemCodigosValidaParaInit": true,
+      "valoresPreenchidosPorSuposicao": false,
+      "evidencias": [
+        {
+          "fonte": "C:\\Users\\cicer\\Desktop\\DLL DESTAXA\\1_83-20260831T165940Z-1-001\\1_83\\docs\\05-api-iniciaclientdestaxa.md",
+          "fato": "Tabela iniciaClientDestaxa: estabelecimento=Não, loja=Não, terminal=Não (opcionais)."
+        },
+        {
+          "fonte": "backend/services/tef/destaxa/destaxaMapeamentoTerminal.js",
+          "fato": "contratoDll.estabelecimentoLojaTerminalObrigatorios=false; projetarEntradaIniciaClient({}) gera apenas versao/aplicacao/diretorio_trabalho/nivel_log/nome_arquivo_log/tam_max_log/total_bkp_log."
+        },
+        {
+          "fonte": "backend/services/tef/tefConfigService.js",
+          "fato": "exigeCodigosEstabelecimento inclui sitef/paygo/rede/stone/cielo/getnet — destaxa excluído da exigência de loja/terminal."
+        },
+        {
+          "fonte": "avaliarMapeamentoTerminal({provedor:'destaxa'}) em diagnóstico isolado",
+          "fato": "estado=PENDENTE_FORNECEDOR / MAPEAMENTO_OFICIAL_PENDENTE apenas para literais comerciais oficiais; não bloqueia contrato técnico da DLL."
+        },
+        {
+          "fonte": "docs/build/mrt-29-ativacao-log-dll-destaxa-report.json + destaxa-dll.log",
+          "fato": "INIT histórico MRT-29 ocorreu sem estabelecimento/loja/terminal na entrada (somente versao+aplicacao+log)."
+        }
+      ],
+      "conclusao": "Para CRT de homologação via fluxo oficial, a configuração CDS sem estabelecimento/loja/terminal é tecnicamente válida segundo doc 1.83 e o contrato CDS. Literais só devem ser gravados se Destaxa fornecer valores oficiais — nenhum valor foi inventado nesta sprint.",
+      "residualNaoBloqueante": "Se Destaxa quiser mapeamento comercial explícito no V$Pague, fornecer literais oficiais depois; não é pré-requisito técnico da DLL para INIT/CRT."
+    },
+    {
+      "id": "P2",
+      "frente": 2,
+      "tema": "Identidade do equipamento (hostname / MAC / Partner Cloud / .conf)",
+      "classificacao": "RESOLVIDA",
+      "reativacaoOuAlteracaoCadastro": false,
+      "evidencias": [
+        {
+          "fonte": "hostname (SO)",
+          "fato": "DESKTOP-4B8AMM3"
+        },
+        {
+          "fonte": "Get-NetAdapter Status=Up",
+          "fato": "Wi-Fi C0-A8-10-DB-EE-9E; vEthernet Default Switch 00-15-5D-D0-2D-3E; vEthernet WSL 00-15-5D-65-9B-C4"
+        },
+        {
+          "fonte": "C:\\VBI\\V$Pague\\Client\\logs (sessão PID 8740)",
+          "fato": "HOST_NAME=desktop-4b8amm3; HOST_MAC_ADDRESS inclui Hyper-V + C0:A8:10:DB:EE:A2 + C0:A8:10:DB:EE:9E (+ variantes); MacAdressFilter=00:15:5D:D0:2D:3E | 00:15:5D:65:9B:C4 | C0:A8:10:DB:EE:9E"
+        },
+        {
+          "fonte": "mesmo log V$PagueClient 14:38:11–14:38:12",
+          "fato": "Identificar enviado/recebido; mensagem 'Terminal ativado'; Novo arquivo de configuração recebido: V$PagueClient_Destaxa_LojaACB_TACB0120.conf"
+        },
+        {
+          "fonte": "filesystem Client",
+          "fato": "V$PagueClient_Destaxa_LojaACB_TACB0120.conf presente (88898 bytes, LastWriteTime 2026-10-30 14:38:12) — Client provisionado para esta máquina após Identificar."
+        },
+        {
+          "fonte": "processo",
+          "fato": "VSPagueClient.exe PID 8740 CreationDate 2026-10-30 14:38:08 ainda em execução; nenhuma reativação/alteração de cadastro nesta sprint."
+        }
+      ],
+      "conclusao": "Hostname coincide com Identificar; MAC Wi-Fi atual (EE:9E) está no MacAdressFilter do Client; Partner Cloud respondeu com Terminal ativado e enviou .conf LojaACB/TACB0120. Evidência operacional local de provisionamento — portal Partner Cloud não foi aberto (somente leitura de logs/.conf).",
+      "residualNaoBloqueante": "Portal Partner Cloud não inspecionado visualmente nesta sprint; confirmação operacional veio do próprio Identificar + Terminal ativado + .conf."
+    },
+    {
+      "id": "P3",
+      "frente": 3,
+      "tema": "Versão exata V$Pague instalada e em execução",
+      "classificacao": "RESOLVIDA",
+      "versaoComprovada": "5.0.0-1-e094d4f-1084-release",
+      "versaoAplicacao": "V$PagueClient[5.0.0]",
+      "assumidaPorHistoricoApenas": false,
+      "evidencias": [
+        {
+          "fonte": "log do Client em execução (PID 8740, start 14:38:10)",
+          "fato": "APPLICATION: V$PagueClient[5.0.0]"
+        },
+        {
+          "fonte": "mesmo log",
+          "fato": "Inicializando Versao 5.0.0-1-e094d4f-1084-release"
+        },
+        {
+          "fonte": "Win32_Process",
+          "fato": "VSPagueClient.exe PID 8740 ainda ativo — versão lida do log da sessão corrente, não só de histórico MRT-17/33."
+        },
+        {
+          "fonte": "FileVersion de VSPagueClient.exe",
+          "fato": "Ignorado como prova de versão do produto (OpenJDK/launcher); versão de produto comprovada pelo log APPLICATION/Versao."
+        }
+      ],
+      "conclusao": "Versão exata comprovada na instância em execução: 5.0.0-1-e094d4f-1084-release (APPLICATION 5.0.0)."
+    },
+    {
+      "id": "P4",
+      "frente": 4,
+      "tema": "Venda e PDV (pdvCodigo/caixaCodigo vazios, COMPAT_SINGLETON, venda_id null, vínculo)",
+      "classificacao": "RESOLVIDA",
+      "fluxoProducaoAlterado": false,
+      "vendaHomologacaoCriada": false,
+      "subitens": [
+        {
+          "item": "pdvCodigo / caixaCodigo vazios",
+          "classificacao": "RESOLVIDA",
+          "evidencia": "destaxaMapeamentoTerminal: pdv_codigo e caixa_codigo têm destaxa=null e enviadoIniciaClient=false (identidade local CDS). tefConfigService não exige esses campos para provedor destaxa. Vazios não impedem iniciaClientDestaxa."
+        },
+        {
+          "item": "terminais.id / COMPAT_SINGLETON suficientes para identidade PDV no router Destaxa",
+          "classificacao": "RESOLVIDA",
+          "evidencia": "MRT-12/13/14 e caminho Destaxa usam MODOS_ROUTER.COMPAT_SINGLETON (terminalTefId singleton:instalacao). Identidade Destaxa de equipamento é hostname/MAC no Client, não pdvCodigo CDS."
+        },
+        {
+          "item": "CRT com venda_id null + vínculo posterior",
+          "classificacao": "RESOLVIDA",
+          "evidencia": "tefVinculoVendaService.validarVendaIdParaPagamento(null) → ok:true, estadoVinculo=PENDENTE_FINALIZACAO. Vincular depois via vincularTransacaoAVenda / finalização com tef_transacao_id."
+        },
+        {
+          "item": "Integridade / recuperação / idempotência do vínculo",
+          "classificacao": "RESOLVIDA",
+          "evidencia": "vincularTransacaoAVenda: rejeita venda_id inválido; conflito se já vinculada a outra venda; idempotente se mesma venda; UPDATE atômico com (venda_id IS NULL OR venda_id = ?)."
+        },
+        {
+          "item": "Alternativa de venda de homologação existente",
+          "classificacao": "NOT_TESTED",
+          "evidencia": "Nenhuma venda criada. Inventário de vendas existentes não enumerado (evitar side-effects de require database em ProgramData). Tech Lead pode optar por venda_id null (recomendado para CRT isolada) ou apontar venda_id existente manualmente."
+        }
+      ],
+      "conclusao": "Caminho técnico para CRT homologação: venda_id null + COMPAT_SINGLETON + vínculo posterior. pdvCodigo/caixaCodigo vazios explicados e não bloqueantes para Destaxa.",
+      "recomendacaoOperacional": "Na CRT autorizada, preferir venda_id null (PENDENTE_FINALIZACAO) a inventar ou reutilizar venda sem critério explícito do Tech Lead."
+    }
+  ],
+  "mapaMrt33ParaMrt34": [
+    {
+      "mrt33": "P1 Códigos Destaxa estabelecimento/loja/terminal",
+      "mrt34": "P1",
+      "antes": "PENDING",
+      "depois": "RESOLVIDA"
+    },
+    {
+      "mrt33": "P2 Versão exata V$Pague Client (5.0.0)",
+      "mrt34": "P3",
+      "antes": "PENDING",
+      "depois": "RESOLVIDA"
+    },
+    {
+      "mrt33": "P3 Hostname/MAC vs Identificar Destaxa",
+      "mrt34": "P2",
+      "antes": "PENDING",
+      "depois": "RESOLVIDA"
+    },
+    {
+      "mrt33": "P4 Venda de homologação / venda_id",
+      "mrt34": "P4",
+      "antes": "PENDING",
+      "depois": "RESOLVIDA (subitem venda existente = NOT_TESTED)"
+    }
+  ],
+  "resumoClassificacoes": {
+    "RESOLVIDA": ["P1", "P2", "P3", "P4"],
+    "PENDING_EXTERNAL": [],
+    "BLOCKED": [],
+    "NOT_TESTED": ["P4.subitem:venda_homologacao_existente"]
+  },
+  "snapshotAmbiente": {
+    "hostname": "DESKTOP-4B8AMM3",
+    "macsUp": {
+      "wifi": "C0-A8-10-DB-EE-9E",
+      "hyperVDefaultSwitch": "00-15-5D-D0-2D-3E",
+      "hyperVWsl": "00-15-5D-65-9B-C4"
+    },
+    "macAdressFilterClient": "00:15:5D:D0:2D:3E | 00:15:5D:65:9B:C4 | C0:A8:10:DB:EE:9E",
+    "vspague": {
+      "pid": 8740,
+      "versaoLog": "5.0.0-1-e094d4f-1084-release",
+      "application": "V$PagueClient[5.0.0]",
+      "conf": "C:\\VBI\\V$Pague\\Client\\V$PagueClient_Destaxa_LojaACB_TACB0120.conf",
+      "terminalAtivadoEmLog": "2026-10-30 14:38:12"
+    },
+    "gate": {
+      "env": "DESTAXA_REAL_TRANSACTION_ENABLED",
+      "valorProcessoDiagnostico": "",
+      "transacaoRealHabilitada": false,
+      "estado": "OFF"
+    },
+    "mrt24": "UNKNOWN"
+  },
+  "recomendacaoFinal": {
+    "codigo": "READY_FOR_AUTHORIZATION",
+    "paraTechLead": [
+      "Autorizar UMA CRT R$1,00 somente sob ordem expressa.",
+      "Usar fluxo oficial PDV → TefManager.autorizar → persistência → DestaxaRealAdapter → HostBridge → NativeHost → Orquestrador → Koffi.",
+      "Preferir venda_id null com vínculo posterior (tefVinculoVendaService).",
+      "Não preencher estabelecimento/loja/terminal sem literais oficiais Destaxa.",
+      "Não reutilizar identidade MRT-24; preservar UNKNOWN.",
+      "Gate ENABLE_REAL só na janela autorizada; restaurar OFF após o teste.",
+      "Sem retry se inconclusivo."
+    ],
+    "bloqueiosImpeditivos": []
+  },
+  "confirmacoes": {
+    "gateFinanceiroOff": true,
+    "zeroInit": true,
+    "zeroEnableReal": true,
+    "zeroTxStart": true,
+    "zeroCrtEstContinueFinalize": true,
+    "zeroDllLoadCall": true,
+    "zeroNativeHostRestart": true,
+    "zeroVspagueRestart": true,
+    "zeroDbProducaoWrite": true,
+    "zeroVendaCriada": true,
+    "zeroCodigosDestaxaInventados": true,
+    "mrt24Unknown": true,
+    "nenhumValorPresumido": true
+  },
+  "arquivosConsultados": [
+    "docs/build/mrt-33-preflight-homologacao-destaxa-report.json",
+    "docs/build/mrt-17-auditoria-pos-init-report.json",
+    "backend/services/tef/destaxa/destaxaMapeamentoTerminal.js",
+    "backend/services/tef/tefConfigService.js",
+    "backend/services/tef/tefVinculoVendaService.js",
+    "backend/services/tef/destaxa/destaxaConstantes.js",
+    "C:/Users/cicer/Desktop/DLL DESTAXA/1_83-20260831T165940Z-1-001/1_83/docs/05-api-iniciaclientdestaxa.md",
+    "C:/VBI/V$Pague/Client/logs/*.log",
+    "C:/VBI/V$Pague/Client/V$PagueClient_Destaxa_LojaACB_TACB0120.conf"
+  ]
+}

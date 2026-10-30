@@ -1,0 +1,287 @@
+{
+  "sprint": "MRT-33",
+  "title": "Pré-voo da homologação TEF Destaxa",
+  "generatedAt": "2026-10-30T21:25:00.000Z",
+  "classificacaoGeral": "READY_FOR_AUTHORIZATION",
+  "decisao": {
+    "codigo": "READY_FOR_AUTHORIZATION",
+    "mensagem": "Pré-voo concluído sem bloqueio técnico impeditivo conhecido. Aguarda autorização expressa do Tech Lead para UMA única CRT R$1,00 via fluxo oficial TefManager. CRT NÃO executada nesta sprint.",
+    "crtExecutadaNestaSprint": false
+  },
+  "restricoesObservadas": {
+    "init": false,
+    "enableReal": false,
+    "txStart": false,
+    "crt": false,
+    "continueFinanceiro": false,
+    "finalizeFinanceiro": false,
+    "est": false,
+    "dllChamada": false,
+    "nativeHostIniciadoPorTeste": false,
+    "vspagueReiniciado": false,
+    "gateOff": true,
+    "operacaoFinanceiraCriada": false,
+    "insertTefTransacoes": false,
+    "configProducaoAlterada": false,
+    "identidadeMrt24Reutilizada": false,
+    "mrt24Estado": "UNKNOWN"
+  },
+  "caminhoOficialExigido": [
+    "PDV",
+    "TefManager.autorizar",
+    "Persistência (criarTransacaoExclusiva + persistenciaConfirmada)",
+    "DestaxaRealAdapter",
+    "DestaxaHostBridge",
+    "DestaxaNativeHost",
+    "DestaxaTransacaoOrquestrador",
+    "Koffi iniciaTransacaoDestaxa"
+  ],
+  "camadas": {
+    "A_persistenciaTef": {
+      "classificacao": "READY",
+      "itens": [
+        {
+          "item": "TefManager.autorizar + garantirIdentidadeOperacao",
+          "status": "READY",
+          "evidencia": "TefManager.js — identidade estável (operation_id/fingerprint/idempotency_key) sem Date.now exclusivo"
+        },
+        {
+          "item": "Persistência antes do Adapter",
+          "status": "READY",
+          "evidencia": "criarTransacaoExclusiva → registrarEtapa PERSISTENCIA_CONFIRMADA → autorizarPagamento({persistenciaConfirmada:true})"
+        },
+        {
+          "item": "Bloqueio sem persistência",
+          "status": "READY",
+          "evidencia": "validarPersistenciaAntesEnvioFinanceiro mock: blockOk=true / allowOk=true (MRT-27/31)"
+        },
+        {
+          "item": "INSERT real nesta sprint",
+          "status": "NOT_TESTED",
+          "evidencia": "Proibido — nenhum INSERT executado; mecanismo auditado por código/mocks"
+        },
+        {
+          "item": "venda_id obrigatório no INSERT",
+          "status": "READY",
+          "nota": "venda_id pode ser null no pagamento (vínculo PENDENTE_FINALIZACAO); associação inequívoca via tef_transacao_id na finalização (tefVinculoVendaService)"
+        }
+      ]
+    },
+    "B_vendaPdv": {
+      "classificacao": "PENDING",
+      "itens": [
+        {
+          "item": "Fluxo PDV → API → TefManager (sem bypass)",
+          "status": "READY",
+          "evidencia": "pdv.js processarPagamentoTEF → POST /api/tef/pagar → tefService.iniciarPagamento → tefManager.autorizar; Adapter bloqueia sem persistenciaConfirmada"
+        },
+        {
+          "item": "Fachada única TEF",
+          "status": "READY",
+          "evidencia": "backend/services/tef/index.js: 'delega sempre ao TefManager'"
+        },
+        {
+          "item": "Venda de homologação identificável pré-existente",
+          "status": "NOT_TESTED",
+          "evidencia": "Nenhuma venda criada/aberta nesta sprint (proibido). CRT futura pode usar venda_id null + vínculo posterior, ou venda de teste autorizada pelo operador"
+        },
+        {
+          "item": "pdvCodigo / caixaCodigo no CDS",
+          "status": "PENDING",
+          "evidencia": "tef_configuracao: pdvCodigo='', caixaCodigo='' — identidade PDV no router usa terminais.id / COMPAT_SINGLETON; campos CDS locais vazios"
+        },
+        {
+          "item": "Não reutilizar identidade MRT-24",
+          "status": "READY",
+          "evidencia": "Política documentada; MRT-24 permanece UNKNOWN; pré-voo não gerou idempotency key operacional"
+        }
+      ]
+    },
+    "C_terminalEquipamento": {
+      "classificacao": "PENDING",
+      "itens": [
+        {
+          "item": "PinPad Gertec PPC-930 / COM4",
+          "status": "READY",
+          "evidencia": "Config: pinpadModelo=GERTEC_PPC930, portaCom=COM4, habilitado=true; detecção PnP readonly: estado=DETECTADO, dispositivo PPC-920/930 CDC USB-to-Serial Port (COM4)"
+        },
+        {
+          "item": "Códigos Destaxa estabelecimento/loja/terminal no CDS",
+          "status": "PENDING",
+          "evidencia": "empresaCodigo/lojaCodigo/terminalCodigo vazios na config oficial. Doc 1.83: opcionais em iniciaClientDestaxa. MRT-16/24 operaram sem literais. Confirmação Destaxa ainda recomendada (MRT-18)"
+        },
+        {
+          "item": "Hostname/MAC vs ativação Destaxa",
+          "status": "PENDING",
+          "evidencia": "Não reenumerados nesta sprint. .conf presente: V$PagueClient_Destaxa_LojaACB_TACB0120.conf — sugere Client provisionado; equivalência hostname/MAC não revalidada agora"
+        },
+        {
+          "item": "Comandos ao PinPad",
+          "status": "NOT_TESTED",
+          "evidencia": "Proibido — nenhuma mensagem enviada ao equipamento"
+        }
+      ]
+    },
+    "D_ambienteDestaxa": {
+      "classificacao": "READY",
+      "itens": [
+        {
+          "item": "V$Pague Client",
+          "status": "READY",
+          "evidencia": "detectado=true, executando=true, responding=true, pid=8740, caminho=C:\\VBI\\Java\\bin\\VSPagueClient.exe"
+        },
+        {
+          "item": "Versão V$Pague 5.0.0",
+          "status": "PENDING",
+          "evidencia": "Detector não retornou string de versão nesta leitura; evidência histórica de sprints anteriores — confirmar no portal/instalação se ainda 5.0.0"
+        },
+        {
+          "item": "DLL Destaxa 1.83 x64",
+          "status": "READY",
+          "evidencia": "resolverDll sucesso; path resources/tef/destaxa/win-x64/libdll-integracao-tef.dll; process.arch=x64; arquivo presente (~136782 bytes). DLL NÃO carregada nesta sprint"
+        },
+        {
+          "item": "Java",
+          "status": "READY",
+          "evidencia": "C:\\VBI\\Java\\bin\\java.exe existe; Client já em execução sob esse runtime"
+        },
+        {
+          "item": "Arquivo .conf",
+          "status": "READY",
+          "evidencia": "C:\\VBI\\V$Pague\\Client\\V$PagueClient_Destaxa_LojaACB_TACB0120.conf"
+        },
+        {
+          "item": "Log DLL",
+          "status": "READY",
+          "evidencia": "Dir C:\\CDS-SISTEMAS\\logs\\destaxa R/W; destaxa-dll.log existe (209 bytes — somente INIT MRT-29); permissões OK sem criar arquivo de teste"
+        },
+        {
+          "item": "Ambiente homologação + gate OFF",
+          "status": "READY",
+          "evidencia": "tefProvedor=destaxa, tefAmbiente=homologacao, tefHabilitado=true; DESTAXA_REAL_TRANSACTION_ENABLED ausente/off"
+        }
+      ]
+    },
+    "E_instrumentacaoFluxo": {
+      "classificacao": "READY",
+      "itens": [
+        {
+          "item": "MRT-31 / MRT-32",
+          "status": "READY",
+          "evidencia": "destaxaFluxoInstrumentacao + ganchos; hardening APROVADO (coletor hostil, rethrow Koffi, sanitização)"
+        },
+        {
+          "item": "Etapas 1–7 nos pontos corretos",
+          "status": "READY",
+          "evidencia": "PERSISTENCIA/ADAPTER/HOST/ORQUESTRADOR/KOFFI_BEGIN/END/TX_START_RESULT presentes no código"
+        },
+        {
+          "item": "Correlação operation_id / transactionId / venda_id",
+          "status": "READY",
+          "evidencia": "Testes MRT-31/32; contexto estruturado na instrumentação"
+        },
+        {
+          "item": "UNKNOWN + sem retry automático inconclusivo",
+          "status": "READY",
+          "evidencia": "retryAllowed:false no fluxo autorizar/continuidade; MRT-24 preservado UNKNOWN"
+        },
+        {
+          "item": "Ausência de caminho alternativo ao TefManager em produção",
+          "status": "READY",
+          "evidencia": "Adapter exige persistenciaConfirmada; PDV/API usam tefService→TefManager; harness separado (não produção)"
+        },
+        {
+          "item": "Koffi executado",
+          "status": "NOT_TESTED",
+          "evidencia": "Proibido nesta sprint — zero chamadas"
+        }
+      ]
+    }
+  },
+  "bloqueios": [],
+  "pendenciasExternas": [
+    {
+      "id": "P1",
+      "tema": "Códigos Destaxa estabelecimento/loja/terminal no CDS",
+      "status": "PENDING",
+      "acao": "Confirmar com Destaxa se literais oficiais devem ser gravados antes da CRT ou se INIT só com versao+aplicacao+log permanece suficiente"
+    },
+    {
+      "id": "P2",
+      "tema": "Versão exata V$Pague Client (5.0.0)",
+      "status": "PENDING",
+      "acao": "Confirmar no instalador/portal se a build em execução ainda é 5.0.0"
+    },
+    {
+      "id": "P3",
+      "tema": "Hostname/MAC do PDV vs Identificar Destaxa",
+      "status": "PENDING",
+      "acao": "Revalidar no Partner Cloud / Identificar se o host desta máquina permanece ativado"
+    },
+    {
+      "id": "P4",
+      "tema": "Venda de homologação / venda_id",
+      "status": "PENDING",
+      "acao": "Operador/Tech Lead definir se CRT R$1 usa venda_id null (vínculo depois) ou venda de teste existente — sem criar nesta sprint"
+    }
+  ],
+  "arquivosConfiguracoesAuditados": [
+    "backend/services/tef/TefManager.js",
+    "backend/services/tef/index.js",
+    "backend/services/tef/adapters/DestaxaRealAdapter.js",
+    "backend/services/tef/tefPersistenciaObrigatoria.js",
+    "backend/services/tef/destaxa/destaxaFluxoInstrumentacao.js",
+    "backend/services/tef/destaxa/DestaxaHostBridge.js",
+    "backend/services/tef/destaxa/DestaxaNativeHost.js",
+    "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js",
+    "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+    "backend/services/tef/destaxa/destaxaKoffiLoader.js",
+    "backend/rotas/tef.js",
+    "frontend/pdv/js/pdv.js (processarPagamentoTEF)",
+    "tef_configuracao (leitura via tefConfigService)",
+    "C:\\VBI\\V$Pague\\Client\\V$PagueClient_Destaxa_LojaACB_TACB0120.conf",
+    "C:\\CDS-SISTEMAS\\logs\\destaxa\\destaxa-dll.log",
+    "resources/tef/destaxa/win-x64/libdll-integracao-tef.dll",
+    "docs/build/mrt-27…mrt-32 reports"
+  ],
+  "snapshotAmbiente": {
+    "provedor": "destaxa",
+    "ambiente": "homologacao",
+    "tefHabilitado": true,
+    "pinpad": {
+      "modelo": "GERTEC_PPC930",
+      "portaCom": "COM4",
+      "detectado": true,
+      "estado": "DETECTADO"
+    },
+    "vspague": {
+      "pid": 8740,
+      "responding": true,
+      "exe": "C:\\VBI\\Java\\bin\\VSPagueClient.exe"
+    },
+    "dllPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+    "logDllBytes": 209,
+    "cdsVersion": "1.0.3",
+    "processArch": "x64",
+    "gate": "OFF"
+  },
+  "recomendacaoProximaSprintAutorizada": {
+    "quando": "Somente após autorização expressa do Tech Lead",
+    "oQue": "UMA CRT homologação R$1,00",
+    "como": [
+      "PDV ou harness oficial via TefManager.autorizar (nunca Adapter direto)",
+      "Nova identidade persistida (não MRT-24)",
+      "Gate ENABLE_REAL pontual na janela",
+      "Native Host pós-MRT-26",
+      "Validar sequência PERSISTENCIA→…→KOFFI_CALL_END + novas linhas em destaxa-dll.log",
+      "Sem retry se inconclusivo; preservar UNKNOWN"
+    ]
+  },
+  "confirmacoes": {
+    "gateFinanceiroOff": true,
+    "zeroChamadasDllKoffi": true,
+    "zeroOperacoesFinanceiras": true,
+    "mrt24Unknown": true,
+    "crtNaoExecutada": true
+  }
+}

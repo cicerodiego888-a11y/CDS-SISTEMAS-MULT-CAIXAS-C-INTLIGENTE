@@ -133,7 +133,9 @@ function carregarScriptErpLazy(src) {
     const entry = { promise: null, reuses: 0, loadMs: null };
     entry.promise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = src;
+        // Cache-bust por boot da página: evita JS lazy antigo em disco/HTTP após correção.
+        const boot = (typeof window !== 'undefined' && window.CDS_BOOT_ID) ? String(window.CDS_BOOT_ID) : '0';
+        script.src = src.includes('?') ? `${src}&cdsBoot=${encodeURIComponent(boot)}` : `${src}?cdsBoot=${encodeURIComponent(boot)}`;
         script.async = false;
         script.dataset.cdsLazyLoaded = 'true';
         script.onload = function () {

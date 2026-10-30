@@ -1,0 +1,239 @@
+{
+  "sprint": "MRT-30",
+  "title": "Auditoria do disparo de iniciaTransacaoDestaxa (READ-ONLY)",
+  "generatedAt": "2026-10-30T21:10:00.000Z",
+  "classificacao": "CAUSA IDENTIFICADA POR CAMADA",
+  "restricoesObservadas": {
+    "init": false,
+    "txStart": false,
+    "crt": false,
+    "continueFinanceiro": false,
+    "finalizeFinanceiro": false,
+    "est": false,
+    "cancelamento": false,
+    "enableReal": false,
+    "dllCarregadaParaTeste": false,
+    "codigoAlterado": false,
+    "bancoAlterado": false,
+    "configAlterada": false,
+    "mrt24Repetida": false,
+    "novaIdempotencyKey": false,
+    "correcaoImplementada": false
+  },
+  "confirmacaoDestaxaSobreLog": {
+    "arquivoAtual": "C:\\CDS-SISTEMAS\\logs\\destaxa\\destaxa-dll.log",
+    "tamanhoBytes": 209,
+    "mtime": "2026-10-30T17:59:06",
+    "linhas": [
+      "api_destaxa_start_client.c — Biblioteca de integracao",
+      "Versão: 1.83 64bit"
+    ],
+    "interpretacaoDestaxa": "Somente INIT; iniciaTransacaoDestaxa não foi chamada",
+    "interpretacaoCds": "CORRETA para o conteúdo atual do arquivo — esse log foi gerado pela MRT-29 (INIT único autorizado; TX proibido)"
+  },
+  "arquivosFuncoesEnvolvidos": [
+    {
+      "arquivo": "backend/services/tef/TefManager.js",
+      "funcoes": ["autorizar"],
+      "papel": "Persistência + idempotência + chama adapter.autorizarPagamento com persistenciaConfirmada"
+    },
+    {
+      "arquivo": "backend/services/tef/adapters/DestaxaRealAdapter.js",
+      "funcoes": ["prepararAutorizacao", "autorizarPagamento"],
+      "papel": "Pré-condições; MRT-27 guard persistência; ENABLE_REAL; executarCicloCrt"
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/destaxaCrtCicloOrquestracao.js",
+      "funcoes": ["executarCicloCrt"],
+      "papel": "Emite TX_START e chama bridge.iniciarTransacaoDestaxa"
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/DestaxaHostBridge.js",
+      "funcoes": ["habilitarTransacaoReal", "iniciarTransacaoDestaxa"],
+      "papel": "IPC ENABLE_REAL / TX_START; MRT-27 validarTxStartComPersistencia"
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/DestaxaNativeHost.js",
+      "funcoes": ["_executarNativa case TX_START"],
+      "papel": "Processo filho: encaminha para DestaxaNativeBridge.iniciarTransacaoDestaxa"
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+      "funcoes": ["habilitarTransacaoReal", "iniciarTransacaoDestaxa", "criarDriverTransacaoNativo"],
+      "papel": "Instala driver Koffi; orquestrador; chamada nativa"
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js",
+      "funcoes": ["iniciarTransacao"],
+      "papel": "Log transacao.start IMEDIATAMENTE antes de driver.iniciaTransacaoDestaxa"
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/destaxaKoffiLoader.js",
+      "funcoes": ["PROTOS.iniciaTransacaoDestaxa"],
+      "papel": "Assinatura Koffi do export DLL"
+    }
+  ],
+  "sequenciaRealChamadasAteDll": [
+    "1. PDV/API → TefManager.autorizar (caminho produção; MRT-24 NÃO usou)",
+    "2. criarTransacaoExclusiva + payload.persistencia (MRT-27)",
+    "3. DestaxaRealAdapter.prepararAutorizacao (ambiente/CRT/R$1/PinPad/INIT checks)",
+    "4. validarPersistenciaAntesEnvioFinanceiro (MRT-27) — bloqueia se sem persistenciaConfirmada",
+    "5. DestaxaHostBridge.habilitarTransacaoReal → IPC ENABLE_REAL",
+    "6. DestaxaNativeBridge.habilitarTransacaoReal: exige DESTAXA_REAL_TRANSACTION_ENABLED=1 + clientInitialized + exports",
+    "7. executarCicloCrt → bridge.iniciarTransacaoDestaxa(operacao, campos, {transactionId})",
+    "8. DestaxaHostBridge: validarTxStartComPersistencia (gate ON) → IPC TX_START {operacao, campos} + transactionId",
+    "9. DestaxaNativeHost._executarNativa(TX_START) → bridge.iniciarTransacaoDestaxa",
+    "10. DestaxaTransacaoOrquestrador.iniciarTransacao: gates → log transacao.start → driver.iniciaTransacaoDestaxa",
+    "11. criarDriverTransacaoNativo.iniciaTransacaoDestaxa → Koffi fn(resultado, operacao, entrada, tamanho, saida, *tamanho_saida)",
+    "12. DLL iniciaTransacaoDestaxa (ponto em que Destaxa espera linhas no destaxa-dll.log)"
+  ],
+  "pontoExatoOndeDllRecebeChamada": {
+    "arquivo": "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+    "funcao": "criarDriverTransacaoNativo().iniciaTransacaoDestaxa",
+    "trecho": "chamarComSaida('iniciaTransacaoDestaxa', … fn(resultado, String(operacao), e.buffer, e.tamanho, saida, tamanhoSaida))",
+    "predecessoresObrigatorios": [
+      "ENABLE_REAL com sucesso (driver nativo instalado)",
+      "orquestrador._permitirTransacaoReal === true",
+      "transacaoRealHabilitada() === true",
+      "log transacao.start já emitido (prova de que o orquestrador passou os gates)"
+    ]
+  },
+  "mapeamentoKoffi": {
+    "exportPresenteEmLoad": true,
+    "assinaturaDoc183": "void iniciaTransacaoDestaxa(char *resultado, const char *operacao, char *entrada, int tamanho_entrada, char *saida, int *tamanho_saida)",
+    "assinaturaKoffi": "void iniciaTransacaoDestaxa(uint8 *resultado, const char *operacao, uint8 *entrada, int tamanho_entrada, uint8 *saida, int *tamanho_saida)",
+    "compatibilidade": "Alinhada à doc 1.83 — sem evidência de assinatura incorreta como causa da ausência de log",
+    "fato": "MRT-24 e MRT-29 LOAD reportaram exports.iniciaTransacaoDestaxa=true"
+  },
+  "comparacaoMrt24VsAtual": {
+    "mrt24": {
+      "caminho": "DestaxaRealAdapter.autorizarPagamento DIRETO (bypass TefManager)",
+      "persistenciaTefTransacoes": false,
+      "persistenciaConfirmada": false,
+      "gateENABLE_REAL": true,
+      "init": "00 / CLIENT_INITIALIZED (Host PID 10952)",
+      "evidenciaCdsTxStart": [
+        "transacao.real.driver.habilitado",
+        "transacao.start operation=CRT transactionId=mrt24_5d70e3fb2328da54 inputKeys=[transacao_valor]"
+      ],
+      "evidenciaTxStartResult": false,
+      "destaxaDllLogConfigurado": false,
+      "notaLogDll": "MRT-28/29 ainda não existiam — iniciaTransacaoDestaxa NÃO gravaria em C:\\CDS-SISTEMAS\\logs\\destaxa\\destaxa-dll.log na época",
+      "interrupcao": "Processo CDS encerrou ~5,6s; V$Pague Connection reset 60906; financialState UNKNOWN (preservar)"
+    },
+    "posMrt27_28_29": {
+      "caminhoProducao": "TefManager.autorizar → persistência → Adapter",
+      "bypassAdapterSemPersistencia": "BLOQUEADO (TEF_PERSISTENCIA_OBRIGATORIA) antes de ENABLE_REAL/TX",
+      "gatePadrao": "OFF (DESTAXA_REAL_TRANSACTION_ENABLED ausente)",
+      "logDll": "configurado; arquivo existe com somente linhas de INIT da MRT-29",
+      "mrt29": "Única INIT autorizada; TX_START/CRT/ENABLE_REAL proibidos — iniciaTransacaoDestaxa deliberadamente NÃO chamada"
+    },
+    "caminhosNaoSaoIguais": true
+  },
+  "fatosComprovados": [
+    {
+      "id": "F1",
+      "fato": "destaxa-dll.log atual (209 bytes, 17:59:06) contém apenas linhas de iniciaClientDestaxa da MRT-29",
+      "evidencia": "Leitura do arquivo + mrt-29-ativacao-log-dll-destaxa-report.json"
+    },
+    {
+      "id": "F2",
+      "fato": "MRT-29 não executou TX_START / ENABLE_REAL / CRT — por regra da sprint",
+      "evidencia": "restricoesObservadas do relatório MRT-29; guard no teste bloqueava TX_*"
+    },
+    {
+      "id": "F3",
+      "fato": "Sem TX_START após ativação do log, a DLL não pode emitir linhas de iniciaTransacaoDestaxa no destaxa-dll.log",
+      "evidencia": "Confirmação Destaxa + ausência de qualquer sprint pós-MRT-29 com TX autorizado"
+    },
+    {
+      "id": "F4",
+      "fato": "No orquestrador, log 'transacao.start' é emitido imediatamente ANTES de this._driver.iniciaTransacaoDestaxa(...)",
+      "evidencia": "destaxaTransacaoOrquestrador.js linhas ~265–272"
+    },
+    {
+      "id": "F5",
+      "fato": "MRT-24 registrou 'transacao.start' CRT — portanto o fluxo chegou ao ponto imediatamente anterior à chamada Koffi do export iniciaTransacaoDestaxa",
+      "evidencia": "mrt-24-primeira-crt-homologacao-report.json evidenciaLogRuntime"
+    },
+    {
+      "id": "F6",
+      "fato": "MRT-24 não capturou TX_START_RESULT; estado financeiro permanece UNKNOWN",
+      "evidencia": "relatórios MRT-24 / MRT-24.1"
+    },
+    {
+      "id": "F7",
+      "fato": "Após MRT-27, chamada direta ao Adapter sem persistenciaConfirmada retorna antes de ENABLE_REAL e antes de qualquer TX_START",
+      "evidencia": "DestaxaRealAdapter.autorizarPagamento + tefPersistenciaObrigatoria; teste MRT-27"
+    },
+    {
+      "id": "F8",
+      "fato": "habilitarTransacaoReal exige DESTAXA_REAL_TRANSACTION_ENABLED=1 e clientInitialized; caso contrário a DLL transacional nunca é armada",
+      "evidencia": "DestaxaNativeBridge.habilitarTransacaoReal"
+    },
+    {
+      "id": "F9",
+      "fato": "Assinatura Koffi de iniciaTransacaoDestaxa está alinhada à documentação 1.83; export presente no LOAD",
+      "evidencia": "destaxaKoffiLoader.js PROTOS; reports MRT-24/29 exportsValid"
+    },
+    {
+      "id": "F10",
+      "fato": "transactionId IPC NÃO é campo da string entrada da DLL; entra só no protocolo CDS↔Host",
+      "evidencia": "MRT-25; DestaxaHostBridge envia transactionId no envelope IPC, campos=transacao_valor=1.00"
+    }
+  ],
+  "hipotesesNaoComprovadasComoCausaDoLogAtual": [
+    {
+      "id": "H1",
+      "hipotese": "Assinatura Koffi errada impede a entrada na DLL",
+      "status": "DESCARTADA como causa do log atual — F9; e MRT-24 já passou de ENABLE_REAL + transacao.start"
+    },
+    {
+      "id": "H2",
+      "hipotese": "MRT-24 nunca chamou iniciaTransacaoDestaxa",
+      "status": "IMPROVÁVEL — F4+F5 colocam a chamada Koffi como próximo statement; o que faltou foi TX_START_RESULT / flush de log DLL naquele path (log file ainda não configurado)"
+    },
+    {
+      "id": "H3",
+      "hipotese": "O log atual prova que MRT-24 não chamou a DLL",
+      "status": "FALSA equivalência — o arquivo atual é da MRT-29; MRT-24 não escrevia neste path"
+    },
+    {
+      "id": "H4",
+      "hipotese": "Persistência MRT-27 bloqueou a MRT-24",
+      "status": "DESCARTADA — MRT-27 é posterior à MRT-24"
+    }
+  ],
+  "diagnosticoSintese": {
+    "porqueDestaxaVeSoInitNoLogAtual": "Porque a única sessão com log DLL ativado (MRT-29) executou somente iniciaClientDestaxa. Nenhuma TX foi autorizada depois. Portanto iniciaTransacaoDestaxa realmente não foi chamada nesse intervalo — esperado e deliberado.",
+    "porqueMrt24NaoApareceNoDestaxaDllLog": "Configuração diretorio_trabalho/nome_arquivo_log só entrou na MRT-28 e só foi ativada na INIT da MRT-29. A CRT MRT-24 ocorreu antes, sem esse arquivo de log.",
+    "pontoOndeFluxoAtualParariaSemAutorizacaoFinanceira": "Sem ENABLE_REAL e sem TX autorizado, o fluxo nunca chega ao passo 11 (Koffi iniciaTransacaoDestaxa). Com Adapter direto pós-MRT-27, para em validarPersistenciaAntesEnvioFinanceiro (passo 4).",
+    "pontoOndeMrt24InterrompeuAposChegarPertoDaDll": "Após transacao.start (passo 10), durante/após a chamada Koffi síncrona — processo interrompido; sem TX_START_RESULT (MRT-25/26 ciclo de vida Host)."
+  },
+  "correcaoMinimaRecomendadaSemImplementar": {
+    "objetivo": "Permitir evidência Destaxa de que iniciaTransacaoDestaxa foi efetivamente invocada, sem repetir MRT-24 inconclusiva às cegas",
+    "ajusteMinimo": [
+      "1) Manter caminho obrigatório TefManager.autorizar + persistência (MRT-27) — não reabrir bypass Adapter",
+      "2) Em sprint futura autorizada: UMA CRT homologação R$1 com gate ON pontual, Native Host pós-MRT-26 (disconnect adiado), log DLL já ativo (MRT-28/29)",
+      "3) Antes do TX: confirmar destaxa-dll.log aberto; após TX (mesmo 99/inconclusivo): exigir novas linhas no log DLL como evidência de entrada em iniciaTransacaoDestaxa",
+      "4) Não repetir MRT-24; nova identidade persistida; preservar UNKNOWN da operação original"
+    ],
+    "naoFazerAgora": [
+      "Não implementar correção nesta MRT-30",
+      "Não executar INIT/TX/CRT",
+      "Não habilitar ENABLE_REAL",
+      "Não alterar Koffi sem evidência de mismatch"
+    ]
+  },
+  "mrt24": {
+    "estado": "UNKNOWN",
+    "preservado": true,
+    "novaTentativa": false
+  },
+  "confirmacoes": {
+    "dllNaoCarregadaParaTesteNestaSprint": true,
+    "operacaoFinanceira": false,
+    "gateOff": true,
+    "codigoNaoAlterado": true
+  }
+}

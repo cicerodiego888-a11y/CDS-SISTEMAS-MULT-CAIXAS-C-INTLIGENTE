@@ -60,6 +60,39 @@ exports.default = async function afterPack(context) {
 
   console.log('[RC3.16.6][afterPack] OK —', cmp.quantidadeValidada, 'arquivo(s)', cmp.porCamada);
 
+  // TEF-16: garante DLLs Destaxa no app.asar.unpacked (koffi exige path real fora do asar).
+  const destaxaUnpacked = path.join(
+    context.appOutDir,
+    'resources',
+    'app.asar.unpacked',
+    'resources',
+    'tef',
+    'destaxa'
+  );
+  const destaxaBinarios = require('../../backend/services/tef/destaxa/destaxaBinarios');
+  const crypto = require('crypto');
+  for (const [pastaArch, meta] of Object.entries(destaxaBinarios.arquivos)) {
+    const dllPath = path.join(destaxaUnpacked, pastaArch, meta.nome);
+    if (!fs.existsSync(dllPath)) {
+      throw new Error(
+        `[TEF-16] afterPack: DLL Destaxa ausente no unpacked (${modulo}): ${dllPath}`
+      );
+    }
+    const buf = fs.readFileSync(dllPath);
+    if (buf.length !== meta.tamanho) {
+      throw new Error(
+        `[TEF-16] afterPack: tamanho divergente ${pastaArch}: ${buf.length} ≠ ${meta.tamanho}`
+      );
+    }
+    const sha = crypto.createHash('sha256').update(buf).digest('hex').toUpperCase();
+    if (sha !== meta.sha256) {
+      throw new Error(
+        `[TEF-16] afterPack: SHA-256 divergente ${pastaArch}: ${sha}`
+      );
+    }
+  }
+  console.log('[TEF-16][afterPack] DLLs Destaxa OK em', destaxaUnpacked);
+
   if (context.electronPlatformName === 'win32') {
     const productFilename = context.packager?.appInfo?.productFilename
       || context.packager?.config?.productName

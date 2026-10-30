@@ -3271,7 +3271,9 @@ function inserirConfiguracoesPadrao() {
 
 function seedPinpadCatalogoTEF() {
   const modelos = [
-    ['GERTEC_PPC930', 'Gertec PPC930', 'Gertec', 'PPC930', 'Rede', 1]
+    ['GERTEC_PPC930', 'Gertec PPC930', 'Gertec', 'PPC930', 'Rede', 1],
+    // TEF-PINPAD-01: cadastro selecionável; integração TEF financeira ainda não disponível.
+    ['VERIFONE_P200', 'Verifone P200', 'Verifone', 'P200', null, 1]
   ];
 
   modelos.forEach((row) => {

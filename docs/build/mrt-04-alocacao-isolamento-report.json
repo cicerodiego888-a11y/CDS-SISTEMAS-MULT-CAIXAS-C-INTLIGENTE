@@ -1,0 +1,198 @@
+{
+  "sprint": "MRT-04",
+  "title": "Alocação e isolamento de terminais TEF",
+  "generatedAt": "2026-10-30T02:20:00.000Z",
+  "status": "MRT-04 CONCLUÍDA — ALOCAÇÃO E ISOLAMENTO VALIDADOS",
+  "restricoesObservadas": {
+    "adaptersAlterados": false,
+    "idempotenciaTef13Alterada": false,
+    "reconciliacaoTef14Alterada": false,
+    "vinculoTef15Alterado": false,
+    "cancelamentoTef17Alterado": false,
+    "initClient": false,
+    "transacaoReal": false,
+    "gates": false,
+    "bancoOficialAlterado": false,
+    "migrationsAplicadas": false,
+    "lockFinanceiroLiberadoPorTimeoutOcupacao": false,
+    "duplaAlocacaoPermitida": false,
+    "selecaoArbitrariaEmAmbiguidade": false,
+    "pagamentosSimultaneosPresumidos": false,
+    "fluxoFinanceiroTefManagerAlterado": false
+  },
+  "auditoriaRegistry": {
+    "store": "memória (MRT-03)",
+    "migrationProposta": "docs/build/mrt-03-migration-proposta.sql — NÃO aplicada",
+    "estados": ["ATIVO", "INATIVO", "INDISPONIVEL", "NAO_PROVISIONADO"],
+    "resolucao": "resolverPorPdv — ambiguidade → TERMINAL_AMBIGUO (sem escolha arbitrária)",
+    "destaxaLimitacoes": [
+      "Native Host singleton",
+      "HOST_BUSY",
+      "V$Pague associado a hostname/MAC",
+      "multi-terminal não documentado"
+    ]
+  },
+  "contratoAlocador": {
+    "modulo": "backend/services/tef/terminalAllocator",
+    "apis": [
+      "adquirir({ terminalTefId, pdvId, provedor, ocupacaoTimeoutMs, operacao, meta })",
+      "liberar(leaseId, motivo, opcoes)",
+      "marcarInconclusivo(leaseId)",
+      "statusTerminal(terminalTefId)",
+      "statusRuntime(runtimeKey)",
+      "recuperarAposReinicio()",
+      "listarLeasesAtivos()",
+      "obterLease(leaseId)"
+    ],
+    "codigos": [
+      "ALLOCATED",
+      "TERMINAL_OCUPADO",
+      "RUNTIME_OCUPADO",
+      "TERMINAL_AUSENTE",
+      "ALOCACAO_AMBIGUA",
+      "LEASE_NAO_ENCONTRADO",
+      "LEASE_JA_LIBERADO",
+      "LIBERACAO_BLOQUEADA_INCONCLUSIVA",
+      "AQUISICAO_FALHOU",
+      "PARAMETRO_INVALIDO"
+    ],
+    "motivosLiberacao": [
+      "SUCESSO_CONFIRMADO",
+      "FALHA_CONFIRMADA",
+      "CANCELADO_OPERADOR",
+      "TIMEOUT_OCUPACAO",
+      "RECUPERACAO_REINICIO",
+      "FORCAR_ADMIN"
+    ],
+    "routerCodesNovos": [
+      "TERMINAL_OCUPADO",
+      "RUNTIME_OCUPADO",
+      "ALOCACAO_FALHOU"
+    ],
+    "modoRouter": "ALLOCATE (opt-in request.allocate === true)"
+  },
+  "modeloLocks": {
+    "tipo": "lease de ocupação em memória (≠ lock financeiro TEF-13/14)",
+    "indices": {
+      "porLeaseId": "Map leaseId → lease",
+      "porTerminal": "Map terminalTefId → leaseId (impede dupla alocação)",
+      "porRuntime": "Map runtimeKey → leaseId (serialização Destaxa)"
+    },
+    "camposLease": [
+      "leaseId",
+      "terminalTefId",
+      "runtimeKey",
+      "pdvId",
+      "provedor",
+      "adquiridoEm",
+      "expiraEm",
+      "ocupacaoTimeoutMs",
+      "resultadoFinanceiroInconclusivo",
+      "liberado",
+      "liberadoEm",
+      "motivoLiberacao",
+      "meta"
+    ],
+    "diferenciacaoOcupacao": {
+      "TERMINAL": "statusTerminal → tipo TERMINAL; código TERMINAL_OCUPADO",
+      "RUNTIME": "statusRuntime → tipo RUNTIME; código RUNTIME_OCUPADO"
+    },
+    "timeoutOcupacaoPadraoMs": 120000,
+    "nota": "Timeout de ocupação NÃO equivale a liberação financeira; inconclusiva bloqueia liberação"
+  },
+  "politicaIsolamentoPorProvedor": {
+    "destaxa": {
+      "modo": "GLOBAL_SERIALIZE",
+      "runtimeKey": "runtime:destaxa:global",
+      "permiteTerminaisParalelos": false,
+      "motivo": "Native Host singleton + V$Pague hostname/MAC; multi-terminal não documentado"
+    },
+    "sitef": {
+      "modo": "PER_TERMINAL",
+      "runtimeKey": null,
+      "permiteTerminaisParalelos": true
+    },
+    "paygo": {
+      "modo": "PER_TERMINAL",
+      "runtimeKey": null,
+      "permiteTerminaisParalelos": true
+    },
+    "default": {
+      "modo": "PER_TERMINAL",
+      "runtimeKey": null,
+      "permiteTerminaisParalelos": true
+    }
+  },
+  "tratamentoRuntimeSingleton": {
+    "provedor": "destaxa",
+    "comportamento": "Ao adquirir qualquer terminal Destaxa, também reserva runtime:destaxa:global",
+    "efeito": "PDV B com terminal diferente recebe RUNTIME_OCUPADO enquanto PDV A mantém lease",
+    "compatSingletonRouter": "allocate=true em COMPAT_SINGLETON usa terminalTefId=singleton:instalacao"
+  },
+  "regrasLiberacao": [
+    "SUCESSO_CONFIRMADO / FALHA_CONFIRMADA / CANCELADO_OPERADOR → liberam se não inconclusivo",
+    "resultadoFinanceiroInconclusivo=true → bloqueia liberação (LIBERACAO_BLOQUEADA_INCONCLUSIVA)",
+    "Exceções ao bloqueio: FORCAR_ADMIN, RECUPERACAO_REINICIO, opcoes.forcar=true",
+    "TIMEOUT_OCUPACAO: varredura libera só se NÃO inconclusivo; explícito com inconclusiva → bloqueado",
+    "Não liberar lock financeiro TEF-13/14 por timeout de ocupação",
+    "Liberação duplicada → LEASE_JA_LIBERADO",
+    "recuperarAposReinicio: zera ocupações em memória; financeiro inconclusivo permanece no TEF-14"
+  ],
+  "integracaoRouter": {
+    "optIn": "request.allocate === true",
+    "tefManager": "resolve sem allocate — fluxo financeiro inalterado",
+    "apisRouter": [
+      "liberarAlocacao(leaseId, motivo, opcoes)",
+      "marcarAlocacaoInconclusiva(leaseId)"
+    ],
+    "decisionIsolamentoQuandoAlocado": {
+      "alocacaoAtiva": true,
+      "leaseId": "string",
+      "runtimeKey": "string|null",
+      "tipoOcupacao": "TERMINAL | TERMINAL+RUNTIME"
+    }
+  },
+  "arquivosCriados": [
+    "backend/services/tef/terminalAllocator/contracts.js",
+    "backend/services/tef/terminalAllocator/TerminalAllocator.js",
+    "backend/services/tef/terminalAllocator/index.js",
+    "tests/tef/mrt-04-alocacao-isolamento.test.js",
+    "docs/build/mrt-04-alocacao-isolamento-report.json"
+  ],
+  "arquivosAlterados": [
+    "backend/services/tef/terminalRouter/contracts.js",
+    "backend/services/tef/terminalRouter/TerminalRouter.js",
+    "backend/services/tef/terminalRouter/index.js"
+  ],
+  "testes": {
+    "comandoMrt04": "node tests/tef/mrt-04-alocacao-isolamento.test.js",
+    "resultadoMrt04": "15/15 OK",
+    "cenarios": [
+      "dois PDVs mesmo terminal → TERMINAL_OCUPADO",
+      "dois PDVs terminais diferentes Destaxa → RUNTIME_OCUPADO",
+      "dois PDVs terminais diferentes SiTef → ambos alocam",
+      "runtime singleton ocupado vs terminal ocupado",
+      "timeout com operação inconclusiva NÃO libera",
+      "liberação após resultado confirmado",
+      "falha durante aquisição (parâmetro inválido)",
+      "liberação duplicada → LEASE_JA_LIBERADO",
+      "recuperação após reinicialização",
+      "Router allocate=true Destaxa serializa",
+      "Router sem allocate (path TefManager)",
+      "ambiguidade Registry sem seleção arbitrária",
+      "TefManager não passa allocate (estático)",
+      "adapters / TEF-17 sem referência ao allocator"
+    ],
+    "regressaoMrt02": "15/15 OK",
+    "regressaoMrt03": "15/15 OK"
+  },
+  "riscosRemanescentes": [
+    "Leases em memória — reinício limpa ocupação; não há persistência de lock de terminal",
+    "TefManager ainda não chama allocate=true — concorrência real no PDV só após cutover explícito",
+    "SiTef/PayGo PER_TERMINAL é hipótese conservadora até evidência do SDK",
+    "Migration MRT-03 ainda não aplicada — Registry + Allocator sem fonte oficial persistente",
+    "FORCAR_ADMIN pode liberar ocupação com inconclusiva; disciplina operacional necessária",
+    "Após reinício, TEF-14 continua responsável pelo financeiro inconclusivo (Allocator só zera mapa)"
+  ],
+  "conclusao": "TerminalAllocator impõe ocupação por terminal e serialização global Destaxa, distingue TERMINAL_OCUPADO de RUNTIME_OCUPADO, bloqueia liberação com operação inconclusiva e integra o Router via allocate opt-in sem alterar o fluxo financeiro do TefManager nem TEF-13/14/15/17."
+}

@@ -92,6 +92,84 @@ class DestaxaNativeHostRuntime {
     this._seqNativo = 0;
     this._encerrando = false;
     this._mock = null;
+    /** MRT-26 — disconnect/IPC loss durante nativa: encerra só após a operação. */
+    this._encerramentoAposNativa = null;
+    this._eventosCiclo = [];
+  }
+
+  _registrarEventoCiclo(tipo, detalhe = {}) {
+    const entrada = {
+      tipo,
+      em: new Date().toISOString(),
+      pid: process.pid,
+      ppid: typeof process.ppid === 'number' ? process.ppid : null,
+      operacaoAtiva: this._operacaoAtiva
+        ? {
+          operation: this._operacaoAtiva.operation,
+          requestId: this._operacaoAtiva.requestId,
+          transactionId: this._operacaoAtiva.transactionId || null,
+          desdeMs: this._operacaoAtiva.inicioMs != null
+            ? Date.now() - this._operacaoAtiva.inicioMs
+            : null
+        }
+        : null,
+      ...detalhe
+    };
+    this._eventosCiclo.push(entrada);
+    if (this._eventosCiclo.length > 40) this._eventosCiclo.shift();
+    try {
+      // eslint-disable-next-line no-console
+      console.error('[TEF-NATIVE-HOST] ciclo', JSON.stringify(entrada));
+    } catch (_) { /* ignore */ }
+    return entrada;
+  }
+
+  /**
+   * MRT-26 — IPC disconnect: se houver operação nativa em voo, NÃO chama process.exit
+   * imediatamente. A DLL/Koffi pode terminar; o exit é adiado para o finally.
+   * @returns {boolean} true se o exit foi adiado
+   */
+  aoDisconnectIpc(detalhe = {}) {
+    this._registrarEventoCiclo('disconnect', {
+      motivo: 'IPC_DISCONNECT',
+      ...detalhe
+    });
+    if (this._operacaoAtiva) {
+      this._encerramentoAposNativa = {
+        motivo: 'IPC_DISCONNECT',
+        desde: Date.now(),
+        operacao: this._operacaoAtiva.operation,
+        requestId: this._operacaoAtiva.requestId,
+        transactionId: this._operacaoAtiva.transactionId || null
+      };
+      this._registrarEventoCiclo('disconnect.adiado', {
+        motivo: 'operacao_nativa_em_voo',
+        operacao: this._operacaoAtiva.operation
+      });
+      return true;
+    }
+    this._registrarEventoCiclo('disconnect.exit_imediato', { codigo: 0 });
+    this._encerrarProcesso(0);
+    return false;
+  }
+
+  _concluirEncerramentoAdiadoSePendente() {
+    if (!this._encerramentoAposNativa) return;
+    const pendente = this._encerramentoAposNativa;
+    this._encerramentoAposNativa = null;
+    const duracaoMs = Date.now() - pendente.desde;
+    this._registrarEventoCiclo('disconnect.exit_adiado', {
+      motivo: pendente.motivo,
+      operacao: pendente.operacao,
+      requestId: pendente.requestId,
+      transactionId: pendente.transactionId,
+      duracaoAdiadaMs: duracaoMs,
+      codigo: 0
+    });
+    setImmediate(() => {
+      try { this.bridge.unload(); } catch (_) { /* encerrando */ }
+      this._encerrarProcesso(0);
+    });
   }
 
   _transacaoAtiva() {
@@ -102,13 +180,18 @@ class DestaxaNativeHostRuntime {
   status() {
     return {
       pid: process.pid,
+      ppid: typeof process.ppid === 'number' ? process.ppid : null,
       processType: this.processType,
       modoTeste: this.modoTeste,
       tripwire: this.tripwire,
       contadores: { ...this.contadores },
       gateReal: transacaoRealHabilitada(),
       encerrando: this._encerrando,
+      encerramentoAposNativa: this._encerramentoAposNativa
+        ? { ...this._encerramentoAposNativa }
+        : null,
       operacaoAtiva: this._operacaoAtiva ? { ...this._operacaoAtiva } : null,
+      eventosCiclo: this._eventosCiclo.slice(-12),
       diagnostics: this.bridge.getDiagnostics(),
       contexto: this.bridge.getTransacaoContexto(),
       mockContadores: this._mock ? { ...this._mock.contadores } : null
@@ -180,13 +263,39 @@ class DestaxaNativeHostRuntime {
       });
     }
 
-    this._operacaoAtiva = { requestId: req.requestId, operation: req.operation, transactionId: req.transactionId };
+    const inicioMs = Date.now();
+    this._operacaoAtiva = {
+      requestId: req.requestId,
+      operation: req.operation,
+      transactionId: req.transactionId,
+      inicioMs
+    };
+    this._registrarEventoCiclo('nativa.inicio', {
+      operation: req.operation,
+      requestId: req.requestId,
+      transactionId: req.transactionId || null
+    });
     try {
       const output = this._executarNativa(req);
       const transactionId = output?.contexto?.transactionId || req.transactionId;
+      this._registrarEventoCiclo('nativa.fim', {
+        operation: req.operation,
+        requestId: req.requestId,
+        transactionId: transactionId || null,
+        duracaoMs: Date.now() - inicioMs,
+        ok: true
+      });
       return criarResponse(req, { output, transactionId });
     } catch (error) {
       const code = error instanceof ErroHost ? error.code : ERROS_HOST.HOST_INTERNAL_ERROR;
+      this._registrarEventoCiclo('nativa.fim', {
+        operation: req.operation,
+        requestId: req.requestId,
+        transactionId: req.transactionId || null,
+        duracaoMs: Date.now() - inicioMs,
+        ok: false,
+        erro: code
+      });
       const output = OPERACOES_TRANSACIONAIS.has(req.operation) && code === ERROS_HOST.HOST_INTERNAL_ERROR
         ? resultadoHostIndisponivel(code, req.transactionId, error.message)
         : null;
@@ -194,6 +303,7 @@ class DestaxaNativeHostRuntime {
     } finally {
       this._seqNativo += 1;
       this._operacaoAtiva = null;
+      this._concluirEncerramentoAdiadoSePendente();
     }
   }
 
@@ -228,8 +338,22 @@ class DestaxaNativeHostRuntime {
         return this.bridge.iniciarClient(payload.config || {});
       case OPERACOES_HOST.ENABLE_REAL:
         return this.bridge.habilitarTransacaoReal();
-      case OPERACOES_HOST.TX_START:
+      case OPERACOES_HOST.TX_START: {
+        // MRT-31 — evidência: Host recebeu TX_START (futuro; não inicia Host nesta sprint)
+        try {
+          const { registrarEtapaFluxo, ETAPAS_FLUXO } = require('./destaxaFluxoInstrumentacao');
+          registrarEtapaFluxo(ETAPAS_FLUXO.HOST_RECEBEU_TX_START, {
+            transactionId: transactionId != null ? String(transactionId) : null,
+            pid: process.pid,
+            ppid: typeof process.ppid === 'number' ? process.ppid : null
+          }, {
+            operacao: payload.operacao || null,
+            chavesCampos: Object.keys(payload.campos || {}),
+            transactionIdSeparadoDosCampos: true
+          });
+        } catch (_) { /* instrumentação best-effort */ }
         return this.bridge.iniciarTransacaoDestaxa(payload.operacao, payload.campos || {}, { transactionId });
+      }
       case OPERACOES_HOST.TX_CONTINUE:
         this._validarTransactionId(transactionId);
         return this.bridge.continuarTransacaoDestaxa(payload.resposta || {});
@@ -277,15 +401,24 @@ function criarCanal() {
     return {
       tipo: 'utilityProcess',
       enviar: (mensagem) => process.parentPort.postMessage(mensagem),
-      aoReceber: (fn) => process.parentPort.on('message', (evento) => fn(evento.data))
+      aoReceber: (fn) => process.parentPort.on('message', (evento) => fn(evento.data)),
+      aoDisconnect: (fn) => {
+        // utilityProcess: perda do parentPort ≈ disconnect
+        if (process.parentPort && typeof process.parentPort.on === 'function') {
+          process.parentPort.on('close', () => fn({ fonte: 'parentPort.close' }));
+        }
+      }
     };
   }
   if (typeof process.send === 'function') {
-    process.on('disconnect', () => process.exit(0));
     return {
       tipo: 'child_process',
-      enviar: (mensagem) => process.send(mensagem),
-      aoReceber: (fn) => process.on('message', fn)
+      enviar: (mensagem) => {
+        if (typeof process.connected === 'boolean' && !process.connected) return;
+        try { process.send(mensagem); } catch (_) { /* canal morto */ }
+      },
+      aoReceber: (fn) => process.on('message', fn),
+      aoDisconnect: (fn) => process.on('disconnect', () => fn({ fonte: 'ipc.disconnect' }))
     };
   }
   return null;
@@ -306,11 +439,20 @@ function iniciarHost() {
     modoTeste: envAtiva(TEST_MODE_ENV),
     tripwire: envAtiva(TRIPWIRE_ENV)
   });
+  // MRT-26 — disconnect NÃO chama process.exit(0) se nativa em voo
+  if (typeof canal.aoDisconnect === 'function') {
+    canal.aoDisconnect((detalhe) => runtime.aoDisconnectIpc(detalhe || {}));
+  }
   canal.aoReceber((mensagem) => runtime.receber(mensagem));
+  runtime._registrarEventoCiclo('host.ready', {
+    processType: canal.tipo,
+    modoTeste: runtime.modoTeste
+  });
   canal.enviar({
     protocol: PROTOCOLO,
     tipo: 'HOST_READY',
     pid: process.pid,
+    ppid: typeof process.ppid === 'number' ? process.ppid : null,
     processType: canal.tipo,
     modoTeste: runtime.modoTeste,
     tripwire: runtime.tripwire,

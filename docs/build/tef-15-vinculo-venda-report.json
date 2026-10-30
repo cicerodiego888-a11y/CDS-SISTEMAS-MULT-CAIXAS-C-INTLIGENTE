@@ -1,0 +1,55 @@
+{
+  "sprint": "TEF-15",
+  "title": "Vínculo entre venda, recebimento e transação TEF",
+  "generatedAt": "2026-10-30T01:40:00.000Z",
+  "status": "TEF-15 CONCLUÍDA — VÍNCULO VENDA/RECEBIMENTO VALIDADO",
+  "officialDbMutated": false,
+  "migrations": false,
+  "financialTransaction": false,
+  "initClient": false,
+  "gatesEnabled": false,
+  "tef13Alterada": false,
+  "tef14Alterada": false,
+  "diagnosticoFluxoAnterior": {
+    "pdv": "processarPagamentoTEF enviava venda_id: opcoes.venda_id || null — na prática null porque TEF ocorre antes de criar a venda",
+    "backendPagar": "aceitava qualquer venda_id sem validar existência",
+    "persistenciaTef": "tef_transacoes.venda_id gravado null na autorização",
+    "finalizacaoVenda": "UPDATE tef_transacoes SET venda_id WHERE id=? existia, mas podia sobrescrever vínculo de outra venda",
+    "fiscal": "já recuperava por tef_transacao_id no recebimento (preservado)"
+  },
+  "arquivosModificados": [
+    "backend/services/tef/tefVinculoVendaService.js (novo)",
+    "backend/rotas/tef.js",
+    "backend/services/vendas/VendaPagamentoService.js",
+    "frontend/pdv/js/pdv.js",
+    "tests/tef/tef-15-vinculo-venda.test.js",
+    "docs/build/tef-15-vinculo-venda-report.json"
+  ],
+  "novoFluxo": [
+    "1. POST /tef/pagar valida venda_id (null=ok PENDENTE_FINALIZACAO; inválido/inexistente=400)",
+    "2. Autorização TEF com idempotency_key (TEF-13) → tef_transacao_id",
+    "3. Resposta inclui estado_vinculo, operation_id, idempotency_key, tef_transacao_id",
+    "4. PDV anexa tef_transacao_id (+ meta) no recebimento/pagamento",
+    "5. Ao persistir venda: enfileirarVinculosSqlite atualiza tef_transacoes.venda_id só por id, sem sobrescrever outra venda",
+    "6. Fiscal hidrata por tef_transacao_id (inalterado)"
+  ],
+  "garantias": {
+    "naoAssociaPorValorOuOrdem": true,
+    "naoCriaVendaFicticia": true,
+    "naoAprovaInconclusiva": true,
+    "naoSobrescreveVinculoAlheio": true,
+    "retryMantemOperationId": true,
+    "consultaFiscalPorTefTransacaoId": true
+  },
+  "testes": {
+    "tef15": "12 ok, 0 falha(s)",
+    "regressaoTef13": "13 ok",
+    "regressaoTef14": "11 ok"
+  },
+  "riscosRemanescentes": [
+    "Janela entre TEF aprovado e finalização da venda: venda_id ainda null (mitigado por tef_transacao_id + TEF-14 órfãs)",
+    "enfileirarVinculosSqlite ainda é assíncrono no commit da venda (padrão pré-existente); falha só loga",
+    "Destaxa 00151/.conf externos",
+    "UI de órfãs ainda sem tela dedicada"
+  ]
+}

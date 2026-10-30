@@ -1,0 +1,267 @@
+{
+  "sprint": "MRT-11",
+  "title": "Auditoria de isolamento e extensibilidade de provedores TEF",
+  "generatedAt": "2026-10-30T11:50:00.000Z",
+  "status": "MRT-11 CONCLUÍDA — EXTENSIBILIDADE AVALIADA",
+  "tipo": "diagnostico",
+  "restricoesObservadas": {
+    "paygoImplementado": false,
+    "sitefImplementado": false,
+    "adaptersAlterados": false,
+    "bancoOficialAlterado": false,
+    "migrationsExecutadas": false,
+    "initReal": false,
+    "transacaoReal": false,
+    "fluxosFinanceirosAlterados": false,
+    "mrt01a10Alterados": false,
+    "alteracoesCodigoIndispensaveis": "somente documentação em tefProvedorCampos.js (nota MRT-11)"
+  },
+  "1_auditoriaContrato": {
+    "arquivo": "backend/services/tef/tefProvedorCampos.js",
+    "identificacaoProvedor": {
+      "fonte": "tef_configuracao.provedor",
+      "selecaoRuntime": "tefFactory.criarAdapter(registro.provedor | registro.tefProvedor)",
+      "instalacao": "buscarConfiguracaoPrincipal() — um registro principal (LIMIT 1 / singleton)"
+    },
+    "parametrosEspecificos": {
+      "camposGenericosPersistidos": [
+        "empresa_codigo",
+        "loja_codigo",
+        "terminal_codigo",
+        "pdv_codigo",
+        "caixa_codigo"
+      ],
+      "escopoProvedor": ["empresa_codigo", "loja_codigo", "terminal_codigo"],
+      "escopoCdsLocal": ["pdv_codigo", "caixa_codigo"],
+      "interpretacao": "INTERPRETACAO_POR_PROVEDOR — Destaxa via destaxaMapeamentoTerminal; SiTef/PayGo documentados como contrato próprio (modulo=null)"
+    },
+    "persistencia": {
+      "tabela": "tef_configuracao",
+      "natureza": "provedor-agnóstica (mesmas colunas para qualquer fornecedor)",
+      "servico": "tefConfigService + tefConfigRepository"
+    },
+    "chegadaAoAdapter": {
+      "fluxo": [
+        "UI/API → tefConfigService",
+        "configParaRegistroAdapter(config)",
+        "criarAdapter(registro) | obterAdapter() → buscarConfiguracaoPrincipal + criarAdapter"
+      ],
+      "destaxa": "DestaxaNativeBridge consome projetarEntradaIniciaClient (estabelecimento/loja/terminal); pdv/caixa isolados"
+    },
+    "roteadorIdentificaAdapter": {
+      "TerminalRouter": "resolve PDV → TerminalTef + lease + ExecutionContext; monta adapterBinding no Registry",
+      "TefManager": "após rota, ainda chama obterAdapter() (singleton LIMIT 1) — NÃO faz cutover por RouteDecision.adapterBinding",
+      "conclusao": "roteamento de terminal/ocupação é extensível; seleção efetiva do adapter de pagamento permanece no factory/singleton"
+    },
+    "parametrosDesconhecidosOuAusentes": {
+      "provedorAusente": "criarAdapter lança TEF_PROVEDOR_NAO_CONFIGURADO / TEF não configurado",
+      "provedorDesconhecido": "Error Provedor TEF não suportado",
+      "camposDestaxaAusentes": "projetarEntradaIniciaClient omite estabelecimento/loja/terminal; não inventa a partir de PDV/caixa",
+      "pdvCaixa": "nunca enviados à DLL Destaxa (incluiPdvOuCaixa=false)",
+      "campoExtraIgnorado": "chaves fora do contrato Destaxa não entram no texto iniciaClient"
+    }
+  },
+  "2_isolamento": {
+    "TefManager": {
+      "dependeCamposExclusivosDestaxa": false,
+      "nota": "autorizar/consultar/cancelar usam obterAdapter genérico; único hardcode destaxa é prepararHarnessDestaxaReal (harness diagnóstico, fora do fluxo financeiro)"
+    },
+    "TerminalRouter": {
+      "dependeCodigosExclusivosDestaxa": false,
+      "acoplamentoSuave": "pdvIdentityValidator compara empresaId/lojaId CDS com empresa_codigo/loja_codigo da config — colunas genéricas, mas semanticamente conflituosas se Destaxa guardar estabelecimento≠empresa CDS"
+    },
+    "TerminalRegistry": {
+      "pressupoeEstruturaDestaxa": false,
+      "suportaMultiProvedorMemoria": true,
+      "acoplamentoSuave": "montarBinding define executionMode=native-host somente se provedor===destaxa (política runtime, não campo financeiro)"
+    },
+    "TerminalAllocator": {
+      "dependeFornecedorCampos": false,
+      "politicaPorProvedor": true,
+      "destaxa": "GLOBAL_SERIALIZE + runtimeKey runtime:destaxa:global",
+      "sitefPaygo": "PER_TERMINAL"
+    },
+    "ExecutionContextResolver": {
+      "dependeIdentificadoresFinanceirosDestaxa": false,
+      "usaMatrizTopologia": true,
+      "flag": "runtime.singletonDestaxa quando matriz.runtimeSingleton && provedor===destaxa"
+    },
+    "selecaoAdapterExtensivel": {
+      "criarAdapter": true,
+      "PROVEDORES": ["sitef", "paygo", "cielo", "stone", "rede", "getnet", "destaxa"],
+      "obterAdapterCutoverRouteDecision": false
+    },
+    "interferenciaEntreProvedores": {
+      "mesmaLinhaConfig": "sim — um provedor ativo por instalação (LIMIT 1); trocar provedor reutiliza as mesmas colunas genéricas",
+      "interpretacaoIsolada": true,
+      "doisProvedoresSimultaneosDb": false
+    }
+  },
+  "3_cenariosExtensibilidade": {
+    "adicaoFuturaPayGo": {
+      "viavel": true,
+      "jaExiste": "PaygoAdapter + PaygoRealAdapter no factory (simulacao/real)",
+      "faltando": [
+        "módulo de mapeamento próprio (não reutilizar destaxaMapeamentoTerminal)",
+        "contrato de campos PayGo documentado/validado",
+        "cutover RouteDecision→adapter se multi-terminal/multi-provedor",
+        "homologação real fora do escopo MRT-11"
+      ]
+    },
+    "adicaoFuturaSiTef": {
+      "viavel": true,
+      "jaExiste": "SitefAdapter + SitefRealAdapter no factory",
+      "faltando": [
+        "módulo de mapeamento SiTef próprio",
+        "política de isolamento confirmada com evidência SDK",
+        "homologação real fora do escopo MRT-11"
+      ]
+    },
+    "doisProvedoresMesmaInstalacao": {
+      "registryMemoria": "suportado (terminais com provedor distintos + provedorPreferido)",
+      "persistenciaOficial": "não — singleton tef_configuracao LIMIT 1",
+      "obterAdapter": "sempre o registro principal — não seleciona por terminal/rota"
+    },
+    "terminaisLogicosProvedoresDiferentes": {
+      "registry": "ok com ambiguidade explícita (TERMINAL_AMBIGUO) sem provedorPreferido",
+      "allocator": "políticas distintas por provedor do terminal resolvido",
+      "pagamentoEfetivo": "ainda limitado ao adapter do singleton até cutover"
+    },
+    "selecaoAdapterPorConfiguracao": {
+      "porRegistroProvedor": true,
+      "porRouteDecision": false
+    },
+    "ausenciaConfiguracaoProvedor": {
+      "comportamento": "falha explícita (TEF não configurado / Provedor TEF não configurado)",
+      "semFallbackSilenciosoRede": true
+    }
+  },
+  "4_acoplamentosEncontrados": [
+    {
+      "id": "A1",
+      "severidade": "arquitetural",
+      "componente": "tefFactory.obterAdapter + tefConfigRepository.buscarConfiguracaoPrincipal",
+      "descricao": "Seleção de adapter de pagamento ignora RouteDecision/adapterBinding; sempre LIMIT 1",
+      "bloqueiaNovoProvedorIsolado": false,
+      "bloqueiaMultiProvedorSimultaneo": true
+    },
+    {
+      "id": "A2",
+      "severidade": "suave",
+      "componente": "terminalRouter/pdvIdentityValidator",
+      "descricao": "Compara identidade comercial CDS (empresaId/lojaId) com empresa_codigo/loja_codigo genéricos — sob Destaxa esses campos são estabelecimento/loja do fornecedor",
+      "bloqueiaNovoProvedorIsolado": false,
+      "risco": "falso EMPRESA_LOJA_INCOMPATIVEL se IDs CDS ≠ códigos do provedor"
+    },
+    {
+      "id": "A3",
+      "severidade": "politica",
+      "componente": "TerminalAllocator / ExecutionContext / TerminalMonitor / Registry.montarBinding",
+      "descricao": "Políticas Destaxa (GLOBAL_SERIALIZE, native-host, singletonDestaxa) acopladas ao nome do provedor — esperado e isolado por tabela de política",
+      "bloqueiaNovoProvedorIsolado": false
+    },
+    {
+      "id": "A4",
+      "severidade": "esperado",
+      "componente": "destaxa/*",
+      "descricao": "Mapeamento e bridge Destaxa isolados sob pasta destaxa/; não vazam campos DLL para TefManager/Router core",
+      "bloqueiaNovoProvedorIsolado": false
+    }
+  ],
+  "5_componentesIndependentesDoProvedor": [
+    "tefProvedorCampos (contrato genérico + interpretação documentada)",
+    "TerminalRouter (núcleo de rota PDV→terminal/lease)",
+    "TerminalAllocator (API de lease; política pluggable por provedor)",
+    "TerminalRegistry (modelo TerminalTef com campo provedor)",
+    "ExecutionContextResolver (matriz topologia pluggable)",
+    "tefRouterIntegration (pedido de rota + liberação de lease pós-autorização)",
+    "TefManager ciclo financeiro (TEF-13/14/15/17) via contrato adapter"
+  ],
+  "6_componentesAindaDependentesDestaxa": [
+    {
+      "componente": "destaxaMapeamentoTerminal / DestaxaNativeBridge / DestaxaRealAdapter",
+      "natureza": "implementação do provedor — isolamento correto"
+    },
+    {
+      "componente": "ISOLATION_POLICIES.destaxa / PROVIDER_TOPOLOGY_MATRIX.destaxa",
+      "natureza": "política de runtime singleton — necessária"
+    },
+    {
+      "componente": "TefManager.prepararHarnessDestaxaReal",
+      "natureza": "harness diagnóstico Destaxa — fora do caminho PayGo/SiTef"
+    },
+    {
+      "componente": "UI aviso contextual 00151 quando provedor=destaxa",
+      "natureza": "UX contextual MRT-10 — não condiciona labels genéricos"
+    }
+  ],
+  "7_viabilidadePayGoSiTef": {
+    "paygo": {
+      "adicionarSemReescreverDestaxa": true,
+      "simulacaoJaRegistradaNoFactory": true,
+      "precondicoes": [
+        "módulo de interpretação PayGo próprio",
+        "não reutilizar códigos Destaxa",
+        "opcional: evolução schema multi-config se coexistência com Destaxa"
+      ]
+    },
+    "sitef": {
+      "adicionarSemReescreverDestaxa": true,
+      "simulacaoJaRegistradaNoFactory": true,
+      "precondicoes": [
+        "módulo de interpretação SiTef próprio",
+        "confirmar isolamento PER_TERMINAL com evidência SDK",
+        "opcional: cutover adapter por RouteDecision"
+      ]
+    }
+  },
+  "8_mudancasEstruturaisNecessarias": [
+    {
+      "prioridade": "alta_para_multi_provedor",
+      "item": "Cutover TefManager: criarAdapter(routeDecision.adapterBinding.registro) em vez de obterAdapter() cego"
+    },
+    {
+      "prioridade": "alta_para_coexistencia",
+      "item": "Schema/UI para N configurações por provedor (ou N terminais persistidos) — hoje LIMIT 1"
+    },
+    {
+      "prioridade": "media",
+      "item": "Separar validação empresaId CDS de códigos de estabelecimento do provedor (A2)"
+    },
+    {
+      "prioridade": "media",
+      "item": "Módulos tefProvedorCampos/mapeamento por PayGo e SiTef quando forem homologados"
+    },
+    {
+      "prioridade": "baixa",
+      "item": "Generalizar executionMode (native-host) via política por provedor em vez de if destaxa"
+    }
+  ],
+  "9_riscosLimitacoes": [
+    "Não presumir compatibilidade de parâmetros entre Destaxa, PayGo e SiTef",
+    "Colunas genéricas compartilhadas podem confundir operadores ao trocar provedor sem limpar códigos",
+    "Registry multi-provedor em memória não implica persistência oficial nem pagamento multi-adapter",
+    "GLOBAL_SERIALIZE Destaxa continua válido; não inventar multi-terminal Destaxa",
+    "Adapters reais PayGo/SiTef no repo não foram exercitados nesta sprint (sem INIT/TX)"
+  ],
+  "10_parecerTecnico": {
+    "resumo": "A generalização MRT-10 + factory por provedor permitem adicionar PayGo/SiTef sem acoplar TefManager/Router aos campos DLL Destaxa. Há limites estruturais claros (singleton LIMIT 1 e ausência de cutover RouteDecision→adapter) que impedem coexistência plena de dois provedores na mesma instalação, mas não constituem acoplamento indevido que torne a arquitetura inextensível.",
+    "acoplamentoIndevidoCritico": false,
+    "extensibilidade": "viável com evolução documentada",
+    "recomendacao": "Manter Destaxa isolado em destaxa/*; ao integrar PayGo/SiTef, criar mapeamento próprio e, se multi-provedor for requisito, priorizar cutover de adapter + schema multi-config."
+  },
+  "testes": {
+    "arquivo": "tests/tef/mrt-11-auditoria-extensibilidade.test.js",
+    "resultado": "OK",
+    "cobertura": [
+      "contrato genérico + interpretação isolada",
+      "parâmetros ausentes/desconhecidos Destaxa",
+      "criarAdapter destaxa/sitef/paygo (simulacao) + falhas explícitas",
+      "Allocator/ExecutionContext políticas por provedor",
+      "TefManager/Router sem campos exclusivos Destaxa (estático)",
+      "Registry multi-provedor + TERMINAL_AMBIGUO + provedorPreferido",
+      "regressão UI MRT-10 labels genéricos"
+    ]
+  },
+  "resultadoFinal": "MRT-11 CONCLUÍDA — EXTENSIBILIDADE AVALIADA"
+}

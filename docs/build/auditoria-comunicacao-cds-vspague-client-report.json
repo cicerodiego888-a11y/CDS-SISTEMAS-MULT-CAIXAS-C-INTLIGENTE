@@ -1,0 +1,194 @@
+{
+  "titulo": "AUDITORIA — Comunicação CDS × V$Pague Client (com evidência de portas)",
+  "generatedAt": "2026-10-30T17:55:00.000Z",
+  "tipo": "diagnostico_exclusivo",
+  "restricoesCumpridas": {
+    "codigoAlterado": false,
+    "configAlterada": false,
+    "migrations": false,
+    "init": false,
+    "pagamentoCancelamentoEstorno": false,
+    "transacaoFinanceira": false
+  },
+  "evidenciasExternasConfirmadas": {
+    "processo": "VSPagueClient.exe",
+    "pid": 8740,
+    "modo": "Background (informado Destaxa)",
+    "portasListening": [
+      { "proto": "TCP", "porta": 60603, "estado": "LISTENING" },
+      { "proto": "TCP", "porta": 60906, "estado": "LISTENING" }
+    ],
+    "nota": "Portas observadas no SO; não são lidas nem escritas pelo código CDS."
+  },
+  "1_mecanismoComunicacaoNoCds": {
+    "mecanismo": "FFI via DLL Destaxa (koffi), isolada em Native Host IPC — não socket TCP CDS→Client",
+    "cadeia": [
+      "DestaxaRealAdapter",
+      "DestaxaHostBridge._chamar(OPERACOES_HOST.*)",
+      "DestaxaNativeHostClient (IPC cds-tef-native-host/1)",
+      "DestaxaNativeHost",
+      "DestaxaNativeBridge + destaxaKoffiLoader",
+      "libdll-integracao-tef.dll → iniciaClientDestaxa / iniciaTransacaoDestaxa / ...",
+      "DLL ↔ V$Pague Client (canal proprietário Destaxa; tipicamente local)"
+    ],
+    "arquivosFuncoes": [
+      {
+        "arquivo": "backend/services/tef/adapters/DestaxaRealAdapter.js",
+        "funcoes": ["diagnosticar", "testarConexao", "prepararAutorizacao", "status", "verificarDisponibilidade"]
+      },
+      {
+        "arquivo": "backend/services/tef/destaxa/DestaxaHostBridge.js",
+        "funcoes": ["load", "iniciarClient", "getDiagnostics", "getHostStatus", "iniciarTransacaoDestaxa"]
+      },
+      {
+        "arquivo": "backend/services/tef/destaxa/DestaxaNativeHostClient.js",
+        "funcoes": ["enviar", "obterClienteCompartilhado"]
+      },
+      {
+        "arquivo": "backend/services/tef/destaxa/DestaxaNativeHost.js",
+        "papel": "processo dedicado; carrega DLL fora do Main"
+      },
+      {
+        "arquivo": "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+        "funcoes": ["montarEntradaClient", "chamadas iniciaClientDestaxa"]
+      },
+      {
+        "arquivo": "backend/services/tef/destaxa/destaxaKoffiLoader.js",
+        "papel": "assinaturas C oficiais da DLL"
+      },
+      {
+        "arquivo": "backend/services/tef/destaxa/destaxaNativeHostProtocolo.js",
+        "constantes": ["OPERACOES_HOST.PING/STATUS/LOAD/INIT_CLIENT/TX_*"]
+      },
+      {
+        "arquivo": "backend/services/tef/sdkDetector.js",
+        "funcoes": ["detectarVsPagueClient"],
+        "papel": "somente detecção de processo Win32 — sem connect TCP"
+      },
+      {
+        "arquivo": "backend/services/tef/destaxa/destaxaEvidenciasOperacionais.js",
+        "funcoes": ["avaliarEvidenciasDestaxa", "listarConfVsPague", "lerErro00151DoLog"]
+      },
+      {
+        "arquivo": "backend/services/tef/tefConfigService.js",
+        "funcoes": ["resolverEstadoServidorMonitor", "configParaRegistroAdapter", "validarConfiguracao"]
+      }
+    ]
+  },
+  "2_enderecoProtocoloPortaEsperadosPeloCds": {
+    "paraVPagueClient": {
+      "protocoloEsperadoPeloCds": "nenhum TCP/HTTP explícito",
+      "enderecoEsperado": null,
+      "portaEsperada": null,
+      "explicacao": "O CDS espera Client local detectável como processo e alcançável pela DLL Destaxa. Não há string 60603/60906 no código."
+    },
+    "paraNativeHostInterno": {
+      "protocolo": "IPC Node/Electron (cds-tef-native-host/1)",
+      "endereco": "processo filho local",
+      "porta": null
+    },
+    "camposServidorLegado": {
+      "ipServidor_portaServidor_baseUrl": "persistidos em tef_configuracao (legado)",
+      "usoDestaxa": "marcados nao_aplicavel em resolverEstadoServidorMonitor(provedor=destaxa)",
+      "citacao": "Não aplicável: Destaxa usa DLL/Client Destaxa; processo V$Pague detectado não comprova conexão transacional."
+    }
+  },
+  "3_cdsUsa60603Ou60906": {
+    "usa60603": false,
+    "usa60906": false,
+    "usaOutroMecanismo": true,
+    "mecanismo": "DLL Destaxa (koffi) + IPC Native Host",
+    "interpretacaoDasPortasObservadas": "LISTEN no Client é serviço interno Destaxa (Background). A DLL provavelmente consome esse canal; o CDS não abre connect() para essas portas."
+  },
+  "4_configHostPorta": {
+    "existeConfigHostPortaParaVPagueNoCds": false,
+    "ondeCarregaServidorLegado": [
+      "tefConfigService.mapearPayloadEntrada → servidor.ip/porta/base_url",
+      "tefConfigService.obterConfiguracao / getServerConfig",
+      "tefMonitorService (SELECT base_url, ip, porta)"
+    ],
+    "oQueVaiParaAdapterDestaxa": "configParaRegistroAdapter leva provedor, ambiente, empresa/loja/terminal/pdv/caixa, pinpad COM — não ipServidor/portaServidor como endpoint Client",
+    "entradaDllIniciaClient": "versao;aplicacao;[estabelecimento];[loja];[terminal] via destaxaMapeamentoTerminal.projetarEntradaIniciaClient — sem host/porta TCP"
+  },
+  "5_modoBackground": {
+    "compatibilidadeComIntegracaoImplementada": "compatível no desenho atual",
+    "motivo": "CDS não depende de UI do Client; exige processo VSPagueClient.exe em execução e Responding (sdkDetector). Background atende essa premissa.",
+    "limitacao": "CDS não valida modo Background explicitamente nem inspeciona portas 60603/60906; se o Client Background não expuser o canal esperado pela DLL, só a DLL/INIT revelará (fora desta etapa)."
+  },
+  "6_testeConectividadeNaoFinanceiro": {
+    "recomendadosSemInitSemTx": [
+      {
+        "id": "A",
+        "caminho": "sdkDetector.detectarVsPagueClient()",
+        "prova": "PID/caminho/Responding — alinhado ao PID 8740 observado"
+      },
+      {
+        "id": "B",
+        "caminho": "destaxaEvidenciasOperacionais.avaliarEvidenciasDestaxa (via diagnóstico TEF)",
+        "prova": "processo, log, .conf — documentado como sem reexecução de INIT"
+      },
+      {
+        "id": "C",
+        "caminho": "DestaxaHostBridge LOAD + STATUS / DestaxaRealAdapter.diagnosticar()",
+        "prova": "DLL carregada + exports; clientInitialized pode ser false; transactionCommunicationValidated=false"
+      },
+      {
+        "id": "D",
+        "caminho": "Native Host PING",
+        "prova": "só IPC CDS↔Host — não prova DLL↔Client"
+      }
+    ],
+    "existeMasFazInit": {
+      "caminho": "DestaxaRealAdapter.testarConexao() → INIT_CLIENT / iniciaClientDestaxa",
+      "restricaoAtual": "NÃO executar nesta etapa"
+    }
+  },
+  "7_divergenciasCdsVsClientObservado": [
+    {
+      "id": "DIV-1",
+      "tipo": "camada",
+      "descricao": "Client escuta TCP 60603 e 60906; CDS não configura nem conecta a essas portas.",
+      "impacto": "Não é bug de porta faltando no CDS — integração é via DLL. Confirmar com Destaxa se a DLL 1.83 do CDS aponta ao mesmo Client/Background."
+    },
+    {
+      "id": "DIV-2",
+      "tipo": "expectativa_operacional",
+      "descricao": "Operador pode achar que deve preencher ipServidor/portaServidor=60906 no CDS.",
+      "impacto": "Para Destaxa esses campos são nao_aplicavel; preenchê-los não estabelece o canal."
+    },
+    {
+      "id": "DIV-3",
+      "tipo": "prova_de_comunicacao",
+      "descricao": "Portas LISTENING + processo Responding ≠ comunicação DLL↔Client validada nem terminal cadastrado (00151 histórico).",
+      "impacto": "CDS pode detectar Client ‘ok’ e ainda falhar no Identificar/INIT."
+    },
+    {
+      "id": "DIV-4",
+      "tipo": "identidade",
+      "descricao": "Identidade máquina = hostname/MAC no Client; CDS mapeia estabelecimento/loja/terminal opcionais — sem host TCP.",
+      "impacto": "Liberação no V$PagueServer continua pré-requisito externo."
+    }
+  ],
+  "cdsJaConsegueSeComunicarComOClient": {
+    "respostaCurta": "Não comprovado nesta auditoria (sem LOAD/INIT executados agora).",
+    "estadoProvavel": {
+      "processoClientVisivelAoCds": "sim — detectável via detectarVsPagueClient (PID 8740)",
+      "canalTcpCdsClient": "não usado pelo CDS",
+      "canalDllClient": "não verificado nesta corrida (exigiria LOAD e, para Identificar, INIT)",
+      "conclusao": "Pré-condição de processo/Background satisfeita; comunicação funcional CDS↔Client ainda depende da DLL Destaxa responder via iniciaClientDestaxa em teste controlado futuro."
+    }
+  },
+  "oQueFaltaParaEstabelecerComunicacao": [
+    "Confirmar DLL Destaxa 1.83 empacotada no CDS e koffi carregável (LOAD sem TX)",
+    "Confirmar com Destaxa que Client Background + portas 60603/60906 são o par esperado dessa DLL",
+    "Resolver cadastro/liberação terminal (00151) e .conf se ainda pendentes",
+    "Só então INIT controlado (testarConexao) — ainda sem pagamento",
+    "Não configurar 60906 no CDS como se fosse servidor TEF HTTP"
+  ],
+  "proximaAcaoTecnicaMinimaRecomendada": {
+    "acao": "Diagnóstico readonly + LOAD/STATUS (sem INIT): confirmar DLL/exports e detecção do VSPagueClient PID 8740 no monitor TEF do CDS",
+    "alternativamenteSeJaConfirmadoDll": "Abrir com Destaxa: 'Client Background escuta 60603/60906 — a libdll-integracao-tef do CDS usa esse canal automaticamente?'",
+    "proibidoAgora": ["INIT", "pagamento", "cancelamento", "estorno", "alterar config/código/banco"]
+  },
+  "resultadoAuditoria": "DIAGNÓSTICO CONCLUÍDO — CDS NÃO USA TCP 60603/60906; CANAL ESPERADO É DLL DESTAXA SOBRE CLIENT LOCAL EM BACKGROUND"
+}

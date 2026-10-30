@@ -1,0 +1,115 @@
+{
+  "sprint": "MRT-10",
+  "title": "Generalização da configuração de provedores TEF",
+  "generatedAt": "2026-10-30T10:00:00.000Z",
+  "status": "MRT-10 CONCLUÍDA — CONFIGURAÇÃO TEF GENERALIZADA",
+  "restricoesObservadas": {
+    "migrations": false,
+    "bancoOficialAlterado": false,
+    "camposOuDadosExcluidos": false,
+    "paygoImplementado": false,
+    "sitefImplementado": false,
+    "initReal": false,
+    "transacaoReal": false,
+    "gates": false,
+    "adaptersAlteradosSemNecessidade": false,
+    "destaxaComportamentoAlterado": false,
+    "tef13a17Alterados": false,
+    "mrt01a09Regredidos": false
+  },
+  "auditoriaOrigemConsumo": {
+    "persistencia": {
+      "tabela": "tef_configuracao",
+      "camposGenericos": [
+        "empresa_codigo",
+        "loja_codigo",
+        "terminal_codigo",
+        "pdv_codigo",
+        "caixa_codigo"
+      ],
+      "provedor": "tef_configuracao.provedor (aba Geral) — identifica o fornecedor TEF"
+    },
+    "ui": {
+      "arquivo": "frontend/erp/js/configuracao_tef.js",
+      "aba": "renderizarAbaEmpresaTEF",
+      "antes": "título e labels condicionais à marca Destaxa",
+      "depois": "Empresa / Mapeamento TEF + labels genéricos do provedor; nota Destaxa só como aviso contextual"
+    },
+    "backendGenerico": {
+      "arquivo": "backend/services/tef/tefConfigService.js",
+      "papel": "persiste/valida campos agnósticos; quando provedor=destaxa chama destaxaMapeamentoTerminal"
+    },
+    "interpretacaoDestaxa": {
+      "arquivo": "backend/services/tef/destaxa/destaxaMapeamentoTerminal.js",
+      "mapeamento": {
+        "empresa_codigo": "estabelecimento (iniciaClientDestaxa)",
+        "loja_codigo": "loja",
+        "terminal_codigo": "terminal",
+        "pdv_codigo": "não enviado à DLL",
+        "caixa_codigo": "não enviado à DLL"
+      }
+    },
+    "contratoDocumentado": {
+      "arquivo": "backend/services/tef/tefProvedorCampos.js",
+      "nota": "Documenta escopo provedor vs cds_local; SiTef/PayGo sem presumir mesmos IDs"
+    },
+    "roteador": "Independente dos adapters — TerminalRouter/Allocator/Registry/ExecutionContext não alterados"
+  },
+  "alteracoesInterface": {
+    "titulo": "Empresa / Mapeamento TEF",
+    "campos": {
+      "estabelecimento": "Estabelecimento do provedor",
+      "loja": "Loja do provedor",
+      "terminal": "Terminal lógico do provedor",
+      "pdv": "PDV CDS (identidade local)",
+      "caixa": "Caixa CDS (identidade local)"
+    },
+    "placeholderProvedor": "Somente código oficial do provedor",
+    "avisosPreservados": [
+      "PDV/Caixa = identidade interna CDS",
+      "não enviar como identificadores do provedor",
+      "nota contextual Destaxa 00151/.conf quando provedor=destaxa"
+    ]
+  },
+  "compatibilidadeDestaxa": {
+    "idsFormulario": ["empresaCodigo", "lojaCodigo", "terminalCodigo", "pdvCodigo", "caixaCodigo"],
+    "persistencia": "inalterada",
+    "projetarEntradaIniciaClient": "estabelecimento/loja/terminal; pdv/caixa isolados — validado",
+    "dllKoffi": "não tocados",
+    "validarConfiguracao": "tefProntoParaVenda permanece false sem homologação"
+  },
+  "propostaBancoFutura": {
+    "necessariaNestaSprint": false,
+    "nota": "Campos atuais em tef_configuracao são suficientes como storage genérico; eventual tabela por provedor só se SiTef/PayGo exigirem atributos incompatíveis — documentar em sprint dedicada"
+  },
+  "arquivosCriados": [
+    "backend/services/tef/tefProvedorCampos.js",
+    "tests/tef/mrt-10-generalizacao-provedores.test.js",
+    "docs/build/mrt-10-generalizacao-provedores-report.json"
+  ],
+  "arquivosAlterados": [
+    "frontend/erp/js/configuracao_tef.js",
+    "frontend/erp/pages/ConfiguracaoTEF.html",
+    "backend/services/tef/destaxa/destaxaMapeamentoTerminal.js",
+    "backend/services/tef/tefConfigService.js"
+  ],
+  "testes": {
+    "mrt10": {
+      "comando": "node tests/tef/mrt-10-generalizacao-provedores.test.js",
+      "resultado": "8/8 OK"
+    },
+    "regressoes": {
+      "TEF-DESTAXA-10": "10/10 OK",
+      "MRT-08": "13/13 OK",
+      "MRT-06": "14/14 OK",
+      "TEF-13": "13/13 OK",
+      "TEF-17": "10/10 OK"
+    }
+  },
+  "riscosRemanescentes": [
+    "Diagnóstico TEF ainda tem painel/rótulos Destaxa (evidências V$Pague) — fora do escopo desta aba Empresa; OK contextual",
+    "SiTef/PayGo ainda não têm módulo de interpretação próprio — validarConfiguracao continua exigindo códigos para não-Destaxa",
+    "Operadores acostumados ao título Destaxa verão nomenclatura genérica — nota contextual mantida quando provedor=destaxa"
+  ],
+  "conclusao": "UI de mapeamento TEF generalizada (título/labels/placeholders) sem alterar persistência, Destaxa DLL/mapeamento, adapters, TefManager ou MRT-01…09; identidade CDS (PDV/Caixa) permanece separada dos códigos do provedor."
+}

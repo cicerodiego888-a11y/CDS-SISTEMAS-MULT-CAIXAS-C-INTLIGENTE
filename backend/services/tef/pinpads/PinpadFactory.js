@@ -3,6 +3,7 @@ const GertecPPC930 = require('./GertecPPC930');
 const IngenicoPinpad = require('./IngenicoPinpad');
 const VerifonePinpad = require('./VerifonePinpad');
 const PaxPinpad = require('./PaxPinpad');
+const PinpadNaoIntegrado = require('./PinpadNaoIntegrado');
 const pinpadCatalog = require('./pinpadCatalog');
 
 function normalizarConfig(config = {}) {
@@ -18,12 +19,20 @@ function normalizarConfig(config = {}) {
     fabricante: meta.fabricante,
     modelo: meta.modelo,
     pinpadNome: meta.nome,
-    pinpadNomeExibicao: meta.nomeExibicao
+    pinpadNomeExibicao: meta.nomeExibicao,
+    integracaoTefStatus: meta.integracaoTefStatus || null,
+    interfacesFisicasDocumentadas: meta.interfacesFisicasDocumentadas || null
   };
 }
 
 function resolverClassePinpad(config = {}) {
   const meta = pinpadCatalog.resolver(config);
+
+  // Modelos cadastrados sem integração TEF: nunca Gertec, nunca stub Verifone que simula sucesso.
+  if (meta?.integracaoTefStatus === pinpadCatalog.INTEGRACAO_TEF.NAO_INTEGRADO
+    || meta?.codigo === 'VERIFONE_P200') {
+    return PinpadNaoIntegrado;
+  }
 
   if (meta?.codigo === 'GERTEC_PPC930') {
     return GertecPPC930;
@@ -37,6 +46,7 @@ function resolverClassePinpad(config = {}) {
     case 'Ingenico':
       return IngenicoPinpad;
     case 'Verifone':
+      // Fabricante Verifone genérico legado (stub). P200 já tratado acima como NAO_INTEGRADO.
       return VerifonePinpad;
     case 'PAX':
       return PaxPinpad;

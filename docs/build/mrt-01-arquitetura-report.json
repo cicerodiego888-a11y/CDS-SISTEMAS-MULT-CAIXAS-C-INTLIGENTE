@@ -1,0 +1,392 @@
+{
+  "sprint": "MRT-01",
+  "title": "Arquitetura do CDS TEF Terminal Router",
+  "generatedAt": "2026-10-30T02:15:00.000Z",
+  "status": "MRT-01 CONCLUÍDA — ARQUITETURA DEFINIDA",
+  "modo": "somente_auditoria_e_projeto",
+  "restricoesObservadas": {
+    "codigoAlterado": false,
+    "bancoAlterado": false,
+    "migrations": false,
+    "initClient": false,
+    "transacaoReal": false,
+    "gatesHabilitados": false,
+    "cadastrosFicticios": false,
+    "suporteMultiTerminalDllPresumido": false
+  },
+
+  "auditoriaEstadoAtual": {
+    "fluxoObservado": "PDV → POST /api/tef/pagar → TefManager → tefFactory.obterAdapter → Adapter (DestaxaReal/SiTef/PayGo/…) → [Destaxa] DestaxaHostBridge → DestaxaNativeHostClient (singleton) → DestaxaNativeHost → koffi → libdll-integracao-tef.dll → V$PagueClient",
+    "componentesInspecionados": {
+      "TefManager": {
+        "papel": "Orquestração de autorização, cancelamento, consulta, reconciliação, locks e persistência tef_transacoes",
+        "selecaoAdapter": "obterAdapter() sem contexto de PDV/terminal — um adapter por instalação",
+        "arquivo": "backend/services/tef/TefManager.js"
+      },
+      "tefFactory": {
+        "papel": "Cria adapter por provedor+ambiente a partir da config principal",
+        "fonteConfig": "tefConfigRepository.buscarConfiguracaoPrincipal → ORDER BY id ASC LIMIT 1",
+        "provedores": ["sitef", "paygo", "cielo", "stone", "rede", "getnet", "destaxa"],
+        "arquivo": "backend/services/tef/tefFactory.js"
+      },
+      "BaseAdapter": {
+        "papel": "Contrato comum autorizar/cancelar/consultar/reimprimir/diagnosticar",
+        "arquivo": "backend/services/tef/adapters/BaseAdapter.js"
+      },
+      "DestaxaRealAdapter": {
+        "papel": "Adapta contrato TEF CDS → DestaxaNativeBridge/HostBridge; CRT homologação; cancelamento TEF-17",
+        "naoFaz": "Seleção multi-terminal; não isola por PDV"
+      },
+      "DestaxaNativeBridge": {
+        "papel": "Load DLL via koffi, iniciaClient/transacao/continua/finaliza",
+        "mapeamento": "estabelecimento/loja/terminal opcionais; pdv/caixa CDS nunca entram na DLL"
+      },
+      "destaxaMapeamentoTerminal": {
+        "evidencia": "Identidade Client V$Pague = hostname/MAC; terminal_codigo = terminal lógico Destaxa; pdv_codigo/caixa_codigo = locais CDS",
+        "arquivo": "backend/services/tef/destaxa/destaxaMapeamentoTerminal.js"
+      },
+      "PaymentTerminalManager": "AUSENTE no repositório",
+      "PaymentTerminalAllocator": "AUSENTE no repositório",
+      "PaymentTerminalRegistry": "AUSENTE no repositório"
+    },
+    "configuracaoAtual": {
+      "escopo": "instalacao_singleton",
+      "fonte": "tefConfigService.ESCOPO_CONFIGURACAO_TEF",
+      "tabelas": {
+        "tef_configuracao": "1 linha efetiva (LIMIT 1); empresa/loja/pdv/terminal/caixa são TEXT do provedor, não FK",
+        "tef_pinpads": "1 pinpad por config (LIMIT 1); porta_com = dispositivo físico desta instalação",
+        "tef_servidores": "1 servidor por config",
+        "tef_operacoes": "flags de operações habilitadas"
+      },
+      "tef_transacoes": "sem colunas pdv_id/caixa_id/terminal_tef_id; vínculo via venda_id + idempotency_key (TEF-13/15)"
+    },
+    "rotasPagamento": {
+      "POST /api/tef/pagar": "tipo, valor, parcelas, venda_id, idempotency_key — sem pdv_id/terminal_id/porta",
+      "auth": "mount /api/tef com verificarToken (server.js)"
+    },
+    "identidadePdvCaixaHoje": {
+      "pdv_codigo_caixa_codigo_em_config": "campos TEXT opcionais; não usados no /pagar; não enviados à DLL Destaxa",
+      "caixa_sessao": "existe no domínio de vendas/caixa (caixa_sessao_id), não amarrado à seleção TEF",
+      "terminais_hostname": "tabela terminais + rotas/terminais.js amarra hostname do PC a caixa — identidade de estação CDS, distinta de terminal TEF Destaxa e de PinPad",
+      "confusaoProibida": "hostname/MAC ≠ pdv_id CDS ≠ terminal_codigo Destaxa ≠ porta COM PinPad"
+    },
+    "concorrenciaRecuperacao": {
+      "tefLockService": "locks por chave (venda_id / idempotency_key) em memória + tef_locks",
+      "DestaxaNativeHost": "um host por processo Electron; HOST_BUSY se chamada nativa concorrente",
+      "pendencias": "TEF-14 — inconclusivas não auto-aprovadas; reconciliação explícita",
+      "idempotencia": "TEF-13 — chave estável por fingerprint de operação"
+    },
+    "evidenciaTeF11": "docs/build/tef-destaxa-11-config-por-pdv-report.json — modeloPorPdv=AUSENTE; riscos multi-caixa/COM/V$Pague"
+  },
+
+  "diagramaArquitetural": {
+    "mermaid": "flowchart TB\n  subgraph UI\n    PDV[PDV / ERP]\n  end\n  subgraph CDS_Core\n    API[Rotas TEF /api/tef]\n    TM[TefManager\\nOrquestração financeira\\nidempotência·pendências·vínculo]\n    ROUTER[CDS TEF Terminal Router\\nSeleção e distribuição]\n    REG[Terminal Registry\\nEmpresa→Loja→PDV→TerminalTEF→Dispositivo]\n    FACT[tefFactory\\nCriação de Adapter por provedor]\n  end\n  subgraph Adapters\n    DA[DestaxaRealAdapter]\n    SA[SitefRealAdapter]\n    PA[PaygoRealAdapter]\n    XA[Outros adapters]\n  end\n  subgraph ExecDestaxa\n    HB[DestaxaHostBridge]\n    NH[Native Host singleton/processo]\n    DLL[libdll-integracao-tef.dll]\n    VP[V$PagueClient\\nhostname/MAC]\n  end\n  PDV -->|contexto: empresa loja pdv sessão| API\n  API --> TM\n  TM -->|ResolveRouteRequest| ROUTER\n  ROUTER --> REG\n  ROUTER -->|RouteDecision| TM\n  TM -->|adapterBinding| FACT\n  FACT --> DA & SA & PA & XA\n  DA --> HB --> NH --> DLL --> VP\n  note1[Router NÃO substitui TefManager\\nNÃO reescreve adapters\\nIndependente do provedor]",
+    "camadas": [
+      "UI PDV/ERP — apresenta venda; envia identidade PDV validada + contexto de pagamento",
+      "API TEF — autenticação, validação de payload, auditoria",
+      "TefManager — ciclo de vida financeiro da transação (autorizar/cancelar/reconciliar/persistir)",
+      "Terminal Router — resolve qual terminal TEF + dispositivo + binding de execução; não processa pagamento",
+      "Terminal Registry — modelo lógico persistido Empresa→Loja→PDV→TerminalTEF→Dispositivo",
+      "tefFactory + Adapters — provedor específico; inalterados em responsabilidade",
+      "Runtime Destaxa/SiTef/PayGo — DLL/middleware/PinPad conforme provedor"
+    ]
+  },
+
+  "responsabilidadesPorCamada": {
+    "TefManager": [
+      "Receber pedido de pagamento já autenticado",
+      "Consultar Router para obter RouteDecision",
+      "Executar adapter.autorizarPagamento / cancelarPagamento com config do binding",
+      "Persistir tef_transacoes, logs, locks, pendências, vínculo venda (TEF-13/14/15/17)",
+      "NÃO escolher PinPad/COM/terminal lógico por conta própria após Router existir"
+    ],
+    "TerminalRouter": [
+      "Validar identidade do PDV (backend)",
+      "Resolver Empresa → Loja → PDV → Terminal TEF → Dispositivo",
+      "Selecionar estratégia de adapter (provedor+ambiente) sem instanciar regra financeira",
+      "Definir contexto de execução (in-process / native-host / remoto futuro)",
+      "Recusar rota ambígua ou sem dispositivo disponível",
+      "NÃO chamar DLL; NÃO autorizar pagamento; NÃO substituir TefManager"
+    ],
+    "TerminalRegistry": [
+      "CRUD/consulta do modelo lógico e vínculos",
+      "Estado do dispositivo (livre/ocupado/indisponível) — alocação curta",
+      "NÃO ser confundido com tabela terminais (hostname) atual"
+    ],
+    "tefFactory": [
+      "Continuar criando adapters por provedor+ambiente",
+      "Passar a aceitar registro/binding proveniente do Router (em vez de só LIMIT 1 global) — evolução incremental"
+    ],
+    "Adapters": [
+      "Manter contrato BaseAdapter",
+      "Destaxa/SiTef/PayGo sem reescrita; recebem config já selecionada"
+    ],
+    "PDV": [
+      "Possuir pdvId estável emitido/validado pelo backend",
+      "Enviar pdvId + caixaSessaoId no pedido TEF",
+      "NÃO usar hostname/MAC como pdvId"
+    ]
+  },
+
+  "modeloLogico": {
+    "hierarquia": "Empresa → Loja → PDV → TerminalTEF → Dispositivo",
+    "entidades": {
+      "Empresa": {
+        "id": "empresa_id (CDS)",
+        "codigoProvedor": "opcional (ex.: estabelecimento Destaxa) — NÃO é identidade do PDV"
+      },
+      "Loja": {
+        "id": "loja_id (CDS)",
+        "empresaId": "FK",
+        "codigoProvedor": "opcional (loja Destaxa/SiTef)"
+      },
+      "PDV": {
+        "id": "pdv_id (UUID/código CDS, validado no backend)",
+        "lojaId": "FK",
+        "naoEh": ["hostname", "MAC", "porta COM", "terminal_codigo Destaxa"],
+        "podeHaver": "N PDVs na mesma máquina física; N máquinas com 1+ PDVs"
+      },
+      "TerminalTEF": {
+        "id": "terminal_tef_id",
+        "pdvId": "FK preferencial 1:1 ou N:1 conforme produto",
+        "provedor": "destaxa|sitef|paygo|…",
+        "codigoLogicoProvedor": "ex. terminal_codigo V$Pague — independente do PinPad",
+        "ambiente": "simulacao|homologacao|producao"
+      },
+      "Dispositivo": {
+        "id": "dispositivo_id",
+        "tipo": "pinpad|pinpad_ip|virtual",
+        "conexao": "porta_com | ip:porta | serial",
+        "terminalTefId": "FK",
+        "nota": "PinPad físico ≠ Terminal TEF lógico"
+      },
+      "EstacaoHost": {
+        "id": "host_id",
+        "identificadores": ["hostname", "MAC"],
+        "papel": "contexto de execução / capacidade V$Pague Client — NÃO identidade PDV",
+        "relacao": "1 host pode servir 1..N PDVs; limitações do provedor podem restringir"
+      }
+    },
+    "cenariosTopologia": {
+      "A_umPcUmPdv": "1 Host → 1 PDV → 1 TerminalTEF → 1 Dispositivo (modelo atual efetivo)",
+      "B_umPcVariosPdvs": "1 Host → N PDVs → N TerminalTEF/Dispositivo; Router isola por pdvId; Destaxa pode exigir 1 Client/máquina → serialização ou bloqueio explícito",
+      "C_variosPcsPdvsIndependentes": "N Hosts → cada um com 1+ PDVs e config/banco ou registry compartilhado; Router resolve no backend pela identidade PDV"
+    }
+  },
+
+  "contratoRouter": {
+    "entrada_ResolveRouteRequest": {
+      "empresaId": "string|number|null",
+      "lojaId": "string|number|null",
+      "pdvId": "string (obrigatório quando multi-PDV ativo)",
+      "caixaSessaoId": "number|null",
+      "operacao": "autorizar|cancelar|consultar|diagnosticar",
+      "provedorPreferido": "string|null",
+      "valorCentavos": "number|null",
+      "idempotencyKey": "string|null",
+      "hostHints": {
+        "hostname": "apenas hint de estação — nunca usado como pdvId",
+        "mac": "apenas hint"
+      }
+    },
+    "saida_RouteDecision": {
+      "sucesso": "boolean",
+      "codigo": "ROUTE_OK | PDV_INVALIDO | TERMINAL_AUSENTE | DISPOSITIVO_OCUPADO | PROVEDOR_INDISPONIVEL | TOPOLOGIA_NAO_SUPORTADA | AMBIGUO",
+      "pdvId": "string",
+      "terminalTefId": "string",
+      "dispositivoId": "string|null",
+      "provedor": "string",
+      "ambiente": "string",
+      "adapterBinding": {
+        "registroConfig": "objeto compatível com tefFactory/adapters (sem reescrever adapters)",
+        "executionMode": "native-host|in-process|remote-future"
+      },
+      "isolamento": {
+        "lockKeySugerida": "terminal_tef:{id} ou dispositivo:{id}",
+        "permiteParaleloNoMesmoHost": "boolean — false sob Destaxa até evidência contrária"
+      },
+      "mensagem": "string"
+    },
+    "invariantes": [
+      "RouteDecision sem sucesso ⇒ TefManager não inicia autorização",
+      "pdvId validado no backend antes da seleção",
+      "hostname/MAC nunca preenchem pdvId",
+      "terminal_codigo do provedor nunca substitui pdvId"
+    ]
+  },
+
+  "estrategiaSelecaoAdapter": {
+    "ordem": [
+      "1. Validar pdvId (e loja/empresa se informados)",
+      "2. Carregar TerminalTEF vinculado ao PDV (Registry)",
+      "3. Ler provedor+ambiente do TerminalTEF (não do singleton global, após MRT-02+)",
+      "4. Verificar disponibilidade do adapter via tefFactory/verificarDisponibilidade (Destaxa DLL etc.)",
+      "5. Anexar Dispositivo (COM/IP) ao registro do adapter",
+      "6. Devolver RouteDecision; TefManager chama factory com binding"
+    ],
+    "compatibilidade": {
+      "fase0_compat": "Se Registry vazio: Router devolve binding equivalente ao singleton atual (LIMIT 1) — zero regressão 1PDV",
+      "destaxa": "DestaxaRealAdapter recebe registro já montado; sem alteração de protocolo CRT",
+      "sitef": "SitefRealAdapter — mesmo padrão de binding",
+      "paygo": "PaygoRealAdapter — mesmo padrão",
+      "simulacao": "adapters simulados continuam válidos quando ambiente=simulacao"
+    }
+  },
+
+  "estrategiaContextoFisicoExecucao": {
+    "dispositivo": "Selecionado pelo Router; PinPad COM/IP é propriedade do Dispositivo, não do PDV nem do hostname",
+    "executionMode": {
+      "native-host": "padrão Destaxa atual (DestaxaHostBridge + cliente singleton por processo Electron)",
+      "in-process": "diagnóstico/testes",
+      "remote-future": "reservado — fora do escopo MRT-01"
+    },
+    "hostHints": "usados só para checagem de topologia (ex.: dispositivo COM só existe no host local) e evidências Destaxa/V$Pague",
+    "destaxaClientIdentity": "V$PagueClient continua identificando a máquina (hostname/MAC); Router registra essa limitação em RouteDecision.permiteParaleloNoMesmoHost=false quando provedor=destaxa sem confirmação multi-terminal"
+  },
+
+  "estrategiaIsolamentoConcorrencia": {
+    "hoje": "tefLockService por venda/idempotency; Native Host HOST_BUSY; config singleton",
+    "alvo": [
+      "Lock de alocação curto em Dispositivo/TerminalTEF durante autorização",
+      "Fila por terminal_tef_id quando o provedor não admite paralelismo no host",
+      "Preservar TEF-13 idempotência e TEF-14 pendências sem misturar com alocação de terminal",
+      "Recuperação: liberar alocação em timeout/crash sem marcar pagamento cancelado (TEF-17)"
+    ],
+    "naoFazer": [
+      "Presumir que a DLL Destaxa isola N terminais concorrentes",
+      "Usar o mesmo PinPad/COM para dois PDVs sem política explícita"
+    ]
+  },
+
+  "compatibilidadeProvedores": {
+    "Destaxa": {
+      "adapter": "DestaxaRealAdapter + Native Host",
+      "terminalLogico": "terminal_codigo → campo terminal iniciaClient (opcional)",
+      "dispositivo": "porta_com PinPad",
+      "limitacaoRouter": "1 Client/máquina (V$Pague); Native Host singleton; EST sem contrato de entrada (TEF-17)"
+    },
+    "SiTef": {
+      "adapter": "SitefAdapter / SitefRealAdapter",
+      "nota": "Router fornece binding; SiTefReal permanece ponto de integração SDK — sem reescrita"
+    },
+    "PayGo": {
+      "adapter": "PaygoAdapter / PaygoRealAdapter",
+      "nota": "Idem — seleção via Router, execução no adapter"
+    },
+    "StoneCieloRedeGetnet": {
+      "nota": "Factory já distingue; Router não inventa disponibilidade — propaga indisponibilidade do factory"
+    }
+  },
+
+  "limitacoesComprovadasDestaxaVsPague": [
+    {
+      "id": "LIM-01",
+      "item": "V$PagueClient identifica instalação por hostname/MAC (Identificar), não por pdv_codigo CDS",
+      "evidencia": "destaxaMapeamentoTerminal.js; tef-destaxa-11; auditorias 08/10"
+    },
+    {
+      "id": "LIM-02",
+      "item": "Erro 00151 — terminal/máquina não cadastrado ou desabilitado no Partner Cloud",
+      "evidencia": "destaxaEvidenciasOperacionais; TEF-DESTAXA-08"
+    },
+    {
+      "id": "LIM-03",
+      "item": "DLL expõe 4 funções; sem API multi-terminal documentada; paralelismo não comprovado",
+      "evidencia": "docs Destaxa 1.83; DestaxaNativeHost HOST_BUSY"
+    },
+    {
+      "id": "LIM-04",
+      "item": "Native Host: um processo host por app Electron (cliente compartilhado)",
+      "evidencia": "DestaxaNativeHostClient.js — compartilhado = singleton"
+    },
+    {
+      "id": "LIM-05",
+      "item": "Config TEF atual é singleton por banco/instalação (LIMIT 1)",
+      "evidencia": "tefConfigRepository.buscarConfiguracaoPrincipal; ESCOPO_CONFIGURACAO_TEF"
+    },
+    {
+      "id": "LIM-06",
+      "item": "EST (estorno) listado na DLL sem campos de entrada documentados — cancelamento comercial bloqueado (TEF-17)",
+      "evidencia": "docs/06; destaxaCancelamentoPolitica.js"
+    }
+  ],
+
+  "planoIncremental": [
+    {
+      "fase": "MRT-01",
+      "status": "concluida",
+      "objetivo": "Auditoria + arquitetura (este documento)"
+    },
+    {
+      "fase": "MRT-02",
+      "objetivo": "Contrato Router + validação de pdvId no backend (sem mudar seleção efetiva)",
+      "entregaveis": ["módulo TerminalRouter stub", "middleware valida pdvId", "testes de identidade"],
+      "naoFaz": ["schema multi-terminal", "alterar factory LIMIT 1"]
+    },
+    {
+      "fase": "MRT-03",
+      "objetivo": "Registry mínimo + fallback compatível com singleton",
+      "entregaveis": ["modelo lógico persistido opcional", "RouteDecision → factory com binding equivalente ao atual"],
+      "depende": ["produto definir se multi-PDV é requisito imediato"]
+    },
+    {
+      "fase": "MRT-04",
+      "objetivo": "Alocação de Dispositivo + locks por terminal_tef_id",
+      "entregaveis": ["allocator", "integração TefManager sem reescrever adapters"],
+      "bloqueioDestaxa": "paralelismo no mesmo host permanece false até evidência Destaxa"
+    },
+    {
+      "fase": "MRT-05",
+      "objetivo": "Topologia B/C (vários PDVs / vários PCs) com políticas explícitas por provedor",
+      "entregaveis": ["UI cadastro PDV↔Terminal↔Dispositivo", "diagnóstico de rota"],
+      "dependeExternamente": ["provisionamento V$Pague 00151", "confirmação multi-terminal Destaxa se aplicável"]
+    }
+  ],
+
+  "riscosEDependenciasExternas": {
+    "riscos": [
+      "Implementar multi-PDV Destaxa no mesmo PC sem serialização → HOST_BUSY / 00151 / corrida no PinPad",
+      "Confundir hostname (tabela terminais) com pdvId ou terminal TEF",
+      "Migrar schema antes do Router contrato estável",
+      "Quebrar instalação 1PDV ao remover fallback singleton cedo demais"
+    ],
+    "dependenciasExternas": [
+      "Destaxa/V$Pague: liberação MAC-hostname (00151) e .conf",
+      "Confirmação oficial se um V$PagueClient admite N terminais lógicos concorrentes",
+      "Contrato de campos EST se cancelamento multi-terminal for exigido",
+      "SiTef/PayGo: disponibilidade real de SDK por estação"
+    ]
+  },
+
+  "decisoesArquiteturaisObrigatorias": [
+    "Router não substitui TefManager",
+    "Router não reescreve adapters",
+    "Router é independente do provedor (decision + binding; execução no adapter)",
+    "PDV tem identidade própria validada no backend",
+    "Terminal TEF ≠ PinPad físico ≠ hostname/MAC",
+    "Seleção considera empresa, loja, PDV, terminal, dispositivo, adapter e contexto de execução",
+    "Topologias A/B/C contempladas; B/C limitadas por provedor até evidência",
+    "Não presumir multi-terminal na DLL Destaxa"
+  ],
+
+  "arquivosConsultados": [
+    "backend/services/tef/TefManager.js",
+    "backend/services/tef/tefFactory.js",
+    "backend/services/tef/adapters/BaseAdapter.js",
+    "backend/services/tef/adapters/DestaxaRealAdapter.js",
+    "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+    "backend/services/tef/destaxa/DestaxaNativeHostClient.js",
+    "backend/services/tef/destaxa/destaxaMapeamentoTerminal.js",
+    "backend/services/tef/tefConfigService.js",
+    "backend/repositories/tefConfigRepository.js",
+    "backend/services/tef/tefLockService.js",
+    "backend/rotas/tef.js",
+    "backend/rotas/terminais.js",
+    "backend/database.js",
+    "docs/build/tef-destaxa-11-config-por-pdv-report.json",
+    "docs/build/tef-12-auditoria-estabilizacao-report.json",
+    "docs/build/tef-17-cancelamento-destaxa-report.json"
+  ],
+
+  "conclusao": "Arquitetura do CDS TEF Terminal Router definida como camada de seleção/distribuição entre API/TefManager e tefFactory/adapters, com modelo Empresa→Loja→PDV→TerminalTEF→Dispositivo, contrato ResolveRouteRequest/RouteDecision, fallback singleton para não regressão, e limitações Destaxa/V$Pague explícitas. PaymentTerminalManager/Allocator/Registry não existem no código atual — serão introduzidos sob o nome/contrato do Router nas fases MRT-02+."
+}

@@ -1,0 +1,301 @@
+{
+  "sprint": "MRT-18",
+  "title": "Preparação do ambiente real de homologação Destaxa",
+  "generatedAt": "2026-10-30T18:23:53.314Z",
+  "referencias": [
+    "docs/build/mrt-16-init-controlado-destaxa-report.json",
+    "docs/build/mrt-17-auditoria-pos-init-report.json"
+  ],
+  "restricoesObservadas": {
+    "init": false,
+    "load": false,
+    "pagamento": false,
+    "cancelamento": false,
+    "estorno": false,
+    "comandosPinPad": false,
+    "configProvedorAlterada": false,
+    "bancoProducaoAlterado": false,
+    "migrations": false,
+    "gatesLiberados": false,
+    "codigoAlterado": false
+  },
+  "1_parametrosOficiaisIdentificados": {
+    "iniciaClientDestaxa": {
+      "obrigatoriosComprovados": [
+        "versao",
+        "aplicacao"
+      ],
+      "versaoOrigem": "package.json → DestaxaNativeBridge.obterVersaoAplicacao()",
+      "versaoValor": "1.0.3",
+      "aplicacaoOrigem": "destaxaConstantes.APLICACAO",
+      "aplicacaoValor": "CDS Sistemas",
+      "opcionaisDestaxa": [
+        {
+          "cds": "empresa_codigo",
+          "destaxa": "estabelecimento",
+          "origemEsperada": "Destaxa (oficial)",
+          "valorDbOficial": null,
+          "inventado": false
+        },
+        {
+          "cds": "loja_codigo",
+          "destaxa": "loja",
+          "origemEsperada": "Destaxa (oficial)",
+          "valorDbOficial": null,
+          "inventado": false
+        },
+        {
+          "cds": "terminal_codigo",
+          "destaxa": "terminal",
+          "origemEsperada": "Destaxa (oficial)",
+          "valorDbOficial": null,
+          "inventado": false
+        }
+      ],
+      "naoEnviadosADll": [
+        "pdv_codigo",
+        "caixa_codigo"
+      ],
+      "projecaoComDbOficial": {
+        "texto": "versao=1.0.3;aplicacao=CDS Sistemas",
+        "chaves": [
+          "versao",
+          "aplicacao"
+        ],
+        "incluiPdvOuCaixa": false,
+        "camposDestaxaEnviados": {
+          "estabelecimento": false,
+          "loja": false,
+          "terminal": false
+        },
+        "camposCdsLocais": {
+          "pdv_codigo": null,
+          "caixa_codigo": null
+        }
+      },
+      "fonteContrato": "destaxaMapeamentoTerminal.js / 05-api-iniciaclientdestaxa.md"
+    },
+    "cdsPersistido": {
+      "fonte": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+      "leitura": "sqlite OPEN_READONLY — sem UPDATE/INSERT/migration",
+      "ok": true,
+      "erro": null,
+      "config": {
+        "id": 1,
+        "habilitado": 1,
+        "provedor": "destaxa",
+        "ambiente": "homologacao",
+        "timeout": 60,
+        "tentativas": 3,
+        "empresa_codigo": null,
+        "loja_codigo": null,
+        "terminal_codigo": null,
+        "pdv_codigo": null,
+        "caixa_codigo": null,
+        "tipo_integracao": "dll"
+      },
+      "pinpads": [
+        {
+          "id": 1,
+          "tef_configuracao_id": 1,
+          "habilitado": 1,
+          "codigo": "GERTEC_PPC930",
+          "fabricante": "Gertec",
+          "modelo": "PPC930",
+          "tipo_conexao": "serial",
+          "porta_com": "COM4",
+          "ativo": 1
+        }
+      ]
+    },
+    "diferencasVsMrt16": {
+      "mrt16Texto": "versao=1.0.3;aplicacao=CDS Sistemas",
+      "mrt16Chaves": [
+        "versao",
+        "aplicacao"
+      ],
+      "mrt16Defaults": true,
+      "mrt16AmbienteLido": "simulacao",
+      "projecaoAtualComDbOficial": "versao=1.0.3;aplicacao=CDS Sistemas",
+      "projecaoAtualChaves": [
+        "versao",
+        "aplicacao"
+      ],
+      "nota": "MRT-16 enviou apenas versao+aplicacao (códigos Destaxa nulos). DB oficial hoje também tem empresa/loja/terminal nulos — mesma entrada INIT projetada. Diferença relevante vs harness MRT-16: DB oficial tem provedor=destaxa, ambiente=homologacao, pinpad COM4 (MRT-16 reportou defaults/simulacao no harness)."
+    },
+    "homologacaoDestaxaFornecida": {
+      "confClientPresente": true,
+      "confArquivos": [
+        "C:\\VBI\\V$Pague\\Client\\V$PagueClient_Destaxa_LojaACB_TACB0120.conf"
+      ],
+      "literaisEstabelecimentoLojaTerminalNoCds": false,
+      "estadoMapeamento": "PENDENTE_FORNECEDOR",
+      "codigoMapeamento": "MAPEAMENTO_OFICIAL_PENDENTE",
+      "mensagemMapeamento": "Códigos Destaxa (estabelecimento/loja/terminal) ausentes. Aguardar valores oficiais do fornecedor; não inventar a partir de PDV/caixa/CNPJ/número lógico.",
+      "erro00151Recente": {
+        "logExiste": true,
+        "encontrado": false,
+        "trecho": null,
+        "confMensagem": null,
+        "mensagem": "Nenhuma ocorrência recente de 00151 no log inspecionado."
+      },
+      "nota": "Há .conf provisionado no Client; literais CDS para INIT ainda nulos. Não inventar a partir do nome do arquivo."
+    }
+  },
+  "2_processoFuturaTransacao": {
+    "nativeHost": "DestaxaNativeHost (child_process/utilityProcess) via DestaxaNativeHostClient.obterClienteCompartilhado()",
+    "clienteCompartilhado": "DestaxaNativeHostClient.obterClienteCompartilhado() — 1 host por processo CDS",
+    "adapter": "DestaxaRealAdapter + DestaxaHostBridge",
+    "vspagueClient": {
+      "detectado": true,
+      "executando": true,
+      "responding": true,
+      "pid": 8740,
+      "pidMrt17": 8740,
+      "mesmoPidMrt17": true
+    },
+    "portasTcp": {
+      "60603": {
+        "listening": true,
+        "amostras": [
+          "TCP    0.0.0.0:60603          0.0.0.0:0              LISTENING       8740",
+          "TCP    [::]:60603             [::]:0                 LISTENING       8740"
+        ]
+      },
+      "60906": {
+        "listening": true,
+        "amostras": [
+          "TCP    0.0.0.0:60906          0.0.0.0:0              LISTENING       8740",
+          "TCP    [::]:60906             [::]:0                 LISTENING       8740"
+        ]
+      }
+    },
+    "riscoHostDiferente": "Se o Native Host for encerrado (como na MRT-16), CLIENT_INITIALIZED morre com o processo. TX em host novo exige novo INIT no mesmo host da TX — nunca reutilizar sessão de PID morto."
+  },
+  "3_estrategiaInicializacaoSessao": {
+    "associacaoInit": "INIT_CLIENT → DestaxaNativeBridge.iniciarClient → iniciaClientDestaxa; flag _clientInitialized no processo do host",
+    "sessaoVivaAgora": false,
+    "unicidadeHost": true,
+    "umaRequisicaoEmVoo": true,
+    "bloqueioSeReconciliacao": true,
+    "adapterPodeReInitSeHostSemSessao": true,
+    "loadResetaSessao": true,
+    "passos": [
+      "1. Manter V$Pague Client Responding (PID atual ou equivalente)",
+      "2. Abrir/obter Native Host singleton do processo CDS (Electron/main)",
+      "3. LOAD + INIT único nesse host; validar codigoDestaxa=00 e clientInitialized=true",
+      "4. NÃO encerrar o host entre INIT e CRT",
+      "5. DESTAXA_REAL_TRANSACTION_ENABLED=1 só para a chamada CRT R$1,00; OFF em seguida",
+      "6. Sem retry automático se timeout/inconclusivo; preservar transactionId / reconciliação"
+    ],
+    "initNaoExecutadoNestaSprint": true
+  },
+  "4_estadoPinPadCom4": {
+    "fisico": {
+      "detectado": true,
+      "modelo": "Gertec PPC930",
+      "porta": "COM4",
+      "estado": "DETECTADO",
+      "usb": true,
+      "driverStatus": "nao_confirmado",
+      "com4Disponivel": true,
+      "portasCOM": [
+        {
+          "porta": "COM4",
+          "nome": "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+          "descricao": "PPC-920/930 CDC USB-to-Serial Port"
+        }
+      ],
+      "comandosEnviados": false
+    },
+    "configuracaoCds": {
+      "codigo": "GERTEC_PPC930",
+      "modelo": "PPC930",
+      "porta_com": "COM4",
+      "habilitado": true,
+      "ativo": true,
+      "tipo_conexao": "serial"
+    },
+    "compatibilidadeAdapter": {
+      "exigeGertecPpc930Detectado": true,
+      "exigePortaIgualConfigurada": true,
+      "portaConfiguradaVsDetectada": true,
+      "driverConfirmado": false,
+      "notaDriver": "statuses.driver=nao_confirmado não bloqueou MRT-16/17; USB enumerado. Sem comando ao PinPad nesta sprint."
+    },
+    "com4Ok": true
+  },
+  "5_bloqueiosFinanceirosConfirmados": {
+    "env": "",
+    "gateAberto": false,
+    "valorHomologacaoCentavos": 100,
+    "valorHomologacaoReais": "1.00",
+    "ambienteExigido": "homologacao",
+    "operacoesPermitidas": [
+      "CRT"
+    ],
+    "codigo": {
+      "tefManagerBloqueiaHarnessSeGateOn": true,
+      "adapterExigeGate": true,
+      "orquestradorExigeGate": true,
+      "adapterSoCrt": true,
+      "adapterSoValor100": true,
+      "cancelamentoEstornoComercialBloqueado": true
+    },
+    "caminhoFuturoHomologacao": [
+      "TefManager.autorizar → RouteDecision/ciclo → DestaxaRealAdapter",
+      "prepararAutorizacao (CRT, R$1,00, homologacao, PinPad COM, Client, INIT se preciso)",
+      "gate DESTAXA_REAL_TRANSACTION_ENABLED=1",
+      "iniciarTransacaoDestaxa(CRT) / continua / finaliza no mesmo Native Host"
+    ],
+    "antiDuplicacao": {
+      "idempotencyKey": true,
+      "lockOperacional": true,
+      "timeoutInconclusivoSemRetry": true,
+      "reconciliacaoPendenteBloqueiaNovaTx": true,
+      "notaTentativasDb": "tef_configuracao.tentativas=3 no DB oficial — caminho Destaxa real deve tratar inconclusivo sem reenvio automático (retryAllowed=false / reconciliação)"
+    },
+    "cancelamento": {
+      "estornoComercialHabilitadoNoCds": false,
+      "motivo": "Campos de entrada da operação EST não documentados oficialmente; execução real bloqueada (TEF-17).",
+      "camposEstDocumentados": null
+    }
+  },
+  "6_pendenciasExternasDestaxa": [
+    "Literais oficiais estabelecimento/loja/terminal ainda ausentes no CDS (opcionais na DLL; não inventar a partir do nome do .conf)",
+    "Confirmar com Destaxa se literais estabelecimento/loja/terminal devem ser gravados no CDS além do Identificar MAC/hostname do Client",
+    "Confirmar liberação contínua do terminal no Partner Cloud para CRT de homologação"
+  ],
+  "7_ambientePreparadoparaR1": {
+    "classificacao": "PREPARADO PARA HOMOLOGAÇÃO CONTROLADA",
+    "pendenciasTecnicas": [
+      "Sessão CLIENT_INITIALIZED da MRT-16 não está viva — futura TX exige LOAD+INIT único no Native Host da operação (fora desta sprint)"
+    ],
+    "resposta": "Sim, sob condições: re-INIT no Native Host da TX, gate ON só no CRT R$1,00, sem retry automático, literais CDS só se Destaxa confirmar (opcionais na DLL)."
+  },
+  "confClient": {
+    "diretorioExiste": true,
+    "arquivos": [
+      "C:\\VBI\\V$Pague\\Client\\V$PagueClient_Destaxa_LojaACB_TACB0120.conf"
+    ],
+    "count": 1,
+    "nomeArquivoSugere": "V$PagueClient_Destaxa_LojaACB_TACB0120.conf",
+    "interpretacao": {
+      "tipo": "provisionamento_client",
+      "descricao": "Arquivo .conf sob C:\\VBI é provisionamento do V$PagueClient (Partner Cloud), não literais CDS para iniciaClientDestaxa. Nome LojaACB_TACB0120 NÃO deve ser copiado automaticamente para empresa/loja/terminal no CDS sem confirmação Destaxa.",
+      "inventarParametrosProibido": true
+    }
+  },
+  "mapeamentoTerminal": {
+    "estado": "PENDENTE_FORNECEDOR",
+    "codigo": "MAPEAMENTO_OFICIAL_PENDENTE",
+    "mensagem": "Códigos Destaxa (estabelecimento/loja/terminal) ausentes. Aguardar valores oficiais do fornecedor; não inventar a partir de PDV/caixa/CNPJ/número lógico.",
+    "avisos": [
+      "Preencha estabelecimento/loja/terminal somente com literais oficiais Destaxa.",
+      "Gravar configuração TEF não declara o PDV homologado nem resolve o erro 00151 do V$PagueClient."
+    ],
+    "homologacaoDeclarada": false,
+    "tefProntoParaVenda": false
+  },
+  "resultadoFinal": "MRT-18 CONCLUÍDA — PREPARADO PARA HOMOLOGAÇÃO CONTROLADA"
+}

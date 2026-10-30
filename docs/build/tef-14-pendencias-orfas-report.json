@@ -1,0 +1,66 @@
+{
+  "sprint": "TEF-14",
+  "title": "Gestão segura de pendências órfãs",
+  "generatedAt": "2026-10-30T01:30:00.000Z",
+  "status": "TEF-14 CONCLUÍDA — GESTÃO SEGURA DE PENDÊNCIAS VALIDADA",
+  "officialDbMutated": false,
+  "migrations": false,
+  "financialTransaction": false,
+  "initClient": false,
+  "gatesEnabled": false,
+  "tef13IdempotenciaAlterada": false,
+  "arquivosModificados": [
+    "backend/services/tef/tefPendenciasService.js (novo)",
+    "backend/services/tef/TefManager.js (listarTravasPendencias readonly)",
+    "backend/rotas/tef.js",
+    "tests/tef/tef-14-pendencias-orfas.test.js (novo)",
+    "docs/build/tef-14-pendencias-orfas-report.json"
+  ],
+  "estadosPendencia": {
+    "banco": ["pendente"],
+    "travaMemoria": ["AGUARDANDO_RESULTADO_TARDIO", "RECONCILIACAO_PENDENTE"],
+    "operacionais": [
+      "AGUARDANDO_RESULTADO_TARDIO",
+      "RECONCILIACAO_PENDENTE",
+      "PENDENTE_SEM_TRAVA_MEMORIA",
+      "ORFA_SEM_VENDA",
+      "TIMEOUT_DESCONHECIDO"
+    ],
+    "financeirosReconcilacaoExplicita": [
+      "CONFIRMED_SUCCESS",
+      "CONFIRMED_DENIED",
+      "CANCELLED"
+    ]
+  },
+  "fluxoConsulta": {
+    "get": "GET /api/tef/transacoes-pendentes",
+    "servico": "tefPendenciasService.listarPendenciasOperacionais",
+    "inclui": ["tags", "orfaSemVenda", "podeReconciliarExplicitamente", "politicaBloqueio", "regras"]
+  },
+  "fluxoReconcilicao": {
+    "proibido": "POST /api/tef/reconciliar-pendentes → 409 TEF_RECONCILIACAO_LOTE_PROIBIDA (antiga atualização automática removida)",
+    "explicito": "POST /api/tef/transacao/:id/reconciliar { financialState, observacao, confirmacao_explicita:true, usuario?}",
+    "nucleo": "TefManager.reconciliarResultadoTardio (inalterado nas regras: prematura/sem trava/exige usuario+obs)",
+    "historico": "tef_logs TEF14_RECONCILIACAO_EXPLICITA + auditoria modulo tef",
+    "liberarInconclusiva": "POST /api/tef/pendencias/liberar-inconclusiva → sempre 409"
+  },
+  "regrasBloqueioLiberacao": {
+    "bloqueio": "global por instalação enquanto status=pendente existir",
+    "naoLiberarOutroPagamentoParaContornar": true,
+    "nuncaAprovarAutomaticamente": true,
+    "timeoutNaoECancelamento": true,
+    "naoAssociarPorValorOuOrdem": true,
+    "reconciliacaoSoAposRECONCILIACAO_PENDENTE": true
+  },
+  "testes": {
+    "comando": "node tests/tef/tef-14-pendencias-orfas.test.js",
+    "resultado": "11 ok, 0 falha(s)",
+    "regressaoTef13": "13 ok"
+  },
+  "riscosRemanescentes": [
+    "UI ERP/PDV ainda não apresenta tela dedicada — API pronta para consumo",
+    "Sem venda_id (órfã) continua bloqueando até reconciliação explícita (correto; TEF-15 amarra venda)",
+    "Destaxa 00151/.conf externos",
+    "Bloqueio permanece global (não multi-PDV) por garantia do modelo atual"
+  ]
+}

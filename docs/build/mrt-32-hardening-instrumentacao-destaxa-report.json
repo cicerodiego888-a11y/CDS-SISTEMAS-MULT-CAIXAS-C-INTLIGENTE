@@ -1,0 +1,268 @@
+{
+  "sprint": "MRT-32",
+  "title": "Hardening final da instrumentação Destaxa",
+  "generatedAt": "2026-10-30T21:18:59.574Z",
+  "classificacao": "HARDENING_INSTRUMENTACAO_APROVADO",
+  "restricoesObservadas": {
+    "init": false,
+    "enableReal": false,
+    "txStart": false,
+    "crt": false,
+    "dllCarregada": false,
+    "nativeHostIniciado": false,
+    "vspague": false,
+    "gateOff": true,
+    "bancoAlterado": false,
+    "configProducao": false,
+    "operacaoFinanceira": false,
+    "mrt24Repetida": false
+  },
+  "arquivosAuditados": [
+    "backend/services/tef/destaxa/destaxaFluxoInstrumentacao.js",
+    "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+    "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js",
+    "backend/services/tef/adapters/DestaxaRealAdapter.js",
+    "backend/services/tef/TefManager.js",
+    "backend/services/tef/destaxa/DestaxaHostBridge.js",
+    "backend/services/tef/destaxa/DestaxaNativeHost.js"
+  ],
+  "arquivosAlterados": [
+    "backend/services/tef/destaxa/destaxaFluxoInstrumentacao.js",
+    "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+    "tests/tef/mrt-32-hardening-instrumentacao-destaxa.test.js",
+    "docs/build/mrt-32-hardening-instrumentacao-destaxa-report.json"
+  ],
+  "ajustesInstrumentacao": [
+    "registrarEtapaFluxo: try interno isola falha do coletor/logger",
+    "envolverChamadaInstrumentada: BEGIN/END best-effort + rethrow obrigatório da exceção nativa",
+    "DestaxaNativeBridge.iniciaTransacaoDestaxa usa envolverChamadaInstrumentada"
+  ],
+  "verificacoes": {
+    "bestEffortNaoInterrompe": true,
+    "coletorHostilNaoAlteraAdapter": true,
+    "koffiBeginEndNormalEExcecao": true,
+    "excecaoNativaNaoMascarada": true,
+    "txStartResultSomenteComResultado": true,
+    "sanitizacaoSensiveis": true,
+    "correlacaoIds": true,
+    "politicasFinanceirasIntactas": true
+  },
+  "mrt24": {
+    "estado": "UNKNOWN",
+    "preservado": true
+  },
+  "testes": [
+    {
+      "nome": "1. registrarEtapaFluxo não interrompe se coletor lança",
+      "ok": true,
+      "ret": {
+        "sprintInstrumentacao": "MRT-31",
+        "timestamp": "2026-10-30T21:18:59.575Z",
+        "pid": 4736,
+        "ppid": 9272,
+        "operation_id": "op1",
+        "transactionId": "100",
+        "venda_id": 7,
+        "pdvId": null,
+        "terminalTefId": null,
+        "fingerprint": null,
+        "idempotency_key": null,
+        "provedor": "destaxa",
+        "etapa": "PERSISTENCIA_CONFIRMADA",
+        "resultadoPersistencia": "INSERT_OK"
+      }
+    },
+    {
+      "nome": "2. Falha do coletor não altera resultado do Adapter",
+      "ok": true,
+      "codigo": "DESTAXA_REAL_TRANSACTION_DISABLED"
+    },
+    {
+      "nome": "3a. Retorno normal: BEGIN + END ok",
+      "ok": true,
+      "etapasOk": [
+        "KOFFI_CALL_BEGIN",
+        "KOFFI_CALL_END"
+      ],
+      "end": {
+        "sprintInstrumentacao": "MRT-31",
+        "timestamp": "2026-10-30T21:18:59.578Z",
+        "pid": 4736,
+        "ppid": 9272,
+        "operation_id": "op1",
+        "transactionId": "100",
+        "venda_id": 7,
+        "pdvId": null,
+        "terminalTefId": null,
+        "fingerprint": null,
+        "idempotency_key": null,
+        "provedor": "destaxa",
+        "etapa": "KOFFI_CALL_END",
+        "export": "iniciaTransacaoDestaxa",
+        "duracaoMs": 0.0601,
+        "ok": true,
+        "codigo": "99"
+      }
+    },
+    {
+      "nome": "3b/4. Exceção nativa repropagada; END com ok=false",
+      "ok": true,
+      "sameRef": true,
+      "endFail": {
+        "sprintInstrumentacao": "MRT-31",
+        "timestamp": "2026-10-30T21:18:59.578Z",
+        "pid": 4736,
+        "ppid": 9272,
+        "operation_id": "op1",
+        "transactionId": "100",
+        "venda_id": 7,
+        "pdvId": null,
+        "terminalTefId": null,
+        "fingerprint": null,
+        "idempotency_key": null,
+        "provedor": "destaxa",
+        "etapa": "KOFFI_CALL_END",
+        "export": "iniciaTransacaoDestaxa",
+        "duracaoMs": 0.0265,
+        "ok": false,
+        "erro": "DLL_SIMULATED_CRASH"
+      }
+    },
+    {
+      "nome": "4b. Coletor hostil no wrap não mascara exceção nativa",
+      "ok": true
+    },
+    {
+      "nome": "5a. Sem driver: sem ORQUESTRADOR_ENTROU nem TX_START_RESULT",
+      "ok": true,
+      "codigo": "DESTAXA_TRANSACAO_REAL_BLOQUEADA",
+      "etapasSemDriver": []
+    },
+    {
+      "nome": "5b. Com resultado mock: TX_START_RESULT presente",
+      "ok": true,
+      "etapas": [
+        "ORQUESTRADOR_ENTROU",
+        "TX_START_RESULT"
+      ],
+      "codigo": "03"
+    },
+    {
+      "nome": "5c. Exceção no driver → TX_START_RESULT com UNKNOWN (resultado de erro)",
+      "ok": true,
+      "txResErro": [
+        {
+          "sprintInstrumentacao": "MRT-31",
+          "timestamp": "2026-10-30T21:18:59.579Z",
+          "pid": 4736,
+          "ppid": 9272,
+          "operation_id": null,
+          "transactionId": "202",
+          "venda_id": null,
+          "pdvId": null,
+          "terminalTefId": null,
+          "fingerprint": null,
+          "idempotency_key": null,
+          "provedor": "destaxa",
+          "etapa": "TX_START_RESULT",
+          "erro": "native boom",
+          "financialState": "UNKNOWN"
+        }
+      ],
+      "financialState": "UNKNOWN"
+    },
+    {
+      "nome": "6. PAN/senha/cvv redacted; entrada não completa",
+      "ok": true,
+      "sensivel": {
+        "sprintInstrumentacao": "MRT-31",
+        "timestamp": "2026-10-30T21:18:59.580Z",
+        "pid": 4736,
+        "ppid": 9272,
+        "operation_id": "op1",
+        "transactionId": "100",
+        "venda_id": 7,
+        "pdvId": null,
+        "terminalTefId": null,
+        "fingerprint": null,
+        "idempotency_key": null,
+        "provedor": "destaxa",
+        "etapa": "ADAPTER_AUTORIZADO",
+        "pan": "[REDACTED]",
+        "senha": "[REDACTED]",
+        "cvv": "[REDACTED]",
+        "tamanhoEntrada": 41,
+        "chavesEntrada": [
+          "transacao_valor",
+          "pan"
+        ],
+        "pinpadDump": "[REDACTED]"
+      }
+    },
+    {
+      "nome": "7. operation_id / transactionId / venda_id correlacionados",
+      "ok": true,
+      "e1": {
+        "operation_id": "op_corr",
+        "transactionId": "9001",
+        "venda_id": 42
+      }
+    },
+    {
+      "nome": "8a. PERSISTENCIA_CONFIRMADA em try/catch best-effort",
+      "ok": true
+    },
+    {
+      "nome": "8b. Instrumentação não redefine timeout/retry/idempotência/lease",
+      "ok": true
+    },
+    {
+      "nome": "8c. Orquestrador ainda usa _montarErroFinanceiro (UNKNOWN preservado)",
+      "ok": true
+    },
+    {
+      "nome": "8d. envolverChamadaInstrumentada repropaga throw",
+      "ok": true
+    },
+    {
+      "nome": "8e. Adapter: instrumentação antes do gate; gate OFF ainda bloqueia",
+      "ok": true
+    },
+    {
+      "nome": "Contexto evidencia pid/timestamp",
+      "ok": true,
+      "ctx": {
+        "sprintInstrumentacao": "MRT-31",
+        "timestamp": "2026-10-30T21:18:59.581Z",
+        "pid": 4736,
+        "ppid": 9272,
+        "operation_id": null,
+        "transactionId": "1",
+        "venda_id": null,
+        "pdvId": null,
+        "terminalTefId": null,
+        "fingerprint": null,
+        "idempotency_key": null,
+        "provedor": "destaxa",
+        "etapa": null
+      }
+    },
+    {
+      "nome": "Gate financeiro OFF",
+      "ok": true
+    },
+    {
+      "nome": "Zero DLL/Koffi real nesta sprint",
+      "ok": true,
+      "dllCarregada": false,
+      "nativeHost": false,
+      "koffiReal": false
+    }
+  ],
+  "confirmacoes": {
+    "dllNaoCarregada": true,
+    "koffiRealNaoChamado": true,
+    "gateOff": true,
+    "operacaoFinanceira": false
+  }
+}

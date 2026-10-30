@@ -95,12 +95,46 @@ function normalizarUnidadeCadastroProduto(valor) {
 
 function montarOpcoesUnidadeCadastro(unidadeGravada) {
     const atual = normalizarUnidadeCadastroProduto(unidadeGravada);
+    const cache = (typeof window !== 'undefined' && Array.isArray(window.__CDS_UNIDADES_MEDIDA_OPCOES__))
+        ? window.__CDS_UNIDADES_MEDIDA_OPCOES__
+        : null;
+    if (cache && cache.length) {
+        const vistos = new Set();
+        const opcoes = [];
+        for (const u of cache) {
+            const valor = String(u.codigo || '').trim();
+            if (!valor || vistos.has(valor.toUpperCase())) continue;
+            vistos.add(valor.toUpperCase());
+            const rotulo = u.descricao ? `${valor} — ${u.descricao}` : valor;
+            const selected = valor.toLowerCase() === String(atual || '').toLowerCase()
+                || valor.toUpperCase() === String(atual || '').toUpperCase();
+            opcoes.push(`<option value="${escapeHtml(valor)}" ${selected ? 'selected' : ''}>${escapeHtml(rotulo)}</option>`);
+        }
+        if (atual && !vistos.has(String(atual).toUpperCase()) && !vistos.has(String(atual).toLowerCase())) {
+            opcoes.push(`<option value="${escapeHtml(atual)}" selected>${escapeHtml(atual)}</option>`);
+        }
+        return opcoes.join('');
+    }
     const opcoes = UNIDADES_SELECT_CADASTRO.map(([valor, rotulo]) =>
         `<option value="${valor}" ${valor === atual ? 'selected' : ''}>${rotulo}</option>`);
     if (atual && !unidadePadronizadaCadastro(atual)) {
         opcoes.push(`<option value="${escapeHtml(atual)}" selected>${escapeHtml(atual)}</option>`);
     }
     return opcoes.join('');
+}
+
+/** CE-MUC-03 — carrega catálogo extensível (não cria segundo motor). */
+async function carregarOpcoesUnidadesMedidaCatalogo() {
+    try {
+        const api = (typeof API_URL !== 'undefined' ? API_URL : '/api');
+        const headers = (typeof getAuthHeaders === 'function') ? getAuthHeaders() : {};
+        const resp = await fetch(`${api}/unidades-medida/opcoes`, { headers });
+        if (!resp.ok) return;
+        const rows = await resp.json();
+        if (Array.isArray(rows) && typeof window !== 'undefined') {
+            window.__CDS_UNIDADES_MEDIDA_OPCOES__ = rows;
+        }
+    } catch (_) { /* fallback: lista estática */ }
 }
 
 /** Seleciona a unidade no <select> já renderizado; sem opção correspondente, `.val()` do jQuery devolveria null. */
@@ -3433,6 +3467,7 @@ async function imprimirEtiquetaProdutoCadastro() {
 // Abre modal de produto
 // RC4.31.27 — opcoes.origem === 'COMPRA' NÃO substitui #modal-container (preserva Lançamento de Compra)
 function showProdutoModal(produto = null, opcoes = {}) {
+    void carregarOpcoesUnidadesMedidaCatalogo();
     const origemCadastro = opcoes && typeof opcoes === 'object' ? (opcoes.origem || null) : null;
     const preservarOutrosModais = origemCadastro === 'COMPRA' || origemCadastro === 'MIIP'
         || opcoes?.preservarOutrosModais === true;
@@ -3585,9 +3620,13 @@ function showProdutoModal(produto = null, opcoes = {}) {
                                             </div>
                                             <div class="col-md-6">
                                                 <label for="unidade" class="form-label" id="label_unidade_produto">Unidade Base</label>
-                                                <select class="form-control" id="unidade">
-                                                    ${montarOpcoesUnidadeCadastro(isEdit ? produto.unidade : '')}
-                                                </select>
+                                                <div class="input-group">
+                                                    <select class="form-control" id="unidade">
+                                                        ${montarOpcoesUnidadeCadastro(isEdit ? produto.unidade : '')}
+                                                    </select>
+                                                    <button type="button" class="btn btn-outline-secondary" id="btnNovaUnidadeMedida" title="Cadastrar unidade de medida">+</button>
+                                                </div>
+                                                <small class="text-muted">Compra e estoque usam unidades do catálogo; a conversão continua no MUC.</small>
                                                 <small class="text-warning d-none" id="avisoUnidadeConversaoCadastro">
                                                     Selecione uma unidade fracionável (KG, MT, LT, M², M³, etc.).
                                                 </small>
@@ -4120,8 +4159,49 @@ function showProdutoModal(produto = null, opcoes = {}) {
         ProdutoEmbalagensUI.inicializarApresentacoes(produto);
     }
     inicializarMotorConversaoUnidadesCadastro();
+    $('#btnNovaUnidadeMedida').off('click.cdsUnidade').on('click.cdsUnidade', async () => {
+        const codigo = window.prompt('Código da nova unidade (ex.: COPO, PACOTE, PR):');
+        if (!codigo) return;
+        const descricao = window.prompt('Descrição da unidade:', codigo);
+        if (!descricao) return;
+        try {
+            const api = (typeof API_URL !== 'undefined' ? API_URL : '/api');
+            const headers = {
+                'Content-Type': 'application/json',
+                ...((typeof getAuthHeaders === 'function') ? getAuthHeaders() : {})
+            };
+            const resp = await fetch(`${api}/unidades-medida`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ codigo, descricao, tipo: 'ambos' })
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) {
+                window.alert(data.error || 'Não foi possível cadastrar a unidade.');
+                return;
+            }
+            await carregarOpcoesUnidadesMedidaCatalogo();
+            const sel = document.getElementById('unidade');
+            if (sel) {
+                const valor = String(data.codigo || codigo).trim();
+                if (![...sel.options].some((o) => o.value.toUpperCase() === valor.toUpperCase())) {
+                    sel.add(new Option(`${valor} — ${data.descricao || descricao}`, valor));
+                }
+                selecionarUnidadeCadastroProduto(sel, valor);
+            }
+            if (typeof showNotification === 'function') {
+                showNotification(`Unidade ${data.codigo || codigo} cadastrada.`, 'success');
+            }
+        } catch (err) {
+            window.alert(err.message || 'Falha ao cadastrar unidade.');
+        }
+    });
     inicializarVendaUnidadeCadastro(produto, isEdit);
     inicializarVendaAtacado(produto, isEdit);
+    // Cadastro salva via JS; evita submit nativo (ex.: botão sem type="button" nas faixas de atacado)
+    $('#produtoForm').off('submit.cdsProdCadastro').on('submit.cdsProdCadastro', function(e) {
+        e.preventDefault();
+    });
     inicializarImagemProdutoCadastro(produto, isEdit);
 
     if (isEdit && produto) {
@@ -5056,8 +5136,8 @@ function renderFaixasAtacado(produtoId) {
                     <td>${formatarPercentualPorPrecoAtacado(r.preco_atacado)}</td>
                     <td>${formatCurrency(r.preco_atacado)}</td>
                     <td class="text-end">
-                        <button class="btn btn-sm btn-outline-primary me-1" onclick="editarFaixaPromptTemp(${idx})">Editar</button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="excluirFaixaTemp(${idx})">Excluir</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary me-1" onclick="editarFaixaPromptTemp(${idx})">Editar</button>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="excluirFaixaTemp(${idx})">Excluir</button>
                     </td>
                 </tr>
             `;
@@ -5078,8 +5158,8 @@ function renderFaixasAtacado(produtoId) {
                         <td>${formatarPercentualPorPrecoAtacado(r.preco_atacado)}</td>
                         <td>${formatCurrency(r.preco_atacado)}</td>
                         <td class="text-end">
-                            <button class="btn btn-sm btn-outline-primary me-1" onclick="editarFaixaPrompt(${r.id})">Editar</button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="excluirFaixa(${r.id}, ${produtoId})">Excluir</button>
+                            <button type="button" class="btn btn-sm btn-outline-primary me-1" onclick="editarFaixaPrompt(${r.id})">Editar</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="excluirFaixa(${r.id}, ${produtoId})">Excluir</button>
                         </td>
                     </tr>
                 `;
@@ -5190,15 +5270,19 @@ function editarFaixaPrompt(faixaId) {
             <td><input type="number" min="0" step="0.01" class="form-control form-control-sm input-percentual" value="${calcularPercentualPorPrecoAtacado(faixa.preco_atacado).toFixed(2)}"></td>
             <td><input type="text" class="form-control form-control-sm input-preco" value="${faixa.preco_atacado}"></td>
             <td class="text-end">
-                <button class="btn btn-sm btn-success me-1 btn-salvar-edicao">Salvar</button>
-                <button class="btn btn-sm btn-secondary btn-cancelar-edicao">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-success me-1 btn-salvar-edicao">Salvar</button>
+                <button type="button" class="btn btn-sm btn-secondary btn-cancelar-edicao">Cancelar</button>
             </td>
         `);
 
-        $tr.find('.btn-cancelar-edicao').on('click', function() { $tr.html(originalHtml); });
+        $tr.find('.btn-cancelar-edicao').on('click', function(e) {
+            e.preventDefault();
+            $tr.html(originalHtml);
+        });
         fixarEventosFaixaRow($tr);
 
-        $tr.find('.btn-salvar-edicao').on('click', function() {
+        $tr.find('.btn-salvar-edicao').on('click', function(e) {
+            e.preventDefault();
             const q = parseInt($tr.find('.input-quantidade').val(), 10);
             const percentual = parseNumero($tr.find('.input-percentual').val());
             const precoStr = $tr.find('.input-preco').val() || '';
@@ -5247,7 +5331,10 @@ function editarFaixaPromptTemp(index) {
         <td><input type="number" min="1" class="form-control form-control-sm input-quantidade" value="${faixa.quantidade_minima}"></td>
         <td><input type="number" min="0" step="0.01" class="form-control form-control-sm input-percentual" value="${calcularPercentualPorPrecoAtacado(faixa.preco_atacado).toFixed(2)}"></td>
         <td><input type="text" class="form-control form-control-sm input-preco" value="${faixa.preco_atacado}"></td>
-        <td class="text-end"></td>
+        <td class="text-end">
+            <button type="button" class="btn btn-sm btn-success me-1 btn-salvar-edicao-temp">Salvar</button>
+            <button type="button" class="btn btn-sm btn-secondary btn-cancelar-edicao-temp">Cancelar</button>
+        </td>
     `);
 
     fixarEventosFaixaRow($tr);
@@ -5269,6 +5356,15 @@ function editarFaixaPromptTemp(index) {
         renderFaixasAtacado(null);
         showNotification('Faixa atualizada localmente. Salve o produto para persistir.', 'success');
     }
+
+    $tr.find('.btn-salvar-edicao-temp').on('click', function(e) {
+        e.preventDefault();
+        salvarEdicaoTemp();
+    });
+    $tr.find('.btn-cancelar-edicao-temp').on('click', function(e) {
+        e.preventDefault();
+        $tr.html(originalHtml);
+    });
 
     $tr.find('input').on('keydown', function(e) {
         if (e.key === 'Enter') {

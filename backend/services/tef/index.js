@@ -8,6 +8,17 @@ const tefContrato = require('./tefContrato');
 async function iniciarPagamento(dados) {
   const resultado = await tefManager.autorizar(dados);
 
+  if (resultado.requerContinuacao === true) {
+    return {
+      ...tefContrato.paraRespostaApi(resultado, resultado.transacao_id || resultado.transacaoId),
+      requerContinuacao: true,
+      acao: resultado.acao || null,
+      cicloCrt: resultado.cicloCrt || null,
+      vinculoVendaPdv: resultado.vinculoVendaPdv || null,
+      retryAllowed: false
+    };
+  }
+
   if (resultado.transacao_id || resultado.transacaoId) {
     return tefContrato.paraRespostaApi(resultado, resultado.transacao_id || resultado.transacaoId);
   }
@@ -24,6 +35,11 @@ async function iniciarPagamento(dados) {
   return resultado;
 }
 
+/** MRT-22 — continuidade CRT (COLETA/OPCAO), sem TX_START. */
+async function continuarPagamento(dados) {
+  return tefManager.continuarAutorizacao(dados);
+}
+
 async function cancelarPagamento(transacaoId, motivo = 'Cancelamento da venda') {
   return tefManager.cancelar(Number(transacaoId), motivo);
 }
@@ -38,6 +54,7 @@ async function reimprimirPagamento(transacaoId, tipo = 'cliente') {
 
 module.exports = {
   iniciarPagamento,
+  continuarPagamento,
   cancelarPagamento,
   consultarPagamento,
   reimprimirPagamento

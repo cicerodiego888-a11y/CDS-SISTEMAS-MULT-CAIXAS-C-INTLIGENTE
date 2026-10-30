@@ -9,6 +9,12 @@
  *   MiipCentralRevisao.iniciar({ dadosImportacao, apiUrl, produtos, onConcluir, onCancelar, ... })
  */
 (function initMiipCentralRevisao(global) {
+  try {
+    console.info('[MIIP] miip-central-revisao carregado', {
+      build: 'CE-UX-02',
+      boot: typeof global.CDS_BOOT_ID !== 'undefined' ? global.CDS_BOOT_ID : null
+    });
+  } catch (_) { /* ignore */ }
   'use strict';
 
   const MOTOR_LABELS = {
@@ -623,9 +629,23 @@
     };
   }
 
+  function indiceCanonico(valor) {
+    const n = Number(valor);
+    return Number.isInteger(n) && n >= 0 ? n : null;
+  }
+
+  function listaContemIndice(lista, indice) {
+    const alvo = indiceCanonico(indice);
+    if (alvo == null || !Array.isArray(lista)) return false;
+    return lista.some((v) => indiceCanonico(v) === alvo);
+  }
+
   function pendenciaAberta(sessao, pendencia) {
-    return !sessao.resolvidas.includes(pendencia.indice)
-      && !sessao.ignoradas.includes(pendencia.indice);
+    if (!pendencia || !sessao) return false;
+    const indice = indiceCanonico(pendencia.indice);
+    if (indice == null) return false;
+    return !listaContemIndice(sessao.resolvidas, indice)
+      && !listaContemIndice(sessao.ignoradas, indice);
   }
 
   function contarAbertas(sessao) {
@@ -805,12 +825,27 @@
     $('#miipCentralProgressoPersistente').html(
       '<span class="miip-central-progresso-label">Pronto</span><strong>Finalizar Entrada para abrir Compras</strong>'
     );
+    atualizarAcoesVisiveis();
 
     $('#miipCentralBtnFinalizarEntrada').off('click.miipFinalizar').on('click.miipFinalizar', function () {
       const $btn = $(this);
       if ($btn.prop('disabled') || estado?._encerrando) return;
       if (estado?.conversoes?.bloqueia_efetivacao) {
-        notificar('Há conversões de unidade pendentes. Defina SIM ou NÃO em todas as linhas.', 'warning');
+        const pendentesConv = (estado.conversoes.linhas || [])
+          .filter((linha) => linha.requer_confirmacao)
+          .filter((linha) => {
+            const st = String(linha.estado_decisao || linha.conversao_persistida?.estado || 'PENDENTE').toUpperCase();
+            return st === 'PENDENTE' || st === '';
+          })
+          .map((linha) => linha.produto_nome || linha.descricao_xml || `linha ${linha.nItem ?? linha.indice}`)
+          .filter(Boolean);
+        const detalhe = pendentesConv.length
+          ? ` Pendente: ${pendentesConv.slice(0, 3).join('; ')}${pendentesConv.length > 3 ? '…' : ''}.`
+          : '';
+        notificar(
+          `Há conversões de unidade pendentes. Defina SIM ou NÃO em cada linha do painel “Conversões de unidade”.${detalhe}`,
+          'warning'
+        );
         return;
       }
       $btn.prop('disabled', true);
@@ -1277,8 +1312,10 @@
           ${detalhes ? `<span>${escapeHtml(detalhes)}</span>` : ''}
           ${barras ? `<span>Código de barras: ${escapeHtml(barras)}</span>` : ''}
         </div>
-        <button type="button" class="btn btn-success btn-lg miip-pergunta-btn" data-miip-e-este="${Number(produto.id)}">
-          <i class="fas fa-check"></i> É este
+        <button type="button" class="btn btn-success btn-lg miip-pergunta-btn miip-pergunta-btn--associar"
+          data-miip-e-este="${Number(produto.id)}"
+          title="Confirma a associação deste produto sugerido ao item da nota">
+          <i class="fas fa-check"></i> É este — confirmar
         </button>
       </div>
     `;
@@ -1451,6 +1488,82 @@
     return '';
   }
 
+  /**
+   * UX-ENTRADAS-BOTOES-01 — espelha as regras dos atalhos nos botões visíveis.
+   * Não altera handlers: só habilita/desabilita conforme o item atual.
+   */
+  function atualizarAcoesVisiveis() {
+    const barra = document.getElementById('miipCentralAcoesBarra');
+    if (!barra || !estado?.sessao) return;
+
+    const { sessao } = estado;
+    const faseFinal = sessao.fase === 'final';
+    barra.hidden = faseFinal;
+    if (faseFinal) return;
+
+    const pendencia = sessao.pendencias[sessao.indiceAtual];
+    const aberta = Boolean(pendencia && pendenciaAberta(sessao, pendencia));
+    const opcoes = aberta ? produtosDaPergunta(pendencia) : [];
+    const podeConfirmar = aberta && opcoes.length === 1;
+    const abertas = contarAbertas(sessao);
+    const podeProximo = abertas > 1;
+
+    const $confirmar = $('#miipCentralBtnConfirmar');
+    const $escolher = $('#miipCentralBtnEscolher');
+    const $cadastrar = $('#miipCentralBtnCadastrar');
+    const $proximo = $('#miipCentralBtnProximo');
+    const $ignorar = $('#miipCentralBtnIgnorar');
+
+    // aria-disabled (não disabled nativo): o clique chega ao handler e explica o bloqueio.
+    const persistindo = estado._persistindoDecisao === true;
+    const setAcao = ($btn, indisponivel, titleOk, titleBloqueado) => {
+      $btn
+        .prop('disabled', false)
+        .toggleClass('disabled', Boolean(indisponivel))
+        .attr('aria-disabled', indisponivel ? 'true' : 'false')
+        .attr('title', indisponivel ? titleBloqueado : titleOk);
+    };
+
+    let titleConfirmarOk = 'Enter — Confirmar produto';
+    let titleConfirmarBloq = 'Nenhum item pendente para confirmar';
+    if (!aberta) {
+      titleConfirmarBloq = 'Nenhum item pendente para confirmar';
+    } else if (opcoes.length > 1) {
+      titleConfirmarBloq = 'Várias opções — clique em “É este — confirmar” no produto certo';
+    } else if (opcoes.length === 0) {
+      titleConfirmarBloq = 'Selecione ou cadastre um produto para continuar';
+    }
+    setAcao($confirmar, !podeConfirmar || persistindo, titleConfirmarOk, persistindo ? 'Aguarde: salvando decisão…' : titleConfirmarBloq);
+    setAcao(
+      $escolher,
+      !aberta || persistindo,
+      'F2 — Escolher outro produto do cadastro',
+      persistindo ? 'Aguarde: salvando decisão…' : 'Nenhum item pendente'
+    );
+    setAcao(
+      $cadastrar,
+      !aberta || persistindo,
+      'F3 — Cadastrar produto novo',
+      persistindo ? 'Aguarde: salvando decisão…' : 'Nenhum item pendente'
+    );
+    setAcao(
+      $proximo,
+      !podeProximo,
+      'Tab — Ir para o próximo item pendente',
+      'Não há outro item pendente'
+    );
+    setAcao(
+      $ignorar,
+      !aberta || persistindo,
+      'Ignorar este item na revisão',
+      persistindo ? 'Aguarde: salvando decisão…' : 'Nenhum item pendente para ignorar'
+    );
+    $('#miipCentralBtnPausar').prop('disabled', false)
+      .removeClass('disabled')
+      .attr('aria-disabled', 'false')
+      .attr('title', 'Esc — Pausar revisão (progresso salvo)');
+  }
+
   function renderTelaRevisao() {
     const { sessao } = estado;
     const abertas = contarAbertas(sessao);
@@ -1488,6 +1601,7 @@
         + `<strong>${concluidos} de ${totalItens} produtos revisados</strong>`
       );
     }
+    atualizarAcoesVisiveis();
     aplicarModoFocoDom();
   }
 
@@ -1530,18 +1644,56 @@
               <div class="miip-central-layout">
                 <aside class="miip-central-lista" id="miipCentralLista"></aside>
                 <section class="miip-central-painel">
-                  <div id="miipCentralDetalhes"></div>
-                  <div id="miipCentralCandidato"></div>
-                  <div class="miip-central-acoes">
-                    <button type="button" class="btn btn-outline-secondary" id="miipCentralBtnIgnorar"><i class="fas fa-ban"></i> Ignorar item</button>
+                  <div class="miip-central-painel-scroll">
+                    <div id="miipCentralDetalhes"></div>
+                    <div id="miipCentralCandidato"></div>
+                    <div id="miipCentralConversoes" class="miip-central-conversoes" aria-live="polite"></div>
                   </div>
-                  <div id="miipCentralConversoes" class="miip-central-conversoes" aria-live="polite"></div>
-                  <div class="miip-central-atalhos">
-                    <span><kbd>Enter</kbd> É este</span>
-                    <span><kbd>F2</kbd> Escolher outro</span>
-                    <span><kbd>F3</kbd> Cadastrar</span>
-                    <span><kbd>Tab</kbd> Próximo</span>
-                    <span><kbd>Esc</kbd> Pausar</span>
+                  <div class="miip-central-acoes-barra" id="miipCentralAcoesBarra" role="toolbar" aria-label="Ações do item">
+                    <div class="miip-central-acoes">
+                      <button type="button" class="btn btn-primary btn-lg miip-central-acao-principal" id="miipCentralBtnConfirmar"
+                        title="Enter — Confirmar produto">
+                        <i class="fas fa-check-circle"></i>
+                        <span class="miip-central-acao-rotulo">Confirmar produto</span>
+                        <small class="miip-atalho-hint">Enter</small>
+                      </button>
+                      <button type="button" class="btn btn-outline-primary" id="miipCentralBtnEscolher"
+                        title="F2 — Escolher outro produto do cadastro">
+                        <i class="fas fa-search"></i>
+                        <span class="miip-central-acao-rotulo">Escolher outro</span>
+                        <small class="miip-atalho-hint">F2</small>
+                      </button>
+                      <button type="button" class="btn btn-outline-warning" id="miipCentralBtnCadastrar"
+                        title="F3 — Cadastrar produto novo">
+                        <i class="fas fa-plus"></i>
+                        <span class="miip-central-acao-rotulo">Cadastrar produto</span>
+                        <small class="miip-atalho-hint">F3</small>
+                      </button>
+                      <button type="button" class="btn btn-outline-secondary" id="miipCentralBtnProximo"
+                        title="Tab — Ir para o próximo item pendente">
+                        <i class="fas fa-arrow-right"></i>
+                        <span class="miip-central-acao-rotulo">Próximo item</span>
+                        <small class="miip-atalho-hint">Tab</small>
+                      </button>
+                      <button type="button" class="btn btn-outline-secondary" id="miipCentralBtnPausar"
+                        title="Esc — Pausar revisão (progresso salvo)">
+                        <i class="fas fa-pause"></i>
+                        <span class="miip-central-acao-rotulo">Pausar revisão</span>
+                        <small class="miip-atalho-hint">Esc</small>
+                      </button>
+                      <button type="button" class="btn btn-outline-secondary" id="miipCentralBtnIgnorar"
+                        title="Ignorar este item na revisão">
+                        <i class="fas fa-ban"></i>
+                        <span class="miip-central-acao-rotulo">Ignorar item</span>
+                      </button>
+                    </div>
+                    <div class="miip-central-atalhos">
+                      <span><kbd>Enter</kbd> Confirmar</span>
+                      <span><kbd>F2</kbd> Escolher outro</span>
+                      <span><kbd>F3</kbd> Cadastrar</span>
+                      <span><kbd>Tab</kbd> Próximo</span>
+                      <span><kbd>Esc</kbd> Pausar</span>
+                    </div>
                   </div>
                 </section>
               </div>
@@ -1600,7 +1752,9 @@
     const opcoes = produtosDaPergunta(pendencia);
     if (opcoes.length !== 1) {
       notificar(
-        opcoes.length > 1 ? 'Clique em “É este” no produto certo.' : 'Selecione um produto para continuar.',
+        opcoes.length > 1
+          ? 'Clique em “É este — confirmar” no produto certo.'
+          : 'Selecione um produto para continuar.',
         'warning'
       );
       return;
@@ -1758,10 +1912,14 @@
           </dl>
           <p class="miip-conv-linha__motivo">${escapeHtml(erro || 'Confirme a conversão desta linha.')}</p>
           <div class="miip-conv-linha__acoes">
-            <button type="button" class="btn btn-sm ${simAtivo ? 'btn-success' : 'btn-outline-success'} miip-conv-sim" data-indice="${Number(linha.indice)}" ${estado._persistindoConversao ? 'disabled' : ''}>SIM</button>
-            <button type="button" class="btn btn-sm ${naoAtivo ? 'btn-danger' : 'btn-outline-danger'} miip-conv-nao" data-indice="${Number(linha.indice)}" ${estado._persistindoConversao ? 'disabled' : ''}>NÃO</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary miip-conv-reavaliar" data-indice="${Number(linha.indice)}">Reavaliar</button>
-            ${resultadoOk ? '<span class="badge bg-success">Confirmado no servidor</span>' : (simAtivo || naoAtivo ? '<span class="badge bg-warning text-dark">Aguardando validação</span>' : '<span class="badge bg-secondary">Pendente</span>')}
+            <button type="button" class="btn btn-sm ${simAtivo ? 'btn-success' : 'btn-outline-success'} miip-conv-sim${estado._persistindoConversao ? ' disabled' : ''}" data-indice="${Number(linha.indice)}" aria-disabled="${estado._persistindoConversao ? 'true' : 'false'}">SIM</button>
+            <button type="button" class="btn btn-sm ${naoAtivo ? 'btn-danger' : 'btn-outline-danger'} miip-conv-nao${estado._persistindoConversao ? ' disabled' : ''}" data-indice="${Number(linha.indice)}" aria-disabled="${estado._persistindoConversao ? 'true' : 'false'}">NÃO</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary miip-conv-reavaliar${estado._persistindoConversao ? ' disabled' : ''}" data-indice="${Number(linha.indice)}" aria-disabled="${estado._persistindoConversao ? 'true' : 'false'}" title="Volta a linha para Pendente e reconsulta a proposta">Reavaliar</button>
+            ${resultadoOk
+              ? '<span class="badge bg-success">Confirmado no servidor</span>'
+              : (simAtivo || naoAtivo
+                ? '<span class="badge bg-warning text-dark">Aguardando validação</span>'
+                : '<span class="badge bg-secondary" title="Status da linha — use SIM, NÃO ou Reavaliar">Pendente</span>')}
           </div>
         </article>
       `;
@@ -1782,16 +1940,37 @@
 
     $(host).off('click.miipConv').on('click.miipConv', '.miip-conv-sim, .miip-conv-nao, .miip-conv-reavaliar', function (ev) {
       ev.preventDefault();
-      const indice = Number($(this).data('indice'));
-      if ($(this).hasClass('miip-conv-reavaliar')) return persistirConversaoLinha(indice, null);
-      persistirConversaoLinha(indice, $(this).hasClass('miip-conv-sim'));
+      const $btn = $(this);
+      if ($btn.attr('aria-disabled') === 'true' || $btn.hasClass('disabled')) {
+        notificar(
+          estado?._persistindoConversao
+            ? 'Aguarde: já existe uma conversão sendo gravada.'
+            : 'Esta ação de conversão está indisponível no momento.',
+          'info'
+        );
+        return;
+      }
+      const indice = Number($btn.data('indice'));
+      if (!Number.isInteger(indice) || indice < 0) {
+        notificar('Não foi possível identificar a linha de conversão.', 'danger');
+        return;
+      }
+      if ($btn.hasClass('miip-conv-reavaliar')) return persistirConversaoLinha(indice, null);
+      persistirConversaoLinha(indice, $btn.hasClass('miip-conv-sim'));
     });
   }
 
   function persistirConversaoLinha(indice, decisao) {
     const documentoId = estado?.opcoes?.documento?.id;
     const apiUrl = estado?.opcoes?.apiUrl || (typeof API_URL !== 'undefined' ? API_URL : '/api');
-    if (!documentoId || estado._persistindoConversao) return Promise.resolve(false);
+    if (!documentoId) {
+      notificar('Documento da revisão não identificado. Reabra a conferência pela Central de Entradas.', 'danger');
+      return Promise.resolve(false);
+    }
+    if (estado._persistindoConversao) {
+      notificar('Aguarde: já existe uma conversão sendo gravada.', 'info');
+      return Promise.resolve(false);
+    }
     estado._persistindoConversao = true;
     renderPainelConversoes();
     const estadoTxt = decisao === true ? 'SIM' : (decisao === false ? 'NAO' : 'PENDENTE');
@@ -1813,8 +1992,25 @@
         estado.sessao.itens[indice].conversao = data.conversao;
         estado.sessao.itens[indice].conversao_decisao = data.conversao?.estado;
       }
-      if (data.resultado_backend && data.resultado_backend.ok !== true && estadoTxt === 'SIM') {
-        notificar(data.resultado_backend.justificativa || 'O servidor não confirmou esta conversão.', 'warning');
+      const rb = data.resultado_backend || {};
+      if (estadoTxt === 'SIM') {
+        if (rb.ok === true) {
+          notificar(
+            `Conversão confirmada: ${rb.quantidade_estoque ?? '—'} na unidade de estoque`
+              + (rb.origem ? ` (${rb.origem})` : ''),
+            'success'
+          );
+        } else {
+          notificar(rb.justificativa || 'O servidor não confirmou esta conversão.', 'warning');
+        }
+      } else if (estadoTxt === 'NAO') {
+        if (rb.ok === true) {
+          notificar('Conversão recusada; quantidade comercial mantida com segurança.', 'info');
+        } else {
+          notificar(rb.justificativa || 'Recusa registrada, mas a entrada permanece bloqueada até regularizar a unidade.', 'warning');
+        }
+      } else {
+        notificar(rb.justificativa || 'Linha reavaliada. Confirme SIM ou NÃO conforme a proposta.', 'info');
       }
       return true;
     }).catch((error) => {
@@ -1875,8 +2071,9 @@
         perguntarTrocaDeProduto(pendencia, produtoId, produto, aprendizado.conflito);
       }
 
-      if (!estado.sessao.resolvidas.includes(pendencia.indice)) {
-        estado.sessao.resolvidas.push(pendencia.indice);
+      const indiceResolvido = indiceCanonico(pendencia.indice);
+      if (indiceResolvido != null && !listaContemIndice(estado.sessao.resolvidas, indiceResolvido)) {
+        estado.sessao.resolvidas.push(indiceResolvido);
         estado.sessao.confirmadosManualmente += 1;
         atualizarIndicadoresAposResolucao(pendencia);
       }
@@ -1902,36 +2099,80 @@
   }
 
   function ignorarAtual() {
+    if (!estado?.sessao) return;
+
+    if (estado.sessao.fase === 'final') {
+      notificar(
+        'A conferência dos produtos já foi concluída. Se restar conversão de unidade, defina SIM ou NÃO no painel correspondente.',
+        'info'
+      );
+      return;
+    }
+
+    if (estado._persistindoDecisao) {
+      notificar('Aguarde: já existe uma decisão sendo salva.', 'info');
+      return;
+    }
+
     const pendencia = estado.sessao.pendencias[estado.sessao.indiceAtual];
-    if (!pendencia || !pendenciaAberta(estado.sessao, pendencia)) return;
-    if (estado._persistindoDecisao) return;
+    if (!pendencia || !pendenciaAberta(estado.sessao, pendencia)) {
+      notificar('Não há item pendente para ignorar neste momento.', 'warning');
+      atualizarAcoesVisiveis();
+      return;
+    }
 
-    const item = estado.sessao.itens[pendencia.indice] || pendencia.produtoXML || {};
+    const indice = indiceCanonico(pendencia.indice);
+    if (indice == null) {
+      notificar('Não foi possível identificar o item atual para ignorar.', 'danger');
+      return;
+    }
+
+    const item = estado.sessao.itens[indice] || pendencia.produtoXML || {};
+    const nomeItem = item.produto_nome || item.nome || item.descricao || `linha ${indice + 1}`;
     estado._persistindoDecisao = true;
+    atualizarAcoesVisiveis();
 
-    persistirDecisaoItem(pendencia.indice, 'IGNORAR', null, {
-      ...item,
-      miip_revisao_status: 'ignorado'
-    }).then((salvo) => {
-      estado._persistindoDecisao = false;
-      if (!salvo) return;
+    Promise.resolve()
+      .then(() => persistirDecisaoItem(indice, 'IGNORAR', null, {
+        ...item,
+        miip_revisao_status: 'ignorado',
+        miip_revisao_decisao: 'IGNORAR'
+      }))
+      .then((salvo) => {
+        if (!salvo) return false;
 
-      if (!estado.sessao.ignoradas.includes(pendencia.indice)) {
-        estado.sessao.ignoradas.push(pendencia.indice);
-        atualizarIndicadoresAposResolucao(pendencia);
-      }
+        if (estado.sessao.itens[indice]) {
+          estado.sessao.itens[indice].miip_revisao_status = 'ignorado';
+          estado.sessao.itens[indice].miip_revisao_decisao = 'IGNORAR';
+        }
 
-      if (contarAbertas(estado.sessao) === 0) {
-        estado.sessao.fase = 'final';
-        renderTelaFinalizarEntrada();
-        return;
-      }
+        if (!listaContemIndice(estado.sessao.ignoradas, indice)) {
+          estado.sessao.ignoradas.push(indice);
+          atualizarIndicadoresAposResolucao(pendencia);
+        }
 
-      proximaAberta(estado.sessao, 1);
-      renderTelaRevisao();
-    }).catch(() => {
-      estado._persistindoDecisao = false;
-    });
+        notificar(`Item ignorado: ${nomeItem}.`, 'success');
+        carregarConversoesRevisao();
+
+        if (contarAbertas(estado.sessao) === 0) {
+          estado.sessao.fase = 'final';
+          renderTelaFinalizarEntrada();
+          return true;
+        }
+
+        proximaAberta(estado.sessao, 1);
+        renderTelaRevisao();
+        return true;
+      })
+      .catch((error) => {
+        console.error('[MIIP] ignorar item', { indice, error: error?.message || error });
+        notificar(error?.message || 'Não foi possível ignorar o item. Tente novamente.', 'danger');
+        return false;
+      })
+      .finally(() => {
+        if (estado) estado._persistindoDecisao = false;
+        if (estado?.sessao?.fase !== 'final') atualizarAcoesVisiveis();
+      });
   }
 
   function abrirBuscaProduto() {
@@ -3082,20 +3323,65 @@
     $(document).off('.miipCentralCadastro');
     $(document).on('keydown.miipCentral', onKeydown);
 
-    $('#miipCentralBtnConfirmar').on('click', confirmarAtual);
-    $('#miipCentralBtnEscolher').on('click', abrirBuscaProduto);
+    const acaoIndisponivel = ($el) => $el.attr('aria-disabled') === 'true' || $el.hasClass('disabled');
+
+    $(document).off('click.miipCentralConfirmar').on('click.miipCentralConfirmar', '#miipCentralBtnConfirmar', function (e) {
+      e.preventDefault();
+      if (acaoIndisponivel($(this))) {
+        notificar($(this).attr('title') || 'Confirmar produto indisponível neste momento.', 'warning');
+        return;
+      }
+      confirmarAtual();
+    });
+    $(document).off('click.miipCentralEscolher').on('click.miipCentralEscolher', '#miipCentralBtnEscolher', function (e) {
+      e.preventDefault();
+      if (acaoIndisponivel($(this))) {
+        notificar($(this).attr('title') || 'Escolher outro indisponível neste momento.', 'warning');
+        return;
+      }
+      abrirBuscaProduto();
+    });
     $(document).off('click.miipCentralCadastro').on('click.miipCentralCadastro', '#miipCentralBtnCadastrar', function (e) {
       e.preventDefault();
+      if (acaoIndisponivel($(this))) {
+        notificar($(this).attr('title') || 'Cadastrar produto indisponível neste momento.', 'warning');
+        return;
+      }
       cadastrarNovo();
     });
-    $('#miipCentralBtnIgnorar').on('click', ignorarAtual);
-    $('#miipCentralBtnCancelar').on('click', cancelarRevisao);
+    $(document).off('click.miipCentralProximo').on('click.miipCentralProximo', '#miipCentralBtnProximo', function (e) {
+      e.preventDefault();
+      if (acaoIndisponivel($(this))) {
+        notificar($(this).attr('title') || 'Não há outro item pendente.', 'info');
+        return;
+      }
+      if (!estado?.sessao || estado.sessao.fase === 'final') return;
+      proximaAberta(estado.sessao, 1);
+      renderTelaRevisao();
+    });
+    $('#miipCentralBtnPausar').off('click').on('click', cancelarRevisao);
+    $(document).off('click.miipCentralIgnorar').on('click.miipCentralIgnorar', '#miipCentralBtnIgnorar', function onIgnorarClick(e) {
+      e.preventDefault();
+      if (acaoIndisponivel($(this))) {
+        notificar(
+          estado?.sessao?.fase === 'final'
+            ? 'A conferência dos produtos já foi concluída. Confirme as conversões de unidade pendentes, se houver.'
+            : (estado?._persistindoDecisao
+              ? 'Aguarde: já existe uma decisão sendo salva.'
+              : 'Não há item pendente para ignorar neste momento.'),
+          'warning'
+        );
+        return;
+      }
+      ignorarAtual();
+    });
+    $('#miipCentralBtnCancelar').off('click').on('click', cancelarRevisao);
 
-    $('#miipCentralCorpo').on('click', '[data-miip-e-este]', function onEEste(e) {
+    $('#miipCentralCorpo').off('click.miipCentralEEste').on('click.miipCentralEEste', '[data-miip-e-este]', function onEEste(e) {
       e.preventDefault();
       escolherProdutoDaPergunta(Number($(this).data('miip-e-este')));
     });
-    $('#miipCentralCorpo').on('click', '[data-miip-acao-simples]', function onAcaoSimples(e) {
+    $('#miipCentralCorpo').off('click.miipCentralAcaoSimples').on('click.miipCentralAcaoSimples', '[data-miip-acao-simples]', function onAcaoSimples(e) {
       e.preventDefault();
       const acao = String($(this).data('miip-acao-simples') || '');
       if (acao === 'escolher') abrirBuscaProduto();
@@ -3218,6 +3504,14 @@
       calcularPrecisao,
       montarInteligenciaNaAbertura,
       renderComparacaoV2,
+      ignorarAtual,
+      pendenciaAberta,
+      contarAbertas,
+      indiceCanonico,
+      listaContemIndice,
+      obterEstado() {
+        return estado;
+      },
       definirEstado(novo) {
         estado = novo;
       },

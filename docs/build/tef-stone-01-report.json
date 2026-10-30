@@ -1,0 +1,101 @@
+{
+  "sprint": "TEF-STONE-01",
+  "title": "Bloqueio de aprovação simulada Stone fora de simulacao",
+  "generatedAt": "2026-10-27T19:55:00.000Z",
+  "verdict": "CONCLUIDO",
+  "integracaoStoneDeclaradaComoConcluida": false,
+  "codeOrConfigChanged": true,
+  "dllLoaded": false,
+  "transactionExecuted": false,
+  "officialDbOpened": false,
+  "clientConfigModified": false,
+  "resumoExecutivo": {
+    "problema": "tefFactory entregava StoneAdapter → SimulatedGatewayAdapter em qualquer ambiente, gerando NSU/AUT e aprovação fictícia também em homologacao/producao.",
+    "correcao": "Stone só usa o simulador quando ambiente === simulacao. Em homologacao/producao retorna StoneUnavailableAdapter (código STONE_REAL_ADAPTER_INDISPONIVEL), sem NSU/AUT e sem aprovação. Ambiente ausente/inválido lança STONE_AMBIENTE_INVALIDO (sem simulação implícita).",
+    "arquiteturaPreservada": "TefManager → tefFactory → adapter"
+  },
+  "arquivosAlterados": [
+    {
+      "path": "backend/services/tef/tefFactory.js",
+      "change": "criarAdapterStone: simulacao → StoneAdapter simulado; homolog/prod → StoneUnavailableAdapter; demais → STONE_AMBIENTE_INVALIDO. Cielo/Rede/Getnet/Destaxa/SiTef/PayGo intactos."
+    },
+    {
+      "path": "backend/services/tef/adapters/stoneAdapter.js",
+      "change": "StoneUnavailableAdapter + prepararAutorizacao/autorizarPagamento sem NSU/AUT; StoneAdapter em homolog/prod devolve unavailable (defesa); simulacao permanece SimulatedGatewayAdapter."
+    },
+    {
+      "path": "tests/tef/tef-stone-01-bloqueio-simulacao.test.js",
+      "change": "Harness direcionado (8 casos)"
+    },
+    {
+      "path": "docs/build/tef-stone-01-report.json",
+      "change": "Este relatório"
+    }
+  ],
+  "arquivosNaoAlterados": [
+    "SimulatedGatewayAdapter.js",
+    "TefManager.js",
+    "Destaxa*",
+    "redeAdapter.js",
+    "paygo*",
+    "sitef*",
+    "Gertec*",
+    "banco oficial / configs de cliente"
+  ],
+  "testes": {
+    "comando": "node tests/tef/tef-stone-01-bloqueio-simulacao.test.js",
+    "passou": 8,
+    "falhou": 0,
+    "casos": [
+      {
+        "nome": "Stone + simulacao → SimulatedGatewayAdapter e aprova com NSU/AUT",
+        "ok": true
+      },
+      {
+        "nome": "Stone + homologacao → indisponível, sem NSU/AUT/aprovação",
+        "ok": true
+      },
+      {
+        "nome": "Stone + producao → indisponível, sem NSU/AUT/aprovação",
+        "ok": true
+      },
+      {
+        "nome": "Stone + produção (acento) → indisponível",
+        "ok": true
+      },
+      {
+        "nome": "Stone sem ambiente explícito → não simula (erro explícito)",
+        "ok": true
+      },
+      {
+        "nome": "Resultado indisponível não vira aprovação via tefContrato",
+        "ok": true
+      },
+      {
+        "nome": "Outros provedores inalterados (cielo/rede/getnet ainda simulam)",
+        "ok": true
+      },
+      {
+        "nome": "Destaxa simulacao preservada; sitef simulacao preservado",
+        "ok": true
+      }
+    ]
+  },
+  "comportamentoPorAmbiente": {
+    "simulacao": "StoneAdapter → SimulatedGatewayAdapter; aprovação simulada com NSU/AUT preservada",
+    "homologacao": "StoneUnavailableAdapter; prepararAutorizacao.pronto=false; status=erro; codigo=STONE_REAL_ADAPTER_INDISPONIVEL",
+    "producao": "idem homologacao",
+    "ausenteOuInvalido": "throw STONE_AMBIENTE_INVALIDO (sem cair em simulador)"
+  },
+  "limitacoes": [
+    "Integração Stone real continua inexistente — este sprint apenas bloqueia falsa aprovação.",
+    "Cielo/Rede/Getnet ainda simulam em homologacao/producao (fora do escopo).",
+    "Não há DLL/SDK Stone carregada; não há segundo motor TEF.",
+    "Diagnóstico Stone em homolog/prod reporta indisponível (sucesso=false), não middleware instalado."
+  ],
+  "requisitosPendentesIntegracaoReal": [
+    "Contrato/SDK oficial Stone TEF",
+    "StoneRealAdapter (ou equivalente) e seleção na factory para homolog/prod",
+    "Homologação financeira real antes de remover StoneUnavailableAdapter"
+  ]
+}

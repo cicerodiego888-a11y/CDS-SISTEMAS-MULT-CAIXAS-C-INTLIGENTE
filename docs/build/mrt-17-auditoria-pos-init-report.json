@@ -1,0 +1,246 @@
+{
+  "sprint": "MRT-17",
+  "title": "Auditoria pós-INIT e prontidão para homologação Destaxa",
+  "generatedAt": "2026-10-30T18:12:12.414Z",
+  "referencia": "docs/build/mrt-16-init-controlado-destaxa-report.json",
+  "restricoesObservadas": {
+    "init": false,
+    "load": false,
+    "diagnosticar": false,
+    "pagamento": false,
+    "cancelamento": false,
+    "estorno": false,
+    "codigoAlterado": false,
+    "configAlterada": false,
+    "migrations": false,
+    "bancoProducao": false,
+    "gatesLiberados": false,
+    "sessaoModificada": false
+  },
+  "1_estadoSessaoDestaxa": {
+    "referenciaMrt16": {
+      "codigoDestaxa": "00",
+      "estado": "CLIENT_INITIALIZED",
+      "clientInitialized": true,
+      "hostPidNaEpoca": 19516,
+      "horarioInit": "2026-10-30T18:04:52.418Z",
+      "resultadoFinal": "MRT-16 CONCLUÍDA — INIT DESTAXA OK (SEM PAGAMENTO)"
+    },
+    "persistidaNesteProcesso": false,
+    "motivo": "MRT-16 encerrou o Native Host (encerrar). CLIENT_INITIALIZED vive no processo do host/DLL, não no VSPagueClient isoladamente. Novo processo Node não herda a sessão.",
+    "statusConsultadoAgora": false,
+    "statusSeguroSemLoad": "STATUS sem LOAD só refletiria host vazio; STATUS após LOAD resetaria _clientInitialized. Ambos evitados para não alterar estado.",
+    "codigoRetornoOriginalMrt16": "00"
+  },
+  "2_estadoVsPagueClient": {
+    "detectado": true,
+    "executando": true,
+    "responding": true,
+    "pid": 8740,
+    "caminho": "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
+    "commandLine": "VSPagueClient  -Xms64m -Xmx512m -Dfile.encoding=ISO8859-1 -Duser.timezone=America/Recife -jar C:\\VBI\\V$Pague\\Client\\V$PagueClient.jar -h app-partner.destaxa.cloud -p 60410 -atv server -tls",
+    "pidMrt16": 8740,
+    "mesmoPidDaMrt16": true,
+    "reinicioOuEncerramentoInesperado": "PID estável ou Client ativo",
+    "portasTcp": {
+      "ok": true,
+      "linhas": [
+        "  TCP    0.0.0.0:60603          0.0.0.0:0              LISTENING       8740",
+        "  TCP    [::]:60603             [::]:0                 LISTENING       8740",
+        "  TCP    0.0.0.0:60906          0.0.0.0:0              LISTENING       8740",
+        "  TCP    [::]:60906             [::]:0                 LISTENING       8740"
+      ],
+      "porPorta": {
+        "60603": {
+          "listening": true,
+          "amostras": [
+            "TCP    0.0.0.0:60603          0.0.0.0:0              LISTENING       8740",
+            "TCP    [::]:60603             [::]:0                 LISTENING       8740"
+          ]
+        },
+        "60906": {
+          "listening": true,
+          "amostras": [
+            "TCP    0.0.0.0:60906          0.0.0.0:0              LISTENING       8740",
+            "TCP    [::]:60906             [::]:0                 LISTENING       8740"
+          ]
+        }
+      }
+    }
+  },
+  "3_evidenciasLogs": {
+    "vspagueClient": {
+      "errosEfetivosAmostra": [
+        "Thread[#54,V$PagueClientTransactionManager: Disconnect from Server,5,main]",
+        "2026-10-30 14:39:16,483 ERROR lib.VBIMain [main] V$PagueClient (60603) - Application already running: Address already in use: bind"
+      ],
+      "informativosAmostra": [
+        "2026-10-30 14:35:38,776 INFO vespague.client.interaction.VeSPagueClientToServer$1 [ThreadReceive-vspg-id-dc1282a5] ThreadReceive finalizada (desktop-4b8amm3(00:15:5D:D0:2D:3E;00:15:5D:65:9B:C4;C0:A8:10:DB:EE:A2;F2:FF:62:39:B0:F2;C0:A8:10:DB",
+        "2026-10-30 14:35:38,796 INFO vespague.client.interaction.VeSPagueClientToServer$3 [ThreadGetLog-vspg-id-dc1282a5] ThreadGetLog finalizada",
+        "2026-10-30 14:35:38,824 INFO lib.comm.VeSCommSocket$1 [VBICommSocket.Connect] VBICommSocket(app-partner.destaxa.cloud:60410(0)) - Reconnection on demand in progress ... lib.comm.VeSCommSocket$1@132067cf",
+        "2026-10-30 14:35:39,279 INFO lib.comm.VeSComm [VBICommSocket.Connect] VBIComm(app-partner.destaxa.cloud:60410(0)<>4/2026-10-30 14:35:39.138/Socket:SSLSocket[hostname=app-partner.destaxa.cloud, port=60410, Session(1793381739197|TLS_ECDHE_RSA",
+        "2026-10-30 14:38:10,348 INFO vespague.client.graphic.VeSPagueClient [main]",
+        "APPLICATION: V$PagueClient[5.0.0]",
+        "APPLICATION_NAME: V$PagueClient",
+        "APPLICATION_PATH: jar:file:/C:/VBI/V$Pague/Client/V$PagueClient.jar!/BOOT-INF/classes!/",
+        "APPLICATION_PATH_CLASS: jar:file:/C:/VBI/V$Pague/Client/V$PagueClient.jar!/BOOT-INF/classes!/(vespague.client.graphic.VSPagueClientWindows)",
+        "2026-10-30 14:38:10,350 INFO vespague.client.graphic.VeSPagueClient [main] Inicializando Versao 5.0.0-1-e094d4f-1084-release"
+      ],
+      "timeoutDesconexao": [
+        "2026-10-30 14:35:38,661 INFO lib.VBI [V$PagueClientTransactionManager: Disconnect from Server] vespague.client.interaction.VeSPagueClientTransactionManager$34.run(VeSPagueClientTransactionManager.java:1914) vspg-id-dc1282a5: V$PagueClient: ",
+        "2026-10-30 14:35:38,772 INFO lib.VBI [V$PagueClientTransactionManager: Disconnect from Server] vespague.client.interaction.VeSPagueClientTransactionManager$34.run(VeSPagueClientTransactionManager.java:1926) vspg-id-dc1282a5: V$PagueServer: ",
+        "2026-10-30 14:35:39,284 INFO vespague.client.interaction.VeSPagueClientToServer [V$PagueClientTransactionManager: Disconnect from Server] Desconectado do V$PagueServer",
+        "2026-10-30 14:35:39,285 INFO lib.VBI [V$PagueClientTransactionManager: Disconnect from Server] vespague.client.interaction.VeSPagueClientTransactionManager$34.run(VeSPagueClientTransactionManager.java:1931) vspg-id-dc1282a5: V$PagueServer: ",
+        "2026-10-30 14:35:39,288 INFO vespague.client.interaction.VeSPagueClientTransactionManager$34 [V$PagueClientTransactionManager: Disconnect from Server] vspg-id-dc1282a5: Threads em processamento ao finalizar o V$PagueClient: 5"
+      ],
+      "reinicio": [
+        "/\\/\\/\\/\\/\\/\\/\\/\\ V$PagueClient started at Fri Oct 30 14:38:10 GMT-03:00 2026 /\\/\\/\\/\\/\\/\\/\\/\\",
+        "2026-10-30 14:38:11,581 INFO lib.comm.VeSComm [main] VBIComm(app-partner.destaxa.cloud:60410(0)) - Connection procedure started",
+        "2026-10-30 14:38:12,488 INFO lib.comm.VeSComm [ThreadParametrosAtualizar-vspg-id-01560606] VBIComm(>listen<:60906(0)) - Connection procedure started"
+      ],
+      "ultimasLinhas": [
+        "2026-10-30 14:38:12,348 INFO vespague.client.interaction.VeSPagueClientToServer [ThreadParametrosAtualizar-vspg-id-01560606] Novo arquivo de configura��o recebido: V$PagueClient_Destaxa_LojaACB_TACB0120.conf",
+        "2026-10-30 14:38:12,379 INFO vespague.client.interaction.VeSPagueClientToServer [ThreadParametrosAtualizar-vspg-id-01560606] Versao do arquivo de configuracao: 20261030143812",
+        "2026-10-30 14:38:12,488 INFO lib.comm.VeSComm [ThreadParametrosAtualizar-vspg-id-01560606] VBIComm(>listen<:60906(0)) - Connection procedure started",
+        "2026-10-30 14:38:12,488 INFO vespague.client.interaction.VeSPagueClientToServer [ThreadParametrosAtualizar-vspg-id-01560606] aplicacao configurada com modo de processamento \"Background\"",
+        "2026-10-30 14:39:16,483 ERROR lib.VBIMain [main] V$PagueClient (60603) - Application already running: Address already in use: bind"
+      ],
+      "erro00151": {
+        "logExiste": true,
+        "encontrado": false,
+        "trecho": null,
+        "confMensagem": null,
+        "mensagem": "Nenhuma ocorrência recente de 00151 no log inspecionado."
+      },
+      "conf": {
+        "diretorioExiste": true,
+        "arquivos": [
+          "C:\\VBI\\V$Pague\\Client\\V$PagueClient_Destaxa_LojaACB_TACB0120.conf"
+        ],
+        "count": 1
+      },
+      "caminho": "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+      "interpretacao": {
+        "disconnectPreRestart": {
+          "tipo": "informativo_operacional",
+          "descricao": "Disconnect from Server ~14:35 precede restart do Client às 14:38; não indica falha do PID atual 8740"
+        },
+        "addressAlreadyInUse": {
+          "tipo": "informativo_operacional",
+          "descricao": "ERROR Address already in use: bind (14:39) = tentativa de segunda instância com 60603 já em uso pelo PID ativo; Client em execução permanece saudável"
+        },
+        "confRecebido": {
+          "tipo": "informativo",
+          "descricao": "Novo .conf Destaxa_LojaACB_TACB0120 recebido; modo Background configurado"
+        },
+        "errosEfetivosCriticosPosInitMrt16": [],
+        "conclusao": "Sem evidência de desconexão/timeout do Client ativo (PID estável) após o INIT da MRT-16; cauda do log é majoritariamente boot/Background + bind de segunda instância"
+      }
+    },
+    "comunicacaoDllClient": {
+      "evidenciaHistoricaMrt16": "INIT 00 comprova canal DLL↔Client naquele momento",
+      "evidenciaNovaNestaSprint": "somente processo/log readonly — sem nova chamada DLL"
+    }
+  },
+  "4_estadoPinPad": {
+    "detectado": true,
+    "modelo": "Gertec PPC930",
+    "porta": "COM4",
+    "estado": "DETECTADO",
+    "usb": true,
+    "driver": false,
+    "com4Disponivel": true,
+    "portasCOM": [
+      {
+        "porta": "COM4",
+        "nome": "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+        "descricao": "PPC-920/930 CDC USB-to-Serial Port"
+      }
+    ],
+    "statuses": {
+      "driver": "nao_confirmado",
+      "usb": "confirmado",
+      "deteccao": "DETECTADO"
+    },
+    "pnpResumo": {
+      "verificado": true,
+      "qtd": 1
+    },
+    "comandosEnviadosAoPinPad": false
+  },
+  "5_gatesFinanceiros": {
+    "envDestaxaRealTransactionEnabled": "",
+    "gateAberto": false,
+    "operacoesHostFinanceiras": [
+      "ENABLE_REAL",
+      "TX_START",
+      "TX_CONTINUE",
+      "TX_FINALIZE"
+    ],
+    "codigo": {
+      "tefManagerBloqueiaHarnessSeGateOn": true,
+      "adapterExigeGateParaAutorizar": true,
+      "orquestradorExigeGate": true
+    },
+    "conclusao": "Gates OFF — pagamento/cancelamento real Destaxa bloqueados por flag"
+  },
+  "6_pendenciasTecnicas": [
+    {
+      "tipo": "sessao_cds",
+      "item": "Sessão CLIENT_INITIALIZED da MRT-16 não persiste neste processo (Native Host foi encerrado)",
+      "nota": "Antes de TX homologação: novo LOAD+INIT controlado na mesma sessão de host — fora desta sprint"
+    },
+    {
+      "tipo": "config",
+      "item": "Config TEF usada no INIT tinha defaults / sem estabelecimento-loja-terminal persistidos no DB de teste",
+      "nota": "Homologação em produção exige config oficial Destaxa no CDS sem alterar nesta sprint"
+    }
+  ],
+  "7_classificacaoProntidao": "PRONTO PARA HOMOLOGAÇÃO CONTROLADA",
+  "dllReadonly": {
+    "dllEncontrada": true,
+    "caminho": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+    "processArch": "x64",
+    "carregadaEmMemoriaAgora": false,
+    "nota": "Resolver somente — sem koffi.load nesta sprint"
+  },
+  "comprovado": [
+    "MRT-16: iniciaClientDestaxa retornou 00 / CLIENT_INITIALIZED (evidência histórica)",
+    "DLL 1.83 resolvível em resources/tef/destaxa/win-x64",
+    "Native Host IPC operacional (histórico MRT-15/16)",
+    "V$Pague Client detectável via Win32 (estado atual no relatório)",
+    "Gate DESTAXA_REAL_TRANSACTION_ENABLED permanece OFF"
+  ],
+  "dependeDestaxa": [
+    "Confirmação contínua de liberação do terminal no Partner Cloud / V$PagueServer",
+    "Validação de que Background + .conf cobrem Identificar em nova sessão INIT",
+    "Suporte a eventual código pós-INIT em logs do Client"
+  ],
+  "dependePinPad": [
+    "PPC-930 presente e COM correta (enumeração atual no relatório)",
+    "Sem abrir comunicação transacional nesta sprint"
+  ],
+  "faltaParaPrimeiraTransacaoHomologacao": [
+    "Sessão Destaxa viva no mesmo Native Host que executará a TX (re-INIT controlado imediatamente antes, se host novo)",
+    "DESTAXA_REAL_TRANSACTION_ENABLED=1 somente no momento da TX homologada e com valor R$1,00 / CRT",
+    "Config CDS oficial (provedor=destaxa, ambiente=homologacao, pinpad/COM) — sem alterar nesta sprint",
+    "Operador e PinPad prontos; um único CRT; sem retry automático em inconclusivo"
+  ],
+  "procedimentoSeguroHomologacao": {
+    "passos": [
+      "1. Confirmar Client Responding + PinPad enumerado",
+      "2. Abrir Native Host; LOAD; INIT único (como MRT-16) — se host novo",
+      "3. Validar clientInitialized=true / código 00",
+      "4. Habilitar gate DESTAXA_REAL_TRANSACTION_ENABLED=1 somente para a chamada",
+      "5. Uma autorização CRT R$1,00 homologacao; gate OFF em seguida",
+      "6. Sem retry automático se timeout/inconclusivo; preservar evidências"
+    ],
+    "naoFazer": [
+      "INIT em loop",
+      "débito/crédito fora do valor homologado",
+      "PIX",
+      "cancel/estorno nesta fase"
+    ]
+  },
+  "resultadoFinal": "MRT-17 CONCLUÍDA — PRONTO PARA HOMOLOGAÇÃO CONTROLADA"
+}

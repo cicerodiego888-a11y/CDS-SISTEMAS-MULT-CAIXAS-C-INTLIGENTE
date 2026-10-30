@@ -1,7 +1,7 @@
 {
   "sprint": "TEF-DESTAXA-07G",
   "status": "READY_FOR_07H_PRECHECK",
-  "generatedAt": "2026-10-23T00:26:30.793Z",
+  "generatedAt": "2026-10-29T19:07:51.877Z",
   "visualRule": {
     "file": "frontend/erp/js/configuracao_tef.js",
     "function": "executarDiagnosticoCompleto",

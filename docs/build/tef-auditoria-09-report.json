@@ -1,0 +1,145 @@
+{
+  "sprint": "TEF-AUDITORIA-09",
+  "title": "Correção dos indicadores e identificação do PinPad",
+  "generatedAt": "2026-10-29T20:05:00.000Z",
+  "verdict": "INDICATORS_AND_CATALOG_CORRECTED",
+  "tefReadyForSaleDeclared": false,
+  "constraintsHonored": {
+    "noFinancialCalls": true,
+    "noDestaxaRealTransactionGateEnabled": true,
+    "noOfficialDatabaseMutation": true,
+    "noInventedEstabelecimentoLojaTerminal": true,
+    "noInitClientRetry": true,
+    "noStoneSitefPaygoMixedAsDestaxa": true
+  },
+  "filesChanged": [
+    "backend/services/tef/pinpads/pinpadCatalog.js",
+    "backend/services/tef/pinpadCatalogService.js",
+    "backend/services/tef/destaxa/destaxaEvidenciasOperacionais.js",
+    "backend/services/tef/tefDiagnosticoService.js",
+    "backend/services/tef/tefConfigService.js",
+    "frontend/erp/js/configuracao_tef.js",
+    "frontend/erp/pages/ConfiguracaoTEF.html",
+    "frontend/pages/ConfiguracaoTEF.html",
+    "tests/tef/tef-auditoria-09-indicadores.test.js",
+    "package.json",
+    "docs/build/tef-auditoria-09-report.json"
+  ],
+  "catalogPinpad": {
+    "codigoPersistido": "GERTEC_PPC930",
+    "nomeExibicaoAntes": "Gertec PPC930 (Rede/Itaú)",
+    "nomeExibicaoDepois": "Gertec PPC930 (USB CDC → COM virtual)",
+    "uiFallbackAligned": true,
+    "htmlCommentFixed": true,
+    "adquirenteSugeridoKeptAsMetadataOnly": "Rede",
+    "observacaoAdquirente": "Adquirente sugerido é metadado comercial legado; o provedor TEF efetivo é o configurado em Geral (ex.: destaxa).",
+    "legacyAliasRedeItauResolves": true,
+    "providerDestaxaUnchanged": true
+  },
+  "indicatorsCorrected": [
+    {
+      "id": "diagReimpressao",
+      "before": "forced true / Reimpressão ativa",
+      "after": "NAO_VALIDADO via capacidadesGenericas.reimpressaoTef"
+    },
+    {
+      "id": "diagConciliacao",
+      "before": "forced true / Conciliação ativa",
+      "after": "NAO_VALIDADO via capacidadesGenericas.conciliacaoTef"
+    },
+    {
+      "id": "diagCancelamento",
+      "before": "forced true / Cancelamento ativo",
+      "after": "INDISPONIVEL via capacidadesGenericas.cancelamentoDestaxa"
+    },
+    {
+      "id": "diagVenda",
+      "before": "forced true / Venda integrada",
+      "after": "BLOQUEADO via capacidadesGenericas.vendaDestaxa"
+    },
+    {
+      "id": "diagNfce",
+      "before": "forced true / NFC-e integrada",
+      "after": "NAO_VALIDADO via capacidadesGenericas.nfceIntegrada"
+    },
+    {
+      "id": "monitorPinpad",
+      "before": "Configurado",
+      "after": "Parâmetros cadastrados"
+    },
+    {
+      "id": "testarConexaoPinpadMensagem",
+      "before": "PinPad configurado e pronto para teste.",
+      "after": "PinPad com parâmetros cadastrados (cadastro ≠ operacional / ≠ pronto para venda)."
+    },
+    {
+      "id": "resumoProntoParaVenda",
+      "before": "Prontidão técnica TEF N% podia sugerir sucesso",
+      "after": "TEF pronto para venda: NÃO / BLOQUEADO; percentual só auxiliar"
+    }
+  ],
+  "destaxaDiagnosticPanel": {
+    "module": "backend/services/tef/destaxa/destaxaEvidenciasOperacionais.js",
+    "wiredInto": "tefDiagnosticoService.executarDiagnosticoCompleto → evidenciasDestaxa",
+    "uiRenderer": "renderizarPainelDestaxaDiagnostico",
+    "separateIndicators": [
+      "dllExports",
+      "portaCom",
+      "processoVsPague",
+      "inicializacaoClient",
+      "cadastroTerminalVsPague",
+      "mapeamentoEstabelecimentoLojaTerminal",
+      "prontidaoTransacao"
+    ],
+    "initClient": {
+      "reexecuted": false,
+      "historicoPreservadoCodigo": "00",
+      "fonteHistorico": "docs/build/tef-ppc930-05-report.json"
+    },
+    "liveEvidenceSnapshot": {
+      "tefProntoParaVenda": false,
+      "bloqueios": [
+        "VSPAGUE_00151",
+        "VSPAGUE_CONF_AUSENTE",
+        "MAPEAMENTO_OFICIAL_PENDENTE",
+        "DESTAXA_REAL_TRANSACTION_DISABLED"
+      ],
+      "capacidades": {
+        "vendaDestaxa": "BLOQUEADO",
+        "cancelamentoDestaxa": "INDISPONIVEL",
+        "conciliacaoTef": "NAO_VALIDADO",
+        "reimpressaoTef": "NAO_VALIDADO",
+        "nfceIntegrada": "NAO_VALIDADO"
+      }
+    }
+  },
+  "testsExecuted": [
+    {
+      "command": "node --test tests/tef/tef-auditoria-09-indicadores.test.js",
+      "npm": "npm run test:tef-auditoria-09",
+      "result": { "passed": 4, "failed": 0 }
+    },
+    {
+      "command": "node tests/tef/tef-pinpad-01-verifone-p200.test.js",
+      "result": { "passed": 8, "failed": 0 }
+    }
+  ],
+  "uiStatePresented": {
+    "pinpadSelectLabel": "Gertec PPC930 (USB CDC → COM virtual)",
+    "pinpadDoesNotSelectProvider": true,
+    "capabilityBadgesNoLongerForcedTrue": true,
+    "destaxaBlockersVisibleWhenProviderDestaxa": true,
+    "tefReadyForSale": false
+  },
+  "conclusion": {
+    "misleadingCapabilitiesRemoved": true,
+    "ppc930CatalogNoLongerConfusesModelWithProvider": true,
+    "remainingOperationalBlockersUnchanged": [
+      "00151",
+      ".conf ausente",
+      "mapeamento oficial pendente",
+      "gate financeiro desligado"
+    ],
+    "recommendedNextStep": "Aguardar confirmação Destaxa (cadastro terminal/.conf/mapeamento) antes de qualquer gravação de códigos ou abertura do gate."
+  }
+}

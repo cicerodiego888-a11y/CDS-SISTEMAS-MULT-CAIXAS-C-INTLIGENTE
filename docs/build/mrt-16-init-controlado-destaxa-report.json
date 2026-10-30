@@ -1,0 +1,198 @@
+{
+  "sprint": "MRT-16",
+  "title": "Primeira inicialização real Destaxa (INIT controlado)",
+  "generatedAt": "2026-10-30T18:04:50.757Z",
+  "restricoes": {
+    "pagamento": false,
+    "debitoCreditoPix": false,
+    "cancelamentoEstorno": false,
+    "operacaoFinanceiraHomologacao": false,
+    "initRepetidoAutomatico": false,
+    "configProvedorAlterada": false,
+    "bancoProducaoAlterado": false,
+    "gateFinanceiroForcadoOff": false,
+    "gateFinanceiroValor": "(vazio)"
+  },
+  "etapa1_preValidacao": {
+    "vspague": {
+      "detectado": true,
+      "executando": true,
+      "responding": true,
+      "pid": 8740,
+      "caminho": "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
+      "commandLine": "VSPagueClient  -Xms64m -Xmx512m -Dfile.encoding=ISO8859-1 -Duser.timezone=America/Recife -jar C:\\VBI\\V$Pague\\Client\\V$PagueClient.jar -h app-partner.destaxa.cloud -p 60410 -atv server -tls"
+    },
+    "configSomenteLeitura": {
+      "ok": true,
+      "provedor": null,
+      "ambiente": "simulacao",
+      "empresaCodigo": null,
+      "lojaCodigo": null,
+      "terminalCodigo": null,
+      "pdvCodigo": null,
+      "caixaCodigo": null,
+      "defaults": true
+    },
+    "parametrosEnviadosADll": {
+      "texto": "versao=1.0.3;aplicacao=CDS Sistemas",
+      "chaves": [
+        "versao",
+        "aplicacao"
+      ],
+      "incluiPdvOuCaixa": false,
+      "camposDestaxaEnviados": {
+        "estabelecimento": false,
+        "loja": false,
+        "terminal": false
+      },
+      "nota": "iniciaClientDestaxa(resultado, entrada, tamanho) — NÃO iniciaTransacaoDestaxa"
+    },
+    "arquitetura": {
+      "processArch": "x64",
+      "esperado": "x64",
+      "ok": true
+    },
+    "initNaoDisparaFinanceiro": {
+      "comprovadoPorCodigo": true,
+      "evidencia": "DestaxaNativeBridge.iniciarClient chama apenas export iniciaClientDestaxa; TX exige OPERACOES_HOST.TX_* + gate DESTAXA_REAL_TRANSACTION_ENABLED",
+      "gateFinanceiro": "(vazio)"
+    },
+    "load": {
+      "sucesso": true,
+      "estado": "EXPORTS_VALID",
+      "dllPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+      "dllLoaded": true,
+      "exportsValid": true,
+      "clientInitializedAntes": false,
+      "codigo": null,
+      "mensagem": null
+    },
+    "statusAntes": {
+      "disponivel": true,
+      "hostPid": 19516,
+      "processType": "child_process",
+      "operacaoAtiva": null,
+      "clientInitialized": false,
+      "estado": "EXPORTS_VALID"
+    },
+    "estadoAnterior": {
+      "horario": "2026-10-30T18:04:52.418Z",
+      "dllLoaded": true,
+      "clientInitialized": false,
+      "vspaguePid": 8740
+    }
+  },
+  "etapa2_init": {
+    "horarioInicio": "2026-10-30T18:04:52.418Z",
+    "horarioFim": "2026-10-30T18:04:52.421Z",
+    "duracaoWallMs": 3,
+    "chamadasInitContadas": 1,
+    "repetiuAutomaticamente": false,
+    "retornoOriginal": {
+      "sucesso": true,
+      "codigo": "00",
+      "codigoDestaxa": "00",
+      "descricaoCodigo": "API executada com sucesso.",
+      "mensagem": "Client Destaxa inicializado",
+      "estado": "CLIENT_INITIALIZED",
+      "duracaoMs": 0.1704,
+      "entrada": "versao=1.0.3;aplicacao=CDS Sistemas",
+      "tamanhoEntrada": 35,
+      "diagnostico": {
+        "provider": "DESTAXA",
+        "mode": "REAL",
+        "processArch": "x64",
+        "dllArch": "x64",
+        "dllPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+        "dllExists": true,
+        "dllLoaded": true,
+        "exportsValid": true,
+        "exports": {
+          "iniciaClientDestaxa": true,
+          "iniciaTransacaoDestaxa": true,
+          "continuaTransacaoDestaxa": true,
+          "finalizaTransacaoDestaxa": true
+        },
+        "clientInitialized": true,
+        "clientResultCode": "00",
+        "estado": "CLIENT_INITIALIZED",
+        "tefDisponivel": false,
+        "transactionCommunicationValidated": false,
+        "authorizationAvailable": false,
+        "ultimoCodigoClient": "00",
+        "ultimoErro": null
+      }
+    },
+    "erro": null,
+    "codigoDestaxa": "00",
+    "codigoCds": "00",
+    "descricaoCodigo": "API executada com sucesso.",
+    "sucesso": true,
+    "estado": "CLIENT_INITIALIZED",
+    "mensagem": "Client Destaxa inicializado",
+    "entradaEnviada": "versao=1.0.3;aplicacao=CDS Sistemas",
+    "tamanhoEntrada": 35,
+    "duracaoMsDll": 0.1704,
+    "diagnosticoPosInitImediato": {
+      "provider": "DESTAXA",
+      "mode": "REAL",
+      "processArch": "x64",
+      "dllArch": "x64",
+      "dllPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+      "dllExists": true,
+      "dllLoaded": true,
+      "exportsValid": true,
+      "exports": {
+        "iniciaClientDestaxa": true,
+        "iniciaTransacaoDestaxa": true,
+        "continuaTransacaoDestaxa": true,
+        "finalizaTransacaoDestaxa": true
+      },
+      "clientInitialized": true,
+      "clientResultCode": "00",
+      "estado": "CLIENT_INITIALIZED",
+      "tefDisponivel": false,
+      "transactionCommunicationValidated": false,
+      "authorizationAvailable": false,
+      "ultimoCodigoClient": "00",
+      "ultimoErro": null
+    }
+  },
+  "etapa3_verificacao": {
+    "status": {
+      "disponivel": true,
+      "hostPid": 19516,
+      "clientInitialized": true,
+      "clientResultCode": "00",
+      "estado": "CLIENT_INITIALIZED",
+      "dllLoaded": true,
+      "ultimoErro": null
+    },
+    "diagnosticar": {
+      "sucesso": true,
+      "mensagem": "DLL validada e Client Destaxa inicializado; comunicação transacional não testada",
+      "clientInitialized": true,
+      "clientResultCode": "00",
+      "estado": "CLIENT_INITIALIZED",
+      "dllLoaded": true,
+      "exportsValid": true,
+      "transactionCommunicationValidated": false,
+      "authorizationAvailable": false,
+      "ultimoErro": null
+    },
+    "vspague": {
+      "detectado": true,
+      "executando": true,
+      "responding": true,
+      "pid": 8740
+    }
+  },
+  "erros": [],
+  "resultadoFinal": "MRT-16 CONCLUÍDA — INIT DESTAXA OK (SEM PAGAMENTO)",
+  "sessaoDestaxaInicializada": true,
+  "comunicacaoDllClient": {
+    "comprovadaPorInit": true,
+    "codigoDestaxa": "00",
+    "clientInitialized": true
+  }
+}

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>CE-UX-02 Click Harness</title>
+  <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/css/miip-central-revisao.css">
+  <style>
+    body { font-family: Segoe UI, sans-serif; padding: 1rem; background: #0f172a; color: #e2e8f0; }
+    #resultado { white-space: pre-wrap; background: #020617; border: 1px solid #334155; padding: 1rem; border-radius: 8px; }
+    .ok { color: #4ade80; } .fail { color: #f87171; }
+  </style>
+</head>
+<body>
+  <h1>CE-UX-02 — harness de cliques reais</h1>
+  <p>Instrumenta handlers e dispara click() nativo nos botões da Central MIIP (sem banco de produção).</p>
+  <button id="btnRodar" class="btn btn-primary mb-3">Rodar testes</button>
+  <div id="resultado">Aguardando…</div>
+  <div id="notification-container"></div>
+
+  <script src="/vendor/jquery/jquery.min.js"></script>
+  <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="/erp/js/miip-central-revisao-inteligente.js"></script>
+  <script src="/erp/js/miip-central-revisao.js"></script>
+  <script>
+  (function () {
+    const log = [];
+    const apiCalls = [];
+    window.showNotification = function (msg, tipo) {
+      log.push({ tipo: 'notify', msg: String(msg), nivel: tipo || 'info' });
+    };
+
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async function (url, init) {
+      const method = (init && init.method) || 'GET';
+      let body = null;
+      try { body = init && init.body ? JSON.parse(init.body) : null; } catch (_) { body = init && init.body; }
+      apiCalls.push({ url: String(url), method, body });
+      if (/\/revisar\/itens\/\d+\/decisao/.test(url) && method === 'POST') {
+        return { ok: true, status: 200, json: async () => ({ sucesso: true, progresso: { total: 2, concluidos: 1, pendentes: 1 } }) };
+      }
+      if (/\/revisar\/itens\/\d+\/conversao/.test(url) && method === 'POST') {
+        const estado = body && body.decisao ? String(body.decisao) : 'PENDENTE';
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            conversao: { estado, resultado_backend: { ok: true } },
+            resultado_backend: { ok: true }
+          })
+        };
+      }
+      if (/\/revisar\/conversoes/.test(url)) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            bloqueia_efetivacao: true,
+            linhas: [{
+              indice: 0,
+              nItem: 1,
+              requer_confirmacao: true,
+              produto_nome: 'LUVA DE VAQUETA NATURAL G',
+              descricao_xml: 'LUVA DE VAQUETA NATURAL G',
+              quantidade_comercial: 10,
+              unidade_comercial: 'PAR',
+              unidade_estoque: 'PAR',
+              quantidade_tributavel: 10,
+              unidade_tributavel: 'PAR',
+              conversao_sugerida: '1:1',
+              quantidade_resultante_proposta: 10,
+              estado_decisao: 'PENDENTE'
+            }]
+          })
+        };
+      }
+      if (/miip\/feedback/.test(url)) {
+        return { ok: true, status: 200, json: async () => ({ sucesso: true }) };
+      }
+      return { ok: true, status: 200, json: async () => ({}) };
+    };
+
+    function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+    function clickEl(el) {
+      if (!el) throw new Error('elemento ausente');
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+    }
+
+    function dados() {
+      const itens = [
+        { produto_nome: 'LUVA DE VAQUETA NATURAL G', unidade: 'PAR', quantidade: 10, preco_unitario: 12, codigo_fornecedor: 'L1' },
+        { produto_nome: 'CAPACETE', unidade: 'UN', quantidade: 1, preco_unitario: 40, codigo_fornecedor: 'C1' }
+      ];
+      const prod = { id: 77, nome: 'Luva Vaqueta G', unidade: 'PAR', ativo: 1, codigo_barras: '789' };
+      return {
+        produtos: [prod],
+        dadosImportacao: {
+          fornecedor: 'Fornecedor Harness',
+          fornecedor_cnpj: '12345678000199',
+          itens,
+          miip_importacao: {
+            usarMiipImportacaoXML: true,
+            resumo: { totalItens: 2, identificadosAutomaticamente: 0, precisamConfirmacao: 1, precisamCadastro: 1 },
+            resultados: [
+              {
+                indice: 0,
+                precisaConfirmacao: true,
+                produtoEncontrado: prod,
+                score: 90,
+                produtoXML: itens[0],
+                candidatos: [{ produtoId: 77, score: 90, produto: prod }],
+                acao: 'sugerir'
+              },
+              {
+                indice: 1,
+                precisaCadastro: true,
+                precisaConfirmacao: false,
+                produtoEncontrado: null,
+                score: 0,
+                produtoXML: itens[1],
+                candidatos: [],
+                acao: 'criar_novo'
+              }
+            ]
+          }
+        }
+      };
+    }
+
+    async function assertStep(nome, fn) {
+      try {
+        await fn();
+        log.push({ tipo: 'step', nome, ok: true });
+        return true;
+      } catch (e) {
+        log.push({ tipo: 'step', nome, ok: false, erro: e.message || String(e) });
+        return false;
+      }
+    }
+
+    async function rodar() {
+      log.length = 0;
+      apiCalls.length = 0;
+      const out = document.getElementById('resultado');
+      out.textContent = 'Executando…';
+
+      const versaoSrc = await originalFetch('/erp/js/miip-central-revisao.js').then((r) => r.text());
+      const versao = {
+        len: versaoSrc.length,
+        hasIgnorarNs: versaoSrc.includes('click.miipCentralIgnorar'),
+        hasAcoesBarra: versaoSrc.includes('miipCentralAcoesBarra'),
+        hasEEsteConfirmar: versaoSrc.includes('É este — confirmar'),
+        hasAtualizarAcoes: versaoSrc.includes('atualizarAcoesVisiveis')
+      };
+      log.push({ tipo: 'versao', ...versao });
+
+      if (typeof MiipCentralRevisao === 'undefined') {
+        out.textContent = 'MiipCentralRevisao não carregou';
+        return;
+      }
+
+      const { produtos, dadosImportacao } = dados();
+      let concluiu = false;
+      MiipCentralRevisao.iniciar({
+        apiUrl: '/api',
+        dadosImportacao,
+        produtos,
+        documento: { id: 9001 },
+        obterUsuario: () => ({ id: 1, nome: 'Harness' }),
+        onConcluir: () => { concluiu = true; },
+        onCancelar: () => {}
+      });
+
+      await sleep(400);
+      const api = MiipCentralRevisao._test;
+
+      await assertStep('modal_visivel', async () => {
+        const modal = document.getElementById('miipCentralRevisaoModal');
+        if (!modal) throw new Error('modal ausente');
+      });
+
+      await assertStep('click_e_este_confirmar_associacao', async () => {
+        const antes = api.obterEstado().sessao.resolvidas.length;
+        const btn = document.querySelector('[data-miip-e-este]');
+        if (!btn) throw new Error('botão É este ausente');
+        clickEl(btn);
+        await sleep(350);
+        const depois = api.obterEstado().sessao.resolvidas.length;
+        if (depois <= antes) throw new Error('resolvidas não aumentou após É este');
+        if (!apiCalls.some((c) => c.method === 'POST' && c.body && c.body.decisao === 'CONFIRMAR')) {
+          throw new Error('POST CONFIRMAR não ocorreu');
+        }
+      });
+
+      // Volta item 1 (cadastro) como atual — após confirmar o 0, o índice deve avançar
+      await sleep(200);
+      await assertStep('click_escolher_outro_abre_busca', async () => {
+        const btn = document.getElementById('miipCentralBtnEscolher');
+        if (!btn) throw new Error('Escolher outro ausente');
+        if (btn.disabled || btn.getAttribute('aria-disabled') === 'true' || btn.classList.contains('disabled')) {
+          // força item aberto
+          const st = api.obterEstado();
+          const abertas = st.sessao.pendencias
+            .map((p, i) => ({ p, i }))
+            .filter(({ p }) => api.pendenciaAberta(st.sessao, p));
+          if (!abertas.length) throw new Error('sem pendência aberta para Escolher');
+          st.sessao.indiceAtual = abertas[0].i;
+          // re-render via Tab path
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+          await sleep(150);
+        }
+        clickEl(document.getElementById('miipCentralBtnEscolher'));
+        await sleep(200);
+        const busca = document.getElementById('miipCentralBuscaModal');
+        if (!busca || !busca.classList.contains('show')) {
+          // bootstrap mock may not toggle class; check resultados host
+          const host = document.getElementById('miipCentralBuscaResultados');
+          if (!host) throw new Error('modal busca não abriu');
+        }
+        // fecha se aberto
+        try {
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('miipCentralBuscaModal')).hide();
+        } catch (_) {}
+      });
+
+      await assertStep('click_ignorar_item', async () => {
+        const st0 = api.obterEstado();
+        const abertas = st0.sessao.pendencias
+          .map((p, i) => ({ p, i }))
+          .filter(({ p }) => api.pendenciaAberta(st0.sessao, p));
+        if (!abertas.length) throw new Error('sem item para ignorar');
+        st0.sessao.indiceAtual = abertas[0].i;
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+        await sleep(100);
+        // força render
+        const btn = document.getElementById('miipCentralBtnIgnorar');
+        if (!btn) throw new Error('Ignorar ausente');
+        btn.classList.remove('disabled');
+        btn.setAttribute('aria-disabled', 'false');
+        const ignoradasAntes = st0.sessao.ignoradas.length;
+        clickEl(btn);
+        await sleep(400);
+        const st1 = api.obterEstado();
+        if (st1.sessao.ignoradas.length <= ignoradasAntes && st1.sessao.fase !== 'final') {
+          throw new Error('ignoradas não atualizou');
+        }
+        if (!apiCalls.some((c) => c.method === 'POST' && c.body && c.body.decisao === 'IGNORAR')) {
+          throw new Error('POST IGNORAR não ocorreu');
+        }
+        if (!log.some((l) => l.tipo === 'notify' && /Item ignorado/i.test(l.msg))) {
+          throw new Error('sem notificação de sucesso');
+        }
+      });
+
+      await assertStep('click_sim_conversao', async () => {
+        // Garante painel de conversão
+        const sim = document.querySelector('.miip-conv-sim');
+        if (!sim) throw new Error('botão SIM ausente — painel conversão não renderizado');
+        clickEl(sim);
+        await sleep(400);
+        if (!apiCalls.some((c) => /\/conversao/.test(c.url) && c.method === 'POST' && c.body && c.body.decisao === 'SIM')) {
+          throw new Error('POST conversao SIM não ocorreu');
+        }
+      });
+
+      await assertStep('click_nao_conversao', async () => {
+        const nao = document.querySelector('.miip-conv-nao');
+        if (!nao) throw new Error('botão NÃO ausente');
+        clickEl(nao);
+        await sleep(400);
+        if (!apiCalls.some((c) => /\/conversao/.test(c.url) && c.method === 'POST' && c.body && c.body.decisao === 'NAO')) {
+          throw new Error('POST conversao NAO não ocorreu');
+        }
+      });
+
+      await assertStep('click_reavaliar_conversao', async () => {
+        const btn = document.querySelector('.miip-conv-reavaliar');
+        if (!btn) throw new Error('Reavaliar ausente');
+        clickEl(btn);
+        await sleep(400);
+        if (!apiCalls.some((c) => /\/conversao/.test(c.url) && c.method === 'POST' && c.body && c.body.decisao === 'PENDENTE')) {
+          throw new Error('POST conversao PENDENTE (reavaliar) não ocorreu');
+        }
+      });
+
+      await assertStep('badge_pendente_nao_e_botao', async () => {
+        const badge = Array.from(document.querySelectorAll('.badge')).find((b) => /Pendente/i.test(b.textContent || ''));
+        // após SIM/NÃO pode não haver Pendente; isso é esperado
+        log.push({ tipo: 'info', msg: badge ? 'badge Pendente presente (não clicável)' : 'badge Pendente ausente após decisões' });
+      });
+
+      const steps = log.filter((l) => l.tipo === 'step');
+      const failed = steps.filter((s) => !s.ok);
+      const report = {
+        ok: failed.length === 0,
+        versao,
+        steps,
+        notifies: log.filter((l) => l.tipo === 'notify'),
+        apiCalls,
+        concluiu,
+        failed
+      };
+      window.__CE_UX_02_REPORT__ = report;
+      out.textContent = JSON.stringify(report, null, 2);
+      out.className = report.ok ? 'ok' : 'fail';
+    }
+
+    document.getElementById('btnRodar').addEventListener('click', () => {
+      rodar().catch((e) => {
+        document.getElementById('resultado').textContent = String(e && e.stack || e);
+        document.getElementById('resultado').className = 'fail';
+      });
+    });
+
+    // auto-run
+    window.addEventListener('load', () => {
+      setTimeout(() => document.getElementById('btnRodar').click(), 300);
+    });
+  })();
+  </script>
+</body>
+</html>

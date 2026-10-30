@@ -1,0 +1,216 @@
+{
+  "sprint": "TEF-12",
+  "title": "Auditoria de correções e estabilização do TEF atual",
+  "generatedAt": "2026-10-30T00:55:00.000Z",
+  "status": "TEF-12 CONCLUÍDA — PLANO DE CORREÇÕES DEFINIDO",
+  "codeChanges": false,
+  "officialDbMutated": false,
+  "initClient": false,
+  "financialTransaction": false,
+  "gatesEnabled": false,
+  "multiPdvImplemented": false,
+  "scopeNote": "Não reexecuta auditorias Destaxa 08–11; incorpora bloqueios Destaxa já comprovados como pendência externa.",
+  "resumoExecutivo": {
+    "estabilidadeGeral": "TefManager já possui trava de pendentes, idempotência por chave, timeout operacional sem abortar DLL, e recuperação no startup. Destaxa real permanece gated e sem cancelamento implementado.",
+    "maiorRiscoInternoCds": "Chave de idempotência gerada com Date.now() no PDV + venda_id frequentemente nulo no POST /pagar — retry após timeout pode abrir nova cobrança se a pendente já tiver sido finalizada.",
+    "maiorBloqueioExterno": "V$Pague 00151 + .conf ausente + mapeamento oficial Destaxa."
+  },
+  "matriz": [
+    {
+      "id": "TEF12-01",
+      "categoria": "defeito_comprovado",
+      "problema": "Idempotency key instável no PDV (Date.now) quando opcoes.idempotency_key não é fornecida.",
+      "evidencia": "frontend/pdv/js/pdv.js processarPagamentoTEF: `pdv-${tipoTef}-${valor}-${Date.now()}`",
+      "risco": "Retry após timeout/UNKNOWN ou falha de UI pode gerar segunda autorização financeira se a primeira já concluiu e a linha pendente foi fechada.",
+      "prioridade": "P0",
+      "correcao": "Gerar chave estável por tentativa de pagamento (UUID/session) antes do fetch; reutilizar na mesma tentativa; só gerar nova chave em nova intenção explícita do operador.",
+      "arquivos": ["frontend/pdv/js/pdv.js", "opcionalmente backend/rotas/tef.js para rejeitar pagar sem idempotency_key"],
+      "testes": ["teste unitário de geração/reuso da chave", "teste de retry sem segunda linha aprovada"],
+      "dependenciaExterna": null
+    },
+    {
+      "id": "TEF12-02",
+      "categoria": "risco_arquitetural",
+      "problema": "Uma única transação `pendente` global bloqueia toda autorização TEF da instalação.",
+      "evidencia": "tefRepository.criarTransacaoExclusiva: WHERE NOT EXISTS (SELECT 1 FROM tef_transacoes WHERE status='pendente'); TefManager._pendencias.size>0 → _respostaTravaResultadoTardio",
+      "risco": "Pendente órfã (crash, kill do processo, reconciliação incompleta) paralisa o PDV até reconciliar/manual.",
+      "prioridade": "P0",
+      "correcao": "Sprint de recuperação operacional: UX/API clara para listar/reconciliar pendentes; política de idade máxima; nunca auto-aprovar; documentar procedimento.",
+      "arquivos": ["backend/services/tef/TefManager.js", "backend/services/tef/tefRepository.js", "backend/rotas/tef.js", "frontend PDV/ERP diagnóstico"],
+      "testes": ["já existem destaxa-06c-*; acrescentar teste de órfã + bloqueio + reconcile seguro"],
+      "dependenciaExterna": null
+    },
+    {
+      "id": "TEF12-03",
+      "categoria": "defeito_comprovado",
+      "problema": "Cancelamento Destaxa não implementado (resposta explícita de erro).",
+      "evidencia": "DestaxaRealAdapter.cancelarPagamento → codigo DESTAXA_TRANSACAO_NAO_IMPLEMENTADA",
+      "risco": "Após CRT real, estorno/cancelamento pelo fluxo CDS falha; risco operacional/financeiro se venda for desfeita só no ERP.",
+      "prioridade": "P1",
+      "correcao": "Antes de abrir gate: bloquear cancelamento de venda com TEF Destaxa aprovado sem caminho nativo; depois implementar CNC conforme doc Destaxa.",
+      "arquivos": ["DestaxaRealAdapter.js", "TefManager.cancelar", "fluxo PDV cancelar"],
+      "testes": ["teste de cancelamento Destaxa retorna código explícito e PDV não marca estorno falso"],
+      "dependenciaExterna": "Contrato oficial Destaxa para cancelamento/estorno"
+    },
+    {
+      "id": "TEF12-04",
+      "categoria": "risco_arquitetural",
+      "problema": "Timeout operacional não cancela a DLL; resultado tardio exige reconciliação.",
+      "evidencia": "TefManager: timeout responde UNKNOWN/PENDING; DestaxaNativeHostClient: timeout IPC mantém lock; docs Destaxa sem timeout global CRT",
+      "risco": "Operador pode achar que falhou e tentar de novo; mitigado parcialmente por pendente global + idempotência se chave estável.",
+      "prioridade": "P1",
+      "correcao": "UX de 'aguardando resultado / não repita'; reforçar TEF12-01/02; testes 06c-timeout já cobrem núcleo.",
+      "arquivos": ["TefManager.js", "DestaxaNativeHostClient.js", "frontend/pdv/js/pdv.js"],
+      "testes": ["tef-destaxa-06c-timeout", "fluxo PDV mensagem de não-retry"],
+      "dependenciaExterna": null
+    },
+    {
+      "id": "TEF12-05",
+      "categoria": "risco_arquitetural",
+      "problema": "Associação venda↔TEF frágil quando venda_id é null no /pagar.",
+      "evidencia": "pdv.js envia venda_id: opcoes.venda_id || null; tef_transacoes.venda_id; README_INTEGRACAO_REAL exige tef_transacao_id no recebimento",
+      "risco": "TEF aprovado sem vínculo de venda/recebimento → pendência fiscal NFC-e / conciliação.",
+      "prioridade": "P1",
+      "correcao": "Garantir ordem: criar/obter venda (ou pré-venda) antes do TEF, ou atualizar venda_id imediatamente após; testes de anexarTefAoPrimeiroPagamento.",
+      "arquivos": ["frontend/pdv/js/pdv.js", "backend/services/tef/tefRepository.js", "fluxo vendas/recebimentos"],
+      "testes": ["integração: pagar com venda_id; rejeitar ou reconciliar sem venda_id conforme política"],
+      "dependenciaExterna": null
+    },
+    {
+      "id": "TEF12-06",
+      "categoria": "melhoria_futura",
+      "problema": "Rotas TEF individuais sem verificarToken explícito (dependem do mount).",
+      "evidencia": "server.js: app.use('/api/tef', verificarToken, tefRoutes); rotas/tef.js POST /pagar sem middleware local",
+      "risco": "Baixo enquanto o mount permanecer; regressão se alguém montar tefRoutes sem auth.",
+      "prioridade": "P2",
+      "correcao": "Aplicar verificarToken (e papéis) nas rotas sensíveis por defesa em profundidade.",
+      "arquivos": ["backend/rotas/tef.js", "backend/server.js"],
+      "testes": ["teste de rota sem token → 401 mesmo se mount mudar"],
+      "dependenciaExterna": null
+    },
+    {
+      "id": "TEF12-07",
+      "categoria": "risco_arquitetural",
+      "problema": "Diagnóstico/UI pode parecer 'pronto' sem Identificar V$Pague OK.",
+      "evidencia": "docs/build/tef-auditoria-08-report.json — badges PinPad/V$Pague; destaxaEvidenciasOperacionais já mitiga parcialmente (sprint 09/10)",
+      "risco": "Operador inicia venda real com ambiente ainda bloqueado (00151).",
+      "prioridade": "P2",
+      "correcao": "Completar alinhamento de rótulos ERP (auditoria 08 P2 restantes); tefProntoParaVenda permanece false.",
+      "arquivos": ["frontend/erp/js/configuracao_tef.js", "tefDiagnosticoService.js"],
+      "testes": ["tef-auditoria-09-indicadores", "smoke diagnóstico Destaxa"],
+      "dependenciaExterna": "00151/.conf (Destaxa)"
+    },
+    {
+      "id": "TEF12-08",
+      "categoria": "risco_arquitetural",
+      "problema": "DLL Destaxa empacotada no repo/asarUnpack, mas instalado Program Files pode não trazer a DLL.",
+      "evidencia": "package.json asarUnpack **/resources/tef/destaxa/**; TEF-DESTAXA-08: libdll ausente sob Program Files\\CDS ERP\\resources",
+      "risco": "Adapter real indisponível em instalação empacotada apesar do checkout ter a DLL.",
+      "prioridade": "P1",
+      "correcao": "Verificar composição de release (tests/electron/release-composition) no pipeline de build instalado; checklist pós-instalação.",
+      "arquivos": ["package.json", "electron-build-manifest.json", "destaxaDllResolver.js", "CI/build"],
+      "testes": ["release-composition.test.js", "smoke path DLL no artefato instalado"],
+      "dependenciaExterna": null
+    },
+    {
+      "id": "TEF12-09",
+      "categoria": "pendencia_destaxa",
+      "problema": "00151 Terminal não cadastrado/desabilitado + .conf ausente.",
+      "evidencia": "vspague-client.log; TEF-DESTAXA-08/09/10",
+      "risco": "Bloqueia Identificar; impede homologação real.",
+      "prioridade": "P0",
+      "correcao": "Suporte Destaxa — não contornar no CDS.",
+      "arquivos": ["(externo) C:\\VBI\\V$Pague"],
+      "testes": ["somente revalidação readonly pós-provisionamento"],
+      "dependenciaExterna": "Destaxa Integração"
+    },
+    {
+      "id": "TEF12-10",
+      "categoria": "pendencia_destaxa",
+      "problema": "Códigos oficiais estabelecimento/loja/terminal ausentes.",
+      "evidencia": "tef_configuracao null; destaxaMapeamentoTerminal MAPEAMENTO_OFICIAL_PENDENTE",
+      "risco": "INIT pode funcionar só com versao/aplicacao, mas cadastro lógico fica incompleto se Destaxa exigir os códigos.",
+      "prioridade": "P1",
+      "correcao": "Gravar somente literais oficiais após resposta do fornecedor.",
+      "arquivos": ["tef_configuracao", "configuracao_tef.js"],
+      "testes": ["tef-destaxa-10-mapeamento-terminal"],
+      "dependenciaExterna": "Destaxa"
+    },
+    {
+      "id": "TEF12-11",
+      "categoria": "melhoria_futura",
+      "problema": "Config TEF singleton por instalação — sem PinPad/COM por PDV.",
+      "evidencia": "TEF-DESTAXA-11; ESCOPO_CONFIGURACAO_TEF.nivel=instalacao",
+      "risco": "Conflito multi-caixa na mesma instalação (já auditado).",
+      "prioridade": "P2",
+      "correcao": "Sprint Multi-PDV dedicada após estabilização + Destaxa.",
+      "arquivos": ["tefConfigRepository", "schema"],
+      "testes": ["tef-destaxa-11-config-por-pdv"],
+      "dependenciaExterna": "Confirmação Destaxa multi-terminal por máquina"
+    },
+    {
+      "id": "TEF12-12",
+      "categoria": "melhoria_futura",
+      "problema": "Proteção de segredos em config/logs parece adequada; manter regressão.",
+      "evidencia": "CAMPOS_SECRETOS em tefConfigService; destaxaLogger CAMPOS_PROIBIDOS; HostBridge sanitizar",
+      "risco": "Baixo se novos campos sensíveis forem logados sem sanitizar.",
+      "prioridade": "P2",
+      "correcao": "Teste de regressão: logs não contêm pan/senha/token.",
+      "arquivos": ["destaxaLogger.js", "tefConfigService.js"],
+      "testes": ["unit sanitização"],
+      "dependenciaExterna": null
+    }
+  ],
+  "separacao": {
+    "defeitosComprovados": ["TEF12-01", "TEF12-03"],
+    "riscosArquiteturais": ["TEF12-02", "TEF12-04", "TEF12-05", "TEF12-07", "TEF12-08"],
+    "melhoriasFuturas": ["TEF12-06", "TEF12-11", "TEF12-12"],
+    "pendenciasDestaxa": ["TEF12-09", "TEF12-10"]
+  },
+  "pontosSaudaveisNaoReabrir": [
+    "Seleção Destaxa em tefFactory sem fallback silencioso para simulação em homologação",
+    "Gate DESTAXA_REAL_TRANSACTION_ENABLED",
+    "Trava de resultado tardio e criarTransacaoExclusiva",
+    "Auth global app.use('/api/tef', verificarToken)",
+    "Config TEF ERP com exigirSuperAdmin",
+    "asarUnpack resources/tef/destaxa no package.json",
+    "Mapeamento Destaxa explícito (TEF-DESTAXA-10) sem inventar códigos"
+  ],
+  "ordemSprintsCorrecao": [
+    {
+      "sprint": "TEF-13",
+      "objetivoUnico": "Idempotência estável no PDV (chave por tentativa) e política de retry pós-timeout",
+      "itens": ["TEF12-01", "parcial TEF12-04 UX"]
+    },
+    {
+      "sprint": "TEF-14",
+      "objetivoUnico": "Recuperação operacional de transação pendente órfã (listar/reconciliar sem auto-aprovar)",
+      "itens": ["TEF12-02"]
+    },
+    {
+      "sprint": "TEF-15",
+      "objetivoUnico": "Vínculo venda_id/recebimento ↔ tef_transacao antes/após autorização",
+      "itens": ["TEF12-05"]
+    },
+    {
+      "sprint": "TEF-16",
+      "objetivoUnico": "Checklist/verificação de DLL Destaxa no artefato instalado",
+      "itens": ["TEF12-08"]
+    },
+    {
+      "sprint": "TEF-17",
+      "objetivoUnico": "Política explícita de cancelamento Destaxa (bloquear falso estorno até CNC nativo)",
+      "itens": ["TEF12-03"]
+    },
+    {
+      "sprint": "TEF-DESTAXA-prov",
+      "objetivoUnico": "Provisionamento Destaxa (00151/.conf/códigos) — externo",
+      "itens": ["TEF12-09", "TEF12-10"]
+    },
+    {
+      "sprint": "TEF-18-MultiPDV",
+      "objetivoUnico": "Desenho e implementação config/PinPad por PDV (só após estabilização)",
+      "itens": ["TEF12-11"]
+    }
+  ]
+}

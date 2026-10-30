@@ -1,0 +1,123 @@
+{
+  "sprint": "MRT-07",
+  "title": "Recuperação, persistência de estado e monitoramento",
+  "generatedAt": "2026-10-30T02:50:00.000Z",
+  "status": "MRT-07 CONCLUÍDA — RECUPERAÇÃO VALIDADA",
+  "restricoesObservadas": {
+    "liberouInconclusivoAutomaticamente": false,
+    "repetiuAutorizacaoAposReinicio": false,
+    "presumiuCancelamentoPorTimeout": false,
+    "idempotenciaTef13Alterada": false,
+    "reconciliacaoTef14Alterada": false,
+    "vinculoTef15Alterado": false,
+    "adaptersAlterados": false,
+    "initClient": false,
+    "transacaoReal": false,
+    "gates": false,
+    "bancoOficialAlterado": false,
+    "migrationAplicadaNoOficial": false
+  },
+  "diagnosticoMecanismoAtual": {
+    "leases": {
+      "store": "memória (Map por leaseId / terminal / runtime)",
+      "sobrevivemReinicioProcesso": false,
+      "recuperarAposReinicioAllocator": "zera índices; não toca tef_transacoes",
+      "inconclusivo": "resultadoFinanceiroInconclusivo bloqueia liberação por timeout"
+    },
+    "financeiro": {
+      "fonteVerdade": "tef_transacoes.status=pendente",
+      "recuperacao": "TefManager.garantirRecuperacao → recarregarPendencias (TEF-14)",
+      "efeito": "bloqueia nova autorização; não aprova/cancela/repete",
+      "idempotencia": "idempotency_key TEF-13 ortogonal ao lease"
+    },
+    "lacunaPreMrt07": "Após reinício, Allocator via LIVRE enquanto TEF-14 ainda pendente — risco de allocate Destaxa até bater na trava financeira"
+  },
+  "estrategiaRecuperacao": {
+    "ordem": [
+      "1. TEF-14 recarrega pendências (inalterado)",
+      "2. TerminalRecoveryService.recuperarAposReinicio limpa leases voláteis",
+      "3. Se há pendência Destaxa → HOLD GLOBAL_SERIALIZE marcado inconclusivo (meta.recuperacao)",
+      "4. Holds por terminal tipados no payload.roteamento (não-Destaxa)",
+      "5. sincronizarHoldsComPendencias remove hold só quando pendência financeira sumiu",
+      "6. Nunca aprova, cancela ou reautoriza"
+    ],
+    "acoesProibidas": [
+      "APROVAR_PAGAMENTO",
+      "CANCELAR_PAGAMENTO",
+      "REPETIR_AUTORIZACAO",
+      "LIBERAR_INCONCLUSIVO_FINANCEIRO",
+      "PRESUMIR_CANCELAMENTO_POR_TIMEOUT"
+    ],
+    "correlacao": "payload_retorno.roteamento { terminalTefId, leaseId, runtimeKey, pdvId, topologia } gravado na criação da TX"
+  },
+  "persistenciaDuravel": {
+    "necessariaCurtoPrazo": false,
+    "motivo": "TEF-14 + holds em memória no startup + roteamento no payload cobrem segurança operacional",
+    "necessariaMedioPrazo": true,
+    "motivoMedioPrazo": "journal de leases sobrevive a crash entre allocate e INSERT pendente; auditoria multi-instância",
+    "migrationProposta": "docs/build/mrt-07-migration-proposta.sql",
+    "tabela": "tef_terminal_leases",
+    "aplicadaNoOficial": false,
+    "aplicadaEmDatabaseJs": false
+  },
+  "estadosMonitoramento": {
+    "LIVRE": "sem lease ativo e sem pendência relacionada",
+    "OCUPADO": "lease ativo sem flag inconclusivo/recuperação",
+    "INCONCLUSIVO": "lease.resultadoFinanceiroInconclusivo=true",
+    "INDISPONIVEL": "Registry INDISPONIVEL/INATIVO/NAO_PROVISIONADO ou dispositivo inativo",
+    "EM_RECUPERACAO": "hold meta.recuperacao ou pendência sem lease (pós-reinício)",
+    "DESCONHECIDO": "fallback"
+  },
+  "apis": [
+    "TerminalRecoveryService.recuperarAposReinicio",
+    "TerminalRecoveryService.sincronizarHoldsComPendencias",
+    "TerminalMonitor.listarEstados / statusTerminal / statusRuntimeDestaxa",
+    "TefManager.garantirRecuperacao (hook MRT-07)",
+    "TefManager.monitorarTerminaisTef",
+    "TefManager.obterRecuperacaoTerminais"
+  ],
+  "arquivosCriados": [
+    "backend/services/tef/terminalRecovery/contracts.js",
+    "backend/services/tef/terminalRecovery/TerminalMonitor.js",
+    "backend/services/tef/terminalRecovery/TerminalRecoveryService.js",
+    "backend/services/tef/terminalRecovery/index.js",
+    "docs/build/mrt-07-migration-proposta.sql",
+    "tests/tef/mrt-07-recuperacao-monitoramento.test.js",
+    "docs/build/mrt-07-recuperacao-monitoramento-report.json"
+  ],
+  "arquivosAlterados": [
+    "backend/services/tef/TefManager.js"
+  ],
+  "testes": {
+    "comandoMrt07": "node tests/tef/mrt-07-recuperacao-monitoramento.test.js",
+    "resultadoMrt07": "15/15 OK",
+    "cenarios": [
+      "reinício terminal livre",
+      "reinício operação aprovada",
+      "reinício operação inconclusiva → hold",
+      "lease expirado + financeiro pendente",
+      "runtime Destaxa recuperação",
+      "sem venda vinculada",
+      "resultado tardio",
+      "nova autorização após reinício bloqueada",
+      "recuperação duplicada",
+      "sincronizar holds"
+    ],
+    "regressaoMrt02": "15/15 OK",
+    "regressaoMrt03": "15/15 OK",
+    "regressaoMrt04": "15/15 OK",
+    "regressaoMrt05": "13/13 OK",
+    "regressaoMrt06": "14/14 OK",
+    "regressaoTef13": "13/13 OK",
+    "regressaoTef14": "11/11 OK",
+    "regressaoTef15": "12/12 OK"
+  },
+  "riscosRemanescentes": [
+    "Holds de recuperação são em memória — segundo crash antes do startup hook depende só do TEF-14",
+    "Migration tef_terminal_leases ainda não aplicada (journal durável futuro)",
+    "Allocate ainda ocorre antes do check de pendências no autorizar — hold Destaxa mitiga RUNTIME_OCUPADO",
+    "Fallback singleton preservado; adapter binding Registry ainda não cutover (MRT futuro)",
+    "Operações pré-MRT-06 sem payload.roteamento aparecem como órfãs no monitor"
+  ],
+  "conclusao": "Recuperação segura: limpa leases voláteis, aplica holds Destaxa enquanto TEF-14 pendente, monitor diferencia LIVRE/OCUPADO/INCONCLUSIVO/INDISPONIVEL/EM_RECUPERACAO, propõe journal SQL sem aplicar, e nunca aprova/cancela/repete pagamento."
+}

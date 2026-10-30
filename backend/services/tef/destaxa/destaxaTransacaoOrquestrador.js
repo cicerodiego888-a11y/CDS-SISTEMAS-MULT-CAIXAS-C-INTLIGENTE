@@ -267,10 +267,46 @@ class DestaxaTransacaoOrquestrador {
       inputKeys: entrada.chaves
     });
 
+    // MRT-31 — evidência de entrada no orquestrador (antes da chamada nativa)
+    try {
+      const { registrarEtapaFluxo, ETAPAS_FLUXO } = require('./destaxaFluxoInstrumentacao');
+      registrarEtapaFluxo(ETAPAS_FLUXO.ORQUESTRADOR_ENTROU, {
+        transactionId: this._contexto.transactionId,
+        provedor: 'destaxa'
+      }, {
+        operacao: op,
+        chavesEntrada: entrada.chaves,
+        driver: this._driver?.nome || null
+      });
+    } catch (_) { /* instrumentação best-effort */ }
+
     try {
       const resultadoDll = this._driver.iniciaTransacaoDestaxa(op, entrada.texto);
-      return this._montarRespostaDll(resultadoDll, inicio);
+      const resposta = this._montarRespostaDll(resultadoDll, inicio);
+      try {
+        const { registrarEtapaFluxo, ETAPAS_FLUXO } = require('./destaxaFluxoInstrumentacao');
+        registrarEtapaFluxo(ETAPAS_FLUXO.TX_START_RESULT, {
+          transactionId: this._contexto.transactionId,
+          provedor: 'destaxa'
+        }, {
+          codigoDestaxa: resposta.codigoDestaxa || null,
+          financialState: resposta.financialState || null,
+          duracaoMs: resposta.duracaoMs ?? null,
+          requerContinuacao: resposta.requerContinuacao === true
+        });
+      } catch (_) { /* instrumentação best-effort */ }
+      return resposta;
     } catch (error) {
+      try {
+        const { registrarEtapaFluxo, ETAPAS_FLUXO } = require('./destaxaFluxoInstrumentacao');
+        registrarEtapaFluxo(ETAPAS_FLUXO.TX_START_RESULT, {
+          transactionId: this._contexto?.transactionId,
+          provedor: 'destaxa'
+        }, {
+          erro: String(error?.message || error || ''),
+          financialState: 'UNKNOWN'
+        });
+      } catch (_) { /* instrumentação best-effort */ }
       return this._montarErroFinanceiro(error, inicio);
     }
   }

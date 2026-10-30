@@ -1,0 +1,338 @@
+{
+  "sprint": "MRT-09",
+  "title": "Auditoria de prontidão para operação real (homologação física Destaxa)",
+  "generatedAt": "2026-10-30T03:05:00.000Z",
+  "status": "MRT-09 CONCLUÍDA — PRONTIDÃO AVALIADA",
+  "modo": "somente_diagnostico",
+  "restricoesObservadas": {
+    "initReal": false,
+    "pagamentoReal": false,
+    "cancelamentoOuEstornoReal": false,
+    "bancoOficialAlterado": false,
+    "migrations": false,
+    "ativacaoProducao": false,
+    "gatesFinanceirosLiberados": false,
+    "adaptersAlterados": false,
+    "arquiteturaAlterada": false,
+    "codigosDestaxaInventados": false
+  },
+
+  "fluxoEntradaSaidaConfirmado": {
+    "entradaApi": "POST /api/tef/pagar → TefManager.autorizar",
+    "roteamento": "tefRouterIntegration.resolverRotaAutorizacao → TerminalRouter.resolve(allocate + exigirExecucaoLocal)",
+    "componentesRouter": [
+      "pdvIdentityValidator (pdvId = terminais.id)",
+      "TerminalRegistry (memória; MISS → singleton)",
+      "ExecutionContextResolver (topologia/estação/dispositivo)",
+      "TerminalAllocator (lease terminal + runtime Destaxa)"
+    ],
+    "saidaRota": "RouteDecision + executionContext + leaseId anexados; falha de rota aborta antes do financeiro",
+    "cicloFinanceiro": "fraude → TEF-13 idempotência → TEF-14 pendências → mutex → obterAdapter() → prepararAutorizacao → tefLockService → criarTransacao → adapter.autorizarPagamento",
+    "saidaFinanceira": "fecharLeaseTerminal (LIBERAR ou MARCAR_INCONCLUSIVO); TEF-14/15 inalterados",
+    "selecaoAdapter": "COMPAT_SINGLETON via tefFactory.obterAdapter LIMIT 1 — RouteDecision.adapterBinding ainda não cutover na factory",
+    "evidenciasCodigo": [
+      "backend/services/tef/TefManager.js (resolverRotaAutorizacao + fecharLeaseTerminal + obterAdapter)",
+      "backend/services/tef/tefRouterIntegration.js",
+      "docs/build/mrt-06-integracao-tefmanager-report.json",
+      "docs/build/mrt-08-homologacao-integrada-report.json"
+    ]
+  },
+
+  "estadoComponentes": [
+    {
+      "componente": "TerminalRouter",
+      "estado": "IMPLEMENTADO",
+      "subestado": "VALIDADO EM TESTE",
+      "evidencia": "MRT-02…08; resolve identidade, Registry, ExecutionContext, allocate"
+    },
+    {
+      "componente": "TerminalRegistry",
+      "estado": "IMPLEMENTADO",
+      "subestado": "VALIDADO EM TESTE",
+      "nota": "Store em memória; migration MRT-03 proposta NÃO aplicada — suficiente para COMPAT_SINGLETON no 1º teste físico single-PDV",
+      "evidencia": "MRT-03/08"
+    },
+    {
+      "componente": "TerminalAllocator",
+      "estado": "IMPLEMENTADO",
+      "subestado": "VALIDADO EM TESTE",
+      "nota": "GLOBAL_SERIALIZE Destaxa; leases em memória + holds MRT-07",
+      "evidencia": "MRT-04/07/08"
+    },
+    {
+      "componente": "ExecutionContextResolver",
+      "estado": "IMPLEMENTADO",
+      "subestado": "VALIDADO EM TESTE",
+      "evidencia": "MRT-05/08 — REMOTA_REQUERIDA bloqueada sem bridge"
+    },
+    {
+      "componente": "tefRouterIntegration",
+      "estado": "IMPLEMENTADO",
+      "subestado": "VALIDADO EM TESTE",
+      "evidencia": "MRT-06/08 — allocate + exigirExecucaoLocal no autorizar"
+    },
+    {
+      "componente": "TefManager (ciclo financeiro)",
+      "estado": "IMPLEMENTADO",
+      "subestado": "VALIDADO EM TESTE",
+      "evidencia": "TEF-13/14/15/17 + MRT-06/07 hooks sem alterar regras financeiras"
+    },
+    {
+      "componente": "DLL Destaxa 1.83 (libdll-integracao-tef.dll)",
+      "estado": "IMPLEMENTADO",
+      "subestado": "VALIDADO EM TESTE",
+      "evidencia": {
+        "catalogo": "backend/services/tef/destaxa/destaxaBinarios.js versaoPacote=1.83 sha256 x64=65972ACA…",
+        "repo": "resources/tef/destaxa/win-x64 presente (136782 bytes)",
+        "instalado": "C:\\Program Files\\CDS ERP\\resources\\app.asar.unpacked\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll presente",
+        "packaging": "docs/build/tef-16-destaxa-dll-packaging-report.json — koffi.load sem INIT OK em 2026-10-30",
+        "exports": ["iniciaClientDestaxa", "iniciaTransacaoDestaxa", "continuaTransacaoDestaxa", "finalizaTransacaoDestaxa"]
+      }
+    },
+    {
+      "componente": "Koffi / carregamento nativo",
+      "estado": "IMPLEMENTADO",
+      "subestado": "VALIDADO EM TESTE",
+      "evidencia": "node_modules/koffi 3.3.1; destaxaKoffiLoader + TEF-16 load sem INIT no instalado"
+    },
+    {
+      "componente": "V$Pague Client",
+      "estado": "DEPENDÊNCIA EXTERNA",
+      "subestado": "PENDENTE DE CONFIGURAÇÃO",
+      "evidencia": {
+        "processoObservadoAgora": "VSPagueClient pid=16652 path=C:\\VBI\\Java\\bin\\VSPagueClient.exe",
+        "jar": "C:\\VBI\\V$Pague\\Client\\V$PagueClient.jar presente",
+        "versaoDocumentada": "5.0.0 em docs/build/tef-ppc930-06-report.json (não revalidada por INIT nesta sprint)",
+        "hostArgsHistoricos": "app-partner.destaxa.cloud:60410 tls (07J/PPC930-05)",
+        "logRecente": "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log 2026-10-29 — Identificar → [00151] Terminal não cadastrado ou desabilitado; Nenhum ou mais de um .conf encontrado"
+      }
+    },
+    {
+      "componente": "Java / dependências V$Pague",
+      "estado": "IMPLEMENTADO",
+      "subestado": "VALIDADO EM TESTE",
+      "evidencia": "C:\\VBI\\Java\\bin\\java.exe e VSPagueClient.exe presentes; Client em execução usa Java embutido (java no PATH do shell = ERROR, irrelevante se Client sobe)",
+      "nota": "rxtxSerial.dll presente em Client/"
+    },
+    {
+      "componente": "PinPad Gertec PPC-930",
+      "estado": "PENDENTE DE CONFIGURAÇÃO",
+      "subestado": "DEPENDÊNCIA EXTERNA",
+      "evidencia": {
+        "configDbReadonly": "tef_pinpads codigo=GERTEC_PPC930 porta_com=COM4 ativo=1 modelo=PPC930",
+        "catalogoCodigo": "GERTEC_PPC930",
+        "enumeracaoAtualNestaSessao": "nenhuma porta COM/PnP Ports OK listada — PinPad pode estar desconectado agora",
+        "historico07J": "COM4 PPC-920/930 CDC USB enumerado; identidade exata PPC930 vs PPC920 não provada só por PnP",
+        "comunicacaoTefTestada": false
+      }
+    },
+    {
+      "componente": "Comunicação servidor Destaxa (Partner Cloud)",
+      "estado": "DEPENDÊNCIA EXTERNA",
+      "nota": "Processo Client aponta historicamente para app-partner.destaxa.cloud:60410; MRT-09 não probeou endpoint nem executou Identificar",
+      "evidencia": "docs/build/tef-destaxa-07j-precheck-installacao-real-report.json; log Identificar 2026-10-29"
+    },
+    {
+      "componente": "Hostname / MAC (identidade V$Pague)",
+      "estado": "DEPENDÊNCIA EXTERNA",
+      "subestado": "PENDENTE DE CONFIGURAÇÃO",
+      "evidencia": "Identificar usa hostname/MAC da máquina (destaxaMapeamentoTerminal / MRT-01); CDS não substitui essa identidade; liberação no V$PagueServer pendente (00151)"
+    },
+    {
+      "componente": "Arquivos .conf",
+      "estado": "BLOQUEIO CRÍTICO",
+      "evidencia": {
+        "contagemSobC_VBI_agora": 0,
+        "logClient": "Nenhum ou mais de um .conf encontrado no diretorio (2026-10-29)",
+        "politicaCds": "CDS não cria .conf (TEF-DESTAXA-10)"
+      }
+    },
+    {
+      "componente": "Cadastro/habilitação terminal no provedor",
+      "estado": "BLOQUEIO CRÍTICO",
+      "evidencia": "Log V$Pague [00151] Terminal não cadastrado ou desabilitado (2026-10-29 19:18:16)"
+    },
+    {
+      "componente": "Terminal lógico contratado (terminal_codigo / literais)",
+      "estado": "PENDENTE DE CONFIGURAÇÃO",
+      "evidencia": {
+        "tef_configuracao_readonly": {
+          "provedor": "destaxa",
+          "ambiente": "homologacao",
+          "habilitado": 1,
+          "empresa_codigo": null,
+          "loja_codigo": null,
+          "terminal_codigo": null,
+          "pdv_codigo": null
+        },
+        "nota": "Campos null deliberados — TEF-10 não inventou literais; mapeamento CDS pronto para receber oficiais"
+      }
+    },
+    {
+      "componente": "Gate financeiro DESTAXA_REAL_TRANSACTION_ENABLED",
+      "estado": "IMPLEMENTADO",
+      "subestado": "VALIDADO EM TESTE",
+      "evidencia": "Env vazio nesta sessão; código exige =1 para TX real; deliberadamente OFF — não abrir nesta auditoria"
+    },
+    {
+      "componente": "Cancelamento comercial Destaxa (TEF-17)",
+      "estado": "IMPLEMENTADO",
+      "subestado": "VALIDADO EM TESTE",
+      "nota": "Política de não afirmar cancelado sem confirmação; EST sem contrato de entrada completo — não bloqueia 1º CRT de autorização, bloqueia homologação de estorno",
+      "evidencia": "docs/build/tef-17-cancelamento-destaxa-report.json"
+    },
+    {
+      "componente": "Bridge remota multi-PC",
+      "estado": "NÃO IMPLEMENTADO",
+      "nota": "Fora do escopo do 1º teste físico single-station"
+    },
+    {
+      "componente": "Persistência Registry/leases (migrations MRT-03/07)",
+      "estado": "NÃO IMPLEMENTADO",
+      "subestado": "PENDENTE DE CONFIGURAÇÃO",
+      "nota": "Propostas em docs/build; não aplicadas — não bloqueiam 1º teste COMPAT_SINGLETON single-PDV"
+    }
+  ],
+
+  "bloqueiosParaHomologacaoFisica": {
+    "criticosImpedemPrimeiroTesteFisico": [
+      {
+        "id": "VSPAGUE_00151",
+        "classificacao": "BLOQUEIO CRÍTICO",
+        "descricao": "Terminal não cadastrado ou desabilitado no V$PagueServer (Identificar)",
+        "dono": "Destaxa / operação — liberação hostname/MAC"
+      },
+      {
+        "id": "CONF_AUSENTE",
+        "classificacao": "BLOQUEIO CRÍTICO",
+        "descricao": "0 arquivos .conf sob C:\\VBI; Client registra ausência/ambiguidade",
+        "dono": "Destaxa — provisionar .conf oficial"
+      },
+      {
+        "id": "GATE_OFF_ATE_AUTORIZACAO",
+        "classificacao": "PENDENTE DE CONFIGURAÇÃO",
+        "descricao": "DESTAXA_REAL_TRANSACTION_ENABLED deve permanecer 0 até autorização explícita do CRT físico",
+        "dono": "CDS operação — após 00151/.conf OK"
+      },
+      {
+        "id": "PINPAD_COM_NAO_ENUMERADO_AGORA",
+        "classificacao": "PENDENTE DE CONFIGURAÇÃO",
+        "descricao": "Config aponta COM4/PPC930, mas sessão atual não enumerou portas — reconectar/confirmar hardware antes do CRT",
+        "dono": "Operação local"
+      },
+      {
+        "id": "LITERAIS_TERMINAL_NULL",
+        "classificacao": "PENDENTE DE CONFIGURAÇÃO",
+        "descricao": "empresa/loja/terminal_codigo null no DB; gravar somente se Destaxa fornecer literais oficiais (não inventar)",
+        "dono": "Destaxa + CDS config"
+      }
+    ],
+    "naoBloqueiamPrimeiroTesteSingleStation": [
+      "Bridge remota MULTI_ESTACAO",
+      "Migration Registry/leases",
+      "Cutover adapterBinding Registry → factory",
+      "Homologação de cancelamento EST (TEF-17)",
+      "UI administrativa de terminais"
+    ]
+  },
+
+  "dependenciasExternas": [
+    "Cadastro/habilitação do terminal no V$PagueServer (resolver 00151)",
+    "Provisionamento oficial do arquivo .conf",
+    "Confirmação de hostname/MAC da estação de homologação",
+    "Literais oficiais estabelecimento/loja/terminal se exigidos além do Identificar",
+    "PinPad Gertec conectado na COM configurada com driver CDC",
+    "Alcance de rede ao Partner Cloud Destaxa (app-partner.destaxa.cloud:60410 conforme histórico)",
+    "Autorização formal para abrir gate DESTAXA_REAL_TRANSACTION_ENABLED=1 apenas no CRT controlado"
+  ],
+
+  "listaObjetivaProvidencias": [
+    "1. Abrir chamado/suporte Destaxa com evidência do log 00151 + hostname/MAC da máquina de homologação",
+    "2. Receber e instalar .conf oficial sob o diretório esperado pelo Client (CDS não gera .conf)",
+    "3. Revalidar Identificar no Client até ausência de 00151 (sem INIT CDS se política mantida; ou INIT diagnóstico autorizado)",
+    "4. Confirmar PinPad na porta (hoje configurada COM4) via Device Manager / diagnóstico CDS readonly",
+    "5. Se Destaxa enviar literais, gravar empresa_codigo/loja_codigo/terminal_codigo via UI TEF — nunca inventar",
+    "6. Manter ambiente=homologacao; não promover produção",
+    "7. Somente após 1–5: autorizar janela controlada com DESTAXA_REAL_TRANSACTION_ENABLED=1, valor mínimo, um PDV, um terminal, gate off ao terminar",
+    "8. Preservar TEF-13/14/15; não testar estorno comercial até contrato EST esclarecido (TEF-17)",
+    "9. Usar COMPAT_SINGLETON (pdvId opcional/validado) — não depender de Registry persistido no 1º CRT"
+  ],
+
+  "criteriosParaAutorizarPrimeiroTesteReal": {
+    "obrigatorios": [
+      "00151 ausente no log após Identificar bem-sucedido",
+      "Exatamente um .conf válido provisionado pela Destaxa",
+      "VSPagueClient em execução apontando ao ambiente de homologação",
+      "DLL 1.83 presente no instalado (asar.unpacked) com SHA do catálogo",
+      "PinPad enumerado na porta configurada",
+      "tef_configuracao: provedor=destaxa ambiente=homologacao habilitado=1",
+      "Autorização escrita para DESTAXA_REAL_TRANSACTION_ENABLED=1 somente na sessão de CRT",
+      "Operador treinado para não repetir pagamento em TIMEOUT/inconclusivo (TEF-14)"
+    ],
+    "recomendados": [
+      "Backup do mercadao.db antes do CRT",
+      "Monitor MRT-07 / listarTravasPendencias disponível",
+      "Um único PDV físico na estação (evitar MULTI_ESTACAO)",
+      "Valor mínimo de homologação conforme política Destaxa/CDS"
+    ],
+    "proibidosDurantePrimeiroTeste": [
+      "Abrir gate em produção",
+      "Multi-PDV paralelo Destaxa",
+      "Estorno/cancelamento comercial sem contrato EST",
+      "Inventar códigos de terminal",
+      "Aplicar migrations MRT-03/07 no oficial sem sprint dedicada"
+    ]
+  },
+
+  "parecerTecnicoFinal": {
+    "resumo": "O roteador TEF (MRT-01…08) e o empacotamento DLL/koffi (TEF-16) estão implementados e validados em simulação; o ciclo financeiro TEF-13/14/15 permanece íntegro com gate OFF. A prontidão para homologação física Destaxa está bloqueada por dependências externas de provisionamento (00151 + .conf) e por confirmação operacional do PinPad na COM, não por divergência estrutural do CDS.",
+    "prontoParaHomologacaoFisicaAgora": false,
+    "motivoPrincipal": "V$Pague Identificar ainda falha com 00151 e não há .conf sob C:\\VBI",
+    "riscoSeForcarGateAgora": "INIT/TX real falharia ou ficaria inconclusivo no Client; aumentaria pendências TEF-14 sem benefício de homologação",
+    "proximaAcaoRecomendada": "Tratar bloqueios externos com Destaxa; em seguida sprint de CRT físico controlado com gate temporário e checklist acima — sem alterar adapters/arquitetura MRT"
+  },
+
+  "auditoriaSnapshotAmbiente": {
+    "coletadoEm": "2026-10-30T03:05:00.000Z",
+    "dllInstaladaPresente": true,
+    "dllRepoPresente": true,
+    "koffiRepo": "3.3.1",
+    "vspagueProcesso": true,
+    "confCountSobVBI": 0,
+    "gateEnv": "",
+    "tefConfig": {
+      "provedor": "destaxa",
+      "ambiente": "homologacao",
+      "habilitado": 1,
+      "terminal_codigo": null
+    },
+    "pinpadConfig": {
+      "codigo": "GERTEC_PPC930",
+      "porta_com": "COM4",
+      "ativo": 1
+    },
+    "ultimo00151Log": "2026-10-29T19:18:16-03:00"
+  },
+
+  "arquivosConsultados": [
+    "backend/services/tef/TefManager.js",
+    "backend/services/tef/tefRouterIntegration.js",
+    "backend/services/tef/destaxa/destaxaBinarios.js",
+    "backend/services/tef/destaxa/destaxaEvidenciasOperacionais.js",
+    "backend/services/tef/destaxa/destaxaConstantes.js",
+    "docs/build/mrt-06-integracao-tefmanager-report.json",
+    "docs/build/mrt-08-homologacao-integrada-report.json",
+    "docs/build/tef-16-destaxa-dll-packaging-report.json",
+    "docs/build/tef-destaxa-10-mapeamento-terminal-report.json",
+    "docs/build/tef-destaxa-07j-precheck-installacao-real-report.json",
+    "docs/build/tef-auditoria-08-report.json",
+    "docs/build/tef-17-cancelamento-destaxa-report.json",
+    "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log (readonly)",
+    "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db (OPEN_READONLY)"
+  ],
+  "arquivosCriados": [
+    "docs/build/mrt-09-auditoria-prontidao-real-report.json"
+  ],
+  "arquivosAlterados": [],
+  "conclusao": "Auditoria de prontidão concluída sem INIT/TX e sem alteração de código. CDS roteador+DLL prontos em software; homologação física Destaxa bloqueada criticamente por 00151 e ausência de .conf, com PinPad/literais e gate a confirmar antes de qualquer CRT real."
+}

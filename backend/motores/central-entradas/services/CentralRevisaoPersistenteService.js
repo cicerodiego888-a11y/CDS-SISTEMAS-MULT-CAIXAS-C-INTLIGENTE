@@ -699,19 +699,25 @@ class CentralRevisaoPersistenteService {
 
     if (avaliacao.requer && estado === 'SIM') {
       const aplicado = ConfirmacaoConversaoEntradaNfe.aplicarSim(item, produto, avaliacao.resultado, indice, {
-        documentoId: Number(documentoId)
+        documentoId: Number(documentoId),
+        aceitarFatorSugerido: true
       });
       resultadoValidado = {
         ...resultadoValidado,
         ok: aplicado.ok,
         quantidade_estoque: aplicado.quantidadeEstoque || null,
+        fator_conversao: aplicado.fatorConversao || null,
         origem: aplicado.origem || null,
-        codigo: aplicado.pendencia?.codigo || null,
-        justificativa: aplicado.pendencia?.justificativa || null
+        codigo: aplicado.ok ? null : (aplicado.pendencia?.codigo || 'FATOR_CONVERSAO_AUSENTE'),
+        justificativa: aplicado.ok
+          ? null
+          : (aplicado.pendencia?.justificativa
+            || 'Não há fator/relação de conversão válida para confirmar esta linha.')
       };
     } else if (avaliacao.requer && estado === 'NAO') {
       const recusa = ConfirmacaoConversaoEntradaNfe.aplicarNao(item, produto, avaliacao.resultado, indice, {
-        documentoId: Number(documentoId)
+        documentoId: Number(documentoId),
+        continuar_sem_conversao: dados.continuar_sem_conversao === true
       });
       resultadoValidado = {
         ...resultadoValidado,
@@ -721,6 +727,17 @@ class CentralRevisaoPersistenteService {
         justificativa: recusa.ok
           ? null
           : 'Conversão recusada. Corrija associação ou unidade e reavalie.'
+      };
+    } else if (estado === 'PENDENTE') {
+      resultadoValidado = {
+        ...resultadoValidado,
+        ok: false,
+        codigo: avaliacao.pendencia?.codigo || null,
+        justificativa: avaliacao.requer
+          ? (avaliacao.pendencia?.conversao_sugerida
+            ? `Reavaliado: proposta ${avaliacao.pendencia.conversao_sugerida}.`
+            : (avaliacao.pendencia?.justificativa || 'Reavaliado: nenhuma proposta de conversão disponível.'))
+          : 'Reavaliado: esta linha não exige confirmação de conversão.'
       };
     }
 
@@ -736,7 +753,7 @@ class CentralRevisaoPersistenteService {
       ? avaliacao.pendencia?.selo_conversao || null
       : null;
 
-    itens[indice] = {
+    const itemAtualizado = {
       ...item,
       ...xmlOriginal,
       quantidade_comercial: xmlOriginal.qCom,
@@ -747,6 +764,31 @@ class CentralRevisaoPersistenteService {
       conversao_decisao: registro.estado,
       confirmacao_conversao: registro.confirmacao
     };
+    // CE-MUC-03: SIM confirmado grava quantidade/fator autorizados para o bridge Compras/MUC.
+    if (estado === 'SIM' && resultadoValidado.ok === true) {
+      itemAtualizado.quantidade_estoque_confirmada = resultadoValidado.quantidade_estoque;
+      itemAtualizado.fator_conversao_confirmado = resultadoValidado.fator_conversao;
+      itemAtualizado.origem_conversao_confirmada = resultadoValidado.origem || null;
+      itemAtualizado.decisao_conversao = true;
+    } else if (estado === 'PENDENTE' || (estado === 'SIM' && resultadoValidado.ok !== true)) {
+      delete itemAtualizado.quantidade_estoque_confirmada;
+      delete itemAtualizado.fator_conversao_confirmado;
+      delete itemAtualizado.origem_conversao_confirmada;
+      itemAtualizado.decisao_conversao = null;
+    } else if (estado === 'NAO') {
+      itemAtualizado.decisao_conversao = false;
+      if (resultadoValidado.ok === true) {
+        itemAtualizado.quantidade_estoque_confirmada = resultadoValidado.quantidade_estoque;
+        itemAtualizado.fator_conversao_confirmado = 1;
+        itemAtualizado.origem_conversao_confirmada = resultadoValidado.origem || 'QCOM_UNIDADE_ESTOQUE';
+      } else {
+        delete itemAtualizado.quantidade_estoque_confirmada;
+        delete itemAtualizado.fator_conversao_confirmado;
+        delete itemAtualizado.origem_conversao_confirmada;
+      }
+    }
+
+    itens[indice] = itemAtualizado;
 
     await this._documentosRepository.atualizar(documentoId, {
       parseJson: {

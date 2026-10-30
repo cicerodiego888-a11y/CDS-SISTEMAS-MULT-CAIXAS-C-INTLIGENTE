@@ -1,0 +1,76 @@
+{
+  "sprint": "CSP-DIAG-01",
+  "title": "Diagnóstico da violação de Content Security Policy",
+  "generatedAt": "2026-10-27T18:45:00.000Z",
+  "verdict": "FIXED",
+  "causaRaiz": {
+    "resumo": "Sprint CE-UX-02 inseriu script inline em frontend/erp/index.html para definir window.CDS_BOOT_ID. A CSP do ERP (backend/server.js) só autoriza hashes específicos em script-src; o novo inline não estava na allowlist e foi bloqueado.",
+    "scriptBloqueado": "window.CDS_BOOT_ID = String(Date.now());",
+    "arquivoLinha": "frontend/erp/index.html (antes da correção, linha 7)",
+    "sha256InlineBloqueado": "sha256-fgce9ngMCjUBVSRE2nCZ4Qu/nO/WKNC5hZbXCNh1TWU=",
+    "hashesCspPermitidosAntes": [
+      "sha256-qKDmMQvRGZK66GlOmyXzOaLvGPRIwWXUQZ9LT4ghpIA=",
+      "sha256-GDaEWQiEkn5Z0G7IFVExjDPclCn7ocXXyy6Mbb+0E4k="
+    ],
+    "hashPermitidoCorrespondente": {
+      "sha256-qKDmMQvRGZK66GlOmyXzOaLvGPRIwWXUQZ9LT4ghpIA=": "inline CDS_MODULE/CDS_DEFAULT_PAGE em index.html (permanece)"
+    }
+  },
+  "cspEfetiva": {
+    "definicao": "backend/server.js → ERP_CONTENT_SECURITY_POLICY",
+    "aplicacao": "Header Content-Security-Policy em GET /login, /erp, /erp/",
+    "script-src": "'self' + 2 hashes sha256 (sem 'unsafe-inline', sem 'unsafe-eval')",
+    "script-src-attr": "'unsafe-inline' (permite onclick=logout() etc.)",
+    "electron": "Sem CSP própria adicional em electron.js; a política efetiva da UI ERP é a do header HTTP do servidor embutido",
+    "metaHttpEquiv": "ausente no index.html"
+  },
+  "ambiente": {
+    "desenvolvimento": "Afeta qualquer carga de /erp com o HTML modificado (dev server e empacotado usam o mesmo index + server.js)",
+    "empacotado": "Mesma causa: HTML empacotado com inline CDS_BOOT_ID viola a mesma CSP",
+    "servidorNoMomentoDoTeste": "porta 3001 em TIME_WAIT — sem smoke HTTP live; validação estática + testes node"
+  },
+  "handlersInline": {
+    "onclickEmIndex": "onclick=\"logout()\" (script-src-attr 'unsafe-inline' — não é a violação reportada de script-src)",
+    "dependenciaDoBloqueio": "Não; o bloqueio era o elemento <script> inline de CDS_BOOT_ID"
+  },
+  "correcaoAplicada": {
+    "estrategia": "Mover para arquivo JS externo autorizado por 'self' — sem 'unsafe-inline', sem novo hash, CSP inalterada",
+    "arquivos": [
+      {
+        "path": "frontend/erp/js/cds-boot.js",
+        "acao": "criado — define window.CDS_BOOT_ID = String(Date.now())"
+      },
+      {
+        "path": "frontend/erp/index.html",
+        "acao": "substituiu inline por <script src=\"/erp/js/cds-boot.js\"></script>"
+      },
+      {
+        "path": "tests/electron/csp-diag-01-erp-inline.test.js",
+        "acao": "criado — garante que inlines do ERP batem com hashes CSP e que boot é externo"
+      },
+      {
+        "path": "docs/build/csp-diag-01-report.json",
+        "acao": "relatório"
+      }
+    ],
+    "cspAlterada": false,
+    "unsafeInlineAdicionado": false
+  },
+  "testes": {
+    "tests/electron/csp-diag-01-erp-inline.test.js": "pass (após ajuste do assert script-src vs script-src-attr)",
+    "tests/electron/csp-source-maps.test.js": "pass",
+    "verificacaoEstatica": {
+      "inlineRestanteNoIndex": 1,
+      "inlineRestanteHash": "sha256-qKDmMQvRGZK66GlOmyXzOaLvGPRIwWXUQZ9LT4ghpIA=",
+      "inlineNaAllowlist": true,
+      "cdsBootExterno": true,
+      "inlineCdsBootRemovido": true
+    },
+    "limitacao": "Sem instância CDS ativa para confirmar ausência da mensagem no DevTools em runtime; política e HTML da versão em disco foram verificados"
+  },
+  "naoAlterado": [
+    "banco de dados",
+    "fluxo fiscal/financeiro/TEF",
+    "ERP_CONTENT_SECURITY_POLICY (sem ampliar permissões)"
+  ]
+}

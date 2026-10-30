@@ -1,0 +1,185 @@
+{
+  "sprint": "MRT-08",
+  "title": "Homologação integrada do CDS TEF Terminal Router",
+  "generatedAt": "2026-10-30T02:55:00.000Z",
+  "status": "MRT-08 CONCLUÍDA — HOMOLOGAÇÃO INTEGRADA VALIDADA",
+  "modo": "validacao_simulada_somente",
+  "restricoesObservadas": {
+    "initDestaxaReal": false,
+    "pagamentoReal": false,
+    "cancelamentoOuEstornoReal": false,
+    "retryAutomaticoPagamento": false,
+    "timeoutConvertidoEmCancelamento": false,
+    "inconclusivoLiberado": false,
+    "aprovacaoOuCancelamentoAutomatico": false,
+    "tef13Alterado": false,
+    "tef14Alterado": false,
+    "tef15Alterado": false,
+    "bancoOficialAlterado": false,
+    "migrationsAplicadas": false,
+    "adaptersAlterados": false,
+    "bridgeRemotoImplementado": false,
+    "interfaceAdministrativa": false,
+    "correcoesCodigoNecessarias": false
+  },
+  "cenarios": [
+    {
+      "id": "C1",
+      "cenario": "Um computador com um PDV e um terminal TEF",
+      "esperado": "sucesso LOCAL + lease + pdvId/terminalTefId/dispositivoId/estacao separados",
+      "obtido": "sucesso=true lease ativo tip=tef-pdv1 dispositivo=pin-1 localidade=LOCAL",
+      "resultado": "APROVADO",
+      "evidencia": "tests/tef/mrt-08-homologacao-integrada.test.js + docs/build/mrt-08-homologacao-evidencias.json"
+    },
+    {
+      "id": "C2",
+      "cenario": "Um computador com dois ou mais PDVs",
+      "esperado": "topologia ESTACAO_UNICA_MULTI_PDV + Destaxa GLOBAL_SERIALIZE",
+      "obtido": "topo=ESTACAO_UNICA_MULTI_PDV isolamento=GLOBAL_SERIALIZE",
+      "resultado": "APROVADO",
+      "evidencia": "inferirTopologia + resolverRotaAutorizacao PDV1"
+    },
+    {
+      "id": "C3",
+      "cenario": "Dois PDVs tentando utilizar simultaneamente o runtime Destaxa",
+      "esperado": "1º aloca; 2º bloqueado",
+      "obtido": "a=true b=false/RUNTIME_OCUPADO",
+      "resultado": "APROVADO",
+      "evidencia": "allocator runtime:destaxa:global"
+    },
+    {
+      "id": "C4",
+      "cenario": "Segundo PDV recebendo bloqueio enquanto runtime ocupado",
+      "esperado": "RUNTIME_OCUPADO",
+      "obtido": "codigo=RUNTIME_OCUPADO",
+      "resultado": "APROVADO",
+      "evidencia": "mesmo teste C3/C4"
+    },
+    {
+      "id": "C5",
+      "cenario": "Liberação após resultado financeiro definitivo",
+      "esperado": "LIBERAR SUCESSO_CONFIRMADO + runtime livre",
+      "obtido": "acao=LIBERAR libOk=true runtimeLivre=true",
+      "resultado": "APROVADO",
+      "evidencia": "classificarPosAutorizacao + aplicarPosAutorizacao"
+    },
+    {
+      "id": "C6",
+      "cenario": "Manutenção do HOLD após resultado inconclusivo",
+      "esperado": "MARCAR_INCONCLUSIVO; timeout não libera; runtime ocupado",
+      "obtido": "LIBERACAO_BLOQUEADA_INCONCLUSIVA + runtime ocupado",
+      "resultado": "APROVADO",
+      "evidencia": "Allocator.marcarInconclusivo"
+    },
+    {
+      "id": "C7",
+      "cenario": "Recuperação após reinicialização simulada",
+      "esperado": "holds Destaxa; sem auto aprovar/cancelar/retry",
+      "obtido": "holds>=1 autoAprov=false autoRetry=false",
+      "resultado": "APROVADO",
+      "evidencia": "TerminalRecoveryService.recuperarAposReinicio"
+    },
+    {
+      "id": "C8",
+      "cenario": "Tentativa de utilização com operação financeira pendente",
+      "esperado": "nova alocação Destaxa bloqueada",
+      "obtido": "sucesso=false RUNTIME_OCUPADO",
+      "resultado": "APROVADO",
+      "evidencia": "hold recuperação + resolverRotaAutorizacao"
+    },
+    {
+      "id": "C9",
+      "cenario": "Identidade inválida de PDV",
+      "esperado": "PDV_HOSTNAME_OU_MAC_PROIBIDO",
+      "obtido": "hostname e MAC rejeitados",
+      "resultado": "APROVADO",
+      "evidencia": "pdvIdentityValidator"
+    },
+    {
+      "id": "C10",
+      "cenario": "PDV sem terminal lógico provisionado",
+      "esperado": "fallback COMPAT_SINGLETON preservado",
+      "obtido": "sucesso=true com lease singleton/instalacao (registry miss)",
+      "resultado": "APROVADO",
+      "evidencia": "Router fallback singleton"
+    },
+    {
+      "id": "C11",
+      "cenario": "Terminal indisponível ou sem dispositivo associado",
+      "esperado": "TERMINAL_INDISPONIVEL / TERMINAL_SEM_DISPOSITIVO",
+      "obtido": "ambos os caminhos falham conforme esperado",
+      "resultado": "APROVADO",
+      "evidencia": "Registry estado + ExecutionContext exigirDispositivo"
+    },
+    {
+      "id": "C12",
+      "cenario": "Topologia com múltiplos computadores e REMOTA_REQUERIDA",
+      "esperado": "ESTACAO_REMOTA_NAO_SUPORTADA (sem bridge)",
+      "obtido": "bloqueio confirmado; localidade REMOTA_REQUERIDA",
+      "resultado": "APROVADO",
+      "evidencia": "tefRouterIntegration + exigirExecucaoLocal"
+    }
+  ],
+  "integridadeArquitetura": {
+    "pdvId": "terminais.id — identidade comercial CDS — confirmado",
+    "terminalTefId": "terminal lógico contratado — confirmado",
+    "dispositivoId": "PinPad físico — confirmado",
+    "estacao": "hostname/MAC de execução; identidadeEhPdv=false — confirmado",
+    "TerminalRouter": "seleciona rota; não executa ciclo financeiro — confirmado",
+    "TefManager": "controla ciclo financeiro (idempotency/lock/pendências) — confirmado",
+    "TerminalAllocator": "ocupação e leases — confirmado",
+    "TerminalRegistry": "consulta terminais lógicos — confirmado",
+    "ExecutionContextResolver": "contexto de execução — confirmado",
+    "adapters": "DestaxaRealAdapter sem referências MRT — preservado"
+  },
+  "falhasEncontradas": [],
+  "correcoesRealizadas": [],
+  "evidenciasTestes": {
+    "homologacao": {
+      "comando": "node tests/tef/mrt-08-homologacao-integrada.test.js",
+      "resultado": "13/13 OK",
+      "arquivoEvidencias": "docs/build/mrt-08-homologacao-evidencias.json"
+    },
+    "regressoes": {
+      "MRT-02": "15/15 OK",
+      "MRT-03": "15/15 OK",
+      "MRT-04": "15/15 OK",
+      "MRT-05": "13/13 OK",
+      "MRT-06": "14/14 OK",
+      "MRT-07": "15/15 OK",
+      "TEF-13": "13/13 OK",
+      "TEF-14": "11/11 OK",
+      "TEF-15": "12/12 OK",
+      "TEF-17": "10/10 OK"
+    }
+  },
+  "limitacoesAindaExistentes": [
+    "Bridge remota MULTI_ESTACAO Destaxa não implementada — REMOTA_REQUERIDA permanece bloqueada por design",
+    "obterAdapter ainda usa factory singleton LIMIT 1 — binding Registry não cutover de seleção de adapter",
+    "Migrations MRT-03 (Registry) e MRT-07 (leases) propostas e NÃO aplicadas ao banco oficial",
+    "Leases/holds de recuperação em memória — journal durável opcional futuro",
+    "Pagamentos Destaxa paralelos continuam proibidos (GLOBAL_SERIALIZE)",
+    "Homologação foi simulada — não substitui homologação com PinPad/V$Pague em ambiente controlado futuro"
+  ],
+  "situacaoArquiteturaProximaEtapa": {
+    "roteador": "homologado em simulação para topologias locais, concorrência Destaxa, recuperação e identidade",
+    "prontoPara": [
+      "cutover opcional de adapterBinding Registry → factory (sem romper COMPAT_SINGLETON)",
+      "sprint dedicada de persistência (aplicar migrations propostas com plano)",
+      "homologação física controlada (ainda sem gates/pagamentos reais até autorização explícita)"
+    ],
+    "naoProntoPara": [
+      "produção multi-PC Destaxa sem bridge",
+      "pagamentos Destaxa simultâneos",
+      "UI administrativa de terminais"
+    ],
+    "recomendacao": "Congelar o contrato MRT-01…08; próxima evolução só com escopo explícito e sem reabrir TEF-13/14/15/17"
+  },
+  "arquivosCriados": [
+    "tests/tef/mrt-08-homologacao-integrada.test.js",
+    "docs/build/mrt-08-homologacao-evidencias.json",
+    "docs/build/mrt-08-homologacao-integrada-report.json"
+  ],
+  "arquivosAlterados": [],
+  "conclusao": "Homologação integrada simulada aprovou os 12 cenários obrigatórios e as regressões MRT-02…07 + TEF-13/14/15/17, sem INIT/TX reais, sem correções de código necessárias e com a arquitetura de identidades e responsabilidades confirmada."
+}

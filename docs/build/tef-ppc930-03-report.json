@@ -1,0 +1,280 @@
+{
+  "sprint": "TEF-PPC930-03",
+  "title": "Diagnóstico de Inicialização do Client Destaxa",
+  "generatedAt": "2026-10-29T18:55:00.000Z",
+  "verdict": "CLIENT_NOT_INITIALIZED_EXPECTED_WITHOUT_INIT_CLIENT",
+  "operationalIntegrationDeclared": false,
+  "constraintsObserved": {
+    "noFinancialTransactions": true,
+    "noDllLoadOrNativeCallsInThisSprint": true,
+    "noDatabaseOrConfigMutation": true,
+    "noMiddlewareProcessStartStop": true,
+    "noAutomaticTimeoutRetries": true,
+    "applicationCodeUnchanged": true,
+    "singleTefMotorPreserved": true
+  },
+  "method": {
+    "type": "static_code_and_prior_evidence_audit",
+    "inspectedSources": [
+      "backend/services/tef/TefManager.js",
+      "backend/services/tef/tefFactory.js",
+      "backend/services/tef/adapters/DestaxaRealAdapter.js",
+      "backend/services/tef/destaxa/DestaxaHostBridge.js",
+      "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+      "backend/services/tef/destaxa/DestaxaNativeHost.js",
+      "backend/services/tef/destaxa/DestaxaNativeHostClient.js",
+      "backend/services/tef/sdkDetector.js",
+      "backend/services/tef/tefDiagnosticoService.js",
+      "backend/services/tef/tefConfigService.js",
+      "backend/services/tef/pinpads/detectarPpc930.js",
+      "docs/build/tef-destaxa-07e-monitor-consistencia-report.json",
+      "docs/build/tef-destaxa-07j-precheck-installacao-real-report.json",
+      "docs/build/tef-destaxa-electron-runtime-report.json",
+      "docs/build/tef-destaxa-07i-configuracao-readonly-report.json"
+    ],
+    "runtimeActionsThisSprint": []
+  },
+  "initializationFlow": {
+    "chain": [
+      "TefManager / rotas TEF",
+      "tefFactory.obterAdapter → criarAdapterDestaxa",
+      "DestaxaRealAdapter (ambiente homologacao|producao)",
+      "DestaxaHostBridge (default) OU DestaxaNativeBridge (in-process/testes)",
+      "IPC OPERACOES_HOST → DestaxaNativeHost",
+      "DestaxaNativeBridge.load / iniciarClient",
+      "koffi → libdll-integracao-tef.dll → iniciaClientDestaxa",
+      "VSPagueClient / V$Pague (processo externo, não iniciado pelo CDS)"
+    ],
+    "factory": {
+      "file": "backend/services/tef/tefFactory.js",
+      "rule": "destaxa + simulacao → DestaxaAdapter; destaxa + homologacao|producao → DestaxaRealAdapter se DLL/koffi disponíveis; sem fallback silencioso",
+      "defaultExecution": "DestaxaRealAdapter.usaHostNativo() true salvo executionMode=in-process ou nativeLoader/resolver injetados"
+    },
+    "tefManagerRole": {
+      "file": "backend/services/tef/TefManager.js",
+      "obtainsAdapterVia": "obterAdapter()",
+      "doesNotOwnClientLifecycle": true,
+      "statusPath": "adapter.status() → DestaxaRealAdapter.diagnosticar() apenas (não chama iniciaClient)",
+      "harnessNote": "prepararHarnessDestaxaReal força DestaxaRealAdapter in-process sob DESTAXA_REAL_HARNESS=1; não autoriza transação"
+    },
+    "stepsThatAffectClientState": [
+      {
+        "step": "LOAD",
+        "entry": "DestaxaRealAdapter.diagnosticar / prepararAutorizacao / Host LOAD",
+        "bridge": "DestaxaHostBridge.load → OPERACOES_HOST.LOAD → DestaxaNativeBridge.load",
+        "effects": [
+          "resolve DLL path",
+          "load via koffi",
+          "validate EXPORTS_OBRIGATORIOS",
+          "set dllLoaded/exportsValid",
+          "reset clientInitialized=false on successful load"
+        ],
+        "doesNotCall": "iniciaClientDestaxa"
+      },
+      {
+        "step": "INIT_CLIENT",
+        "entry": "DestaxaRealAdapter.testarConexao / prepararAutorizacao (se client ainda false) / Host INIT_CLIENT",
+        "bridge": "DestaxaHostBridge.iniciarClient → OPERACOES_HOST.INIT_CLIENT → DestaxaNativeBridge.iniciarClient",
+        "nativeExport": "iniciaClientDestaxa",
+        "successCondition": "código Destaxa '00' → clientInitialized=true, estado=CLIENT_INITIALIZED",
+        "inputBuiltBy": "DestaxaNativeBridge.montarEntradaClient (versao;aplicacao;[estabelecimento;loja;terminal]) — sem portaCom"
+      },
+      {
+        "step": "DIAGNOSTIC_ONLY",
+        "entry": "DestaxaRealAdapter.diagnosticar / status",
+        "behavior": "isLoaded? senão load(); getDiagnostics(); sucesso se dllLoaded && exportsValid",
+        "explicitMessageWhenClientFalse": "DLL Destaxa carregada e exports validados — Client ainda não inicializado"
+      }
+    ],
+    "fullDiagnosticoOrder": {
+      "file": "backend/services/tef/tefDiagnosticoService.js → executarDiagnosticoCompleto",
+      "order": [
+        "obterAdapter()",
+        "adapter.testarConexao() → INIT_CLIENT",
+        "adapter.diagnosticar() → load somente se !isLoaded; depois snapshot"
+      ],
+      "note07e": "Após 07E, diagnosticar não recarrega DLL se já carregada; load() completo ainda zera clientInitialized se forçado"
+    }
+  },
+  "vspagueDetection": {
+    "file": "backend/services/tef/sdkDetector.js → detectarVsPagueClient",
+    "processName": "VSPagueClient.exe",
+    "method": "PowerShell Get-CimInstance Win32_Process + Get-Process.Responding",
+    "confirms": [
+      "process existence (detectado/executando)",
+      "pid",
+      "ExecutablePath",
+      "CommandLine",
+      "Windows Responding flag (UI hang indicator)"
+    ],
+    "doesNotConfirm": [
+      "Destaxa Client initialization (iniciaClientDestaxa)",
+      "DLL load in CDS Native Host",
+      "protocol/API health of V$Pague",
+      "PinPad COM communication",
+      "transactional readiness"
+    ],
+    "cdsDoesNotStartOrStopMiddleware": true,
+    "interpretation": "V$Pague em execução é evidência de processo Windows, não de Client Destaxa inicializado.",
+    "priorEvidence": {
+      "source": "docs/build/tef-destaxa-07j-precheck-installacao-real-report.json",
+      "vspaguePresent": true,
+      "pid": 24064,
+      "path": "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
+      "operationalConnectionProven": false,
+      "clientInitTriggered": false
+    }
+  },
+  "dllLoadAndExports": {
+    "loadPoint": "DestaxaNativeBridge.load (único ponto que carrega a DLL no host nativo; processo principal usa DestaxaHostBridge sem FFI)",
+    "resolver": "destaxaDllResolver.resolverDll",
+    "ffi": "destaxaKoffiLoader.carregarBiblioteca",
+    "requiredExports": [
+      "iniciaClientDestaxa",
+      "iniciaTransacaoDestaxa",
+      "continuaTransacaoDestaxa",
+      "finalizaTransacaoDestaxa"
+    ],
+    "exportValidation": "typeof nativo.exports[nome] === 'function' para cada EXPORTS_OBRIGATORIOS; falha → DESTAXA_EXPORT_MISSING e unload",
+    "evidenceAvailableWithoutRuntimeLoad": {
+      "staticPeExportTable": "docs/build/tef-destaxa-07j — expectedExportsPresent=true nas DLLs instaladas",
+      "runtimeLoadProvenInThisSprint": false,
+      "runtimeLoadProvenHistorically": {
+        "source": "docs/build/tef-destaxa-electron-runtime-report.json",
+        "dllLoaded": true,
+        "exportsOk": true,
+        "clientInitialized": true,
+        "codigoDestaxa": "00",
+        "limitation": "evidência de lab Electron anterior; não prova o estado atual da instalação sem nova chamada INIT_CLIENT"
+      }
+    },
+    "packagedCandidate": "resources/tef/destaxa/win-x64/libdll-integracao-tef.dll (e mapeamento app.asar.unpacked na instalação)"
+  },
+  "whyClientRemainsUninitialized": {
+    "probableCause": "Separação intencional de estados: presença de VSPagueClient ≠ LOAD ≠ INIT_CLIENT. Sem chamada confirmada a iniciaClientDestaxa (ou sem código '00'), clientInitialized permanece false.",
+    "contributingMechanisms": [
+      {
+        "id": "STATUS_USES_DIAGNOSTIC_ONLY",
+        "detail": "DestaxaRealAdapter.status() chama apenas diagnosticar(); não inicializa Client. UI/monitor que leem status.ativo veem Client não inicializado mesmo com V$Pague rodando."
+      },
+      {
+        "id": "DIAGNOSTIC_SUCCESS_WITHOUT_CLIENT",
+        "detail": "diagnosticar() retorna sucesso com DLL+exports OK e mensagem explícita de Client ainda não inicializado."
+      },
+      {
+        "id": "LOAD_RESETS_CLIENT_FLAG",
+        "detail": "DestaxaNativeBridge.load() bem-sucedido define clientInitialized=false; qualquer recarga limpa o snapshot do Client."
+      },
+      {
+        "id": "HOST_OFFLINE_DEFAULTS_FALSE",
+        "detail": "DestaxaHostBridge.getDiagnostics() em erro de STATUS devolve diagnosticoIndisponivel com clientInitialized=false e clientResultCode=null."
+      },
+      {
+        "id": "MISSING_RESULT_CODE_WHEN_INIT_NEVER_CALLED",
+        "detail": "Sem INIT_CLIENT, clientResultCode/ultimoCodigoClient ficam null — ausência de evidência, não prova de falha '00' vs outro código."
+      },
+      {
+        "id": "VSPAGUE_NOT_IN_CLIENT_INPUT",
+        "detail": "montarEntradaClient não inclui porta COM nem endpoint V$Pague; processo middleware é pré-condição de autorização, não gatilho de inicialização."
+      }
+    ],
+    "absentEvidenceWhenClientNotInitialized": [
+      "clientInitialized === true",
+      "estado === CLIENT_INITIALIZED",
+      "clientResultCode / codigoDestaxa === '00'",
+      "registro destaxaLogger client.init.result com sucesso",
+      "Host INIT_CLIENT output.sucesso"
+    ],
+    "notProvenAsRootCauseWithoutInitAttempt": [
+      "falha de iniciaClientDestaxa com código ≠ 00",
+      "DLL ausente ou exports inválidos",
+      "divergência CON3/COM3 (porta não entra na entrada do Client)"
+    ]
+  },
+  "con3VersusCom3": {
+    "configuredLabelInSprintPrompt": "CON3",
+    "detectedLabelInSprintPrompt": "COM3",
+    "configuredOrigin": {
+      "source": "tefConfigService / DB porta_com → config.portaCom (UI #portaCom em configuracao_tef.js)",
+      "normalization": "tefConfigService.normalizarPortaCom só reconhece regex COM\\s*(\\d+); valores como CON3 permanecem CON3 após trim/uppercase",
+      "priorReadonlyAudits": [
+        {
+          "source": "docs/build/tef-destaxa-07i-configuracao-readonly-report.json",
+          "configuredComPort": "COM4",
+          "note": "auditoria readonly anterior não registrou CON3"
+        },
+        {
+          "source": "docs/build/tef-destaxa-07c / histórico mercadao",
+          "configuredComPort": "COM3",
+          "note": "snapshots legados usaram COM3, não CON3"
+        }
+      ],
+      "con3InCommittedEvidence": false,
+      "interpretation": "CON3 no enunciado é tratada como valor configurado/digitado possível (typo COM→CON) ou rótulo de sintoma; não há evidência commitada de porta_com='CON3' nos relatórios 07I/07J. Se persistido como CON3, o código atual não o corrige para COM3."
+    },
+    "detectedOrigin": {
+      "source": "sdkDetector / detectarPpc930.extrairPortaCom + Win32_SerialPort/PnP",
+      "regex": "\\b(COM\\d+)\\b — só produz COMn",
+      "cannotEmit": "CON3",
+      "exampleDeviceName": "PPC-920/930 CDC USB-to-Serial Port (COMn)"
+    },
+    "comparisonPaths": [
+      {
+        "function": "tefConfigService.compararPortaPinpad",
+        "usesNormalizarPortaCom": true,
+        "resultIfCon3VsCom3": "divergente (CON3 !== COM3)"
+      },
+      {
+        "function": "tefDiagnosticoService.montarEstadosIntegracao",
+        "usesNormalizarPortaCom": false,
+        "comparison": "String(...).trim().toUpperCase() igualdade crua",
+        "resultIfCon3VsCom3": "comConsistent=false",
+        "inconsistencyInReportOnly": "dois caminhos de comparação; o de estadosIntegracao não normaliza COM e não aceitaria 'COM 3' vs 'COM3' nem CON3→COM3"
+      }
+    ],
+    "effectOnClientInit": "Nenhum direto: montarEntradaClient ignora portaCom. Afeta consistência PinPad/PPC930 e gates de prepararAutorizacao (porta configurada vs detectada), não o flag clientInitialized por si só."
+  },
+  "stateSeparation": {
+    "dllLoadedAndExportsValid": "adapter.detalhes.dllLoaded / exportsValid",
+    "clientDestaxa": "clientInitialized / clientResultCode / estado CLIENT_*",
+    "vspagueProcess": "sdk.vspague.detectado|executando|responding",
+    "ppc930Enumeration": "pinpad.hardware.detectado + porta",
+    "comConsistency": "estadosIntegracao.pinpad.comConsistent",
+    "transactionCommunication": "sempre not_tested neste diagnóstico",
+    "authorization": "não comprovada sem fluxo financeiro + gate DESTAXA_REAL_TRANSACTION_ENABLED"
+  },
+  "probableCauseSummary": {
+    "primary": "O Client Destaxa só fica inicializado após iniciaClientDestaxa retornar 00. Detectar V$Pague/VSPagueClient em execução confirma middleware OS-level, não INIT_CLIENT.",
+    "secondary": "Caminhos frequentes (status/diagnosticar sem testarConexao bem-sucedido, host offline, ou LOAD sem INIT) publicam clientInitialized=false com clientResultCode ausente.",
+    "portIssue": "CON3 vs COM3, se real na config, é inconsistência de porta PinPad (normalização incompleta / possível typo) e deve ser corrigida no relatório operacional e, em sprint futura, na normalização — sem confundir com falha de Client."
+  },
+  "limitations": [
+    "Esta sprint não carregou DLL, não chamou iniciaClientDestaxa e não inspecionou o banco vivo; estado runtime atual do Client não foi medido.",
+    "Evidências de 07J/electron-runtime são históricas e não substituem INIT_CLIENT no processo instalado atual.",
+    "Responding do Windows não valida API Destaxa/V$Pague.",
+    "Integração operacional NÃO é declarada."
+  ],
+  "nextMinimalCorrection": {
+    "doNotChangeInThisSprint": true,
+    "recommendedNextSprint": [
+      {
+        "priority": 1,
+        "action": "Garantir que o diagnóstico oficial e a UI publiquem separadamente: (a) resultado de testarConexao/INIT_CLIENT com codigoDestaxa, (b) snapshot pós-diagnosticar, (c) VSPague process-only — sem inferir Client OK a partir de V$Pague."
+      },
+      {
+        "priority": 2,
+        "action": "Se porta persistida for CON3 (ou COM N), estender normalizarPortaCom para aceitar typo CON→COM e usar a mesma normalização em montarEstadosIntegracao."
+      },
+      {
+        "priority": 3,
+        "action": "Precheck runtime readonly: STATUS host + (opcional controlado) INIT_CLIENT uma vez, registrar clientResultCode; sem CRT/PIX e sem retries."
+      }
+    ]
+  },
+  "correctionsAppliedInThisSprint": [
+    {
+      "scope": "diagnostic_report_only",
+      "change": "Corrigida no relatório a confusão V$Pague-executando ⇒ Client-inicializado; documentada origem CON3/COM3 e a ausência de código de retorno quando INIT_CLIENT não ocorre."
+    }
+  ]
+}

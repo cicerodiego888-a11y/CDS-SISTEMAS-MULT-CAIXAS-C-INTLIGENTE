@@ -1,0 +1,118 @@
+{
+  "sprint": "MRT-02",
+  "title": "Contrato inicial e validação de identidade do PDV",
+  "generatedAt": "2026-10-30T02:30:00.000Z",
+  "status": "MRT-02 CONCLUÍDA — CONTRATO E IDENTIDADE VALIDADOS",
+  "restricoesObservadas": {
+    "multiPdvRouting": false,
+    "alocacaoTerminais": false,
+    "concorrenciaPorTerminal": false,
+    "adaptersAlterados": false,
+    "configDestaxaAlterada": false,
+    "initClient": false,
+    "transacaoReal": false,
+    "gates": false,
+    "bancoOficialAlterado": false,
+    "migrations": false,
+    "cadastrosFicticios": false
+  },
+  "identidadePdvExistente": {
+    "entidadeCds": "terminais.id",
+    "origemOperacional": "PDV registra via GET /api/terminais/auto?hostname=…&origem=pdv e passa a usar terminal.id",
+    "vinculoOrganizacionalMinimo": "terminais.caixa_id → caixas.id (ativo)",
+    "proibidoComoPdvId": ["hostname", "MAC", "porta COM", "terminal_codigo Destaxa"],
+    "nota": "Hostname só resolve o registro do terminal; a identidade validada pelo Router é o id numérico."
+  },
+  "contratoRouteDecision": {
+    "campos": [
+      "sucesso",
+      "codigo",
+      "mensagem",
+      "modo=COMPAT_SINGLETON",
+      "pdvId",
+      "pdv",
+      "empresaId",
+      "lojaId",
+      "terminalTefId=null (MRT-02)",
+      "dispositivoId=null (MRT-02)",
+      "provedor",
+      "ambiente",
+      "adapterBinding (singleton LIMIT 1)",
+      "isolamento.alocacaoAtiva=false",
+      "extensoes (Registry/alocação/MRT-03+)"
+    ],
+    "codigos": {
+      "ROUTE_OK": "PDV válido + binding singleton",
+      "SINGLETON_FALLBACK": "pdvId omitido — fluxo atual",
+      "PDV_HOSTNAME_OU_MAC_PROIBIDO": "hostname/MAC rejeitados",
+      "PDV_INEXISTENTE": "terminais.id ausente",
+      "PDV_INATIVO": "terminais.ativo=0",
+      "PDV_SEM_VINCULO": "sem caixa_id ou caixa inativo",
+      "EMPRESA_LOJA_INCOMPATIVEL": "empresaId/lojaId ≠ códigos da config TEF quando ambos presentes",
+      "PDV_IDENTIDADE_INVALIDA": "formato não reconhecido"
+    }
+  },
+  "entradaResolveRouteRequest": {
+    "pdvId": "terminais.id (obrigatório só se exigirPdvId=true; default false)",
+    "empresaId": "opcional — checado vs tef_configuracao.empresa_codigo se preenchido",
+    "lojaId": "opcional — checado vs tef_configuracao.loja_codigo se preenchido",
+    "operacao": "autorizar|cancelar|consultar|diagnosticar|reimprimir",
+    "hostHints": "hostname/mac apenas metadado — nunca identidade"
+  },
+  "fallbackSingleton": {
+    "descricao": "Sem Registry: adapterBinding = tef_configuracao LIMIT 1 (mesmo comportamento de tefFactory.obterAdapter)",
+    "pdvIdOmitido": "SINGLETON_FALLBACK + sucesso=true — TEF atual preservado",
+    "pdvIdValido": "ROUTE_OK + mesmo binding singleton (ainda sem multi-terminal)",
+    "tefManager": "Continua chamando obterAdapter(); RouteDecision anexada em dados._routeDecision; factory inalterada na seleção"
+  },
+  "integracaoMinima": {
+    "TefManager.autorizar": "resolve() antes de fraude/idempotência; bloqueia só se RouteDecision.sucesso=false",
+    "POST /api/tef/pagar": "aceita pdv_id|pdvId|terminal_id|terminalId|req.terminalId",
+    "adapters": "não alterados"
+  },
+  "arquivosCriados": [
+    "backend/services/tef/terminalRouter/contracts.js",
+    "backend/services/tef/terminalRouter/pdvIdentityValidator.js",
+    "backend/services/tef/terminalRouter/singletonFallback.js",
+    "backend/services/tef/terminalRouter/TerminalRouter.js",
+    "backend/services/tef/terminalRouter/index.js",
+    "tests/tef/mrt-02-contrato-identidade-pdv.test.js",
+    "docs/build/mrt-02-contrato-identidade-pdv-report.json"
+  ],
+  "arquivosAlterados": [
+    "backend/services/tef/TefManager.js",
+    "backend/rotas/tef.js"
+  ],
+  "extensoesDocumentadas": {
+    "registry": "MRT-03 — Empresa→Loja→PDV→TerminalTEF→Dispositivo",
+    "allocation": "MRT-04 — alocação/lock por terminal_tef_id",
+    "concurrency": "MRT-04/05 — fila por host quando provedor não admite paralelo",
+    "multiPdvBinding": "MRT-03+ — substituir LIMIT 1 pelo TerminalTEF do pdvId"
+  },
+  "testes": {
+    "comando": "node tests/tef/mrt-02-contrato-identidade-pdv.test.js",
+    "resultado": "15/15 OK",
+    "cobertura": [
+      "PDV válido",
+      "PDV inexistente",
+      "PDV inativo",
+      "PDV sem vínculo",
+      "hostname rejeitado",
+      "MAC rejeitado",
+      "fallback singleton",
+      "empresa/loja incompatível",
+      "evidência TefManager/rota/adapters"
+    ],
+    "regressao": {
+      "tef-15-vinculo-venda": "12/12 OK",
+      "tef-13-idempotencia-estavel": "13/13 OK"
+    }
+  },
+  "riscosRemanescentes": [
+    "Clientes PDV ainda podem omitir pdvId — singleton segue; multi-PDV continua sem isolamento até MRT-03/04",
+    "Empresa/loja formal CDS ainda não existem como FK em terminais — vínculo mínimo é caixa_id",
+    "Tabela terminais.hostname continua existindo para heartbeat; não deve ser confundida com pdvId"
+  ],
+  "confirmacaoPreservacaoTefAtual": true,
+  "conclusao": "Contrato RouteDecision e validação de pdvId=terminais.id implementados em modo COMPAT_SINGLETON, sem multi-PDV, sem alocação e sem alteração de adapters/Destaxa."
+}

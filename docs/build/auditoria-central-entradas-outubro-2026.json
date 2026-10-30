@@ -1,0 +1,69 @@
+{
+  "titulo": "Auditoria Central de Entradas — ausência de NF-e outubro/2026",
+  "data": "2026-10-24",
+  "banco": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+  "processoAtivo": {
+    "exe": "C:\\projetos\\CDS-SISTEMAS PASTELARIA\\node_modules\\electron\\dist\\electron.exe",
+    "codigoFonte": "C:\\projetos\\CDS-SISTEMAS PASTELARIA",
+    "nota": "O Electron em execução NÃO é o workspace MULT-CAIXAS; é o projeto Pastelaria."
+  },
+  "veredito": "ROOT_CAUSE_CONFIRMADO",
+  "causaRaiz": {
+    "codigo": "FILA_ESGOTADA_STICKY",
+    "arquivo": "backend/motores/central-entradas/services/CentralNsuService.js",
+    "resumo": "Após cStat 137/138/656 com ultNSU=maxNSU, a política sticky bloqueava DistNSU para sempre (só liberava com avanço de cursor — impossível sem nova consulta — ou liberação operacional manual). Desde 18–19/10/2026 nenhuma DistNSU real foi enviada; o background só registrava SYNC_CONCLUIDA ignorado.",
+    "evidenciaEvento": "Consulta DF-e não enviada à SEFAZ: evidência local de fila esgotada (ultNSU = maxNSU após cStat 137/138/656)..."
+  },
+  "evidencias": {
+    "documentosPorAammChave": {
+      "2609": 48,
+      "2608": 59,
+      "2601": 2,
+      "2510": 1,
+      "2610_outubro_2026": 0
+    },
+    "nsuProducao": [
+      {
+        "cnpj": "38204469000115",
+        "ultNsu": "196",
+        "maxNsu": "196",
+        "ultimoCstat": "656",
+        "ultimaSyncReal": "2026-10-18T23:40:01.778Z"
+      },
+      {
+        "cnpj": "38204469000387",
+        "ultNsu": "045",
+        "maxNsu": "045",
+        "ultimoCstat": "656",
+        "ultimaSyncReal": "2026-10-18T22:31:27.283Z"
+      },
+      {
+        "cnpj": "38204469000204",
+        "ultNsu": "035",
+        "maxNsu": "035",
+        "ultimoCstat": "656",
+        "ultimaSyncReal": "2026-10-19T01:23:31.759Z"
+      }
+    ],
+    "ultimaSyncRealSefaz": "2026-10-19 01:23:31 (SYNC_ERRO cStat 656 empresa 3)",
+    "syncBackgroundHoje": "dezenas de SYNC_CONCLUIDA resultado=ignorado sem cStat (consulta não enviada)",
+    "empresasAmbiente": "empresas_configuracao_fiscal.ambiente=1 (produção) nas 3 filiais",
+    "configGlobalFiscalAmbiente": "configuracoes.fiscal_ambiente=2 (homolog) — fallback global; sync multiempresa usa ambiente por empresa"
+  },
+  "correcaoAplicada": {
+    "projeto": "C:\\projetos\\CDS-SISTEMAS PASTELARIA",
+    "mudanca": "FILA_ESGOTADA deixa de ser sticky permanente; passa a janela de 1h (NT 2014.002) a partir de data_sincronizacao; depois DistNSU é permitida novamente",
+    "teste": "ce-pastelaria-03 — FILA pós-656: janela 1h bloqueia; após 1h libera DistNSU (pass)",
+    "efeitoNoBancoAtual": "Com a nova política, os 3 CNPJs produção estão LIVRE_POS_JANELA_1H (~138–141h desde última sync)",
+    "requer": "Reiniciar o Electron Pastelaria para carregar o código novo; próxima sync background/manual enviará DistNSU (consulta SEFAZ real)"
+  },
+  "naoFeitoNestaAuditoria": [
+    "Nenhuma transmissão DistNSU/SEFAZ foi disparada",
+    "Nenhum wipe/alteração de dados no mercadao.db",
+    "Liberação operacional manual não foi acionada (desnecessária após restart com a correção)"
+  ],
+  "observacoesUi": [
+    "Filtro rápido padrão em_revisao não esconde outubro se as notas não existem no banco",
+    "Há 0 documentos com AAMM 2610; o problema é de busca/sync, não de filtro de lista"
+  ]
+}

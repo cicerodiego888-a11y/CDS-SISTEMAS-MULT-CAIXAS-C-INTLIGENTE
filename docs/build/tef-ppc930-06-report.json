@@ -1,0 +1,391 @@
+{
+  "sprint": "TEF-PPC930-06",
+  "title": "Mapeamento oficial da loja e prontidão operacional",
+  "generatedAt": "2026-10-29T19:35:00.000Z",
+  "verdict": "MAPPING_BLOCKED_PENDING_DESTAXA_SUPPORT",
+  "operationalIntegrationDeclared": false,
+  "tefReadyForSaleDeclared": false,
+  "architecturePreserved": "TefManager → tefFactory → DestaxaRealAdapter → DestaxaHostBridge → Native Host → koffi → DLL",
+  "constraintsHonored": {
+    "noFinancialTransactionCalls": true,
+    "noDestaxaRealTransactionGateEnabled": true,
+    "noOfficialDatabaseMutation": true,
+    "noInitClientRetry": true,
+    "noInventedMapping": true,
+    "noNumericTransformOfOwnerData": true
+  },
+  "financialGate": {
+    "env": "DESTAXA_REAL_TRANSACTION_ENABLED",
+    "enabled": false,
+    "remainsDisabled": true
+  },
+  "contextConfirmedFromPriorSprint": {
+    "source": "docs/build/tef-ppc930-05-report.json",
+    "initClient": {
+      "executedOnce": true,
+      "codigoDestaxa": "00",
+      "estado": "CLIENT_INITIALIZED",
+      "entradaUsada": "versao=1.0.3;aplicacao=CDS Sistemas",
+      "estabelecimentoLojaTerminalNaEntrada": false
+    },
+    "provider": "destaxa",
+    "environment": "homologacao",
+    "pinpad": {
+      "modelo": "Gertec PPC930",
+      "porta": "COM3"
+    }
+  },
+  "ownerProvidedData": {
+    "numeroLogicoInformado": "419515099277948",
+    "pvInformado": "099277948",
+    "transformationsApplied": "none",
+    "structuralObservationOnly": {
+      "pvIsExactSuffixOfNumeroLogico": true,
+      "doesNotProveDestaxaFieldEquivalence": true
+    }
+  },
+  "inspectedFiles": [
+    {
+      "path": "C:/Users/cicer/Desktop/DLL DESTAXA/1_83-20260831T165940Z-1-001/1_83/docs/05-api-iniciaclientdestaxa.md",
+      "role": "documentacao_oficial_campos_iniciaClientDestaxa"
+    },
+    {
+      "path": "C:/Users/cicer/Desktop/DLL DESTAXA/1_83-20260831T165940Z-1-001/1_83/docs/00-introducao.md",
+      "role": "documentacao_oficial_visao_geral"
+    },
+    {
+      "path": "C:/Users/cicer/Desktop/DLL DESTAXA/1_83-20260831T165940Z-1-001/1_83/docs/03-usando-a-dll.md",
+      "role": "documentacao_oficial_abertura_terminal"
+    },
+    {
+      "path": "C:/Users/cicer/Desktop/DLL DESTAXA/1_83-20260831T165940Z-1-001/1_83/docs/06-api-iniciatransacaodestaxa.md",
+      "role": "documentacao_oficial_transacao_parametros_saida"
+    },
+    {
+      "path": "C:/Users/cicer/Desktop/DLL DESTAXA/1_83-20260831T165940Z-1-001/1_83/docs/dll-integracao-tef.html",
+      "role": "espelho_html_mesma_tabela_estabelecimento_loja_terminal"
+    },
+    {
+      "path": "C:/Users/cicer/Desktop/DLL DESTAXA/1_83-20260831T165940Z-1-001/1_83/examples/dotnet/Program.cs",
+      "role": "exemplo_oficial_campos_opcionais_comentados"
+    },
+    {
+      "path": "C:/Users/cicer/Desktop/DLL DESTAXA/leia-me.txt",
+      "role": "roteiro_integracao_mac_hostname_vspague_sem_mapeamento_pv"
+    },
+    {
+      "path": "C:/Users/cicer/Desktop/DLL DESTAXA/Manual Portal do Cliente v2.pdf",
+      "role": "portal_cliente_binario_sem_texto_extraivel_util_para_mapeamento"
+    },
+    {
+      "path": "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+      "role": "montarEntradaClient_mapeamento_cds_para_destaxa"
+    },
+    {
+      "path": "backend/services/tef/adapters/DestaxaRealAdapter.js",
+      "role": "prepararAutorizacao_precondicoes_ate_antes_da_chamada_financeira"
+    },
+    {
+      "path": "backend/services/tef/tefConfigService.js",
+      "role": "persistencia_e_validacao_empresa_loja_terminal"
+    },
+    {
+      "path": "backend/services/tef/tefFactory.js",
+      "role": "selecao_DestaxaRealAdapter_em_homologacao"
+    },
+    {
+      "path": "backend/services/tef/TefManager.js",
+      "role": "autorizar_chama_prepararAutorizacao_antes_de_criar_transacao"
+    },
+    {
+      "path": "frontend/erp/js/configuracao_tef.js",
+      "role": "ui_campos_empresa_loja_pdv_terminal_caixa"
+    },
+    {
+      "path": "C:/VBI/V$Pague/Client/logs/vspague-client.log",
+      "role": "evidencia_operacional_client_identificar_00151"
+    },
+    {
+      "path": "docs/build/tef-ppc930-05-report.json",
+      "role": "baseline_init_client_e_credenciais_ainda_null"
+    }
+  ],
+  "officialDestaxaDocumentation": {
+    "primarySource": "05-api-iniciaclientdestaxa.md",
+    "documentedInitInputFields": {
+      "obrigatorios": ["versao", "aplicacao"],
+      "estabelecimentoHierarquia": [
+        {
+          "campo": "estabelecimento",
+          "obrigatorio": false,
+          "descricaoOficial": "Código do estabelecimento cadastrado no V$Pague para o qual as transações serão realizadas"
+        },
+        {
+          "campo": "loja",
+          "obrigatorio": false,
+          "descricaoOficial": "Código da loja cadastrado dentro do estabelecimento no V$Pague para a qual as transações serão realizadas"
+        },
+        {
+          "campo": "terminal",
+          "obrigatorio": false,
+          "descricaoOficial": "Código do terminal cadastrado dentro da loja no V$Pague através do qual as transações serão realizadas"
+        }
+      ],
+      "outrosOpcionaisDocumentados": [
+        "aplicacao_tela",
+        "porta_comunicacao_cliente",
+        "endereco_comunicacao_client",
+        "multi_transacao",
+        "diretorio_trabalho",
+        "nivel_log",
+        "nome_arquivo_log",
+        "tam_max_log",
+        "total_bkp_log"
+      ]
+    },
+    "termsAbsentFromOfficialDllDocs": [
+      "número lógico",
+      "numero logico",
+      "PV",
+      "ponto de venda",
+      "419515099277948",
+      "099277948"
+    ],
+    "exampleEvidence": {
+      "file": "examples/dotnet/Program.cs",
+      "observation": "estabelecimento=Destaxa; loja=Loja001; terminal=T0010163 aparecem comentados como 'outros campos nao obrigatórios' — são placeholders de exemplo, não mapeamento do PV/número lógico do proprietário."
+    },
+    "portalManualPdf": {
+      "path": "C:/Users/cicer/Desktop/DLL DESTAXA/Manual Portal do Cliente v2.pdf",
+      "sizeBytes": 2572856,
+      "extractablePlainTextForMapping": false,
+      "note": "PDF comprimido; extração bruta não recuperou termos estabelecimento/loja/terminal/número lógico/PV como documentação utilizável de mapeamento."
+    },
+    "leiaMeIntegracao": {
+      "requiresMacAndHostnameForTestEnv": true,
+      "mentionsPvOrNumeroLogico": false,
+      "mentionsEstabelecimentoLojaTerminalCodes": false
+    },
+    "configurationDocsFoundForStoreTerminalHierarchy": true,
+    "configurationDocsFoundForOwnerLogicalNumberOrPv": false
+  },
+  "cdsLoadAndSendPath": {
+    "ui": {
+      "file": "frontend/erp/js/configuracao_tef.js",
+      "fields": ["empresaCodigo", "lojaCodigo", "pdvCodigo", "terminalCodigo", "caixaCodigo"],
+      "labelEmpresa": "Código da Empresa"
+    },
+    "persistence": {
+      "table": "tef_configuracao",
+      "columns": [
+        "empresa_codigo",
+        "loja_codigo",
+        "pdv_codigo",
+        "terminal_codigo",
+        "caixa_codigo"
+      ],
+      "loader": "tefConfigService.obterConfiguracao → empresaCodigo/lojaCodigo/terminalCodigo"
+    },
+    "bridgeMappingProvenInCode": {
+      "file": "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+      "function": "montarEntradaClient",
+      "rules": [
+        "empresa_codigo | empresaCodigo | estabelecimento → chave Destaxa estabelecimento",
+        "loja_codigo | lojaCodigo | loja → chave Destaxa loja",
+        "terminal_codigo | terminalCodigo | terminal → chave Destaxa terminal"
+      ],
+      "notSentToDestaxaInit": ["pdv_codigo", "caixa_codigo"],
+      "omittedWhenNullOrEmpty": true
+    },
+    "runtimeFlow": [
+      "UI/config → tef_configuracao",
+      "tefFactory cria DestaxaRealAdapter(registro) em homologacao",
+      "DestaxaRealAdapter.bridge.iniciarClient(this.config) → montarEntradaClient",
+      "TefManager.autorizar → DestaxaRealAdapter.prepararAutorizacao → (só se gate=1) iniciaTransacaoDestaxa"
+    ],
+    "validationNote": "tefConfigService.validarConfiguracao exige empresa/loja/terminal apenas para provedores sitef/paygo/rede/stone/cielo/getnet — NÃO para destaxa. Portanto códigos vazios não invalidam config Destaxa no CDS, mas também não os inventam."
+  },
+  "persistedConfigurationReadonly": {
+    "path": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+    "access": "OPEN_READONLY",
+    "integrity": {
+      "sha256Observed": "61991cc5c2ac87cabcc777f20a832b64fe52274f4c0434c084905e0ed27bde83",
+      "beforeEqualsAfter": true,
+      "databaseMutatedByThisSprint": false,
+      "noteVsPpc93005": "Hash principal diferente do relatório 05 (883E293D...); alteração externa/prévia a esta sprint. Esta sprint não gravou valores."
+    },
+    "tef_configuracao": {
+      "provedor": "destaxa",
+      "ambiente": "homologacao",
+      "habilitado": 1,
+      "empresa_codigo": null,
+      "loja_codigo": null,
+      "terminal_codigo": null,
+      "pdv_codigo": null,
+      "caixa_codigo": null
+    },
+    "tef_pinpads": {
+      "codigo": "GERTEC_PPC930",
+      "modelo": "PPC930",
+      "porta_com": "COM3",
+      "tipo_conexao": "serial",
+      "habilitado": 1
+    }
+  },
+  "credentialMappingVerdict": {
+    "mapeamentoComprovado": false,
+    "documentedDestaxaTargets": ["estabelecimento", "loja", "terminal"],
+    "ownerValuesCheckedAsExactLiterals": {
+      "419515099277948": {
+        "foundInOfficialDestaxaDllDocs": false,
+        "foundAsDocumentedFieldName": false,
+        "assignedToCdsField": null,
+        "writtenToDatabase": false
+      },
+      "099277948": {
+        "foundInOfficialDestaxaDllDocs": false,
+        "foundAsDocumentedFieldName": false,
+        "assignedToCdsField": null,
+        "writtenToDatabase": false
+      }
+    },
+    "forbiddenAssumptionsNotApplied": [
+      "não presumir número lógico = estabelecimento",
+      "não presumir PV = loja ou terminal",
+      "não dividir/truncar/suffixar/prefixar os números para caber em campos",
+      "não gravar tentativa no banco oficial"
+    ],
+    "cdsBridgeReadyOnceValuesConfirmed": {
+      "empresa_codigo": "será enviado como estabelecimento",
+      "loja_codigo": "será enviado como loja",
+      "terminal_codigo": "será enviado como terminal"
+    }
+  },
+  "destaxaSupportConfirmationRequired": {
+    "channelHintFromLeiaMe": "WhatsApp 0800 123 6398 opção 5 Integração; informar CNPJ antes da dúvida",
+    "exactQuestions": [
+      "1) Para este estabelecimento, quais são os valores oficiais exatos (strings literais) de estabelecimento, loja e terminal cadastrados no V$Pague para uso em iniciaClientDestaxa?",
+      "2) O número lógico informado pelo proprietário (419515099277948, sem qualquer transformação) corresponde a estabelecimento, loja, terminal, a nenhum deles, ou a outro identificador externo (ex.: adquirente/Rede)?",
+      "3) O PV informado (099277948, sem qualquer transformação) corresponde a estabelecimento, loja, terminal, a nenhum deles, ou a outro identificador externo?",
+      "4) Em qual tela/relatório do Portal do Cliente (ou outro canal Destaxa/Laranjinha) esses três códigos oficiais são exibidos para cópia literal?",
+      "5) O INIT_CLIENT já retornou 00 apenas com versao+aplicacao. Para CRT de homologação, estabelecimento/loja/terminal são obrigatórios, opcionais, ou dependem do cadastro do terminal no V$Pague?",
+      "6) No log do V$PagueClient desta máquina aparece [00151] Terminal não cadastrado ou desabilitado e Nenhum ou mais de um .conf encontrado no diretorio. Quais passos restantes de liberação/cadastro (MAC/hostname/.conf) são necessários antes de qualquer pagamento de homologação?"
+    ],
+    "machineEvidenceToSendWithTicket": {
+      "hostnameFromClientLog": "desktop-4b8amm3",
+      "hostMacAddressFromClientLog": "00:15:5D:19:9D:6F",
+      "vspagueServer": "app-partner.destaxa.cloud:60410",
+      "clientVersion": "5.0.0",
+      "errorCodes": ["00151"]
+    }
+  },
+  "vspagueOperationalEvidence": {
+    "logPath": "C:/VBI/V$Pague/Client/logs/vspague-client.log",
+    "logTimestamp": "2026-10-29 15:46:26",
+    "connectedToPartnerCloud": true,
+    "identificarService": "V&SCommService/V&SPagueServer/Identificar",
+    "errors": [
+      {
+        "code": "00151",
+        "message": "Terminal não cadastrado ou desabilitado"
+      },
+      {
+        "message": "Nenhum ou mais de um .conf encontrado no diretorio."
+      }
+    ],
+    "confFilesFoundUnderVbiVsPague": false,
+    "implication": "Mesmo com INIT_CLIENT=00 na DLL, o Client gráfico ainda reporta terminal não cadastrado — bloqueio operacional independente do mapeamento PV/número lógico e anterior a qualquer chamada financeira."
+  },
+  "paymentFlowPreconditionsBeforeFirstFinancialCall": {
+    "stopPoint": "imediatamente antes de DestaxaRealAdapter.autorizarPagamento → bridge.habilitarTransacaoReal / iniciarTransacaoDestaxa (iniciaTransacaoDestaxa = primeira chamada financeira)",
+    "source": "DestaxaRealAdapter.prepararAutorizacao",
+    "checks": [
+      {
+        "id": "provider_destaxa",
+        "status": "SATISFEITO",
+        "evidence": "tef_configuracao.provedor=destaxa"
+      },
+      {
+        "id": "ambiente_homologacao",
+        "status": "SATISFEITO",
+        "evidence": "tef_configuracao.ambiente=homologacao (= AMBIENTE_TRANSACAO_REAL)"
+      },
+      {
+        "id": "adapter_modo_real",
+        "status": "SATISFEITO",
+        "evidence": "tefFactory → DestaxaRealAdapter em homologacao"
+      },
+      {
+        "id": "operacao_crt_somente",
+        "status": "CONDICAO_DE_CHAMADA",
+        "evidence": "OPERACOES_REAIS_PERMITIDAS=['CRT']"
+      },
+      {
+        "id": "valor_homologacao_100_centavos",
+        "status": "CONDICAO_DE_CHAMADA",
+        "evidence": "VALOR_HOMOLOGACAO_CENTAVOS=100"
+      },
+      {
+        "id": "config_tef_valida_pinpad_com",
+        "status": "SATISFEITO",
+        "evidence": "pinpad GERTEC_PPC930 habilitado, porta_com=COM3"
+      },
+      {
+        "id": "dll_exports",
+        "status": "SATISFEITO",
+        "evidence": "ppc930-05: quatro exports presentes; DLL x64"
+      },
+      {
+        "id": "client_initialized_00",
+        "status": "SATISFEITO",
+        "evidence": "ppc930-05 INIT único → 00 CLIENT_INITIALIZED; esta sprint não repetiu INIT"
+      },
+      {
+        "id": "vspague_process_running",
+        "status": "SATISFEITO_PARCIAL",
+        "evidence": "processo observado no 05; porém log atual mostra Identificar 00151 — processo ≠ cadastro válido"
+      },
+      {
+        "id": "pinpad_detectado_porta_consistente",
+        "status": "SATISFEITO",
+        "evidence": "ppc930-05: PPC930 em COM3 = configurado"
+      },
+      {
+        "id": "mapeamento_estabelecimento_loja_terminal",
+        "status": "PENDENTE_SUPORTE",
+        "evidence": "valores oficiais não documentados a partir de número lógico/PV; campos CDS null"
+      },
+      {
+        "id": "cadastro_terminal_vspague_00151",
+        "status": "BLOQUEADO",
+        "evidence": "vspague-client.log: Terminal não cadastrado ou desabilitado; .conf ausente"
+      },
+      {
+        "id": "gate_financeiro",
+        "status": "DESATIVADO_DELIBERADAMENTE",
+        "evidence": "DESTAXA_REAL_TRANSACTION_ENABLED != 1; prepararAutorizacao retornaria DESTAXA_REAL_TRANSACTION_DISABLED com readiness READY_FOR_REAL_TRANSACTION apenas se demais checks passassem"
+      }
+    ],
+    "remainingBlockersForHomologCrtAttempt": [
+      "Confirmação Destaxa/Laranjinha do mapeamento literal estabelecimento/loja/terminal (ou confirmação explícita de omissão permitida).",
+      "Resolução do erro V$Pague 00151 (terminal cadastrado/habilitado) e provisionamento correto de .conf.",
+      "Persistência no CDS somente após confirmação oficial — nunca por tentativa.",
+      "Somente então, em sprint futura controlada: habilitar DESTAXA_REAL_TRANSACTION_ENABLED=1 para um CRT de R$1,00."
+    ]
+  },
+  "financialSafety": {
+    "iniciaTransacaoDestaxa": false,
+    "continuaTransacaoDestaxa": false,
+    "finalizaTransacaoDestaxa": false,
+    "DESTAXA_REAL_TRANSACTION_ENABLED": false,
+    "initClientRepeated": false,
+    "databaseCodesWritten": false
+  },
+  "conclusion": {
+    "mappingSustainedByOfficialDocs": false,
+    "blockClearlyIdentified": true,
+    "blockSummary": "A documentação oficial Destaxa 1.83 define estabelecimento/loja/terminal como códigos cadastrados no V$Pague, mas não documenta equivalência com número lógico nem PV. O CDS já sabe como enviar esses três campos quando existirem em tef_configuracao; os valores do proprietário não foram gravados. Adicionalmente, o V$PagueClient reporta terminal não cadastrado (00151).",
+    "tefReadyForSale": false,
+    "recommendedNextStep": "Abrir chamado/WhatsApp Integração Destaxa com as 6 perguntas literais deste relatório + evidências de máquina (MAC/hostname/00151/.conf) e aguardar strings oficiais antes de qualquer gravação em tef_configuracao ou abertura do gate financeiro."
+  }
+}

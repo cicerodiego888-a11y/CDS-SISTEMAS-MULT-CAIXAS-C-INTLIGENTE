@@ -1,0 +1,100 @@
+{
+  "sprint": "MRT-03",
+  "title": "Registry de terminais TEF e fallback",
+  "generatedAt": "2026-10-30T02:45:00.000Z",
+  "status": "MRT-03 CONCLUÍDA — REGISTRY VALIDADO",
+  "restricoesObservadas": {
+    "alocacaoConcorrente": false,
+    "pagamentosSimultaneos": false,
+    "adaptersAlterados": false,
+    "initClient": false,
+    "transacaoReal": false,
+    "gates": false,
+    "bancoOficialAlterado": false,
+    "migrationsAplicadasNoOficial": false,
+    "codigosDestaxaFicticios": false,
+    "multiTerminalVsPaguePresumido": false,
+    "fallbackSingletonRemovido": false
+  },
+  "auditoriaCadastrosExistentes": {
+    "tef_configuracao": "singleton LIMIT 1 — provedor/ambiente/empresa_codigo/loja_codigo/terminal_codigo/pdv_codigo TEXT",
+    "tef_pinpads": "1 pinpad por config (porta_com) — dispositivo físico da instalação",
+    "terminais": "PDV CDS = terminais.id; hostname = estação (≠ pdvId)",
+    "caixas": "vínculo organizacional mínimo do PDV",
+    "PaymentTerminal*": "ausente",
+    "conclusao": "Não há tabela de Terminal TEF por PDV; Registry inicia em memória + migration proposta"
+  },
+  "contratoRegistry": {
+    "estados": ["ATIVO", "INATIVO", "INDISPONIVEL", "NAO_PROVISIONADO"],
+    "codigos": [
+      "REGISTRY_HIT",
+      "REGISTRY_MISS",
+      "TERMINAL_INATIVO",
+      "TERMINAL_INDISPONIVEL",
+      "TERMINAL_NAO_PROVISIONADO",
+      "TERMINAL_AMBIGUO",
+      "EMPRESA_LOJA_INCOMPATIVEL"
+    ],
+    "apis": [
+      "registrar(terminal)",
+      "listarPorPdv(pdvId)",
+      "resolverPorPdv({ pdvId, empresaId, lojaId, provedorPreferido })",
+      "montarBinding(terminal, singletonBinding)",
+      "consultarProjecaoSingleton()"
+    ]
+  },
+  "modeloLogico": {
+    "hierarquia": "Empresa → Loja → PDV(terminais.id) → TerminalTEF → Dispositivo",
+    "terminalLogico": "provedor + ambiente + codigoLogicoProvedor (ex. terminal Destaxa)",
+    "dispositivoFisico": "porta COM / IP / serial — nunca confundir com pdvId ou hostname",
+    "estacaoHost": "terminais.hostname / MAC V$Pague — identidade de máquina"
+  },
+  "regrasAssociacao": [
+    "PDV 0..N TerminalTEF no Registry",
+    "0 terminais → REGISTRY_MISS → Router usa singleton (não falha)",
+    "1 ATIVO → REGISTRY_HIT / REGISTRY_RESOLVED",
+    "N ATIVOS sem provedorPreferido → TERMINAL_AMBIGUO",
+    "Somente INATIVO/INDISPONIVEL/NAO_PROVISIONADO → falha explícita (não cai no singleton)",
+    "empresaId/lojaId filtrados quando informados",
+    "alocacaoAtiva permanece false"
+  ],
+  "estrategiaFallback": {
+    "pdvIdOmitido": "SINGLETON_FALLBACK (MRT-02)",
+    "pdvValidoSemRegistry": "ROUTE_OK + adapterBinding singleton",
+    "pdvValidoComRegistry": "REGISTRY_RESOLVED + binding fonte=tef_terminal_registry",
+    "obterAdapter": "TefManager ainda chama factory LIMIT 1; binding Registry anexado na RouteDecision para MRT-04"
+  },
+  "migrationProposta": {
+    "arquivo": "docs/build/mrt-03-migration-proposta.sql",
+    "tabelas": ["tef_terminais_logicos", "tef_dispositivos"],
+    "aplicadaNoBancoOficial": false,
+    "aplicadaEmDatabaseJs": false
+  },
+  "arquivosCriados": [
+    "backend/services/tef/terminalRegistry/contracts.js",
+    "backend/services/tef/terminalRegistry/memoryStore.js",
+    "backend/services/tef/terminalRegistry/projetarDeSingleton.js",
+    "backend/services/tef/terminalRegistry/TerminalRegistry.js",
+    "backend/services/tef/terminalRegistry/index.js",
+    "docs/build/mrt-03-migration-proposta.sql",
+    "tests/tef/mrt-03-registry-terminais.test.js",
+    "docs/build/mrt-03-registry-terminais-report.json"
+  ],
+  "arquivosAlterados": [
+    "backend/services/tef/terminalRouter/contracts.js",
+    "backend/services/tef/terminalRouter/TerminalRouter.js",
+    "backend/services/tef/terminalRouter/index.js"
+  ],
+  "testes": {
+    "comando": "node tests/tef/mrt-03-registry-terminais.test.js",
+    "resultado": "15/15 OK",
+    "regressaoMrt02": "15/15 OK"
+  },
+  "riscosRemanescentes": [
+    "Registry em memória não sobrevive a restart — persistência só após aplicar migration em sprint dedicada",
+    "TefManager ainda não usa adapterBinding do Registry para obterAdapter (cutover MRT-04)",
+    "Dois terminais ATIVOS no mesmo PDV exigem provedorPreferido ou falham ambíguos",
+    "Destaxa/V$Pague: multi-terminal no mesmo host continua não presumido"
+  ],
+  "conclusao": "TerminalRegistry consulta/organiza TerminalTEF×Dispositivo por PDV, separa identidades, preserva fallback singleton e entrega migration proposta sem aplicar no oficial."
+}

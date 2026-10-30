@@ -4,6 +4,7 @@ const db = require('../../database');
 const { gravarAuditoria } = require('../auditoria');
 const { validarMotivoTexto } = require('../validacao/validarMotivoTexto');
 const { cancelarFiscal } = require('../tef/ReversaoFiscal');
+const tefContrato = require('../tef/tefContrato');
 const VendaDevolucaoService = require('./VendaDevolucaoService');
 const VendaFiscalService = require('./VendaFiscalService');
 const { cancelarFinanceiroVenda } = require('./VendaFinanceiroService');
@@ -357,10 +358,25 @@ db.get(
             venda.status_pagamento === 'aguardando_nao_fiscal';
           const estornarFiscal = exigeEstornoFiscal && venda.tef_transacao_id
             ? cancelarFiscal(venda.tef_transacao_id, motivo || 'Cancelamento de venda')
-            : Promise.resolve();
+            : Promise.resolve({ sucesso: true, cancelConfirmed: true });
 
           estornarFiscal
-            .then(() => executarCancelamentoLocal())
+            .then((tefResultado) => {
+              // TEF-17: sem confirmação do provedor, não baixa/estorna a venda.
+              if (exigeEstornoFiscal && venda.tef_transacao_id) {
+                const confirmado = tefContrato.cancelamentoConfirmado(tefResultado);
+                if (!confirmado) {
+                  return res.status(409).json({
+                    sucesso: false,
+                    mensagem: tefResultado?.mensagem
+                      || 'Cancelamento TEF não confirmado pelo provedor. Estorno financeiro da venda bloqueado.',
+                    codigo: tefResultado?.codigo || tefResultado?.cancelOutcome || 'TEF_CANCELAMENTO_NAO_CONFIRMADO',
+                    tef: tefResultado || null
+                  });
+                }
+              }
+              return executarCancelamentoLocal();
+            })
             .catch((tefErr) => {
               console.error('Erro ao estornar TEF após confirmação fiscal:', tefErr);
               res.status(500).json({
@@ -400,10 +416,25 @@ db.get(
     )) {
       const estornarFiscal = venda.tef_transacao_id
         ? cancelarFiscal(venda.tef_transacao_id, motivo || 'Cancelamento de venda')
-        : Promise.resolve();
+        : Promise.resolve({ sucesso: true, cancelConfirmed: true });
 
       estornarFiscal
-        .then(() => prosseguirCancelamento(avaliacao))
+        .then((tefResultado) => {
+          // TEF-17: bloqueia cancelamento local/financeiro sem confirmação TEF.
+          if (venda.tef_transacao_id) {
+            const confirmado = tefContrato.cancelamentoConfirmado(tefResultado);
+            if (!confirmado) {
+              return res.status(409).json({
+                sucesso: false,
+                mensagem: tefResultado?.mensagem
+                  || 'Cancelamento TEF não confirmado pelo provedor. Estorno financeiro da venda bloqueado.',
+                codigo: tefResultado?.codigo || tefResultado?.cancelOutcome || 'TEF_CANCELAMENTO_NAO_CONFIRMADO',
+                tef: tefResultado || null
+              });
+            }
+          }
+          return prosseguirCancelamento(avaliacao);
+        })
         .catch((tefErr) => {
           console.error('Erro ao estornar TEF do Recebimento A:', tefErr);
           return res.status(500).json({

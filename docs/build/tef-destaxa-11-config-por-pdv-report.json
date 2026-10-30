@@ -1,0 +1,57 @@
+{
+  "sprint": "TEF-DESTAXA-11",
+  "title": "Configuração TEF por PDV e vínculo do PinPad",
+  "generatedAt": "2026-10-29T23:50:00.000Z",
+  "status": "AUDITORIA CONCLUÍDA",
+  "codeChanges": false,
+  "officialDbMutated": false,
+  "financialTransaction": false,
+  "initClient": false,
+  "gatesEnabled": false,
+  "modeloPorPdv": "AUSENTE",
+  "modeloEfetivo": "instalacao_singleton",
+  "escopoDocumentado": {
+    "fonte": "backend/services/tef/tefConfigService.js#ESCOPO_CONFIGURACAO_TEF",
+    "nivel": "instalacao",
+    "descricao": "Singleton tef_configuracao ORDER BY id ASC LIMIT 1 por arquivo de banco"
+  },
+  "evidenciaBanco": {
+    "path": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+    "tef_configuracao_rows": 1,
+    "tef_pinpads_rows": 1,
+    "porta_com": "COM4",
+    "pdv_codigo": null,
+    "caixa_codigo": null,
+    "pinpad_has_pdv_caixa_fk": false,
+    "tef_transacoes_has_pdv_caixa_cols": false
+  },
+  "vinculoPdvPinpadTef": {
+    "config": "tefConfigRepository.buscarConfiguracaoPrincipal → LIMIT 1",
+    "pinpad": "buscarPinpadPorConfigId → LIMIT 1 (um pinpad por config)",
+    "pagamento": "POST /tef/pagar: tipo, valor, parcelas, venda_id, idempotency_key — sem caixa/pdv/porta",
+    "pdv_ui": "frontend/pdv/js/pdv.js#processarPagamentoTEF sem caixa_codigo/portaCom",
+    "destaxa": "pdv_codigo/caixa_codigo não enviados a iniciaClientDestaxa (destaxaMapeamentoTerminal)"
+  },
+  "riscos": [
+    "Dois caixas na mesma instalação/banco compartilham a mesma config TEF e o mesmo PinPad/COM.",
+    "Dois caixas no mesmo PC com COM distintas não têm onde persistir a segunda porta no modelo atual.",
+    "Identidade de caixa/PDV não viaja no pagamento TEF — retorno amarra-se a venda_id/idempotency, não a caixa.",
+    "V$PagueClient identifica máquina (hostname/MAC); múltiplos PDVs na mesma máquina compartilham a mesma identidade de Identificar (dependência Destaxa)."
+  ],
+  "correcoesMinimasNestaSprint": "Nenhuma — evolução multi-PDV exigiria schema e produto deliberados; fora do escopo sem necessidade comprovada de homologação imediata.",
+  "dependenciasDestaxa": [
+    "00151 / liberação MAC-hostname",
+    "Provisionamento .conf",
+    "Literais estabelecimento/loja/terminal se exigidos",
+    "Confirmação se um Client por máquina admite múltiplos terminais lógicos concorrentes"
+  ],
+  "padraoMercadoComparado": {
+    "observacao": "Padrão usual: 1 estação (máquina) = 1 Client TEF = 1 PinPad/COM = 1 terminal lógico. CDS atual alinha-se a 1 instalação/banco = 1 config. Multi-caixa com PinPads distintos na mesma instalação não está modelado.",
+    "naoCopiadoDeOutrosProvedores": true
+  },
+  "testes": {
+    "arquivo": "tests/tef/tef-destaxa-11-config-por-pdv.test.js",
+    "inspecao": "scripts/tef/destaxa-11-inspect-scope.js"
+  },
+  "proximoPassoUnico": "Manter TEF-DESTAXA no eixo Destaxa (00151/.conf/códigos oficiais). Só abrir sprint de multi-config por PDV se o produto exigir dois PinPads/COM na mesma instalação — desenho separado, pós-provisionamento."
+}

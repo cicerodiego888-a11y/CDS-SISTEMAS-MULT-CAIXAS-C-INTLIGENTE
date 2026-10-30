@@ -1,0 +1,137 @@
+{
+  "sprint": "MRT-26",
+  "title": "Hardening do ciclo de vida do Native Host",
+  "generatedAt": "2026-10-30T20:10:39.644Z",
+  "classificacao": "CICLO DE VIDA PROTEGIDO",
+  "restricoesObservadas": {
+    "init": false,
+    "txStart": false,
+    "crt": false,
+    "continueFinanceiro": false,
+    "finalizeFinanceiro": false,
+    "est": false,
+    "enableReal": false,
+    "gateOff": true,
+    "bancoProducao": false,
+    "tefManagerAlterado": false
+  },
+  "arquivosAlterados": [
+    "backend/services/tef/destaxa/DestaxaNativeHost.js",
+    "backend/services/tef/destaxa/DestaxaNativeHostClient.js",
+    "tests/tef/mrt-26-hardening-ciclo-vida-native-host.test.js",
+    "docs/build/mrt-26-hardening-ciclo-vida-native-host-report.json"
+  ],
+  "comportamentoAnterior": {
+    "disconnect": "process.on('disconnect', () => process.exit(0)) imediato",
+    "unref": "child.unref() + channel.unref() no start",
+    "risco": "Host morto no meio de Koffi → Connection reset V$Pague; CDS sem TX_START_RESULT"
+  },
+  "comportamentoNovo": {
+    "disconnect": "aoDisconnectIpc: se nativa em voo, adia exit até finally; senão exit imediato",
+    "unref": "sem unref automático; _segurarReferenciaHost no start e em enviar; unref só via liberarReferenciaHostSeOcioso",
+    "diagnostico": "eventos ciclo com pid/ppid, início/fim nativa, disconnect, exit code/signal/motivo",
+    "falhas": "HOST_CRASHED / UNKNOWN — nunca aprovado/negado por interrupção"
+  },
+  "testes": [
+    {
+      "nome": "Sem process.exit(0) imediato no handler disconnect",
+      "ok": true
+    },
+    {
+      "nome": "Encerramento adiado após nativa (disconnect.adiado)",
+      "ok": true
+    },
+    {
+      "nome": "Start não faz unref automático",
+      "ok": true
+    },
+    {
+      "nome": "enviar reforça ref do Host",
+      "ok": true
+    },
+    {
+      "nome": "disconnect sem nativa → exit imediato (não adiado)",
+      "ok": true
+    },
+    {
+      "nome": "evento disconnect.exit_imediato registrado",
+      "ok": true
+    },
+    {
+      "nome": "disconnect com nativa → exit adiado",
+      "ok": true
+    },
+    {
+      "nome": "evento disconnect.adiado registrado",
+      "ok": true
+    },
+    {
+      "nome": "após conclusão da nativa → exit controlado",
+      "ok": true
+    },
+    {
+      "nome": "Native Host TEST_MODE READY",
+      "ok": true
+    },
+    {
+      "nome": "PID Host e PID pai registrados",
+      "ok": true,
+      "detalhe": "host=21288 pai=22472"
+    },
+    {
+      "nome": "hostRefAtiva após start (sem unref automático)",
+      "ok": true
+    },
+    {
+      "nome": "Recuperação de diagnóstico do Host (STATUS)",
+      "ok": true
+    },
+    {
+      "nome": "operação simulada conclui com sucesso (não mascarada)",
+      "ok": true
+    },
+    {
+      "nome": "encerramento controlado (SHUTDOWN)",
+      "ok": true
+    },
+    {
+      "nome": "Host não permanece órfão após encerrar",
+      "ok": true,
+      "detalhe": "pid=21288 vivo=false"
+    },
+    {
+      "nome": "desconectarIpc durante nativa (API teste)",
+      "ok": true
+    },
+    {
+      "nome": "Host permanece vivo durante operação simulada após disconnect",
+      "ok": true,
+      "detalhe": "durante=true aposDisconnect=true"
+    },
+    {
+      "nome": "resultado pós-disconnect não é aprovação/negação financeira",
+      "ok": true,
+      "detalhe": "sucessoSim=false erro=HOST_CRASHED duracaoMs=614"
+    },
+    {
+      "nome": "Host encerra após nativa (sem órfão)",
+      "ok": true,
+      "detalhe": "pid=17480"
+    },
+    {
+      "nome": "diagnóstico de exit registra code/signal/motivo",
+      "ok": true,
+      "detalhe": "{\"code\":1,\"signal\":null,\"motivo\":\"HOST_CRASHED\",\"operacaoEmVoo\":\"SIMULATE_BLOCKING\",\"transactionIdEmVoo\":null,\"duracaoOperacaoMs\":614,\"pidPai\":22472,\"em\":\"2026-10-30T20:10:40.661Z\"}"
+    },
+    {
+      "nome": "Gate financeiro OFF",
+      "ok": true
+    },
+    {
+      "nome": "PIDs de teste não órfãos",
+      "ok": true
+    }
+  ],
+  "confirmacaoGateOff": true,
+  "resultadoFinal": "MRT-26 CONCLUÍDA — CICLO DE VIDA PROTEGIDO"
+}

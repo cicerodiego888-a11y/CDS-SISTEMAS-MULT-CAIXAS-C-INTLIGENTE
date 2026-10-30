@@ -1,0 +1,98 @@
+{
+  "sprint": "TEF-PPC930-04",
+  "title": "Separação do INIT_CLIENT e normalização da porta COM",
+  "generatedAt": "2026-10-29T19:10:00.000Z",
+  "verdict": "READY_FOR_NEXT_PRECHECK",
+  "operationalIntegrationDeclared": false,
+  "modifiedFiles": [
+    "backend/services/tef/tefConfigService.js",
+    "backend/services/tef/tefDiagnosticoService.js",
+    "frontend/erp/js/configuracao_tef.js",
+    "tests/tef/tef-ppc930-04-init-client-porta.test.js",
+    "tests/tef/tef-destaxa-07g-adapter-status.test.js",
+    "package.json",
+    "docs/build/tef-ppc930-04-report.json"
+  ],
+  "relatedDiagnostic": "docs/build/tef-ppc930-03-report.json",
+  "behaviorChanges": {
+    "initClientAutomaticoNoDiagnostico": false,
+    "executarDiagnosticoCompleto": "obtém adapter e chama apenas diagnosticar(); não chama testarConexao()/INIT_CLIENT",
+    "estadosClientSeparados": [
+      "processo V$Pague detectado",
+      "DLL carregada",
+      "exports validados",
+      "INIT_CLIENT EXECUTADO|NAO_EXECUTADO",
+      "código de retorno Destaxa ou NAO_EXECUTADO",
+      "Client inicializado (somente se INIT_CLIENT executado e flag verdadeira)"
+    ],
+    "portaComNormalizacao": {
+      "COM3_vs_COM_3": "equivalentes via analisarPortaCom/normalizarPortaCom",
+      "CON3": "suspeita/inválida; sem conversão silenciosa; correcaoAplicada=null",
+      "preservaOriginais": "configuredPortOriginal e detectedPortOriginal distintos dos normalizados"
+    },
+    "inferenciaProibida": [
+      "não inferir Client a partir de V$Pague",
+      "não inferir Client a partir do sucesso do diagnóstico da DLL",
+      "não inventar código quando INIT_CLIENT = NAO_EXECUTADO"
+    ]
+  },
+  "ui": {
+    "file": "frontend/erp/js/configuracao_tef.js",
+    "showsInitClientStatus": true,
+    "showsReturnCodeOrNaoExecutado": true,
+    "showsConfiguredVsDetectedPort": true,
+    "showsSuspiciousPortHint": true
+  },
+  "tests": {
+    "command": "npm run test:tef-ppc930-04",
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "results": [
+      {
+        "nome": "V$Pague executando, mas INIT_CLIENT não executado",
+        "sucesso": true
+      },
+      {
+        "nome": "DLL carregada, mas Client não inicializado",
+        "sucesso": true
+      },
+      {
+        "nome": "INIT_CLIENT com código 00 em teste isolado/mocado",
+        "sucesso": true
+      },
+      {
+        "nome": "INIT_CLIENT com código diferente de 00",
+        "sucesso": true
+      },
+      {
+        "nome": "Porta COM3 versus COM 3",
+        "sucesso": true
+      },
+      {
+        "nome": "Porta CON3 sinalizada como inválida ou suspeita, sem conversão silenciosa",
+        "sucesso": true
+      }
+    ],
+    "regressions": {
+      "tef-destaxa-07g": { "passed": 8, "failed": 0 },
+      "tef-destaxa-07e": { "passed": 12, "failed": 0 }
+    }
+  },
+  "financialSafety": {
+    "iniciaTransacaoDestaxa": false,
+    "continuaTransacaoDestaxa": false,
+    "finalizaTransacaoDestaxa": false,
+    "DESTAXA_REAL_TRANSACTION_ENABLED": false,
+    "dllCarregadaNestaSprint": false,
+    "clientRealInicializadoNestaSprint": false,
+    "noAutomaticTimeoutRetries": true,
+    "otherProvidersPreserved": true
+  },
+  "limitations": [
+    "Testes usam mocks; não comprovam estado runtime da instalação do cliente.",
+    "INIT_CLIENT real não foi executado nesta sprint.",
+    "Nenhuma transação financeira foi executada.",
+    "diagnosticar() ainda pode carregar a DLL no host quando o usuário dispara o diagnóstico completo; apenas INIT_CLIENT deixou de ser automático."
+  ]
+}

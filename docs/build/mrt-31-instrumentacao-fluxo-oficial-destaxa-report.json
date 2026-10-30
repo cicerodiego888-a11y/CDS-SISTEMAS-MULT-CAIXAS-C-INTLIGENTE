@@ -1,0 +1,332 @@
+{
+  "sprint": "MRT-31",
+  "title": "Instrumentação do fluxo oficial TEF Destaxa",
+  "generatedAt": "2026-10-30T21:14:54.801Z",
+  "classificacao": "INSTRUMENTACAO_FLUXO_OFICIAL_APROVADA",
+  "restricoesObservadas": {
+    "init": false,
+    "enableReal": false,
+    "txStart": false,
+    "crt": false,
+    "continueFinanceiro": false,
+    "finalizeFinanceiro": false,
+    "est": false,
+    "cancelamento": false,
+    "dllCarregada": false,
+    "nativeHostIniciado": false,
+    "vspagueReiniciado": false,
+    "gateOff": true,
+    "bancoAlterado": false,
+    "configProducaoAlterada": false,
+    "novaOperacaoFinanceira": false,
+    "novaIdempotencyKey": false,
+    "assinaturaKoffiAlterada": false,
+    "correcaoFuncional": false
+  },
+  "caminhoOficial": {
+    "caminho": [
+      "PDV/API",
+      "TefManager.autorizar",
+      "garantirIdentidadeOperacao + criarTransacaoExclusiva",
+      "PERSISTENCIA_CONFIRMADA",
+      "DestaxaRealAdapter.autorizarPagamento(persistenciaConfirmada)",
+      "ADAPTER_AUTORIZADO",
+      "habilitarTransacaoReal (somente se gate ON — futuro)",
+      "executarCicloCrt → DestaxaHostBridge.iniciarTransacaoDestaxa",
+      "IPC TX_START (transactionId no envelope; campos ≠ transactionId)",
+      "DestaxaNativeHost._executarNativa(TX_START)",
+      "HOST_RECEBEU_TX_START",
+      "DestaxaTransacaoOrquestrador.iniciarTransacao",
+      "ORQUESTRADOR_ENTROU",
+      "KOFFI_CALL_BEGIN",
+      "Koffi iniciaTransacaoDestaxa(...)",
+      "KOFFI_CALL_END",
+      "TX_START_RESULT"
+    ],
+    "etapas": {
+      "PERSISTENCIA_CONFIRMADA": "PERSISTENCIA_CONFIRMADA",
+      "ADAPTER_AUTORIZADO": "ADAPTER_AUTORIZADO",
+      "HOST_RECEBEU_TX_START": "HOST_RECEBEU_TX_START",
+      "ORQUESTRADOR_ENTROU": "ORQUESTRADOR_ENTROU",
+      "KOFFI_CALL_BEGIN": "KOFFI_CALL_BEGIN",
+      "KOFFI_CALL_END": "KOFFI_CALL_END",
+      "TX_START_RESULT": "TX_START_RESULT"
+    },
+    "camposIdentidade": [
+      "operation_id",
+      "transactionId",
+      "venda_id",
+      "pdvId",
+      "terminalTefId",
+      "pid",
+      "ppid",
+      "fingerprint",
+      "idempotency_key",
+      "provedor"
+    ],
+    "mrt24": "UNKNOWN — não repetir",
+    "gatePadrao": "DESTAXA_REAL_TRANSACTION_ENABLED deve permanecer OFF nesta sprint"
+  },
+  "instrumentacaoPreparada": {
+    "modulo": "backend/services/tef/destaxa/destaxaFluxoInstrumentacao.js",
+    "etapas": {
+      "PERSISTENCIA_CONFIRMADA": "PERSISTENCIA_CONFIRMADA",
+      "ADAPTER_AUTORIZADO": "ADAPTER_AUTORIZADO",
+      "HOST_RECEBEU_TX_START": "HOST_RECEBEU_TX_START",
+      "ORQUESTRADOR_ENTROU": "ORQUESTRADOR_ENTROU",
+      "KOFFI_CALL_BEGIN": "KOFFI_CALL_BEGIN",
+      "KOFFI_CALL_END": "KOFFI_CALL_END",
+      "TX_START_RESULT": "TX_START_RESULT"
+    },
+    "ganchos": {
+      "TefManager": "PERSISTENCIA_CONFIRMADA pós INSERT",
+      "DestaxaRealAdapter": "ADAPTER_AUTORIZADO pós guard persistência",
+      "DestaxaHostBridge": "IPC_TX_START_ENVELOPE (transactionId ≠ campos)",
+      "DestaxaNativeHost": "HOST_RECEBEU_TX_START",
+      "DestaxaTransacaoOrquestrador": "ORQUESTRADOR_ENTROU + TX_START_RESULT",
+      "DestaxaNativeBridge": "KOFFI_CALL_BEGIN / KOFFI_CALL_END"
+    },
+    "nota": "Etapas 3–7 só aparecem em execução futura autorizada; nesta sprint não foram produzidas por TX real"
+  },
+  "arquivosAuditados": [
+    "backend/services/tef/TefManager.js",
+    "backend/services/tef/adapters/DestaxaRealAdapter.js",
+    "backend/services/tef/destaxa/DestaxaHostBridge.js",
+    "backend/services/tef/destaxa/DestaxaNativeHost.js",
+    "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+    "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js",
+    "backend/services/tef/destaxa/destaxaKoffiLoader.js",
+    "backend/services/tef/tefPersistenciaObrigatoria.js",
+    "docs/build/mrt-27-persistencia-obrigatoria-tef-report.json",
+    "docs/build/mrt-30-auditoria-disparo-inicia-transacao-destaxa-report.json"
+  ],
+  "arquivosAlterados": [
+    "backend/services/tef/destaxa/destaxaFluxoInstrumentacao.js",
+    "backend/services/tef/TefManager.js",
+    "backend/services/tef/adapters/DestaxaRealAdapter.js",
+    "backend/services/tef/destaxa/DestaxaHostBridge.js",
+    "backend/services/tef/destaxa/DestaxaNativeHost.js",
+    "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+    "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js",
+    "tests/tef/mrt-31-instrumentacao-fluxo-oficial-destaxa.test.js",
+    "docs/build/mrt-31-instrumentacao-fluxo-oficial-destaxa-report.json"
+  ],
+  "testes": [
+    {
+      "nome": "Sete etapas canônicas definidas",
+      "ok": true,
+      "etapas": [
+        "PERSISTENCIA_CONFIRMADA",
+        "ADAPTER_AUTORIZADO",
+        "HOST_RECEBEU_TX_START",
+        "ORQUESTRADOR_ENTROU",
+        "KOFFI_CALL_BEGIN",
+        "KOFFI_CALL_END",
+        "TX_START_RESULT"
+      ]
+    },
+    {
+      "nome": "Contexto inclui identidade + pid/ppid/timestamp",
+      "ok": true,
+      "ctx": {
+        "sprintInstrumentacao": "MRT-31",
+        "timestamp": "2026-10-30T21:14:54.802Z",
+        "pid": 18448,
+        "ppid": 7880,
+        "operation_id": "op_test",
+        "transactionId": "9001",
+        "venda_id": 42,
+        "pdvId": "pdv-1",
+        "terminalTefId": "term-1",
+        "fingerprint": "abc",
+        "idempotency_key": "idem-1",
+        "provedor": "destaxa",
+        "etapa": null
+      }
+    },
+    {
+      "nome": "Sanitização oculta pan/senha",
+      "ok": true,
+      "linha": {
+        "sprintInstrumentacao": "MRT-31",
+        "timestamp": "2026-10-30T21:14:54.802Z",
+        "pid": 18448,
+        "ppid": 7880,
+        "operation_id": "op_test",
+        "transactionId": "9001",
+        "venda_id": 42,
+        "pdvId": "pdv-1",
+        "terminalTefId": "term-1",
+        "fingerprint": "abc",
+        "idempotency_key": "idem-1",
+        "provedor": "destaxa",
+        "etapa": "PERSISTENCIA_CONFIRMADA",
+        "resultadoPersistencia": "INSERT_OK",
+        "pan": "[REDACTED]",
+        "senha": "[REDACTED]"
+      }
+    },
+    {
+      "nome": "registrarEtapaFluxo coleta sem lançar",
+      "ok": true,
+      "eventos": [
+        "PERSISTENCIA_CONFIRMADA",
+        "ADAPTER_AUTORIZADO"
+      ]
+    },
+    {
+      "nome": "Identidade estável sem Date.now exclusivo",
+      "ok": true,
+      "id": {
+        "operation_id": "op_cliente",
+        "fingerprint": "aedfadea66786adbfabde6e972be151b",
+        "idempotency_key": "tef-fp-aedfadea66786adbfabde6e972be151b",
+        "identidadeExclusivaDateNow": false
+      }
+    },
+    {
+      "nome": "Sem persistência → bloqueio",
+      "ok": true,
+      "semPers": {
+        "ok": false,
+        "codigo": "TEF_PERSISTENCIA_OBRIGATORIA",
+        "mensagem": "Operação financeira Destaxa exige TefManager.autorizar com identidade persistida antes da DLL",
+        "caminho": "PRODUCAO_TEF_MANAGER",
+        "transactionId": null,
+        "persistenciaConfirmada": false
+      }
+    },
+    {
+      "nome": "Com persistência → ok caminho TefManager",
+      "ok": true,
+      "comPers": {
+        "ok": true,
+        "caminho": "PRODUCAO_TEF_MANAGER",
+        "transactionId": "9001",
+        "operation_id": "op_cliente",
+        "fingerprint": null,
+        "persistenciaConfirmada": true
+      }
+    },
+    {
+      "nome": "transactionId separado dos campos DLL",
+      "ok": true,
+      "envelope": {
+        "operation": "TX_START",
+        "payload": {
+          "operacao": "CRT",
+          "campos": {
+            "transacao_valor": "1.00"
+          }
+        },
+        "transactionId": "9001",
+        "nota": "transactionId é correlação CDS↔Host; não entra na string entrada da DLL"
+      }
+    },
+    {
+      "nome": "entrada DLL não é espelhada completa",
+      "ok": true,
+      "sanEntrada": {
+        "tamanhoEntrada": 28,
+        "chavesEntrada": [
+          "transacao_valor",
+          "outro"
+        ],
+        "pan": "[REDACTED]"
+      }
+    },
+    {
+      "nome": "Adapter com persistência + gate OFF → bloqueio financeiro",
+      "ok": true,
+      "codigo": "DESTAXA_REAL_TRANSACTION_DISABLED"
+    },
+    {
+      "nome": "Nenhuma chamada iniciarTransacaoDestaxa/Koffi",
+      "ok": true,
+      "koffiChamadas": 0
+    },
+    {
+      "nome": "ADAPTER_AUTORIZADO emitido; sem KOFFI_* / TX_START_RESULT",
+      "ok": true,
+      "etapasPosAdapter": [
+        "ADAPTER_AUTORIZADO"
+      ]
+    },
+    {
+      "nome": "Etapa vazia não quebra",
+      "ok": true
+    },
+    {
+      "nome": "TefManager emite PERSISTENCIA_CONFIRMADA",
+      "ok": true
+    },
+    {
+      "nome": "Adapter emite ADAPTER_AUTORIZADO",
+      "ok": true
+    },
+    {
+      "nome": "HostBridge documenta envelope IPC",
+      "ok": true
+    },
+    {
+      "nome": "NativeHost emite HOST_RECEBEU_TX_START",
+      "ok": true
+    },
+    {
+      "nome": "Orquestrador emite ORQUESTRADOR_ENTROU e TX_START_RESULT",
+      "ok": true
+    },
+    {
+      "nome": "NativeBridge emite KOFFI_CALL_BEGIN/END",
+      "ok": true
+    },
+    {
+      "nome": "Assinatura Koffi inalterada",
+      "ok": true
+    },
+    {
+      "nome": "Caminho oficial documentado",
+      "ok": true,
+      "passos": 17
+    },
+    {
+      "nome": "Gate financeiro OFF",
+      "ok": true
+    },
+    {
+      "nome": "Campos de identidade documentados",
+      "ok": true,
+      "CAMPOS_IDENTIDADE": [
+        "operation_id",
+        "transactionId",
+        "venda_id",
+        "pdvId",
+        "terminalTefId",
+        "pid",
+        "ppid",
+        "fingerprint",
+        "idempotency_key",
+        "provedor"
+      ]
+    }
+  ],
+  "mrt24": {
+    "estado": "UNKNOWN",
+    "preservado": true,
+    "repetida": false
+  },
+  "pendenciasHomologacaoFutura": [
+    "Tech Lead autorizar sprint de CRT homologação com TefManager + persistência",
+    "Gate ENABLE_REAL pontual somente na janela autorizada",
+    "Confirmar novas linhas em destaxa-dll.log após KOFFI_CALL_BEGIN/END",
+    "Validar sequência completa PERSISTENCIA→…→TX_START_RESULT nos logs estruturados",
+    "Não repetir MRT-24; nova identidade persistida"
+  ],
+  "confirmacoes": {
+    "dllNaoCarregada": true,
+    "operacaoFinanceira": false,
+    "gateFinanceiroOff": true,
+    "mrt24Unknown": true,
+    "koffiChamadasNosTestes": 0
+  }
+}

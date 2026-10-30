@@ -1,0 +1,92 @@
+{
+  "sprint": "TEF-DESTAXA-10",
+  "title": "Cadastro, mapeamento e validação do terminal PDV",
+  "generatedAt": "2026-10-29T22:45:00.000Z",
+  "status": "PARCIAL — CDS CORRIGIDO, PROVISIONAMENTO DESTAXA PENDENTE",
+  "tefReadyForSaleDeclared": false,
+  "homologacaoDeclarada": false,
+  "financialGates": {
+    "DESTAXA_REAL_TRANSACTION_ENABLED": false,
+    "DESTAXA_REAL_HARNESS": false,
+    "initClientExecutedInSprint": false,
+    "financialTransactionExecuted": false
+  },
+  "backup": {
+    "oficial": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+    "copia": "C:\\ProgramData\\MercantilFiscal\\dados\\backups\\mercadao.tef-destaxa-10.20261029-193734.db",
+    "estrategiaReversao": "Copiar o arquivo de backup sobre o oficial com o CDS parado, se necessário restaurar estado pré-sprint."
+  },
+  "bancoOficialPosSprint": {
+    "provedor": "destaxa",
+    "ambiente": "homologacao",
+    "empresa_codigo": null,
+    "loja_codigo": null,
+    "terminal_codigo": null,
+    "pdv_codigo": null,
+    "caixa_codigo": null,
+    "pinpad_porta_com": "COM4",
+    "nota": "Nenhum código Destaxa inventado ou gravado. Estrutura pronta para receber literais oficiais."
+  },
+  "causaRaiz": {
+    "comprovada": [
+      "V$PagueClient Identificar → 00151 Terminal não cadastrado ou desabilitado (log Client).",
+      "Mensagem de .conf ausente/ambíguo no Client; 0 arquivos .conf sob C:\\VBI.",
+      "CDS não deriva terminal lógico a partir de PDV/caixa; campos Destaxa opcionais na DLL e vazios no DB."
+    ],
+    "dependenciasExternas": [
+      "Cadastro/liberação do terminal no V$PagueServer (MAC/hostname).",
+      "Provisionamento oficial do .conf pela Destaxa.",
+      "Literais oficiais de estabelecimento/loja/terminal, se o suporte exigir além do Identificar."
+    ]
+  },
+  "arquivosAlterados": [
+    "backend/services/tef/destaxa/destaxaMapeamentoTerminal.js (novo)",
+    "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+    "backend/services/tef/destaxa/destaxaEvidenciasOperacionais.js",
+    "backend/services/tef/tefConfigService.js",
+    "frontend/erp/js/configuracao_tef.js",
+    "tests/tef/tef-destaxa-10-mapeamento-terminal.test.js (novo)",
+    "docs/build/tef-destaxa-10-mapeamento-terminal-report.json (este)"
+  ],
+  "mapeamentoImplementado": {
+    "empresa_codigo": "estabelecimento (iniciaClientDestaxa, opcional)",
+    "loja_codigo": "loja (opcional)",
+    "terminal_codigo": "terminal (opcional)",
+    "pdv_codigo": "identidade CDS — não enviado à DLL",
+    "caixa_codigo": "identidade CDS — não enviado à DLL",
+    "pinpad": "COM4 (inalterado)",
+    "hostname_mac": "identidade V$PagueClient (fora do CDS)"
+  },
+  "migracoesBanco": "Nenhuma ALTER/UPDATE no banco oficial. Apenas backup por cópia.",
+  "testes": {
+    "arquivo": "tests/tef/tef-destaxa-10-mapeamento-terminal.test.js",
+    "resultado": "10 ok, 0 falha(s)",
+    "cobertura": [
+      "contrato de mapeamento",
+      "entrada vazia/parcial/completa",
+      "isolamento pdv/caixa",
+      "validarConfiguracao avisos Destaxa vs exigência SiTef",
+      "evidências sem homologar",
+      "persistência isolada",
+      "backup/integridade"
+    ]
+  },
+  "estadoVsPague": {
+    "erro00151": "ainda presente no log (provisionamento Destaxa)",
+    "conf": "ausente (0 arquivos)",
+    "cdsNaoCriouConf": true
+  },
+  "corrigidoNoCds": [
+    "Módulo único de mapeamento e projeção de entrada INIT",
+    "Avisos de validação Destaxa sem tornar códigos opcionais em pendência bloqueante",
+    "UI Empresa Destaxa com labels/alertas e aviso pós-save",
+    "Diagnóstico exibe .conf e reforça que gravação ≠ homologação",
+    "Testes automatizados sem TX/INIT"
+  ],
+  "pendenteDestaxa": [
+    "Resolver 00151",
+    "Provisionar .conf",
+    "Confirmar MAC/hostname e literais oficiais"
+  ],
+  "proximaSprintRecomendada": "TEF-DESTAXA-11 — após resposta Destaxa: gravar literais oficiais (se fornecidos), revalidar Identificar/.conf sem TX, manter gate desligado até CRT autorizada."
+}

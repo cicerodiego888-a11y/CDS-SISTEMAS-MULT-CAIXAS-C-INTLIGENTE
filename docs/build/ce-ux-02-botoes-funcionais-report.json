@@ -1,0 +1,153 @@
+{
+  "sprint": "CE-UX-02",
+  "title": "Diagnóstico real dos cliques e handlers — Conferir produtos da nota",
+  "generatedAt": "2026-10-27T18:35:00.000Z",
+  "verdict": "CONCLUIDO_COM_LIMITACOES",
+  "causaRaizComprovada": {
+    "resumo": "Com o JavaScript atual servido por http://localhost:3001, os handlers executam e as APIs são chamadas quando o evento click chega ao botão. A percepção de 'botão morto' vinha de (1) disabled nativo engolindo o clique sem feedback, (2) early-returns silenciosos em conversão/ignorar, (3) badge 'Pendente' não ser botão, (4) risco alto de sessão ERP com módulo lazy antigo em memória/HTTP cache após correção sem hard reload.",
+    "naoFoi": [
+      "Overlay cobrindo a barra no harness (não reproduzido)",
+      "Handler ausente no JS atual (comprovado presente e funcional)",
+      "ASAR desatualizado vs source no build de 27/10 (conteúdo idêntico ao source no momento da inspeção)"
+    ],
+    "evidencias": [
+      "Harness browser real em /erp/miip-ce-ux-02-harness.html: 8/8 steps ok; POSTs CONFIRMAR/IGNORAR/SIM/NAO/PENDENTE observados",
+      "Script servido len 146106 com markers CE-UX (miipCentralAcoesBarra, click.miipCentralIgnorar, É este — confirmar)",
+      "cdsErpLazyScripts reutiliza promise do script já carregado — sem F5 a correção em disco não atualiza MiipCentralRevisao em memória"
+    ]
+  },
+  "botoesEHandlers": [
+    {
+      "botao": "É este — confirmar",
+      "seletor": "[data-miip-e-este]",
+      "handler": "escolherProdutoDaPergunta → aplicarConfirmacao",
+      "cliqueRecebido": true,
+      "handlerChamado": true,
+      "api": "POST /central-entradas/:id/revisar/itens/:i/decisao decisao=CONFIRMAR",
+      "estadoVisual": "item entra em resolvidas; avança pendência",
+      "testado": true
+    },
+    {
+      "botao": "Escolher outro",
+      "seletor": "#miipCentralBtnEscolher / [data-miip-acao-simples=escolher]",
+      "handler": "abrirBuscaProduto",
+      "cliqueRecebido": true,
+      "handlerChamado": true,
+      "api": "não (abre modal de busca local)",
+      "testado": true
+    },
+    {
+      "botao": "Cadastrar produto",
+      "seletor": "#miipCentralBtnCadastrar / [data-miip-acao-simples=cadastrar]",
+      "handler": "cadastrarNovo → abrirCadastroProdutoPadrao",
+      "testado": false,
+      "motivoNaoTestado": "Abre #produtoModal / showProdutoModal — exige módulo Produtos completo; fora do harness isolado sem gravar cadastro"
+    },
+    {
+      "botao": "Ignorar item",
+      "seletor": "#miipCentralBtnIgnorar",
+      "handler": "ignorarAtual",
+      "cliqueRecebido": true,
+      "handlerChamado": true,
+      "api": "POST .../decisao decisao=IGNORAR",
+      "estadoVisual": "ignoradas++; notificação Item ignorado",
+      "testado": true
+    },
+    {
+      "botao": "SIM / NÃO / Reavaliar",
+      "seletor": ".miip-conv-sim / .miip-conv-nao / .miip-conv-reavaliar",
+      "handler": "persistirConversaoLinha(indice, true|false|null)",
+      "cliqueRecebido": true,
+      "handlerChamado": true,
+      "api": "POST .../conversao decisao=SIM|NAO|PENDENTE",
+      "testado": true
+    },
+    {
+      "botao": "Pendente",
+      "seletor": "span.badge",
+      "handler": null,
+      "nota": "É status visual, não botão. Título explicativo adicionado. Ação equivalente: Reavaliar → PENDENTE"
+    },
+    {
+      "botao": "Confirmar produto",
+      "seletor": "#miipCentralBtnConfirmar",
+      "handler": "confirmarAtual",
+      "testado": "indireto (mesmo contrato do É este com 1 sugestão); feedback aria-disabled quando bloqueado"
+    }
+  ],
+  "correcaoAplicada": {
+    "arquivos": [
+      "frontend/erp/js/miip-central-revisao.js",
+      "frontend/css/miip-central-revisao.css",
+      "frontend/erp/js/app.js",
+      "frontend/erp/index.html",
+      "frontend/erp/miip-ce-ux-02-harness.html",
+      "docs/build/ce-ux-02-botoes-funcionais-report.json"
+    ],
+    "mudancas": [
+      "Todos os botões da barra de ações usam aria-disabled + classe disabled (não disabled nativo) com mensagem ao clicar quando bloqueados",
+      "Bindings delegados namespaced (Confirmar/Escolher/Cadastrar/Próximo/Ignorar/É este/ações simples)",
+      "SIM/NÃO/Reavaliar: aria-disabled durante persistência; feedback se indisponível; validação de índice",
+      "persistirConversaoLinha: notifica se documentoId ausente ou persistência em curso (antes return silencioso)",
+      "Cache-bust cdsBoot=CDS_BOOT_ID nos scripts lazy do ERP",
+      "Stamp console [MIIP] miip-central-revisao carregado { build: CE-UX-02 }",
+      "Badge Pendente com title esclarecendo que não é ação"
+    ]
+  },
+  "comportamentoAntesDepois": {
+    "antes": {
+      "disabledNativo": "Clique engolido pelo browser — zero handler, zero mensagem",
+      "conversaoSemDocumento": "return false silencioso",
+      "lazyCache": "Correção em disco podia não carregar até hard reload; sem stamp de versão",
+      "pendente": "Parecia botão"
+    },
+    "depois": {
+      "ariaDisabled": "Clique chega; notifica o motivo do bloqueio ou executa a ação",
+      "conversao": "Erro/aviso explícito; POST SIM/NAO/PENDENTE comprovado no harness",
+      "lazyCache": "cdsBoot por boot da página + log CE-UX-02 no console",
+      "pendente": "Badge com title; Reavaliar documentado"
+    }
+  },
+  "testesInteracao": {
+    "ambiente": "Electron/CDS escutando :3001 (PID electron); browser Cursor em http://localhost:3001/erp/miip-ce-ux-02-harness.html",
+    "metodo": "MouseEvent click nativo + fetch mockado (sem banco de produção, sem efetivar compra/estoque)",
+    "resultado": {
+      "ok": true,
+      "steps": 8,
+      "failed": 0,
+      "postsObservados": ["CONFIRMAR", "IGNORAR", "SIM", "NAO", "PENDENTE"]
+    },
+    "regressao": [
+      "tests/miip/ce-ux-01-ignorar-item.test.js",
+      "tests/miip/ux-entradas-botoes-01-static.test.js",
+      "tests/miip/sprint32-revisao-sem-dashboard-ui.test.js"
+    ]
+  },
+  "versaoRealmenteTestada": {
+    "urlScript": "http://localhost:3001/erp/js/miip-central-revisao.js",
+    "lenBytes": 146106,
+    "markers": {
+      "miipCentralAcoesBarra": true,
+      "click.miipCentralIgnorar": true,
+      "É este — confirmar": true,
+      "atualizarAcoesVisiveis": true,
+      "buildStamp": "CE-UX-02"
+    },
+    "asarVsSourceNoInicioDaSprint": "iguais (143323 bytes) antes do endurecimento CE-UX-02; após endurecimento o servidor live passou a servir 146106",
+    "comoConfirmarNoERP": "Abrir DevTools → console deve mostrar [MIIP] miip-central-revisao carregado { build: 'CE-UX-02', ... }. Se não aparecer, fazer hard reload (Ctrl+F5) ou reiniciar o Electron."
+  },
+  "limitacoesENaoVerificado": [
+    "Fluxo completo Central de Entradas com login e documento real de produção NÃO foi executado (restrição: sem compra/estoque/fiscal em banco real)",
+    "Botão Cadastrar produto não exercitado até o save (depende de showProdutoModal)",
+    "Não foi possível atestar a sessão Electron que o usuário tinha aberta antes do hard reload",
+    "Overlays específicos de outras telas atrás do modal não foram auditados pixel-a-pixel na sessão do usuário"
+  ],
+  "confirmacaoSeguranca": {
+    "entradaMercadoriaExecutada": false,
+    "compraExecutada": false,
+    "movimentacaoEstoqueExecutada": false,
+    "operacaoFiscalExecutada": false,
+    "bancoProducaoAlteradoManual": false
+  },
+  "instrucaoUsuario": "Feche e reabra o ERP (ou Ctrl+F5). Confirme no console o stamp CE-UX-02. Reabra Conferir produtos da nota. Se um botão estiver acinzentado, o clique agora deve explicar o motivo."
+}

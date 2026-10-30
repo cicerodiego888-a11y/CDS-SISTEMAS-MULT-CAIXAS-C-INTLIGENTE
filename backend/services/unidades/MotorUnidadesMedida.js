@@ -10,9 +10,12 @@
 
 const UNIDADES_COMERCIAIS = Object.freeze([
   'UN',
+  'PR',
+  'PAR',
   'CENTO',
   'PACOTE',
   'CAIXA',
+  'CX',
   'FARDO',
   'SACO',
   'LATA',
@@ -24,6 +27,7 @@ const UNIDADES_COMERCIAIS = Object.freeze([
   'BOBINA',
   'GALAO',
   'VARA',
+  'COPO',
   'KG',
   'G',
   'L',
@@ -36,15 +40,23 @@ const UNIDADES_COMERCIAIS = Object.freeze([
 
 const LABELS_UNIDADE_COMERCIAL = Object.freeze({
   UN: 'Unidade',
+  PR: 'Par',
+  PAR: 'Par',
   CENTO: 'Cento',
   PACOTE: 'Pacote',
   CAIXA: 'Caixa',
+  CX: 'Caixa',
   FARDO: 'Fardo',
   SACO: 'Saco',
   LATA: 'Lata',
   BALDE: 'Balde',
   ROLO: 'Rolo',
   BARRA: 'Barra',
+  KIT: 'Kit',
+  DISPLAY: 'Display',
+  BOBINA: 'Bobina',
+  GALAO: 'Galão',
+  COPO: 'Copo',
   KG: 'Quilograma',
   G: 'Grama',
   L: 'Litro',
@@ -63,6 +75,9 @@ const MAPA_UCOM_XML = Object.freeze({
   UNI: 'UN',
   UNID: 'UN',
   UNIDADE: 'UN',
+  PR: 'PR',
+  PAR: 'PAR',
+  PARES: 'PAR',
   CT: 'CENTO',
   CEN: 'CENTO',
   CENTO: 'CENTO',
@@ -85,11 +100,12 @@ const MAPA_UCOM_XML = Object.freeze({
   ROLO: 'ROLO',
   BR: 'BARRA',
   BARRA: 'BARRA',
-  KIT: 'PACOTE',
-  DISPLAY: 'PACOTE',
-  BOBINA: 'ROLO',
-  GALAO: 'BALDE',
-  GALÃO: 'BALDE',
+  KIT: 'KIT',
+  DISPLAY: 'DISPLAY',
+  BOBINA: 'BOBINA',
+  GALAO: 'GALAO',
+  GALÃO: 'GALAO',
+  COPO: 'COPO',
   VARA: 'VARA',
   KG: 'KG',
   G: 'G',
@@ -123,6 +139,8 @@ function normalizarUnidadeComercial(valor) {
     .replace(/\s+/g, '');
   if (MAPA_UCOM_XML[raw]) return MAPA_UCOM_XML[raw];
   if (UNIDADES_COMERCIAIS.includes(raw)) return raw;
+  // CE-MUC-03: códigos cadastrados pelo operador (catálogo extensível) não colapsam para UN.
+  if (/^[A-Z0-9]{1,12}$/.test(raw)) return raw;
   return 'UN';
 }
 
