@@ -675,21 +675,61 @@ class DestaxaRealAdapter extends BaseAdapter {
       continuarCicloCrt
     } = require('../destaxa/destaxaCrtCicloOrquestracao');
     const {
-      validarRespostaOperador,
-      normalizarAcaoContinuidade
+      normalizarAcaoContinuidade,
+      validarContinuidadeCompleta
     } = require('../destaxa/destaxaContinuidadeContrato');
 
     const transactionId = dados.transacao_id || dados.transacaoId || dados.transactionId || null;
     const acao = normalizarAcaoContinuidade(dados.acao);
-    const validacao = validarRespostaOperador(acao, dados.resposta_continuidade ?? dados.resposta ?? dados.respostaOperador);
+    // MRT-38 — pipeline único: identidade + timeout + OPCAO literal + anti-duplicata
+    const respostaBruta = dados.resposta_continuidade ?? dados.resposta ?? dados.respostaOperador;
+    const usarPersistencia = dados.persistenciaContinuidade === true
+      || String(process.env.DESTAXA_CONTINUIDADE_PERSISTENTE || '').trim() === '1';
+    if (usarPersistencia && transactionId != null) {
+      const persistencia = require('../destaxa/destaxaContinuidadePersistencia');
+      const dupDb = await persistencia.verificarRespostaDuplicadaPersistente(transactionId, respostaBruta);
+      if (!dupDb.ok) {
+        return {
+          sucesso: false,
+          status: tefContrato.STATUS.PENDENTE,
+          codigo: dupDb.codigo,
+          mensagem: dupDb.mensagem,
+          retryAllowed: false,
+          requerContinuacao: false,
+          acao,
+          transactionAttempted: true,
+          vinculoVendaPdv: {
+            venda_id: dados.venda_id != null ? dados.venda_id : null,
+            transactionId
+          }
+        };
+      }
+    }
+    const validacao = validarContinuidadeCompleta({
+      acao,
+      respostaBruta,
+      transactionId,
+      idempotencyKeyInformada: dados.idempotency_key || dados.idempotencyKey || null,
+      idempotencyKeyPersistida: dados.idempotency_key_persistida || null,
+      solicitadaEm: dados.acaoSolicitadaEm || dados.solicitadaEm || acao.solicitadaEm || null,
+      ambienteOperador: dados.ambienteOperador || null,
+      registrarDuplicata: dados.registrarDuplicata !== false
+    });
     if (!validacao.ok) {
+      const timeoutOuDup = validacao.codigo === 'DESTAXA_CONTINUIDADE_TIMEOUT'
+        || validacao.codigo === 'DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA'
+        || validacao.codigo === 'DESTAXA_PDV_SEM_TTY'
+        || validacao.codigo === 'DESTAXA_PDV_SEM_OPERADOR';
       return {
         sucesso: false,
         status: tefContrato.STATUS.PENDENTE,
         codigo: validacao.codigo,
         mensagem: validacao.mensagem,
         retryAllowed: false,
-        requerContinuacao: true,
+        requerContinuacao: !timeoutOuDup,
+        inconclusivo: validacao.codigo === 'DESTAXA_CONTINUIDADE_TIMEOUT',
+        financialState: validacao.financialStateHint || null,
+        reconciliacaoObrigatoria: validacao.reconciliacaoObrigatoria === true,
         acao,
         transactionAttempted: true,
         vinculoVendaPdv: {
@@ -699,12 +739,42 @@ class DestaxaRealAdapter extends BaseAdapter {
       };
     }
 
+    // MRT-39.1 — grava resposta aceita ANTES do CONTINUE: anti-duplicata durável
+    // mesmo se o ciclo mock/host ficar inconclusivo após o envio.
+    if (usarPersistencia && transactionId != null) {
+      try {
+        const persistencia = require('../destaxa/destaxaContinuidadePersistencia');
+        const reg = await persistencia.registrarRespostaOperador(transactionId, {
+          resposta: validacao.resposta,
+          incrementarContinue: true
+        });
+        if (!reg.ok) {
+          return {
+            sucesso: false,
+            status: tefContrato.STATUS.PENDENTE,
+            codigo: reg.codigo,
+            mensagem: reg.mensagem,
+            retryAllowed: false,
+            requerContinuacao: false,
+            financialState: reg.financialStateHint || null,
+            reconciliacaoObrigatoria: reg.reconciliacaoObrigatoria === true,
+            acao,
+            transactionAttempted: true,
+            vinculoVendaPdv: {
+              venda_id: dados.venda_id != null ? dados.venda_id : null,
+              transactionId
+            }
+          };
+        }
+      } catch (_) { /* best-effort; CONTINUE ainda tenta no host/mock */ }
+    }
+
     const ciclo = await continuarCicloCrt({
       bridge: this.bridge,
-      transactionId,
+      transactionId: validacao.transactionId || transactionId,
       respostaOperador: validacao.resposta,
       respostasContinuidade: dados.respostasContinuidade || [],
-      acaoAtual: acao,
+      acaoAtual: validacao.acao || acao,
       maxContinues: dados.maxContinuesCrt
     });
 

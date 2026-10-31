@@ -68,10 +68,31 @@
     return { ok: false, codigo: 'DESTAXA_PDV_ACAO_DESCONHECIDA', mensagem: 'Tipo de continuidade não suportado.' };
   }
 
+  function ambienteSemUi() {
+    try {
+      return typeof document === 'undefined'
+        || typeof $ === 'undefined'
+        || typeof $.fn === 'undefined';
+    } catch (_) {
+      return true;
+    }
+  }
+
   function solicitarRespostaOperador(acao) {
     const a = normalizarAcao(acao);
+    // MRT-38 — sem TTY/UI: falha explícita (não descartar coleta em silêncio)
+    if (ambienteSemUi()) {
+      return Promise.resolve({
+        ok: false,
+        cancelado: false,
+        codigo: 'DESTAXA_PDV_SEM_TTY',
+        mensagem: 'PDV sem UI/TTY — OPCAO/COLETA exige operador; continuidade não pode seguir oculta',
+        retryAllowed: false
+      });
+    }
     return new Promise((resolve) => {
       const id = `tef-cont-${Date.now()}`;
+      let submetido = false;
       const $overlay = $(`
         <div id="${id}" class="modal fade" tabindex="-1" data-backdrop="static" data-keyboard="false">
           <div class="modal-dialog modal-dialog-centered">
@@ -114,28 +135,60 @@
         setTimeout(() => $inp.trigger('focus'), 300);
       }
 
+      let resolvido = false;
+      const concluir = (resultado) => {
+        if (resolvido) return;
+        resolvido = true;
+        resolve(resultado);
+      };
       const fechar = (resultado) => {
         try {
           $overlay.modal('hide');
         } catch (_) { /* ignore */ }
         setTimeout(() => $overlay.remove(), 400);
-        resolve(resultado);
+        concluir(resultado);
       };
 
       $overlay.find('.tef-cont-ok').on('click', () => {
+        if (submetido) return;
         const bruto = leitor();
         const v = validarResposta(a, bruto);
         if (!v.ok) {
           $overlay.find('.tef-cont-erro').text(v.mensagem).show();
           return;
         }
+        submetido = true;
         fechar({ ok: true, resposta: v.resposta, cancelado: false });
       });
 
       // Sem botão cancelar financeiro — operador só confirma (evita EST/cancel comercial)
       $overlay.on('hidden.bs.modal', () => {
-        // se fechou sem confirmar (ex.: PDV fechado), sinaliza ausência
+        if (!submetido) {
+          concluir({
+            ok: false,
+            cancelado: true,
+            codigo: 'DESTAXA_PDV_SEM_OPERADOR',
+            mensagem: 'Operador fechou a continuidade sem responder',
+            retryAllowed: false
+          });
+        }
       });
+
+      // Timeout da ação (segundos Destaxa) — não inventa valor; só aplica se veio na ação
+      const timeoutSeg = Number(a.timeout);
+      if (Number.isFinite(timeoutSeg) && timeoutSeg > 0) {
+        setTimeout(() => {
+          if (submetido) return;
+          submetido = true;
+          fechar({
+            ok: false,
+            cancelado: false,
+            codigo: 'DESTAXA_CONTINUIDADE_TIMEOUT',
+            mensagem: `Timeout de coleta (${timeoutSeg}s) no PDV — continuidade interrompida`,
+            retryAllowed: false
+          });
+        }, timeoutSeg * 1000);
+      }
 
       $overlay.modal('show');
     });
@@ -166,51 +219,157 @@
     const vendaId = contexto.vendaId != null ? contexto.vendaId : null;
     const maxPassos = contexto.maxPassos || 32;
     let passos = 0;
+    // MRT-40 — usa API exportada (permite stub de postContinuar/solicitarRespostaOperador em testes)
+    const api = () => root.PdvTefContinuidade || {};
+    const postFn = (...args) => (api().postContinuar || postContinuar)(...args);
+    const solicitarFn = (...args) => (api().solicitarRespostaOperador || solicitarRespostaOperador)(...args);
+
+    if (ambienteSemUi() && contexto.permitirHeadless !== true) {
+      return {
+        ...atual,
+        sucesso: false,
+        status: 'pendente',
+        codigo: 'DESTAXA_PDV_SEM_TTY',
+        mensagem: 'Continuidade TEF bloqueada: PDV sem UI/TTY — coleta não descartada',
+        requerContinuacao: true,
+        retryAllowed: false,
+        idempotency_key: idempotencyKey
+      };
+    }
 
     while (ehContinuidade(atual) && passos < maxPassos) {
       passos += 1;
       const acao = normalizarAcao(atual.acao);
       if (acao.tipo === TIPOS.DISPLAY) {
         // DISPLAY: backend já faz auto-ack quando possível; se chegou ao PDV, envia ack explícito
-        const { response, data } = await postContinuar(apiUrl, token, {
-          transacao_id: atual.transacao_id || atual.transacaoId,
-          idempotency_key: idempotencyKey,
-          venda_id: vendaId,
-          resposta_continuidade: { displayAck: true },
-          acao
-        });
-        data.idempotency_key = data.idempotency_key || idempotencyKey;
-        atual = { ...data, httpStatus: response.status };
+        try {
+          const { response, data } = await postFn(apiUrl, token, {
+            transacao_id: atual.transacao_id || atual.transacaoId,
+            idempotency_key: idempotencyKey,
+            venda_id: vendaId,
+            resposta_continuidade: { displayAck: true },
+            acao
+          });
+          const payload = data && typeof data === 'object' ? data : {};
+          payload.idempotency_key = payload.idempotency_key || idempotencyKey;
+          atual = { ...payload, httpStatus: response?.status };
+        } catch (err) {
+          return {
+            ...atual,
+            sucesso: false,
+            status: 'pendente',
+            codigo: 'DESTAXA_PDV_FALHA_COMUNICACAO',
+            mensagem: err?.message || 'Falha de comunicação no DISPLAY ack',
+            requerContinuacao: true,
+            inconclusivo: true,
+            retryAllowed: false,
+            idempotency_key: idempotencyKey
+          };
+        }
         continue;
       }
 
-      const coleta = await solicitarRespostaOperador(acao);
+      const coleta = await solicitarFn(acao);
       if (!coleta || coleta.ok !== true) {
         return {
           ...atual,
           sucesso: false,
           status: 'pendente',
-          codigo: 'DESTAXA_PDV_SEM_RESPOSTA',
-          mensagem: 'Operador não respondeu à continuidade TEF',
+          // MRT-40 — preservar código específico (timeout / SEM_TTY / sem operador)
+          codigo: coleta?.codigo || 'DESTAXA_PDV_SEM_RESPOSTA',
+          mensagem: coleta?.mensagem || 'Operador não respondeu à continuidade TEF',
           requerContinuacao: true,
-          inconclusivo: false,
+          inconclusivo: coleta?.codigo === 'DESTAXA_CONTINUIDADE_TIMEOUT',
           retryAllowed: false,
           idempotency_key: idempotencyKey
         };
       }
 
-      const { response, data } = await postContinuar(apiUrl, token, {
-        transacao_id: atual.transacao_id || atual.transacaoId,
-        idempotency_key: idempotencyKey,
-        venda_id: vendaId,
-        resposta_continuidade: coleta.resposta,
-        acao
-      });
+      let response;
+      let data;
+      try {
+        ({ response, data } = await postFn(apiUrl, token, {
+          transacao_id: atual.transacao_id || atual.transacaoId,
+          idempotency_key: idempotencyKey,
+          venda_id: vendaId,
+          resposta_continuidade: coleta.resposta,
+          acao
+        }));
+      } catch (err) {
+        return {
+          ...atual,
+          sucesso: false,
+          status: 'pendente',
+          codigo: 'DESTAXA_PDV_FALHA_COMUNICACAO',
+          mensagem: err?.message || 'Falha de comunicação ao continuar TEF — sem nova cobrança',
+          requerContinuacao: true,
+          inconclusivo: true,
+          retryAllowed: false,
+          reconciliacaoObrigatoria: true,
+          idempotency_key: idempotencyKey
+        };
+      }
+      data = data && typeof data === 'object' ? data : {};
       data.idempotency_key = data.idempotency_key || idempotencyKey;
-      atual = { ...data, httpStatus: response.status };
+      atual = { ...data, httpStatus: response?.status };
     }
 
     return atual;
+  }
+
+  /**
+   * MRT-40 — Reabertura do PDV: remonta resultado 99/OPCAO a partir da
+   * continuidade persistida (SQLite), sem novo /tef/pagar nem TX_START.
+   */
+  function montarResultadoContinuidadePendente({
+    transacao_id,
+    transacaoId,
+    idempotency_key,
+    continuidade
+  } = {}) {
+    const id = transacao_id != null ? transacao_id : transacaoId;
+    const cont = continuidade && typeof continuidade === 'object' ? continuidade : null;
+    const sol = cont?.solicitacao99;
+    if (id == null || String(id).trim() === '') {
+      return {
+        ok: false,
+        codigo: 'TEF_CONTINUIDADE_SEM_TRANSACAO',
+        mensagem: 'transacao_id obrigatório para reabrir continuidade'
+      };
+    }
+    if (!sol || !sol.acao) {
+      return {
+        ok: false,
+        codigo: 'DESTAXA_CONTINUIDADE_SEM_SOLICITACAO',
+        mensagem: 'Nenhuma solicitação 99/OPCAO persistida para reabrir'
+      };
+    }
+    if (cont.estado === 'TIMEOUT' || cont.estado === 'PERDA_COMUNICACAO') {
+      return {
+        ok: false,
+        codigo: cont.estado === 'TIMEOUT'
+          ? 'DESTAXA_CONTINUIDADE_TIMEOUT'
+          : 'DESTAXA_CONTINUIDADE_PERDA_COMUNICACAO',
+        mensagem: `Continuidade em estado ${cont.estado} — reabertura bloqueada`,
+        retryAllowed: false
+      };
+    }
+    const acao = normalizarAcao(sol.acao);
+    return {
+      ok: true,
+      resultado: {
+        sucesso: false,
+        status: 'pendente',
+        requerContinuacao: true,
+        codigo: '99',
+        acao,
+        mensagem: acao.mensagem || sol.mensagem || 'Continuidade TEF pendente — responda as opções',
+        transacao_id: Number(id) || id,
+        transacaoId: String(id),
+        idempotency_key: idempotency_key || cont.identidade?.idempotency_key || null,
+        continuidadeRecuperada: true
+      }
+    };
   }
 
   root.PdvTefContinuidade = {
@@ -220,6 +379,8 @@
     validarResposta,
     solicitarRespostaOperador,
     conduzirContinuidade,
-    postContinuar
+    postContinuar,
+    montarResultadoContinuidadePendente,
+    ambienteSemUi
   };
 })(typeof window !== 'undefined' ? window : globalThis);

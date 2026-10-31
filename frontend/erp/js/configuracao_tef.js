@@ -984,7 +984,6 @@ async function executarDiagnosticoCompleto() {
 
         const mapaBadges = {
             adapter_carregado: 'diagAdapter',
-            middleware_instalado: 'diagSDK',
             modo_adapter: 'diagModoAdapter',
             pinpad_configurado: 'diagMonitor',
             banco_acessivel: 'diagBanco',
@@ -998,6 +997,11 @@ async function executarDiagnosticoCompleto() {
             }
         });
 
+        // MRT-41 — SDK/Middleware: nunca CONFIRMADO só porque a DLL foi encontrada
+        const middlewareCap = (relatorio.evidenciasDestaxa?.capacidades || [])
+            .find((c) => c.id === 'middleware_validado');
+        atualizarStatusEvidencia('diagSDK', middlewareCap?.estado || 'NAO_VALIDADO');
+
         const caps = relatorio.evidenciasDestaxa?.capacidadesGenericas || {};
         atualizarStatusEvidencia('diagReimpressao', caps.reimpressaoTef?.estado || 'NAO_VALIDADO');
         atualizarStatusEvidencia('diagConciliacao', caps.conciliacaoTef?.estado || 'NAO_VALIDADO');
@@ -1008,25 +1012,25 @@ async function executarDiagnosticoCompleto() {
         renderizarPainelDestaxaDiagnostico(relatorio);
 
         if (resultadoDiv) {
-            const pct = relatorio.percentualProntidao || 0;
+            const pct = relatorio.indiceTecnicoAuxiliar?.percentual
+                ?? relatorio.percentualProntidao
+                ?? 0;
             const pendencias = (relatorio.pendencias || []).map((p) => `<li>${escapeHtml(String(p))}</li>`).join('');
             const pinpad = relatorio.pinpad || {};
             const hw = pinpad.hardware || pinpad.deteccaoFisica || null;
-            const estados = relatorio.estadosIntegracao || {};
             const evid = relatorio.evidenciasDestaxa;
-            const autorizacaoDisponivel = estados.authorization?.available === true;
-            const prontoVenda = relatorio.tefProntoParaVenda === true;
+            // MRT-41 — prontidão sempre conservadora na UI
+            const prontoVenda = false;
             const initHist = evid?.indicadores?.inicializacaoClient?.historicoComprovado;
-            const alertClass = prontoVenda && autorizacaoDisponivel
-                ? 'alert-success'
-                : (evid?.bloqueios?.length ? 'alert-danger' : (pct >= 70 ? 'alert-warning' : 'alert-danger'));
+            const alertClass = 'alert-danger';
 
             resultadoDiv.innerHTML = `
                 <div class="alert ${alertClass}">
-                    <strong>TEF pronto para venda:</strong> ${htmlBadgeEstadoEvidencia(prontoVenda ? 'CONFIRMADO' : 'BLOQUEADO', prontoVenda ? 'SIM' : 'NÃO')}
-                    <div class="small mt-1">Índice técnico auxiliar: ${pct}% (não autoriza venda sozinho).</div>
+                    <strong>TEF pronto para venda:</strong> ${htmlBadgeEstadoEvidencia('BLOQUEADO', 'NÃO')}
+                    <div class="small mt-1">Detecção de DLL, PinPad ou processo V$Pague <strong>não</strong> prova TEF pronto para venda.</div>
+                    <div class="small mt-1">Índice técnico auxiliar: ${pct}% (não autoriza venda; não contradiz bloqueios).</div>
                     <div class="small mt-1">Provedor: ${escapeHtml(relatorio.resumo?.provedor || '-')} | Ambiente: ${escapeHtml(relatorio.resumo?.ambiente || '-')} | Modo adapter: ${escapeHtml(String(relatorio.resumo?.modoAdapter || relatorio.adapter?.modo || '-'))}</div>
-                    ${initHist ? `<div class="small mt-1"><strong>INIT_CLIENT histórico (não reexecutado):</strong> código ${escapeHtml(initHist.codigoDestaxa)} · ${escapeHtml(initHist.nota)}</div>` : ''}
+                    ${initHist ? `<div class="small mt-1"><strong>INIT_CLIENT histórico (não reexecutado / ≠ sessão atual):</strong> código ${escapeHtml(initHist.codigoDestaxa)} · ${escapeHtml(initHist.nota)}</div>` : ''}
                     ${pinpad.rotulo || pinpad.codigo ? `<div class="small mt-1"><strong>PinPad:</strong> ${escapeHtml(pinpad.rotulo || pinpad.codigo)} | <strong>Conexão:</strong> ${escapeHtml(pinpad.tipoConexao || '-')} ${escapeHtml(pinpad.portaCom || '')} | cadastro/detecção ≠ venda</div>` : ''}
                     ${hw ? `<div class="small mt-1"><strong>Hardware:</strong> ${escapeHtml(hw.mensagem || (hw.detectado ? 'detectado' : 'não detectado'))} | <strong>Driver:</strong> ${escapeHtml(rotuloStatusEvidencia(hw.driverStatus, hw.driver))} | <strong>USB:</strong> ${escapeHtml(rotuloStatusEvidencia(hw.usbStatus, hw.usb))}</div>` : ''}
                 </div>
@@ -1070,36 +1074,50 @@ function renderizarPainelDestaxaDiagnostico(relatorio) {
     }
 
     painel.classList.remove('d-none');
-    const ind = evid.indicadores || {};
-    const linhas = [
-        ['DLL e exports', ind.dllExports?.estado, ind.dllExports?.dllLoaded ? 'DLL/load+exports' : 'não confirmado'],
-        ['Porta COM', ind.portaCom?.estado, `${ind.portaCom?.configuredPort || '-'} / ${ind.portaCom?.detectedPort || '-'}`],
-        ['Processo V$Pague', ind.processoVsPague?.estado, ind.processoVsPague?.nota || ''],
-        ['Inicialização do Client (sessão)', ind.inicializacaoClient?.estadoSessaoAtual, `sessão=${ind.inicializacaoClient?.initClientExecuted || 'NAO_EXECUTADO'}; histórico 00 preservado sem reexecução`],
-        ['Cadastro do terminal V$Pague', ind.cadastroTerminalVsPague?.estado, ind.cadastroTerminalVsPague?.erro00151?.mensagem || ''],
-        ['Arquivo .conf V$Pague', ind.identidadeClientVsPague?.estado, ind.identidadeClientVsPague?.confMensagemLog || `arquivos .conf=${ind.identidadeClientVsPague?.confArquivos ?? '?'}`],
-        ['Mapeamento estabelecimento/loja/terminal', ind.mapeamentoEstabelecimentoLojaTerminal?.estado, ind.mapeamentoEstabelecimentoLojaTerminal?.mensagem || ''],
-        ['Prontidão para transação', ind.prontidaoTransacao?.estado, ind.prontidaoTransacao?.mensagem || '']
-    ];
     if (evid.tefProntoParaVenda === true) {
-        // Defesa de UI: nunca tratar diagnóstico Destaxa como venda liberada só por persistência.
         evid.tefProntoParaVenda = false;
     }
 
-    alvo.innerHTML = linhas.map(([titulo, estado, detalhe]) => `
-        <div class="col-md-6">
-            <div class="card bg-light">
-                <div class="card-body py-2">
-                    ${htmlBadgeEstadoEvidencia(estado)} <strong>${escapeHtml(titulo)}</strong>
-                    <div class="small text-muted mt-1">${escapeHtml(detalhe || '')}</div>
+    const capacidades = Array.isArray(evid.capacidades) ? evid.capacidades : [];
+    if (capacidades.length) {
+        alvo.innerHTML = capacidades.map((c) => `
+            <div class="col-md-6">
+                <div class="card bg-light">
+                    <div class="card-body py-2">
+                        ${htmlBadgeEstadoEvidencia(c.estado)} <strong>${escapeHtml(c.nome || c.id || '')}</strong>
+                        <div class="small text-muted mt-1">${escapeHtml(c.motivo || (c.evidencia && c.evidencia.nota) || '')}</div>
+                        ${c.verificadoEm ? `<div class="small text-muted">Verificado: ${escapeHtml(c.verificadoEm)}</div>` : ''}
+                    </div>
                 </div>
             </div>
-        </div>
-    `).join('');
+        `).join('');
+    } else {
+        const ind = evid.indicadores || {};
+        const linhas = [
+            ['DLL e exports', ind.dllExports?.estado, ind.dllExports?.nota || ''],
+            ['Porta COM / serial', ind.portaCom?.estado, ind.portaCom?.nota || `${ind.portaCom?.configuredPort || '-'} / ${ind.portaCom?.detectedPort || '-'}`],
+            ['Processo V$Pague', ind.processoVsPague?.estado, ind.processoVsPague?.nota || ''],
+            ['Inicialização do Client (sessão)', ind.inicializacaoClient?.estadoSessaoAtual, ind.inicializacaoClient?.nota || `sessão=${ind.inicializacaoClient?.initClientExecuted || 'NAO_EXECUTADO'}`],
+            ['Cadastro do terminal V$Pague', ind.cadastroTerminalVsPague?.estado, ind.cadastroTerminalVsPague?.erro00151?.mensagem || ''],
+            ['Arquivo .conf V$Pague', ind.arquivoConf?.estado || ind.identidadeClientVsPague?.estado, ind.arquivoConf?.nota || `arquivos .conf=${ind.identidadeClientVsPague?.confArquivos ?? '?'}`],
+            ['Mapeamento estabelecimento/loja/terminal', ind.mapeamentoEstabelecimentoLojaTerminal?.estado, ind.mapeamentoEstabelecimentoLojaTerminal?.mensagem || ''],
+            ['Prontidão para transação', ind.prontidaoTransacao?.estado, ind.prontidaoTransacao?.mensagem || '']
+        ];
+        alvo.innerHTML = linhas.map(([titulo, estado, detalhe]) => `
+            <div class="col-md-6">
+                <div class="card bg-light">
+                    <div class="card-body py-2">
+                        ${htmlBadgeEstadoEvidencia(estado)} <strong>${escapeHtml(titulo)}</strong>
+                        <div class="small text-muted mt-1">${escapeHtml(detalhe || '')}</div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
 
     const bloqueios = evid.bloqueios || [];
     bloqueiosEl.innerHTML = bloqueios.length
-        ? `<div class="alert alert-danger py-2 mb-0"><strong>Bloqueios Destaxa:</strong><ul class="mb-0 small">${bloqueios.map((b) => `<li><code>${escapeHtml(b.codigo)}</code> — ${escapeHtml(b.mensagem)}</li>`).join('')}</ul></div>`
+        ? `<div class="alert alert-danger py-2 mb-0"><strong>Bloqueios / pendências Destaxa:</strong><ul class="mb-0 small">${bloqueios.map((b) => `<li><code>${escapeHtml(b.codigo)}</code> — ${escapeHtml(b.mensagem)}</li>`).join('')}</ul></div>`
         : '<div class="alert alert-secondary py-2 mb-0 small">Nenhum bloqueio estruturado adicional listado.</div>';
 }
 

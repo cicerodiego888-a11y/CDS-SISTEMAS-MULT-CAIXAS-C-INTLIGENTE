@@ -639,6 +639,11 @@ class TefManager {
                         vinculoVendaPdv: retornoBruto.vinculoVendaPdv || {
                           venda_id: dadosNormalizados.venda_id || null
                         },
+                        // MRT-42 — preservar ação 99/OPCAO no payload para o PDV/continuar
+                        continuidade: {
+                          requerContinuacao: retornoBruto.requerContinuacao === true,
+                          acao: retornoBruto.acao || null
+                        },
                         reconciliacaoObrigatoria: retornoBruto.reconciliacaoObrigatoria === true
                       },
                       {
@@ -678,12 +683,15 @@ class TefManager {
                         });
                         return reject(updateErr);
                       }
-                      this._concluirExecucao(transacaoId, retorno.status, {
-                        provedor: adapter.nome,
-                        operacao: dadosNormalizados.tipo,
-                        financialState: retorno.financialState,
-                        codigo: retorno.codigo
-                      });
+                      // MRT-42 — continuidade 99: não "concluir" o ciclo; PDV deve POST /tef/continuar
+                      if (retornoBruto.requerContinuacao !== true) {
+                        this._concluirExecucao(transacaoId, retorno.status, {
+                          provedor: adapter.nome,
+                          operacao: dadosNormalizados.tipo,
+                          financialState: retorno.financialState,
+                          codigo: retorno.codigo
+                        });
+                      }
 
                       if (tefContrato.estaAprovado(retorno)) {
                         tefEvents.emitirEstadoPinpad(tefEvents.estadosPinpad.TRANSACAO_APROVADA, { transacaoId });
@@ -712,7 +720,19 @@ class TefManager {
                       );
 
                       clearTimeout(timeoutId);
-                      resolve(tefContrato.paraRespostaApi(retorno, transacaoId));
+                      // MRT-42 — espelha continuarAutorizacao: PDV precisa de requerContinuacao + acao
+                      const api = tefContrato.paraRespostaApi(retorno, transacaoId);
+                      resolve({
+                        ...api,
+                        requerContinuacao: retornoBruto.requerContinuacao === true,
+                        acao: retornoBruto.acao || null,
+                        inconclusivo: retornoBruto.inconclusivo === true,
+                        reconciliacaoObrigatoria: retornoBruto.reconciliacaoObrigatoria === true,
+                        cicloCrt: retornoBruto.cicloCrt || null,
+                        vinculoVendaPdv: retornoBruto.vinculoVendaPdv || null,
+                        idempotency_key: dadosNormalizados.idempotency_key || null,
+                        retryAllowed: false
+                      });
                     });
                   } catch (error) {
                     clearTimeout(timeoutId);
@@ -1428,11 +1448,28 @@ class TefManager {
         temResposta: dados.resposta_continuidade != null || dados.resposta != null
       });
 
+      // MRT-39.1 — enriquecer continuidade a partir do payload persistido (99/OPCAO)
+      const payloadAnterior = lerPayloadTransacao(transacao);
+      const contPersistida = payloadAnterior.continuidade
+        && typeof payloadAnterior.continuidade === 'object'
+        ? payloadAnterior.continuidade
+        : {};
+      const sol99 = contPersistida.solicitacao99 && typeof contPersistida.solicitacao99 === 'object'
+        ? contPersistida.solicitacao99
+        : {};
+      const persistenciaContinuidadeHabilitada = dados.persistenciaContinuidade === true
+        || String(process.env.DESTAXA_CONTINUIDADE_PERSISTENTE || '').trim() === '1';
+
       const retornoBruto = await adapter.continuarPagamento({
         ...dados,
         transacao_id: Number(transacaoId) || transacaoId,
         venda_id: dados.venda_id != null ? dados.venda_id : transacao.venda_id,
-        acao: dados.acao || this._continuidadeCrt?.acao || null
+        acao: dados.acao || this._continuidadeCrt?.acao || sol99.acao || contPersistida.acao || null,
+        solicitadaEm: dados.solicitadaEm || dados.acaoSolicitadaEm
+          || sol99.solicitadaEm || contPersistida.solicitadaEm || null,
+        idempotency_key: dados.idempotency_key || transacao.idempotency_key || null,
+        idempotency_key_persistida: transacao.idempotency_key || null,
+        persistenciaContinuidade: persistenciaContinuidadeHabilitada
       });
 
       const decisaoFinanceira = classificarResultadoFinanceiro(retornoBruto);
@@ -1469,7 +1506,19 @@ class TefManager {
         },
         adapter
       );
-      const payloadAnterior = lerPayloadTransacao(transacao);
+      // MRT-39.1 — releitura pós-adapter: DestaxaRealAdapter grava respostas em
+      // payload_retorno.continuidade; não sobrescrever o bloco durável.
+      const linhaAposAdapter = await new Promise((resolve, reject) => {
+        db.get('SELECT * FROM tef_transacoes WHERE id = ?', [transacaoId], (err, row) => {
+          if (err) reject(err);
+          else resolve(row || null);
+        });
+      });
+      const payloadAposAdapter = lerPayloadTransacao(linhaAposAdapter || transacao);
+      const continuidadeBase = payloadAposAdapter.continuidade
+        && typeof payloadAposAdapter.continuidade === 'object'
+        ? payloadAposAdapter.continuidade
+        : contPersistida;
       const payloadComIdentidade = mesclarPayloadPreservandoIdentidade(
         {
           ...(persistencia.payload_retorno && typeof persistencia.payload_retorno === 'object'
@@ -1479,12 +1528,13 @@ class TefManager {
           cicloCrt: retornoBruto.cicloCrt || null,
           vinculoVendaPdv: retornoBruto.vinculoVendaPdv || null,
           continuidade: {
+            ...continuidadeBase,
             requerContinuacao: retornoBruto.requerContinuacao === true,
-            acao: retornoBruto.acao || null
+            acao: retornoBruto.acao || continuidadeBase.acao || null
           },
           reconciliacaoObrigatoria: retornoBruto.reconciliacaoObrigatoria === true
         },
-        payloadAnterior,
+        { ...payloadAnterior, ...payloadAposAdapter },
         identidadeAuth
       );
 

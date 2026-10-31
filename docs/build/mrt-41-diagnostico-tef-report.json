@@ -1,0 +1,239 @@
+{
+  "sprint": "MRT-41",
+  "title": "Auditoria e correção do Diagnóstico TEF Destaxa",
+  "generatedAt": "2026-10-31T00:14:08.956Z",
+  "classificacaoFinal": "CORRIGIDO",
+  "fase1Diagnostico": {
+    "frontend": "frontend/erp/js/configuracao_tef.js (aba Diagnóstico TEF)",
+    "backend": [
+      "backend/services/tef/tefDiagnosticoService.js",
+      "backend/services/tef/destaxa/destaxaEvidenciasOperacionais.js",
+      "GET /tef/diagnostico-completo"
+    ],
+    "estados": [
+      "CONFIRMADO",
+      "NAO_VALIDADO",
+      "INDISPONIVEL",
+      "BLOQUEADO"
+    ],
+    "regraProntidao": "Todas as 16 capacidades obrigatórias CONFIRMADO; índice auxiliar não autoriza venda"
+  },
+  "arquivosAlterados": [
+    "backend/services/tef/destaxa/destaxaEvidenciasOperacionais.js",
+    "backend/services/tef/tefDiagnosticoService.js",
+    "frontend/erp/js/configuracao_tef.js",
+    "tests/tef/mrt-41-diagnostico-tef.test.js",
+    "docs/build/mrt-41-diagnostico-tef-report.json"
+  ],
+  "indicadoresCorrigidos": [
+    "DLL encontrada ≠ middleware validado",
+    "PinPad enumerado ≠ driver TEF validado",
+    "COM consistente ≠ comunicação serial validada",
+    "V$Pague em execução ≠ cadastro de terminal",
+    ".conf existente ≠ .conf validado",
+    "INIT histórico ≠ INIT sessão atual",
+    "SDK badge não fica CONFIRMADO por DLL",
+    "Índice técnico auxiliar não autoriza venda",
+    "TEF pronto para venda forçado NÃO na UI/diagnóstico readonly"
+  ],
+  "criteriosStatus": {
+    "CONFIRMADO": "Evidência técnica da capacidade nomeada na verificação atual",
+    "NAO_VALIDADO": "Sinal parcial/indício sem prova da capacidade (ex.: DLL presente, COM listada)",
+    "INDISPONIVEL": "Recurso ausente ou não aplicável nesta máquina",
+    "BLOQUEADO": "Bloqueio explícito (gate OFF, mapeamento pendente, 00151, etc.)"
+  },
+  "capacidades": [
+    {
+      "id": "configuracao_cds",
+      "nome": "Configuração CDS carregada",
+      "estado": "CONFIRMADO",
+      "motivo": null
+    },
+    {
+      "id": "adapter_destaxa",
+      "nome": "Adapter Destaxa carregado",
+      "estado": "CONFIRMADO",
+      "motivo": null
+    },
+    {
+      "id": "banco_conectado",
+      "nome": "Banco conectado",
+      "estado": "CONFIRMADO",
+      "motivo": null
+    },
+    {
+      "id": "dll_encontrada",
+      "nome": "DLL encontrada",
+      "estado": "CONFIRMADO",
+      "motivo": null
+    },
+    {
+      "id": "exports_dll",
+      "nome": "Exports da DLL identificados",
+      "estado": "CONFIRMADO",
+      "motivo": null
+    },
+    {
+      "id": "middleware_validado",
+      "nome": "Middleware instalado e validado",
+      "estado": "NAO_VALIDADO",
+      "motivo": "Middleware Destaxa não possui evidência operacional de validação neste diagnóstico."
+    },
+    {
+      "id": "driver_pinpad_validado",
+      "nome": "Driver do PinPad validado",
+      "estado": "NAO_VALIDADO",
+      "motivo": "Driver do PinPad sem validação operacional TEF comprovada."
+    },
+    {
+      "id": "pinpad_enumerado",
+      "nome": "PinPad enumerado pelo Windows",
+      "estado": "CONFIRMADO",
+      "motivo": null
+    },
+    {
+      "id": "comunicacao_serial_validada",
+      "nome": "Comunicação serial validada",
+      "estado": "NAO_VALIDADO",
+      "motivo": "Comunicação serial com o PinPad não foi comprovada neste diagnóstico (sem I/O TEF)."
+    },
+    {
+      "id": "vspague_em_execucao",
+      "nome": "Processo V$Pague em execução",
+      "estado": "CONFIRMADO",
+      "motivo": null
+    },
+    {
+      "id": "cadastro_terminal_vspague",
+      "nome": "Cadastro do terminal no V$Pague confirmado",
+      "estado": "NAO_VALIDADO",
+      "motivo": "Cadastro do terminal no V$Pague não confirmado (processo ≠ cadastro)."
+    },
+    {
+      "id": "arquivo_conf_validado",
+      "nome": "Arquivo .conf localizado e validado",
+      "estado": "NAO_VALIDADO",
+      "motivo": ".conf encontrado, porém não validado oficialmente neste diagnóstico."
+    },
+    {
+      "id": "mapeamento_oficial",
+      "nome": "Mapeamento oficial estabelecimento/loja/terminal confirmado",
+      "estado": "BLOQUEADO",
+      "motivo": "Códigos Destaxa (estabelecimento/loja/terminal) ausentes. Aguardar valores oficiais do fornecedor; não inventar a partir de PDV/caixa/CNPJ/número lógico."
+    },
+    {
+      "id": "init_client_sessao_atual",
+      "nome": "INIT_CLIENT executado e confirmado na sessão atual",
+      "estado": "NAO_VALIDADO",
+      "motivo": "INIT_CLIENT não executado/confirmado nesta sessão de diagnóstico (histórico preservado, sem reexecução)."
+    },
+    {
+      "id": "comunicacao_transacional",
+      "nome": "Comunicação transacional validada",
+      "estado": "NAO_VALIDADO",
+      "motivo": "Comunicação transacional não validada — diagnóstico não envia operações financeiras."
+    },
+    {
+      "id": "venda_autorizacao_liberada",
+      "nome": "Venda/autorização financeira liberada",
+      "estado": "BLOQUEADO",
+      "motivo": "Gate financeiro DESTAXA_REAL_TRANSACTION_ENABLED desabilitado (deliberado)."
+    }
+  ],
+  "resultadoProntidao": {
+    "tefProntoParaVenda": false,
+    "faltantes": [
+      "middleware_validado",
+      "driver_pinpad_validado",
+      "comunicacao_serial_validada",
+      "cadastro_terminal_vspague",
+      "arquivo_conf_validado",
+      "mapeamento_oficial",
+      "init_client_sessao_atual",
+      "comunicacao_transacional",
+      "venda_autorizacao_liberada"
+    ],
+    "prontidaoTransacao": "BLOQUEADO"
+  },
+  "identidadeTeste": {
+    "idempotency_key": "mrt41_diag_977f55",
+    "nota": "identidade exclusiva MRT-41 — não reutiliza MRT-24/36"
+  },
+  "resultadosTeste": [
+    {
+      "nome": "1) DLL encontrada sem middleware validado → middleware NAO_VALIDADO",
+      "ok": true,
+      "dll": "CONFIRMADO",
+      "middleware": "NAO_VALIDADO"
+    },
+    {
+      "nome": "2) PinPad enumerado sem driver TEF validado → driver NAO_VALIDADO",
+      "ok": true
+    },
+    {
+      "nome": "3) COM identificada sem comunicação serial comprovada → serial NAO_VALIDADO",
+      "ok": true
+    },
+    {
+      "nome": "4) V$Pague em execução sem cadastro confirmado → processo CONFIRMADO / cadastro ≠ CONFIRMADO",
+      "ok": true
+    },
+    {
+      "nome": "5) .conf existente (se 1) sem validação oficial → arquivo_conf ≠ CONFIRMADO",
+      "ok": true
+    },
+    {
+      "nome": "6) INIT histórico sem sessão atual → init_client_sessao_atual NAO_VALIDADO",
+      "ok": true
+    },
+    {
+      "nome": "7) Gate financeiro OFF",
+      "ok": true
+    },
+    {
+      "nome": "8) Mapeamento oficial pendente/bloqueado",
+      "ok": true
+    },
+    {
+      "nome": "9) Índice/auxiliar: prontidão calculada NÃO; evid.tefProntoParaVenda false",
+      "ok": true
+    },
+    {
+      "nome": "10) Prontidão final obrigatoriamente NÃO nas condições atuais",
+      "ok": true
+    },
+    {
+      "nome": "11) Status PinPad Destaxa sem texto \"Pronto para homologação\"",
+      "ok": true,
+      "statusPin": "DLL/middleware detectado — homologação não comprovada",
+      "statusPinDetectado": "PINPAD_DETECTED"
+    },
+    {
+      "nome": "12) UI não promove middleware_instalado a CONFIRMADO automático",
+      "ok": true
+    },
+    {
+      "nome": "13) MRT-24/36 preservados UNKNOWN/INCONCLUSIVA; IDs MRT-41 exclusivos",
+      "ok": true
+    },
+    {
+      "nome": "14) 16 capacidades com status + evidência + motivo + verificadoEm",
+      "ok": true
+    }
+  ],
+  "confirmacoes": {
+    "gateOff": true,
+    "zeroOperacoesFinanceirasReais": true,
+    "initClientNaoReexecutado": true,
+    "mrt24UnknownPreservado": true,
+    "mrt36NaoReutilizada": true,
+    "continuidadeMrt38a40NaoAlterada": true,
+    "indiceNaoAutorizaVenda": true
+  },
+  "riscosResiduais": [
+    "listarConfVsPague/lerErro00151DoLog leem filesystem real C:\\VBI (readonly) — ambiente CI sem V$Pague continua NAO_VALIDADO/BLOQUEADO",
+    "Diagnóstico completo HTTP não reexecutado end-to-end neste sprint (testes direcionados da matriz de evidências + UI estática)",
+    "Operador ainda precisa interpretar 16 capacidades; UX futura pode colapsar grupos sem relaxar regras"
+  ],
+  "recomendacao": "Aguardar Tech Lead. Não iniciar MRT-42 automaticamente."
+}

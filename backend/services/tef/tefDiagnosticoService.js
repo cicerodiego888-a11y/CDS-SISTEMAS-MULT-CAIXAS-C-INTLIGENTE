@@ -68,7 +68,13 @@ function resolverStatusPinpad(
   if (modoAdapter === 'simulacao') {
     return 'Configurado (simulação)';
   }
-  if (['sitef', 'paygo', 'destaxa'].includes(provedor)) {
+  if (provedor === 'destaxa') {
+    // MRT-41 — DLL/middleware detectado ≠ homologação / ≠ pronto para venda
+    return middlewareInstalado
+      ? 'DLL/middleware detectado — homologação não comprovada'
+      : 'Aguardando Middleware Destaxa';
+  }
+  if (['sitef', 'paygo'].includes(provedor)) {
     return middlewareInstalado ? 'Pronto para homologação' : 'Aguardando Middleware';
   }
   return 'Configurado (adapter provedor)';
@@ -379,7 +385,19 @@ function montarEstadosIntegracao({
       portCorrectionApplied: analisePortaConfigurada.correcaoAplicada || analisePortaDetectada.correcaoAplicada || null,
       portCorrectionSilent: false,
       motivoSuspeitaPorta: analisePortaConfigurada.motivoSuspeita || analisePortaDetectada.motivoSuspeita || null,
-      comConsistent: portaConsistente
+      comConsistent: portaConsistente,
+      // MRT-41 — enumeração/consistência ≠ validação operacional TEF
+      driverStatus: pinpad?.hardware?.driverStatus || null,
+      driverValidated: false,
+      serialCommunicationValidated: false
+    },
+    middleware: {
+      // Destaxa: presença de DLL ≠ middleware validado
+      validated: false,
+      presentHint: null
+    },
+    conf: {
+      validated: false
     },
     transactionCommunication: {
       validated: false,
@@ -576,14 +594,27 @@ async function executarDiagnosticoCompleto() {
     },
     {
       chave: 'middleware_instalado',
+      // MRT-41 Destaxa: DLL encontrada ≠ middleware validado (ok permanece presença; UI usa evidências)
       ok: middlewareInstalado,
       detalhe: provedor === 'sitef'
         ? (middlewareSitef.sitefInstalado ? middlewareSitef.caminho : 'CliSiTef não detectado')
         : provedor === 'paygo'
           ? (middlewarePaygo.paygoInstalado ? middlewarePaygo.caminho : 'PayGo não detectado')
           : provedor === 'destaxa'
-            ? (middlewareDestaxa?.destaxaInstalado ? middlewareDestaxa.caminho : 'DLL Destaxa não detectada')
+            ? {
+              caminho: middlewareDestaxa?.destaxaInstalado ? middlewareDestaxa.caminho : null,
+              dllEncontrada: Boolean(middlewareDestaxa?.destaxaInstalado),
+              middlewareValidado: false,
+              observacao: 'DLL Destaxa detectada ≠ middleware validado ≠ TEF pronto para venda.'
+            }
             : 'Não aplicável ao provedor (adapter ≠ middleware)'
+    },
+    {
+      chave: 'middleware_validado',
+      ok: false,
+      detalhe: provedor === 'destaxa'
+        ? 'Middleware Destaxa sem evidência operacional de validação neste diagnóstico.'
+        : 'Validação de middleware não confirmada neste diagnóstico.'
     },
     {
       chave: 'sdk_encontrado',
@@ -753,11 +784,21 @@ async function executarDiagnosticoCompleto() {
   const totalOk = itens.filter((i) => i.ok).length;
   const percentual = Math.round((totalOk / itens.length) * 100);
 
+  const conceitosCompletos = {
+    ...conceitos,
+    bancoAcessivel: banco.acessivel === true,
+    configuracaoValida,
+    adapterCarregado,
+    dllEncontrada,
+    middlewareInstalado
+  };
+
   const evidenciasDestaxa = provedor === 'destaxa'
     ? avaliarEvidenciasDestaxa({
       config,
       estadosIntegracao,
-      adapterDiag
+      adapterDiag,
+      conceitos: conceitosCompletos
     })
     : null;
 
@@ -766,8 +807,14 @@ async function executarDiagnosticoCompleto() {
   );
 
   return {
-    sucesso: percentual >= 70,
+    // MRT-41 — "sucesso" do relatório ≠ TEF pronto para venda
+    sucesso: false,
     percentualProntidao: percentual,
+    indiceTecnicoAuxiliar: {
+      percentual,
+      autorizaVenda: false,
+      nota: 'Índice técnico auxiliar de checks passados; não autoriza venda e não contradiz bloqueios.'
+    },
     tefProntoParaVenda: false,
     timestamp: new Date().toISOString(),
     resumo: {
@@ -777,9 +824,9 @@ async function executarDiagnosticoCompleto() {
       tefHabilitado: config.tefHabilitado === 'true' || config.tefHabilitado === true,
       pinpad: pinpadDiagnostico.rotulo || pinpadDiagnostico.codigo || null,
       tefProntoParaVenda: false,
-      ...conceitos
+      ...conceitosCompletos
     },
-    conceitos,
+    conceitos: conceitosCompletos,
     estadosIntegracao,
     evidenciasDestaxa,
     pinpad: pinpadDiagnostico,

@@ -1,0 +1,153 @@
+    {
+      "sprint": "MRT-39",
+      "title": "Integração continuidade Destaxa com persistência real de testes",
+      "generatedAt": "2026-10-30T22:52:28.058Z",
+      "classificacaoFinal": "IMPLEMENTADO",
+      "fase1Diagnostico": {
+        "dbDir": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-sistemas-test-db",
+        "dbPath": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-sistemas-test-db\\mercadao.db",
+        "ehTempCdsTestDb": true,
+        "ehProgramData": false,
+        "distintoProducao": true,
+        "tables": [
+          "tef_transacoes",
+          "tef_logs"
+        ],
+        "migrationFonte": "backend/database.js CREATE TABLE tef_transacoes / tef_logs",
+        "repositorio": "backend/services/tef/tefRepository.js",
+        "fluxo": [
+          "POST /tef/continuar",
+          "TefManager.continuarAutorizacao",
+          "DestaxaRealAdapter.continuarPagamento",
+          "destaxaContinuidadeContrato + destaxaContinuidadePersistencia"
+        ]
+      },
+      "evidenciaBancoTeste": {
+        "caminho": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-sistemas-test-db\\mercadao.db",
+        "criterio": "DB_DIR=os.tmpdir()/cds-sistemas-test-db + CDS_TEST_ISOLAR_BANCO=1",
+        "distintoDe": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+        "comprovado": true
+      },
+      "tabelasMigrations": {
+        "tabelaPrincipal": "tef_transacoes",
+        "campoContinuidade": "payload_retorno.continuidade (JSON criptografado via tefRepository)",
+        "logs": "tef_logs",
+        "migration": "backend/database.js (CREATE TABLE IF NOT EXISTS tef_transacoes / tef_logs)",
+        "tabelaParalelaCriada": false
+      },
+      "arquivosAlterados": [
+        "backend/services/tef/destaxa/destaxaContinuidadePersistencia.js",
+        "backend/services/tef/adapters/DestaxaRealAdapter.js",
+        "tests/tef/mrt-39-persistencia-continuidade.test.js",
+        "tests/tef/_mrt39-diag-db.js",
+        "docs/build/mrt-39-persistencia-continuidade-report.json"
+      ],
+      "identidadeTeste": {
+        "idempotency_key": "mrt39_cont_7251e138",
+        "operation_id": "op_mrt39_7251e138",
+        "fingerprint": "77175053c98efee81a90308b1e78265c"
+      },
+      "registrosTesteCriados": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "registrosTesteRemovidos": [
+        1,
+        3,
+        4,
+        2
+      ],
+      "resultadosTeste": [
+        {
+          "nome": "1) registrar solicitação 99 no banco teste",
+          "ok": true,
+          "transacaoId": 1
+        },
+        {
+          "nome": "2) recuperar solicitação 99 persistida",
+          "ok": true
+        },
+        {
+          "nome": "3) registrar resposta literal Credito + identidade",
+          "ok": true
+        },
+        {
+          "nome": "4) bloquear segunda resposta mesma solicitação",
+          "ok": true
+        },
+        {
+          "nome": "5) após reinício do processo, duplicata ainda bloqueada (SQLite)",
+          "ok": true,
+          "childStatus": 3,
+          "childJson": {
+            "ok": false,
+            "codigo": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+            "mensagem": "Resposta já persistida para esta solicitação — reenvio bloqueado após reinício",
+            "retryAllowed": false,
+            "fingerprint": "informacao=Credito"
+          }
+        },
+        {
+          "nome": "6) timeout persistido; resposta posterior recusada; UNKNOWN",
+          "ok": true
+        },
+        {
+          "nome": "7) perda de comunicação → estado persistido; sem retry",
+          "ok": true
+        },
+        {
+          "nome": "8) ausência de operador persistida",
+          "ok": true
+        },
+        {
+          "nome": "9) continuidade mock sem novo TX_START",
+          "ok": true
+        },
+        {
+          "nome": "10) gate OFF; IDs MRT-39 exclusivos; MRT-24/36 preservados",
+          "ok": true
+        },
+        {
+          "nome": "11) limpeza somente registros MRT-39",
+          "ok": true,
+          "apagados": [
+            1,
+            3,
+            4,
+            2
+          ]
+        }
+      ],
+      "recuperacaoAposReinicio": {
+        "ok": true,
+        "evidencia": {
+          "ok": false,
+          "codigo": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+          "mensagem": "Resposta já persistida para esta solicitação — reenvio bloqueado após reinício",
+          "retryAllowed": false,
+          "fingerprint": "informacao=Credito"
+        },
+        "mecanismo": "spawnSync novo processo Node; Map memória limpo; anti-duplicata lida do SQLite"
+      },
+      "ausenciaNovoTxStart": {
+        "ok": true,
+        "evidencia": "continuarCicloCrt manteve contadores.inicia inalterado"
+      },
+      "confirmacoes": {
+        "gateOff": true,
+        "zeroOperacoesFinanceirasReais": true,
+        "dllNaoCarregada": true,
+        "vspagueNaoIniciado": true,
+        "mrt24UnknownPreservado": true,
+        "mrt36NaoReutilizada": true,
+        "producaoNaoAlterada": true
+      },
+      "riscosResiduais": [
+        "Anti-duplicata em memória (MRT-38) e SQLite (MRT-39) coexistem; flag DESTAXA_CONTINUIDADE_PERSISTENTE ou persistenciaContinuidade=true ativa leitura DB no Adapter",
+        "criarTransacaoContinuidadeTeste não usa criarTransacaoExclusiva (proposital no banco de teste)",
+        "CONTINUE financeiro real na DLL permanece fora de escopo"
+      ],
+      "recomendacao": "Aguardar Tech Lead. Não iniciar MRT-40 automaticamente."
+    }

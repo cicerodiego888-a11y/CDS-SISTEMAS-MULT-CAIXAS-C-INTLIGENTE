@@ -1,0 +1,291 @@
+{
+  "sprint": "MRT-43",
+  "title": "Validação do fluxo 99/OPCAO — propagação TefManager.autorizar → PDV → continuidade",
+  "generatedAt": "2026-10-31T00:48:59.340Z",
+  "classificacaoFinal": "IMPLEMENTADO",
+  "fase1Diagnostico": {
+    "dbDir": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-sistemas-test-db",
+    "dbPath": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-sistemas-test-db\\mercadao.db",
+    "ehTempCdsTestDb": true,
+    "ehProgramData": false,
+    "distintoProducao": true,
+    "gateOff": true
+  },
+  "auditoriaCodigo": {
+    "propagaRequerContinuacao": true,
+    "propagaAcao": true,
+    "persisteContinuidadePayload": true,
+    "naoConcluiSeContinuidade": true,
+    "marcaContinuidadeCrt": true,
+    "naoUsaSoParaRespostaApi": true
+  },
+  "identidadeTeste": {
+    "idempotency_key": "mrt43_opcao_50216afe",
+    "operation_id": "op_mrt43_50216afe",
+    "fingerprint": "b42fc5ba069436af1138d72fc70adb79"
+  },
+  "arquivosAlterados": [
+    "tests/tef/mrt-43-validacao-fluxo-99-opcao.test.js",
+    "docs/build/mrt-43-validacao-fluxo-99-opcao-report.json",
+    "docs/build/mrt-43-done.flag"
+  ],
+  "arquivosAuditadosSemMudancaArquitetural": [
+    "backend/services/tef/TefManager.js (correção MRT-42 auditada; sem nova alteração nesta sprint)",
+    "frontend/pdv/js/pdvTefContinuidade.js (exercitado; sem alteração)"
+  ],
+  "caminhoValidado": [
+    "TefManager.autorizar → adapter.autorizarPagamento (simulado 99/OPCAO)",
+    "resolve({ requerContinuacao, acao }) + payload_retorno.continuidade",
+    "PDV PdvTefContinuidade.conduzirContinuidade → solicitarRespostaOperador(OPCAO)",
+    "POST continuidade → TefManager.continuarAutorizacao → DestaxaRealAdapter.continuarPagamento",
+    "bridge.continuarTransacaoDestaxa (NativeHost simulado) — sem TX_START"
+  ],
+  "resultadosTeste": [
+    {
+      "nome": "0) Auditoria estática TefManager.autorizar propaga 99/OPCAO",
+      "ok": true,
+      "propagaRequerContinuacao": true,
+      "propagaAcao": true,
+      "persisteContinuidadePayload": true,
+      "naoConcluiSeContinuidade": true,
+      "marcaContinuidadeCrt": true,
+      "naoUsaSoParaRespostaApi": true
+    },
+    {
+      "nome": "1) TefManager.autorizar propaga requerContinuacao + acao OPCAO",
+      "ok": true,
+      "codigo": "DESTAXA_CICLO_CONTINUIDADE_SEM_RESPOSTA",
+      "requerContinuacao": true,
+      "acao": {
+        "tipo": "OPCAO",
+        "mensagem": "Tipo do Cartao",
+        "opcoes": [
+          "Credito",
+          "Debito",
+          "Voucher"
+        ],
+        "tipoDado": "X",
+        "timeout": "120",
+        "chave": "transacao_tipo_cartao"
+      },
+      "transacaoId": 24,
+      "bridgeInicia": 0
+    },
+    {
+      "nome": "2) Ciclo não conclui com 99 pendente (_continuidadeCrt + status pendente)",
+      "ok": true,
+      "continuidadeAtiva": true,
+      "aindaEmExecucao": true,
+      "statusDb": "pendente",
+      "payloadContinuidade": {
+        "requerContinuacao": true,
+        "acaoTipo": "OPCAO"
+      }
+    },
+    {
+      "nome": "3) Contrato fachada/API expõe ação para o PDV (202 continuidade)",
+      "ok": true,
+      "fachadaAcao": {
+        "tipo": "OPCAO",
+        "mensagem": "Tipo do Cartao",
+        "opcoes": [
+          "Credito",
+          "Debito",
+          "Voucher"
+        ],
+        "tipoDado": "X",
+        "timeout": "120",
+        "chave": "transacao_tipo_cartao"
+      }
+    },
+    {
+      "nome": "4) PDV renderiza OPCAO literais e envia resposta explícita Credito",
+      "ok": true,
+      "evidencias": {
+        "opcoesRenderizadas": [
+          "Credito",
+          "Debito",
+          "Voucher"
+        ],
+        "mensagem": "Tipo do Cartao",
+        "clicksConfirm": 1,
+        "modalShown": true,
+        "opcoesUnicas": [
+          "Credito",
+          "Debito",
+          "Voucher"
+        ]
+      },
+      "post": {
+        "transacao_id": 24,
+        "idempotency_key": "mrt43_opcao_50216afe",
+        "venda_id": null,
+        "resposta_continuidade": {
+          "informacao": "Credito"
+        },
+        "acao": {
+          "tipo": "OPCAO",
+          "mensagem": "Tipo do Cartao",
+          "opcoes": [
+            "Credito",
+            "Debito",
+            "Voucher"
+          ],
+          "tipoDado": "X",
+          "mascara": null,
+          "chave": "transacao_tipo_cartao",
+          "timeout": "120",
+          "reconhecida": true
+        }
+      },
+      "pdvCodigo": "DESTAXA_CICLO_CONTINUIDADE_SEM_RESPOSTA",
+      "posts": 1
+    },
+    {
+      "nome": "5) Continuidade oficial sem novo TX_START (bridge.inicia inalterado)",
+      "ok": true,
+      "bridge": {
+        "inicia": 0,
+        "continua": 1,
+        "finaliza": 0
+      },
+      "adapter": {
+        "autorizar": 1,
+        "continuar": 1,
+        "preparar": 1,
+        "txStartSimulado": 1
+      },
+      "posts": 1
+    },
+    {
+      "nome": "6) Resposta Credito persistida; continueCount>=1; txStartCount=1",
+      "ok": true,
+      "estado": "RESPONDIDA",
+      "continueCount": 1,
+      "txStartCount": 1,
+      "respostas": [
+        {
+          "fingerprint": "informacao=Credito",
+          "informacao": "Credito",
+          "registradaEm": "2026-10-31T00:49:00.057Z"
+        }
+      ]
+    },
+    {
+      "nome": "7) Segunda autorização bloqueada (TEF_CRT_CONTINUIDADE_ATIVA)",
+      "ok": true,
+      "codigo": "TEF_CRT_CONTINUIDADE_ATIVA",
+      "autorizarCount": 1
+    },
+    {
+      "nome": "8) Segunda resposta bloqueada (anti-duplicata) sem TX_START/CONTINUE extra",
+      "ok": true,
+      "codigo": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+      "bridgeContinua": 1,
+      "bridgeInicia": 0
+    },
+    {
+      "nome": "9) Gate OFF; IDs novos; MRT-24/36/42 preservados",
+      "ok": true,
+      "m42Id": "mrt42_2ed64252b58c6cd3",
+      "m43Id": "mrt43_opcao_50216afe"
+    },
+    {
+      "nome": "10) Limpeza somente registros MRT-43",
+      "ok": true,
+      "ids": [
+        24
+      ]
+    }
+  ],
+  "evidencias": {
+    "autorizar": {
+      "codigo": "DESTAXA_CICLO_CONTINUIDADE_SEM_RESPOSTA",
+      "requerContinuacao": true,
+      "acao": {
+        "tipo": "OPCAO",
+        "mensagem": "Tipo do Cartao",
+        "opcoes": [
+          "Credito",
+          "Debito",
+          "Voucher"
+        ],
+        "tipoDado": "X",
+        "timeout": "120",
+        "chave": "transacao_tipo_cartao"
+      },
+      "transacaoId": 24
+    },
+    "pdv": {
+      "evidencias": {
+        "opcoesRenderizadas": [
+          "Credito",
+          "Debito",
+          "Voucher"
+        ],
+        "mensagem": "Tipo do Cartao",
+        "clicksConfirm": 1,
+        "modalShown": true
+      },
+      "posts": [
+        {
+          "transacao_id": 24,
+          "idempotency_key": "mrt43_opcao_50216afe",
+          "venda_id": null,
+          "resposta_continuidade": {
+            "informacao": "Credito"
+          },
+          "acao": {
+            "tipo": "OPCAO",
+            "mensagem": "Tipo do Cartao",
+            "opcoes": [
+              "Credito",
+              "Debito",
+              "Voucher"
+            ],
+            "tipoDado": "X",
+            "mascara": null,
+            "chave": "transacao_tipo_cartao",
+            "timeout": "120",
+            "reconhecida": true
+          }
+        }
+      ],
+      "resultadoCodigo": "DESTAXA_CICLO_CONTINUIDADE_SEM_RESPOSTA"
+    },
+    "bridge": {
+      "inicia": 0,
+      "continua": 1,
+      "finaliza": 0
+    },
+    "adapter": {
+      "autorizar": 1,
+      "continuar": 2,
+      "preparar": 1,
+      "txStartSimulado": 1
+    },
+    "segundaAutorizacao": {
+      "codigo": "TEF_CRT_CONTINUIDADE_ATIVA"
+    },
+    "duplicata": {
+      "codigo": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA"
+    }
+  },
+  "confirmacoes": {
+    "gateOff": true,
+    "dllNaoCarregada": true,
+    "vspagueNaoConectado": true,
+    "zeroInitCrtEstFinalizeReais": true,
+    "txStartSomenteSimuladoNoAdapter": true,
+    "continuidadeSemNovoTxStart": true,
+    "mrt24Preservado": true,
+    "mrt36Preservado": true,
+    "mrt42Preservado": true,
+    "producaoNaoAlterada": true
+  },
+  "riscosResiduais": [
+    "Router/seleção stubados para injetar adapter simulado sem DLL; o contrato TefManager.autorizar→resolve(requerContinuacao/acao) é o exercitado",
+    "Pendentes pré-existentes do DB de teste foram hold temporário (mrt43_hold_temp) e restaurados — MRT-42 tx não apagada"
+  ],
+  "recomendacao": "Aguardar Tech Lead. Não iniciar próxima sprint automaticamente."
+}

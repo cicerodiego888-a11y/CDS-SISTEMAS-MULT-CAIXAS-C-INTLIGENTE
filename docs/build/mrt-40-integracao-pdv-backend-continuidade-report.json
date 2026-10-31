@@ -1,0 +1,351 @@
+{
+  "sprint": "MRT-40",
+  "title": "Integração PDV + backend na continuidade Destaxa (99/OPCAO)",
+  "generatedAt": "2026-10-30T23:08:52.305Z",
+  "classificacaoFinal": "CORRIGIDO",
+  "fase1Diagnostico": {
+    "dbDir": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-sistemas-test-db",
+    "dbPath": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-sistemas-test-db\\mercadao.db",
+    "ehTempCdsTestDb": true,
+    "ehProgramData": false,
+    "distintoProducao": true,
+    "fluxoAuditado": [
+      "frontend/pdv/js/pdvTefContinuidade.js (modal OPCAO → POST /tef/continuar)",
+      "frontend/pdv/js/pdv.js (ehContinuidade → conduzirContinuidade)",
+      "POST /tef/continuar → tefService.continuarPagamento",
+      "TefManager.continuarAutorizacao",
+      "obterAdapterDaTransacao (identidade payload/provedor)",
+      "DestaxaRealAdapter.continuarPagamento + persistência MRT-39"
+    ]
+  },
+  "evidenciaBancoTeste": {
+    "caminho": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-sistemas-test-db\\mercadao.db",
+    "criterio": "DB_DIR=os.tmpdir()/cds-sistemas-test-db + CDS_TEST_ISOLAR_BANCO=1",
+    "distintoDe": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+    "comprovado": true
+  },
+  "fluxoPontaAPonta": [
+    "Destaxa 99/OPCAO (simulado) → PDV ehContinuidade",
+    "Modal OPCAO (Credito|Debito|Voucher) → validarResposta literal",
+    "POST /tef/continuar (simulado via Cont.postContinuar → TefManager.continuarAutorizacao)",
+    "obterAdapterDaTransacao (identidade destaxa) → DestaxaRealAdapter.continuarPagamento",
+    "persistência SQLite MRT-39 → bridge.continuarTransacaoDestaxa (mock)",
+    "retorno 99 pendente (requerContinuacao) sem TX_START / FINALIZE"
+  ],
+  "evidenciasInterface": {
+    "modalOpcoes": [
+      "Credito",
+      "Debito",
+      "Voucher"
+    ],
+    "antiDuploClique": true,
+    "remontaContinuidadePendente": true
+  },
+  "chamadasHttpSimuladas": {
+    "total": 3,
+    "amostra": [
+      {
+        "transacao_id": 12,
+        "idempotency_key": "mrt40_credito_3cb6072e",
+        "venda_id": null,
+        "resposta_continuidade": {
+          "informacao": "Credito"
+        },
+        "acao": {
+          "tipo": "OPCAO",
+          "mensagem": "Tipo do Cartao",
+          "opcoes": [
+            "Credito",
+            "Debito",
+            "Voucher"
+          ],
+          "tipoDado": "X",
+          "mascara": null,
+          "chave": "transacao_tipo_cartao",
+          "timeout": "120",
+          "reconhecida": true
+        }
+      },
+      {
+        "transacao_id": 13,
+        "idempotency_key": "mrt40_debito_3cb6072e",
+        "venda_id": null,
+        "resposta_continuidade": {
+          "informacao": "Debito"
+        },
+        "acao": {
+          "tipo": "OPCAO",
+          "mensagem": "Tipo do Cartao",
+          "opcoes": [
+            "Credito",
+            "Debito",
+            "Voucher"
+          ],
+          "tipoDado": "X",
+          "mascara": null,
+          "chave": "transacao_tipo_cartao",
+          "timeout": "120",
+          "reconhecida": true
+        }
+      },
+      {
+        "transacao_id": 14,
+        "idempotency_key": "mrt40_voucher_3cb6072e",
+        "venda_id": null,
+        "resposta_continuidade": {
+          "informacao": "Voucher"
+        },
+        "acao": {
+          "tipo": "OPCAO",
+          "mensagem": "Tipo do Cartao",
+          "opcoes": [
+            "Credito",
+            "Debito",
+            "Voucher"
+          ],
+          "tipoDado": "X",
+          "mascara": null,
+          "chave": "transacao_tipo_cartao",
+          "timeout": "120",
+          "reconhecida": true
+        }
+      }
+    ],
+    "rotaEquivalente": "POST /tef/continuar"
+  },
+  "contadoresBridge": {
+    "inicia": 0,
+    "continua": 5,
+    "finaliza": 0
+  },
+  "arquivosAlterados": [
+    "frontend/pdv/js/pdvTefContinuidade.js",
+    "backend/services/tef/destaxa/destaxaContinuidadePersistencia.js",
+    "tests/tef/mrt-40-integracao-pdv-backend-continuidade.test.js",
+    "docs/build/mrt-40-integracao-pdv-backend-continuidade-report.json"
+  ],
+  "identidadeTeste": {
+    "idempotency_key": "mrt40_pdv_3cb6072e",
+    "operation_id": "op_mrt40_3cb6072e",
+    "fingerprint": "b42d61a325910017a4ad427473cff2ba"
+  },
+  "registrosTesteCriados": [
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19
+  ],
+  "registrosTesteRemovidos": [
+    19,
+    12,
+    13,
+    16,
+    15,
+    18,
+    17,
+    14
+  ],
+  "resultadosTeste": [
+    {
+      "nome": "1) Modal OPCAO apresenta Credito/Debito/Voucher e captura seleção",
+      "ok": true,
+      "opcoes": [
+        "Credito",
+        "Debito",
+        "Voucher"
+      ],
+      "mensagem": "Tipo do Cartao",
+      "resposta": {
+        "informacao": "Credito"
+      }
+    },
+    {
+      "nome": "2) Fluxo PDV→backend opção Credito persistida; bridge CONTINUE; sem TX_START",
+      "ok": true,
+      "httpPedido": {
+        "transacao_id": 12,
+        "idempotency_key": "mrt40_credito_3cb6072e",
+        "venda_id": null,
+        "resposta_continuidade": {
+          "informacao": "Credito"
+        },
+        "acao": {
+          "tipo": "OPCAO",
+          "mensagem": "Tipo do Cartao",
+          "opcoes": [
+            "Credito",
+            "Debito",
+            "Voucher"
+          ],
+          "tipoDado": "X",
+          "mascara": null,
+          "chave": "transacao_tipo_cartao",
+          "timeout": "120",
+          "reconhecida": true
+        }
+      },
+      "continueCount": 1,
+      "bridgeContinua": 1,
+      "codigoRetorno": "DESTAXA_CICLO_CONTINUIDADE_SEM_RESPOSTA"
+    },
+    {
+      "nome": "2) Fluxo PDV→backend opção Debito persistida; bridge CONTINUE; sem TX_START",
+      "ok": true,
+      "httpPedido": {
+        "transacao_id": 13,
+        "idempotency_key": "mrt40_debito_3cb6072e",
+        "venda_id": null,
+        "resposta_continuidade": {
+          "informacao": "Debito"
+        },
+        "acao": {
+          "tipo": "OPCAO",
+          "mensagem": "Tipo do Cartao",
+          "opcoes": [
+            "Credito",
+            "Debito",
+            "Voucher"
+          ],
+          "tipoDado": "X",
+          "mascara": null,
+          "chave": "transacao_tipo_cartao",
+          "timeout": "120",
+          "reconhecida": true
+        }
+      },
+      "continueCount": 1,
+      "bridgeContinua": 2,
+      "codigoRetorno": "DESTAXA_CICLO_CONTINUIDADE_SEM_RESPOSTA"
+    },
+    {
+      "nome": "2) Fluxo PDV→backend opção Voucher persistida; bridge CONTINUE; sem TX_START",
+      "ok": true,
+      "httpPedido": {
+        "transacao_id": 14,
+        "idempotency_key": "mrt40_voucher_3cb6072e",
+        "venda_id": null,
+        "resposta_continuidade": {
+          "informacao": "Voucher"
+        },
+        "acao": {
+          "tipo": "OPCAO",
+          "mensagem": "Tipo do Cartao",
+          "opcoes": [
+            "Credito",
+            "Debito",
+            "Voucher"
+          ],
+          "tipoDado": "X",
+          "mascara": null,
+          "chave": "transacao_tipo_cartao",
+          "timeout": "120",
+          "reconhecida": true
+        }
+      },
+      "continueCount": 1,
+      "bridgeContinua": 3,
+      "codigoRetorno": "DESTAXA_CICLO_CONTINUIDADE_SEM_RESPOSTA"
+    },
+    {
+      "nome": "3) Opção inválida rejeitada no PDV",
+      "ok": true
+    },
+    {
+      "nome": "4) Identidade divergente (idempotency_key) bloqueada",
+      "ok": true,
+      "codigo": "TEF_IDEMPOTENCY_DIVERGENTE"
+    },
+    {
+      "nome": "5) Duplicata bloqueada no processo e após reinício; bridge não chamada",
+      "ok": true,
+      "codigoDup": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+      "childJson": {
+        "codigo": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+        "bridgeContinua": 0,
+        "bridgeInicia": 0
+      }
+    },
+    {
+      "nome": "6) Timeout: coleta expirada / estado TIMEOUT persistido",
+      "ok": true,
+      "codigoBackend": "DESTAXA_CONTINUIDADE_TIMEOUT",
+      "timeoutContrato": "DESTAXA_CONTINUIDADE_TIMEOUT"
+    },
+    {
+      "nome": "7) Ausência de TTY/UI bloqueia continuidade explicitamente",
+      "ok": true
+    },
+    {
+      "nome": "8) Falha de comunicação PDV→backend tratada sem nova cobrança",
+      "ok": true
+    },
+    {
+      "nome": "9) Duplo clique: apenas uma submissão efetiva",
+      "ok": true,
+      "clicks": 2,
+      "respostaUnica": {
+        "informacao": "Debito"
+      }
+    },
+    {
+      "nome": "10) Reabertura PDV: continuidade pendente recuperada do SQLite e respondida",
+      "ok": true,
+      "estadoAntes": "AGUARDANDO_RESPOSTA",
+      "posts": 1
+    },
+    {
+      "nome": "11) Descoberta Adapter: identidade destaxa na tx + factory → DestaxaRealAdapter",
+      "ok": true,
+      "identidadeProvedor": "destaxa",
+      "configTesteProvedor": null,
+      "configTesteAmbiente": "simulacao",
+      "adapterNome": "Destaxa"
+    },
+    {
+      "nome": "12) Gate OFF; IDs MRT-40; MRT-24/36 preservados",
+      "ok": true
+    },
+    {
+      "nome": "13) Limpeza somente registros MRT-40",
+      "ok": true,
+      "apagados": [
+        19,
+        12,
+        13,
+        16,
+        15,
+        18,
+        17,
+        14
+      ]
+    }
+  ],
+  "confirmacoes": {
+    "gateOff": true,
+    "zeroOperacoesFinanceirasReais": true,
+    "dllNaoCarregada": true,
+    "vspagueNaoIniciado": true,
+    "nativeHostSimulado": true,
+    "adapterSimulado": true,
+    "mrt24UnknownPreservado": true,
+    "mrt36NaoReutilizada": true,
+    "producaoNaoAlterada": true,
+    "nenhumNovoTxStart": true
+  },
+  "correcoesAplicadas": [
+    "PDV preserva código de erro específico (timeout/SEM_TTY) em conduzirContinuidade",
+    "PDV trata falha de comunicação (DESTAXA_PDV_FALHA_COMUNICACAO) sem nova cobrança",
+    "PDV montarResultadoContinuidadePendente para reabertura com 99 persistido",
+    "Persistência de teste aceita prefixo mrt40_"
+  ],
+  "riscosResiduais": [
+    "POST /tef/continuar exercitado via Cont.postContinuar → TefManager (sem Express/auth HTTP real neste sprint)",
+    "obterAdapterDaTransacao stubado para injetar bridge mock; descoberta de provedor/factory DestaxaRealAdapter comprovada em paralelo",
+    "Após opção, mock devolve novo 99 (pendente) de propósito — sem FINALIZE financeiro"
+  ],
+  "recomendacao": "Aguardar Tech Lead. Não iniciar MRT-41 automaticamente."
+}

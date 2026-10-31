@@ -1,0 +1,162 @@
+{
+  "sprint": "MRT-38",
+  "title": "Hardening da continuidade interativa Destaxa",
+  "generatedAt": "2026-10-30T22:37:15.567Z",
+  "classificacaoGeral": "CORRIGIDO",
+  "identidades": {
+    "usadasNosTestes": {
+      "idempotency_key": "mrt38_sim_continuidade_opcao_a1b2",
+      "transactionId": "tx-mrt38-sim-9001",
+      "operation_id": "op_mrt38_sim_continuidade"
+    },
+    "mrt24NaoReutilizada": true,
+    "mrt36NaoReutilizada": true,
+    "unknownPreservado": true
+  },
+  "capacidades": {
+    "interpretar99Opcao": "IMPLEMENTADO",
+    "validarOpcaoLiteral": "IMPLEMENTADO",
+    "construirInformacao": "IMPLEMENTADO",
+    "rejeitarOpcaoInvalida": "IMPLEMENTADO",
+    "naoAprovar99": "IMPLEMENTADO",
+    "semNovoTxStartNaContinuidade": "IMPLEMENTADO",
+    "correlacaoIdentidadeCiclo": "IMPLEMENTADO",
+    "adapterContinuarSemTxStart": "IMPLEMENTADO",
+    "protecaoRespostaDuplicada": "CORRIGIDO",
+    "protecaoTimeout": "CORRIGIDO",
+    "protecaoSemTty": "CORRIGIDO",
+    "correlacaoIdentidadePedido": "IMPLEMENTADO",
+    "transportePdvApi": "IMPLEMENTADO",
+    "perdaComunicacaoContinue": "IMPLEMENTADO",
+    "ausenciaOperador": "IMPLEMENTADO",
+    "preservacaoUnknown": "IMPLEMENTADO",
+    "fluxoApiTefManager": "IMPLEMENTADO"
+  },
+  "sequenciaValidada": [
+    "receber 99",
+    "interpretar OPCAO",
+    "exibir opções (contrato PDV)",
+    "receber seleção literal",
+    "validar opção",
+    "construir informacao=Credito",
+    "correlacionar identidade",
+    "continuarCicloCrt mock (sem TX_START)"
+  ],
+  "garantias": {
+    "nenhumNovoTxStartNaContinuidade": true,
+    "nenhumaNovaIdentidade": true,
+    "nenhumaAprovacaoAutomatica99": true,
+    "nenhumRetryAutomatico": true,
+    "rejeicaoOpcaoNaoOferecida": true,
+    "protecaoRespostaDuplicada": true,
+    "protecaoTimeout": true,
+    "falhaExplicitaSemTty": true,
+    "preservacaoUnknown": true
+  },
+  "arquivosAlterados": [
+    "backend/services/tef/destaxa/destaxaContinuidadeContrato.js",
+    "backend/services/tef/adapters/DestaxaRealAdapter.js",
+    "frontend/pdv/js/pdvTefContinuidade.js",
+    "tests/tef/mrt-38-hardening-continuidade-interativa.test.js",
+    "docs/build/mrt-38-hardening-continuidade-interativa-report.json"
+  ],
+  "testes": {
+    "arquivo": "tests/tef/mrt-38-hardening-continuidade-interativa.test.js",
+    "resultados": [
+      {
+        "nome": "1) 99 → ACTION_REQUIRED e parse OPCAO com chave",
+        "ok": true
+      },
+      {
+        "nome": "2) opção válida literal Credito → informacao=Credito",
+        "ok": true
+      },
+      {
+        "nome": "2) opção válida literal Debito → informacao=Debito",
+        "ok": true
+      },
+      {
+        "nome": "2) opção válida literal Voucher → informacao=Voucher",
+        "ok": true
+      },
+      {
+        "nome": "3) opção não oferecida rejeitada",
+        "ok": true
+      },
+      {
+        "nome": "4) 99 sem fila → CONTINUIDADE_SEM_RESPOSTA; sem auto-aprovação; 1 TX_START",
+        "ok": true
+      },
+      {
+        "nome": "5) CONTINUE mock Credito: mesma transactionId; zero TX_START extra",
+        "ok": true
+      },
+      {
+        "nome": "6) Adapter.continuarPagamento monta continuidade sem TX_START",
+        "ok": true
+      },
+      {
+        "nome": "7) resposta duplicada bloqueada",
+        "ok": true
+      },
+      {
+        "nome": "8) timeout coleta → UNKNOWN hint; sem retry",
+        "ok": true
+      },
+      {
+        "nome": "9) sem TTY/operador falha explícita (não silenciosa)",
+        "ok": true
+      },
+      {
+        "nome": "10) correlação identidade: divergente e ausente bloqueados",
+        "ok": true
+      },
+      {
+        "nome": "11) PDV validarResposta + pedido /continuar sem novo TX",
+        "ok": true
+      },
+      {
+        "nome": "12) timeout/perda em CONTINUE → inconclusivo; sem retry; sem novo TX_START",
+        "ok": true
+      },
+      {
+        "nome": "13) ausência de seleção OPCAO",
+        "ok": true
+      },
+      {
+        "nome": "14) gate OFF; IDs de teste ≠ MRT-24/36",
+        "ok": true
+      },
+      {
+        "nome": "15) audit estático: /continuar → continuarAutorizacao; continuarCicloCrt sem TX_START",
+        "ok": true
+      }
+    ],
+    "totalOk": 17
+  },
+  "riscosResiduais": [
+    "TefManager.continuarAutorizacao ainda depende de DB real em produção — não exercitado financeiramente nesta sprint",
+    "Anti-duplicata é por processo (Map em memória); reinício do Node limpa o registro",
+    "Timeout PDV no modal só aplica se acao.timeout vier preenchido do provedor",
+    "Continuidade financeira real (CONTINUE na DLL) permanece fora de escopo até autorização futura"
+  ],
+  "restricoesObservadas": {
+    "gateOff": true,
+    "init": false,
+    "dllReal": false,
+    "nativeHostReal": false,
+    "vspague": false,
+    "crtFinanceira": false,
+    "continueFinanceiro": false,
+    "est": false,
+    "dbProducao": false
+  },
+  "confirmacoes": {
+    "gateOff": true,
+    "zeroOperacoesFinanceiras": true,
+    "mrt24NaoReutilizada": true,
+    "mrt36NaoReutilizada": true,
+    "semMecanismoParalelo": true
+  },
+  "recomendacao": "Aguardar Tech Lead. Não iniciar MRT-39 automaticamente. Próxima CRT/CONTINUE real só com PO + PDV com UI e gate pontual."
+}

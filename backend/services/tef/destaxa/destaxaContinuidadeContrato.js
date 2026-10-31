@@ -3,6 +3,10 @@
 /**
  * MRT-22 — Contrato de continuidade CRT Destaxa para o PDV.
  * Espelha TIPOS_ACAO / formato de respostasContinuidade sem inventar campos Destaxa.
+ *
+ * MRT-38 — Hardening no mesmo contrato (sem mecanismo paralelo):
+ * timeout de coleta, resposta duplicada, ausência de operador/TTY,
+ * correlação de identidade antes do ciclo.
  */
 
 const { TIPOS_ACAO } = require('./destaxaConstantes');
@@ -13,6 +17,22 @@ const TIPOS_CONTINUIDADE = Object.freeze({
   COLETA: TIPOS_ACAO.COLETA,
   OPCAO: TIPOS_ACAO.OPCAO
 });
+
+const ERROS_CONTINUIDADE = Object.freeze({
+  OPCAO_AUSENTE: 'DESTAXA_PDV_OPCAO_AUSENTE',
+  OPCAO_INVALIDA: 'DESTAXA_PDV_OPCAO_INVALIDA',
+  COLETA_VAZIA: 'DESTAXA_PDV_COLETA_VAZIA',
+  TIMEOUT: 'DESTAXA_CONTINUIDADE_TIMEOUT',
+  RESPOSTA_DUPLICADA: 'DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA',
+  SEM_OPERADOR: 'DESTAXA_PDV_SEM_OPERADOR',
+  SEM_TTY: 'DESTAXA_PDV_SEM_TTY',
+  IDENTIDADE_AUSENTE: 'TEF_CONTINUIDADE_SEM_TRANSACAO',
+  IDENTIDADE_DIVERGENTE: 'TEF_IDEMPOTENCY_DIVERGENTE',
+  HOST_OFFLINE: 'TEF_NATIVE_HOST_SESSAO_PERDIDA'
+});
+
+/** Registro em memória do processo — protege reenvio idêntico do mesmo passo. */
+const _respostasContinuidadeEnviadas = new Map();
 
 /**
  * Normaliza ação 99 vinda do ciclo/adapter para o PDV.
@@ -150,11 +170,256 @@ function ehSolicitacaoContinuidade(resultado) {
   return codigo === '99' && resultado.sucesso !== true;
 }
 
+/**
+ * PDV headless / Node sem DOM: coleta interativa não pode ficar silenciosa.
+ */
+function avaliarDisponibilidadeOperador(ambiente = {}) {
+  if (ambiente.forcarSemOperador === true) {
+    return {
+      ok: false,
+      codigo: ERROS_CONTINUIDADE.SEM_OPERADOR,
+      mensagem: 'Operador indisponível para continuidade TEF — coleta não pode ser descartada',
+      requerIntervencao: true,
+      retryAllowed: false
+    };
+  }
+  if (ambiente.tty === false || ambiente.headless === true || ambiente.semTty === true) {
+    return {
+      ok: false,
+      codigo: ERROS_CONTINUIDADE.SEM_TTY,
+      mensagem: 'Ambiente sem TTY/UI — OPCAO/COLETA exige operador no PDV; não seguir em silêncio',
+      requerIntervencao: true,
+      retryAllowed: false
+    };
+  }
+  const temDom = ambiente.document === true
+    || (typeof document !== 'undefined' && document != null);
+  const temJquery = ambiente.jquery === true
+    || (typeof globalThis !== 'undefined' && typeof globalThis.$ === 'function');
+  if (ambiente.exigirUi === true && (!temDom || !temJquery)) {
+    return {
+      ok: false,
+      codigo: ERROS_CONTINUIDADE.SEM_TTY,
+      mensagem: 'UI PDV ausente (document/$); continuidade interativa bloqueada explicitamente',
+      requerIntervencao: true,
+      retryAllowed: false
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * Timeout do campo `timeout` (segundos) da ação 99 — autoridade do Client Destaxa.
+ * Sem solicitadaEm válido, não inventa expiração.
+ */
+function avaliarTimeoutColeta({
+  timeoutSegundos,
+  solicitadaEm,
+  agoraMs = Date.now()
+} = {}) {
+  if (timeoutSegundos == null || timeoutSegundos === '') {
+    return { ok: true, avaliado: false };
+  }
+  const seg = Number(timeoutSegundos);
+  if (!Number.isFinite(seg) || seg <= 0) {
+    return { ok: true, avaliado: false };
+  }
+  let inicioMs = null;
+  if (typeof solicitadaEm === 'number' && Number.isFinite(solicitadaEm)) {
+    inicioMs = solicitadaEm;
+  } else if (solicitadaEm != null) {
+    const parsed = Date.parse(String(solicitadaEm));
+    if (Number.isFinite(parsed)) inicioMs = parsed;
+  }
+  if (inicioMs == null) {
+    return { ok: true, avaliado: false, motivo: 'solicitadaEm ausente — timeout não avaliado' };
+  }
+  const limite = inicioMs + (seg * 1000);
+  if (agoraMs > limite) {
+    return {
+      ok: false,
+      avaliado: true,
+      codigo: ERROS_CONTINUIDADE.TIMEOUT,
+      mensagem: `Timeout de coleta (${seg}s) excedido — continuidade recusada; estado UNKNOWN; sem retry`,
+      financialStateHint: 'UNKNOWN',
+      retryAllowed: false,
+      reconciliacaoObrigatoria: true
+    };
+  }
+  return {
+    ok: true,
+    avaliado: true,
+    restanteMs: limite - agoraMs
+  };
+}
+
+function _fingerprintResposta(resposta) {
+  if (resposta == null) return '';
+  if (typeof resposta === 'string' || typeof resposta === 'number') return String(resposta).trim();
+  if (typeof resposta === 'object') {
+    if (resposta.informacao != null) return `informacao=${String(resposta.informacao).trim()}`;
+    if (resposta.displayAck === true) return 'displayAck';
+    try {
+      return JSON.stringify(resposta);
+    } catch (_) {
+      return String(resposta);
+    }
+  }
+  return String(resposta);
+}
+
+function _chaveDuplicata({ transactionId, acao, resposta }) {
+  const a = normalizarAcaoContinuidade(acao);
+  return [
+    String(transactionId || ''),
+    a.tipo || '',
+    a.chave || '',
+    a.mensagem || '',
+    _fingerprintResposta(resposta)
+  ].join('|');
+}
+
+/**
+ * Rejeita o mesmo passo+resposta já aceito nesta identidade (anti-duplo clique / reenvio).
+ */
+function registrarOuRejeitarRespostaDuplicada({
+  transactionId,
+  acao,
+  resposta,
+  registrar = true
+} = {}) {
+  if (transactionId == null || String(transactionId).trim() === '') {
+    return {
+      ok: false,
+      codigo: ERROS_CONTINUIDADE.IDENTIDADE_AUSENTE,
+      mensagem: 'transactionId obrigatório para anti-duplicata de continuidade',
+      retryAllowed: false
+    };
+  }
+  const chave = _chaveDuplicata({ transactionId, acao, resposta });
+  if (_respostasContinuidadeEnviadas.has(chave)) {
+    return {
+      ok: false,
+      codigo: ERROS_CONTINUIDADE.RESPOSTA_DUPLICADA,
+      mensagem: 'Resposta de continuidade já registrada para este passo — reenvio bloqueado',
+      retryAllowed: false
+    };
+  }
+  if (registrar) {
+    _respostasContinuidadeEnviadas.set(chave, Date.now());
+  }
+  return { ok: true, chave };
+}
+
+function limparRegistrosContinuidade(transactionId = null) {
+  if (transactionId == null) {
+    _respostasContinuidadeEnviadas.clear();
+    return;
+  }
+  const prefixo = `${String(transactionId)}|`;
+  for (const k of [..._respostasContinuidadeEnviadas.keys()]) {
+    if (k.startsWith(prefixo)) _respostasContinuidadeEnviadas.delete(k);
+  }
+}
+
+function correlacionarIdentidadeContinuidade({
+  transactionId,
+  idempotencyKeyInformada,
+  idempotencyKeyPersistida
+} = {}) {
+  if (transactionId == null || String(transactionId).trim() === '') {
+    return {
+      ok: false,
+      codigo: ERROS_CONTINUIDADE.IDENTIDADE_AUSENTE,
+      mensagem: 'transacao_id obrigatório para continuidade',
+      retryAllowed: false
+    };
+  }
+  if (idempotencyKeyInformada && idempotencyKeyPersistida
+    && String(idempotencyKeyInformada) !== String(idempotencyKeyPersistida)) {
+    return {
+      ok: false,
+      codigo: ERROS_CONTINUIDADE.IDENTIDADE_DIVERGENTE,
+      mensagem: 'idempotency_key diverge da transação — nova cobrança/TX_START proibida',
+      retryAllowed: false
+    };
+  }
+  return {
+    ok: true,
+    transactionId: String(transactionId),
+    idempotency_key: idempotencyKeyInformada || idempotencyKeyPersistida || null
+  };
+}
+
+/**
+ * Pipeline único de validação pré-ciclo (OPCAO/COLETA/DISPLAY).
+ * Não chama DLL. Não cria identidade.
+ */
+function validarContinuidadeCompleta({
+  acao,
+  respostaBruta,
+  transactionId,
+  idempotencyKeyInformada,
+  idempotencyKeyPersistida,
+  solicitadaEm,
+  agoraMs,
+  ambienteOperador,
+  registrarDuplicata = true
+} = {}) {
+  const idCheck = correlacionarIdentidadeContinuidade({
+    transactionId,
+    idempotencyKeyInformada,
+    idempotencyKeyPersistida
+  });
+  if (!idCheck.ok) return idCheck;
+
+  const op = avaliarDisponibilidadeOperador(ambienteOperador || {});
+  if (!op.ok) return op;
+
+  const acaoN = normalizarAcaoContinuidade(acao);
+  const to = avaliarTimeoutColeta({
+    timeoutSegundos: acaoN.timeout,
+    solicitadaEm,
+    agoraMs
+  });
+  if (!to.ok) return to;
+
+  const validacao = validarRespostaOperador(acaoN, respostaBruta);
+  if (!validacao.ok) return validacao;
+
+  const dup = registrarOuRejeitarRespostaDuplicada({
+    transactionId: idCheck.transactionId,
+    acao: acaoN,
+    resposta: validacao.resposta,
+    registrar: registrarDuplicata
+  });
+  if (!dup.ok) return dup;
+
+  return {
+    ok: true,
+    tipo: validacao.tipo,
+    resposta: validacao.resposta,
+    acao: acaoN,
+    transactionId: idCheck.transactionId,
+    idempotency_key: idCheck.idempotency_key,
+    entradaContinuaEsperada: validacao.resposta?.informacao != null
+      ? `informacao=${validacao.resposta.informacao}`
+      : (validacao.resposta?.displayAck ? '' : null)
+  };
+}
+
 module.exports = {
   TIPOS_CONTINUIDADE,
+  ERROS_CONTINUIDADE,
   normalizarAcaoContinuidade,
   validarRespostaOperador,
   montarPedidoContinuidade,
   ehSolicitacaoContinuidade,
+  avaliarDisponibilidadeOperador,
+  avaliarTimeoutColeta,
+  registrarOuRejeitarRespostaDuplicada,
+  limparRegistrosContinuidade,
+  correlacionarIdentidadeContinuidade,
+  validarContinuidadeCompleta,
   CICLO_ERROS_REF: CICLO_ERROS
 };

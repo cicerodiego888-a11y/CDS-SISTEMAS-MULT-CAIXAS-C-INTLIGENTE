@@ -1,0 +1,184 @@
+{
+  "sprint": "MRT-39.1",
+  "title": "Validação do caminho integrado TefManager → DestaxaRealAdapter com persistência MRT-39",
+  "generatedAt": "2026-10-30T23:00:01.047Z",
+  "classificacaoFinal": "IMPLEMENTADO",
+  "fase1Diagnostico": {
+    "dbDir": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-sistemas-test-db",
+    "dbPath": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-sistemas-test-db\\mercadao.db",
+    "ehTempCdsTestDb": true,
+    "ehProgramData": false,
+    "distintoProducao": true
+  },
+  "evidenciaBancoTeste": {
+    "caminho": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-sistemas-test-db\\mercadao.db",
+    "criterio": "DB_DIR=os.tmpdir()/cds-sistemas-test-db + CDS_TEST_ISOLAR_BANCO=1",
+    "distintoDe": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+    "comprovado": true
+  },
+  "auditoriaChamada": {
+    "caminhoOficial": [
+      "TefManager.continuarAutorizacao",
+      "obterAdapterDaTransacao (stub teste → DestaxaRealAdapter simulado)",
+      "DestaxaRealAdapter.continuarPagamento",
+      "destaxaContinuidadePersistencia + continuarCicloCrt (bridge mock)"
+    ],
+    "adapterNome": "Destaxa",
+    "persistenciaEnv": "DESTAXA_CONTINUIDADE_PERSISTENTE=1",
+    "executionMode": "in-process + bridge mock (sem DLL / sem NativeHost real)"
+  },
+  "arquivosAlterados": [
+    "backend/services/tef/TefManager.js",
+    "backend/services/tef/adapters/DestaxaRealAdapter.js",
+    "tests/tef/mrt-39-1-integracao-tefmanager-adapter.test.js",
+    "docs/build/mrt-39-1-integracao-tefmanager-adapter-report.json"
+  ],
+  "identidadeTeste": {
+    "idempotency_key": "mrt39_1_int_a5237545",
+    "operation_id": "op_mrt391_a5237545",
+    "fingerprint": "03850e1aec822f5efd70b0d9f47fd15a"
+  },
+  "registrosTesteCriados": [
+    8
+  ],
+  "registrosTesteRemovidos": [
+    8
+  ],
+  "resultadosTeste": [
+    {
+      "nome": "1) Adapter DestaxaRealAdapter com persistência durável habilitada",
+      "ok": true
+    },
+    {
+      "nome": "2) TefManager chamou DestaxaRealAdapter (caminho oficial)",
+      "ok": true,
+      "codigo": "DESTAXA_CICLO_CONTINUIDADE_SEM_RESPOSTA",
+      "bridgeContinua": 1,
+      "bridgeInicia": 0,
+      "adapterFonte": "mrt39.1-teste-simulado"
+    },
+    {
+      "nome": "3) Resposta literal Credito persistida no SQLite",
+      "ok": true,
+      "estado": "RESPONDIDA",
+      "respostas": [
+        {
+          "fingerprint": "informacao=Credito",
+          "informacao": "Credito",
+          "registradaEm": "2026-10-30T23:00:01.614Z"
+        }
+      ],
+      "continueCount": 1,
+      "txStartCount": 1
+    },
+    {
+      "nome": "4) Segunda resposta bloqueada (duplicidade)",
+      "ok": true,
+      "codigo": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+      "mensagem": "Resposta já persistida para esta solicitação — reenvio bloqueado após reinício"
+    },
+    {
+      "nome": "5) Bridge NÃO chamada na tentativa duplicada (mesmo processo)",
+      "ok": true,
+      "continua": 1,
+      "inicia": 0
+    },
+    {
+      "nome": "6) Duplicidade bloqueada após reinício (TefManager no child)",
+      "ok": true,
+      "childStatus": 3,
+      "childJson": {
+        "codigo": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+        "sucesso": false,
+        "bridgeContinua": 0,
+        "bridgeInicia": 0,
+        "mensagem": "Resposta já persistida para esta solicitação — reenvio bloqueado após reinício"
+      },
+      "stderr": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n"
+    },
+    {
+      "nome": "7) Nenhum novo TX_START (inicia=0 em todo o exercício)",
+      "ok": true,
+      "parentInicia": 0,
+      "childInicia": 0
+    },
+    {
+      "nome": "8) Gate OFF; IDs MRT-39.1; MRT-24/36 preservados UNKNOWN/INCONCLUSIVA",
+      "ok": true
+    },
+    {
+      "nome": "9) Limpeza somente registros MRT-39/39.1",
+      "ok": true,
+      "apagados": [
+        8
+      ]
+    }
+  ],
+  "evidenciasChamadas": {
+    "primeiraContinuidade": {
+      "codigo": "DESTAXA_CICLO_CONTINUIDADE_SEM_RESPOSTA",
+      "bridgeContinua": 1,
+      "bridgeInicia": 0
+    },
+    "segundaDuplicataMesmoProcesso": {
+      "codigo": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+      "bridgeContinuaInalterada": true,
+      "bridgeContinua": 1
+    },
+    "aposReinicio": {
+      "codigo": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+      "sucesso": false,
+      "bridgeContinua": 0,
+      "bridgeInicia": 0,
+      "mensagem": "Resposta já persistida para esta solicitação — reenvio bloqueado após reinício"
+    }
+  },
+  "persistenciaComprovada": {
+    "respostaCredito": true,
+    "continueCount": 1,
+    "txStartCount": 1,
+    "estadoAposPrimeira": "RESPONDIDA"
+  },
+  "recuperacaoAposReinicio": {
+    "ok": true,
+    "evidencia": {
+      "codigo": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+      "sucesso": false,
+      "bridgeContinua": 0,
+      "bridgeInicia": 0,
+      "mensagem": "Resposta já persistida para esta solicitação — reenvio bloqueado após reinício"
+    },
+    "mecanismo": "spawnSync novo processo Node; TefManager.continuarAutorizacao; anti-duplicata SQLite; bridge.continua=0"
+  },
+  "contadoresBridge": {
+    "parent": {
+      "inicia": 0,
+      "continua": 1,
+      "finaliza": 0
+    },
+    "child": {
+      "inicia": 0,
+      "continua": 0
+    }
+  },
+  "ausenciaNovoTxStart": {
+    "ok": true,
+    "evidencia": "contadores.inicia permaneceram 0 no parent e no child"
+  },
+  "confirmacoes": {
+    "gateOff": true,
+    "zeroOperacoesFinanceirasReais": true,
+    "dllNaoCarregada": true,
+    "vspagueNaoIniciado": true,
+    "nativeHostSimulado": true,
+    "adapterSimulado": true,
+    "mrt24UnknownPreservado": true,
+    "mrt36NaoReutilizada": true,
+    "producaoNaoAlterada": true
+  },
+  "riscosResiduais": [
+    "obterAdapterDaTransacao é stubado no teste para injetar DestaxaRealAdapter+bridge mock sem DLL; o binding oficial TefManager→Adapter.continuarPagamento é o exercitado",
+    "Continuidade pós-Credito permanece em 99 simulado (sem FINALIZE financeiro) para manter status pendente e validar anti-duplicata no caminho oficial"
+  ],
+  "recomendacao": "Aguardar Tech Lead. Não iniciar MRT-40 automaticamente."
+}
