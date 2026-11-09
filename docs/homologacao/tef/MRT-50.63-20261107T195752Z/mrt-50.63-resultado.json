@@ -1,0 +1,56 @@
+{
+  "sprint": "MRT-50.63",
+  "titulo": "VALIDAÇÃO FINAL DA CONFIGURAÇÃO DO TERMINAL DESTAXA",
+  "status": "CONCLUÍDA",
+  "registradoEm": "2026-11-07T19:57:52Z",
+  "pagamentoExecutado": false,
+  "chamadasFinanceiras": {
+    "iniciaTransacaoDestaxa": false,
+    "continuaTransacaoDestaxa": false,
+    "finalizaTransacaoDestaxa": false,
+    "comandosPinPad": false
+  },
+  "gate": {
+    "DESTAXA_REAL_TRANSACTION_ENABLED": { "process": "0", "user": null, "machine": null },
+    "off": true
+  },
+  "dll": {
+    "sha256": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+    "matchReferencia": true
+  },
+  "windows": {
+    "dispositivo": "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+    "porta": "COM4",
+    "status": "OK"
+  },
+  "vspague": {
+    "processo": "VSPagueClient.exe",
+    "pid": 44484,
+    "portasListening": [60603, 60906]
+  },
+  "nativeHost": {
+    "ativoNoInicio": false,
+    "iniciadoNestaSprint": false
+  },
+  "porta": {
+    "origem": "tef_pinpads.porta_com via tefConfigService",
+    "persistidaLidaNestaSprint": false,
+    "windows": "COM4",
+    "cdsAbreSerialParaTxDestaxa": false,
+    "mediacao": "V$Pague",
+    "fallbackAutomatico": false,
+    "divergenciaCom3Com4": "histórica (Windows/CDC + snapshots); não inventada pelo runtime Destaxa"
+  },
+  "crtEstatico": {
+    "debito": "transacao_valor=1.00;transacao_tipo_cartao=Débito;transacao_pagamento=A vista",
+    "creditoParcelado": "transacao_valor=1.00;transacao_tipo_cartao=Credito;transacao_pagamento=Parcelado",
+    "codigoMrt5062Alterado": false
+  },
+  "bancoOficialAberto": false,
+  "arquivosAlteradosCodigo": [],
+  "pendenciasImpeditivasParaCobrancaFutura": [
+    "Confirmar porta_com persistida == COM4 (exige leitura autorizada do banco ou UI) antes da TX",
+    "Gate permanece OFF até confirmação explícita imediata antes da chamada financeira",
+    "Nova sessão NativeHost + CLIENT_INITIALIZED necessários na sprint de execução"
+  ]
+}

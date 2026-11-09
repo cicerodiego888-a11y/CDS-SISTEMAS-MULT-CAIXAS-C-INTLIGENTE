@@ -39,6 +39,8 @@ const PROTOCOLO = '223260816956854';
 const NUMERO = 51;
 const SERIE = 1;
 const VALOR = 44;
+const XML_ASSINADO = `<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe${CHAVE}" versao="4.00"><ide><cUF>23</cUF></ide></infNFe><infNFeSupl><qrCode><![CDATA[https://nfce.sefaz.ce.gov.br/qr?ch=AUTH]]></qrCode></infNFeSupl></NFe>`;
+const XML_RETORNO = `<retEnviNFe><protNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><infProt><chNFe>${CHAVE}</chNFe><nProt>${PROTOCOLO}</nProt><cStat>100</cStat><xMotivo>Autorizado o uso da NF-e</xMotivo></infProt></protNFe></retEnviNFe>`;
 
 function openMem() {
   return new sqlite3.Database(':memory:');
@@ -212,9 +214,8 @@ describe('Sprint 08.1 — Cupom Fiscal após autorização', () => {
       valor_total, xml_enviado, xml_retorno
     ) VALUES (
       2, 4, 'AUTORIZADO', ?, ?, 1, ?, ?, '100', ?,
-      '<NFe><infNFe><qrCode><![CDATA[https://nfce.sefaz.ce.gov.br/qr?ch=AUTH]]></qrCode></infNFe></NFe>',
-      '<retEnviNFe><protNFe><infProt><nProt>223260816956854</nProt></infProt></protNFe></retEnviNFe>'
-    )`, [NUMERO, String(SERIE), CHAVE, PROTOCOLO, VALOR]);
+      ?, ?
+    )`, [NUMERO, String(SERIE), CHAVE, PROTOCOLO, VALOR, XML_ASSINADO, XML_RETORNO]);
     await run(db, `INSERT INTO fechamentos_fiscais_documentos_itens
       (documento_id, produto_id, descricao, quantidade, valor_unitario, valor_total, unidade, ordem)
       VALUES (2, 1, 'Item Fechamento', 1, 44, 44, 'UN', 1)`);

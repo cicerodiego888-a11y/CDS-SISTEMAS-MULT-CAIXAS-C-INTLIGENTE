@@ -1,0 +1,18 @@
+{
+  "gravacao": false,
+  "pinpads": [
+    {
+      "id": 1,
+      "codigo": "GERTEC_PPC930",
+      "porta_com": "COM4",
+      "habilitado": 1,
+      "status": "desconhecido",
+      "provedor": "destaxa",
+      "ambiente": "homologacao"
+    }
+  ],
+  "porta_com": "COM4",
+  "com4": true,
+  "pendentesOuUnknown": [],
+  "temPendenciaBloqueante": false
+}

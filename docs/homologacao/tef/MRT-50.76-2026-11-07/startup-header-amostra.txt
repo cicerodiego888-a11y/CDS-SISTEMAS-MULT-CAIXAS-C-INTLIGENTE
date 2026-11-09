@@ -1,0 +1,40 @@
+﻿2026-11-07 00:21:42,619 INFO vespague.client.graphic.VeSPagueClient [main] 
+/\/\/\/\/\/\/\/\ V$PagueClient started at Sat Nov 07 00:21:42 GMT-03:00 2026 /\/\/\/\/\/\/\/\
+              JAVA_VERSION: 25
+       JAVA_VERSION_DETAIL: 25.0.1+8-LTS
+       JAVA_MEMORY_MAXIMUM: 512MB(Xmx)
+                   OS_NAME: Windows 10
+           OS_ARCHITECTURE: amd64
+                 HOST_NAME: desktop-4b8amm3
+          HOST_MAC_ADDRESS: 00:15:5D:D0:2D:3E | 00:15:5D:65:9B:C4 | C0:A8:10:DB:EE:A2 | F2:FF:62:39:B0:F2 | C0:A8:10:DB:EE:9E | C0:A8:10:DB:EE:9F | C2:A8:10:DB:EE:9E
+       HostMacAddressGet(): 00:15:5D:D0:2D:3E
+           MacAdressFilter: 00:15:5D:D0:2D:3E | 00:15:5D:65:9B:C4 | C0:A8:10:DB:EE:9E
+           HOST_IP_ADDRESS: 172.27.224.1 | 172.23.208.1 | 127.0.0.1 | 192.168.0.15
+        HostIpAddressGet(): 172.27.224.1
+               APPLICATION: V$PagueClient[5.0.0]
+          APPLICATION_NAME: V$PagueClient
+         APPLICATION_TITLE: Destaxa
+       APPLICATION_VERSION: 5.0.0
+          APPLICATION_PATH: jar:file:/C:/VBI/V$Pague/Client/V$PagueClient.jar!/BOOT-INF/classes!/
+    APPLICATION_PATH_CLASS: jar:file:/C:/VBI/V$Pague/Client/V$PagueClient.jar!/BOOT-INF/classes!/(vespague.client.graphic.VSPagueClientWindows)
+       APPLICATION_JARFILE: null
+OPTIONAL_PACKAGE_DIRECTORY: null
+                   Graphic: true
+2026-11-07 00:21:42,631 INFO vespague.client.graphic.VeSPagueClient [main] Inicializando Versao 5.0.0-1-e094d4f-1084-release
+2026-11-07 00:21:42,633 INFO vespague.client.graphic.VeSPagueClient [main] V$PagueClient[5.0.0] iniciado
+2026-11-07 00:21:43,413 INFO lib.comm.VeSCommSocket [main] Trying with certificate not self signed: false
+2026-11-07 00:21:43,658 INFO lib.comm.VeSComm [main] VBIComm(app-partner.destaxa.cloud:60410(0)<>2/2026-11-07 00:21:43.507/Socket:SSLSocket[hostname=app-partner.destaxa.cloud, port=60410, Session(1794021703569|TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)]SSL/TLS) - Connected successfull
+2026-11-07 00:21:43,659 INFO lib.comm.VeSCommSocket [main] Tryied with certificate not self signed: true
+2026-11-07 00:21:43,659 INFO lib.comm.VeSComm [main] VBIComm(app-partner.destaxa.cloud:60410(0)) - Connection procedure started
+2026-11-07 00:21:43,661 INFO vespague.client.interaction.VeSPagueClientToServer [main] enviando servico [V&SCommService/V&SPagueServer/Identificar]
+2026-11-07 00:21:43,661 WARN lib.comm.VeSComm [VBICommClient.Receive] VBIComm(app-partner.destaxa.cloud:60410(0)) - Connection breaked: Connection breaked (-1) (129.148.36.0)
+2026-11-07 00:21:43,669 INFO lib.comm.VeSCommSocket$1 [VBICommSocket.Connect] VBICommSocket(app-partner.destaxa.cloud:60410(0)) - Reconnection on demand in progress ... lib.comm.VeSCommSocket$1@736a179f
+2026-11-07 00:21:43,782 INFO lib.comm.VeSCommSocket [VBICommSocket.Connect] Trying with certificate not self signed: false
+2026-11-07 00:21:43,953 INFO lib.comm.VeSComm [VBICommSocket.Connect] VBIComm(app-partner.destaxa.cloud:60410(0)<>4/2026-11-07 00:21:43.838/Socket:SSLSocket[hostname=app-partner.destaxa.cloud, port=60410, Session(1794021703896|TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)]SSL/TLS) - Connected successfull
+2026-11-07 00:21:43,953 INFO lib.comm.VeSCommSocket [VBICommSocket.Connect] Tryied with certificate not self signed: true
+2026-11-07 00:21:43,956 WARN lib.comm.VeSComm [VBIComm.ReceiveWait(app-partner.destaxa.cloud:60410(0))] VBIComm(app-partner.destaxa.cloud:60410(0)) - Connection breaked: Connection breaked (-1) (129.148.36.0)
+2026-11-07 00:21:53,958 ERROR vespague.client.interaction.VeSPagueClientTransactionManager [main] vspg-id-d0ad7260: Tempo de resposta foi excedido. Isso pode ser momentâneo. Tente novamente
+2026-11-07 00:22:04,006 INFO vespague.client.interaction.VeSPagueClientToServer [main] vspg-id-d0ad7260 iniciando Destaxa-LojaACB-TACB0120
+2026-11-07 00:22:04,090 INFO lib.comm.VeSComm [main] VBIComm(>listen<:60906(0)) - Connection procedure started
+2026-11-07 00:22:04,090 INFO vespague.client.interaction.VeSPagueClientToServer [main] aplicacao configurada com modo de processamento "Background"
+2026-11-07 00:40:33,154 INFO lib.comm.VeSComm [VBICommSocket.Listen] VBIComm(>listen<:60906(0)<>1/2026-11-07 00:40:33.094/Socket:Socket[addr=/127.0.0.1,port=57527,localport=60906]) - Connected successfull

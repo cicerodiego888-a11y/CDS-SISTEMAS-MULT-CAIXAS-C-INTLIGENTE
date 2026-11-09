@@ -1,0 +1,86 @@
+{
+  "mrt": "MRT-50.74",
+  "fonte": "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+  "fusoLog": "America/Recife (JVM -Duser.timezone)",
+  "eventos": [
+    {
+      "t": "19:23:38.089",
+      "fase": "local",
+      "fato": "DLL/AC conectou em listen 127.0.0.1:60906"
+    },
+    {
+      "t": "19:23:38.232",
+      "fase": "automacao",
+      "fato": "iniciar seq=1 CDS Sistemas 1.0.3"
+    },
+    {
+      "t": "19:23:38.277",
+      "fase": "automacao",
+      "fato": "Client respondeu Sequencial invalido (retorno 2, sequencial 3)"
+    },
+    {
+      "t": "19:23:38.280",
+      "fase": "automacao",
+      "fato": "iniciar reenviado seq=3"
+    },
+    {
+      "t": "19:23:38.289",
+      "fase": "automacao",
+      "fato": "iniciar aceito estado=11"
+    },
+    {
+      "t": "19:23:38.299",
+      "fase": "automacao",
+      "fato": "executar CRT tipoCartao=Debito valor=1.00 pagamento=A vista — parse aceita"
+    },
+    {
+      "t": "19:23:38.829",
+      "fase": "partner",
+      "fato": "enviando Identificar para V$PagueServer / Partner Cloud"
+    },
+    {
+      "t": "19:23:38.855",
+      "fase": "partner",
+      "fato": "Reconnection on demand app-partner.destaxa.cloud:60410"
+    },
+    {
+      "t": "19:23:39.643",
+      "fase": "partner",
+      "fato": "TLS Connected successfull (ECDHE_RSA_AES_256_GCM_SHA384)"
+    },
+    {
+      "t": "19:23:39.649",
+      "fase": "partner",
+      "fato": "Connection breaked (-1) peer 129.148.36.0 — ~6 ms após TLS"
+    },
+    {
+      "t": "19:23:49.842",
+      "fase": "timeout",
+      "fato": "~10 s depois: Tempo de resposta foi excedido"
+    },
+    {
+      "t": "19:23:50.038",
+      "fase": "resultado",
+      "fato": "coletaRetorno:9 → Destaxa/AC código 09"
+    },
+    {
+      "t": "19:23:50.042",
+      "fase": "local",
+      "fato": "servico finalizar seq=5"
+    }
+  ],
+  "padraoRecorrenteMesmoDia": [
+    {
+      "janela": "00:21:43",
+      "padrao": "TLS OK → Identificar → Connection breaked 129.148.36.0 → timeout ~10s"
+    },
+    {
+      "janela": "15:20:35",
+      "padrao": "TLS OK → Identificar → Connection breaked (múltiplas reconexões) → Problema de conexão"
+    },
+    {
+      "janela": "19:23:38",
+      "padrao": "igual MRT-50.74 durante CRT Debito"
+    }
+  ]
+}

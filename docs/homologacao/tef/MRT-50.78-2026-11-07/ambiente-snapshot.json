@@ -1,0 +1,85 @@
+{
+    "gate":  "0",
+    "portsPnp":  [
+                     {
+                         "Status":  "Unknown",
+                         "Class":  "Ports",
+                         "FriendlyName":  "Dispositivo Serial USB (COM7)",
+                         "InstanceId":  "USB\\VID_11CA\u0026PID_AAAA\u0026MI_02\\6\u002611D40A23\u00260\u00260002",
+                         "Problem":  45,
+                         "ProblemDescription":  ""
+                     },
+                     {
+                         "Status":  "Unknown",
+                         "Class":  "Ports",
+                         "FriendlyName":  "PPC-920/930 CDC USB-to-Serial Port (COM3)",
+                         "InstanceId":  "USB\\VID_1753\u0026PID_C902\\5\u00261587D4E6\u00260\u00263",
+                         "Problem":  45,
+                         "ProblemDescription":  ""
+                     },
+                     {
+                         "Status":  "OK",
+                         "Class":  "Ports",
+                         "FriendlyName":  "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+                         "InstanceId":  "USB\\VID_1753\u0026PID_C902\\5\u00261587D4E6\u00260\u00264",
+                         "Problem":  0,
+                         "ProblemDescription":  null
+                     }
+                 ],
+    "gertecRelated":  [
+                          {
+                              "Status":  "Unknown",
+                              "Class":  "Ports",
+                              "FriendlyName":  "PPC-920/930 CDC USB-to-Serial Port (COM3)",
+                              "InstanceId":  "USB\\VID_1753\u0026PID_C902\\5\u00261587D4E6\u00260\u00263"
+                          },
+                          {
+                              "Status":  "OK",
+                              "Class":  "Ports",
+                              "FriendlyName":  "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+                              "InstanceId":  "USB\\VID_1753\u0026PID_C902\\5\u00261587D4E6\u00260\u00264"
+                          }
+                      ],
+    "serialPorts":  [
+                        {
+                            "DeviceID":  "COM4",
+                            "Name":  "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+                            "Status":  "OK",
+                            "PNPDeviceID":  "USB\\VID_1753\u0026PID_C902\\5\u00261587D4E6\u00260\u00264",
+                            "Description":  "PPC-920/930 CDC USB-to-Serial Port"
+                        }
+                    ],
+    "drivers":  [
+                    {
+                        "DeviceName":  "PPC-920/930 CDC USB-to-Serial Port",
+                        "DriverVersion":  "5.1.2600.0",
+                        "DriverDate":  "\/Date(1628208000000)\/",
+                        "DriverProviderName":  "Gertec Brasil Ltda",
+                        "InfName":  "oem13.inf",
+                        "HardwareID":  "USB\\VID_1753\u0026PID_C902\u0026REV_0000",
+                        "IsSigned":  false,
+                        "Manufacturer":  "Gertec Brasil Ltda"
+                    }
+                ],
+    "relatedProcesses":  [
+                             {
+                                 "ProcessId":  44484,
+                                 "Name":  "VSPagueClient.exe",
+                                 "Cmd":  "VSPagueClient  -Xms64m -Xmx512m -Dfile.encoding=ISO8859-1 -Duser.timezone=America/Recife -jar C:\\VBI\\V$Pague\\Client\\V$PagueClient.jar -h app-partner.destaxa.cloud -p 60410 -atv server -tls"
+                             }
+                         ],
+    "listenPorts":  [
+                        {
+                            "LocalAddress":  "::",
+                            "LocalPort":  60906,
+                            "OwningProcess":  44484,
+                            "State":  2
+                        },
+                        {
+                            "LocalAddress":  "::",
+                            "LocalPort":  60603,
+                            "OwningProcess":  44484,
+                            "State":  2
+                        }
+                    ]
+}

@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { AsyncLocalStorage } = require('async_hooks');
 const { obterAdapter, criarAdapter } = require('./tefFactory');
 const { selecionarAdapterPorRouteDecision } = require('./tefAdapterSelection');
 const {
@@ -12,7 +13,18 @@ const repository = require('./tefRepository');
 const tefEvents = require('./tefEvents');
 const tefContrato = require('./tefContrato');
 const TefFiscalValidator = require('./tefFiscalValidator');
+const tefFiscalContextService = require('./tefFiscalContextService');
 const DataMaskingService = require('../crypto/dataMaskingService');
+const {
+  EVENTO_LIBERACAO,
+  EVENTO_COMMIT,
+  criarClaimsEvidencia,
+  assinarEvidencia,
+  assinarAutorizacaoReconciliacao: assinarClaimsAutorizacaoReconciliacao,
+  assinarBootstrapSeguranca: assinarClaimsBootstrapSeguranca,
+  validarEvidenciaTransacao,
+  obterChavePublica
+} = require('./tefReconciliationEvidence');
 const tefLockService = require('./tefLockService');
 const tefFraudDetectionService = require('./tefFraudDetectionService');
 const tefRetryService = require('./tefRetryService');
@@ -21,6 +33,10 @@ const tefFailureNotificationService = require('./tefFailureNotificationService')
 const tefFluxoPagamento = require('./tefFluxoPagamento');
 const tefRouterIntegration = require('./tefRouterIntegration');
 const { obterTerminalRecoveryService } = require('./terminalRecovery');
+const {
+  ESTADOS_BOOTSTRAP,
+  PROTOCOLO
+} = require('./destaxa/destaxaNativeHostProtocolo');
 const {
   FINANCIAL_STATES,
   classificarErroFinanceiro,
@@ -47,6 +63,163 @@ const STATUS_POR_RECONCILIACAO = Object.freeze({
   CANCELLED: tefContrato.STATUS.CANCELADO
 });
 
+function identidadeTransacaoPersistida(linha) {
+  const payload = linha?.payload_retorno || {};
+  const persistencia = payload.persistencia || {};
+  if (linha?.idempotency_key
+    && persistencia.idempotency_key
+    && String(linha.idempotency_key) !== String(persistencia.idempotency_key)) {
+    const error = new Error('idempotency_key divergente entre linha e payload TEF');
+    error.code = 'TEF_RECONCILIACAO_IDENTIDADE_DIVERGENTE';
+    throw error;
+  }
+  return {
+    transactionId: linha?.id != null ? String(linha.id) : null,
+    operation_id: persistencia.operation_id || linha?.codigo_transacao || null,
+    idempotency_key: linha?.idempotency_key || persistencia.idempotency_key || null,
+    fingerprint: persistencia.fingerprint || null
+  };
+}
+
+function validarRegistroReconciliacao(linha, dados, statusEsperado) {
+  const identidade = identidadeTransacaoPersistida(linha);
+  const reconciliacao = linha?.payload_retorno?.reconciliacao;
+  const statusFinal = STATUS_POR_RECONCILIACAO[dados?.financialState];
+  const identidadeIncompleta = [
+    identidade.transactionId,
+    identidade.operation_id,
+    identidade.idempotency_key,
+    identidade.fingerprint
+  ].some((valor) => typeof valor !== 'string' || !valor.trim());
+  const diferencaIdentidade = !reconciliacao
+    || String(reconciliacao.transactionId || '') !== identidade.transactionId
+    || (identidade.operation_id != null
+      && String(reconciliacao.operation_id || '') !== String(identidade.operation_id))
+    || (identidade.idempotency_key != null
+      && String(reconciliacao.idempotency_key || '') !== String(identidade.idempotency_key))
+    || (identidade.fingerprint != null
+      && String(reconciliacao.fingerprint || '') !== String(identidade.fingerprint));
+  if (!linha
+    || identidadeIncompleta
+    || String(linha.id) !== identidade.transactionId
+    || linha.status !== statusEsperado
+    || diferencaIdentidade
+    || reconciliacao.financialState !== dados.financialState
+    || reconciliacao.resultStatus !== statusFinal
+    || String(reconciliacao.usuario || '') !== String(dados.usuario || '')
+    || String(reconciliacao.observacao || '') !== String(dados.observacao || '')
+    || reconciliacao.confirmacao_explicita !== true) {
+    const error = new Error('Registro TEF não confirma integralmente a identidade e o desfecho da reconciliação');
+    error.code = 'TEF_RECONCILIACAO_PERSISTENCIA_DIVERGENTE';
+    throw error;
+  }
+  return { identidade, reconciliacao };
+}
+
+function lerPayloadEvidencia(row) {
+  try {
+    if (typeof row?.payload === 'string') return JSON.parse(row.payload);
+    if (row?.payload && typeof row.payload === 'object' && !Array.isArray(row.payload)) return row.payload;
+  } catch (_) {
+    return null;
+  }
+  return null;
+}
+
+function eventoPertenceATransacao(row, transactionId) {
+  if (String(row?.transacao_id ?? '') === String(transactionId)) return true;
+  const payload = lerPayloadEvidencia(row);
+  const transactionIdDoPayload = payload?.claims?.transactionId
+    || payload?.transactionId
+    || payload?.transacao_id;
+  return transactionIdDoPayload != null
+    && String(transactionIdDoPayload) === String(transactionId);
+}
+
+function validarParEvidenciasReconciliacao(linha, reconciliacao, identidade, eventos) {
+  const id = String(linha.id);
+  const liberacoes = eventos.filter((row) =>
+    row.tipo === EVENTO_LIBERACAO && eventoPertenceATransacao(row, id));
+  const commits = eventos.filter((row) =>
+    row.tipo === EVENTO_COMMIT && eventoPertenceATransacao(row, id));
+  if (liberacoes.length !== 1 || commits.length !== 1) {
+    throw new Error('Evidência de RELEASE/COMMIT ausente ou duplicada');
+  }
+
+  const eventoRelease = liberacoes[0];
+  const eventoCommit = commits[0];
+  const release = validarEvidenciaTransacao(
+    lerPayloadEvidencia(eventoRelease),
+    EVENTO_LIBERACAO,
+    identidade
+  );
+  const commit = validarEvidenciaTransacao(
+    lerPayloadEvidencia(eventoCommit),
+    EVENTO_COMMIT,
+    identidade
+  );
+  if (!release || !commit
+    || String(eventoRelease.transacao_id ?? '') !== id
+    || String(eventoCommit.transacao_id ?? '') !== id
+    || release.transacao_id !== id
+    || release.financialState !== reconciliacao.financialState
+    || release.resultStatus !== linha.status
+    || release.usuario !== String(reconciliacao.usuario || '')
+    || commit.transacao_id !== id
+    || commit.transactionId !== release.transactionId
+    || commit.operation_id !== release.operation_id
+    || commit.idempotency_key !== release.idempotency_key
+    || commit.fingerprint !== release.fingerprint
+    || commit.financialState !== release.financialState
+    || commit.resultStatus !== release.resultStatus
+    || commit.usuario !== release.usuario
+    || commit.releaseEvidenceId !== release.evidenceId
+    || commit.releaseTimestamp !== release.timestamp) {
+    throw new Error('Evidência assinada não corresponde à identidade ou ao desfecho persistido');
+  }
+  return { release, commit };
+}
+
+function registrarLogPersistido(transacaoId, tipo, mensagem, payload) {
+  return new Promise((resolve, reject) => {
+    repository.registrarLog(transacaoId, tipo, mensagem, payload, (error, logId) => {
+      if (error) return reject(error);
+      if (logId == null) return reject(new Error(`Log TEF não foi persistido: ${tipo}`));
+      resolve(logId);
+    });
+  });
+}
+
+function clienteTemReconciliacaoPendente(cliente, transactionId) {
+  const pendente = cliente?.getEstado?.().reconciliacaoPendente;
+  return String(pendente?.transactionId || '') === String(transactionId || '');
+}
+
+function assinarAutorizacaoReconciliacao(linha, registroValidado, hostSessionId, phase) {
+  const { identidade, reconciliacao } = registroValidado;
+  const claims = {
+    version: 1,
+    authorizationId: crypto.randomBytes(16).toString('hex'),
+    hostSessionId: String(hostSessionId),
+    transactionId: identidade.transactionId,
+    operation_id: identidade.operation_id,
+    idempotency_key: identidade.idempotency_key,
+    fingerprint: identidade.fingerprint,
+    financialState: reconciliacao.financialState,
+    recordStatus: linha.status,
+    resultStatus: reconciliacao.resultStatus,
+    usuario: reconciliacao.usuario,
+    observacao: reconciliacao.observacao,
+    phase,
+    issuedAt: Date.now()
+  };
+  return assinarClaimsAutorizacaoReconciliacao(claims);
+}
+
+function assinarBootstrapSeguranca(claims) {
+  return assinarClaimsBootstrapSeguranca(claims);
+}
+
 function processoVivo(pid) {
   try {
     process.kill(pid, 0);
@@ -66,6 +239,7 @@ class TefManager {
     // Espelho em memória das linhas tef_transacoes com status `pendente`
     // (operação sem desfecho seguro). O banco é a fonte da verdade.
     this._pendencias = new Map();
+    this._liberacoesBootstrapPendentes = new Set();
     this._emExecucao = new Set();
     this._escritasPendentes = new Set();
     this._idsRecuperadosRegistrados = new Set();
@@ -74,9 +248,59 @@ class TefManager {
     /** MRT-22 — ciclo CRT aguardando COLETA/OPCAO do PDV (mesmo transactionId / sem novo TX_START). */
     this._continuidadeCrt = null;
     this._instanciaId = `${process.pid}-${crypto.randomBytes(4).toString('hex')}`;
+    this._nativeHostIntent = new AsyncLocalStorage();
+    const { obterClienteCompartilhado } = require('./destaxa/DestaxaNativeHostClient');
+    this._nativeHostClient = opcoes.nativeHostClient || obterClienteCompartilhado();
+    this._configuracaoCriptografica = {
+      disponivel: false,
+      codigo: 'TEF_CRIPTOGRAFIA_INDISPONIVEL'
+    };
+    try {
+      this._nativeHostClient.configurarChavePublicaReconciliacao(obterChavePublica());
+      this._configuracaoCriptografica = { disponivel: true, codigo: null };
+    } catch (error) {
+      this._configuracaoCriptografica = {
+        disponivel: false,
+        codigo: error.code || 'TEF_CRIPTOGRAFIA_INDISPONIVEL'
+      };
+      console.error(
+        '[SEGURANÇA] TefManager indisponível por configuração criptográfica inválida:',
+        this._configuracaoCriptografica.codigo
+      );
+    }
+    if (typeof this._nativeHostClient.configurarProvedorBootstrapSeguranca === 'function') {
+      this._nativeHostClient.configurarProvedorBootstrapSeguranca((contexto) =>
+        this._criarBootstrapSeguranca(contexto));
+    }
     if (opcoes.recuperarNoInicio !== false) {
       setImmediate(() => this.garantirRecuperacao().catch(() => {}));
     }
+  }
+
+  obterEstadoConfiguracaoCriptografica() {
+    return {
+      estado: this._configuracaoCriptografica.disponivel ? 'DISPONIVEL' : 'INDISPONIVEL',
+      disponivel: this._configuracaoCriptografica.disponivel,
+      codigo: this._configuracaoCriptografica.codigo
+    };
+  }
+
+  _exigirConfiguracaoCriptografica() {
+    if (this._configuracaoCriptografica.disponivel) return;
+    const error = new Error('TEF indisponível: configuração criptográfica de assinatura ausente ou inválida');
+    error.code = 'TEF_CRIPTOGRAFIA_INDISPONIVEL';
+    error.configuracaoCodigo = this._configuracaoCriptografica.codigo;
+    throw error;
+  }
+
+  _resultadoCriptografiaIndisponivel() {
+    return {
+      sucesso: false,
+      codigo: 'TEF_CRIPTOGRAFIA_INDISPONIVEL',
+      mensagem: 'TEF indisponível: configuração criptográfica de assinatura ausente ou inválida',
+      retryAllowed: false,
+      tefDisponivel: false
+    };
   }
 
   _capturarSessaoNativeHost() {
@@ -94,6 +318,97 @@ class TefManager {
     } catch (_) {
       return null;
     }
+  }
+
+  async _criarBootstrapSeguranca(contexto = {}) {
+      this._exigirConfiguracaoCriptografica();
+      await this.garantirRecuperacao();
+      await this.recarregarPendencias();
+      const linhas = await new Promise((resolve, reject) => {
+        repository.listarTransacoesPendentes((err, rows) => (err ? reject(err) : resolve(rows || [])));
+      });
+      const porId = new Map(linhas.map((linha) => [String(linha.id), linha]));
+      for (const trava of this._pendencias.values()) {
+        if (trava.reconciliacaoPersistenciaIncompleta !== true || porId.has(trava.transacaoId)) continue;
+        const identidade = trava.recuperacao || {};
+        porId.set(trava.transacaoId, {
+          id: trava.transacaoId,
+          status: tefContrato.STATUS.PENDENTE,
+          codigo_transacao: identidade.operation_id || null,
+          idempotency_key: identidade.idempotency_key || null,
+          payload_retorno: {
+            financialState: FINANCIAL_STATES.UNKNOWN,
+            persistencia: {
+              operation_id: identidade.operation_id || null,
+              idempotency_key: identidade.idempotency_key || null,
+              fingerprint: identidade.fingerprint || null
+            }
+          }
+        });
+      }
+      const linhasParaBloqueio = [...porId.values()];
+      const transactionId = contexto.transactionId == null ? null : String(contexto.transactionId);
+      const operation = contexto.operation || null;
+      const linhaAtiva = transactionId
+        ? linhasParaBloqueio.find((linha) => String(linha.id) === transactionId)
+        : null;
+      const continuidadeAtiva = this._continuidadeCrt
+        && String(this._continuidadeCrt.transacaoId) === transactionId;
+      const intent = this._nativeHostIntent.getStore();
+      const execucaoAutorizada = Boolean(
+        transactionId
+        && linhaAtiva
+        && linhaAtiva.reconciliacaoPersistenciaIncompleta !== true
+        && this._emExecucao.has(transactionId)
+        && String(intent?.transactionId || '') === transactionId
+        && Array.isArray(intent?.allowedOperations)
+        && intent.allowedOperations.includes(operation)
+        && (operation === 'TX_START'
+          || (continuidadeAtiva && ['TX_CONTINUE', 'TX_FINALIZE'].includes(operation)))
+      );
+      const semOutrasPendencias = execucaoAutorizada
+        && linhasParaBloqueio.every((linha) => String(linha.id) === transactionId);
+      const bootstrapId = crypto.randomBytes(16).toString('hex');
+      const permit = semOutrasPendencias
+        ? {
+          permitId: bootstrapId,
+          operation,
+          transactionId
+        }
+        : null;
+      const blockedIdentities = linhasParaBloqueio
+        .filter((linha) => !(permit && String(linha.id) === transactionId))
+        .map((linha) => {
+          const payload = linha.payload_retorno || {};
+          const persistencia = payload.persistencia || {};
+          return {
+            transactionId: String(linha.id),
+            operation_id: persistencia.operation_id || linha.codigo_transacao || null,
+            idempotency_key: linha.idempotency_key || persistencia.idempotency_key || null,
+            fingerprint: persistencia.fingerprint || null,
+            status: 'pendente',
+            financialState: payload.resultadoTardio?.financialState
+              || payload.financialState
+              || FINANCIAL_STATES.UNKNOWN
+          };
+        })
+        .sort((a, b) => a.transactionId.localeCompare(b.transactionId));
+      const claims = {
+        version: 1,
+        protocol: PROTOCOLO,
+        hostSessionId: String(contexto.hostSessionId || ''),
+        bootstrapId,
+        revision: contexto.revision,
+        issuedAt: Date.now(),
+        recoveryComplete: true,
+        recoveryResult: 'SUCCESS',
+        securityState: blockedIdentities.length
+          ? ESTADOS_BOOTSTRAP.BLOCKED
+          : ESTADOS_BOOTSTRAP.VALIDATED,
+        blockedIdentities,
+        permit
+      };
+    return assinarBootstrapSeguranca(claims);
   }
 
   /**
@@ -135,9 +450,28 @@ class TefManager {
       idempotencyKey: dados.idempotency_key || null,
       vendaId: dados.venda_id != null ? dados.venda_id : null,
       acao: retorno.acao || null,
+      solicitadaEm: retorno.solicitadaEm || null,
       desde: new Date().toISOString(),
       sessaoHost: this._capturarSessaoNativeHost()
     };
+  }
+
+  async _persistirSolicitacao99(transacaoId, retorno, dados = {}) {
+    const persistencia = require('./destaxa/destaxaContinuidadePersistencia');
+    const resultado = await persistencia.registrarSolicitacao99(transacaoId, {
+      acao: retorno?.acao,
+      solicitadaEm: retorno?.solicitadaEm,
+      codigoDestaxa: retorno?.codigoDestaxa || retorno?.codigo || '99'
+    });
+    if (!resultado?.ok || resultado.duravel !== true || resultado.confirmada !== true) {
+      const error = new Error(
+        resultado?.mensagem || 'Solicitação 99 não confirmada em armazenamento durável'
+      );
+      error.codigo = resultado?.codigo || 'TEF_CONTINUIDADE_PERSISTENCIA_FALHOU';
+      throw error;
+    }
+    this._marcarContinuidadeCrt(transacaoId, dados, retorno);
+    return resultado;
   }
 
   _limparContinuidadeCrt(transacaoId = null) {
@@ -147,16 +481,31 @@ class TefManager {
   }
 
   async autorizar(dados, timeoutMs) {
+    const dadosNormalizados = {
+      ...dados,
+      tipo: tefFluxoPagamento.normalizarTipoTef(dados.tipo)
+    };
+
+    if (!tefFiscalContextService.validarContextoFiscal(
+      dadosNormalizados.contextoFiscal,
+      dadosNormalizados
+    )) {
+      return {
+        sucesso: false,
+        codigo: 'TEF_CONTEXTO_FISCAL_INVALIDO',
+        mensagem: 'A autorização TEF exige contexto fiscal validado no backend.'
+      };
+    }
+
+    if (!this._configuracaoCriptografica.disponivel) {
+      return this._resultadoCriptografiaIndisponivel();
+    }
     const operacaoTimeout = timeoutMs || this.timeout;
     let transacaoEmCursoId = null;
     let provedorEmCurso = null;
     let mutexAdquirido = false;
     let leaseId = null;
     let leaseFechado = false;
-    const dadosNormalizados = {
-      ...dados,
-      tipo: tefFluxoPagamento.normalizarTipoTef(dados.tipo)
-    };
 
     const fecharLeaseTerminal = (resultado, contextoLease = {}) => {
       if (!leaseId || leaseFechado) return null;
@@ -523,7 +872,14 @@ class TefManager {
                         },
                         identidadeTimeout
                       )
-                    }, () => pronto()));
+                    }, (error) => pronto(error), {
+                      statusEsperado: 'pendente',
+                      exigirUmaLinha: true
+                    })).catch((error) => {
+                      repository.registrarLog(transacaoId, 'ERRO_TIMEOUT_ANTES_DO_ENVIO', error.message, {
+                        transactionAttempted: false
+                      });
+                    });
                     repository.registrarLog(transacaoId, 'TIMEOUT_ANTES_DO_ENVIO', 'Timeout operacional antes do envio ao adapter — autorização não enviada', {
                       transactionAttempted: false
                     });
@@ -570,12 +926,16 @@ class TefManager {
                       transactionId: String(transacaoId),
                       persistenciaConfirmada: true,
                       operation_id: blocoPersistencia.operation_id,
+                      idempotency_key: blocoPersistencia.idempotency_key,
                       fingerprint: blocoPersistencia.fingerprint
                     };
-                    const retornoBruto = await adapter.autorizarPagamento(
+                    const retornoBruto = await this._nativeHostIntent.run({
+                      transactionId: String(transacaoId),
+                      allowedOperations: ['TX_START', 'TX_CONTINUE', 'TX_FINALIZE']
+                    }, () => adapter.autorizarPagamento(
                       dadosNormalizados,
                       preparacaoComPersistencia
-                    );
+                    ));
                     if (retornoBruto?.cicloCrt) {
                       repository.registrarLog(transacaoId, 'CICLO_CRT', 'Orquestração CRT Destaxa', {
                         passos: retornoBruto.cicloCrt.passos || null,
@@ -588,15 +948,24 @@ class TefManager {
                         retryAllowed: false
                       });
                     }
-                    if (retornoBruto?.requerContinuacao === true) {
-                      this._marcarContinuidadeCrt(transacaoId, dadosNormalizados, retornoBruto);
-                    } else if (retornoBruto?.inconclusivo === true || retornoBruto?.sucesso === true
+                    if (retornoBruto?.requerContinuacao !== true
+                      && (retornoBruto?.inconclusivo === true || retornoBruto?.sucesso === true
                       || retornoBruto?.status === tefContrato.STATUS.NEGADO
-                      || retornoBruto?.status === tefContrato.STATUS.APROVADO) {
+                      || retornoBruto?.status === tefContrato.STATUS.APROVADO)) {
                       this._limparContinuidadeCrt(transacaoId);
                     }
                     if (expirado) {
-                      this._registrarResultadoTardio(transacaoId, adapter.nome, dadosNormalizados.tipo, retornoBruto);
+                      await this._registrarResultadoTardio(
+                        transacaoId,
+                        adapter.nome,
+                        dadosNormalizados.tipo,
+                        retornoBruto
+                      ).catch((error) => {
+                        repository.registrarLog(transacaoId, 'ERRO_RESULTADO_TARDIO', error.message, {
+                          error: error.message,
+                          retryAllowed: false
+                        });
+                      });
                       return;
                     }
                     clearTimeout(timeoutId);
@@ -641,8 +1010,15 @@ class TefManager {
                         },
                         // MRT-42 — preservar ação 99/OPCAO no payload para o PDV/continuar
                         continuidade: {
+                          ...(payloadPersistido?.continuidade
+                            && typeof payloadPersistido.continuidade === 'object'
+                            ? payloadPersistido.continuidade
+                            : {}),
                           requerContinuacao: retornoBruto.requerContinuacao === true,
-                          acao: retornoBruto.acao || null
+                          acao: retornoBruto.acao || null,
+                          solicitadaEm: retornoBruto.requerContinuacao === true
+                            ? retornoBruto.solicitadaEm || null
+                            : payloadPersistido?.continuidade?.solicitadaEm || null
                         },
                         reconciliacaoObrigatoria: retornoBruto.reconciliacaoObrigatoria === true
                       },
@@ -672,7 +1048,7 @@ class TefManager {
                       venda_id: dados.venda_id || null,
                       ...persistencia,
                       payload_retorno: payloadComIdentidade
-                    }, (updateErr) => {
+                    }, async (updateErr) => {
                       if (updateErr) {
                         clearTimeout(timeoutId);
                         this._concluirExecucao(transacaoId, tefContrato.STATUS.PENDENTE, {
@@ -682,6 +1058,29 @@ class TefManager {
                           codigo: 'TEF_PERSISTENCIA_FALHOU'
                         });
                         return reject(updateErr);
+                      }
+                      if (retornoBruto.requerContinuacao === true) {
+                        try {
+                          await this._persistirSolicitacao99(transacaoId, retornoBruto, {
+                            idempotency_key: dadosNormalizados.idempotency_key,
+                            venda_id: dadosNormalizados.venda_id
+                          });
+                        } catch (error) {
+                          clearTimeout(timeoutId);
+                          repository.registrarLog(
+                            transacaoId,
+                            'CICLO_CRT_SOLICITACAO_99_PERSISTENCIA_FALHOU',
+                            error.message,
+                            { codigo: error.codigo || error.code || null }
+                          );
+                          this._concluirExecucao(transacaoId, tefContrato.STATUS.PENDENTE, {
+                            provedor: adapter.nome,
+                            operacao: dadosNormalizados.tipo,
+                            financialState: FINANCIAL_STATES.UNKNOWN,
+                            codigo: error.codigo || error.code || 'TEF_CONTINUIDADE_PERSISTENCIA_FALHOU'
+                          });
+                          return reject(error);
+                        }
                       }
                       // MRT-42 — continuidade 99: não "concluir" o ciclo; PDV deve POST /tef/continuar
                       if (retornoBruto.requerContinuacao !== true) {
@@ -726,6 +1125,7 @@ class TefManager {
                         ...api,
                         requerContinuacao: retornoBruto.requerContinuacao === true,
                         acao: retornoBruto.acao || null,
+                        solicitadaEm: retornoBruto.solicitadaEm || null,
                         inconclusivo: retornoBruto.inconclusivo === true,
                         reconciliacaoObrigatoria: retornoBruto.reconciliacaoObrigatoria === true,
                         cicloCrt: retornoBruto.cicloCrt || null,
@@ -738,9 +1138,14 @@ class TefManager {
                     clearTimeout(timeoutId);
                     repository.registrarLog(transacaoId, 'ERRO', error.message, { error: error.message });
                     if (expirado) {
-                      this._registrarResultadoTardio(transacaoId, adapter.nome, dadosNormalizados.tipo, {
+                      await this._registrarResultadoTardio(transacaoId, adapter.nome, dadosNormalizados.tipo, {
                         codigo: error.code || 'TEF_UNKNOWN',
                         mensagem: error.message
+                      }).catch((persistenciaError) => {
+                        repository.registrarLog(transacaoId, 'ERRO_RESULTADO_TARDIO', persistenciaError.message, {
+                          error: persistenciaError.message,
+                          retryAllowed: false
+                        });
                       });
                       return;
                     }
@@ -927,7 +1332,11 @@ class TefManager {
       origem: dados.origem || atual.origem || 'instancia-atual',
       financialState: dados.financialState ?? atual.financialState ?? FINANCIAL_STATES.UNKNOWN,
       codigo: dados.codigo ?? atual.codigo ?? null,
-      resultadoTardio: dados.resultadoTardio ?? atual.resultadoTardio ?? null
+      resultadoTardio: dados.resultadoTardio ?? atual.resultadoTardio ?? null,
+      reconciliacaoPersistenciaIncompleta: dados.reconciliacaoPersistenciaIncompleta
+        ?? atual.reconciliacaoPersistenciaIncompleta
+        ?? false,
+      recuperacao: dados.recuperacao ?? atual.recuperacao ?? null
     });
   }
 
@@ -943,9 +1352,28 @@ class TefManager {
   }
 
   _gravar(executar) {
-    const escrita = new Promise((resolve) => executar(() => resolve()));
+    const escrita = new Promise((resolve, reject) => {
+      let concluida = false;
+      const pronto = (error, resultado) => {
+        if (concluida) return;
+        concluida = true;
+        if (error) reject(error);
+        else resolve(resultado);
+      };
+      try {
+        const retorno = executar(pronto);
+        if (retorno && typeof retorno.then === 'function') {
+          retorno.then((resultado) => pronto(null, resultado), pronto);
+        }
+      } catch (error) {
+        pronto(error);
+      }
+    });
     this._escritasPendentes.add(escrita);
-    escrita.then(() => this._escritasPendentes.delete(escrita));
+    escrita.then(
+      () => this._escritasPendentes.delete(escrita),
+      () => this._escritasPendentes.delete(escrita)
+    );
     return escrita;
   }
 
@@ -1008,12 +1436,113 @@ class TefManager {
     const linhas = await new Promise((resolve, reject) => {
       repository.listarTransacoesPendentes((err, rows) => (err ? reject(err) : resolve(rows || [])));
     });
-    const abertas = new Set(linhas.map((linha) => String(linha.id)));
-    for (const id of [...this._pendencias.keys()]) {
-      if (!abertas.has(id)) this._pendencias.delete(id);
+    const idsComTentativaReconciliacao = await new Promise((resolve, reject) => {
+      repository.listarIdsTransacoesComTentativaReconciliacao((err, ids) =>
+        (err ? reject(err) : resolve(ids || [])));
+    });
+    const eventosReconciliacao = await new Promise((resolve, reject) => {
+      repository.listarEvidenciasReconciliacao((err, rows) =>
+        (err ? reject(err) : resolve(rows || [])));
+    });
+    const linhasFinalizadas = await new Promise((resolve, reject) => {
+      repository.listarTransacoesFinalizadas((err, rows) =>
+        (err ? reject(err) : resolve(rows || [])));
+    });
+    const linhasPendentesPorId = new Map(linhas.map((linha) => [String(linha.id), linha]));
+    const linhasFinalizadasPorId = new Map(
+      linhasFinalizadas.map((linha) => [String(linha.id), linha])
+    );
+    const idsComMarcadorTentativa = new Set(
+      idsComTentativaReconciliacao.map((id) => String(id))
+    );
+    const idsCandidatosReconciliacao = new Set(
+      idsComMarcadorTentativa
+    );
+    for (const linha of linhasFinalizadas) {
+      if (linha.payload_retorno?.reconciliacao) {
+        idsCandidatosReconciliacao.add(String(linha.id));
+      }
+    }
+    for (const evento of eventosReconciliacao) {
+      const payload = lerPayloadEvidencia(evento);
+      const idsDoEvento = [
+        evento.transacao_id,
+        payload?.claims?.transacao_id,
+        payload?.claims?.transactionId,
+        payload?.transacao_id,
+        payload?.transactionId
+      ]
+        .filter((id) => id != null && String(id).trim())
+        .map((id) => String(id));
+      if (idsDoEvento.length === 0) {
+        const error = new Error(
+          `Evidência de reconciliação ${evento.id} sem identidade legível`
+        );
+        error.code = 'TEF_RECONCILIACAO_EVIDENCIA_SEM_IDENTIDADE';
+        throw error;
+      }
+      for (const id of idsDoEvento) idsCandidatosReconciliacao.add(id);
     }
 
-    for (const linha of linhas) {
+    const reconciliacoesIncompletas = [];
+    for (const id of idsCandidatosReconciliacao) {
+      if (linhasPendentesPorId.has(String(id))) continue;
+      const linha = linhasFinalizadasPorId.get(String(id))
+        || await this._obterTransacaoPersistida(id);
+      if (!linha) {
+        if (!idsComMarcadorTentativa.has(String(id))) {
+          reconciliacoesIncompletas.push({
+            id: String(id),
+            status: tefContrato.STATUS.PENDENTE,
+            payload_retorno: {
+              financialState: FINANCIAL_STATES.UNKNOWN,
+              persistencia: {}
+            },
+            reconciliacaoPersistenciaIncompleta: true
+          });
+          continue;
+        }
+        const error = new Error(`Registro TEF ausente para candidata de reconciliação ${id}`);
+        error.code = 'TEF_RECONCILIACAO_PERSISTENCIA_AUSENTE';
+        throw error;
+      }
+      const reconciliacao = linha.payload_retorno?.reconciliacao;
+      try {
+        if (!reconciliacao
+          || !STATUS_POR_RECONCILIACAO[reconciliacao.financialState]
+          || linha.status !== STATUS_POR_RECONCILIACAO[reconciliacao.financialState]
+          || clienteTemReconciliacaoPendente(this._nativeHostClient, id)) {
+          throw new Error('Reconciliação sem desfecho persistido ou ainda pendente localmente');
+        }
+        validarRegistroReconciliacao(linha, {
+          financialState: reconciliacao.financialState,
+          usuario: String(reconciliacao.usuario || ''),
+          observacao: String(reconciliacao.observacao || '')
+        }, STATUS_POR_RECONCILIACAO[reconciliacao.financialState]);
+        const identidade = identidadeTransacaoPersistida(linha);
+        validarParEvidenciasReconciliacao(
+          linha,
+          reconciliacao,
+          identidade,
+          eventosReconciliacao
+        );
+      } catch (_) {
+        reconciliacoesIncompletas.push({
+          ...linha,
+          reconciliacaoPersistenciaIncompleta: true
+        });
+      }
+    }
+
+    const abertas = new Set(linhas.map((linha) => String(linha.id)));
+    for (const linha of reconciliacoesIncompletas) abertas.add(String(linha.id));
+    for (const id of [...this._pendencias.keys()]) {
+      if (!abertas.has(id) && !this._liberacoesBootstrapPendentes.has(id)) {
+        this._pendencias.delete(id);
+      }
+    }
+
+    for (const linha of [...linhas, ...reconciliacoesIncompletas]) {
       const id = String(linha.id);
       const payload = linha.payload_retorno || {};
       const execucao = payload.execucao || null;
@@ -1022,7 +1551,9 @@ class TefManager {
       const emAndamento = (propria && this._emExecucao.has(id)) || origemViva;
       const conhecida = this._pendencias.get(id);
 
-      if (conhecida && !(conhecida.estado === ESTADOS_TRAVA_RESULTADO_TARDIO.AGUARDANDO_RESULTADO && !emAndamento && !propria)) {
+      if (conhecida
+        && linha.reconciliacaoPersistenciaIncompleta !== true
+        && !(conhecida.estado === ESTADOS_TRAVA_RESULTADO_TARDIO.AGUARDANDO_RESULTADO && !emAndamento && !propria)) {
         continue;
       }
       const identidadeRecuperada = projetarRecuperacaoIdentidade({
@@ -1040,8 +1571,17 @@ class TefManager {
         financialState: payload.resultadoTardio?.financialState || payload.financialState || FINANCIAL_STATES.UNKNOWN,
         codigo: payload.resultadoTardio?.codigo || payload.codigoDestaxa || null,
         resultadoTardio: payload.resultadoTardio || null,
+        reconciliacaoPersistenciaIncompleta: linha.reconciliacaoPersistenciaIncompleta === true,
         // MRT-27 — identidade recuperável após reinício (sem reenvio automático)
-        recuperacao: identidadeRecuperada
+        recuperacao: linha.reconciliacaoPersistenciaIncompleta === true
+          ? {
+            transactionId: id,
+            operation_id: linha.payload_retorno?.persistencia?.operation_id || linha.codigo_transacao || null,
+            idempotency_key: linha.idempotency_key || linha.payload_retorno?.persistencia?.idempotency_key || null,
+            fingerprint: linha.payload_retorno?.persistencia?.fingerprint || null,
+            reconciliationIncomplete: true
+          }
+          : identidadeRecuperada
       });
 
       if (!propria && !this._idsRecuperadosRegistrados.has(id)) {
@@ -1158,7 +1698,27 @@ class TefManager {
    * 03/04/09 tardio → negado e lock liberado; 00 tardio, 08, A0, A1, 99 ou erro
    * → linha permanece pendente e o lock só é liberado por reconciliarResultadoTardio.
    */
-  _registrarResultadoTardio(transacaoId, provedor, operacao, retornoBruto) {
+  async _obterTransacaoPersistida(transacaoId) {
+    return new Promise((resolve, reject) => {
+      repository.obterTransacaoPorId(transacaoId, (error, linha) => {
+        if (error) return reject(error);
+        resolve(linha || null);
+      });
+    });
+  }
+
+  async _atualizarTransacaoPersistida(transacaoId, dados, condicoes) {
+    return this._gravar((pronto) => {
+      repository.atualizarTransacao(
+        transacaoId,
+        dados,
+        (error, resultado) => pronto(error, resultado),
+        condicoes
+      );
+    });
+  }
+
+  async _registrarResultadoTardio(transacaoId, provedor, operacao, retornoBruto) {
     const decisao = decidirResultadoTardio(retornoBruto);
     const status = decisao.releaseLock ? tefContrato.STATUS.NEGADO : tefContrato.STATUS.PENDENTE;
     const retorno = tefContrato.criarRespostaAutorizacao({
@@ -1191,49 +1751,69 @@ class TefManager {
     };
     const persistencia = tefContrato.paraPersistencia(retorno);
     const payloadPersistido = persistencia.payload_retorno;
+    const id = String(transacaoId);
+    this._emExecucao.delete(id);
+    this._definirPendencia(id, {
+      provedor,
+      operacao,
+      estado: ESTADOS_TRAVA_RESULTADO_TARDIO.RECONCILIACAO_PENDENTE,
+      financialState: decisao.financialState,
+      codigo: decisao.resultCode || null,
+      resultadoTardio
+    });
 
     // MRT-14 — ler payload atual e preservar identidadeAdapter antes do rewrite
-    this._gravar((pronto) => {
-      const db = require('../../database');
-      db.get('SELECT provedor, payload_retorno FROM tef_transacoes WHERE id = ?', [transacaoId], (errLeitura, row) => {
-        const anterior = row ? lerPayloadTransacao(row) : {};
-        const payloadNovo = mesclarPayloadPreservandoIdentidade(
-          {
-            ...(payloadPersistido && typeof payloadPersistido === 'object'
-              ? payloadPersistido
-              : { resposta: payloadPersistido }),
-            resultadoTardio
-          },
-          anterior
-        );
-        repository.atualizarTransacao(transacaoId, {
-          ...persistencia,
-          payload_retorno: payloadNovo
-        }, (err) => {
-          if (err) repository.registrarLog(transacaoId, 'ERRO', err.message, { error: err.message });
-          pronto();
-        });
+    try {
+      const linhaAnterior = await this._obterTransacaoPersistida(transacaoId);
+      if (!linhaAnterior || linhaAnterior.status !== tefContrato.STATUS.PENDENTE) {
+        const error = new Error('Transação pendente ausente ou alterada antes da gravação do resultado tardio');
+        error.code = 'TEF_RESULTADO_TARDIO_PERSISTENCIA_DIVERGENTE';
+        throw error;
+      }
+      const identidadeAnterior = identidadeTransacaoPersistida(linhaAnterior);
+      const anterior = lerPayloadTransacao(linhaAnterior);
+      const payloadNovo = mesclarPayloadPreservandoIdentidade(
+        {
+          ...(payloadPersistido && typeof payloadPersistido === 'object'
+            ? payloadPersistido
+            : { resposta: payloadPersistido }),
+          resultadoTardio
+        },
+        anterior
+      );
+      await this._atualizarTransacaoPersistida(transacaoId, {
+        ...persistencia,
+        payload_retorno: payloadNovo
+      }, {
+        statusEsperado: tefContrato.STATUS.PENDENTE,
+        payloadEsperado: linhaAnterior.payload_retorno_criptografado,
+        exigirUmaLinha: true
       });
-    });
+      const linhaGravada = await this._obterTransacaoPersistida(transacaoId);
+      const identidadeGravada = identidadeTransacaoPersistida(linhaGravada);
+      if (!linhaGravada
+        || linhaGravada.status !== status
+        || JSON.stringify(identidadeGravada) !== JSON.stringify(identidadeAnterior)
+        || linhaGravada.payload_retorno?.resultadoTardio?.financialState !== decisao.financialState
+        || String(linhaGravada.payload_retorno?.resultadoTardio?.codigo || '')
+          !== String(resultadoTardio.codigo || '')) {
+        const error = new Error('Resultado tardio não foi confirmado pela leitura integral do registro TEF');
+        error.code = 'TEF_RESULTADO_TARDIO_PERSISTENCIA_DIVERGENTE';
+        throw error;
+      }
+    } catch (error) {
+      repository.registrarLog(transacaoId, 'ERRO_RESULTADO_TARDIO', error.message, { error: error.message });
+      throw error;
+    }
+
     repository.registrarLog(transacaoId, 'RESULTADO_TARDIO', retorno.mensagem, {
       ...montarLogDecisao({ transactionId: transacaoId, provider: provedor, operation: operacao, decision: decisao }),
       resolution: decisao.resolution,
       reconciliationRequired: decisao.reconciliationRequired
     });
 
-    const id = String(transacaoId);
-    this._emExecucao.delete(id);
     if (decisao.releaseLock) {
       this._pendencias.delete(id);
-    } else {
-      this._definirPendencia(id, {
-        provedor,
-        operacao,
-        estado: ESTADOS_TRAVA_RESULTADO_TARDIO.RECONCILIACAO_PENDENTE,
-        financialState: decisao.financialState,
-        codigo: decisao.resultCode || null,
-        resultadoTardio
-      });
     }
     return decisao;
   }
@@ -1243,8 +1823,10 @@ class TefManager {
    * Só depois do desfecho da chamada nativa; nunca envia nova autorização.
    * @param {{financialState: 'CONFIRMED_SUCCESS'|'CONFIRMED_DENIED'|'CANCELLED', usuario: string, observacao: string}} dados
    */
-  reconciliarResultadoTardio(transacaoId, dados = {}) {
-    const trava = this._pendencias.get(String(transacaoId));
+  async reconciliarResultadoTardio(transacaoId, dados = {}) {
+    this._exigirConfiguracaoCriptografica();
+    const id = String(transacaoId);
+    const trava = this._pendencias.get(id);
     const falhar = (code, message) => {
       const error = new Error(message);
       error.code = code;
@@ -1263,40 +1845,271 @@ class TefManager {
     if (!String(dados.usuario || '').trim() || !String(dados.observacao || '').trim()) {
       falhar('TEF_RECONCILIACAO_INVALIDA', 'Reconciliação exige usuário e observação');
     }
+    if (dados.confirmacao_explicita !== true) {
+      falhar('TEF_RECONCILIACAO_SEM_CONFIRMACAO', 'Reconciliação exige confirmação explícita');
+    }
 
-    this._gravar((pronto) => {
-      const db = require('../../database');
-      db.get('SELECT payload_retorno FROM tef_transacoes WHERE id = ?', [transacaoId], (errLeitura, row) => {
-        const anterior = row ? lerPayloadTransacao(row) : {};
-        repository.atualizarTransacao(transacaoId, {
-          status,
-          payload_retorno: mesclarPayloadPreservandoIdentidade(
-            {
-              resultadoTardio: trava.resultadoTardio,
-              reconciliacao: {
-                financialState: dados.financialState,
-                usuario: String(dados.usuario),
-                observacao: String(dados.observacao),
-                em: new Date().toISOString()
-              }
-            },
-            anterior
-          )
-        }, (err) => {
-          if (err) repository.registrarLog(transacaoId, 'ERRO', err.message, { error: err.message });
-          pronto();
-        });
-      });
-    });
-    repository.registrarLog(transacaoId, 'RECONCILIACAO_RESULTADO_TARDIO', `Reconciliado como ${dados.financialState}`, {
-      transactionId: String(transacaoId),
+    const linhaAnterior = await this._obterTransacaoPersistida(transacaoId);
+    if (!linhaAnterior) falhar('TEF_RECONCILIACAO_SEM_TRAVA', `Transação ${transacaoId} não existe na persistência`);
+    const identidade = identidadeTransacaoPersistida(linhaAnterior);
+    const reconciliacaoAnterior = linhaAnterior.payload_retorno?.reconciliacao;
+    if (reconciliacaoAnterior) {
+      const dadosPersistidos = {
+        financialState: reconciliacaoAnterior.financialState,
+        usuario: reconciliacaoAnterior.usuario,
+        observacao: reconciliacaoAnterior.observacao
+      };
+      if (dadosPersistidos.financialState !== dados.financialState
+        || dadosPersistidos.usuario !== String(dados.usuario)
+        || dadosPersistidos.observacao !== String(dados.observacao)) {
+        falhar('TEF_RECONCILIACAO_CONCORRENTE', 'Outra reconciliação já foi persistida para esta identidade');
+      }
+      validarRegistroReconciliacao(linhaAnterior, dadosPersistidos, linhaAnterior.status);
+      if (![tefContrato.STATUS.PENDENTE, status].includes(linhaAnterior.status)) {
+        falhar('TEF_RECONCILIACAO_STATUS_DIVERGENTE', 'Status persistido incompatível com a reconciliação solicitada');
+      }
+      await registrarLogPersistido(
+        transacaoId,
+        'RECONCILIACAO_RESULTADO_TARDIO',
+        `Reconciliação como ${dados.financialState}`,
+        {
+          transactionId: identidade.transactionId,
+          operation_id: identidade.operation_id,
+          idempotency_key: identidade.idempotency_key,
+          fingerprint: identidade.fingerprint,
+          financialState: dados.financialState,
+          usuario: String(dados.usuario),
+          retryAllowed: false
+        }
+      );
+      trava.reconciliacao = reconciliacaoAnterior;
+      return {
+        transacaoId: id,
+        status,
+        financialState: dados.financialState,
+        travaLiberada: false,
+        persistenciaValidada: true,
+        identidade
+      };
+    }
+
+    if (linhaAnterior.status !== tefContrato.STATUS.PENDENTE) {
+      falhar('TEF_RECONCILIACAO_STATUS_DIVERGENTE', 'A transação não está pendente na persistência');
+    }
+    const reconciliacao = {
+      transactionId: identidade.transactionId,
+      operation_id: identidade.operation_id,
+      idempotency_key: identidade.idempotency_key,
+      fingerprint: identidade.fingerprint,
       financialState: dados.financialState,
-      resultadoTardio: trava.resultadoTardio,
+      resultStatus: status,
       usuario: String(dados.usuario),
-      retryAllowed: false
+      observacao: String(dados.observacao),
+      confirmacao_explicita: true,
+      em: new Date().toISOString()
+    };
+    const payloadNovo = mesclarPayloadPreservandoIdentidade({
+      reconciliacao
+    }, lerPayloadTransacao(linhaAnterior));
+    await this._atualizarTransacaoPersistida(transacaoId, {
+      status: tefContrato.STATUS.PENDENTE,
+      payload_retorno: payloadNovo
+    }, {
+      statusEsperado: tefContrato.STATUS.PENDENTE,
+      payloadEsperado: linhaAnterior.payload_retorno_criptografado,
+      exigirUmaLinha: true
     });
-    this._pendencias.delete(String(transacaoId));
-    return { transacaoId: String(transacaoId), status, financialState: dados.financialState, travaLiberada: true };
+    const linhaGravada = await this._obterTransacaoPersistida(transacaoId);
+    const validado = validarRegistroReconciliacao(
+      linhaGravada,
+      { financialState: dados.financialState, usuario: String(dados.usuario), observacao: String(dados.observacao) },
+      tefContrato.STATUS.PENDENTE
+    );
+    trava.reconciliacao = validado.reconciliacao;
+    await registrarLogPersistido(
+      transacaoId,
+      'RECONCILIACAO_RESULTADO_TARDIO',
+      `Reconciliado como ${dados.financialState}`,
+      {
+        transactionId: identidade.transactionId,
+        operation_id: identidade.operation_id,
+        idempotency_key: identidade.idempotency_key,
+        fingerprint: identidade.fingerprint,
+        financialState: dados.financialState,
+        resultadoTardio: trava.resultadoTardio,
+        usuario: String(dados.usuario),
+        retryAllowed: false
+      }
+    );
+    return {
+      transacaoId: id,
+      status,
+      financialState: dados.financialState,
+      travaLiberada: false,
+      persistenciaValidada: true,
+      identidade: validado.identidade
+    };
+  }
+
+  async reconciliarNativeHost(transacaoId, dados = {}, resultado = {}) {
+    this._exigirConfiguracaoCriptografica();
+    await this._aguardarEscritas();
+    const id = String(transacaoId);
+    const statusFinal = STATUS_POR_RECONCILIACAO[dados.financialState];
+    if (!statusFinal
+      || resultado.transacaoId !== id
+      || resultado.status !== statusFinal
+      || resultado.financialState !== dados.financialState
+      || resultado.travaLiberada !== false) {
+      const error = new Error('Dados da reconciliação não correspondem ao resultado validado pelo TefManager');
+      error.code = 'TEF_RECONCILIACAO_RESULTADO_INVALIDO';
+      throw error;
+    }
+    if (!this._pendencias.has(id)) {
+      const error = new Error('Trava financeira ausente; reconciliação NativeHost recusada');
+      error.code = 'TEF_RECONCILIACAO_SEM_TRAVA';
+      throw error;
+    }
+    this._liberacoesBootstrapPendentes.add(id);
+
+    const cliente = this._nativeHostClient;
+    const linha = await this._obterTransacaoPersistida(transacaoId);
+    if (linha?.status === statusFinal) {
+      const registroFinal = validarRegistroReconciliacao(
+        linha,
+        { financialState: dados.financialState, usuario: String(dados.usuario), observacao: String(dados.observacao) },
+        statusFinal
+      );
+      const eventosReconciliacao = await new Promise((resolve, reject) => {
+        repository.listarEvidenciasReconciliacao((error, rows) =>
+          (error ? reject(error) : resolve(rows || [])));
+      });
+      validarParEvidenciasReconciliacao(
+        linha,
+        registroFinal.reconciliacao,
+        registroFinal.identidade,
+        eventosReconciliacao
+      );
+      await this.recarregarPendencias();
+      const travaAtual = this._pendencias.get(id);
+      if (travaAtual?.reconciliacaoPersistenciaIncompleta === true) {
+        const error = new Error('Evidência persistida não permite concluir o bootstrap de segurança');
+        error.code = 'TEF_RECONCILIACAO_PERSISTENCIA_DIVERGENTE';
+        throw error;
+      }
+      const bootstrapAtualizado = await cliente.atualizarBootstrapSeguranca();
+      if (!bootstrapAtualizado?.sucesso) {
+        const error = new Error(bootstrapAtualizado?.mensagem || 'NativeHost não confirmou o bootstrap pós-persistência');
+        error.code = bootstrapAtualizado?.codigo || 'TEF_NATIVE_HOST_BOOTSTRAP_FALHOU';
+        throw error;
+      }
+      this._liberacoesBootstrapPendentes.delete(id);
+      this._pendencias.delete(id);
+      return {
+        ...resultado,
+        persistenciaValidada: true,
+        travaLiberada: true
+      };
+    }
+
+    const registroValidado = validarRegistroReconciliacao(
+      linha,
+      { financialState: dados.financialState, usuario: String(dados.usuario), observacao: String(dados.observacao) },
+      tefContrato.STATUS.PENDENTE
+    );
+    cliente.marcarReconciliacaoPendente(id);
+    const hostPreparado = await cliente.prepararHostParaReconciliacao(id);
+    if (!hostPreparado?.sucesso || !hostPreparado.hostSessionId) {
+      const error = new Error('NativeHost indisponível; trava financeira permanece ativa');
+      error.code = hostPreparado?.codigo || 'TEF_NATIVE_HOST_INDISPONIVEL';
+      throw error;
+    }
+
+    const autorizacaoRelease = assinarAutorizacaoReconciliacao(
+      linha,
+      registroValidado,
+      hostPreparado.hostSessionId,
+      'release'
+    );
+    const liberacao = await cliente.reconciliarTransacao(id, autorizacaoRelease);
+    if (!liberacao?.sucesso || String(liberacao.transactionId || '') !== id) {
+      const error = new Error(liberacao?.mensagem || 'NativeHost não confirmou a liberação autorizada');
+      error.code = liberacao?.codigo || 'TEF_NATIVE_HOST_RECONCILIACAO_FALHOU';
+      throw error;
+    }
+
+    await this._atualizarTransacaoPersistida(transacaoId, {
+      status: statusFinal,
+      payload_retorno: linha.payload_retorno
+    }, {
+      statusEsperado: tefContrato.STATUS.PENDENTE,
+      payloadEsperado: linha.payload_retorno_criptografado,
+      exigirUmaLinha: true
+    });
+    const linhaFinal = await this._obterTransacaoPersistida(transacaoId);
+    const registroFinal = validarRegistroReconciliacao(
+      linhaFinal,
+      { financialState: dados.financialState, usuario: String(dados.usuario), observacao: String(dados.observacao) },
+      statusFinal
+    );
+    const claimsLiberacao = criarClaimsEvidencia({
+      eventType: EVENTO_LIBERACAO,
+      identidade: registroFinal.identidade,
+      financialState: dados.financialState,
+      resultStatus: statusFinal,
+      usuario: String(dados.usuario)
+    });
+    const evidenciaLiberacao = assinarEvidencia(claimsLiberacao);
+    await registrarLogPersistido(
+      transacaoId,
+      EVENTO_LIBERACAO,
+      'Evidência assinada de RELEASE persistido; COMMIT pendente',
+      evidenciaLiberacao
+    );
+
+    const autorizacaoCommit = assinarAutorizacaoReconciliacao(
+      linhaFinal,
+      registroFinal,
+      hostPreparado.hostSessionId,
+      'commit'
+    );
+    const confirmado = cliente.confirmarReconciliacaoPersistida(autorizacaoCommit);
+    if (!confirmado?.sucesso || String(confirmado.transactionId || '') !== id) {
+      const error = new Error('Persistência final confirmada, mas o marcador local não foi liberado');
+      error.code = confirmado?.codigo || 'TEF_NATIVE_HOST_COMMIT_FALHOU';
+      throw error;
+    }
+    const claimsCommit = criarClaimsEvidencia({
+      eventType: EVENTO_COMMIT,
+      identidade: registroFinal.identidade,
+      financialState: dados.financialState,
+      resultStatus: statusFinal,
+      usuario: String(dados.usuario),
+      releaseEvidenceId: claimsLiberacao.evidenceId,
+      releaseTimestamp: claimsLiberacao.timestamp
+    });
+    const evidenciaCommit = assinarEvidencia(claimsCommit);
+    await registrarLogPersistido(
+      transacaoId,
+      EVENTO_COMMIT,
+      'Evidência assinada de COMMIT confirmado',
+      evidenciaCommit
+    );
+
+    const bootstrapAtualizado = await cliente.atualizarBootstrapSeguranca();
+    if (!bootstrapAtualizado?.sucesso) {
+      const error = new Error(bootstrapAtualizado?.mensagem || 'NativeHost não confirmou o bootstrap pós-persistência');
+      error.code = bootstrapAtualizado?.codigo || 'TEF_NATIVE_HOST_BOOTSTRAP_FALHOU';
+      throw error;
+    }
+
+    this._liberacoesBootstrapPendentes.delete(id);
+    this._pendencias.delete(id);
+    return {
+      ...liberacao,
+      persistenciaValidada: true,
+      travaLiberada: true
+    };
   }
 
   async _verificarIdempotencia(idempotencyKey) {
@@ -1347,6 +2160,9 @@ class TefManager {
    * Não chama TX_START. Não cria nova cobrança.
    */
   async continuarAutorizacao(dados = {}) {
+    if (!this._configuracaoCriptografica.disponivel) {
+      return this._resultadoCriptografiaIndisponivel();
+    }
     const transacaoId = dados.transacao_id || dados.transacaoId;
     if (transacaoId == null || String(transacaoId).trim() === '') {
       return {
@@ -1457,20 +2273,86 @@ class TefManager {
       const sol99 = contPersistida.solicitacao99 && typeof contPersistida.solicitacao99 === 'object'
         ? contPersistida.solicitacao99
         : {};
-      const persistenciaContinuidadeHabilitada = dados.persistenciaContinuidade === true
-        || String(process.env.DESTAXA_CONTINUIDADE_PERSISTENTE || '').trim() === '1';
-
-      const retornoBruto = await adapter.continuarPagamento({
-        ...dados,
-        transacao_id: Number(transacaoId) || transacaoId,
-        venda_id: dados.venda_id != null ? dados.venda_id : transacao.venda_id,
-        acao: dados.acao || this._continuidadeCrt?.acao || sol99.acao || contPersistida.acao || null,
-        solicitadaEm: dados.solicitadaEm || dados.acaoSolicitadaEm
-          || sol99.solicitadaEm || contPersistida.solicitadaEm || null,
-        idempotency_key: dados.idempotency_key || transacao.idempotency_key || null,
-        idempotency_key_persistida: transacao.idempotency_key || null,
-        persistenciaContinuidade: persistenciaContinuidadeHabilitada
-      });
+      const {
+        normalizarAcaoContinuidade,
+        normalizarTimestampSolicitacao99
+      } = require('./destaxa/destaxaContinuidadeContrato');
+      const solicitadaEmPersistida = normalizarTimestampSolicitacao99(sol99.solicitadaEm);
+      const solicitadaEmInformada = normalizarTimestampSolicitacao99(dados.solicitadaEm);
+      if (!solicitadaEmPersistida
+        || !solicitadaEmInformada
+        || solicitadaEmInformada !== solicitadaEmPersistida) {
+        return {
+          sucesso: false,
+          status: tefContrato.STATUS.PENDENTE,
+          codigo: 'DESTAXA_CONTINUIDADE_IDENTIDADE_DIVERGENTE',
+          mensagem: 'Continuidade recusada: timestamp original ausente ou divergente da solicitação 99 persistida',
+          retryAllowed: false,
+          inconclusivo: true,
+          financialState: 'UNKNOWN',
+          reconciliacaoObrigatoria: true,
+          transactionAttempted: false,
+          transacao_id: Number(transacaoId) || transacaoId,
+          transacaoId: String(transacaoId)
+        };
+      }
+      if (dados.acao
+        && JSON.stringify(normalizarAcaoContinuidade(dados.acao))
+          !== JSON.stringify(normalizarAcaoContinuidade(sol99.acao || contPersistida.acao))) {
+        return {
+          sucesso: false,
+          status: tefContrato.STATUS.PENDENTE,
+          codigo: 'DESTAXA_CONTINUIDADE_IDENTIDADE_DIVERGENTE',
+          mensagem: 'Continuidade recusada: ação diverge da solicitação 99 persistida',
+          retryAllowed: false,
+          inconclusivo: true,
+          financialState: 'UNKNOWN',
+          reconciliacaoObrigatoria: true,
+          transactionAttempted: false,
+          transacao_id: Number(transacaoId) || transacaoId,
+          transacaoId: String(transacaoId)
+        };
+      }
+      if (this._emExecucao.has(String(transacaoId))) {
+        return {
+          sucesso: false,
+          status: tefContrato.STATUS.PENDENTE,
+          codigo: 'TEF_CONTINUIDADE_EM_EXECUCAO',
+          mensagem: 'A transação já possui uma operação TEF em execução',
+          retryAllowed: false,
+          transactionAttempted: false,
+          transacao_id: Number(transacaoId) || transacaoId
+        };
+      }
+      this._emExecucao.add(String(transacaoId));
+      let retornoBruto;
+      try {
+        retornoBruto = await this._nativeHostIntent.run({
+          transactionId: String(transacaoId),
+          allowedOperations: ['TX_CONTINUE', 'TX_FINALIZE']
+        }, () => adapter.continuarPagamento({
+          ...dados,
+          transacao_id: Number(transacaoId) || transacaoId,
+          venda_id: dados.venda_id != null ? dados.venda_id : transacao.venda_id,
+          acao: dados.acao || sol99.acao || contPersistida.acao || null,
+          solicitadaEm: solicitadaEmInformada,
+          idempotency_key: dados.idempotency_key || transacao.idempotency_key || null,
+          idempotency_key_persistida: transacao.idempotency_key || null,
+          exigirRespostaPersistida: contPersistida.estado === 'RESPONDIDA',
+          identidadePersistida: {
+            transactionId: String(transacao.id),
+            operation_id: payloadAnterior.persistencia?.operation_id
+              || transacao.codigo_transacao
+              || null,
+            idempotency_key: transacao.idempotency_key
+              || payloadAnterior.persistencia?.idempotency_key
+              || null,
+            fingerprint: payloadAnterior.persistencia?.fingerprint || null
+          }
+        }));
+      } finally {
+        this._emExecucao.delete(String(transacaoId));
+      }
 
       const decisaoFinanceira = classificarResultadoFinanceiro(retornoBruto);
       const retorno = tefContrato.criarRespostaAutorizacao({
@@ -1530,7 +2412,10 @@ class TefManager {
           continuidade: {
             ...continuidadeBase,
             requerContinuacao: retornoBruto.requerContinuacao === true,
-            acao: retornoBruto.acao || continuidadeBase.acao || null
+            acao: retornoBruto.acao || continuidadeBase.acao || null,
+            solicitadaEm: retornoBruto.requerContinuacao === true
+              ? retornoBruto.solicitadaEm || null
+              : continuidadeBase.solicitadaEm || null
           },
           reconciliacaoObrigatoria: retornoBruto.reconciliacaoObrigatoria === true
         },
@@ -1547,11 +2432,13 @@ class TefManager {
       });
 
       if (retornoBruto.requerContinuacao === true) {
-        this._marcarContinuidadeCrt(transacaoId, {
+        await this._persistirSolicitacao99(transacaoId, retornoBruto, {
           idempotency_key: dados.idempotency_key || transacao.idempotency_key,
           venda_id: dados.venda_id != null ? dados.venda_id : transacao.venda_id
-        }, retornoBruto);
-      } else {
+        });
+      }
+
+      if (retornoBruto.requerContinuacao !== true) {
         this._limparContinuidadeCrt(transacaoId);
       }
 
@@ -1576,6 +2463,7 @@ class TefManager {
         ...api,
         requerContinuacao: retornoBruto.requerContinuacao === true,
         acao: retornoBruto.acao || null,
+        solicitadaEm: retornoBruto.solicitadaEm || null,
         inconclusivo: retornoBruto.inconclusivo === true,
         reconciliacaoObrigatoria: retornoBruto.reconciliacaoObrigatoria === true,
         cicloCrt: retornoBruto.cicloCrt || null,
@@ -1600,6 +2488,9 @@ class TefManager {
   }
 
   async cancelar(transacaoId, motivo = 'Cancelamento da venda') {
+    if (!this._configuracaoCriptografica.disponivel) {
+      return this._resultadoCriptografiaIndisponivel();
+    }
     return new Promise((resolve, reject) => {
       const db = require('../../database');
 

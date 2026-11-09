@@ -2,11 +2,18 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const archiver = require('archiver');
-const db = require('../../database');
 const { getFiscalDir, getFiscalSubDir } = require('./paths');
+const {
+  extrairXmlNfceAutorizado: extrairXmlNfceAutorizadoCentral,
+  prepararNfceAutorizadasParaExportacao
+} = require('./centralContabilNfceXml');
+
+function obterDatabase(dbOverride) {
+  return dbOverride || require('../../database');
+}
 
 function dbGet(sql, params = [], dbOverride) {
-  const dbConn = dbOverride || db;
+  const dbConn = obterDatabase(dbOverride);
   return new Promise((resolve, reject) => {
     dbConn.get(sql, params, (err, row) => {
       if (err) reject(err);
@@ -16,7 +23,7 @@ function dbGet(sql, params = [], dbOverride) {
 }
 
 function dbAll(sql, params = [], dbOverride) {
-  const dbConn = dbOverride || db;
+  const dbConn = obterDatabase(dbOverride);
   return new Promise((resolve, reject) => {
     dbConn.all(sql, params, (err, rows) => {
       if (err) reject(err);
@@ -58,17 +65,14 @@ function agoraLocalBrasil() {
 }
 
 /**
- * RC3.19 — Extrai o XML autorizado da NFC-e.
- *
- * Prioridade:
- *   1. xml_retorno com <nfeProc> (XML oficial autorizado + protocolo SEFAZ)
- *   2. xml_enviado com <NFe> (XML assinado enviado — fallback compatível)
- *   3. <NFe> extraído de xml_retorno
- *
- * Não utiliza o XML de envio como prova isolada de autorização: prefere o
- * retorno SEFAZ quando este contém o nfeProc completo.
+ * Extrai exclusivamente o XML oficial processado validado para a Central.
  */
 function extrairXmlNfceAutorizado(nota) {
+  return extrairXmlNfceAutorizadoCentral(nota);
+}
+
+/** NF-e permanece no fluxo legado próprio; a validação estrita desta sprint é NFC-e. */
+function extrairXmlLegado(nota) {
   const retorno = String(nota?.xml_retorno || '');
   const nfeProc = retorno.match(/<nfeProc[\s\S]*?<\/nfeProc>/i);
   if (nfeProc) {
@@ -90,8 +94,7 @@ function extrairXmlNfceAutorizado(nota) {
   return null;
 }
 
-/** Mesmo extrator da NFC-e — NF-e usa xml_enviado / xml_retorno em nfe_notas. */
-const extrairXmlNfeAutorizado = extrairXmlNfceAutorizado;
+const extrairXmlNfeAutorizado = extrairXmlLegado;
 
 function nomeArquivoNfce(nota) {
   const chave = String(nota.chave_acesso || '').replace(/\D/g, '');
@@ -126,24 +129,24 @@ function nomeArquivoEntrada(doc) {
  * RC3.18 — XML de entrada pela Central de Entradas (fonte oficial).
  * Fallback legado (notas_recebidas*) + disco apenas se a chave ainda não estiver na Central.
  */
-async function buscarXmlEntradaCentral(doc) {
+async function buscarXmlEntradaCentral(doc, dbOverride) {
   if (doc?.xml && String(doc.xml).trim()) {
     return String(doc.xml);
   }
-  return buscarXmlEntradaLegado(doc);
+  return buscarXmlEntradaLegado(doc, dbOverride);
 }
 
-async function buscarXmlEntradaLegado(compra) {
+async function buscarXmlEntradaLegado(compra, dbOverride) {
   const chave = String(compra.chave_acesso || compra.chave || '').replace(/\D/g, '');
 
   if (chave.length === 44) {
     // @deprecated RC1 — fallback; preferir central_entradas_documentos
-    const dfe = await dbGet('SELECT xml FROM notas_recebidas_dfe WHERE chave = ? LIMIT 1', [chave]);
+    const dfe = await dbGet('SELECT xml FROM notas_recebidas_dfe WHERE chave = ? LIMIT 1', [chave], dbOverride);
     if (dfe?.xml) {
       return dfe.xml;
     }
 
-    const recebida = await dbGet('SELECT xml FROM notas_recebidas WHERE chave = ? LIMIT 1', [chave]);
+    const recebida = await dbGet('SELECT xml FROM notas_recebidas WHERE chave = ? LIMIT 1', [chave], dbOverride);
     if (recebida?.xml) {
       return recebida.xml;
     }
@@ -180,8 +183,8 @@ async function buscarXmlEntradaLegado(compra) {
 }
 
 /** @deprecated alias — mantido para compatibilidade interna */
-async function buscarXmlEntrada(compra) {
-  return buscarXmlEntradaCentral(compra);
+async function buscarXmlEntrada(compra, dbOverride) {
+  return buscarXmlEntradaCentral(compra, dbOverride);
 }
 
 function garantirPasta(dir) {
@@ -246,12 +249,7 @@ async function buscarNfceAutorizadas(dataInicial, dataFinal, dbOverride) {
         END
       ) <= ?
       AND (
-        LOWER(TRIM(COALESCE(n.status, ''))) = 'autorizada'
-        OR (
-          n.xml_retorno IS NOT NULL
-          AND n.xml_retorno LIKE '%<cStat>100</cStat>%'
-          AND LOWER(TRIM(COALESCE(n.status, ''))) NOT IN ('cancelada', 'rejeitada', 'erro')
-        )
+        LOWER(TRIM(COALESCE(n.status, ''))) IN ('autorizada', 'autorizado')
       )
     ORDER BY n.created_at ASC, n.id ASC
   `, [dataInicial, dataFinal], dbOverride);
@@ -267,7 +265,7 @@ async function buscarNfceAutorizadas(dataInicial, dataFinal, dbOverride) {
  * NÃO transmite. NÃO cria venda. Reutiliza persistirNfceAutorizadaDoFechamento.
  */
 async function sincronizarHistoricoNfcePeriodo(dataInicial, dataFinal, dbOverride) {
-  const dbConn = dbOverride || db;
+  const dbConn = obterDatabase(dbOverride);
   try {
     const { sincronizarHistoricoNfceDoFechamento } = require('../fechamento-fiscal/NfceHistoricoOficialService');
     const fechamentos = await dbAll(`
@@ -296,7 +294,7 @@ async function sincronizarHistoricoNfcePeriodo(dataInicial, dataFinal, dbOverrid
 }
 
 /** RC3.18 — NF-e modelo 55 autorizadas (nfe_notas). */
-async function buscarNfeAutorizadas(dataInicial, dataFinal) {
+async function buscarNfeAutorizadas(dataInicial, dataFinal, dbOverride) {
   return dbAll(`
     SELECT
       n.*,
@@ -321,14 +319,14 @@ async function buscarNfeAutorizadas(dataInicial, dataFinal) {
         )
       )
     ORDER BY n.created_at ASC, n.id ASC
-  `, [dataInicial, dataFinal]);
+  `, [dataInicial, dataFinal], dbOverride);
 }
 
 /**
  * RC3.18 — entradas pela Central de Entradas (oficial).
  * Completa com compras+legado apenas para chaves ainda ausentes na Central.
  */
-async function buscarEntradasPeriodo(dataInicial, dataFinal) {
+async function buscarEntradasPeriodo(dataInicial, dataFinal, dbOverride) {
   const daCentral = await dbAll(`
     SELECT
       id,
@@ -353,13 +351,13 @@ async function buscarEntradasPeriodo(dataInicial, dataFinal) {
       AND TRIM(xml) <> ''
       AND LOWER(TRIM(COALESCE(status, ''))) NOT IN ('cancelada', 'excluida', 'rejeitada')
     ORDER BY COALESCE(data_emissao, data_entrada, created_at) ASC, id ASC
-  `, [dataInicial, dataFinal]);
+  `, [dataInicial, dataFinal], dbOverride);
 
   const chaves = new Set(
     daCentral.map((d) => String(d.chave || d.chave_acesso || '').replace(/\D/g, '')).filter((c) => c.length === 44)
   );
 
-  const compras = await buscarComprasEntrada(dataInicial, dataFinal);
+  const compras = await buscarComprasEntrada(dataInicial, dataFinal, dbOverride);
   const complementos = [];
   for (const compra of compras) {
     const chave = String(compra.chave_acesso || '').replace(/\D/g, '');
@@ -374,7 +372,7 @@ async function buscarEntradasPeriodo(dataInicial, dataFinal) {
   return [...daCentral, ...complementos];
 }
 
-async function buscarComprasEntrada(dataInicial, dataFinal) {
+async function buscarComprasEntrada(dataInicial, dataFinal, dbOverride) {
   return dbAll(`
     SELECT *
     FROM compras
@@ -386,7 +384,7 @@ async function buscarComprasEntrada(dataInicial, dataFinal) {
         OR (numero_nf IS NOT NULL AND TRIM(numero_nf) <> '')
       )
     ORDER BY COALESCE(data_emissao, data_entrada, data_compra) ASC, id ASC
-  `, [dataInicial, dataFinal]);
+  `, [dataInicial, dataFinal], dbOverride);
 }
 
 function gerarCsvVendas(notas, tipoDoc = 'NFC-e') {
@@ -501,7 +499,10 @@ function removerPastaRecursiva(dir) {
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
-async function exportarContabilidade({ dataInicial, dataFinal, ...opcoesBody } = {}) {
+async function exportarContabilidade(
+  { dataInicial, dataFinal, ...opcoesBody } = {},
+  { dbOverride, tempDir } = {}
+) {
   const inicio = normalizarData(dataInicial);
   const fim = normalizarData(dataFinal);
   const opcoes = normalizarOpcoesExportacao(opcoesBody);
@@ -532,13 +533,19 @@ async function exportarContabilidade({ dataInicial, dataFinal, ...opcoesBody } =
 
   // RC3.19 — recupera documentos autorizados do fechamento que ainda não
   // estão em nfce_notas (histórico anterior à Sprint 08.1). Idempotente.
-  if (opcoes.incluirNfce) {
+  if (opcoes.incluirNfce && !dbOverride) {
     await sincronizarHistoricoNfcePeriodo(inicio, fim);
   }
 
-  const notasNfce = await buscarNfceAutorizadas(inicio, fim);
-  const notasNfe = await buscarNfeAutorizadas(inicio, fim);
-  const entradas = await buscarEntradasPeriodo(inicio, fim);
+  const notasNfce = opcoes.incluirNfce
+    ? await buscarNfceAutorizadas(inicio, fim, dbOverride)
+    : [];
+  const notasNfe = opcoes.incluirNfe
+    ? await buscarNfeAutorizadas(inicio, fim, dbOverride)
+    : [];
+  const entradas = opcoes.incluirEntradas
+    ? await buscarEntradasPeriodo(inicio, fim, dbOverride)
+    : [];
 
   const temDocs =
     notasNfce.length > 0 ||
@@ -554,7 +561,7 @@ async function exportarContabilidade({ dataInicial, dataFinal, ...opcoesBody } =
   const [anoRef, mesRef] = fim.split('-');
   const nomePasta = `CONTABILIDADE_${anoRef}-${mesRef}`;
   const nomeZip = `CONTABILIDADE_${anoRef}_${mesRef}.zip`;
-  const baseTemp = garantirPasta(path.join(os.tmpdir(), 'cds-contabilidade'));
+  const baseTemp = garantirPasta(tempDir || path.join(os.tmpdir(), 'cds-contabilidade'));
   const raizExportacao = path.join(baseTemp, `${nomePasta}_${Date.now()}`);
   const pastaXmlNfce = opcoes.incluirNfce ? garantirPasta(path.join(raizExportacao, 'XML_NFCE')) : null;
   const pastaXmlNfe = opcoes.incluirNfe ? garantirPasta(path.join(raizExportacao, 'XML_NFE')) : null;
@@ -568,6 +575,7 @@ async function exportarContabilidade({ dataInicial, dataFinal, ...opcoesBody } =
   const arquivosGerados = [];
   const xmlAusentes = [];
   let xmlsNfceExportados = 0;
+  let xmlsNfceBloqueados = 0;
   let xmlsNfeExportados = 0;
   let xmlsEntradasExportados = 0;
 
@@ -576,21 +584,29 @@ async function exportarContabilidade({ dataInicial, dataFinal, ...opcoesBody } =
     : 0;
 
   if (opcoes.incluirNfce) {
-    for (const nota of notasNfce) {
-      const xml = extrairXmlNfceAutorizado(nota);
+    const { validas, invalidas } = prepararNfceAutorizadasParaExportacao(notasNfce);
+    for (const bloqueio of invalidas) {
+      xmlsNfceBloqueados += 1;
+      const nota = bloqueio.nota || {};
+      const caminhoDestino = path.join(pastaXmlNfce, nomeArquivoNfce(nota));
+      xmlAusentes.push({
+        tipo: 'NFCE',
+        referencia: bloqueio.referencia,
+        codigo: bloqueio.codigo,
+        motivo: bloqueio.motivo,
+        caminhoEsperado: caminhoDestino
+      });
+      console.warn('[CONTABILIDADE] NFC-e bloqueada: evidência de autorização inválida.', {
+        nota_id: nota.id,
+        referencia: bloqueio.referencia,
+        codigo: bloqueio.codigo,
+        motivo: bloqueio.motivo
+      });
+    }
+
+    for (const { nota, xml } of validas) {
       const nomeArquivo = nomeArquivoNfce(nota);
       const caminhoDestino = path.join(pastaXmlNfce, nomeArquivo);
-
-      if (!xml) {
-        xmlAusentes.push({
-          tipo: 'NFCE',
-          referencia: nota.chave_acesso || `venda_${nota.venda_id || 'fechamento'}`,
-          caminhoEsperado: caminhoDestino
-        });
-        console.warn(`[CONTABILIDADE] XML NFC-e ausente: nota ${nota.id} / venda ${nota.venda_id}`);
-        continue;
-      }
-
       escreverArquivo(caminhoDestino, xml);
       arquivosGerados.push(`XML_NFCE/${nomeArquivo}`);
       xmlsNfceExportados += 1;
@@ -621,7 +637,7 @@ async function exportarContabilidade({ dataInicial, dataFinal, ...opcoesBody } =
 
   if (opcoes.incluirEntradas) {
     for (const doc of entradas) {
-      const xml = await buscarXmlEntradaCentral(doc);
+      const xml = await buscarXmlEntradaCentral(doc, dbOverride);
       const nomeArquivo = nomeArquivoEntrada(doc);
       const caminhoDestino = path.join(pastaXmlEntradas, nomeArquivo);
 
@@ -694,6 +710,12 @@ async function exportarContabilidade({ dataInicial, dataFinal, ...opcoesBody } =
       `Período: ${inicio} a ${fim}`,
       `Pasta raiz: ${nomePasta}/`,
       `Opções: NFC-e=${opcoes.incluirNfce} NF-e=${opcoes.incluirNfe} Entradas=${opcoes.incluirEntradas} CSV=${opcoes.incluirRelatorios}`,
+      'Resumo da exportação:',
+      `NFC-e avaliadas: ${opcoes.incluirNfce ? notasNfce.length : 0}`,
+      `XMLs NFC-e incluídos: ${xmlsNfceExportados}`,
+      `NFC-e bloqueadas: ${xmlsNfceBloqueados}`,
+      `NF-e incluídas: ${xmlsNfeExportados}`,
+      `XMLs de entrada incluídos: ${xmlsEntradasExportados}`,
       '',
       'Arquivos gerados:'
     ];
@@ -703,9 +725,11 @@ async function exportarContabilidade({ dataInicial, dataFinal, ...opcoesBody } =
     });
 
     if (xmlAusentes.length > 0) {
-      manifestoLinhas.push('', 'XML ausentes (registrados no log):');
+      manifestoLinhas.push('', 'Documentos não exportados como XML autorizado:');
       xmlAusentes.forEach((item) => {
-        manifestoLinhas.push(`- ${item.tipo} ${item.referencia} (esperado em ${item.caminhoEsperado})`);
+        manifestoLinhas.push(
+          `- ${item.tipo} ${item.referencia} [${item.codigo || 'XML_AUSENTE'}]: ${item.motivo || 'XML ausente.'}`
+        );
       });
     }
 
@@ -743,6 +767,7 @@ async function exportarContabilidade({ dataInicial, dataFinal, ...opcoesBody } =
     resumo: {
       periodo: `${inicio} a ${fim}`,
       quantidadeNfce: opcoes.incluirNfce ? notasNfce.length : 0,
+      quantidadeNfceBloqueadas: opcoes.incluirNfce ? xmlsNfceBloqueados : 0,
       quantidadeNfceConsolidadas,
       quantidadeNfe: opcoes.incluirNfe ? notasNfe.length : 0,
       valorTotalVendas:
@@ -753,6 +778,7 @@ async function exportarContabilidade({ dataInicial, dataFinal, ...opcoesBody } =
       dataGeracao,
       xmlAusentes: xmlAusentes.length,
       xmlsNfceExportados,
+      xmlsNfceBloqueados,
       xmlsNfeExportados,
       xmlsEntradasExportados,
       opcoes

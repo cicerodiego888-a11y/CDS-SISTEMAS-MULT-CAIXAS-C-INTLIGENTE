@@ -1,0 +1,71 @@
+{
+  "mrt": "MRT-50.69",
+  "classificacao": "INCONCLUSIVA",
+  "keepAlive": false,
+  "evidencias": {
+    "confirmacaoUsuario": true,
+    "gateJanela": {
+      "ligadoEm": "2026-11-07T21:01:21.021Z",
+      "desligadoEm": "2026-11-07T21:01:22.233Z",
+      "motivoOff": "pos-ciclo-crt"
+    },
+    "nativeHostPid": 66404,
+    "clientInit": {
+      "sucesso": true,
+      "codigo": "00",
+      "estado": "CLIENT_INITIALIZED",
+      "mensagem": "Client Destaxa inicializado"
+    },
+    "enableReal": {
+      "sucesso": true,
+      "codigo": null,
+      "mensagem": null
+    },
+    "crt": {
+      "transactionId": "mrt69_6d7712cbd568da8f",
+      "entrada": "transacao_valor=1.00;transacao_tipo_cartao=Débito;transacao_pagamento=A vista",
+      "passos": [
+        {
+          "tipo": "TX_START",
+          "em": "2026-11-07T21:01:22.232Z",
+          "codigo": "05",
+          "estado": "ERROR",
+          "requerContinuacao": false,
+          "acaoTipo": null,
+          "acaoMensagem": null,
+          "financialState": "UNKNOWN",
+          "sucesso": false,
+          "mensagem": "Dados coletados insuficientes ou invalidos",
+          "naoExecutada": false
+        }
+      ],
+      "resultadoFinal": {
+        "sucesso": false,
+        "recusada": false,
+        "inconclusivo": true,
+        "bloqueadaPre": false,
+        "codigoDestaxa": "05",
+        "financialState": "UNKNOWN",
+        "mensagem": null
+      }
+    },
+    "pinpad": {
+      "displayVistos": [],
+      "coletas": [],
+      "opcoes": [],
+      "evidenciaInteracao": false
+    },
+    "classificacao": "INCONCLUSIVA",
+    "shutdown": {
+      "encerrado": true,
+      "estado": "STOPPED",
+      "forcado": false,
+      "adiado": false
+    }
+  },
+  "gateApos": {
+    "process": "0",
+    "habilitado": false
+  },
+  "geradoEm": "2026-11-07T21:01:22.268Z"
+}

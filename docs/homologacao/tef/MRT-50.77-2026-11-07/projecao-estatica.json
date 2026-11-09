@@ -1,0 +1,85 @@
+{
+  "gateOff": true,
+  "encoding": "latin1",
+  "aplicacao": "CDS Sistemas",
+  "binariosPacote": {
+    "versaoPacote": "1.83",
+    "origem": "PARCERIA-DESTAXA.zip",
+    "origemInterna": "1_83-20260831T165940Z-1-001/1_83",
+    "arquivos": {
+      "win-x64": {
+        "origem": "build64/libdll-integracao-tef.dll",
+        "nome": "libdll-integracao-tef.dll",
+        "peMachine": "AMD64",
+        "tamanho": 136782,
+        "sha256": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279"
+      },
+      "win-ia32": {
+        "origem": "build32/libdll-integracao-tef.dll",
+        "nome": "libdll-integracao-tef.dll",
+        "peMachine": "i386",
+        "tamanho": 130997,
+        "sha256": "0160FAD1EF27D6EF6FB79AD4899998B36FAFD2FA836BF20039104CF6364C10CE"
+      }
+    }
+  },
+  "logParams": {
+    "diretorio_trabalho": "C:\\CDS-SISTEMAS\\logs\\destaxa",
+    "nivel_log": "1",
+    "nome_arquivo_log": "destaxa-dll.log",
+    "tam_max_log": "10",
+    "total_bkp_log": "5"
+  },
+  "logMetaPacote": {
+    "arquivo": "05-api-iniciaclientdestaxa.md",
+    "pacote": "1.83",
+    "nivel_log_escala": "5=FATAL … 0=TRACE; 1=DEBUG; <0 desativa",
+    "tam_max_log_unidade": "mega bytes",
+    "exemploOficial": "diretorio_trabalho=c:\\tmp;nome_arquivo_log=logs.txt;tam_max_log=3",
+    "assinaturaKoffi": "void iniciaClientDestaxa(uint8 *resultado, uint8 *entrada, int tamanho_entrada)",
+    "nota": "Os cinco parâmetros de log entram na string `entrada`, não como argumentos C separados."
+  },
+  "projecao": {
+    "texto": "versao=1.0.3;aplicacao=CDS Sistemas;diretorio_trabalho=C:\\CDS-SISTEMAS\\logs\\destaxa;nivel_log=1;nome_arquivo_log=destaxa-dll.log;tam_max_log=10;total_bkp_log=5",
+    "chaves": [
+      "versao",
+      "aplicacao",
+      "diretorio_trabalho",
+      "nivel_log",
+      "nome_arquivo_log",
+      "tam_max_log",
+      "total_bkp_log"
+    ],
+    "camposDestaxaEnviados": {
+      "estabelecimento": false,
+      "loja": false,
+      "terminal": false
+    },
+    "camposLogDll": {
+      "diretorio_trabalho": "C:\\CDS-SISTEMAS\\logs\\destaxa",
+      "nivel_log": "1",
+      "nome_arquivo_log": "destaxa-dll.log",
+      "tam_max_log": "10",
+      "total_bkp_log": "5"
+    },
+    "nivel_log_eh_1": true,
+    "temEstabelecimentoLojaTerminal": false
+  },
+  "mapeamento": {
+    "estado": "PENDENTE_FORNECEDOR",
+    "codigo": "MAPEAMENTO_OFICIAL_PENDENTE",
+    "obrigatorios": false,
+    "tefProntoParaVenda": false
+  },
+  "diretorioLog": {
+    "ok": true,
+    "diretorio": "C:\\CDS-SISTEMAS\\logs\\destaxa",
+    "arquivoLog": "C:\\CDS-SISTEMAS\\logs\\destaxa\\destaxa-dll.log",
+    "gravavel": true
+  },
+  "debito": {
+    "literal": "Debito",
+    "crt": "transacao_valor=1.00;transacao_tipo_cartao=Debito;transacao_pagamento=A vista",
+    "preservaDebitoAscii": true
+  }
+}

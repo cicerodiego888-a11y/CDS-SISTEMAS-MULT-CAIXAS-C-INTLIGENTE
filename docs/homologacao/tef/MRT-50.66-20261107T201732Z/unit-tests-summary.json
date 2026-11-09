@@ -1,0 +1,24 @@
+{
+    "tef05":  {
+                  "falhou":  0,
+                  "ok":  15,
+                  "resultado":  "Resultado: 15 ok, 0 falhou\r"
+              },
+    "tef03":  {
+                  "falhou":  4,
+                  "ok":  22,
+                  "falhas":  [
+                                 "CENÁRIO 2 — 99 DISPLAY → continua (entrada vazia) → 00",
+                                 "CENÁR...ada vazia) → 00:String) [], RemoteException",
+                                 "CENÁRIO 3 — COLETA → OPÇÃO → 00",
+                                 "continuar sem contexto"
+                             ],
+                  "resultado":  "Resultado: 22 ok, 3 falhou\r"
+              },
+    "nativo":  {
+                   "dllLoad":  false,
+                   "nativeHost":  false,
+                   "iniciaTransacao":  false,
+                   "iniciaClient":  false
+               }
+}

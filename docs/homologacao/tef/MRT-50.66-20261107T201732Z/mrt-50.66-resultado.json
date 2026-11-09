@@ -1,0 +1,29 @@
+{
+  "sprint": "MRT-50.66",
+  "titulo": "VALIDAÇÃO DO CONTRATO CRT E PRÉ-CONDIÇÕES DA OPERAÇÃO DE DÉBITO",
+  "status": "CONCLUÍDA",
+  "registradoEm": "2026-11-07T20:17:32Z",
+  "tipo": "auditoria-estatica-somente-leitura",
+  "entradaDebitoEsperada": "transacao_valor=1.00;transacao_tipo_cartao=Débito;transacao_pagamento=A vista",
+  "entradaDebitoComprovada": true,
+  "gateOff": true,
+  "chamadasNativas": false,
+  "chamadasFinanceiras": false,
+  "codigoAlterado": false,
+  "bancoAlterado": false,
+  "configAlterada": false,
+  "nativeHostIniciado": false,
+  "dllCarregada": false,
+  "testes": {
+    "crtStaticAssembly": { "ok": true },
+    "tef-destaxa-03-crt-protocolo": { "ok": 22, "falhou": 3, "nota": "falhas no caminho mock continuarTransacao; não no buildCrtInput débito" },
+    "tef-destaxa-05-financial-safety": { "ok": 15, "falhou": 0 }
+  },
+  "lacunas": [
+    "tef-destaxa-03: 3 falhas em continuidade mock (DISPLAY/COLETA/continuar sem contexto)",
+    "transacaoRealHabilitada() lê apenas process.env (User/Machine só via herança no spawn)",
+    "prepararAutorizacao pode LOAD/INIT_CLIENT antes do bloqueio do gate; gate bloqueia iniciaTransacaoDestaxa",
+    "adapter não hard-bloqueia cartao_credito; limite débito é operacional + valor=100 + CRT"
+  ],
+  "autorizacaoDebitoR1": "reservada — não utilizada; MRT-50.66 não autoriza cobrança"
+}

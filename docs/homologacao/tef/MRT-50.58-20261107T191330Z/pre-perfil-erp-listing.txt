@@ -1,0 +1,156 @@
+﻿C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\.cds-tef-crypto-context.json|284|2026-11-06T21:58:20.3487666Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Local State|389|2026-11-06T21:58:20.3159786Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Preferences|1014|2026-11-07T15:05:26.1660228Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\0947c57e8d336ee9_0|209|2026-11-07T15:33:57.3272256Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\0b78ec63ee017b9b_0|207|2026-11-07T15:33:57.3193447Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\0bbb558dad8a0af9_0|218|2026-11-06T22:49:42.6953095Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\0dfdf25101ca6b90_0|207|2026-11-07T15:33:57.3672311Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\1436c9e2e0d12501_0|217|2026-11-07T15:11:54.6918920Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\146feb7135e556aa_0|231|2026-11-07T15:05:38.5521458Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\1643f06c4d0d5685_0|205|2026-11-07T15:33:57.3592191Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\17d21cceea64aa4a_0|273|2026-11-07T15:05:38.4161438Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\17ed2b982ef7c01b_0|219|2026-11-07T15:33:57.3672311Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\1934bbc5d966917d_0|241|2026-11-07T15:11:54.6998919Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\1c14151f2b8f3c9a_0|102328|2026-11-07T15:05:28.7420586Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\1fb9e935e71628f9_0|192|2026-11-07T15:33:57.3832205Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\2309a8423d9c6512_0|222|2026-11-07T15:11:54.5479009Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\24476fc8d6177507_0|227|2026-11-07T15:05:38.5441476Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\2518f539e4cb9441_0|102320|2026-11-06T22:27:45.1921702Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\25280f0f7b65a9b7_0|218|2026-11-07T15:05:38.5601453Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\263fe0e2214e9b62_0|56136|2026-11-06T22:27:45.1921702Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\266e0dd1ad412e7a_0|9129|2026-11-07T15:05:38.4161438Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\2a023182f52d8f2e_0|206|2026-11-07T15:33:57.3272256Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\2aba89e2776dd640_0|205|2026-11-07T15:33:57.3672311Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\2babbe3a9102069c_0|231|2026-11-07T15:11:54.6598955Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\2c84b376d54f4457_0|204|2026-11-07T15:33:57.3752225Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\30bb991ae692d97d_0|227|2026-11-07T15:11:54.5879328Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\311cacdc215f2dad_0|195|2026-11-07T15:33:57.3912199Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\31ea8ad10fe419d0_0|203|2026-11-07T15:33:57.3193447Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\362508fda5f28977_0|235|2026-11-07T15:11:54.7238906Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\36c20ea589652e24_0|230|2026-11-07T15:11:54.5639129Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\37722abdcea495e7_0|209|2026-11-07T15:33:57.3912199Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\3925b5f5f56afc82_0|232|2026-11-07T15:11:54.7158937Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\3b46d604c44298ae_0|194|2026-11-07T15:33:57.3272256Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\3e0a528095939495_0|209|2026-11-07T15:33:57.3672311Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\3e64410edf231386_0|2112|2026-11-07T15:05:38.4161438Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\42d657f0d3ab8b91_0|206|2026-11-07T15:33:57.3272256Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\43d5fb4f09636b1e_0|238|2026-11-07T15:48:42.0535655Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\483d32dea03bd34f_0|207|2026-11-07T15:33:57.3272256Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\485f0c96a0227512_0|2642|2026-11-07T15:05:38.4161438Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\4b92db30b7fd1847_0|226|2026-11-06T21:59:01.6033866Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\4c187c97cdf98c2a_0|219|2026-11-07T15:11:54.5398927Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\4cbd8568acd287ef_0|218|2026-11-06T21:59:01.6113800Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\4e1b02f7ee36bcb3_0|229|2026-11-07T15:11:54.7078949Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\4f2a247c9bb61a02_0|4254|2026-11-07T15:05:28.9180606Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\50ff576911df8892_0|227|2026-11-06T22:27:45.4401721Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\52abcaef4a84d3bb_0|216|2026-11-07T15:48:42.0775828Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\547306224a7ab00c_0|203|2026-11-07T15:33:57.3193447Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\59ec81fe7cb8622b_0|102344|2026-11-06T22:49:42.4873142Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\5a7d2ec8f9ca3658_0|204|2026-11-07T15:33:57.3193447Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\5c502782fbd92242_0|205|2026-11-07T15:33:57.3193447Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\5d05700dbe129e0a_0|208|2026-11-07T15:33:57.3272256Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\5ea152f96c109e68_0|205|2026-11-07T15:33:57.3832205Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\5fc24c1b9d24f112_0|2695|2026-11-07T15:05:28.9100594Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\612d1437464af536_0|206|2026-11-07T15:33:57.3592191Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\618f25a012f3a114_0|195|2026-11-07T15:33:57.3912199Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\64a436d0e8d05c61_0|2403|2026-11-07T15:05:38.4001533Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\68ddfd868ef2b83e_0|229|2026-11-07T15:11:54.6279054Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\6bfaccd27b265d53_0|209|2026-11-07T15:33:57.3193447Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\6d008a149f0da446_0|3779|2026-11-07T15:05:28.9180606Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\702681bf29ef67b9_0|227|2026-11-06T22:49:42.6793100Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\70be27ed83bab79b_0|205|2026-11-07T15:33:57.3672311Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\719c768d0b694377_0|1934|2026-11-07T15:05:38.3921431Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\71ba04330a70f2be_0|204|2026-11-07T15:33:57.3832205Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\724cd6660ab68059_0|207|2026-11-07T15:33:57.3272256Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\757dbe43edc2fb82_0|209|2026-11-07T15:33:57.3272256Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\75bc7c90f1546949_0|231|2026-11-06T21:59:01.6113800Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\7c4cf456d73e4bb0_0|204|2026-11-07T15:33:57.2953366Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\80c1551013753b8b_0|205|2026-11-07T15:33:57.3193447Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\815e59c8bbf70f1c_0|226|2026-11-06T22:49:42.6793100Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\8271ca9e9655dc67_0|60480|2026-11-06T21:59:01.4113755Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\8aa4bfa5193bd188_0|231|2026-11-06T22:49:42.6873108Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\8b942687db9cd20a_0|226|2026-11-07T15:05:38.5521458Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\8c0c5e734c782fb1_0|238|2026-11-07T15:11:54.5798924Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\91c0ee7a5f545be7_0|220|2026-11-07T15:33:57.3193447Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\9578fca22dfae13c_0|230|2026-11-07T15:11:54.6119018Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\9b856e4f6f58315f_0|225|2026-11-07T15:11:54.7318945Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\9ed4ee7daacf0d93_0|208|2026-11-07T15:33:57.3832205Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\a00b45f9261e65f3_0|215|2026-11-07T15:33:57.3672311Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\a17ca20dc7ceb4d3_0|209|2026-11-07T15:33:57.3272256Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\a24a2b989061cf3b_0|206|2026-11-07T15:33:57.3912199Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\a7dc59d1aaf90bea_0|127152|2026-11-06T21:59:01.3793891Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\a7f77e8b61c7cb84_0|2758|2026-11-07T15:05:28.9180606Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\a8ca96763ddd9267_0|6469|2026-11-07T15:05:38.4001533Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\a912c9d1c379d4a4_0|225|2026-11-06T22:28:06.7876279Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\ac4be4eaf69cfb6c_0|205|2026-11-07T15:33:57.3272256Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\ad02a12c72fb8c4c_0|198|2026-11-07T15:33:57.3912199Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\ad8fadb7aa87f00d_0|205|2026-11-07T15:33:57.3832205Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\afe9360a27cc7ef7_0|238|2026-11-07T15:11:54.6918920Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\b5065d169d44bf26_0|226|2026-11-06T22:27:45.4481724Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\b75c67f58e4ac562_0|56104|2026-11-07T15:05:28.7420586Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\b7cfc27944323162_0|226|2026-11-07T15:48:42.0455650Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\b91c82da91f79cde_0|209|2026-11-07T15:33:57.3272256Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\bc753866ebe8fcea_0|207|2026-11-07T15:33:57.3832205Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\bdc06dec4e481e9b_0|193|2026-11-07T15:33:57.3912199Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\c42d91d0d26a0ae8_0|224|2026-11-07T15:11:54.6678963Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\ca6ffed566b52329_0|190|2026-11-07T15:33:57.3832205Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\ce1ee623c097c165_0|211|2026-11-07T15:33:57.3272256Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\ce36cf611a66fec8_0|1752|2026-11-07T15:05:38.4161438Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\d0544a454164c29b_0|1967|2026-11-07T15:05:38.4001533Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\d078fab3e233cd54_0|228|2026-11-07T15:11:54.5240000Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\d1c7364f4152a396_0|1515|2026-11-07T15:05:38.4001533Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\d4db96f3ca78f25e_0|207|2026-11-07T15:33:57.3592191Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\d81e55e43be75acc_0|209|2026-11-07T15:33:57.3672311Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\d85f32f93b108aea_0|227|2026-11-06T21:59:01.5874227Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\dab86e4dfa47c557_0|225|2026-11-07T15:33:46.4392536Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\db71674a14ea3a95_0|56128|2026-11-06T22:49:42.4873142Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\dce8a3774bef3baf_0|6300|2026-11-07T15:05:38.3921431Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\e04c619db420cdac_0|190|2026-11-07T15:33:57.3912199Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\e130a0216dbab085_0|33976|2026-11-07T15:05:38.4161438Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\e18c5d3fa844e35c_0|207|2026-11-07T15:33:57.3592191Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\ea8f9b6e69767600_0|8582|2026-11-07T15:05:38.4161438Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\ed4e59a406ee65d5_0|231|2026-11-07T15:11:54.5959035Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\f2b3b3bc69a95994_0|5339|2026-11-07T15:05:38.4241472Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\f3b02a143df084d6_0|2009|2026-11-07T15:05:38.3921431Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\f423df1b3ecc8abc_0|205|2026-11-07T15:33:57.3672311Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\f485502a0f16899f_0|2825|2026-11-07T15:05:38.4161438Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\f4a57e6d5abf2583_0|20032|2026-11-07T15:05:38.4081460Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\f6752a8fb374268a_0|231|2026-11-06T22:27:45.4561840Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\f9d801455f4f3541_0|225|2026-11-06T21:59:28.2989571Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\fa69c63fa34db040_0|238|2026-11-07T15:48:42.0375088Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\fae7e2064e0c7ba4_0|241|2026-11-07T15:11:54.6439061Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\fc3ac424172aa0ce_0|207|2026-11-07T15:33:57.3592191Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\fceeae65df70899c_0|235|2026-11-07T15:48:42.0295441Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\ff2d4c94c9788a63_0|1817|2026-11-07T15:05:28.9180606Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\ff8a0f266c0ab770_0|218|2026-11-06T22:27:45.4641725Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\index|24|2026-11-06T21:58:26.5736336Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\js\index-dir\the-real-index|2976|2026-11-07T15:49:02.0960990Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\wasm\index|24|2026-11-06T21:58:26.5669130Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Code Cache\wasm\index-dir\the-real-index|48|2026-11-06T21:58:26.5789504Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\DawnCache\data_0|8192|2026-11-06T21:58:30.2057513Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\DawnCache\data_1|270336|2026-11-07T16:22:16.7834495Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\DawnCache\data_2|8192|2026-11-06T21:58:30.2248569Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\DawnCache\data_3|8192|2026-11-06T21:58:30.2326116Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\DawnCache\index|262512|2026-11-06T21:58:30.1875563Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\GPUCache\data_0|8192|2026-11-06T21:58:30.0945430Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\GPUCache\data_1|270336|2026-11-07T16:22:16.7914506Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\GPUCache\data_2|8192|2026-11-06T21:58:30.1176396Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\GPUCache\data_3|8192|2026-11-06T21:58:30.1312279Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\GPUCache\index|262512|2026-11-06T21:58:30.0945430Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Local Storage\leveldb\000003.log|10574|2026-11-07T15:48:42.3496215Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Local Storage\leveldb\CURRENT|16|2026-11-06T21:58:26.5245658Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Local Storage\leveldb\LOCK|0|2026-11-06T21:58:26.5107697Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Local Storage\leveldb\LOG|306|2026-11-07T15:04:50.0305191Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Local Storage\leveldb\LOG.old|306|2026-11-06T22:49:38.1646380Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Local Storage\leveldb\MANIFEST-000001|41|2026-11-06T21:58:26.5187748Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Network\Cookies|20480|2026-11-06T21:58:30.3324591Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Network\Cookies-journal|0|2026-11-06T21:58:30.3324591Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Network\Network Persistent State|418|2026-11-07T15:31:35.5211496Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Network\NetworkDataMigrated|0|2026-11-06T21:58:26.5450199Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Network\TransportSecurity|203|2026-11-07T15:30:35.5914210Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Session Storage\000003.log|1843|2026-11-07T16:22:16.6382312Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Session Storage\CURRENT|16|2026-11-06T21:58:30.3864651Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Session Storage\LOCK|0|2026-11-06T21:58:30.3729463Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Session Storage\LOG|294|2026-11-07T15:05:27.7485927Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Session Storage\LOG.old|294|2026-11-06T22:49:41.9725687Z
+C:\Users\cicer\AppData\Roaming\cds-sistemas-erp\Session Storage\MANIFEST-000001|41|2026-11-06T21:58:30.3729463Z

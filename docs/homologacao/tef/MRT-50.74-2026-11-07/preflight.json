@@ -1,0 +1,36 @@
+{
+  "mrt": "MRT-50.74",
+  "registradoEm": "2026-11-07T22:20:00Z",
+  "aprovado": true,
+  "autorizacaoUsuario": "EXPLICITA — uma CRT R$1,00 débito A vista, cartão pessoal, sem segunda tentativa",
+  "criticos": {
+    "correcao5073Presente": true,
+    "hashProtocoloMatch": true,
+    "hashConstantesMatch": true,
+    "crtLiteralDebito": true,
+    "com4Windows": true,
+    "portaPersistidaCom4": true,
+    "equipamentoGertecPpc930": true,
+    "vspagueAtivo": true,
+    "tcp60906": true,
+    "nativeHostAusente": true,
+    "gateOff": true,
+    "semPendenciaTefTransacoes": true,
+    "dllMatch": true,
+    "chaveExiste": true,
+    "perfilExiste": true,
+    "unknownHistoricosPreservados": true
+  },
+  "hashes5073": {
+    "destaxaProtocolo.js": "FA0EF0D0430EBE190724D98BCD4D40930017E5D8B6C3AE368F8FC9C607AD551F",
+    "destaxaConstantes.js": "0E0A992B13349A62847266D048A1938399EB53E49FF611E44034CB241C751EF2"
+  },
+  "crtEsperada": "transacao_valor=1.00;transacao_tipo_cartao=Debito;transacao_pagamento=A vista",
+  "codigosDestaxaEmpresaLojaTerminal": {
+    "empresa_codigo": null,
+    "loja_codigo": null,
+    "terminal_codigo": null,
+    "nota": "Opcionais na API iniciaClient; ainda PENDENTE confirmação oficial Destaxa/ACB (MRT-50.71). Não inventados. Init 50.69 aceitou sem eles."
+  },
+  "observacao": "Pré-voo aprovado para validar literal Debito (MRT-50.73). Códigos de roteamento nulos documentados, não inventados."
+}

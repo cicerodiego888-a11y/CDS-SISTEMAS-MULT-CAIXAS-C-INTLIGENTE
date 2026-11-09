@@ -1,0 +1,23 @@
+const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const root = __dirname;
+const electron = path.resolve(root, '..', '..', '..', '..', 'node_modules', 'electron', 'dist', 'electron.exe');
+const appDir = path.join(root, 'key-probe-app');
+const result = path.join(root, 'key-probe-result.json');
+const env = { ...process.env };
+env.MRT5059_KEY_PROBE_USERDATA = path.join(root, 'key-probe-userdata', 'cds-sistemas-erp');
+env.MRT5059_KEY_FILE = 'C:\\ProgramData\\MercantilFiscal\\dados\\.tef-signing-key.v1';
+env.MRT5059_KEY_PROBE_RESULT = result;
+env.DESTAXA_REAL_TRANSACTION_ENABLED = '0';
+delete env.TEF_ENCRYPTION_KEY;
+delete env.ELECTRON_RUN_AS_NODE;
+const child = spawn(electron, [appDir], { cwd: appDir, env, windowsHide: true, stdio: ['ignore','pipe','pipe'] });
+let stderr = '';
+const t = setTimeout(() => { child.kill(); fs.writeFileSync(path.join(root,'key-probe-status.txt'), 'TIMEOUT\n'); }, 20000);
+child.stderr.on('data', c => stderr += c);
+child.on('close', code => {
+  clearTimeout(t);
+  fs.writeFileSync(path.join(root,'key-probe-status.txt'), `EXIT=${code}\n`);
+  fs.writeFileSync(path.join(root,'key-probe-stderr.txt'), stderr);
+});

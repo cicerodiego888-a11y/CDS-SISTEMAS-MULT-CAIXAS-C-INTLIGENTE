@@ -41,6 +41,28 @@ const {
 const { buildCrtInput } = require('../../backend/services/tef/destaxa/destaxaProtocolo');
 const { TefManager } = require('../../backend/services/tef/TefManager');
 
+let despachoMockSeq = 0;
+function persistirRespostaContinuidadeMock({ transactionId, resposta, solicitadaEm }) {
+  const txId = String(transactionId);
+  return {
+    ok: true,
+    duravel: true,
+    confirmada: true,
+    transactionId: txId,
+    solicitadaEm,
+    estadoDespacho: 'INICIADO',
+    despachoId: `mrt23-dispatch-${++despachoMockSeq}`,
+    fingerprint: 'a'.repeat(64),
+    identidade: {
+      transactionId: txId,
+      operation_id: `mrt23-op-${txId}`,
+      idempotency_key: `mrt23-idem-${txId}`,
+      fingerprint: `mrt23-fp-${txId}`
+    },
+    resposta
+  };
+}
+
 function okPush(lista, nome, cond, extra = {}) {
   const item = { nome, ok: !!cond, camada: extra.camada || 'simulado', ...extra };
   delete item.camada; // flatten: put camada first
@@ -180,7 +202,9 @@ async function main() {
       bridge,
       transactionId: 'mrt23-1',
       respostaOperador: { informacao: '1.00' },
-      acaoAtual: r1.acao
+      acaoAtual: r1.acao,
+      solicitadaEm: new Date().toISOString(),
+      persistirRespostaAntesContinue: persistirRespostaContinuidadeMock
     });
     okPush(testesSimulados, 'Ausência de novo TX_START na continuidade',
       bridge.contadores.inicia === iniciaAntes
@@ -199,7 +223,9 @@ async function main() {
     await continuarCicloCrt({
       bridge,
       transactionId: 'idemp-preservado-77',
-      respostaOperador: { informacao: '1' }
+      respostaOperador: { informacao: '1' },
+      solicitadaEm: new Date().toISOString(),
+      persistirRespostaAntesContinue: persistirRespostaContinuidadeMock
     });
     okPush(testesSimulados, 'Preservação da identidade da transação (transactionId no CONTINUE)',
       bridge.txsRecebidos[0] === 'idemp-preservado-77',

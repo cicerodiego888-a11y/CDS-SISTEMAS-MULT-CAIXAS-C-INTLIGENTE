@@ -1,0 +1,47 @@
+{
+  "sprint": "MRT-50.63",
+  "bancoOficialAberto": false,
+  "origemConfiguracao": {
+    "armazenamento": "tef_pinpads.porta_com (SQLite oficial)",
+    "leituraCds": "tefConfigRepository → tefConfigService.obterConfiguracao() → config.portaCom",
+    "ui": "configuracao_tef.js (#portaCom)",
+    "envOverride": {
+      "TEF_PORTA_COM": null,
+      "DESTAXA_PINPAD_PORT": null
+    },
+    "cacheArquivoAcessivelSemDb": "nenhum encontrado em AppData/ProgramData/CDS-SISTEMAS"
+  },
+  "usoNoFluxoDestaxa": {
+    "enviadaParaDllComoSerial": false,
+    "enviadaEmIniciaClientDestaxa": false,
+    "notaIniciaClient": "porta_comunicacao_cliente / endereco_comunicacao_client são TCP do Client V$Pague (docs/05), não COM serial do PinPad",
+    "usoEfetivoNoCds": "pré-voo de consistência em DestaxaRealAdapter.prepararAutorizacao",
+    "regraMatch": "String(pinpad.porta).toUpperCase() === portaConfigurada.toUpperCase(); divergência → DESTAXA_PINPAD_NAO_DETECTADO",
+    "fallbackAutomaticoDePorta": false,
+    "mediacaoPinPad": "inteiramente V$Pague Client (VSPagueClient.exe); CDS/DLL sem API serial PinPad"
+  },
+  "divergenciaCom3Com4": {
+    "explicacao": "Atribuição Windows do CDC USB-to-Serial do PPC-930 mudou no tempo; relatórios CDS acompanharam a porta então vigente ou a porta_com lida naquela execução.",
+    "historicoAcessivel": [
+      { "fonte": "tef-ppc930-05-report.json", "porta_com_ou_detectada": "COM3", "windows": "COM3", "nota": "coincidência na época; serial não aberto pelo CDS" },
+      { "fonte": "tef-ppc930-06/11, tef-auditoria-08", "porta_com": "COM3", "quando": "2026-10-29 ~16h–17h" },
+      { "fonte": "tef-destaxa-11 / mrt-09 / mrt-18", "porta_com": "COM4", "quando": "2026-10-29 20:47 → 2026-10-30" },
+      { "fonte": "MRT-50.60 Windows atual", "windows": "COM4", "status": "OK" }
+    ],
+    "valorPersistidoAtual": "NÃO LIDO (banco oficial proibido nesta sprint)",
+    "ultimoRelatorioAcessivelComPortaCom": { "fonte": "mrt-18-preparacao-homologacao-report.json", "porta_com": "COM4", "quando": "2026-10-30T15:23:56" }
+  },
+  "portaEfetivaDoFluxo": {
+    "comunicacaoPinPadTransacional": "mediada pelo V$Pague (não pela COM aberta pelo CDS)",
+    "contratoCdsPreflight": "exige porta_com persistida == porta Windows detectada",
+    "windowsHoje": "COM4",
+    "conclusao": "O fluxo Destaxa não ‘usa COM4’ abrindo a serial no CDS; usa o Client V$Pague. A COM4 Windows é o alvo do gate de consistência. Se porta_com persistida ≠ COM4, a autorização real é bloqueada antes de qualquer TX.",
+    "bloqueioFormal": "Valor atual de tef_pinpads.porta_com não confirmado sem abrir o banco; pendência impeditiva residual para cobrança futura se persistida ≠ COM4"
+  },
+  "compatibilidadeWindows": {
+    "dispositivo": "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+    "status": "OK",
+    "gravarCom4SemContrato": false,
+    "nota": "Não se presume gravação de COM4 nesta sprint; só se identifica o contrato (match preflight + mediação V$Pague)."
+  }
+}

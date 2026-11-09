@@ -1,0 +1,126 @@
+{
+  "mrt": "MRT-50.58",
+  "resultado": "BASELINE VALIDADA",
+  "geradoEm": "2026-11-07T19:18:00Z",
+  "objetivo": "Linha de base somente leitura para futuro pré-voo da inicialização Destaxa",
+  "perfilErp": {
+    "modulo": "erp",
+    "appName": "cds-sistemas",
+    "versaoMarcador": 1,
+    "markerPath": "C:\\Users\\cicer\\AppData\\Roaming\\cds-sistemas-erp\\.cds-tef-crypto-context.json",
+    "userDataPath": "C:\\Users\\cicer\\AppData\\Roaming\\cds-sistemas-erp",
+    "provisionadoEm": "2026-11-06T21:58:20.337Z",
+    "localStateOrigemSha256Declarado": "26052081177AE4A83BD43FE0AB2C435330D8A252D03EF7595BD3C66C1AC86040",
+    "localState": {
+      "path": "C:\\Users\\cicer\\AppData\\Roaming\\cds-sistemas-erp\\Local State",
+      "size": 389,
+      "mtimeUtc": "2026-11-06T21:58:20.3159786Z",
+      "sha256": "26052081177AE4A83BD43FE0AB2C435330D8A252D03EF7595BD3C66C1AC86040",
+      "correspondeAoMarcador": true,
+      "correspondeAoContextoMrt5037": true
+    },
+    "markerSha256": "AE1854015EE634865EFA93FD774DDC4A6E1EC491089BF22CCFDD30A61467388C",
+    "arquivosOriginaisAlterados": false
+  },
+  "chave": {
+    "path": "C:\\ProgramData\\MercantilFiscal\\dados\\.tef-signing-key.v1",
+    "existe": true,
+    "size": 191,
+    "mtimeUtc": "2026-11-06T04:45:56.0456672Z",
+    "sha256": "875ECF8ADDF7A0ADDCCA778A7FADC157A275D8F81C66B68805A2DCED95459167",
+    "correspondeAoHashMrt5038": true,
+    "substituida": false,
+    "regenerada": false,
+    "recriptografada": false,
+    "conteudoExposto": false,
+    "recuperacao": {
+      "electron": "22.3.27",
+      "appName": "cds-sistemas",
+      "safeStorageAvailable": true,
+      "formato64Hex": true,
+      "fingerprintTruncado": "1c6d56245ac4e501",
+      "fingerprintMethod": "sha256-decrypted-key-bytes-truncated-16",
+      "compativelComMrt5037": true,
+      "nativeHostIniciado": false,
+      "dllCarregada": false,
+      "bancoAberto": false
+    }
+  },
+  "userDataIsolado": {
+    "efetivo": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\tef\\MRT-50.58-20261107T191330Z\\isolated-userdata\\cds-sistemas-erp",
+    "original": "C:\\Users\\cicer\\AppData\\Roaming\\cds-sistemas-erp",
+    "distintoDoOriginal": true,
+    "perfilOriginalUsadoComoDestinoDeEscrita": false,
+    "listagemOriginalInalterada": true,
+    "snapshotLocalStateSha256": "26052081177AE4A83BD43FE0AB2C435330D8A252D03EF7595BD3C66C1AC86040",
+    "copiaSelada": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\tef\\MRT-50.58-20261107T191330Z\\sealed\\Local State",
+    "associacao": "O Local State do snapshot e a cópia selada têm o mesmo SHA-256 do perfil ERP original e do marcador.",
+    "nativeHostIniciado": false
+  },
+  "dll": {
+    "candidata": {
+      "path": "C:\\Program Files\\CDS ERP\\resources\\app.asar.unpacked\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+      "fileVersion": "1.83 64bit",
+      "productVersion": "1.83 64bit",
+      "peMachine": "0x8664",
+      "dllArch": "x64",
+      "size": 136782,
+      "sha256": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+      "carregada": false
+    },
+    "copiasComMesmoHash": [
+      "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+      "C:\\Program Files\\CDS PDV\\resources\\app.asar.unpacked\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+      "C:\\Users\\cicer\\AppData\\Local\\Programs\\CDS-MRT-50.25-ERP\\resources\\app.asar.unpacked\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+      "C:\\Users\\cicer\\AppData\\Local\\Programs\\CDS-MRT-50.25-PDV\\resources\\app.asar.unpacked\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll"
+    ],
+    "hashPacoteHistorico": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+    "hashPacoteCorresponde": true,
+    "mrt5054": {
+      "artefatoEncontrado": false,
+      "hashObservadoNaMrt5054": null,
+      "identidadeConfirmada": false,
+      "declaracao": "A identidade da DLL da MRT-50.54 não pode ser confirmada. Não há hash medido nessa execução. A DLL atual é nova referência e não é afirmada como idêntica à anterior."
+    }
+  },
+  "vspague": {
+    "processo": "VSPagueClient.exe",
+    "pid": 44484,
+    "ppid": 33800,
+    "paiIdentificavel": false,
+    "executavel": "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
+    "jar": "C:\\VBI\\V$Pague\\Client\\V$PagueClient.jar",
+    "javaSeparado": null,
+    "observacaoJava": "Não há java.exe nem javaw.exe distinto. O próprio VSPagueClient.exe, em C:\\VBI\\Java\\bin, é o lançador Java do jar.",
+    "portas": [
+      { "porta": 60603, "estado": "Listen", "endereco": "::", "pid": 44484 },
+      { "porta": 60906, "estado": "Listen", "endereco": "::", "pid": 44484 }
+    ],
+    "alterado": false
+  },
+  "gateFinanceiro": {
+    "variavel": "DESTAXA_REAL_TRANSACTION_ENABLED",
+    "usuario": null,
+    "maquina": null,
+    "estado": "OFF",
+    "criterio": "Somente o valor 1 liga o gate. Usuário e máquina estão ausentes."
+  },
+  "naoExecutado": [
+    "MRT-50.57",
+    "NativeHost",
+    "iniciaClientDestaxa",
+    "LoadLibrary da DLL",
+    "PinPad",
+    "abertura de banco",
+    "transação",
+    "evento fiscal",
+    "envio à SEFAZ",
+    "alteração dos estados UNKNOWN das MRT-24, MRT-36 e MRT-42"
+  ],
+  "pendenciasProximaExecucao": [
+    "Não reutilizar esta raiz isolada: o bootstrap recusa diretório já existente.",
+    "Não tratar o hash 65972ACA… como prova de que a DLL é a mesma da MRT-50.54.",
+    "Manter o gate financeiro OFF até autorização explícita de transação.",
+    "A próxima chamada nativa continua pendente e não deve ser disparada automaticamente."
+  ]
+}

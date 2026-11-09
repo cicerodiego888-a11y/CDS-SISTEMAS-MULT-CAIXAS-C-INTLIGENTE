@@ -172,5 +172,21 @@ test('Pagamento misto dinheiro + PIX exige TEF quando habilitado', () => {
   assert.strictEqual(r.deveUsarTefAutomatico, true);
 });
 
+test('Pagamento misto com total fiscal zero não inicia TEF', () => {
+  const r = fluxo.resolverFluxoPagamentoFiscal({
+    modoConfirmacaoFiscal: 'TEF',
+    tefHabilitado: true,
+    formaPagamento: 'misto',
+    ehPagamentoMisto: true,
+    pagamentosMistos: [
+      { forma_pagamento: 'dinheiro', valor: 10 },
+      { forma_pagamento: 'pix', valor: 15 }
+    ],
+    totalFiscal: 0
+  });
+  assert.strictEqual(r.pagamentoExigeTef, true);
+  assert.strictEqual(r.deveUsarTefAutomatico, false);
+});
+
 console.log(`\n=== RESULTADO: ${passou} ok, ${falhou} falhou ===\n`);
 process.exit(falhou > 0 ? 1 : 0);

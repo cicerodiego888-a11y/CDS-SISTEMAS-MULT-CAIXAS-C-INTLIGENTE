@@ -2,17 +2,27 @@ const db = require('../../database');
 const cryptoService = require('../crypto/cryptoService');
 const { gravarAuditoria } = require('../auditoria');
 
+function criptografarDadosTransacao(dados) {
+  return {
+    comprovanteClienteCriptografado: dados.comprovante_cliente
+      ? cryptoService.criptografar(dados.comprovante_cliente)
+      : null,
+    comprovanteEstabelecimentoCriptografado: dados.comprovante_estabelecimento
+      ? cryptoService.criptografar(dados.comprovante_estabelecimento)
+      : null,
+    payloadRetornoCriptografado: dados.payload_retorno
+      ? cryptoService.criptografarObjeto(dados.payload_retorno)
+      : null
+  };
+}
+
 function criarTransacao(dados, callback) {
-  // Criptografar dados sensíveis antes de salvar
-  const comprovanteClienteCriptografado = dados.comprovante_cliente 
-    ? cryptoService.criptografar(dados.comprovante_cliente) 
-    : null;
-  const comprovanteEstabelecimentoCriptografado = dados.comprovante_estabelecimento 
-    ? cryptoService.criptografar(dados.comprovante_estabelecimento) 
-    : null;
-  const payloadRetornoCriptografado = dados.payload_retorno 
-    ? cryptoService.criptografarObjeto(dados.payload_retorno) 
-    : null;
+  let camposCriptografados;
+  try {
+    camposCriptografados = criptografarDadosTransacao(dados);
+  } catch (error) {
+    return callback(error, null);
+  }
 
   db.run(`
     INSERT INTO tef_transacoes (
@@ -47,9 +57,9 @@ function criarTransacao(dados, callback) {
     dados.autorizacao || null,
     dados.codigo_transacao || null,
     dados.idempotency_key || null,
-    comprovanteClienteCriptografado,
-    comprovanteEstabelecimentoCriptografado,
-    payloadRetornoCriptografado
+    camposCriptografados.comprovanteClienteCriptografado,
+    camposCriptografados.comprovanteEstabelecimentoCriptografado,
+    camposCriptografados.payloadRetornoCriptografado
   ], function (err) {
     callback(err, this ? this.lastID : null);
   });
@@ -61,9 +71,14 @@ function criarTransacao(dados, callback) {
  * comando SQLite: atômico também entre processos. callback(err, id|null).
  */
 function criarTransacaoExclusiva(dados, callback) {
-  const payloadRetornoCriptografado = dados.payload_retorno
-    ? cryptoService.criptografarObjeto(dados.payload_retorno)
-    : null;
+  let payloadRetornoCriptografado;
+  try {
+    payloadRetornoCriptografado = dados.payload_retorno
+      ? cryptoService.criptografarObjeto(dados.payload_retorno)
+      : null;
+  } catch (error) {
+    return callback(error, null);
+  }
 
   db.run(`
     INSERT INTO tef_transacoes (
@@ -104,6 +119,56 @@ function listarTransacoesPendentes(callback) {
   return consultarPendentes(callback);
 }
 
+function listarTransacoesFinalizadas(callback) {
+  const consultar = () => db.all(`
+    SELECT id, status, provedor, tipo, valor, venda_id, idempotency_key,
+           codigo_transacao, payload_retorno, criado_em, atualizado_em
+    FROM tef_transacoes
+    WHERE status IN ('aprovado', 'negado', 'cancelado')
+    ORDER BY id ASC
+  `, [], (err, rows) => {
+    if (err) return callback(err, []);
+    decodificarPayloadsTransacao(rows || [], callback);
+  });
+  if (typeof db.whenReady === 'function') {
+    return db.whenReady((erro) => (erro ? callback(erro, []) : consultar()));
+  }
+  return consultar();
+}
+
+function listarIdsTransacoesComTentativaReconciliacao(callback) {
+  const consultar = () => db.all(`
+    SELECT DISTINCT transacao_id
+    FROM tef_logs
+    WHERE tipo = 'RECONCILIACAO_RESULTADO_TARDIO'
+      AND transacao_id IS NOT NULL
+    ORDER BY transacao_id ASC
+  `, [], (err, rows) => {
+    if (err) return callback(err, []);
+    callback(null, (rows || []).map((row) => String(row.transacao_id)));
+  });
+  if (typeof db.whenReady === 'function') {
+    return db.whenReady((erro) => (erro ? callback(erro, []) : consultar()));
+  }
+  return consultar();
+}
+
+function listarEvidenciasReconciliacao(callback) {
+  const consultar = () => db.all(`
+    SELECT id, transacao_id, tipo, payload, criado_em
+    FROM tef_logs
+    WHERE tipo IN ('TEF_RECONCILIACAO_LIBERADA', 'TEF_RECONCILIACAO_COMMIT_CONFIRMADO')
+    ORDER BY id ASC
+  `, [], (err, rows) => {
+    if (err) return callback(err, []);
+    callback(null, rows || []);
+  });
+  if (typeof db.whenReady === 'function') {
+    return db.whenReady((erro) => (erro ? callback(erro, []) : consultar()));
+  }
+  return consultar();
+}
+
 function consultarPendentes(callback) {
   db.all(`
     SELECT id, status, provedor, tipo, valor, venda_id, idempotency_key,
@@ -113,31 +178,72 @@ function consultarPendentes(callback) {
     ORDER BY id ASC
   `, [], (err, rows) => {
     if (err) return callback(err, []);
-    callback(null, (rows || []).map((row) => {
-      let payload = null;
-      try {
-        payload = row.payload_retorno ? cryptoService.descriptografarObjeto(row.payload_retorno) : null;
-      } catch (_) {
-        payload = null;
-      }
-      return { ...row, payload_retorno: payload };
-    }));
+    decodificarPayloadsTransacao(rows || [], callback);
   });
 }
 
-function atualizarTransacao(id, dados, callback) {
-  // Criptografar dados sensíveis antes de atualizar
-  const comprovanteClienteCriptografado = dados.comprovante_cliente 
-    ? cryptoService.criptografar(dados.comprovante_cliente) 
-    : null;
-  const comprovanteEstabelecimentoCriptografado = dados.comprovante_estabelecimento 
-    ? cryptoService.criptografar(dados.comprovante_estabelecimento) 
-    : null;
-  const payloadRetornoCriptografado = dados.payload_retorno 
-    ? cryptoService.criptografarObjeto(dados.payload_retorno) 
-    : null;
+function decodificarPayloadsTransacao(rows, callback) {
+  const recuperadas = [];
+  for (const row of rows) {
+    let payload = null;
+    try {
+      payload = row.payload_retorno ? cryptoService.descriptografarObjeto(row.payload_retorno) : null;
+    } catch (error) {
+      return callback(error, []);
+    }
+    recuperadas.push({ ...row, payload_retorno: payload });
+  }
+  callback(null, recuperadas);
+}
 
-  db.run(`
+function obterTransacaoPorId(id, callback) {
+  db.get(`
+    SELECT id, status, provedor, tipo, valor, venda_id, idempotency_key,
+           codigo_transacao, adquirente, bandeira, nsu, autorizacao,
+           comprovante_cliente, comprovante_estabelecimento, payload_retorno,
+           criado_em, atualizado_em
+    FROM tef_transacoes
+    WHERE id = ?
+  `, [id], (err, row) => {
+    if (err || !row) return callback(err, row || null);
+    try {
+      callback(null, {
+        ...row,
+        payload_retorno_criptografado: row.payload_retorno,
+        payload_retorno: row.payload_retorno
+          ? cryptoService.descriptografarObjeto(row.payload_retorno)
+          : null
+      });
+    } catch (error) {
+      callback(error);
+    }
+  });
+}
+
+function atualizarTransacao(id, dados, callback, condicoes = {}) {
+  return atualizarTransacaoNaConexao(db, id, dados, callback, condicoes);
+}
+
+function atualizarTransacaoNaConexao(dbExec, id, dados, callback, condicoes = {}) {
+  let camposCriptografados;
+  try {
+    camposCriptografados = criptografarDadosTransacao(dados);
+  } catch (error) {
+    return callback(error, null);
+  }
+
+  const where = ['id = ?'];
+  const parametrosWhere = [id];
+  if (Object.prototype.hasOwnProperty.call(condicoes, 'statusEsperado')) {
+    where.push('status = ?');
+    parametrosWhere.push(condicoes.statusEsperado);
+  }
+  if (Object.prototype.hasOwnProperty.call(condicoes, 'payloadEsperado')) {
+    where.push('payload_retorno IS ?');
+    parametrosWhere.push(condicoes.payloadEsperado);
+  }
+
+  dbExec.run(`
     UPDATE tef_transacoes
     SET
       venda_id = COALESCE(?, venda_id),
@@ -151,7 +257,7 @@ function atualizarTransacao(id, dados, callback) {
       comprovante_estabelecimento = COALESCE(?, comprovante_estabelecimento),
       payload_retorno = COALESCE(?, payload_retorno),
       atualizado_em = datetime('now')
-    WHERE id = ?
+    WHERE ${where.join(' AND ')}
   `, [
     dados.venda_id || null,
     dados.status,
@@ -160,14 +266,22 @@ function atualizarTransacao(id, dados, callback) {
     dados.nsu || null,
     dados.autorizacao || null,
     dados.codigo_transacao || null,
-    comprovanteClienteCriptografado,
-    comprovanteEstabelecimentoCriptografado,
-    payloadRetornoCriptografado,
-    id
-  ], callback);
+    camposCriptografados.comprovanteClienteCriptografado,
+    camposCriptografados.comprovanteEstabelecimentoCriptografado,
+    camposCriptografados.payloadRetornoCriptografado,
+    ...parametrosWhere
+  ], function (err) {
+    if (err) return callback(err);
+    if (condicoes.exigirUmaLinha === true && this.changes !== 1) {
+      const conflito = new Error(`Atualização TEF concorrente ou registro ausente: ${id}`);
+      conflito.code = 'TEF_TRANSACAO_CONCORRENTE';
+      return callback(conflito, { changes: this.changes });
+    }
+    callback.call(this, null, { changes: this.changes });
+  });
 }
 
-function registrarLog(transacaoId, tipo, mensagem, payload) {
+function registrarLog(transacaoId, tipo, mensagem, payload, callback) {
   // Calcular hash de integridade para imutabilidade
   const dadosParaHash = {
     transacao_id: transacaoId,
@@ -193,14 +307,21 @@ function registrarLog(transacaoId, tipo, mensagem, payload) {
     mensagem,
     JSON.stringify(payload || {}),
     hashIntegridade
-  ]);
+  ], function onLogPersistido(error) {
+    if (typeof callback === 'function') callback(error || null, this ? this.lastID : null);
+  });
 }
 
 module.exports = {
   criarTransacao,
   criarTransacaoExclusiva,
   listarTransacoesPendentes,
+  listarTransacoesFinalizadas,
+  listarIdsTransacoesComTentativaReconciliacao,
+  listarEvidenciasReconciliacao,
+  obterTransacaoPorId,
   atualizarTransacao,
+  atualizarTransacaoNaConexao,
   registrarLog,
   registrarAcesso
 };

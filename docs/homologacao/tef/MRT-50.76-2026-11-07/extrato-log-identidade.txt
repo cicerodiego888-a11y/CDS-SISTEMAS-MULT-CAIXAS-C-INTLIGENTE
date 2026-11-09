@@ -1,0 +1,59 @@
+﻿                 HOST_NAME: desktop-4b8amm3
+       HostMacAddressGet(): 00:15:5D:D0:2D:3E
+           MacAdressFilter: 00:15:5D:D0:2D:3E | 00:15:5D:65:9B:C4 | C0:A8:10:DB:EE:9E
+           HOST_IP_ADDRESS: 172.27.224.1 | 172.23.208.1 | 127.0.0.1 | 192.168.0.15
+         APPLICATION_TITLE: Destaxa
+2026-11-07 00:21:43,658 INFO lib.comm.VeSComm [main] VBIComm(app-partner.destaxa.cloud:60410(0)<>2/2026-11-07 00:21:43.507/Socket:SSLSocket[hostname=app-partner.destaxa.cloud, port=60410, Session(1794021703569|TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)]SSL/TLS) - Connected successfull
+2026-11-07 00:21:43,659 INFO lib.comm.VeSComm [main] VBIComm(app-partner.destaxa.cloud:60410(0)) - Connection procedure started
+2026-11-07 00:21:43,661 INFO vespague.client.interaction.VeSPagueClientToServer [main] enviando servico [V&SCommService/V&SPagueServer/Identificar]
+2026-11-07 00:21:43,661 WARN lib.comm.VeSComm [VBICommClient.Receive] VBIComm(app-partner.destaxa.cloud:60410(0)) - Connection breaked: Connection breaked (-1) (129.148.36.0)
+2026-11-07 00:21:43,669 INFO lib.comm.VeSCommSocket$1 [VBICommSocket.Connect] VBICommSocket(app-partner.destaxa.cloud:60410(0)) - Reconnection on demand in progress ... lib.comm.VeSCommSocket$1@736a179f
+2026-11-07 00:21:43,953 INFO lib.comm.VeSComm [VBICommSocket.Connect] VBIComm(app-partner.destaxa.cloud:60410(0)<>4/2026-11-07 00:21:43.838/Socket:SSLSocket[hostname=app-partner.destaxa.cloud, port=60410, Session(1794021703896|TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)]SSL/TLS) - Connected successfull
+2026-11-07 00:21:43,956 WARN lib.comm.VeSComm [VBIComm.ReceiveWait(app-partner.destaxa.cloud:60410(0))] VBIComm(app-partner.destaxa.cloud:60410(0)) - Connection breaked: Connection breaked (-1) (129.148.36.0)
+2026-11-07 00:21:53,958 ERROR vespague.client.interaction.VeSPagueClientTransactionManager [main] vspg-id-d0ad7260: Tempo de resposta foi excedido. Isso pode ser moment�neo. Tente novamente
+2026-11-07 00:22:04,006 INFO vespague.client.interaction.VeSPagueClientToServer [main] vspg-id-d0ad7260 iniciando Destaxa-LojaACB-TACB0120
+2026-11-07 00:40:33,154 INFO lib.comm.VeSComm [VBICommSocket.Listen] VBIComm(>listen<:60906(0)<>1/2026-11-07 00:40:33.094/Socket:Socket[addr=/127.0.0.1,port=57527,localport=60906]) - Connected successfull
+2026-11-07 00:40:33,205 WARN lib.comm.VeSComm [VBIComm.ReceiveWait(>listen<:60906(0))] VBIComm(>listen<:60906(0)) - Connection breaked: Connection breaked (-1) (127.0.0.1)
+                 HOST_NAME: desktop-4b8amm3
+       HostMacAddressGet(): 00:15:5D:65:9B:C4
+           MacAdressFilter: 00:15:5D:65:9B:C4 | 00:15:5D:D0:2D:3E | C0:A8:10:DB:EE:9E
+           HOST_IP_ADDRESS: 172.27.224.1 | 172.23.208.1 | 127.0.0.1 | 192.168.0.13
+         APPLICATION_TITLE: Destaxa
+2026-11-07 15:20:35,871 INFO lib.comm.VeSComm [main] VBIComm(app-partner.destaxa.cloud:60410(0)<>2/2026-11-07 15:20:35.705/Socket:SSLSocket[hostname=app-partner.destaxa.cloud, port=60410, Session(1794075635765|TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)]SSL/TLS) - Connected successfull
+2026-11-07 15:20:35,873 INFO lib.comm.VeSComm [main] VBIComm(app-partner.destaxa.cloud:60410(0)) - Connection procedure started
+2026-11-07 15:20:35,877 INFO vespague.client.interaction.VeSPagueClientToServer [main] enviando servico [V&SCommService/V&SPagueServer/Identificar]
+2026-11-07 15:20:35,879 WARN lib.comm.VeSComm [VBICommClient.Receive] VBIComm(app-partner.destaxa.cloud:60410(0)) - Connection breaked: Connection breaked (-1) (129.148.36.0)
+2026-11-07 15:20:35,890 INFO lib.comm.VeSCommSocket$1 [VBICommSocket.Connect] VBICommSocket(app-partner.destaxa.cloud:60410(0)) - Reconnection on demand in progress ... lib.comm.VeSCommSocket$1@4a021bb1
+2026-11-07 15:20:36,181 INFO lib.comm.VeSComm [VBICommSocket.Connect] VBIComm(app-partner.destaxa.cloud:60410(0)<>4/2026-11-07 15:20:36.062/Socket:SSLSocket[hostname=app-partner.destaxa.cloud, port=60410, Session(1794075636120|TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)]SSL/TLS) - Connected successfull
+2026-11-07 15:20:36,183 WARN lib.comm.VeSComm [VBIComm.ReceiveWait(app-partner.destaxa.cloud:60410(0))] VBIComm(app-partner.destaxa.cloud:60410(0)) - Connection breaked: Connection breaked (-1) (129.148.36.0)
+2026-11-07 15:20:36,184 INFO lib.comm.VeSCommSocket$1 [VBICommSocket.Connect] VBICommSocket(app-partner.destaxa.cloud:60410(0)) - Reconnection on demand in progress ... lib.comm.VeSCommSocket$1@4a021bb1
+2026-11-07 15:20:36,481 INFO lib.comm.VeSComm [VBICommSocket.Connect] VBIComm(app-partner.destaxa.cloud:60410(0)<>6/2026-11-07 15:20:36.360/Socket:SSLSocket[hostname=app-partner.destaxa.cloud, port=60410, Session(1794075636418|TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)]SSL/TLS) - Connected successfull
+2026-11-07 15:20:36,484 WARN lib.comm.VeSComm [VBIComm.ReceiveWait(app-partner.destaxa.cloud:60410(0))] VBIComm(app-partner.destaxa.cloud:60410(0)) - Connection breaked: Connection breaked (-1) (129.148.36.0)
+2026-11-07 15:20:36,488 ERROR vespague.client.interaction.VeSPagueClientTransactionManager [main] vspg-id-263dc52d: Problema de conex�o!
+2026-11-07 15:20:46,586 INFO vespague.client.interaction.VeSPagueClientToServer [main] vspg-id-263dc52d iniciando Destaxa-LojaACB-TACB0120
+2026-11-07 18:01:21,779 INFO lib.comm.VeSComm [VBICommSocket.Listen] VBIComm(>listen<:60906(0)<>1/2026-11-07 18:01:21.697/Socket:Socket[addr=/127.0.0.1,port=57674,localport=60906]) - Connected successfull
+2026-11-07 18:01:22,071 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-263dc52d] <- aplicacao:CDS Sistemas, aplicacaoTela:Destaxa, retorno:1, sequencial:1, servico:iniciar, versao:1.0.3
+2026-11-07 18:01:22,122 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-263dc52d] -> aplicacao:V$PagueClient, aplicacaoTela:Destaxa, estado:11, retorno:1, sequencial:1, servico:iniciar, versao:5.0.0
+2026-11-07 18:01:22,131 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-263dc52d] <- retorno:1, sequencial:2, servico:executar, transacao:[Cartao Vender], pagamento:A vista, tipoCartao:D�bito, valor:1.00
+2026-11-07 18:01:22,157 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-263dc52d] -> mensagem:[Tag <transacao_tipo_cartao> inexistente ou seu conteudo e invalido], retorno:5, sequencial:2
+2026-11-07 18:01:22,266 WARN lib.comm.VeSComm [VBIComm.ReceiveWait(>listen<:60906(0))] VBIComm(>listen<:60906(0)) - Connection breaked: Connection breaked (-1) (127.0.0.1)
+2026-11-07 19:23:38,089 INFO lib.comm.VeSComm [VBICommSocket.Listen] VBIComm(>listen<:60906(0)<>2/2026-11-07 19:23:37.999/Socket:Socket[addr=/127.0.0.1,port=59146,localport=60906]) - Connected successfull
+2026-11-07 19:23:38,232 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-263dc52d] <- aplicacao:CDS Sistemas, aplicacaoTela:Destaxa, retorno:1, sequencial:1, servico:iniciar, versao:1.0.3
+2026-11-07 19:23:38,277 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-263dc52d] -> mensagem:[Sequencial invalido], retorno:2, sequencial:3
+2026-11-07 19:23:38,280 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-263dc52d] <- aplicacao:CDS Sistemas, aplicacaoTela:Destaxa, retorno:1, sequencial:3, servico:iniciar, versao:1.0.3
+2026-11-07 19:23:38,289 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-263dc52d] -> aplicacao:V$PagueClient, aplicacaoTela:Destaxa, estado:11, retorno:1, sequencial:3, servico:iniciar, versao:5.0.0
+2026-11-07 19:23:38,299 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-263dc52d] <- retorno:1, sequencial:4, servico:executar, transacao:[Cartao Vender], pagamento:A vista, tipoCartao:Debito, valor:1.00
+2026-11-07 19:23:38,829 INFO vespague.client.interaction.VeSPagueClientToServer [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-263dc52d] enviando servico [V&SCommService/V&SPagueServer/Identificar]
+2026-11-07 19:23:38,855 INFO lib.comm.VeSCommSocket$1 [VBICommSocket.Connect] VBICommSocket(app-partner.destaxa.cloud:60410(0)) - Reconnection on demand in progress ... lib.comm.VeSCommSocket$1@4a021bb1
+2026-11-07 19:23:39,643 INFO lib.comm.VeSComm [VBICommSocket.Connect] VBIComm(app-partner.destaxa.cloud:60410(0)<>8/2026-11-07 19:23:39.458/Socket:SSLSocket[hostname=app-partner.destaxa.cloud, port=60410, Session(1794090219516|TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)]SSL/TLS) - Connected successfull
+2026-11-07 19:23:39,649 WARN lib.comm.VeSComm [VBICommClient.Receive] VBIComm(app-partner.destaxa.cloud:60410(0)) - Connection breaked: Connection breaked (-1) (129.148.36.0)
+vespague.client.interaction.VeSPagueClientTransactionManager$VeSPagueClientTransactionManagerException: Tempo de resposta foi excedido. Isso pode ser moment�neo. Tente novamente
+2026-11-07 19:23:50,038 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-263dc52d] -> coletaMensagem:[Tempo de resposta foi excedido. Isso pode ser moment�neo. Tente novamente], coletaRetorno:9, coletaSequencial:1, coletaTransacaoResposta:78
+2026-11-07 19:23:50,040 ERROR vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-263dc52d] vespague.client.interaction.VeSPagueClientTransactionManager$VeSPagueClientTransactionManagerException: Tempo de resposta foi excedido. Isso pode ser moment�neo. Tente novamente
+java.lang.RuntimeException: vespague.client.interaction.VeSPagueClientTransactionManager$VeSPagueClientTransactionManagerException: Tempo de resposta foi excedido. Isso pode ser moment�neo. Tente novamente
+Caused by: vespague.client.interaction.VeSPagueClientTransactionManager$VeSPagueClientTransactionManagerException: Tempo de resposta foi excedido. Isso pode ser moment�neo. Tente novamente
+java.lang.RuntimeException: vespague.client.interaction.VeSPagueClientTransactionManager$VeSPagueClientTransactionManagerException: Tempo de resposta foi excedido. Isso pode ser moment�neo. Tente novamente
+Caused by: vespague.client.interaction.VeSPagueClientTransactionManager$VeSPagueClientTransactionManagerException: Tempo de resposta foi excedido. Isso pode ser moment�neo. Tente novamente
+2026-11-07 19:23:50,042 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-263dc52d] <- retorno:1, sequencial:5, servico:finalizar
+2026-11-07 19:23:50,053 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-263dc52d] -> retorno:1, sequencial:5, servico:finalizar
+2026-11-07 19:23:50,264 WARN lib.comm.VeSComm [VBIComm.ReceiveWait(>listen<:60906(0))] VBIComm(>listen<:60906(0)) - Connection breaked: Connection breaked (-1) (127.0.0.1)

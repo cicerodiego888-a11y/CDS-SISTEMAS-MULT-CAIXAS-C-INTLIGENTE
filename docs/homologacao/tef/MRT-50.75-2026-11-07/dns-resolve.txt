@@ -1,0 +1,11 @@
+﻿
+
+Name      : app-partner.destaxa.cloud
+Type      : A
+TTL       : 51
+IPAddress : 129.148.36.0
+NameHost  : 
+
+
+
+

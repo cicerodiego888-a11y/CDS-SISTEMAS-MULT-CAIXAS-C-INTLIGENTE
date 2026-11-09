@@ -1,0 +1,61 @@
+{
+    "gateDepois":  {
+                       "machine":  null,
+                       "user":  null,
+                       "process":  "0"
+                   },
+    "gateOff":  true,
+    "nativeHostResidual":  0,
+    "vspaguePid":  44484,
+    "iniciaClientEnter":  1,
+    "iniciaClientReturn":  1,
+    "financialNativeEnter":  0,
+    "client":  {
+                   "success":  true,
+                   "code":  "00",
+                   "destaxaCode":  "00",
+                   "description":  "API executada com sucesso.",
+                   "message":  "Client Destaxa inicializado",
+                   "state":  "CLIENT_INITIALIZED",
+                   "durationMs":  0.6904,
+                   "dllLoaded":  true,
+                   "exportsValid":  true,
+                   "dllLoads":  1,
+                   "clientInitialized":  true,
+                   "clientResultCode":  "00",
+                   "gateReal":  false
+               },
+    "shutdown":  {
+                     "encerrado":  true,
+                     "adiado":  false,
+                     "forcado":  false,
+                     "estado":  "STOPPED",
+                     "stoppedConfirmed":  true
+                 },
+    "nativeHostPid":  76672,
+    "requestId":  "030eff038fd8bb5c",
+    "classificacao":  "RETURNED_SUCCESS",
+    "hashes":  {
+                   "dll":  "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+                   "marker":  "AE1854015EE634865EFA93FD774DDC4A6E1EC491089BF22CCFDD30A61467388C",
+                   "dllMatch":  true,
+                   "localState":  "26052081177AE4A83BD43FE0AB2C435330D8A252D03EF7595BD3C66C1AC86040",
+                   "key":  "875ECF8ADDF7A0ADDCCA778A7FADC157A275D8F81C66B68805A2DCED95459167"
+               },
+    "hashIntegrity":  {
+                          "keyIgual":  true,
+                          "localStateIgual":  true,
+                          "dllIgual":  true,
+                          "markerIgual":  true
+                      },
+    "pinpadComunicacao":  {
+                              "windowsReconhece":  true,
+                              "proximoDiagnostico":  "Na execução autorizada de débito R$1,00, registrar evidência de interação PinPad (DISPLAY/COLETA 99) no JSONL; não usar TX só para descobrir conectividade.",
+                              "clientInit00":  true,
+                              "dispositivo":  "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+                              "lacuna":  "Processo V$Pague, TCP LISTEN, COM4 OK e iniciaClientDestaxa=00 NÃO constituem handshake PinPad. Sem API não financeira Destaxa 1.83 para query PinPad (MRT-50.60). Próximo diagnóstico: somente na sprint de cobrança autorizada, observar coleta 99/Display no PinPad durante CRT — sem TX nesta sprint.",
+                              "provaComunicacaoEfetivaComPinPad":  false,
+                              "vspagueAtivo":  true,
+                              "cadastroCom4":  true
+                          }
+}

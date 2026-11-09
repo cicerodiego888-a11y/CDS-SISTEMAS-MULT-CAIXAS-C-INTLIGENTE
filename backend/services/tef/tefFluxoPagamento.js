@@ -106,10 +106,11 @@ function resolverFluxoPagamentoFiscal({
     ? pagamentoMistoExigeTef(pagamentosMistos, origem)
     : formaPagamentoUsaTEF(formaNormalizada, origem);
   const tefOn = parseTefHabilitado(tefHabilitado);
+  const temValorFiscal = Number(totalFiscal) > 0;
 
   // NF-e Avulsa: TEF só se forma integrada; não usa modo_confirmacao_fiscal (NFC-e/PDV)
   if (ehOrigemNfeAvulsa(origem)) {
-    const deveUsarTefAutomatico = tefOn && pagamentoExigeTef;
+    const deveUsarTefAutomatico = tefOn && pagamentoExigeTef && temValorFiscal;
     return {
       formaNormalizada,
       pagamentoExigeTef,
@@ -120,7 +121,7 @@ function resolverFluxoPagamentoFiscal({
   }
 
   // NFC-e / PDV — regra atual preservada
-  const deveUsarTefAutomatico = tefOn && pagamentoExigeTef;
+  const deveUsarTefAutomatico = tefOn && pagamentoExigeTef && temValorFiscal;
   const modoManual = String(modoConfirmacaoFiscal || 'TEF').toUpperCase() === 'MANUAL';
   const usarConfirmacaoManual = modoManual
     && Number(totalFiscal) > 0

@@ -1,0 +1,26 @@
+{
+    "historicosUnknownIntactos":  true,
+    "gateOff":  true,
+    "gate":  {
+                 "machine":  null,
+                 "user":  null,
+                 "process":  "0"
+             },
+    "chamadasFinanceiras":  false,
+    "nativeHost":  0,
+    "dllCarregada":  false,
+    "testes":  {
+                   "tef-destaxa-05":  {
+                                          "falhou":  0,
+                                          "ok":  15
+                                      },
+                   "tef-destaxa-03":  {
+                                          "falhou":  0,
+                                          "ok":  25
+                                      },
+                   "mrt-50-67-homologacao-debito-gate":  {
+                                                             "falhou":  0,
+                                                             "ok":  13
+                                                         }
+               }
+}

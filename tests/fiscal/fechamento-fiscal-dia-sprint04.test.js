@@ -190,6 +190,20 @@ async function montarProntoEmissao(db) {
   return get(db, `SELECT * FROM fechamentos_fiscais WHERE id = ?`, [ff.id]);
 }
 
+function chaveDoXmlAssinado(xml) {
+  const match = String(xml || '').match(/<infNFe\b[^>]*\bId=["']NFe(\d{44})["']/i);
+  if (!match) throw new Error('Fixture de transmissão sem chave no infNFe.');
+  return match[1];
+}
+
+function respostaAutorizada(chave, numero = 0) {
+  const protocolo = `123${String(numero).padStart(12, '0').slice(-12)}`;
+  return `<retEnviNFe xmlns="http://www.portalfiscal.inf.br/nfe"><cStat>104</cStat>`
+    + `<xMotivo>Lote processado</xMotivo><protNFe versao="4.00"><infProt>`
+    + `<chNFe>${chave}</chNFe><cStat>100</cStat><xMotivo>Autorizado o uso da NF-e</xMotivo>`
+    + `<nProt>${protocolo}</nProt></infProt></protNFe></retEnviNFe>`;
+}
+
 function depsTx(db, overrides = {}) {
   numeroSeq = 200;
   return {
@@ -205,16 +219,17 @@ function depsTx(db, overrides = {}) {
       xmlAssinado: String(xmlSemAssinatura).replace('</NFe>', `<Signature/><infNFeSupl/><qrCode>x</qrCode></NFe>`),
       qrCodeUrl: 'https://qr'
     }),
-    enviarAutorizacao: overrides.enviarAutorizacao || (async () => ({
+    enviarAutorizacao: overrides.enviarAutorizacao || (async ({ xmlAssinado, numero }) => ({
       success: true,
-      raw: '<retEnviNFe><cStat>100</cStat><xMotivo>Autorizado</xMotivo><nProt>123456789012345</nProt></retEnviNFe>',
+      raw: respostaAutorizada(chaveDoXmlAssinado(xmlAssinado), numero),
       cStat: '100',
-      protocolo: '123456789012345'
+      protocolo: `123${String(numero).padStart(12, '0').slice(-12)}`
     })),
-    consultarProtocolo: overrides.consultarProtocolo || (async () => ({
+    consultarProtocolo: overrides.consultarProtocolo || (async ({ chave }) => ({
       success: true,
-      raw: '<retConsSitNFe><cStat>100</cStat><xMotivo>Autorizado</xMotivo><nProt>999</nProt></retConsSitNFe>',
-      cStat: '100'
+      raw: respostaAutorizada(chave, 999),
+      cStat: '100',
+      protocolo: '123000000000999'
     })),
     ...overrides
   };
@@ -304,7 +319,7 @@ async function main() {
       assert.strictEqual(d.status, DOC_STATUS.AUTORIZADO);
       assert.ok(d.chave_acesso);
       assert.ok(d.protocolo);
-      assert.ok(d.xml_autorizado || d.xml_assinado);
+      assert.match(d.xml_autorizado, /<nfeProc\b/);
       assert.ok(d.numero);
       assert.notStrictEqual(d.data_hora_emissao, null);
     }
@@ -367,7 +382,7 @@ async function main() {
     assert.strictEqual(docAntes.status, DOC_STATUS.ERRO_COM_POSSIVEL_PROCESSAMENTO);
 
     // simula chave já gerada no timeout path
-    await run(db2, `UPDATE fechamentos_fiscais_documentos SET chave_acesso = '35260912345678000199550010000002011234567890', status = 'EMITINDO' WHERE fechamento_fiscal_id = ?`, [ff.id]);
+    await run(db2, `UPDATE fechamentos_fiscais_documentos SET status = 'EMITINDO' WHERE fechamento_fiscal_id = ?`, [ff.id]);
 
     const rec = await recuperarFechamento(ff.id, {}, depsTx(db2));
     assert.strictEqual(rec.status, STATUS.AUTORIZADO);
@@ -382,7 +397,7 @@ async function main() {
     const docs = await all(db2, `SELECT id FROM fechamentos_fiscais_documentos WHERE fechamento_fiscal_id = ? ORDER BY sequencia`, [ff.id]);
     let call = 0;
     const r = await transmitirFechamento(ff.id, {}, depsTx(db2, {
-      enviarAutorizacao: async () => {
+      enviarAutorizacao: async ({ xmlAssinado, numero }) => {
         call += 1;
         if (call === 1) {
           return {
@@ -393,9 +408,9 @@ async function main() {
         }
         return {
           success: true,
-          raw: '<cStat>100</cStat><xMotivo>Autorizado</xMotivo><nProt>111</nProt>',
+          raw: respostaAutorizada(chaveDoXmlAssinado(xmlAssinado), numero),
           cStat: '100',
-          protocolo: '111'
+          protocolo: `123${String(numero).padStart(12, '0').slice(-12)}`
         };
       }
     }));

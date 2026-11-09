@@ -247,7 +247,8 @@ function visualizarXmlNfce(nfceId) {
         success(nota) {
             const xmlEnviado = String(nota.xml_enviado || '');
             const xmlRetorno = String(nota.xml_retorno || '');
-            if (!xmlEnviado && !xmlRetorno) {
+            const xmlAutorizado = String(nota.xml_autorizado || '');
+            if (!xmlEnviado && !xmlRetorno && !xmlAutorizado) {
                 if (typeof showNotification === 'function') {
                     showNotification('XML não disponível para esta NFC-e.', 'warning');
                 }
@@ -283,6 +284,21 @@ function visualizarXmlNfce(nfceId) {
                                     </span>
                                 </h6>
                                 <textarea class="form-control font-monospace" rows="10" readonly id="txtXmlNfceRetorno">${escapeHtmlHistoricoVenda(xmlRetorno)}</textarea>
+                                ${xmlAutorizado ? `
+                                <hr>
+                                <h6 class="d-flex align-items-center justify-content-between gap-2">
+                                    <span>XML autorizado processado (nfeProc)</span>
+                                    <span>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCopiarXmlNfceAutorizado">Copiar</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnBaixarXmlNfceAutorizado">Baixar</button>
+                                    </span>
+                                </h6>
+                                <textarea class="form-control font-monospace" rows="12" readonly id="txtXmlNfceAutorizado">${escapeHtmlHistoricoVenda(xmlAutorizado)}</textarea>
+                                ` : `
+                                <div class="alert alert-warning small mt-3 mb-0">
+                                    XML autorizado processado indisponível: a evidência SEFAZ não pôde ser validada.
+                                </div>
+                                `}
                             </div>
                         </div>
                     </div>
@@ -302,6 +318,8 @@ function visualizarXmlNfce(nfceId) {
             bind('btnBaixarXmlNfceEnviado', () => baixarTextoXmlNfce(`NFCe-${chave}-enviado.xml`, xmlEnviado));
             bind('btnCopiarXmlNfceRetorno', () => copiarTextoXmlNfce(xmlRetorno));
             bind('btnBaixarXmlNfceRetorno', () => baixarTextoXmlNfce(`NFCe-${chave}-retorno.xml`, xmlRetorno));
+            bind('btnCopiarXmlNfceAutorizado', () => copiarTextoXmlNfce(xmlAutorizado));
+            bind('btnBaixarXmlNfceAutorizado', () => baixarTextoXmlNfce(`NFCe-${chave}-autorizada.xml`, xmlAutorizado));
             const modalEl = document.getElementById('modalVisualizarXmlNfce');
             if (modalEl && window.bootstrap && bootstrap.Modal) {
                 bootstrap.Modal.getOrCreateInstance(modalEl).show();

@@ -1,0 +1,72 @@
+{
+  "sprint": "MRT-50.64",
+  "titulo": "CONFIRMAÇÃO DA PORTA COM PERSISTIDA E PRÉ-VOO DESTAXA",
+  "status": "CONCLUÍDA",
+  "registradoEm": "2026-11-07T20:04:16Z",
+  "tipo": "diagnostico-somente-leitura",
+  "banco": {
+    "path": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+    "modo": "readonly uri mode=ro + PRAGMA query_only=ON",
+    "gravacao": false,
+    "updateInsertDelete": false,
+    "bancoTemporarioCriado": false,
+    "lastWriteTimeUtcAntesOuInalterado": "2026-11-07T19:51:31.9923558Z",
+    "sha256AposConsulta": "A59AD4727B2F8111F57FCF5A1F081FDACB2A110FFC6174C1485F39A6409AAFA2"
+  },
+  "registroIdentificado": {
+    "tabela": "tef_pinpads",
+    "id": 1,
+    "tef_configuracao_id": 1,
+    "codigo": "GERTEC_PPC930",
+    "nome": "Gertec PPC930",
+    "fabricante": "Gertec",
+    "modelo": "PPC930",
+    "tipo_conexao": "usb",
+    "habilitado": 1,
+    "status": "desconhecido",
+    "provedorConfig": "destaxa",
+    "ambienteConfig": "homologacao",
+    "totalRegistrosNaTabela": 1,
+    "identificacaoInequivoca": true
+  },
+  "porta": {
+    "porta_com_persistida": "COM4",
+    "windows": "COM4",
+    "dispositivo": "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+    "vid": "1753",
+    "pid": "C902",
+    "statusWindows": "OK",
+    "coincidem": true,
+    "correcaoAutomatica": false
+  },
+  "gate": {
+    "process": "0",
+    "user": null,
+    "machine": null,
+    "off": true
+  },
+  "vspague": {
+    "encontrado": true,
+    "pid": 44484,
+    "caminho": "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
+    "tcp60603Listening": true,
+    "tcp60906Listening": true,
+    "nota": "LISTEN/processo ≠ prova de handshake PinPad"
+  },
+  "dll": {
+    "existe": true,
+    "sha256": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+    "matchReferencia": true,
+    "carregadaNestaSprint": false
+  },
+  "restricoesCumpridas": {
+    "semNativeHost": true,
+    "semIniciaClientDestaxa": true,
+    "semChamadasFinanceiras": true,
+    "semAlteracaoCodigo": true,
+    "semAlteracaoConfigTef": true,
+    "semGravacaoBanco": true,
+    "semSefaz": true
+  },
+  "autorizacaoDebitoR1": "reservada — não autorizada nesta sprint"
+}

@@ -818,8 +818,7 @@ window.pdvPermitirEditarPrecoUnitario = pdvPermitirEditarPrecoUnitario;
 function loadPDV() {
     console.log('Carregando PDV...');
 
-    // Auto-registrar terminal no backend
-    autoRegistrarTerminal();
+    inicializarContextoTerminalPdv();
     inicializarSincronizacaoCatalogoPdv();
     carregarFlagTransferenciaNaoFiscalFiscalPdv();
     carregarFlagEditarPrecoUnitarioPdv();
@@ -991,9 +990,12 @@ function encontrarProdutoPorIdPdv(produtoId) {
 
 // Auto-registrar terminal no backend (somente app PDV dedicado)
 const HEARTBEAT_TERMINAL_MS = 2 * 60 * 1000;
+const TIMEOUT_REGISTRO_TERMINAL_MS = 10000;
 let intervaloHeartbeatTerminal = null;
 let tentativasRegistroTerminal = 0;
 let terminalNome = '';
+let inicializacaoContextoTerminalPromise = null;
+let inicializadorContextoTerminal = null;
 
 function deveRegistrarTerminalPdv() {
     if (window.CDS_MODULE === 'pdv') return true;
@@ -1035,107 +1037,213 @@ function obterUsuarioLogadoPdv() {
     }
 }
 
-async function autoRegistrarTerminal() {
-    if (!deveRegistrarTerminalPdv()) {
-        return;
+function aguardarHostnameTerminalPdv(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function armazenarHostnameTerminalPdv(hostname) {
+    terminalHostname = String(hostname || '').trim();
+    if (!terminalHostname) return null;
+    try {
+        sessionStorage.setItem('cds_estacao_hostname', terminalHostname);
+    } catch (error) {
+        console.warn('Não foi possível armazenar o hostname da estação:', error.message);
+    }
+    sincronizarTerminalGlobalsPdv();
+    return terminalHostname;
+}
+
+async function resolverHostnameTerminalPdv() {
+    const emElectron = typeof estaEmElectron === 'function'
+        ? estaEmElectron()
+        : Boolean(window.electronAPI);
+
+    for (let tentativa = 0; tentativa < 16; tentativa += 1) {
+        if (window.electronAPI && typeof window.electronAPI.getTerminalInfo === 'function') {
+            try {
+                const info = window.electronAPI.getTerminalInfo();
+                if (info && info.hostname) {
+                    return armazenarHostnameTerminalPdv(info.hostname);
+                }
+            } catch (error) {
+                console.warn('Não foi possível obter o hostname pelo preload:', error.message);
+            }
+        }
+
+        if (typeof resolverHostnameEstacao === 'function') {
+            try {
+                const hostname = await resolverHostnameEstacao();
+                if (hostname) return armazenarHostnameTerminalPdv(hostname);
+            } catch (error) {
+                console.warn('Não foi possível resolver o hostname da estação:', error.message);
+            }
+        }
+
+        if (terminalHostname) return terminalHostname;
+        if (!emElectron || tentativa === 15) break;
+        tentativasRegistroTerminal = tentativa + 1;
+        await aguardarHostnameTerminalPdv(500);
     }
 
-    try {
-        if (window.electronAPI && typeof window.electronAPI.getTerminalInfo === 'function') {
-            const info = window.electronAPI.getTerminalInfo();
-            if (info && info.hostname) {
-                terminalHostname = info.hostname;
-                sessionStorage.setItem('cds_estacao_hostname', terminalHostname);
-                sincronizarTerminalGlobalsPdv();
-            }
-        }
+    return null;
+}
 
-        if (!terminalHostname && typeof resolverHostnameEstacao === 'function') {
-            terminalHostname = await resolverHostnameEstacao();
-            sincronizarTerminalGlobalsPdv();
-        }
-
-        if (!terminalHostname) {
-            const emElectron = typeof estaEmElectron === 'function' ? estaEmElectron() : Boolean(window.electronAPI);
-            if (emElectron && tentativasRegistroTerminal < 16) {
-                tentativasRegistroTerminal += 1;
-                setTimeout(autoRegistrarTerminal, 500);
-                return;
-            }
-            console.warn('PDV aberto, mas hostname da estação não foi detectado.');
-            return;
-        }
-
-        tentativasRegistroTerminal = 0;
-        console.log('Terminal PDV detectado:', terminalHostname);
-
+function requisitarRegistroTerminalPdv(hostname) {
+    return new Promise((resolve, reject) => {
         const headers = {};
         const token = localStorage.getItem('token');
-        if (token) headers['Authorization'] = 'Bearer ' + token;
+        if (token) headers.Authorization = `Bearer ${token}`;
 
         const usuario = obterUsuarioLogadoPdv();
-
-        $.ajax({
+        const requisicao = $.ajax({
             url: `${API_URL}/terminais/auto`,
             method: 'GET',
+            timeout: TIMEOUT_REGISTRO_TERMINAL_MS,
             data: {
-                hostname: terminalHostname,
+                hostname,
                 origem: 'pdv',
                 usuario_id: usuario.usuario_id || undefined,
                 usuario_nome: usuario.usuario_nome || undefined
             },
-            headers: headers,
-            success: function(terminal) {
-                terminalId = terminal.id;
-                terminalNome = String(terminal.nome || terminal.hostname || '').trim();
-                try {
-                    if (terminalHostname && !String(terminalHostname).startsWith('pdv-')) {
-                        localStorage.setItem('cds_pdv_hostname_preferido', terminalHostname);
-                    }
-                    if (terminal.caixa_id) {
-                        localStorage.setItem('cds_pdv_caixa_id', String(terminal.caixa_id));
-                    }
-                } catch (e) { /* ignore */ }
-                if (typeof atualizarContextoTerminalAtual === 'function') {
-                    atualizarContextoTerminalAtual(terminal);
-                }
-                sincronizarTerminalGlobalsPdv();
-                console.log('Terminal PDV registrado:', terminal);
-                try {
-                    window.dispatchEvent(new CustomEvent('cds:terminal-registrado', {
-                        detail: {
-                            terminalId: terminal.id,
-                            caixaId: terminal.caixa_id || null
-                        }
-                    }));
-                } catch (e) { /* ignore */ }
-                if (typeof atualizarRotuloTerminalPdvSidebar === 'function') {
-                    atualizarRotuloTerminalPdvSidebar();
-                }
-                if (typeof verificarStatusCaixa === 'function') {
-                    verificarStatusCaixa();
-                }
-            },
-            error: function(xhr) {
-                console.warn('Erro ao registrar terminal PDV:', xhr.status, xhr.responseText);
-                terminalId = null;
-                if (typeof atualizarContextoTerminalAtual === 'function') {
-                    atualizarContextoTerminalAtual(null);
-                }
-            }
+            headers
         });
 
-        if (!intervaloHeartbeatTerminal) {
-            intervaloHeartbeatTerminal = setInterval(autoRegistrarTerminal, HEARTBEAT_TERMINAL_MS);
+        requisicao.done(resolve);
+        requisicao.fail((xhr, textStatus, errorThrown) => {
+            const timeout = textStatus === 'timeout';
+            const error = new Error(
+                timeout
+                    ? 'Tempo excedido ao registrar o terminal no backend.'
+                    : `Falha ao registrar o terminal no backend (HTTP ${xhr.status || 0}).`
+            );
+            error.code = timeout
+                ? 'TERMINAL_REGISTRO_TIMEOUT'
+                : 'TERMINAL_REGISTRO_FALHOU';
+            error.status = Number(xhr.status) || 0;
+            if (errorThrown && !timeout) error.causa = String(errorThrown);
+            reject(error);
+        });
+    });
+}
+
+function aplicarContextoTerminalPdv(contexto) {
+    const terminal = contexto.terminal;
+    terminalId = contexto.terminalId;
+    terminalHostname = contexto.hostname;
+    terminalNome = String(terminal.nome || terminal.hostname || '').trim();
+
+    try {
+        if (terminalHostname && !terminalHostname.startsWith('pdv-')) {
+            localStorage.setItem('cds_pdv_hostname_preferido', terminalHostname);
         }
-    } catch (err) {
-        console.error('Erro ao detectar terminal PDV:', err);
-        terminalId = null;
-        if (typeof atualizarContextoTerminalAtual === 'function') {
-            atualizarContextoTerminalAtual(null);
+        if (contexto.caixaId) {
+            localStorage.setItem('cds_pdv_caixa_id', String(contexto.caixaId));
+        } else {
+            localStorage.removeItem('cds_pdv_caixa_id');
         }
+    } catch (error) {
+        console.warn('Não foi possível atualizar o cache local do terminal:', error.message);
+    }
+
+    if (typeof atualizarContextoTerminalAtual === 'function') {
+        atualizarContextoTerminalAtual(terminal);
+    }
+    sincronizarTerminalGlobalsPdv();
+    console.info('[PDV] Terminal registrado:', {
+        terminalId,
+        caixaId: contexto.caixaId,
+        hostname: terminalHostname
+    });
+
+    try {
+        window.dispatchEvent(new CustomEvent('cds:terminal-registrado', {
+            detail: { terminalId, caixaId: contexto.caixaId }
+        }));
+    } catch (error) {
+        console.warn('Não foi possível publicar o contexto do terminal:', error.message);
+    }
+    if (typeof atualizarRotuloTerminalPdvSidebar === 'function') {
+        atualizarRotuloTerminalPdvSidebar();
+    }
+    if (typeof verificarStatusCaixa === 'function') {
+        verificarStatusCaixa();
     }
 }
+
+function limparContextoTerminalPdv() {
+    terminalId = null;
+    if (typeof atualizarContextoTerminalAtual === 'function') {
+        atualizarContextoTerminalAtual(null);
+    }
+    sincronizarTerminalGlobalsPdv();
+}
+
+function obterInicializadorContextoTerminalPdv() {
+    if (inicializadorContextoTerminal) return inicializadorContextoTerminal;
+    if (!window.TerminalContextBootstrap) {
+        throw new Error('O inicializador de contexto do terminal não foi carregado.');
+    }
+
+    inicializadorContextoTerminal = window.TerminalContextBootstrap.criarInicializador({
+        resolverHostname: resolverHostnameTerminalPdv,
+        registrarTerminal: requisitarRegistroTerminalPdv,
+        aplicarContexto: aplicarContextoTerminalPdv,
+        timeoutMs: TIMEOUT_REGISTRO_TERMINAL_MS
+    });
+    return inicializadorContextoTerminal;
+}
+
+function garantirHeartbeatTerminalPdv() {
+    if (intervaloHeartbeatTerminal) return;
+    intervaloHeartbeatTerminal = setInterval(() => {
+        autoRegistrarTerminal();
+    }, HEARTBEAT_TERMINAL_MS);
+}
+
+function autoRegistrarTerminal() {
+    if (!deveRegistrarTerminalPdv()) {
+        return Promise.resolve({ ok: false, code: 'MODULO_NAO_PDV' });
+    }
+
+    garantirHeartbeatTerminalPdv();
+    try {
+        return obterInicializadorContextoTerminalPdv().inicializar().then((contexto) => {
+            tentativasRegistroTerminal = 0;
+            return contexto;
+        }).catch((error) => {
+            limparContextoTerminalPdv();
+            console.warn(
+                '[PDV] Falha ao inicializar contexto do terminal:',
+                error.code || 'TERMINAL_REGISTRO_FALHOU',
+                error.message
+            );
+            return {
+                ok: false,
+                code: error.code || 'TERMINAL_REGISTRO_FALHOU',
+                error
+            };
+        });
+    } catch (error) {
+        limparContextoTerminalPdv();
+        console.error('[PDV] Falha ao preparar o inicializador do terminal:', error);
+        return Promise.resolve({
+            ok: false,
+            code: 'TERMINAL_INICIALIZADOR_INDISPONIVEL',
+            error
+        });
+    }
+}
+
+function inicializarContextoTerminalPdv() {
+    if (!deveRegistrarTerminalPdv()) {
+        return Promise.resolve({ ok: false, code: 'MODULO_NAO_PDV' });
+    }
+    if (!inicializacaoContextoTerminalPromise) {
+        inicializacaoContextoTerminalPromise = autoRegistrarTerminal();
+    }
+    return inicializacaoContextoTerminalPromise;
+}
+window.inicializarContextoTerminalPdv = inicializarContextoTerminalPdv;
 
 function terminalPdvRegistrado() {
     return Number.isInteger(terminalId) && terminalId > 0;
@@ -2212,11 +2320,20 @@ function anexarTefAoPrimeiroPagamento(pagamentos, tef) {
 function normalizarPagamentosSemTef(pagamentos) {
     return (pagamentos || [])
         .filter((pagamento) => Number(pagamento.valor) > 0)
-        .map((pagamento) => ({
-            ...pagamento,
-            forma_pagamento: normalizarFormaPagamentoTEF(pagamento.forma_pagamento),
-            valor: Number(pagamento.valor)
-        }));
+        .map((pagamento) => {
+            const pagamentoSemTef = { ...pagamento };
+            delete pagamentoSemTef.tef_transacao_id;
+            delete pagamentoSemTef.tef;
+            delete pagamentoSemTef.nsu;
+            delete pagamentoSemTef.autorizacao;
+            delete pagamentoSemTef.bandeira;
+            delete pagamentoSemTef.adquirente;
+            return {
+                ...pagamentoSemTef,
+                forma_pagamento: normalizarFormaPagamentoTEF(pagamento.forma_pagamento),
+                valor: Number(pagamento.valor)
+            };
+        });
 }
 
 async function concluirPagamentoNaoFiscalVenda(vendaId, pagamento, emitirFiscal = false) {
@@ -7074,42 +7191,25 @@ async function executarFinalizacaoVenda(emitirFiscal = false, cpfCnpjNota = null
         });
 
         if (deveUsarTefAutomatico && ehPagamentoMisto) {
-            dados.pagamentos = await processarPagamentosMistosTEF(pagamentosMistos);
+            dados.pagamentos = normalizarPagamentosSemTef(pagamentosMistos);
             dados.forma_pagamento = 'misto';
         }
 
         if (fluxoAB.abrirA) {
             if (deveUsarTefAutomatico && !ehPagamentoMisto) {
-                const resultadoProcessamento = await processarVendaFiscalNaoFiscal(dados, fluxoAB.valorA);
-
-                if (!resultadoProcessamento.sucesso) {
-                    vendaEmProcessamento = false;
-                    showNotification(resultadoProcessamento.erro || 'Erro no Recebimento A.', 'danger');
-                    return;
-                }
-
                 const formaFiscal = obterFormaPagamentoFiscal();
-                const tefFiscal = resultadoProcessamento.tefFiscal;
-                dados.tef = montarObjetoTEF(tefFiscal);
-
                 if (fluxoAB.abrirB) {
-                    dados.pagamentos = anexarTefAoPrimeiroPagamento(dados.pagamentos, tefFiscal);
+                    dados.pagamentos = normalizarPagamentosSemTef(dados.pagamentos);
                 } else {
                     dados.pagamentos = [
                         {
                             forma_pagamento: formaPagamentoGravacaoFiscalPDV(formaFiscal),
                             valor: fluxoAB.valorA,
-                            tipo_recebimento: 'fiscal',
-                            tef_transacao_id: tefFiscal.transacao_id,
-                            nsu: tefFiscal.nsu,
-                            autorizacao: tefFiscal.autorizacao
+                            tipo_recebimento: 'fiscal'
                         }
                     ];
-                    if (deveEnviarPagamentosProcessadosPdv(totalFiscal, totalNaoFiscal)) {
-                        dados.pagamentos_processados_pdv = true;
-                    }
                 }
-            } else {
+            } else if (!deveUsarTefAutomatico) {
                 const resultadoManual = await processarVendaFiscalManual(dados, fluxoAB.valorA);
 
                 if (!resultadoManual.sucesso) {

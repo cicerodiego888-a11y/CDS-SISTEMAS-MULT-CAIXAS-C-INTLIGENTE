@@ -1,0 +1,107 @@
+{
+  "sprint": "MRT-50.66",
+  "cenarios": [
+    {
+      "id": 1,
+      "cenario": "Sucesso (00)",
+      "estadoInterno": "CONFIRMED_SUCCESS / SUCCESS / APROVADO",
+      "tefManager": "Persiste aprovação; idempotência PRESERVAR_APROVACAO em reenvio",
+      "pdv": "sucesso=true, status aprovado, retryAllowed=false",
+      "finalizaVendaIndevidamente": false,
+      "duplicidade": "bloqueada por idempotency_key",
+      "retryAutomatico": false
+    },
+    {
+      "id": 2,
+      "cenario": "Recusa (03/04/09)",
+      "estadoInterno": "CONFIRMED_DENIED / DENIED / NEGADO",
+      "tefManager": "Persiste negativa; PRESERVAR_NEGATIVA",
+      "pdv": "sucesso=false, status negado, retryAllowed=false",
+      "finalizaVendaIndevidamente": false,
+      "duplicidade": "bloqueada",
+      "retryAutomatico": false
+    },
+    {
+      "id": 3,
+      "cenario": "Erro de comunicação (ECONNRESET/rede)",
+      "estadoInterno": "UNKNOWN",
+      "tefManager": "Pendência / trava; BLOQUEAR_REENVIAR",
+      "pdv": "PENDENTE/ERRO inconclusivo, retryAllowed=false",
+      "finalizaVendaIndevidamente": false,
+      "duplicidade": "nova cobrança bloqueada enquanto pendente/UNKNOWN",
+      "retryAutomatico": false
+    },
+    {
+      "id": 4,
+      "cenario": "Timeout (08 ou timeout operacional TefManager)",
+      "estadoInterno": "UNKNOWN / TIMEOUT / PENDENTE",
+      "tefManager": "Responde timeout ao chamador; NÃO cancela DLL; abre trava resultado tardio se aplicável",
+      "pdv": "PENDENTE/UNKNOWN, retryAllowed=false",
+      "finalizaVendaIndevidamente": false,
+      "duplicidade": "bloqueada; timeout ≠ cancelamento",
+      "retryAutomatico": false,
+      "nota": "autorizarComRetry executa fn uma única vez"
+    },
+    {
+      "id": 5,
+      "cenario": "NativeHost encerrado inesperadamente",
+      "estadoInterno": "HOST_OFFLINE/CRASHED → ciclo HOST_ENCERRADO / UNKNOWN",
+      "tefManager": "Falha sem aprovação; pendência se TX já iniciada",
+      "pdv": "erro/pendente, retryAllowed=false",
+      "finalizaVendaIndevidamente": false,
+      "duplicidade": "protegida se identidade persistida",
+      "retryAutomatico": false
+    },
+    {
+      "id": 6,
+      "cenario": "Resposta ausente / continuidade sem fila",
+      "estadoInterno": "DESTAXA_CICLO_CONTINUIDADE_SEM_RESPOSTA / inconclusivo",
+      "tefManager": "Não aprova; 99 ≠ aprovação",
+      "pdv": "PENDENTE/ERRO continuidade",
+      "finalizaVendaIndevidamente": false,
+      "duplicidade": "n/a nova TX_START não repetida no ciclo",
+      "retryAutomatico": false
+    },
+    {
+      "id": 7,
+      "cenario": "Resposta duplicada (mesma idempotency_key)",
+      "estadoInterno": "classificarIdempotencia",
+      "tefManager": "Retorna existente ou BLOQUEAR_REENVIAR",
+      "pdv": "TRANSACAO_DUPLICADA / inconclusiva sem reenvio",
+      "finalizaVendaIndevidamente": false,
+      "duplicidade": "detectada e bloqueada",
+      "retryAutomatico": false
+    },
+    {
+      "id": 8,
+      "cenario": "Estado UNKNOWN",
+      "estadoInterno": "FINANCIAL_STATES.UNKNOWN preservado",
+      "tefManager": "Pendências bloqueiam nova autorização; idempotência BLOQUEAR_REENVIAR; preservarUnknown=true",
+      "pdv": "não aprova venda; retryAllowed=false",
+      "finalizaVendaIndevidamente": false,
+      "duplicidade": "proibido reenvio automático / nova cobrança",
+      "retryAutomatico": false,
+      "historicosMrt24_36_42": "não tocados nesta sprint"
+    },
+    {
+      "id": 9,
+      "cenario": "Erro durante CONTINUE",
+      "estadoInterno": "UNKNOWN/inconclusivo; retryAllowed=false",
+      "tefManager": "Ciclo não reinicia TX_START",
+      "pdv": "pendente/erro",
+      "finalizaVendaIndevidamente": false,
+      "duplicidade": "sem segundo TX_START",
+      "retryAutomatico": false
+    },
+    {
+      "id": 10,
+      "cenario": "Erro durante FINALIZE",
+      "estadoInterno": "UNKNOWN se finalize falha após 00",
+      "tefManager": "Não assume cancelamento silencioso; financialState conservador",
+      "pdv": "não trata como sucesso limpo se finalize falhou",
+      "finalizaVendaIndevidamente": "risco mitigado por financialState UNKNOWN / sem retry",
+      "duplicidade": "identidade preservada",
+      "retryAutomatico": false
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "nota": "Test-NetConnection -TraceRoute (passivo). TcpTestSucceeded=false nesta corrida específica; o probe TCP/TLS dedicado em tls-inspecao.json e Test-NetConnection sem traceroute retornaram sucesso para :60410.",
+  "computerName": "app-partner.destaxa.cloud",
+  "tcpTestSucceededDuranteTrace": false,
+  "hops": [
+    "192.168.0.1",
+    "100.81.96.1",
+    "0.0.0.0",
+    "0.0.0.0",
+    "172.16.127.93",
+    "172.16.133.226",
+    "172.16.131.194",
+    "172.16.128.178",
+    "172.16.128.177",
+    "172.16.128.57",
+    "172.16.128.185",
+    "187.16.213.228",
+    "140.91.208.17",
+    "... hops restantes 0.0.0.0 (sem resposta ICMP)"
+  ]
+}

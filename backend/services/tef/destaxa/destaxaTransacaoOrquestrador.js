@@ -23,9 +23,11 @@ const {
   estadoPorAcao
 } = require('./destaxaProtocolo');
 const {
+  FINANCIAL_STATES,
   classificarErroFinanceiro,
   montarLogDecisao
 } = require('../tefFinancialSafetyPolicy');
+const { consumirCapabilityAutorizacaoReconciliacao } = require('./destaxaNativeHostProtocolo');
 
 const ESTADOS_BLOQUEIAM_NOVA = new Set([
   ESTADOS_TRANSACAO.STARTING,
@@ -77,6 +79,11 @@ class DestaxaTransacaoOrquestrador {
     return this._contexto ? { ...this._contexto } : null;
   }
 
+  _financialStateUnknown() {
+    return Boolean(this._contexto
+      && (this._contexto.financialState ?? this._contexto.dadosUltimaResposta?.financialState) === FINANCIAL_STATES.UNKNOWN);
+  }
+
   _log(evento, extra = {}) {
     destaxaLogger.registrar(evento, {
       operation: this._contexto?.operacao || null,
@@ -107,6 +114,7 @@ class DestaxaTransacaoOrquestrador {
     const decisao = classificarErroFinanceiro(error);
     const duracaoMs = Number(process.hrtime.bigint() - inicio) / 1e6;
 
+    this._contexto.financialState = decisao.financialState;
     this._contexto.estado = decisao.state === 'TIMEOUT'
       ? ESTADOS_TRANSACAO.TIMEOUT
       : ESTADOS_TRANSACAO.UNKNOWN;
@@ -152,6 +160,7 @@ class DestaxaTransacaoOrquestrador {
     const classificacao = classificarCodigoTransacao(resultadoDll.codigo);
     const duracaoMs = Number(process.hrtime.bigint() - inicio) / 1e6;
 
+    this._contexto.financialState = classificacao.financialState;
     this._contexto.codigoUltimo = classificacao.codigo;
     this._contexto.dadosUltimaResposta = {
       saida: resultadoDll.saida || '',
@@ -202,7 +211,10 @@ class DestaxaTransacaoOrquestrador {
   }
 
   iniciarTransacao(operacao, camposEntrada = {}, opcoes = {}) {
-    if (this._contexto && ESTADOS_BLOQUEIAM_NOVA.has(this._contexto.estado)) {
+    if (this._contexto && (
+      this._financialStateUnknown()
+      || ESTADOS_BLOQUEIAM_NOVA.has(this._contexto.estado)
+    )) {
       return this._falha(
         ERROS.DESTAXA_TRANSACAO_EM_ANDAMENTO,
         'Transação Destaxa já em andamento',
@@ -258,6 +270,7 @@ class DestaxaTransacaoOrquestrador {
       inicio: new Date().toISOString(),
       ultimaAcao: null,
       codigoUltimo: null,
+      financialState: null,
       dadosUltimaResposta: null,
       entradaInicial: entrada.texto
     };
@@ -324,6 +337,15 @@ class DestaxaTransacaoOrquestrador {
       );
     }
 
+    if (this._financialStateUnknown()) {
+      return this._falha(
+        ERROS.DESTAXA_TRANSACAO_EM_ANDAMENTO,
+        'Transação financeiramente UNKNOWN exige reconciliação explícita',
+        this._contexto.estado,
+        { preservarContexto: true, retryReason: 'TEF_UNKNOWN_NO_RETRY' }
+      );
+    }
+
     if (!ESTADOS_BLOQUEIAM_NOVA.has(this._contexto.estado)
       && this._contexto.estado !== ESTADOS_TRANSACAO.WAITING_ACTION) {
       return this._falha(
@@ -360,6 +382,15 @@ class DestaxaTransacaoOrquestrador {
         ERROS.DESTAXA_TRANSACAO_NAO_ENCONTRADA,
         'Nenhuma transação Destaxa ativa para finalizar',
         ESTADOS_TRANSACAO.ERROR
+      );
+    }
+
+    if (this._financialStateUnknown()) {
+      return this._falha(
+        ERROS.DESTAXA_TRANSACAO_EM_ANDAMENTO,
+        'Transação financeiramente UNKNOWN exige reconciliação explícita',
+        this._contexto.estado,
+        { preservarContexto: true, retryReason: 'TEF_UNKNOWN_NO_RETRY' }
       );
     }
 
@@ -405,8 +436,86 @@ class DestaxaTransacaoOrquestrador {
     };
   }
 
+  reconciliarTransacao(dados = {}, capability = null) {
+    const claims = consumirCapabilityAutorizacaoReconciliacao(capability);
+    if (!claims
+      || claims.phase !== 'release'
+      || claims.recordStatus !== 'pendente'
+      || String(claims.transactionId || '') !== String(dados.transactionId || '')
+      || claims.financialState !== dados.financialState
+      || claims.usuario !== dados.usuario
+      || claims.observacao !== dados.observacao) {
+      return {
+        sucesso: false,
+        codigo: 'HOST_RECONCILIATION_AUTHORIZATION_INVALID',
+        contexto: this.getContexto()
+      };
+    }
+
+    const contexto = this._contexto;
+    if (contexto && String(contexto.transactionId || '') !== String(claims.transactionId)) {
+      return {
+        sucesso: false,
+        codigo: 'HOST_TRANSACTION_MISMATCH',
+        contexto: this.getContexto()
+      };
+    }
+
+    const reconciliacaoAnterior = contexto?.reconciliacao;
+    if (reconciliacaoAnterior
+      && (reconciliacaoAnterior.financialState !== claims.financialState
+        || reconciliacaoAnterior.usuario !== claims.usuario
+        || reconciliacaoAnterior.observacao !== claims.observacao
+        || (reconciliacaoAnterior.operation_id != null
+          && reconciliacaoAnterior.operation_id !== claims.operation_id)
+        || (reconciliacaoAnterior.idempotency_key != null
+          && reconciliacaoAnterior.idempotency_key !== claims.idempotency_key)
+        || (reconciliacaoAnterior.fingerprint != null
+          && reconciliacaoAnterior.fingerprint !== claims.fingerprint))) {
+      return {
+        sucesso: false,
+        codigo: 'HOST_RECONCILIATION_CONFLICT',
+        contexto: this.getContexto()
+      };
+    }
+
+    const contextoFinal = contexto || {
+      transactionId: String(claims.transactionId),
+      operacao: null,
+      dadosUltimaResposta: null
+    };
+    contextoFinal.financialState = claims.financialState;
+    contextoFinal.estado = claims.financialState === FINANCIAL_STATES.CONFIRMED_SUCCESS
+      ? ESTADOS_TRANSACAO.SUCCESS
+      : ESTADOS_TRANSACAO.DENIED;
+    contextoFinal.reconciliacao = {
+      authorizationId: claims.authorizationId,
+      operation_id: claims.operation_id,
+      idempotency_key: claims.idempotency_key,
+      fingerprint: claims.fingerprint,
+      financialState: claims.financialState,
+      usuario: claims.usuario,
+      observacao: claims.observacao
+    };
+    this._contexto = contextoFinal;
+    this._log('transacao.reconciliada', {
+      financialState: dados.financialState,
+      retryAllowed: false
+    });
+    return {
+      sucesso: true,
+      transactionId: String(contextoFinal.transactionId),
+      financialState: contextoFinal.financialState,
+      contexto: this.getContexto()
+    };
+  }
+
   reset() {
+    if (this._financialStateUnknown()) {
+      return false;
+    }
     this._contexto = null;
+    return true;
   }
 }
 

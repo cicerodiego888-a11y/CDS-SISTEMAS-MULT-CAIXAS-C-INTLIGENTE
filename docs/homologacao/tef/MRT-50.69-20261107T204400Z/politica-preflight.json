@@ -1,0 +1,16 @@
+{
+  "validacao": {
+    "ok": true,
+    "tipoNormalizado": "cartao_debito",
+    "valorCentavos": 100
+  },
+  "crt": "transacao_valor=1.00;transacao_tipo_cartao=Débito;transacao_pagamento=A vista",
+  "gate": {
+    "env": "DESTAXA_REAL_TRANSACTION_ENABLED",
+    "raw": "0",
+    "normalizado": "0",
+    "habilitado": false,
+    "ambiguo": false
+  },
+  "gateOn": false
+}

@@ -1,0 +1,2 @@
+STARTED pid=62008 at=2026-11-07T22:23:35.553Z confirmacao=EXPLICITA valor=1.00 modalidade=debito literal=Debito mrt=50.74
+EXIT=1 at=2026-11-07T22:23:50.284Z

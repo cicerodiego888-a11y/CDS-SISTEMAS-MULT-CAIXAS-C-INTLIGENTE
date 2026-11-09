@@ -7,6 +7,8 @@ const DestaxaHostBridge = require('../destaxa/DestaxaHostBridge');
 const { normalizarTipoTef } = require('../tefFluxoPagamento');
 const {
   buildCrtInput,
+  mapearTipoCartaoCrt,
+  mapearFormaPagamentoCrt,
   valorReaisParaCentavos,
   parseParametrosDestaxa
 } = require('../destaxa/destaxaProtocolo');
@@ -27,6 +29,9 @@ const {
   DESTAXA_GLOBAL_TIMEOUT_NAO_DOCUMENTADO,
   transacaoRealHabilitada
 } = require('../destaxa/destaxaConstantes');
+const {
+  validarContextoHomologacaoDebito
+} = require('../destaxa/destaxaHomologacaoDebitoPolitica');
 
 const READINESS_REAL = 'READY_FOR_REAL_TRANSACTION';
 
@@ -201,10 +206,74 @@ class DestaxaRealAdapter extends BaseAdapter {
     return this._normalizarRespostaProtocolo(resultado);
   }
 
+  /**
+   * Continuidade de protocolo (mock / orquestrador in-process).
+   * Com driver nativo (produção): CONTINUE direto permanece bloqueado —
+   * use `continuarPagamento` (reserva durável). Não cria nova cobrança/TX_START.
+   */
   async continuarTransacao(contexto = {}) {
-    const resposta = contexto.resposta != null ? contexto : contexto.entrada || contexto;
-    const resultado = await this.bridge.continuarTransacaoDestaxa(resposta);
+    const transactionId = contexto?.transactionId ?? contexto?.transacao_id ?? null;
+
+    if (this._bridgeUsaDriverNativo()) {
+      return {
+        sucesso: false,
+        status: tefContrato.STATUS.PENDENTE,
+        codigo: 'DESTAXA_CONTINUIDADE_AUTORIZACAO_NAO_COMPROVADA',
+        codigoDestaxa: 'DESTAXA_CONTINUIDADE_AUTORIZACAO_NAO_COMPROVADA',
+        mensagem: 'Continuidade direta bloqueada; use continuarPagamento para validar solicitação e reserva durável',
+        transacaoId: transactionId == null ? null : String(transactionId),
+        transactionAttempted: false,
+        financialState: 'UNKNOWN',
+        retryAllowed: false,
+        reconciliacaoObrigatoria: true,
+        inconclusivo: true
+      };
+    }
+
+    const ctxAtivo = typeof this.bridge.getTransacaoContexto === 'function'
+      ? this.bridge.getTransacaoContexto()
+      : null;
+    if (!ctxAtivo) {
+      return this._normalizarRespostaProtocolo({
+        sucesso: false,
+        codigoDestaxa: ERROS.DESTAXA_TRANSACAO_NAO_ENCONTRADA,
+        codigo: ERROS.DESTAXA_TRANSACAO_NAO_ENCONTRADA,
+        mensagem: 'Nenhuma transação Destaxa ativa para continuar',
+        estado: 'ERROR',
+        retryAllowed: false,
+        requerContinuacao: false,
+        contexto: null
+      });
+    }
+
+    if (transactionId != null
+      && String(transactionId) !== String(ctxAtivo.transactionId || '')) {
+      return this._normalizarRespostaProtocolo({
+        sucesso: false,
+        codigoDestaxa: ERROS.DESTAXA_TRANSACAO_SEM_CONTEXTO,
+        codigo: ERROS.DESTAXA_TRANSACAO_SEM_CONTEXTO,
+        mensagem: 'transactionId diverge do contexto CRT ativo — CONTINUE recusado',
+        estado: ctxAtivo.estado || null,
+        retryAllowed: false,
+        requerContinuacao: false,
+        contexto: { ...ctxAtivo }
+      });
+    }
+
+    const resultado = await this.bridge.continuarTransacaoDestaxa(contexto);
     return this._normalizarRespostaProtocolo(resultado);
+  }
+
+  _bridgeUsaDriverNativo() {
+    if (this.execucaoNativa === 'native-host') return true;
+    try {
+      const orq = typeof this.bridge.getOrquestradorTransacao === 'function'
+        ? this.bridge.getOrquestradorTransacao()
+        : null;
+      return orq?._driver?.nome === 'native';
+    } catch (_) {
+      return false;
+    }
   }
 
   async finalizarTransacao(contexto = {}) {
@@ -304,6 +373,22 @@ class DestaxaRealAdapter extends BaseAdapter {
       );
     }
 
+    // MRT-50.67 — homologação reservada: somente débito (antes de LOAD/INIT/TX).
+    const homologDebito = validarContextoHomologacaoDebito({
+      ambiente,
+      tipoPdv: dados.tipo,
+      valorCentavos,
+      modoAdapter: this.modo
+    });
+    checks.homologacaoDebito = {
+      ok: homologDebito.ok === true,
+      tipo: homologDebito.tipoNormalizado || normalizarTipoTef(dados.tipo) || null,
+      codigo: homologDebito.ok ? null : homologDebito.codigo
+    };
+    if (!homologDebito.ok) {
+      return bloquear(homologDebito.codigo, homologDebito.mensagem);
+    }
+
     const configService = this._configService();
     const configTef = await configService.obterConfiguracao();
     const validacao = configService.validarConfiguracao(configTef, { modoAdapter: 'real' });
@@ -395,15 +480,36 @@ class DestaxaRealAdapter extends BaseAdapter {
       );
     }
 
-    const entradaCrt = buildCrtInput({ valorCentavos });
+    // Modalidade escolhida no PDV (débito/crédito) preservada até a entrada DLL.
+    // Destaxa não reclassifica o pagamento do CDS; campos oficiais docs/06.
+    const tipoPdv = dados.tipo || null;
+    const parcelas = dados.parcelas != null ? Number(dados.parcelas) : null;
+    const tipoCartaoDestaxa = mapearTipoCartaoCrt(tipoPdv);
+    const formaPagamentoDestaxa = mapearFormaPagamentoCrt(tipoPdv, parcelas);
+    const entradaCrt = buildCrtInput({
+      valorCentavos,
+      tipoPdv,
+      parcelas
+    });
     const gateAberto = transacaoRealHabilitada();
-    checks.crt = { operation: OPERACOES.CRT, valueCents: valorCentavos, input: entradaCrt.texto };
+    checks.crt = {
+      operation: OPERACOES.CRT,
+      valueCents: valorCentavos,
+      input: entradaCrt.texto,
+      tipoPdv: tipoPdv || null,
+      tipoCartaoDestaxa,
+      formaPagamentoDestaxa,
+      chavesEntrada: entradaCrt.chaves
+    };
     checks.realTransactionGate = { env: REAL_TRANSACTION_ENV, enabled: gateAberto };
 
     const contexto = {
       operacao: OPERACOES.CRT,
       valorCentavos,
       camposEntrada: entradaCrt.campos,
+      tipoPdv,
+      tipoCartaoDestaxa,
+      formaPagamentoDestaxa,
       clientInitializationCode: checks.client.clientInitializationCode,
       checks
     };
@@ -536,7 +642,15 @@ class DestaxaRealAdapter extends BaseAdapter {
       transactionId,
       exigirPersistencia: true,
       respostasContinuidade: dados.respostasContinuidade || dados.continuidade || [],
-      maxContinues: dados.maxContinuesCrt
+      maxContinues: dados.maxContinuesCrt,
+      persistirRespostaAntesContinue: (continuidade) =>
+        this._persistirRespostaContinuidade({
+          ...continuidade,
+          idempotencyKey: guardPersistencia.idempotencyKey
+            || preparacao?.idempotency_key
+            || dados.idempotency_key,
+          permitirCriarSolicitacao: true
+        })
     });
 
     const vinculo = {
@@ -610,6 +724,7 @@ class DestaxaRealAdapter extends BaseAdapter {
         retryAllowed: false,
         requerContinuacao: true,
         acao,
+        solicitadaEm: ciclo.solicitadaEm || null,
         transactionAttempted: true,
         cicloCrt: ciclo.ciclo,
         vinculoVendaPdv: vinculo
@@ -671,49 +786,97 @@ class DestaxaRealAdapter extends BaseAdapter {
    * Não chama TX_START. Não gera nova cobrança.
    */
   async continuarPagamento(dados = {}) {
-    const {
-      continuarCicloCrt
-    } = require('../destaxa/destaxaCrtCicloOrquestracao');
+    const { continuarCicloCrt } = require('../destaxa/destaxaCrtCicloOrquestracao');
     const {
       normalizarAcaoContinuidade,
-      validarContinuidadeCompleta
+      normalizarTimestampSolicitacao99,
+      validarContinuidadeCompleta,
+      ERROS_CONTINUIDADE
     } = require('../destaxa/destaxaContinuidadeContrato');
+    const persistencia = require('../destaxa/destaxaContinuidadePersistencia');
 
     const transactionId = dados.transacao_id || dados.transacaoId || dados.transactionId || null;
-    const acao = normalizarAcaoContinuidade(dados.acao);
-    // MRT-38 — pipeline único: identidade + timeout + OPCAO literal + anti-duplicata
-    const respostaBruta = dados.resposta_continuidade ?? dados.resposta ?? dados.respostaOperador;
-    const usarPersistencia = dados.persistenciaContinuidade === true
-      || String(process.env.DESTAXA_CONTINUIDADE_PERSISTENTE || '').trim() === '1';
-    if (usarPersistencia && transactionId != null) {
-      const persistencia = require('../destaxa/destaxaContinuidadePersistencia');
-      const dupDb = await persistencia.verificarRespostaDuplicadaPersistente(transactionId, respostaBruta);
-      if (!dupDb.ok) {
-        return {
-          sucesso: false,
-          status: tefContrato.STATUS.PENDENTE,
-          codigo: dupDb.codigo,
-          mensagem: dupDb.mensagem,
-          retryAllowed: false,
-          requerContinuacao: false,
+    if (transactionId == null || String(transactionId).trim() === '') {
+      return this._respostaContinuidadeBloqueada(
+        ERROS_CONTINUIDADE.IDENTIDADE_AUSENTE,
+        'Continuidade recusada: transactionId ausente'
+      );
+    }
+
+    let recuperacao;
+    try {
+      recuperacao = await persistencia.recuperarSolicitacao99(transactionId);
+    } catch (error) {
+      return this._respostaContinuidadeBloqueada(
+        ERROS_CONTINUIDADE.PERSISTENCIA_FALHOU,
+        `Continuidade recusada: leitura da solicitação 99 falhou: ${error.message}`
+      );
+    }
+    if (!recuperacao?.ok) {
+      return this._respostaContinuidadeBloqueada(
+        recuperacao?.codigo || 'DESTAXA_CONTINUIDADE_SEM_SOLICITACAO',
+        'Continuidade recusada: solicitação 99 durável não encontrada'
+      );
+    }
+
+    const solicitacao99 = recuperacao.solicitacao99;
+    const solicitadaEm = normalizarTimestampSolicitacao99(solicitacao99.solicitadaEm);
+    const acaoPersistida = normalizarAcaoContinuidade(solicitacao99.acao);
+    const acaoInformada = dados.acao ? normalizarAcaoContinuidade(dados.acao) : acaoPersistida;
+    if (!solicitadaEm
+      || !normalizarTimestampSolicitacao99(dados.solicitadaEm)
+      || normalizarTimestampSolicitacao99(dados.solicitadaEm) !== solicitadaEm
+      || (dados.acao && JSON.stringify(acaoInformada) !== JSON.stringify(acaoPersistida))
+      || (dados.idempotency_key
+        && String(dados.idempotency_key) !== String(recuperacao.identidade?.idempotency_key || ''))) {
+      return this._respostaContinuidadeBloqueada(
+        ERROS_CONTINUIDADE.IDENTIDADE_DIVERGENTE,
+        'Continuidade recusada: timestamp, ação ou identidade diverge da solicitação 99 persistida'
+      );
+    }
+    if (dados.identidadePersistida
+      && ['transactionId', 'operation_id', 'idempotency_key', 'fingerprint']
+        .some((campo) => String(dados.identidadePersistida[campo] || '')
+          !== String(recuperacao.identidade?.[campo] || ''))) {
+      return this._respostaContinuidadeBloqueada(
+        ERROS_CONTINUIDADE.IDENTIDADE_DIVERGENTE,
+        'Continuidade recusada: identidade completa diverge do registro persistido'
+      );
+    }
+
+    const acao = acaoPersistida;
+    let respostaBruta = dados.resposta_continuidade ?? dados.resposta ?? dados.respostaOperador;
+    if (respostaBruta == null) {
+      let respostaRecuperada;
+      try {
+        respostaRecuperada = await persistencia.recuperarRespostaOperador(transactionId, {
+          solicitadaEm,
           acao,
-          transactionAttempted: true,
-          vinculoVendaPdv: {
-            venda_id: dados.venda_id != null ? dados.venda_id : null,
-            transactionId
-          }
-        };
+          identidadeEsperada: recuperacao.identidade
+        });
+      } catch (error) {
+        return this._respostaContinuidadeBloqueada(
+          ERROS_CONTINUIDADE.PERSISTENCIA_FALHOU,
+          `Continuidade recusada: releitura da resposta persistida falhou: ${error.message}`
+        );
       }
+      if (!respostaRecuperada?.ok) {
+        return this._respostaContinuidadeBloqueada(
+          respostaRecuperada?.codigo || ERROS_CONTINUIDADE.PERSISTENCIA_FALHOU,
+          respostaRecuperada?.mensagem || 'Continuidade recusada: resposta persistida não encontrada'
+        );
+      }
+      respostaBruta = respostaRecuperada.resposta;
     }
     const validacao = validarContinuidadeCompleta({
       acao,
       respostaBruta,
       transactionId,
       idempotencyKeyInformada: dados.idempotency_key || dados.idempotencyKey || null,
-      idempotencyKeyPersistida: dados.idempotency_key_persistida || null,
-      solicitadaEm: dados.acaoSolicitadaEm || dados.solicitadaEm || acao.solicitadaEm || null,
+      idempotencyKeyPersistida: recuperacao.identidade?.idempotency_key || null,
+      solicitadaEm,
       ambienteOperador: dados.ambienteOperador || null,
-      registrarDuplicata: dados.registrarDuplicata !== false
+      registrarDuplicata: false
     });
     if (!validacao.ok) {
       const timeoutOuDup = validacao.codigo === 'DESTAXA_CONTINUIDADE_TIMEOUT'
@@ -731,42 +894,12 @@ class DestaxaRealAdapter extends BaseAdapter {
         financialState: validacao.financialStateHint || null,
         reconciliacaoObrigatoria: validacao.reconciliacaoObrigatoria === true,
         acao,
-        transactionAttempted: true,
+        transactionAttempted: false,
         vinculoVendaPdv: {
           venda_id: dados.venda_id != null ? dados.venda_id : null,
           transactionId
         }
       };
-    }
-
-    // MRT-39.1 — grava resposta aceita ANTES do CONTINUE: anti-duplicata durável
-    // mesmo se o ciclo mock/host ficar inconclusivo após o envio.
-    if (usarPersistencia && transactionId != null) {
-      try {
-        const persistencia = require('../destaxa/destaxaContinuidadePersistencia');
-        const reg = await persistencia.registrarRespostaOperador(transactionId, {
-          resposta: validacao.resposta,
-          incrementarContinue: true
-        });
-        if (!reg.ok) {
-          return {
-            sucesso: false,
-            status: tefContrato.STATUS.PENDENTE,
-            codigo: reg.codigo,
-            mensagem: reg.mensagem,
-            retryAllowed: false,
-            requerContinuacao: false,
-            financialState: reg.financialStateHint || null,
-            reconciliacaoObrigatoria: reg.reconciliacaoObrigatoria === true,
-            acao,
-            transactionAttempted: true,
-            vinculoVendaPdv: {
-              venda_id: dados.venda_id != null ? dados.venda_id : null,
-              transactionId
-            }
-          };
-        }
-      } catch (_) { /* best-effort; CONTINUE ainda tenta no host/mock */ }
     }
 
     const ciclo = await continuarCicloCrt({
@@ -775,7 +908,16 @@ class DestaxaRealAdapter extends BaseAdapter {
       respostaOperador: validacao.resposta,
       respostasContinuidade: dados.respostasContinuidade || [],
       acaoAtual: validacao.acao || acao,
-      maxContinues: dados.maxContinuesCrt
+      solicitadaEm,
+      maxContinues: dados.maxContinuesCrt,
+      persistirRespostaAntesContinue: (continuidade) =>
+        this._persistirRespostaContinuidade({
+          ...continuidade,
+          idempotencyKey: recuperacao.identidade?.idempotency_key,
+          identidadeEsperada: dados.identidadePersistida || recuperacao.identidade,
+          exigirRespostaPersistida: dados.exigirRespostaPersistida === true,
+          permitirCriarSolicitacao: true
+        })
     });
 
     const vinculo = {
@@ -786,6 +928,199 @@ class DestaxaRealAdapter extends BaseAdapter {
     };
 
     return this._mapearSaidaCiclo(ciclo, {}, vinculo, transactionId);
+  }
+
+  _respostaContinuidadeBloqueada(codigo, mensagem) {
+    return {
+      sucesso: false,
+      status: tefContrato.STATUS.PENDENTE,
+      codigo,
+      mensagem,
+      retryAllowed: false,
+      inconclusivo: true,
+      financialState: 'UNKNOWN',
+      reconciliacaoObrigatoria: true,
+      transactionAttempted: false
+    };
+  }
+
+  async _persistirRespostaContinuidade({
+    transactionId,
+    acao,
+    resposta,
+    solicitadaEm,
+    idempotencyKey,
+    identidadeEsperada = null,
+    exigirRespostaPersistida = false,
+    permitirCriarSolicitacao = false
+  }) {
+    const {
+      normalizarAcaoContinuidade,
+      normalizarTimestampSolicitacao99,
+      validarContinuidadeCompleta,
+      ERROS_CONTINUIDADE
+    } = require('../destaxa/destaxaContinuidadeContrato');
+    const persistencia = require('../destaxa/destaxaContinuidadePersistencia');
+    const timestamp = normalizarTimestampSolicitacao99(solicitadaEm);
+    const acaoNormalizada = normalizarAcaoContinuidade(acao);
+    if (!timestamp) {
+      return {
+        ok: false,
+        codigo: ERROS_CONTINUIDADE.TIMESTAMP_INVALIDO,
+        mensagem: 'TX_CONTINUE bloqueado: timestamp original ausente ou inválido'
+      };
+    }
+
+    let recuperacao = await persistencia.recuperarSolicitacao99(transactionId);
+    const recuperadaTimestamp = normalizarTimestampSolicitacao99(
+      recuperacao?.solicitacao99?.solicitadaEm
+    );
+    if (permitirCriarSolicitacao
+      && (!recuperacao.ok
+        || recuperadaTimestamp !== timestamp
+        || JSON.stringify(normalizarAcaoContinuidade(recuperacao.solicitacao99?.acao))
+          !== JSON.stringify(acaoNormalizada))) {
+      const solicitacao = await persistencia.registrarSolicitacao99(transactionId, {
+        acao: acaoNormalizada,
+        solicitadaEm: timestamp
+      });
+      if (!solicitacao?.ok || solicitacao.duravel !== true || solicitacao.confirmada !== true) {
+        return {
+          ok: false,
+          codigo: solicitacao?.codigo || ERROS_CONTINUIDADE.PERSISTENCIA_FALHOU,
+          mensagem: solicitacao?.mensagem || 'Solicitação 99 não confirmada em armazenamento durável'
+        };
+      }
+      recuperacao = await persistencia.recuperarSolicitacao99(transactionId);
+    }
+    if (!recuperacao?.ok) {
+      return {
+        ok: false,
+        codigo: recuperacao?.codigo || ERROS_CONTINUIDADE.PERSISTENCIA_FALHOU,
+        mensagem: 'TX_CONTINUE bloqueado: solicitação 99 não pode ser relida'
+      };
+    }
+
+    const stored = recuperacao.solicitacao99;
+    const storedTime = normalizarTimestampSolicitacao99(stored.solicitadaEm);
+    const storedAction = normalizarAcaoContinuidade(stored.acao);
+    if (storedTime !== timestamp
+      || JSON.stringify(storedAction) !== JSON.stringify(acaoNormalizada)
+      || String(recuperacao.identidade?.transactionId || '') !== String(transactionId)
+      || (idempotencyKey
+        && String(recuperacao.identidade?.idempotency_key || '') !== String(idempotencyKey))
+      || (identidadeEsperada
+        && JSON.stringify(recuperacao.identidade) !== JSON.stringify(identidadeEsperada))) {
+      return {
+        ok: false,
+        codigo: ERROS_CONTINUIDADE.IDENTIDADE_DIVERGENTE,
+        mensagem: 'TX_CONTINUE bloqueado: solicitação 99 ou identidade divergente'
+      };
+    }
+
+    const respostaExistente = await persistencia.recuperarRespostaOperador(transactionId, {
+      solicitadaEm: storedTime,
+      acao: storedAction,
+      identidadeEsperada: recuperacao.identidade,
+      respostaEsperada: resposta
+    });
+    if (!respostaExistente.ok
+      && respostaExistente.codigo !== 'DESTAXA_CONTINUIDADE_RESPOSTA_AUSENTE') {
+      return {
+        ok: false,
+        codigo: respostaExistente.codigo || ERROS_CONTINUIDADE.PERSISTENCIA_FALHOU,
+        mensagem: respostaExistente.mensagem || 'TX_CONTINUE bloqueado: resposta persistida não pôde ser validada'
+      };
+    }
+    if (!respostaExistente.ok && exigirRespostaPersistida) {
+      return {
+        ok: false,
+        codigo: respostaExistente.codigo || ERROS_CONTINUIDADE.PERSISTENCIA_FALHOU,
+        mensagem: 'TX_CONTINUE bloqueado: resposta confirmada anteriormente não foi encontrada'
+      };
+    }
+
+    const respostaParaValidar = respostaExistente.ok
+      ? respostaExistente.resposta
+      : resposta;
+    const validacao = validarContinuidadeCompleta({
+      acao: storedAction,
+      respostaBruta: respostaParaValidar,
+      transactionId,
+      idempotencyKeyInformada: idempotencyKey || recuperacao.identidade.idempotency_key,
+      idempotencyKeyPersistida: recuperacao.identidade.idempotency_key,
+      solicitadaEm: storedTime,
+      ambienteOperador: { tty: true },
+      registrarDuplicata: true
+    });
+    if (!validacao.ok) {
+      return {
+        ok: false,
+        codigo: validacao.codigo || ERROS_CONTINUIDADE.TIMESTAMP_INVALIDO,
+        mensagem: validacao.mensagem || 'TX_CONTINUE bloqueado pela validação da resposta'
+      };
+    }
+
+    let gravacao = respostaExistente;
+    if (!respostaExistente.ok) {
+      gravacao = await persistencia.registrarRespostaOperador(transactionId, {
+        resposta: validacao.resposta,
+        incrementarContinue: true,
+        exigirSolicitacao: true,
+        acao: storedAction,
+        solicitadaEm: storedTime,
+        identidadeEsperada: recuperacao.identidade
+      });
+    }
+    if (!gravacao?.ok
+      || (gravacao.estadoDespacho !== 'PRONTA' && gravacao.estadoDespacho !== 'INICIADO')
+      || (gravacao.duravel !== true && gravacao.confirmada !== true)
+      || gravacao.solicitadaEm !== storedTime
+      || String(gravacao.identidade?.transactionId || '') !== String(transactionId)) {
+      return {
+        ok: false,
+        codigo: gravacao?.codigo || ERROS_CONTINUIDADE.PERSISTENCIA_FALHOU,
+        mensagem: gravacao?.mensagem || 'TX_CONTINUE bloqueado: resposta não confirmada após releitura'
+      };
+    }
+    const despacho = await persistencia.reservarDespachoResposta(transactionId, {
+      solicitadaEm: storedTime,
+      acao: storedAction,
+      identidadeEsperada: recuperacao.identidade,
+      respostaEsperada: validacao.resposta
+    });
+    if (!despacho?.ok
+      || despacho.duravel !== true
+      || despacho.confirmada !== true
+      || despacho.solicitadaEm !== storedTime
+      || String(despacho.transactionId || despacho.identidade?.transactionId || '') !== String(transactionId)
+      || String(despacho.identidade?.transactionId || '') !== String(transactionId)
+      || !despacho.identidade.operation_id
+      || !despacho.identidade.idempotency_key
+      || !despacho.identidade.fingerprint
+      || typeof despacho.despachoId !== 'string'
+      || despacho.despachoId.trim() === ''
+      || typeof despacho.fingerprint !== 'string'
+      || despacho.fingerprint.trim() === ''
+      || !despacho.resposta) {
+      return {
+        ok: false,
+        codigo: despacho?.codigo || ERROS_CONTINUIDADE.PERSISTENCIA_FALHOU,
+        mensagem: despacho?.mensagem || 'TX_CONTINUE bloqueado: reserva durável de uso único não confirmada'
+      };
+    }
+    return {
+      ok: true,
+      duravel: true,
+      confirmada: true,
+      fingerprint: despacho.fingerprint,
+      solicitadaEm: storedTime,
+      despachoId: despacho.despachoId,
+      estadoDespacho: 'INICIADO',
+      identidade: despacho.identidade,
+      resposta: despacho.resposta,
+      transactionId: String(transactionId)
+    };
   }
 
   /**

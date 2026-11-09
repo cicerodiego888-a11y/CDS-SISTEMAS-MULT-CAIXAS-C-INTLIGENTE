@@ -12,6 +12,7 @@ const moduloConfig = require('./fechamentoFiscalModuloConfig');
 const { snapshotComercial } = require('./FechamentoFiscalElegibilidadeService');
 const { listarDocumentos, gerarXmlDocumento } = require('./FechamentoFiscalPreparacaoService');
 const { agoraLocal } = require('./FechamentoFiscalValidacaoService');
+const { montarXmlAutorizado } = require('../fiscal/nfceXmlAutorizado');
 
 /** Lock em processo — evita BEGIN aninhado na mesma conexão SQLite (duplo clique / Promise.all). */
 const locksTransmitir = new Map();
@@ -764,24 +765,35 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
       const recibo = extrairNRec(raw);
       const duracao = Date.now() - t0;
 
-      let extrairChaveEProtocoloAutorizados = null;
-      try {
-        extrairChaveEProtocoloAutorizados = require('../fiscal/utils').extrairChaveEProtocoloAutorizados;
-      } catch (_) { /* optional */ }
-
       let statusFinal = DOC_STATUS.ERRO;
       let chaveFinal = chave;
       let xmlAutorizado = null;
+      let cStatFinal = cStat;
+      let xMotivoFinal = xMotivo;
+      let protocoloFinal = protocolo;
 
-      if (cStat === '100' || cStat === '150' || raw.includes('<cStat>100</cStat>')) {
-        statusFinal = DOC_STATUS.AUTORIZADO;
-        if (typeof extrairChaveEProtocoloAutorizados === 'function') {
-          const auth = extrairChaveEProtocoloAutorizados(raw);
-          if (auth?.chaveAcesso) chaveFinal = auth.chaveAcesso;
-        }
-        xmlAutorizado = xmlAssinado; // protNFe anexado quando disponível no raw
-        if (raw.includes('<protNFe') || raw.includes('<nfeProc')) {
-          xmlAutorizado = raw.includes('<nfeProc') ? raw : xmlAssinado;
+      if (cStat === '100' || cStat === '150' || /<cStat>\s*(100|150)\s*<\/cStat>/i.test(raw)) {
+        try {
+          const evidencia = montarXmlAutorizado({
+            xmlEnviado: xmlAssinado,
+            xmlRetorno: raw,
+            chaveAcesso: chave
+          });
+          statusFinal = DOC_STATUS.AUTORIZADO;
+          chaveFinal = evidencia.chaveAcesso;
+          xmlAutorizado = evidencia.xml;
+          cStatFinal = evidencia.cStat;
+          xMotivoFinal = evidencia.xMotivo;
+          protocoloFinal = evidencia.protocolo;
+        } catch (evidenciaErr) {
+          statusFinal = DOC_STATUS.ERRO_COM_POSSIVEL_PROCESSAMENTO;
+          protocoloFinal = null;
+          logTecnico('xml_autorizado_invalido', {
+            fechamento_id: id,
+            documento_id: doc.id,
+            code: evidenciaErr.code || 'XML_AUTORIZADO_INVALIDO',
+            erro: evidenciaErr.message || String(evidenciaErr)
+          });
         }
       } else if (String(cStat) === '539' || raw.includes('<cStat>539</cStat>')) {
         // Reconciliação obrigatória: não só rejeitar/incrementar
@@ -918,8 +930,8 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
               recibo,
               xml_enviado: xmlAssinado,
               xml_assinado: xmlAssinado,
-              xml_retorno: raw || null,
-              xml_autorizado: xmlAssinado
+              xml_retorno: (recon && recon.xmlRetorno) || raw || null,
+              xml_autorizado: recon && recon.xmlAutorizado
             }, { fechamentoId: id });
             const last = resultados[resultados.length - 1];
             if (last && last.documento_id === doc.id) last.historico_nfce = historicoNfce;
@@ -967,9 +979,9 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
          WHERE id = ?`,
         [
           statusFinal,
-          cStat,
-          xMotivo,
-          protocolo,
+          cStatFinal,
+          xMotivoFinal,
+          protocoloFinal,
           recibo,
           chaveFinal,
           raw || null,
@@ -987,13 +999,13 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
         tentativa,
         ambiente,
         status: statusFinal,
-        cstat: cStat,
-        xmotivo: xMotivo,
+        cstat: cStatFinal,
+        xmotivo: xMotivoFinal,
         chave_acesso: chaveFinal,
-        protocolo,
+        protocolo: protocoloFinal,
         duracao_ms: duracao,
         xml_enviado_hash: hashXml(xmlAssinado),
-        retorno_resumo: xMotivo || cStat,
+        retorno_resumo: xMotivoFinal || cStatFinal,
         erro_tecnico: statusFinal === DOC_STATUS.ERRO || statusFinal === DOC_STATUS.ERRO_COM_POSSIVEL_PROCESSAMENTO
           ? (envio.message || null)
           : null,
@@ -1007,7 +1019,7 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
         fechamento_id: id,
         documento_id: doc.id,
         status: statusFinal,
-        cStat,
+        cStat: cStatFinal,
         duracao_ms: duracao,
         ambiente
       });
@@ -1025,7 +1037,7 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
             serie: config.serie,
             ambiente,
             chave_acesso: chaveFinal,
-            protocolo,
+            protocolo: protocoloFinal,
             recibo,
             xml_enviado: xmlAssinado,
             xml_assinado: xmlAssinado,
@@ -1054,9 +1066,9 @@ async function _transmitirFechamentoInterno(fechamentoId, opts = {}, deps = {}) 
         numero,
         serie: String(config.serie),
         chave_acesso: chaveFinal,
-        protocolo,
-        cstat: cStat,
-        xmotivo: xMotivo,
+        protocolo: protocoloFinal,
+        cstat: cStatFinal,
+        xmotivo: xMotivoFinal,
         duracao_ms: duracao,
         historico_nfce: historicoNfce
       });
@@ -1244,19 +1256,67 @@ async function recuperarDocumento(db, doc, config, opts, deps) {
   try {
     const consulta = await consultarDoc({ config, chave }, deps);
     const raw = String(consulta.raw || consulta.body || '');
-    const cStat = consulta.cStat || extrairCStat(raw);
+    const cStat = String(consulta.cStat || extrairCStat(raw) || '');
     const xMotivo = extrairXMotivo(raw);
-    const protocolo = extrairNProt(raw);
 
-    if (cStat === '100' || cStat === '150') {
+    if (cStat === '100' || cStat === '150' || /<cStat>\s*(100|150)\s*<\/cStat>/i.test(raw)) {
+      let evidencia;
+      try {
+        evidencia = montarXmlAutorizado({
+          xmlEnviado: doc.xml_assinado || doc.xml_enviado,
+          xmlRetorno: raw,
+          chaveAcesso: chave,
+          protocoloPersistido: doc.protocolo || null
+        });
+      } catch (evidenciaErr) {
+        await run(
+          db,
+          `UPDATE fechamentos_fiscais_documentos
+           SET status = ?, cstat = ?, xmotivo = ?, xml_retorno = ?, atualizado_em = ?
+           WHERE id = ?`,
+          [
+            DOC_STATUS.ERRO_COM_POSSIVEL_PROCESSAMENTO,
+            cStat || null,
+            xMotivo,
+            raw || null,
+            agoraLocal(),
+            doc.id
+          ]
+        );
+        logTecnico('xml_autorizado_invalido_recuperacao', {
+          documento_id: doc.id,
+          code: evidenciaErr.code || 'XML_AUTORIZADO_INVALIDO',
+          erro: evidenciaErr.message || String(evidenciaErr)
+        });
+        return {
+          documento_id: doc.id,
+          sequencia: doc.sequencia,
+          status: DOC_STATUS.ERRO_COM_POSSIVEL_PROCESSAMENTO,
+          recuperado: false,
+          mensagem: 'A consulta indicou autorização, mas o protocolo/XML não pôde ser validado. O documento permanece pendente de recuperação.',
+          code: evidenciaErr.code || 'XML_AUTORIZADO_INVALIDO'
+        };
+      }
+
       await run(
         db,
         `UPDATE fechamentos_fiscais_documentos
          SET status = ?, cstat = ?, xmotivo = ?, protocolo = ?,
-             chave_acesso = ?, xml_retorno = ?, xml_autorizado = COALESCE(xml_autorizado, xml_assinado, xml_enviado),
+             chave_acesso = ?, xml_retorno = ?, xml_autorizado = COALESCE(?, xml_autorizado),
              data_hora_autorizacao = ?, atualizado_em = ?
          WHERE id = ?`,
-        [DOC_STATUS.AUTORIZADO, cStat, xMotivo, protocolo, chave, raw || null, agoraLocal(), agoraLocal(), doc.id]
+        [
+          DOC_STATUS.AUTORIZADO,
+          evidencia.cStat,
+          evidencia.xMotivo,
+          evidencia.protocolo,
+          evidencia.chaveAcesso,
+          raw || null,
+          evidencia.xml,
+          agoraLocal(),
+          agoraLocal(),
+          doc.id
+        ]
       );
       await registrarTentativa(db, {
         fechamento_fiscal_id: doc.fechamento_fiscal_id,
@@ -1265,10 +1325,10 @@ async function recuperarDocumento(db, doc, config, opts, deps) {
         tentativa: Number(doc.tentativa || 0) + 1,
         ambiente: Number(config.ambiente),
         status: DOC_STATUS.AUTORIZADO,
-        cstat: cStat,
-        xmotivo: xMotivo,
-        chave_acesso: chave,
-        protocolo,
+        cstat: evidencia.cStat,
+        xmotivo: evidencia.xMotivo,
+        chave_acesso: evidencia.chaveAcesso,
+        protocolo: evidencia.protocolo,
         duracao_ms: Date.now() - t0,
         retorno_resumo: 'RECUPERACAO_AUTORIZADO'
       });
@@ -1278,10 +1338,11 @@ async function recuperarDocumento(db, doc, config, opts, deps) {
         await persistirNfceAutorizadaDoFechamento(db, docAtualizado || {
           ...doc,
           status: DOC_STATUS.AUTORIZADO,
-          cstat: cStat,
-          xmotivo: xMotivo,
-          protocolo,
-          chave_acesso: chave,
+          cstat: evidencia.cStat,
+          xmotivo: evidencia.xMotivo,
+          protocolo: evidencia.protocolo,
+          chave_acesso: evidencia.chaveAcesso,
+          xml_autorizado: evidencia.xml,
           xml_retorno: raw || null
         }, { fechamentoId: doc.fechamento_fiscal_id });
       } catch (histErr) {
@@ -1295,9 +1356,9 @@ async function recuperarDocumento(db, doc, config, opts, deps) {
         sequencia: doc.sequencia,
         status: DOC_STATUS.AUTORIZADO,
         recuperado: true,
-        chave_acesso: chave,
-        protocolo,
-        cstat: cStat
+        chave_acesso: evidencia.chaveAcesso,
+        protocolo: evidencia.protocolo,
+        cstat: evidencia.cStat
       };
     }
 

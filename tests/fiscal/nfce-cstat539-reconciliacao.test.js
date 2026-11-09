@@ -34,6 +34,21 @@ const { toCentavos } = require('../../backend/services/fiscal/modeloTotais');
 
 const CHAVE_16 = '23260968645756000121650010000000161675387937';
 const CHAVE_17 = '23260968645756000121650010000000171343985539';
+const PROTOCOLO_539 = '123260816956854';
+
+function xmlAssinado(chave) {
+  return `<NFe xmlns="http://www.portalfiscal.inf.br/nfe">`
+    + `<infNFe Id="NFe${chave}" versao="4.00"><ide><cUF>23</cUF></ide></infNFe>`
+    + `<Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignatureValue>fixture</SignatureValue></Signature>`
+    + `</NFe>`;
+}
+
+function respostaConsultaAutorizada(chave, protocolo = PROTOCOLO_539) {
+  return `<retConsSitNFe xmlns="http://www.portalfiscal.inf.br/nfe"><cStat>100</cStat>`
+    + `<xMotivo>Autorizado o uso da NF-e</xMotivo><protNFe versao="4.00"><infProt>`
+    + `<chNFe>${chave}</chNFe><cStat>100</cStat><xMotivo>Autorizado o uso da NF-e</xMotivo>`
+    + `<nProt>${protocolo}</nProt></infProt></protNFe></retConsSitNFe>`;
+}
 
 function openDb(file) {
   return new Promise((resolve, reject) => {
@@ -154,7 +169,13 @@ describe('CStat 539 — reconciliação com chave SEFAZ', () => {
     const r = await reconciliarCstat539Documento({
       db,
       fechamentoId: ffId,
-      documento: { id: docId, valor_total: 249.97, serie: 1, ambiente: 2 },
+      documento: {
+        id: docId,
+        valor_total: 249.97,
+        serie: 1,
+        ambiente: 2,
+        xml_assinado: xmlAssinado(chave)
+      },
       config: { cnpj: '68645756000121', ambiente: 2, serie: 1, codigoUf: '23' },
       numeroEnviado: 16,
       chaveEnviada: chave, // mesma chave → associação segura
@@ -164,8 +185,8 @@ describe('CStat 539 — reconciliação com chave SEFAZ', () => {
       deps: depsBase(async () => ({
         success: true,
         cStat: '100',
-        body: `<retConsSitNFe><cStat>100</cStat><nProt>PROT539A</nProt><chNFe>${chave}</chNFe></retConsSitNFe>`,
-        protocolo: 'PROT539A'
+        body: respostaConsultaAutorizada(chave),
+        protocolo: PROTOCOLO_539
       }))
     });
     assert.equal(r.resultado, RESULTADO.AUTORIZADO);
@@ -173,10 +194,10 @@ describe('CStat 539 — reconciliação com chave SEFAZ', () => {
     assert.equal(r.contabilizarValor, true);
     const row = await get(db, `SELECT status, protocolo, chave_acesso FROM fechamentos_fiscais_documentos WHERE id=?`, [docId]);
     assert.equal(row.status, DOC_STATUS.AUTORIZADO);
-    assert.equal(row.protocolo, 'PROT539A');
+    assert.equal(row.protocolo, PROTOCOLO_539);
   });
 
-  it('B) 539 + chave autorizada NÃO associável → OCUPADO sem contabilizar', async () => {
+  it('B) 539 + protocolo de chave divergente permanece pendente sem contabilizar', async () => {
     // reset doc
     await run(
       db,
@@ -186,7 +207,13 @@ describe('CStat 539 — reconciliação com chave SEFAZ', () => {
     const r = await reconciliarCstat539Documento({
       db,
       fechamentoId: ffId,
-      documento: { id: docId, valor_total: 249.97, serie: 1, ambiente: 2 },
+      documento: {
+        id: docId,
+        valor_total: 249.97,
+        serie: 1,
+        ambiente: 2,
+        xml_assinado: xmlAssinado(CHAVE_16)
+      },
       config: { cnpj: '68645756000121', ambiente: 2, serie: 1 },
       numeroEnviado: 16,
       chaveEnviada: '23260968645756000121650010000000169999999999', // chave diferente
@@ -196,14 +223,15 @@ describe('CStat 539 — reconciliação com chave SEFAZ', () => {
       deps: depsBase(async () => ({
         success: true,
         cStat: '100',
-        body: `<retConsSitNFe><cStat>100</cStat><nProt>PROT-OUTRO</nProt><chNFe>${CHAVE_16}</chNFe></retConsSitNFe>`,
-        protocolo: 'PROT-OUTRO'
+        body: respostaConsultaAutorizada(CHAVE_16),
+        protocolo: PROTOCOLO_539
       }))
     });
-    assert.equal(r.resultado, RESULTADO.OCUPADO);
+    assert.equal(r.resultado, RESULTADO.ERRO_CONSULTA);
     assert.equal(r.contabilizarValor, false);
-    assert.equal(r.statusDocumento, DOC_STATUS.REJEITADO);
-    assert.match(r.mensagem, /SEFAZ|reconcili/i);
+    assert.equal(r.statusDocumento, DOC_STATUS.ERRO_COM_POSSIVEL_PROCESSAMENTO);
+    assert.equal(r.statusFechamentoSugerido, STATUS.PENDENTE_RECUPERACAO);
+    assert.match(r.mensagem, /mesma chave/i);
   });
 
   it('C) 539 + chave não localizada', async () => {
@@ -265,7 +293,13 @@ describe('CStat 539 — reconciliação com chave SEFAZ', () => {
     const r = await reconciliarCstat539Documento({
       db,
       fechamentoId: ffId,
-      documento: { id: docId, valor_total: 100, serie: 1, ambiente: 2 },
+      documento: {
+        id: docId,
+        valor_total: 100,
+        serie: 1,
+        ambiente: 2,
+        xml_assinado: xmlAssinado(CHAVE_16)
+      },
       config: { cnpj: '68645756000121', ambiente: 2, serie: 1 },
       numeroEnviado: 16,
       chaveEnviada: CHAVE_16,
@@ -275,8 +309,8 @@ describe('CStat 539 — reconciliação com chave SEFAZ', () => {
       deps: depsBase(async () => ({
         success: true,
         cStat: '100',
-        body: `<retConsSitNFe><cStat>100</cStat><nProt>P</nProt><chNFe>${CHAVE_16}</chNFe></retConsSitNFe>`,
-        protocolo: 'P'
+        body: respostaConsultaAutorizada(CHAVE_16),
+        protocolo: PROTOCOLO_539
       }))
     });
     assert.equal(r.resultado, RESULTADO.OCUPADO);

@@ -538,7 +538,15 @@ async function main() {
       assert.strictEqual((await cliente.reiniciar()).sucesso, false);
       reconciliar(cCrash.resposta.transacao_id);
       assert.strictEqual(TefManager.obterTravaResultadoTardio(), null);
-      const reinicio = await cliente.reiniciar({ reconciliado: true });
+      const liberacaoHost = await cliente.reconciliarTransacao(cCrash.resposta.transacao_id, {
+        financialState: 'CANCELLED',
+        usuario: 'teste-06c',
+        observacao: 'reconciliação persistida de teste (mock)',
+        confirmacao_explicita: true,
+        persistida: true
+      });
+      assert.strictEqual(liberacaoHost.sucesso, true);
+      const reinicio = await cliente.reiniciar();
       assert.strictEqual(reinicio.sucesso, true);
       assert.strictEqual(cliente.getEstado().estado, ESTADOS_CLIENTE.READY);
     });

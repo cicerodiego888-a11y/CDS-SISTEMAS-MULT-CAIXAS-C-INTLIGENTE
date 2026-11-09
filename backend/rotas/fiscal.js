@@ -16,6 +16,7 @@ const {
   exportarContabilidade,
   limparExportacaoTemporaria
 } = require('../services/fiscal/exportarContabilidadeService');
+const { criarHandlerExportarContabilidade } = require('../services/fiscal/exportarContabilidadeHandler');
 
 // Middleware para carregar perfil do usuário
 function carregarPerfilUsuario(req, res, next) {
@@ -650,7 +651,12 @@ router.get('/notas', (req, res) => {
     ORDER BY n.id DESC
   `, params, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json(rows || []);
+    const safeRows = (rows || []).map((row) => {
+      const safeRow = { ...row };
+      delete safeRow.xml_autorizado;
+      return safeRow;
+    });
+    res.json(safeRows);
   });
 });
 
@@ -700,6 +706,61 @@ router.get('/notas/:id/danfe', async (req, res) => {
   }
 });
 
+router.get('/notas/:id/xml', async (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    const nota = await new Promise((resolve, reject) => {
+      db.get('SELECT * FROM nfce_notas WHERE id = ?', [id], (err, row) => {
+        if (err) return reject(err);
+        resolve(row || null);
+      });
+    });
+    if (!nota) return res.status(404).json({ success: false, error: 'NFC-e não encontrada.' });
+
+    let evidencia;
+    try {
+      const { obterXmlAutorizadoNota } = require('../services/fiscal/nfceXmlAutorizado');
+      evidencia = obterXmlAutorizadoNota(nota);
+    } catch (validationErr) {
+      console.warn('[FISCAL][NFCe][XML_AUTORIZADO] indisponível:', {
+        nota_id: id,
+        code: validationErr.code || 'XML_AUTORIZADO_INVALIDO',
+        erro: validationErr.message || String(validationErr)
+      });
+      return res.status(404).json({
+        success: false,
+        error: 'XML processado válido não está disponível para esta NFC-e.',
+        code: validationErr.code || 'XML_AUTORIZADO_NAO_DISPONIVEL'
+      });
+    }
+
+    const nome = `NFCe-${String(nota.chave_acesso || nota.id).replace(/[^\w.-]/g, '')}-autorizada.xml`;
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    if (String(req.query.download || '') === '1') {
+      res.setHeader('Content-Disposition', `attachment; filename="${nome}"`);
+      return res.send(evidencia.xml);
+    }
+    return res.json({
+      success: true,
+      xml: evidencia.xml,
+      chave: evidencia.chaveAcesso,
+      cStat: evidencia.cStat,
+      xMotivo: evidencia.xMotivo,
+      protocolo: evidencia.protocolo
+    });
+  } catch (err) {
+    console.error('[FISCAL][NFCe][XML_AUTORIZADO] falha ao consultar documento:', {
+      nota_id: id,
+      erro: err.message || String(err)
+    });
+    return res.status(err.statusCode || 500).json({
+      success: false,
+      error: err.message || 'Falha ao obter XML autorizado.'
+    });
+  }
+});
+
 router.get('/notas/:id/cancelamento-diagnostico', async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -724,49 +785,26 @@ router.get('/notas/:id', (req, res) => {
   `, [req.params.id], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!row) return res.status(404).json({ error: 'NFC-e não encontrada.' });
-    res.json(row);
+    try {
+      const { obterXmlAutorizadoNota } = require('../services/fiscal/nfceXmlAutorizado');
+      row.xml_autorizado = obterXmlAutorizadoNota(row).xml;
+    } catch (validationErr) {
+      row.xml_autorizado = null;
+      console.warn('[FISCAL][NFCe][XML_AUTORIZADO] documento sem evidência válida:', {
+        nota_id: row.id,
+        code: validationErr.code || 'XML_AUTORIZADO_INVALIDO',
+        erro: validationErr.message || String(validationErr)
+      });
+    }
+    return res.json(row);
   });
 });
 
-router.post('/exportar-contabilidade', async (req, res) => {
-  let resultado = null;
-
-  try {
-    const body = req.body || {};
-    const { dataInicial, dataFinal } = body;
-    resultado = await exportarContabilidade({
-      dataInicial,
-      dataFinal,
-      incluirNfce: body.incluirNfce,
-      incluirNfe: body.incluirNfe,
-      incluirEntradas: body.incluirEntradas,
-      incluirRelatorios: body.incluirRelatorios,
-      incluirManifesto: body.incluirManifesto
-    });
-
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="${resultado.nomeZip}"`);
-    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Export-Filename, X-Export-Arquivos, X-Export-Resumo');
-    res.setHeader('X-Export-Filename', resultado.nomeZip);
-    res.setHeader('X-Export-Arquivos', JSON.stringify(resultado.arquivosGerados));
-    res.setHeader('X-Export-Resumo', JSON.stringify(resultado.resumo));
-
-    const stream = fs.createReadStream(resultado.caminhoZip);
-    stream.on('close', () => limparExportacaoTemporaria(resultado));
-    stream.on('error', () => limparExportacaoTemporaria(resultado));
-    res.on('close', () => limparExportacaoTemporaria(resultado));
-    stream.pipe(res);
-  } catch (error) {
-    if (resultado) {
-      limparExportacaoTemporaria(resultado);
-    }
-
-    const status = error.statusCode || 500;
-    res.status(status).json({
-      error: error.message || 'Erro ao exportar documentos para contabilidade.'
-    });
-  }
-});
+router.post('/exportar-contabilidade', criarHandlerExportarContabilidade({
+  exportarContabilidade,
+  limparExportacaoTemporaria,
+  fsApi: fs
+}));
 
 // Sprint 01 — Fechamento Fiscal do Dia (fundação / prévia)
 router.use('/fechamentos', require('./fechamento-fiscal'));

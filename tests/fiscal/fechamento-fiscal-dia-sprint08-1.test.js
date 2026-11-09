@@ -29,6 +29,11 @@ const {
   ORIGEM_FECHAMENTO
 } = require('../../backend/services/fechamento-fiscal/NfceHistoricoOficialService');
 
+const CHAVE_AUTORIZADA = '23260968645756000121650010000000511873269476';
+const PROTOCOLO_AUTORIZADO = '223260816956854';
+const XML_ASSINADO = `<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe${CHAVE_AUTORIZADA}" versao="4.00"><ide><cUF>23</cUF></ide></infNFe></NFe>`;
+const XML_RETORNO = `<retEnviNFe><protNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><infProt><chNFe>${CHAVE_AUTORIZADA}</chNFe><nProt>${PROTOCOLO_AUTORIZADO}</nProt><cStat>100</cStat><xMotivo>Autorizado o uso da NF-e</xMotivo></infProt></protNFe></retEnviNFe>`;
+
 function openMem() {
   return new sqlite3.Database(':memory:');
 }
@@ -116,10 +121,8 @@ describe('Sprint 08.1 — histórico oficial NFC-e do Fechamento', () => {
       xml_enviado, xml_retorno
     ) VALUES (
       2, 4, 'AUTORIZADO', 51, '1', 1,
-      '23260968645756000121650010000000511873269476',
-      '223260816956854', '100', 'Autorizado o uso da NF-e',
-      '<NFe>enviado</NFe>', '<ret>ok</ret>'
-    )`);
+      ?, ?, '100', 'Autorizado o uso da NF-e', ?, ?
+    )`, [CHAVE_AUTORIZADA, PROTOCOLO_AUTORIZADO, XML_ASSINADO, XML_RETORNO]);
     await run(db, `INSERT INTO fechamentos_fiscais_documentos (
       id, fechamento_fiscal_id, status, numero, serie, ambiente, chave_acesso, protocolo, cstat, xmotivo
     ) VALUES (
@@ -147,13 +150,16 @@ describe('Sprint 08.1 — histórico oficial NFC-e do Fechamento', () => {
     assert.equal(sync.ok, true);
     const nota = await get(
       db,
-      `SELECT * FROM nfce_notas WHERE chave_acesso='23260968645756000121650010000000511873269476'`
+      `SELECT * FROM nfce_notas WHERE chave_acesso=?`,
+      [CHAVE_AUTORIZADA]
     );
     assert.ok(nota);
     assert.equal(nota.status, 'autorizada');
     assert.equal(Number(nota.numero), 51);
     assert.equal(Number(nota.serie), 1);
-    assert.equal(nota.protocolo, '223260816956854');
+    assert.equal(nota.protocolo, PROTOCOLO_AUTORIZADO);
+    assert.ok(nota.xml_autorizado.includes('<nfeProc'));
+    assert.equal(nota.xml_enviado, XML_ASSINADO);
     assert.equal(nota.origem, ORIGEM_FECHAMENTO);
     assert.equal(Number(nota.fechamento_fiscal_id), 4);
     assert.equal(nota.venda_id, null);
@@ -184,12 +190,10 @@ describe('Sprint 08.1 — histórico oficial NFC-e do Fechamento', () => {
   });
 
   it('E — reprocessar autorização não duplica nfce_notas', async () => {
-    const antes = await get(db, `SELECT COUNT(*) AS c FROM nfce_notas
-      WHERE chave_acesso='23260968645756000121650010000000511873269476'`);
+    const antes = await get(db, `SELECT COUNT(*) AS c FROM nfce_notas WHERE chave_acesso=?`, [CHAVE_AUTORIZADA]);
     const sync = await sincronizarHistoricoNfceDoFechamento(db, 4);
     assert.equal(sync.resultados[0].idempotente, true);
-    const depois = await get(db, `SELECT COUNT(*) AS c FROM nfce_notas
-      WHERE chave_acesso='23260968645756000121650010000000511873269476'`);
+    const depois = await get(db, `SELECT COUNT(*) AS c FROM nfce_notas WHERE chave_acesso=?`, [CHAVE_AUTORIZADA]);
     assert.equal(antes.c, 1);
     assert.equal(depois.c, 1);
   });
@@ -207,10 +211,11 @@ describe('Sprint 08.1 — histórico oficial NFC-e do Fechamento', () => {
   it('I/J — chave única e número inalterado', async () => {
     const nota = await get(
       db,
-      `SELECT numero, chave_acesso FROM nfce_notas WHERE chave_acesso='23260968645756000121650010000000511873269476'`
+      `SELECT numero, chave_acesso FROM nfce_notas WHERE chave_acesso=?`,
+      [CHAVE_AUTORIZADA]
     );
     assert.equal(Number(nota.numero), 51);
-    assert.equal(nota.chave_acesso, '23260968645756000121650010000000511873269476');
+    assert.equal(nota.chave_acesso, CHAVE_AUTORIZADA);
   });
 
   it('K — contrato de integração no fluxo de transmissão', () => {

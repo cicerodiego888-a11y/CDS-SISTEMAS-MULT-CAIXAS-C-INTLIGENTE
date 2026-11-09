@@ -1,0 +1,35 @@
+{
+  "mrt": "MRT-50.62",
+  "status": "CONCLUÍDA",
+  "geradoEm": "2026-11-07T19:54:38Z",
+  "pagamentoExecutado": false,
+  "gateFinanceiro": "OFF",
+  "dllSha256": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+  "modalidade": {
+    "regraCds": "Operador escolhe a forma no PDV antes do envio; Destaxa não reclassifica",
+    "fluxo": "PDV tipo → /tef/pagar → TefManager → DestaxaRealAdapter → buildCrtInput → NativeHost → DLL",
+    "antes": "buildCrtInput enviava apenas transacao_valor",
+    "depoisHomologacaoDebito": "transacao_valor=1.00;transacao_tipo_cartao=Débito;transacao_pagamento=A vista",
+    "creditoParceladoExemplo": "transacao_valor=1.00;transacao_tipo_cartao=Credito;transacao_pagamento=Parcelado",
+    "compativelCom99": true,
+    "camposDocumentadosDocs06": true
+  },
+  "arquivosAlterados": [
+    "backend/services/tef/destaxa/destaxaProtocolo.js",
+    "backend/services/tef/adapters/DestaxaRealAdapter.js"
+  ],
+  "porta": {
+    "windowsAtual": "COM4",
+    "envConfig": null,
+    "bancoOficialConsultado": false,
+    "divergenciaHistorica": "Relatórios acessíveis mostram COM4 recente e COM3 em evidências mais antigas"
+  },
+  "nativeHost": {
+    "ativo": false,
+    "clientInicializadoNestaSprint": false,
+    "proximaSessao": "bootstrap + LOAD + iniciaClientDestaxa somente na sprint de cobrança autorizada"
+  },
+  "protecoesDuplicidadeUnknown": "preservadas",
+  "autorizacao1RealReservadaNaoUtilizada": true,
+  "proximaEtapa": "Aguardar confirmação explícita do usuário antes de qualquer cobrança"
+}

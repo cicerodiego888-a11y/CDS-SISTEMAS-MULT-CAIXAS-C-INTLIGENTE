@@ -1,0 +1,1787 @@
+{
+  "sprint": "MRT-50.9",
+  "generatedAt": "2026-11-05T21:12:52.657Z",
+  "classification": "FALHOU",
+  "decision": "BLOQUEADO — a reserva concorrente concedeu dois despachos válidos em uma repetição; não liberar preflight.",
+  "productionFilesChanged": [],
+  "rootCause": "reservarDespachoResposta valida PRONTA por leituras separadas e grava INICIADO com um despachoId gerado sem claim atômico de uso único. Na repetição 9, ambos os processos receberam changes=1, ok=true e IDs distintos; apenas um ID permaneceu persistido.",
+  "minimalSeparateCorrection": "Implementar compare-and-swap atômico na persistência para permitir exatamente uma transição PRONTA→INICIADO e retornar sucesso somente ao processo cuja atualização condicional afetou uma linha; testar concorrência interprocessos antes da liberação.",
+  "testsExecuted": [
+    "node tests\\tef\\mrt-50-9-validacao-complementar.test.js — 20 repetições de concorrência, morte após INICIADO e reinicialização TefManager/NativeHost"
+  ],
+  "additionalRegressionSuites": "Não executadas: sem alteração de produção e a falha crítica foi reproduzida nos cenários desta sprint; não foram abertas suítes amplas.",
+  "database": {
+    "path": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-9-42256-3cae9f8d0eab\\mercadao.db",
+    "identity": {
+      "dev": 505650597,
+      "ino": 11821949022853156
+    },
+    "journalMode": "wal"
+  },
+  "gateFinancial": "OFF",
+  "scenarios": [
+    {
+      "name": "Concorrência simultânea da reserva de resposta",
+      "status": "FALHOU",
+      "repetitions": 20,
+      "criteria": {
+        "exactlyOneReservationPerRound": false,
+        "noDuplicateDispatchIds": false,
+        "persistedIniciadoMatchesWinner": true,
+        "noDriverCalls": true,
+        "gatesOff": true
+      },
+      "failingRounds": [
+        9
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "identity": {
+            "transactionId": "1",
+            "idempotency_key": "mrt40_mrt509_race1_6ab99b702d",
+            "operation_id": "op_mrt509_race1_6ab99b702d",
+            "fingerprint": "4eb0f255ef0cfe600b0e9c5c0864bbef",
+            "solicitadaEm": "2026-11-05T21:12:52.658Z",
+            "acao": {
+              "tipo": "OPCAO",
+              "mensagem": "Tipo do Cartao",
+              "opcoes": [
+                "Credito",
+                "Debito",
+                "Voucher"
+              ],
+              "tipoDado": "X",
+              "timeout": "120",
+              "chave": "transacao_tipo_cartao"
+            }
+          },
+          "timestampOriginal": "2026-11-05T21:12:52.658Z",
+          "stateBefore": "PRONTA",
+          "startAt": "2026-11-05T21:12:54.317Z",
+          "workers": [
+            {
+              "pid": 47800,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "6598b087ab5d22f04ee76117c7d5e256",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            },
+            {
+              "pid": 17512,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": false,
+              "code": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+              "dispatchId": null,
+              "state": "BLOQUEADO",
+              "changes": [],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\nErro na migração Motor de Conversão de Unidades: SQLITE_BUSY: database is locked\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            }
+          ],
+          "successfulReservations": 1,
+          "distinctDispatchIds": 1,
+          "persistedState": "INICIADO",
+          "persistedDispatchId": "6598b087ab5d22f04ee76117c7d5e256",
+          "postReservationRecoverableAsReady": false,
+          "databaseIdentity": {
+            "dev": 505650597,
+            "ino": 11821949022853156
+          },
+          "gatesOff": true,
+          "noDriverCalls": true,
+          "passou": true
+        },
+        {
+          "round": 2,
+          "identity": {
+            "transactionId": "2",
+            "idempotency_key": "mrt40_mrt509_race2_434c03b960",
+            "operation_id": "op_mrt509_race2_434c03b960",
+            "fingerprint": "e7e4d449e56d1e19c9b7c1bf9f8f9da4",
+            "solicitadaEm": "2026-11-05T21:12:54.386Z",
+            "acao": {
+              "tipo": "OPCAO",
+              "mensagem": "Tipo do Cartao",
+              "opcoes": [
+                "Credito",
+                "Debito",
+                "Voucher"
+              ],
+              "tipoDado": "X",
+              "timeout": "120",
+              "chave": "transacao_tipo_cartao"
+            }
+          },
+          "timestampOriginal": "2026-11-05T21:12:54.386Z",
+          "stateBefore": "PRONTA",
+          "startAt": "2026-11-05T21:12:55.448Z",
+          "workers": [
+            {
+              "pid": 37988,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": false,
+              "code": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+              "dispatchId": null,
+              "state": "BLOQUEADO",
+              "changes": [],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            },
+            {
+              "pid": 41408,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "d676cc8909d45740ecabe628a146b7d2",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\nErro na migração Motor de Conversão de Unidades: SQLITE_BUSY: database is locked\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            }
+          ],
+          "successfulReservations": 1,
+          "distinctDispatchIds": 1,
+          "persistedState": "INICIADO",
+          "persistedDispatchId": "d676cc8909d45740ecabe628a146b7d2",
+          "postReservationRecoverableAsReady": false,
+          "databaseIdentity": {
+            "dev": 505650597,
+            "ino": 11821949022853156
+          },
+          "gatesOff": true,
+          "noDriverCalls": true,
+          "passou": true
+        },
+        {
+          "round": 3,
+          "identity": {
+            "transactionId": "3",
+            "idempotency_key": "mrt40_mrt509_race3_c123d17a1d",
+            "operation_id": "op_mrt509_race3_c123d17a1d",
+            "fingerprint": "2acf24c72a4f8d375aefebabd285f74f",
+            "solicitadaEm": "2026-11-05T21:12:55.530Z",
+            "acao": {
+              "tipo": "OPCAO",
+              "mensagem": "Tipo do Cartao",
+              "opcoes": [
+                "Credito",
+                "Debito",
+                "Voucher"
+              ],
+              "tipoDado": "X",
+              "timeout": "120",
+              "chave": "transacao_tipo_cartao"
+            }
+          },
+          "timestampOriginal": "2026-11-05T21:12:55.530Z",
+          "stateBefore": "PRONTA",
+          "startAt": "2026-11-05T21:12:56.677Z",
+          "workers": [
+            {
+              "pid": 45704,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": false,
+              "code": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+              "dispatchId": null,
+              "state": "BLOQUEADO",
+              "changes": [],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n[FECHAMENTO V2] Falha ao criar índice único: SQLITE_MISUSE: Database is closed\n"
+            },
+            {
+              "pid": 33600,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "9bcb1483dda0598b060ee80701537b8b",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            }
+          ],
+          "successfulReservations": 1,
+          "distinctDispatchIds": 1,
+          "persistedState": "INICIADO",
+          "persistedDispatchId": "9bcb1483dda0598b060ee80701537b8b",
+          "postReservationRecoverableAsReady": false,
+          "databaseIdentity": {
+            "dev": 505650597,
+            "ino": 11821949022853156
+          },
+          "gatesOff": true,
+          "noDriverCalls": true,
+          "passou": true
+        },
+        {
+          "round": 4,
+          "identity": {
+            "transactionId": "4",
+            "idempotency_key": "mrt40_mrt509_race4_7e7bf5e7c6",
+            "operation_id": "op_mrt509_race4_7e7bf5e7c6",
+            "fingerprint": "6965abf3bdc1bdb2638bf4f92ed27fec",
+            "solicitadaEm": "2026-11-05T21:12:56.755Z",
+            "acao": {
+              "tipo": "OPCAO",
+              "mensagem": "Tipo do Cartao",
+              "opcoes": [
+                "Credito",
+                "Debito",
+                "Voucher"
+              ],
+              "tipoDado": "X",
+              "timeout": "120",
+              "chave": "transacao_tipo_cartao"
+            }
+          },
+          "timestampOriginal": "2026-11-05T21:12:56.755Z",
+          "stateBefore": "PRONTA",
+          "startAt": "2026-11-05T21:12:57.899Z",
+          "workers": [
+            {
+              "pid": 10896,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": false,
+              "code": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+              "dispatchId": null,
+              "state": "BLOQUEADO",
+              "changes": [],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[RC8.4.2] backfill compra_por_embalagem: SQLITE_BUSY: database is locked\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n[FECHAMENTO V2] Falha ao criar índice único: SQLITE_MISUSE: Database is closed\n"
+            },
+            {
+              "pid": 34032,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "c45ebf95a71301885f06ecb7fcc640e7",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            }
+          ],
+          "successfulReservations": 1,
+          "distinctDispatchIds": 1,
+          "persistedState": "INICIADO",
+          "persistedDispatchId": "c45ebf95a71301885f06ecb7fcc640e7",
+          "postReservationRecoverableAsReady": false,
+          "databaseIdentity": {
+            "dev": 505650597,
+            "ino": 11821949022853156
+          },
+          "gatesOff": true,
+          "noDriverCalls": true,
+          "passou": true
+        },
+        {
+          "round": 5,
+          "identity": {
+            "transactionId": "5",
+            "idempotency_key": "mrt40_mrt509_race5_17278b3716",
+            "operation_id": "op_mrt509_race5_17278b3716",
+            "fingerprint": "d20330cf3a5b3462ee66864a642cd9bd",
+            "solicitadaEm": "2026-11-05T21:12:57.960Z",
+            "acao": {
+              "tipo": "OPCAO",
+              "mensagem": "Tipo do Cartao",
+              "opcoes": [
+                "Credito",
+                "Debito",
+                "Voucher"
+              ],
+              "tipoDado": "X",
+              "timeout": "120",
+              "chave": "transacao_tipo_cartao"
+            }
+          },
+          "timestampOriginal": "2026-11-05T21:12:57.960Z",
+          "stateBefore": "PRONTA",
+          "startAt": "2026-11-05T21:12:59.126Z",
+          "workers": [
+            {
+              "pid": 46184,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": false,
+              "code": "TEF_TRANSACAO_CONCORRENTE",
+              "dispatchId": null,
+              "state": "BLOQUEADO",
+              "changes": [
+                0
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            },
+            {
+              "pid": 29840,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "b454109f6b30e234578bf4398816d6e0",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            }
+          ],
+          "successfulReservations": 1,
+          "distinctDispatchIds": 1,
+          "persistedState": "INICIADO",
+          "persistedDispatchId": "b454109f6b30e234578bf4398816d6e0",
+          "postReservationRecoverableAsReady": false,
+          "databaseIdentity": {
+            "dev": 505650597,
+            "ino": 11821949022853156
+          },
+          "gatesOff": true,
+          "noDriverCalls": true,
+          "passou": true
+        },
+        {
+          "round": 6,
+          "identity": {
+            "transactionId": "6",
+            "idempotency_key": "mrt40_mrt509_race6_fa255e77c2",
+            "operation_id": "op_mrt509_race6_fa255e77c2",
+            "fingerprint": "54fd3de7b481adfbef598d90a4d454e0",
+            "solicitadaEm": "2026-11-05T21:12:59.199Z",
+            "acao": {
+              "tipo": "OPCAO",
+              "mensagem": "Tipo do Cartao",
+              "opcoes": [
+                "Credito",
+                "Debito",
+                "Voucher"
+              ],
+              "tipoDado": "X",
+              "timeout": "120",
+              "chave": "transacao_tipo_cartao"
+            }
+          },
+          "timestampOriginal": "2026-11-05T21:12:59.199Z",
+          "stateBefore": "PRONTA",
+          "startAt": "2026-11-05T21:13:00.357Z",
+          "workers": [
+            {
+              "pid": 34648,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "819197aafb6ec4718e5b0df9084926be",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            },
+            {
+              "pid": 34936,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": false,
+              "code": "TEF_TRANSACAO_CONCORRENTE",
+              "dispatchId": null,
+              "state": "BLOQUEADO",
+              "changes": [
+                0
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n[FECHAMENTO V2] Falha ao criar índice único: SQLITE_MISUSE: Database handle is closed\n"
+            }
+          ],
+          "successfulReservations": 1,
+          "distinctDispatchIds": 1,
+          "persistedState": "INICIADO",
+          "persistedDispatchId": "819197aafb6ec4718e5b0df9084926be",
+          "postReservationRecoverableAsReady": false,
+          "databaseIdentity": {
+            "dev": 505650597,
+            "ino": 11821949022853156
+          },
+          "gatesOff": true,
+          "noDriverCalls": true,
+          "passou": true
+        },
+        {
+          "round": 7,
+          "identity": {
+            "transactionId": "7",
+            "idempotency_key": "mrt40_mrt509_race7_90a7aba8c0",
+            "operation_id": "op_mrt509_race7_90a7aba8c0",
+            "fingerprint": "18451e5830d38e5608ff0e8341a9a38a",
+            "solicitadaEm": "2026-11-05T21:13:00.421Z",
+            "acao": {
+              "tipo": "OPCAO",
+              "mensagem": "Tipo do Cartao",
+              "opcoes": [
+                "Credito",
+                "Debito",
+                "Voucher"
+              ],
+              "tipoDado": "X",
+              "timeout": "120",
+              "chave": "transacao_tipo_cartao"
+            }
+          },
+          "timestampOriginal": "2026-11-05T21:13:00.421Z",
+          "stateBefore": "PRONTA",
+          "startAt": "2026-11-05T21:13:01.542Z",
+          "workers": [
+            {
+              "pid": 21128,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "7ffc9b38874519e45035f1f70727d5c3",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            },
+            {
+              "pid": 36112,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": false,
+              "code": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+              "dispatchId": null,
+              "state": "BLOQUEADO",
+              "changes": [],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n[FECHAMENTO V2] Falha ao criar índice único: SQLITE_MISUSE: Database is closed\n"
+            }
+          ],
+          "successfulReservations": 1,
+          "distinctDispatchIds": 1,
+          "persistedState": "INICIADO",
+          "persistedDispatchId": "7ffc9b38874519e45035f1f70727d5c3",
+          "postReservationRecoverableAsReady": false,
+          "databaseIdentity": {
+            "dev": 505650597,
+            "ino": 11821949022853156
+          },
+          "gatesOff": true,
+          "noDriverCalls": true,
+          "passou": true
+        },
+        {
+          "round": 8,
+          "identity": {
+            "transactionId": "8",
+            "idempotency_key": "mrt40_mrt509_race8_91ba13e732",
+            "operation_id": "op_mrt509_race8_91ba13e732",
+            "fingerprint": "dbc2ab22be10e81a6344f6de1b2a1eb2",
+            "solicitadaEm": "2026-11-05T21:13:01.616Z",
+            "acao": {
+              "tipo": "OPCAO",
+              "mensagem": "Tipo do Cartao",
+              "opcoes": [
+                "Credito",
+                "Debito",
+                "Voucher"
+              ],
+              "tipoDado": "X",
+              "timeout": "120",
+              "chave": "transacao_tipo_cartao"
+            }
+          },
+          "timestampOriginal": "2026-11-05T21:13:01.616Z",
+          "stateBefore": "PRONTA",
+          "startAt": "2026-11-05T21:13:02.803Z",
+          "workers": [
+            {
+              "pid": 47088,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "fabc61c51342e76f2edc5f5165400371",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\nErro ao recuperar quantidades fiscais em compras_itens: SQLITE_BUSY: database is locked\n"
+            },
+            {
+              "pid": 47068,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": false,
+              "code": "TEF_TRANSACAO_CONCORRENTE",
+              "dispatchId": null,
+              "state": "BLOQUEADO",
+              "changes": [
+                0
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            }
+          ],
+          "successfulReservations": 1,
+          "distinctDispatchIds": 1,
+          "persistedState": "INICIADO",
+          "persistedDispatchId": "fabc61c51342e76f2edc5f5165400371",
+          "postReservationRecoverableAsReady": false,
+          "databaseIdentity": {
+            "dev": 505650597,
+            "ino": 11821949022853156
+          },
+          "gatesOff": true,
+          "noDriverCalls": true,
+          "passou": true
+        },
+        {
+          "round": 9,
+          "identity": {
+            "transactionId": "9",
+            "idempotency_key": "mrt40_mrt509_race9_8dd642e2bf",
+            "operation_id": "op_mrt509_race9_8dd642e2bf",
+            "fingerprint": "e2674d03530b006afcf36f1b1300c9e5",
+            "solicitadaEm": "2026-11-05T21:13:02.878Z",
+            "acao": {
+              "tipo": "OPCAO",
+              "mensagem": "Tipo do Cartao",
+              "opcoes": [
+                "Credito",
+                "Debito",
+                "Voucher"
+              ],
+              "tipoDado": "X",
+              "timeout": "120",
+              "chave": "transacao_tipo_cartao"
+            }
+          },
+          "timestampOriginal": "2026-11-05T21:13:02.878Z",
+          "stateBefore": "PRONTA",
+          "startAt": "2026-11-05T21:13:04.009Z",
+          "workers": [
+            {
+              "pid": 44336,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "2d09152bf32d4824b44f8007e487569b",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\nErro na migração Motor de Conversão de Unidades: SQLITE_BUSY: database is locked\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            },
+            {
+              "pid": 27848,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "6564fa58e84c78e38bdcb8cec4331e11",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            }
+          ],
+          "successfulReservations": 2,
+          "distinctDispatchIds": 2,
+          "persistedState": "INICIADO",
+          "persistedDispatchId": "2d09152bf32d4824b44f8007e487569b",
+          "postReservationRecoverableAsReady": false,
+          "databaseIdentity": {
+            "dev": 505650597,
+            "ino": 11821949022853156
+          },
+          "gatesOff": true,
+          "noDriverCalls": true,
+          "passou": false
+        },
+        {
+          "round": 10,
+          "identity": {
+            "transactionId": "10",
+            "idempotency_key": "mrt40_mrt509_race10_204aac4e4c",
+            "operation_id": "op_mrt509_race10_204aac4e4c",
+            "fingerprint": "a2caa2c4f98d2f99dcd3801e88ad9dfc",
+            "solicitadaEm": "2026-11-05T21:13:04.092Z",
+            "acao": {
+              "tipo": "OPCAO",
+              "mensagem": "Tipo do Cartao",
+              "opcoes": [
+                "Credito",
+                "Debito",
+                "Voucher"
+              ],
+              "tipoDado": "X",
+              "timeout": "120",
+              "chave": "transacao_tipo_cartao"
+            }
+          },
+          "timestampOriginal": "2026-11-05T21:13:04.092Z",
+          "stateBefore": "PRONTA",
+          "startAt": "2026-11-05T21:13:05.274Z",
+          "workers": [
+            {
+              "pid": 34492,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": false,
+              "code": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+              "dispatchId": null,
+              "state": "BLOQUEADO",
+              "changes": [],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            },
+            {
+              "pid": 44612,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "e929dfb5ecfa9c0190f85b019893e266",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            }
+          ],
+          "successfulReservations": 1,
+          "distinctDispatchIds": 1,
+          "persistedState": "INICIADO",
+          "persistedDispatchId": "e929dfb5ecfa9c0190f85b019893e266",
+          "postReservationRecoverableAsReady": false,
+          "databaseIdentity": {
+            "dev": 505650597,
+            "ino": 11821949022853156
+          },
+          "gatesOff": true,
+          "noDriverCalls": true,
+          "passou": true
+        },
+        {
+          "round": 11,
+          "identity": {
+            "transactionId": "11",
+            "idempotency_key": "mrt40_mrt509_race11_923d68b8b1",
+            "operation_id": "op_mrt509_race11_923d68b8b1",
+            "fingerprint": "a0158af4debc524bdea07aa81bf91543",
+            "solicitadaEm": "2026-11-05T21:13:05.331Z",
+            "acao": {
+              "tipo": "OPCAO",
+              "mensagem": "Tipo do Cartao",
+              "opcoes": [
+                "Credito",
+                "Debito",
+                "Voucher"
+              ],
+              "tipoDado": "X",
+              "timeout": "120",
+              "chave": "transacao_tipo_cartao"
+            }
+          },
+          "timestampOriginal": "2026-11-05T21:13:05.331Z",
+          "stateBefore": "PRONTA",
+          "startAt": "2026-11-05T21:13:06.525Z",
+          "workers": [
+            {
+              "pid": 37256,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "7af60a33d4b4e641692fbc1de0e12840",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            },
+            {
+              "pid": 41416,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": false,
+              "code": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+              "dispatchId": null,
+              "state": "BLOQUEADO",
+              "changes": [],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n[FECHAMENTO V2] Falha ao criar índice único: SQLITE_MISUSE: Database is closed\n"
+            }
+          ],
+          "successfulReservations": 1,
+          "distinctDispatchIds": 1,
+          "persistedState": "INICIADO",
+          "persistedDispatchId": "7af60a33d4b4e641692fbc1de0e12840",
+          "postReservationRecoverableAsReady": false,
+          "databaseIdentity": {
+            "dev": 505650597,
+            "ino": 11821949022853156
+          },
+          "gatesOff": true,
+          "noDriverCalls": true,
+          "passou": true
+        },
+        {
+          "round": 12,
+          "identity": {
+            "transactionId": "12",
+            "idempotency_key": "mrt40_mrt509_race12_bcbef158c9",
+            "operation_id": "op_mrt509_race12_bcbef158c9",
+            "fingerprint": "6c9bedce0e28a66203f976605affea14",
+            "solicitadaEm": "2026-11-05T21:13:06.597Z",
+            "acao": {
+              "tipo": "OPCAO",
+              "mensagem": "Tipo do Cartao",
+              "opcoes": [
+                "Credito",
+                "Debito",
+                "Voucher"
+              ],
+              "tipoDado": "X",
+              "timeout": "120",
+              "chave": "transacao_tipo_cartao"
+            }
+          },
+          "timestampOriginal": "2026-11-05T21:13:06.597Z",
+          "stateBefore": "PRONTA",
+          "startAt": "2026-11-05T21:13:07.703Z",
+          "workers": [
+            {
+              "pid": 14668,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "1a22fd76a4c1d819ca76eda107325add",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\nErro ao recuperar quantidades fiscais em compras_itens: SQLITE_BUSY: database is locked\nErro ao recuperar item_fiscal em compras_itens: SQLITE_BUSY: database is locked\n"
+            },
+            {
+              "pid": 7520,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": false,
+              "code": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+              "dispatchId": null,
+              "state": "BLOQUEADO",
+              "changes": [],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\nErro na migração Motor de Conversão de Unidades: SQLITE_BUSY: database is locked\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            }
+          ],
+          "successfulReservations": 1,
+          "distinctDispatchIds": 1,
+          "persistedState": "INICIADO",
+          "persistedDispatchId": "1a22fd76a4c1d819ca76eda107325add",
+          "postReservationRecoverableAsReady": false,
+          "databaseIdentity": {
+            "dev": 505650597,
+            "ino": 11821949022853156
+          },
+          "gatesOff": true,
+          "noDriverCalls": true,
+          "passou": true
+        },
+        {
+          "round": 13,
+          "identity": {
+            "transactionId": "13",
+            "idempotency_key": "mrt40_mrt509_race13_2166af72a2",
+            "operation_id": "op_mrt509_race13_2166af72a2",
+            "fingerprint": "49adc4582d400b7e6242b1de32c288d4",
+            "solicitadaEm": "2026-11-05T21:13:07.775Z",
+            "acao": {
+              "tipo": "OPCAO",
+              "mensagem": "Tipo do Cartao",
+              "opcoes": [
+                "Credito",
+                "Debito",
+                "Voucher"
+              ],
+              "tipoDado": "X",
+              "timeout": "120",
+              "chave": "transacao_tipo_cartao"
+            }
+          },
+          "timestampOriginal": "2026-11-05T21:13:07.775Z",
+          "stateBefore": "PRONTA",
+          "startAt": "2026-11-05T21:13:09.045Z",
+          "workers": [
+            {
+              "pid": 45444,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": false,
+              "code": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+              "dispatchId": null,
+              "state": "BLOQUEADO",
+              "changes": [],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            },
+            {
+              "pid": 16060,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "dd37098c635a37325ccf8231e2329cbc",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            }
+          ],
+          "successfulReservations": 1,
+          "distinctDispatchIds": 1,
+          "persistedState": "INICIADO",
+          "persistedDispatchId": "dd37098c635a37325ccf8231e2329cbc",
+          "postReservationRecoverableAsReady": false,
+          "databaseIdentity": {
+            "dev": 505650597,
+            "ino": 11821949022853156
+          },
+          "gatesOff": true,
+          "noDriverCalls": true,
+          "passou": true
+        },
+        {
+          "round": 14,
+          "identity": {
+            "transactionId": "14",
+            "idempotency_key": "mrt40_mrt509_race14_ed79147064",
+            "operation_id": "op_mrt509_race14_ed79147064",
+            "fingerprint": "b2077b803ed9629de5a4b629f841f0cf",
+            "solicitadaEm": "2026-11-05T21:13:09.135Z",
+            "acao": {
+              "tipo": "OPCAO",
+              "mensagem": "Tipo do Cartao",
+              "opcoes": [
+                "Credito",
+                "Debito",
+                "Voucher"
+              ],
+              "tipoDado": "X",
+              "timeout": "120",
+              "chave": "transacao_tipo_cartao"
+            }
+          },
+          "timestampOriginal": "2026-11-05T21:13:09.135Z",
+          "stateBefore": "PRONTA",
+          "startAt": "2026-11-05T21:13:10.291Z",
+          "workers": [
+            {
+              "pid": 31996,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": false,
+              "code": "TEF_TRANSACAO_CONCORRENTE",
+              "dispatchId": null,
+              "state": "BLOQUEADO",
+              "changes": [
+                0
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            },
+            {
+              "pid": 11072,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "d2b6822e222d4c8ac7838949e1119620",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n[FECHAMENTO V2] Falha ao criar índice único: SQLITE_MISUSE: Database is closed\n"
+            }
+          ],
+          "successfulReservations": 1,
+          "distinctDispatchIds": 1,
+          "persistedState": "INICIADO",
+          "persistedDispatchId": "d2b6822e222d4c8ac7838949e1119620",
+          "postReservationRecoverableAsReady": false,
+          "databaseIdentity": {
+            "dev": 505650597,
+            "ino": 11821949022853156
+          },
+          "gatesOff": true,
+          "noDriverCalls": true,
+          "passou": true
+        },
+        {
+          "round": 15,
+          "identity": {
+            "transactionId": "15",
+            "idempotency_key": "mrt40_mrt509_race15_495f203b8c",
+            "operation_id": "op_mrt509_race15_495f203b8c",
+            "fingerprint": "0f828f4d63dfdc6eadcad27c8b6a3595",
+            "solicitadaEm": "2026-11-05T21:13:10.356Z",
+            "acao": {
+              "tipo": "OPCAO",
+              "mensagem": "Tipo do Cartao",
+              "opcoes": [
+                "Credito",
+                "Debito",
+                "Voucher"
+              ],
+              "tipoDado": "X",
+              "timeout": "120",
+              "chave": "transacao_tipo_cartao"
+            }
+          },
+          "timestampOriginal": "2026-11-05T21:13:10.356Z",
+          "stateBefore": "PRONTA",
+          "startAt": "2026-11-05T21:13:11.499Z",
+          "workers": [
+            {
+              "pid": 36676,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": false,
+              "code": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+              "dispatchId": null,
+              "state": "BLOQUEADO",
+              "changes": [],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            },
+            {
+              "pid": 44860,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "25ca2e192817480ad42984fa56b472c6",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            }
+          ],
+          "successfulReservations": 1,
+          "distinctDispatchIds": 1,
+          "persistedState": "INICIADO",
+          "persistedDispatchId": "25ca2e192817480ad42984fa56b472c6",
+          "postReservationRecoverableAsReady": false,
+          "databaseIdentity": {
+            "dev": 505650597,
+            "ino": 11821949022853156
+          },
+          "gatesOff": true,
+          "noDriverCalls": true,
+          "passou": true
+        },
+        {
+          "round": 16,
+          "identity": {
+            "transactionId": "16",
+            "idempotency_key": "mrt40_mrt509_race16_bc255b1ef4",
+            "operation_id": "op_mrt509_race16_bc255b1ef4",
+            "fingerprint": "0698c857c0abb972f02b4277469fa0f6",
+            "solicitadaEm": "2026-11-05T21:13:11.573Z",
+            "acao": {
+              "tipo": "OPCAO",
+              "mensagem": "Tipo do Cartao",
+              "opcoes": [
+                "Credito",
+                "Debito",
+                "Voucher"
+              ],
+              "tipoDado": "X",
+              "timeout": "120",
+              "chave": "transacao_tipo_cartao"
+            }
+          },
+          "timestampOriginal": "2026-11-05T21:13:11.573Z",
+          "stateBefore": "PRONTA",
+          "startAt": "2026-11-05T21:13:12.619Z",
+          "workers": [
+            {
+              "pid": 5752,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": false,
+              "code": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+              "dispatchId": null,
+              "state": "BLOQUEADO",
+              "changes": [],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\nErro na migração Motor de Conversão de Unidades: SQLITE_BUSY: database is locked\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            },
+            {
+              "pid": 17092,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "456f4bf21c2fe06fff138f959390f862",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\nErro na migração Motor de Conversão de Unidades: SQLITE_BUSY: database is locked\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            }
+          ],
+          "successfulReservations": 1,
+          "distinctDispatchIds": 1,
+          "persistedState": "INICIADO",
+          "persistedDispatchId": "456f4bf21c2fe06fff138f959390f862",
+          "postReservationRecoverableAsReady": false,
+          "databaseIdentity": {
+            "dev": 505650597,
+            "ino": 11821949022853156
+          },
+          "gatesOff": true,
+          "noDriverCalls": true,
+          "passou": true
+        },
+        {
+          "round": 17,
+          "identity": {
+            "transactionId": "17",
+            "idempotency_key": "mrt40_mrt509_race17_8ce7fa96a3",
+            "operation_id": "op_mrt509_race17_8ce7fa96a3",
+            "fingerprint": "c5b4e70bd4cae0d585991435ac62a463",
+            "solicitadaEm": "2026-11-05T21:13:12.730Z",
+            "acao": {
+              "tipo": "OPCAO",
+              "mensagem": "Tipo do Cartao",
+              "opcoes": [
+                "Credito",
+                "Debito",
+                "Voucher"
+              ],
+              "tipoDado": "X",
+              "timeout": "120",
+              "chave": "transacao_tipo_cartao"
+            }
+          },
+          "timestampOriginal": "2026-11-05T21:13:12.730Z",
+          "stateBefore": "PRONTA",
+          "startAt": "2026-11-05T21:13:13.816Z",
+          "workers": [
+            {
+              "pid": 19580,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "3a3354894410f4e7c708454d7190cebd",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            },
+            {
+              "pid": 33204,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": false,
+              "code": "TEF_TRANSACAO_CONCORRENTE",
+              "dispatchId": null,
+              "state": "BLOQUEADO",
+              "changes": [
+                0
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            }
+          ],
+          "successfulReservations": 1,
+          "distinctDispatchIds": 1,
+          "persistedState": "INICIADO",
+          "persistedDispatchId": "3a3354894410f4e7c708454d7190cebd",
+          "postReservationRecoverableAsReady": false,
+          "databaseIdentity": {
+            "dev": 505650597,
+            "ino": 11821949022853156
+          },
+          "gatesOff": true,
+          "noDriverCalls": true,
+          "passou": true
+        },
+        {
+          "round": 18,
+          "identity": {
+            "transactionId": "18",
+            "idempotency_key": "mrt40_mrt509_race18_9345b39b31",
+            "operation_id": "op_mrt509_race18_9345b39b31",
+            "fingerprint": "9ee12d910513b32c37b0dd149f28897e",
+            "solicitadaEm": "2026-11-05T21:13:13.918Z",
+            "acao": {
+              "tipo": "OPCAO",
+              "mensagem": "Tipo do Cartao",
+              "opcoes": [
+                "Credito",
+                "Debito",
+                "Voucher"
+              ],
+              "tipoDado": "X",
+              "timeout": "120",
+              "chave": "transacao_tipo_cartao"
+            }
+          },
+          "timestampOriginal": "2026-11-05T21:13:13.918Z",
+          "stateBefore": "PRONTA",
+          "startAt": "2026-11-05T21:13:15.087Z",
+          "workers": [
+            {
+              "pid": 18876,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": false,
+              "code": "TEF_TRANSACAO_CONCORRENTE",
+              "dispatchId": null,
+              "state": "BLOQUEADO",
+              "changes": [
+                0
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            },
+            {
+              "pid": 32532,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "5a428401f0a2d7730d5b3ab5bb15be68",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            }
+          ],
+          "successfulReservations": 1,
+          "distinctDispatchIds": 1,
+          "persistedState": "INICIADO",
+          "persistedDispatchId": "5a428401f0a2d7730d5b3ab5bb15be68",
+          "postReservationRecoverableAsReady": false,
+          "databaseIdentity": {
+            "dev": 505650597,
+            "ino": 11821949022853156
+          },
+          "gatesOff": true,
+          "noDriverCalls": true,
+          "passou": true
+        },
+        {
+          "round": 19,
+          "identity": {
+            "transactionId": "19",
+            "idempotency_key": "mrt40_mrt509_race19_cda5cac57f",
+            "operation_id": "op_mrt509_race19_cda5cac57f",
+            "fingerprint": "6fb78b219ae040768992deebfde6368b",
+            "solicitadaEm": "2026-11-05T21:13:15.160Z",
+            "acao": {
+              "tipo": "OPCAO",
+              "mensagem": "Tipo do Cartao",
+              "opcoes": [
+                "Credito",
+                "Debito",
+                "Voucher"
+              ],
+              "tipoDado": "X",
+              "timeout": "120",
+              "chave": "transacao_tipo_cartao"
+            }
+          },
+          "timestampOriginal": "2026-11-05T21:13:15.160Z",
+          "stateBefore": "PRONTA",
+          "startAt": "2026-11-05T21:13:16.302Z",
+          "workers": [
+            {
+              "pid": 23872,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": false,
+              "code": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+              "dispatchId": null,
+              "state": "BLOQUEADO",
+              "changes": [],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\nErro na migração Motor de Conversão de Unidades: SQLITE_BUSY: database is locked\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            },
+            {
+              "pid": 26556,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "eab41bddc38bf8544ea6bd03331dd267",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            }
+          ],
+          "successfulReservations": 1,
+          "distinctDispatchIds": 1,
+          "persistedState": "INICIADO",
+          "persistedDispatchId": "eab41bddc38bf8544ea6bd03331dd267",
+          "postReservationRecoverableAsReady": false,
+          "databaseIdentity": {
+            "dev": 505650597,
+            "ino": 11821949022853156
+          },
+          "gatesOff": true,
+          "noDriverCalls": true,
+          "passou": true
+        },
+        {
+          "round": 20,
+          "identity": {
+            "transactionId": "20",
+            "idempotency_key": "mrt40_mrt509_race20_8c34dc026c",
+            "operation_id": "op_mrt509_race20_8c34dc026c",
+            "fingerprint": "3c6779ddeac9e32faf30454691fd128b",
+            "solicitadaEm": "2026-11-05T21:13:16.372Z",
+            "acao": {
+              "tipo": "OPCAO",
+              "mensagem": "Tipo do Cartao",
+              "opcoes": [
+                "Credito",
+                "Debito",
+                "Voucher"
+              ],
+              "tipoDado": "X",
+              "timeout": "120",
+              "chave": "transacao_tipo_cartao"
+            }
+          },
+          "timestampOriginal": "2026-11-05T21:13:16.372Z",
+          "stateBefore": "PRONTA",
+          "startAt": "2026-11-05T21:13:17.543Z",
+          "workers": [
+            {
+              "pid": 39412,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": true,
+              "code": null,
+              "dispatchId": "a1c2121a6b554208e52e2a0b5ac36267",
+              "state": "INICIADO",
+              "changes": [
+                1
+              ],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            },
+            {
+              "pid": 11152,
+              "processExitCode": 0,
+              "gate": "OFF",
+              "ok": false,
+              "code": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+              "dispatchId": null,
+              "state": "BLOQUEADO",
+              "changes": [],
+              "driver": {
+                "inicia": 0,
+                "continua": 0,
+                "finaliza": 0
+              },
+              "workerError": null,
+              "capturedOutput": "[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: quantidade_itens\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: desconto\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_final\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_referencia_comercial\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_preparacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tp_emis\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: preparacao_idempotency_key\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: operadora\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cnpj\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: forma_pagamento\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: chave_acesso\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: protocolo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: recibo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: cstat\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xmotivo\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_assinado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_enviado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: xml_retorno\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: data_hora_autorizacao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: tentativa\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_principal\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_emitido_autorizado\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_pendente_emissao\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: valor_transmitido\n[FechamentoFiscal] alter ignorado: SQLITE_ERROR: duplicate column name: numero_nfce\n"
+            }
+          ],
+          "successfulReservations": 1,
+          "distinctDispatchIds": 1,
+          "persistedState": "INICIADO",
+          "persistedDispatchId": "a1c2121a6b554208e52e2a0b5ac36267",
+          "postReservationRecoverableAsReady": false,
+          "databaseIdentity": {
+            "dev": 505650597,
+            "ino": 11821949022853156
+          },
+          "gatesOff": true,
+          "noDriverCalls": true,
+          "passou": true
+        }
+      ]
+    },
+    {
+      "name": "Morte imediatamente após reserva durável INICIADO",
+      "status": "PASSOU",
+      "identity": {
+        "transactionId": "21",
+        "idempotency_key": "mrt40_mrt509_crash_36cbbecc4a",
+        "operation_id": "op_mrt509_crash_36cbbecc4a",
+        "fingerprint": "bf3cab418b43d478aae50b0dc10abed0",
+        "solicitadaEm": "2026-11-05T21:13:17.607Z",
+        "acao": {
+          "tipo": "OPCAO",
+          "mensagem": "Tipo do Cartao",
+          "opcoes": [
+            "Credito",
+            "Debito",
+            "Voucher"
+          ],
+          "tipoDado": "X",
+          "timeout": "120",
+          "chave": "transacao_tipo_cartao"
+        }
+      },
+      "timestampOriginal": "2026-11-05T21:13:17.607Z",
+      "stateBefore": "PRONTA",
+      "chronology": [
+        {
+          "at": "2026-11-05T21:13:17.635Z",
+          "event": "test-fixture-response-PRONTA"
+        },
+        {
+          "at": "2026-11-05T21:13:18.443Z",
+          "event": "durable-reservation-confirmed-INICIADO",
+          "pid": 44060,
+          "despachoId": "de41f2d045fb4c457b4c97ff66d6e74a"
+        },
+        {
+          "at": "2026-11-05T21:13:18.473Z",
+          "event": "reserve-process-exited"
+        },
+        {
+          "at": "2026-11-05T21:13:19.277Z",
+          "event": "independent-process-recovery-started",
+          "pid": 12392
+        },
+        {
+          "at": "2026-11-05T21:13:19.277Z",
+          "event": "recovery-found-INICIADO-and-refused-replay",
+          "code": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA"
+        }
+      ],
+      "reserveProcess": {
+        "pid": 44060,
+        "databasePath": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-9-42256-3cae9f8d0eab\\mercadao.db",
+        "databaseIdentity": {
+          "dev": 505650597,
+          "ino": 11821949022853156
+        },
+        "gate": "OFF",
+        "dispatchId": "de41f2d045fb4c457b4c97ff66d6e74a",
+        "state": "INICIADO",
+        "driver": {
+          "inicia": 0,
+          "continua": 0,
+          "finaliza": 0
+        }
+      },
+      "recoveryProcess": {
+        "pid": 12392,
+        "databasePath": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-9-42256-3cae9f8d0eab\\mercadao.db",
+        "databaseIdentity": {
+          "dev": 505650597,
+          "ino": 11821949022853156
+        },
+        "gate": "OFF",
+        "recovered": {
+          "ok": true,
+          "state": "INICIADO",
+          "despachoId": "de41f2d045fb4c457b4c97ff66d6e74a"
+        },
+        "retry": {
+          "ok": false,
+          "codigo": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+          "despachoId": null
+        },
+        "persisted": {
+          "status": "pendente",
+          "financialState": "UNKNOWN",
+          "state": "INICIADO",
+          "despachoId": "de41f2d045fb4c457b4c97ff66d6e74a"
+        },
+        "driver": {
+          "inicia": 0,
+          "continua": 0,
+          "finaliza": 0
+        }
+      },
+      "databaseIdentity": {
+        "dev": 505650597,
+        "ino": 11821949022853156
+      },
+      "criteria": {
+        "reservationNotReused": true,
+        "noFinancialOutcomeInferred": true,
+        "pendingIdentityPreserved": true,
+        "noAutomaticRetry": true,
+        "noDriverCalls": true
+      }
+    },
+    {
+      "name": "Reinicialização de TefManager e NativeHost com recuperação integrada",
+      "status": "PASSOU",
+      "oldProcess": {
+        "managerPid": 17364,
+        "nativeHostPid": 42696,
+        "hostSessionId": "f66fcf6a9bb5cfdcf6fc069421283d05",
+        "sessionAnchor": {
+          "pid": 42696,
+          "estado": "READY",
+          "processType": "child_process",
+          "capturadoEm": "2026-11-05T21:13:20.356Z"
+        },
+        "gateManager": "OFF",
+        "gateNativeHost": "OFF",
+        "closedAt": "2026-11-05T21:13:20.381Z"
+      },
+      "newProcess": {
+        "managerPid": 46244,
+        "nativeHostPid": 38380,
+        "hostSessionId": "5fc966f383c283bc87fd1e260321b107",
+        "sessionValidation": {
+          "ok": true,
+          "motivo": "sem_pid_ancora"
+        },
+        "gateManager": "OFF",
+        "gateNativeHost": "OFF"
+      },
+      "identity": {
+        "transactionId": "22",
+        "idempotency_key": "mrt40_mrt509_restart_002c3271b9",
+        "operation_id": "op_mrt509_restart_002c3271b9",
+        "fingerprint": "dfda8c1ef22590b8d20395b8fc54a09c",
+        "solicitadaEm": "2026-11-05T21:13:19.278Z",
+        "acao": {
+          "tipo": "OPCAO",
+          "mensagem": "Tipo do Cartao",
+          "opcoes": [
+            "Credito",
+            "Debito",
+            "Voucher"
+          ],
+          "tipoDado": "X",
+          "timeout": "120",
+          "chave": "transacao_tipo_cartao"
+        }
+      },
+      "timestampOriginal": "2026-11-05T21:13:19.278Z",
+      "timestampAfter": "2026-11-05T21:13:19.278Z",
+      "stateBefore": "PRONTA",
+      "stateAfter": "INICIADO",
+      "financialState": "UNKNOWN",
+      "transactionStatus": "pendente",
+      "result": {
+        "success": false,
+        "code": "DESTAXA_CICLO_INCONCLUSIVO",
+        "inconclusive": true,
+        "reconciliationRequired": true,
+        "retryAllowed": false
+      },
+      "driver": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0,
+        "dllLoads": 0
+      },
+      "hostSecurityState": "SECURITY_BLOCKED",
+      "blockedFinancialIdentities": [
+        "1",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19",
+        "2",
+        "20",
+        "21",
+        "22",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9"
+      ],
+      "databaseIdentity": {
+        "dev": 505650597,
+        "ino": 11821949022853156
+      },
+      "criteria": {
+        "identityRecovered": true,
+        "originalTimestampPreserved": true,
+        "oldManagerAndNativeHostClosed": true,
+        "managerAndNativeHostRestarted": true,
+        "gatesOff": true,
+        "nativeHostRestarted": true,
+        "freshBootstrapApplied": true,
+        "noFinancialSuccess": true,
+        "noDriverCalls": true,
+        "noDllLoad": true,
+        "pendingIdentityRemains": true,
+        "dispatchStateNotLost": true,
+        "explicitReconciliationRequired": true
+      }
+    }
+  ],
+  "changedFiles": [
+    "tests/tef/mrt-50-9-validacao-complementar.test.js",
+    "docs/build/mrt-50-9-validacao-complementar-report.json",
+    "docs/build/MRT-50.9-VALIDACAO-COMPLEMENTAR.md"
+  ],
+  "restrictions": {
+    "officialDatabaseAccessed": false,
+    "realDllAccessed": false,
+    "vspagueOrPinpadAccessed": false,
+    "sefazAccessed": false,
+    "realFinancialOperationsExecuted": false,
+    "gateFinancialInParentAndChildren": "OFF"
+  }
+}

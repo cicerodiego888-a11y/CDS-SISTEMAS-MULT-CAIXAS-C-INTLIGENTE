@@ -1,0 +1,35 @@
+{
+  "gate": "0",
+  "proxyIe": {
+    "ProxyEnable": 0,
+    "ProxyServer": null,
+    "ProxyOverride": null,
+    "AutoConfigURL": null
+  },
+  "firewallProfiles": [
+    { "Name": "Domain", "Enabled": 1 },
+    { "Name": "Private", "Enabled": 1 },
+    { "Name": "Public", "Enabled": 1 }
+  ],
+  "defaultRoutes": [
+    {
+      "ifIndex": 6,
+      "NextHop": "192.168.0.1",
+      "RouteMetric": 0,
+      "InterfaceAlias": "Wi-Fi"
+    }
+  ],
+  "adaptersWithGw": [
+    {
+      "InterfaceAlias": "Wi-Fi",
+      "IPv4": "192.168.0.13",
+      "GW": "192.168.0.1",
+      "DNS": "177.37.220.17,177.37.220.18"
+    }
+  ],
+  "dnsA": "129.148.36.0",
+  "tcpTestSucceeded": true,
+  "pingSucceeded": false,
+  "tracerouteArquivo": "traceroute.json",
+  "firewallRulesHintDestaxa": []
+}

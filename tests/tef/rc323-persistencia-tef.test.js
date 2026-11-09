@@ -2,11 +2,13 @@
 
 const { it } = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const sqlite3 = require('sqlite3');
 
+process.env.TEF_ENCRYPTION_KEY = crypto.randomBytes(32).toString('hex');
 const cryptoService = require('../../backend/services/crypto/cryptoService');
 const { hidratarMetadadosPagamentoTef } = require('../../backend/services/fiscal/tefPagamentoHydrator');
 const {

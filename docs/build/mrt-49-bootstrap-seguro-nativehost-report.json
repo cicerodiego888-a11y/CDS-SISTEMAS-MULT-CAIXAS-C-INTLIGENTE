@@ -1,0 +1,128 @@
+{
+  "sprint": "MRT-49",
+  "classificacao": "CONCLUIDA",
+  "achado_corrigido": {
+    "id": "MRT48-P1-01",
+    "resultado": "CORRIGIDO",
+    "descricao": "Um NativeHost novo ou reiniciado permanece bloqueado ate validar um bootstrap Ed25519 assinado e vinculado a sua sessao."
+  },
+  "resumo_executivo": "O NativeHost inicia em SECURITY_BOOTSTRAP_REQUIRED. O TefManager recupera e consulta as pendencias persistidas, assina um snapshot canonico e vinculado a hostSessionId, e o NativeHost valida assinatura, versao, revisao, timestamp, estrutura e consistencia antes de atualizar o bloqueio. Toda operacao transacional requer ainda um permit assinado de uso unico, restrito a identidade e operacao autorizadas no escopo ativo do TefManager. Falhas de recuperacao, assinatura ou IPC mantem o caminho transacional fechado.",
+  "arquivos_alterados": [
+    "backend/services/tef/TefManager.js",
+    "backend/services/tef/destaxa/DestaxaNativeHost.js",
+    "backend/services/tef/destaxa/DestaxaNativeHostClient.js",
+    "backend/services/tef/destaxa/destaxaNativeHostProtocolo.js",
+    "tests/tef/mrt-49-bootstrap-seguro-nativehost.test.js",
+    "docs/build/mrt-49-bootstrap-seguro-nativehost-report.json"
+  ],
+  "fluxo_bootstrap": [
+    "O Host cria uma hostSessionId nova e inicia em SECURITY_BOOTSTRAP_REQUIRED; HOST_READY nao torna o cliente pronto.",
+    "O cliente solicita ao provedor do TefManager a recuperacao e o snapshot assinado para a hostSessionId/revisao atuais.",
+    "O snapshot assinado inclui protocol/version, hostSessionId, bootstrapId, revisao, timestamp, resultado da recuperacao, securityState, identidades bloqueantes e permit opcional de operacao.",
+    "O Host valida a assinatura Ed25519 e todos os claims; revisoes ausentes, repetidas, fora de ordem ou de outra sessao sao recusadas.",
+    "A resposta de bootstrap deve confirmar bootstrapId, revisao e securityState antes de o cliente emitir ready ou enviar a operacao transacional.",
+    "Antes de cada TX_START, TX_CONTINUE ou TX_FINALIZE, o cliente atualiza o snapshot autenticado; o Host valida o permit especifico e o consome antes de chamar o bridge/driver.",
+    "Resultados UNKNOWN observados no Host criam bloqueio local imediato. Esse bloqueio somente pode ser removido por snapshot posterior assinado a partir da persistencia recuperada."
+  ],
+  "confianca_chaves": {
+    "algoritmo": "Ed25519",
+    "chave_privada": "Gerada e mantida no escopo do processo TefManager; nao e enviada ao NativeHost nem por IPC.",
+    "chave_publica": "Configurada pelo TefManager no cliente e fornecida ao processo NativeHost pelo ambiente do processo confiavel no spawn. A chave nao pode ser alterada enquanto o Host esta ativo.",
+    "autorizacao_externa": "Nenhum endpoint de rede ou campo livre do chamador assina bootstrap/permit. Chamadas diretas ao bridge/cliente sem o permit do TefManager sao recusadas."
+  },
+  "validacao_bootstrap": {
+    "representacao": "Serializacao deterministica por lista fixa de claims e campos fixos para cada identidade/permit.",
+    "claims": [
+      "version",
+      "protocol",
+      "hostSessionId",
+      "bootstrapId",
+      "revision",
+      "issuedAt",
+      "recoveryComplete",
+      "recoveryResult",
+      "securityState",
+      "blockedIdentities",
+      "permit"
+    ],
+    "expiracao": "Timestamp limitado a cinco minutos de diferenca do relogio local.",
+    "consistencia": "securityState e derivado da lista de identidades bloqueadas; identidades devem ser unicas e ordenadas; pendencias devem estar em status pendente.",
+    "uso_unico": "A revisao deve ser a proxima sequencial, bootstrapId nao pode repetir na sessao e o permit associado e consumido antes da operacao nativa.",
+    "replay_apos_reinicio": "Nova hostSessionId, chave publica provisionada pelo processo principal e revisao reiniciada em zero. Mensagens assinadas para geracao anterior nao correspondem a nova sessao."
+  },
+  "politica_bloqueio": {
+    "estado_inicial": "SECURITY_BOOTSTRAP_REQUIRED",
+    "recuperacao_falha": "SECURITY_BOOTSTRAP_FAILED no cliente; o processo Host e interrompido quando possivel e permanece sem caminho transacional.",
+    "pendencias": "Qualquer linha persistida em status pendente e incluida no snapshot como identidade bloqueante, salvo a identidade exata coberta pelo permit ativo de despacho.",
+    "tx_start": "Recusado pelo NativeHost quando existem pendencias bloqueantes ou quando falta permit valido.",
+    "tx_continue_tx_finalize": "Recusados pelo NativeHost para identidade bloqueada, sem bootstrap validado ou sem permit da operacao/identidade exatas.",
+    "unknown_em_runtime": "O NativeHost adiciona imediatamente a identidade ao bloqueio; uma resposta conclusiva do driver nao remove o bloqueio por si.",
+    "reconcile": "RECONCILE exige bootstrap validado e autorizacao RELEASE Ed25519 da identidade bloqueada. A remocao do bloqueio ocorre somente em bootstrap posterior, depois da persistencia final e leitura/validacao pelo TefManager."
+  },
+  "recuperacao_e_concorrencia": {
+    "fonte_de_verdade": "tef_transacoes permanece a unica fonte financeira; nenhum estado permanente de liberacao foi criado.",
+    "reinicio_tef_manager": "O provedor aguarda garantirRecuperacao, recarrega pendencias da persistencia e assina o snapshot para a nova sessao.",
+    "nova_pendencia_sessao_ativa": "O cliente consulta e autentica novamente o snapshot antes de cada operacao transacional, bloqueando uma nova TX_START antes do despacho.",
+    "reconciliacao_mrt47": "A sequencia RELEASE, atualizacao condicional/leitura integral, autorizacao COMMIT local e bootstrap atualizado foi preservada; apenas identidades ausentes da leitura atual podem sair da lista.",
+    "falha_ipc": "Bootstrap sem confirmacao nao habilita operacoes; o cliente entra em falha e encerra o Host para descartar permits volateis.",
+    "duas_mensagens": "O Host processa revisoes sequenciais; mensagens concorrentes com a mesma revisao nao podem ambas atualizar o estado. Rejeicao invalida o estado de seguranca e limpa o permit."
+  },
+  "testes": {
+    "comando": "node tests/tef/mrt-49-bootstrap-seguro-nativehost.test.js",
+    "resultado": "PASSOU",
+    "cenarios_passaram": 20,
+    "cenarios_falharam": 0,
+    "isolamento_sqlite": {
+      "diretorio_temporario_unico": true,
+      "DB_DIR_verificado_antes_de_importar_database": true,
+      "database_dbPath_verificado_fora_do_diretorio_oficial": true,
+      "banco_oficial_acessado": false
+    },
+    "validacao_sintatica": "node --check passou para protocolo, Host, cliente, TefManager e teste MRT-49.",
+    "resultados_individuais": [
+      { "cenario": 1, "resultado": "PASSOU", "evidencia": "TX_START e RECONCILE recusados antes do bootstrap; driver nao chamado." },
+      { "cenario": 2, "resultado": "PASSOU", "evidencia": "TX_CONTINUE recusado antes do bootstrap; driver nao chamado." },
+      { "cenario": 3, "resultado": "PASSOU", "evidencia": "TX_FINALIZE recusado antes do bootstrap; driver nao chamado." },
+      { "cenario": 4, "resultado": "PASSOU", "evidencia": "Assinatura invalida recusada; estado SECURITY_BOOTSTRAP_FAILED." },
+      { "cenario": 5, "resultado": "PASSOU", "evidencia": "hostSessionId divergente recusada sem avancar a revisao." },
+      { "cenario": 6, "resultado": "PASSOU", "evidencia": "Bootstrap expirado recusado." },
+      { "cenario": 7, "resultado": "PASSOU", "evidencia": "Alteracao de claims apos assinatura recusada." },
+      { "cenario": 8, "resultado": "PASSOU", "evidencia": "Pendencia UNKNOWN preservada e TX_START bloqueado." },
+      { "cenario": 9, "resultado": "PASSOU", "evidencia": "Pendencia PENDING preservada e TX_START bloqueado." },
+      { "cenario": 10, "resultado": "PASSOU", "evidencia": "Chamada direta a DestaxaHostBridge sem permit nao chamou driver." },
+      { "cenario": 11, "resultado": "PASSOU", "evidencia": "Chamada direta ao NativeHostClient sem permit nao chamou driver." },
+      { "cenario": 12, "resultado": "PASSOU", "evidencia": "Falha simulada de recuperacao manteve Host em SECURITY_BOOTSTRAP_REQUIRED." },
+      { "cenario": 13, "resultado": "PASSOU", "evidencia": "Nova instancia de Host exigiu novo bootstrap e nova sessao." },
+      { "cenario": 14, "resultado": "PASSOU", "evidencia": "Novo TefManager recuperou linha pendente do SQLite temporario e autenticou o bloqueio no Host." },
+      { "cenario": 15, "resultado": "PASSOU", "evidencia": "Pendencia inserida durante sessao foi sincronizada antes de TX_START; driver nao chamado." },
+      { "cenario": 16, "resultado": "PASSOU", "evidencia": "Fluxo TefManager/MRT-47 reconciliou uma linha em SQLite e manteve a segunda identidade bloqueada." },
+      { "cenario": 17, "resultado": "PASSOU", "evidencia": "IPC descartado durante bootstrap deixou Host em SECURITY_BOOTSTRAP_REQUIRED e cliente CRASHED." },
+      { "cenario": 18, "resultado": "PASSOU", "evidencia": "Bootstrap concorrente da mesma revisao rejeitado; sem TX_START/driver." },
+      { "cenario": 19, "resultado": "PASSOU", "evidencia": "Documento assinado para geracao anterior rejeitado na nova sessao." },
+      { "cenario": 20, "resultado": "PASSOU", "evidencia": "TX_START, TX_CONTINUE e TX_FINALIZE bloqueados mantiveram zero chamadas ao driver." }
+    ],
+    "regressoes_legadas": {
+      "mrt45_protecao_unknown_test_js": "NAO EXECUTADO: harness legado aciona NativeHostClient sem provedor de bootstrap e exerce chamadas internas privadas incompatíveis com o novo contrato.",
+      "mrt47_reconciliacao_segura_test_js": "NAO EXECUTADO: harness legado envia transacoes diretamente ao metodo interno do Host sem bootstrap.",
+      "cobertura_equivalente": "Os invariantes MRT-45 e o fluxo real de persistencia/reconciliacao MRT-47 foram exercitados nos cenarios 1-3, 8-11, 14-16 e 20 do novo teste."
+    }
+  },
+  "limitacoes": [
+    "O transporte cliente-Host foi exercitado com um adaptador IPC em processo que encaminha ao DestaxaNativeHostRuntime real; nao foi validado um child_process real.",
+    "A reinicializacao foi modelada com novas instancias de TefManager e NativeHost sobre SQLite isolado; nao houve reinicio do processo principal de producao.",
+    "Os testes nao constituem homologacao fisica, prova de driver Gertec, nem validacao de DLL Destaxa/V$Pague."
+  ],
+  "confirmacoes": {
+    "gate_financeiro_off": true,
+    "dll_destaxa_carregada": false,
+    "init_executado": false,
+    "vspague_conectado": false,
+    "pinpad_ou_porta_serial_acessados": false,
+    "operacoes_financeiras_reais": false,
+    "banco_oficial_acessado_ou_modificado": false,
+    "identidades_mrt24_mrt36_mrt42_consultadas_ou_modificadas": false,
+    "homologacao_fisica": false,
+    "mrt50_iniciada": false
+  },
+  "recomendacao": "Submeter a implementacao e as limitacoes de transporte a revisao tecnica; nao iniciar MRT-50 ate avaliacao do responsavel."
+}

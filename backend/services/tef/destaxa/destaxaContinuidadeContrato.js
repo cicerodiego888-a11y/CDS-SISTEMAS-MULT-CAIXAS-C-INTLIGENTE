@@ -24,6 +24,9 @@ const ERROS_CONTINUIDADE = Object.freeze({
   COLETA_VAZIA: 'DESTAXA_PDV_COLETA_VAZIA',
   TIMEOUT: 'DESTAXA_CONTINUIDADE_TIMEOUT',
   RESPOSTA_DUPLICADA: 'DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA',
+  TIMESTAMP_INVALIDO: 'DESTAXA_CONTINUIDADE_TIMESTAMP_INVALIDO',
+  TIMEOUT_INVALIDO: 'DESTAXA_CONTINUIDADE_TIMEOUT_INVALIDO',
+  PERSISTENCIA_FALHOU: 'TEF_CONTINUIDADE_PERSISTENCIA_FALHOU',
   SEM_OPERADOR: 'DESTAXA_PDV_SEM_OPERADOR',
   SEM_TTY: 'DESTAXA_PDV_SEM_TTY',
   IDENTIDADE_AUSENTE: 'TEF_CONTINUIDADE_SEM_TRANSACAO',
@@ -50,6 +53,7 @@ function normalizarAcaoContinuidade(acao) {
       reconhecida: false
     };
   }
+
   const tipo = String(acao.tipo || '').toUpperCase() || null;
   const opcoes = Array.isArray(acao.opcoes)
     ? acao.opcoes.map((o) => String(o).trim()).filter(Boolean)
@@ -66,6 +70,17 @@ function normalizarAcaoContinuidade(acao) {
       || tipo === TIPOS_CONTINUIDADE.COLETA
       || tipo === TIPOS_CONTINUIDADE.OPCAO
   };
+}
+
+function normalizarTimestampSolicitacao99(solicitadaEm) {
+  if (typeof solicitadaEm === 'number' && Number.isFinite(solicitadaEm)) {
+    const data = new Date(solicitadaEm);
+    return Number.isFinite(data.getTime()) ? data.toISOString() : null;
+  }
+  if (typeof solicitadaEm !== 'string' || !solicitadaEm.trim()) return null;
+  const instante = Date.parse(solicitadaEm);
+  if (!Number.isFinite(instante)) return null;
+  return new Date(instante).toISOString();
 }
 
 /**
@@ -217,23 +232,34 @@ function avaliarTimeoutColeta({
   solicitadaEm,
   agoraMs = Date.now()
 } = {}) {
+  const timestampNormalizado = normalizarTimestampSolicitacao99(solicitadaEm);
+  if (!timestampNormalizado) {
+    return {
+      ok: false,
+      avaliado: false,
+      codigo: ERROS_CONTINUIDADE.TIMESTAMP_INVALIDO,
+      mensagem: 'Timestamp original da solicitação 99 ausente ou inválido — continuidade recusada',
+      financialStateHint: 'UNKNOWN',
+      retryAllowed: false,
+      reconciliacaoObrigatoria: true
+    };
+  }
   if (timeoutSegundos == null || timeoutSegundos === '') {
-    return { ok: true, avaliado: false };
+    return { ok: true, avaliado: false, solicitadaEm: timestampNormalizado };
   }
   const seg = Number(timeoutSegundos);
   if (!Number.isFinite(seg) || seg <= 0) {
-    return { ok: true, avaliado: false };
+    return {
+      ok: false,
+      avaliado: false,
+      codigo: ERROS_CONTINUIDADE.TIMEOUT_INVALIDO,
+      mensagem: 'Timeout declarado pela solicitação 99 é inválido — continuidade recusada',
+      financialStateHint: 'UNKNOWN',
+      retryAllowed: false,
+      reconciliacaoObrigatoria: true
+    };
   }
-  let inicioMs = null;
-  if (typeof solicitadaEm === 'number' && Number.isFinite(solicitadaEm)) {
-    inicioMs = solicitadaEm;
-  } else if (solicitadaEm != null) {
-    const parsed = Date.parse(String(solicitadaEm));
-    if (Number.isFinite(parsed)) inicioMs = parsed;
-  }
-  if (inicioMs == null) {
-    return { ok: true, avaliado: false, motivo: 'solicitadaEm ausente — timeout não avaliado' };
-  }
+  const inicioMs = Date.parse(timestampNormalizado);
   const limite = inicioMs + (seg * 1000);
   if (agoraMs > limite) {
     return {
@@ -249,7 +275,8 @@ function avaliarTimeoutColeta({
   return {
     ok: true,
     avaliado: true,
-    restanteMs: limite - agoraMs
+    restanteMs: limite - agoraMs,
+    solicitadaEm: timestampNormalizado
   };
 }
 
@@ -268,13 +295,14 @@ function _fingerprintResposta(resposta) {
   return String(resposta);
 }
 
-function _chaveDuplicata({ transactionId, acao, resposta }) {
+function _chaveDuplicata({ transactionId, acao, resposta, solicitadaEm }) {
   const a = normalizarAcaoContinuidade(acao);
   return [
     String(transactionId || ''),
     a.tipo || '',
     a.chave || '',
     a.mensagem || '',
+    normalizarTimestampSolicitacao99(solicitadaEm) || '',
     _fingerprintResposta(resposta)
   ].join('|');
 }
@@ -286,6 +314,7 @@ function registrarOuRejeitarRespostaDuplicada({
   transactionId,
   acao,
   resposta,
+  solicitadaEm,
   registrar = true
 } = {}) {
   if (transactionId == null || String(transactionId).trim() === '') {
@@ -296,7 +325,7 @@ function registrarOuRejeitarRespostaDuplicada({
       retryAllowed: false
     };
   }
-  const chave = _chaveDuplicata({ transactionId, acao, resposta });
+  const chave = _chaveDuplicata({ transactionId, acao, resposta, solicitadaEm });
   if (_respostasContinuidadeEnviadas.has(chave)) {
     return {
       ok: false,
@@ -377,6 +406,9 @@ function validarContinuidadeCompleta({
   if (!op.ok) return op;
 
   const acaoN = normalizarAcaoContinuidade(acao);
+  const validacao = validarRespostaOperador(acaoN, respostaBruta);
+  if (!validacao.ok) return validacao;
+
   const to = avaliarTimeoutColeta({
     timeoutSegundos: acaoN.timeout,
     solicitadaEm,
@@ -384,13 +416,11 @@ function validarContinuidadeCompleta({
   });
   if (!to.ok) return to;
 
-  const validacao = validarRespostaOperador(acaoN, respostaBruta);
-  if (!validacao.ok) return validacao;
-
   const dup = registrarOuRejeitarRespostaDuplicada({
     transactionId: idCheck.transactionId,
     acao: acaoN,
     resposta: validacao.resposta,
+    solicitadaEm: to.solicitadaEm,
     registrar: registrarDuplicata
   });
   if (!dup.ok) return dup;
@@ -402,6 +432,7 @@ function validarContinuidadeCompleta({
     acao: acaoN,
     transactionId: idCheck.transactionId,
     idempotency_key: idCheck.idempotency_key,
+    solicitadaEm: to.solicitadaEm,
     entradaContinuaEsperada: validacao.resposta?.informacao != null
       ? `informacao=${validacao.resposta.informacao}`
       : (validacao.resposta?.displayAck ? '' : null)
@@ -412,6 +443,7 @@ module.exports = {
   TIPOS_CONTINUIDADE,
   ERROS_CONTINUIDADE,
   normalizarAcaoContinuidade,
+  normalizarTimestampSolicitacao99,
   validarRespostaOperador,
   montarPedidoContinuidade,
   ehSolicitacaoContinuidade,

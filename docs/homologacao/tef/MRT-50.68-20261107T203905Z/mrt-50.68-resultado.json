@@ -1,0 +1,31 @@
+{
+  "sprint": "MRT-50.68",
+  "titulo": "PRÉ-VOO FINAL DA HOMOLOGAÇÃO DESTAXA",
+  "status": "CONCLUÍDA",
+  "parecer": "APTO COM RESSALVAS",
+  "registradoEm": "2026-11-07T20:39:05Z",
+  "pagamentoExecutado": false,
+  "autorizacaoDebitoR1": "reservada — não utilizada",
+  "ressalvaPrincipal": "Sem evidência de comunicação efetiva com a PinPad (COM4/V$Pague/Client init ≠ handshake PinPad)",
+  "verificacoes": {
+    "integridade5067": true,
+    "dllHashMatch": true,
+    "ppc930Com4": true,
+    "portaComPersistidaCom4": true,
+    "vspagueAtivo": true,
+    "clientInit00": true,
+    "nativeHostStopped": true,
+    "gateOff": true,
+    "politicaDebitoValidada": true,
+    "zeroTxFinanceira": true
+  },
+  "client": {
+    "requestId": "030eff038fd8bb5c",
+    "code": "00",
+    "state": "CLIENT_INITIALIZED",
+    "nativeHostPid": 76672,
+    "parentPid": 76860,
+    "shutdown": "STOPPED"
+  },
+  "dllSha256": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279"
+}

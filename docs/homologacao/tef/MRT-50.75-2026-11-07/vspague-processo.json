@@ -1,0 +1,5 @@
+{
+    "ProcessId":  44484,
+    "Name":  "VSPagueClient.exe",
+    "Cmd":  "VSPagueClient  -Xms64m -Xmx512m -Dfile.encoding=ISO8859-1 -Duser.timezone=America/Recife -jar C:\\VBI\\V$Pague\\Client\\V$PagueClient.jar -h app-partner.destaxa.cloud -p 60410 -atv server -tls"
+}

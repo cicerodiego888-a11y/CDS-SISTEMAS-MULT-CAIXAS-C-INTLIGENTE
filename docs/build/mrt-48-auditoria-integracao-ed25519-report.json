@@ -1,0 +1,311 @@
+{
+  "sprint": "MRT-48",
+  "titulo": "Auditoria de integracao e seguranca da reconciliacao Ed25519",
+  "classificacaoFinal": "BLOQUEADA_P1",
+  "resumoExecutivo": "A autorizacao Ed25519 esta bem delimitada no fluxo normal: a chave privada e criada no processo do TefManager, os claims sao serializados em ordem fixa, ha validade de cinco minutos, o NativeHost verifica a assinatura e a identidade/sessao, e o cliente so limpa seu marcador apos um commit assinado ligado ao status final persistido. A rota TEF e autenticada. Porem, a trava UNKNOWN nao e restaurada no NativeHost nem no novo cliente depois de reinicializacao; somente o TefManager reconstroi as pendencias. Um TX_START encaminhado diretamente pelo DestaxaHostBridge/NativeHostClient pode chegar a um Host novo sem contexto UNKNOWN. Isso deixa a garantia de bloqueio dependente do caminho TefManager e constitui achado P1. Os testes MRT-47 revisados usam SQLite temporario, mas simulam o cliente e chamam o runtime em processo; nao comprovam IPC real, perda de resposta depois do RELEASE ou replay entre processos.",
+  "escopoEProcedimento": {
+    "metodo": "Leitura estatica do codigo, do teste MRT-47 e do relatorio MRT-47. Nenhum teste foi executado e nenhum processo NativeHost foi iniciado.",
+    "arquivosDeImplementacao": "Nenhum arquivo de implementacao foi alterado.",
+    "bancoOficial": "Nao acessado, consultado ou modificado.",
+    "identidadesHistoricas": {
+      "MRT-24": "Nao consultada, reconciliada ou modificada.",
+      "MRT-36": "Nao consultada, reconciliada ou modificada.",
+      "MRT-42": "Nao consultada, reconciliada ou modificada."
+    },
+    "gateFinanceiro": {
+      "alterado": false,
+      "observacao": "DESTAXA_REAL_TRANSACTION_ENABLED nao esta definido no processo desta auditoria; o codigo habilita o gate somente quando o valor e exatamente '1'. Nenhum processo da aplicacao foi iniciado. O relatorio MRT-47 anterior tambem registra gateFinanceiro=false."
+    },
+    "operacoesReais": {
+      "init": false,
+      "transacoes": false,
+      "continueFinalize": false,
+      "dllCarregada": false,
+      "vPagueConectado": false,
+      "pinPadAcessado": false
+    }
+  },
+  "arquivosFuncoesAuditados": [
+    {
+      "arquivo": "backend/services/tef/TefManager.js",
+      "funcoes": [
+        "geracao de CHAVES_AUTORIZACAO_RECONCILIACAO (linhas 53-55)",
+        "assinarAutorizacaoReconciliacao (104-127)",
+        "constructor/configuracao da chave publica (153-163)",
+        "recarregarPendencias/garantirRecuperacao (1091-1175)",
+        "_atualizarTransacaoPersistida (1297-1316)",
+        "reconciliarResultadoTardio (1413-1516)",
+        "reconciliarNativeHost (1518-1607)",
+        "bloqueio da autorizacao com pendencias (397-405)"
+      ]
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/destaxaNativeHostProtocolo.js",
+      "funcoes": [
+        "CAMPOS_AUTORIZACAO_RECONCILIACAO (81-96)",
+        "serializarClaimsAutorizacaoReconciliacao (166-168)",
+        "validarAutorizacaoReconciliacao (170-216)",
+        "criarCapabilityAutorizacaoReconciliacao (219-225)",
+        "consumirCapabilityAutorizacaoReconciliacao (227-233)",
+        "validarResponse (155-164)"
+      ]
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/DestaxaNativeHost.js",
+      "funcoes": [
+        "constructor e estado de sessao/nonce (85-103)",
+        "OPERACOES_HOST.RECONCILE (250-285)",
+        "TX_START, TX_CONTINUE e TX_FINALIZE (403-430)",
+        "iniciarHost/HOST_READY e injecao da chave publica (500-540)"
+      ]
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/DestaxaNativeHostClient.js",
+      "funcoes": [
+        "constructor/estado local (130-151)",
+        "iniciar e spawn com chave publica (250-320)",
+        "enviar e bloqueio pelo marcador (350-410)",
+        "_aoMensagem/_aoSair (432-567)",
+        "marcarReconciliacaoPendente/prepararHostParaReconciliacao (641-679)",
+        "reconciliarTransacao (681-735)",
+        "confirmarReconciliacaoPersistida (737-765)"
+      ]
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js",
+      "funcoes": [
+        "_financialStateUnknown/iniciarTransacao (82, 213-328)",
+        "continuarTransacao/finalizarTransacao (340-420)",
+        "reconciliarTransacao/reset (439-518)"
+      ]
+    },
+    {
+      "arquivo": "backend/services/tef/tefRepository.js",
+      "funcoes": [
+        "obterTransacaoPorId (130-151)",
+        "atualizarTransacao (154-203)"
+      ]
+    },
+    {
+      "arquivo": "backend/services/tef/tefPendenciasService.js",
+      "funcoes": [
+        "reconciliarExplicita (212-279)"
+      ]
+    },
+    {
+      "arquivo": "backend/rotas/tef.js",
+      "funcoes": [
+        "POST /transacao/:id/reconciliar, usuario derivado de req.user (493-541)"
+      ]
+    },
+    {
+      "arquivo": "backend/server.js",
+      "funcoes": [
+        "montagem autenticada de /api/tef com verificarToken (261)"
+      ]
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/DestaxaHostBridge.js",
+      "funcoes": [
+        "iniciarTransacaoDestaxa/TX_START (32-46, 109-150)"
+      ]
+    },
+    {
+      "arquivo": "backend/services/tef/tefPersistenciaObrigatoria.js",
+      "funcoes": [
+        "validarTxStartComPersistencia (276-294)"
+      ]
+    },
+    {
+      "arquivo": "tests/tef/mrt-47-reconciliacao-segura.test.js",
+      "funcoes": [
+        "SQLite temporario e DB_DIR definido antes da importacao do banco (6-10)",
+        "MockNativeHostClient e chamada direta a runtime._processar (67-121)",
+        "cenarios 1-16 (233-565)"
+      ]
+    }
+  ],
+  "analiseChavesEd25519": {
+    "chavePrivada": {
+      "criacao": "crypto.generateKeyPairSync('ed25519') na carga do modulo TefManager.",
+      "armazenamento": "Referencia em constante de escopo do modulo; a chave privada nao e exportada nem enviada ao cliente/Host.",
+      "durabilidade": "Efemera ao processo. Reinicio do processo principal gera novo par."
+    },
+    "chavePublica": {
+      "confianca": "TefManager exporta a chave publica SPKI DER em base64 e chama configurarChavePublicaReconciliacao no cliente. O cliente injeta esse valor em DESTAXA_RECONCILIATION_PUBLIC_KEY ao criar o processo filho; iniciarHost le a variavel e o runtime verifica as assinaturas.",
+      "limite": "A confianca decorre do processo principal e do canal IPC filho controlado pelo spawner. Nao ha provisionamento externo, assinatura de resposta do Host ou pinning fora dessa fronteira."
+    },
+    "emissao": "assinarAutorizacaoReconciliacao nao e exportada. A emissao fica no TefManager e ocorre depois da releitura/validacao da linha. A rota publica exige verificarToken e deriva usuario de req.user. O service exportado permite chamadas internas no processo, mas nao foi encontrado endpoint externo sem autenticacao para emitir assinatura.",
+    "claimsAssinados": [
+      "version",
+      "authorizationId",
+      "hostSessionId",
+      "transactionId",
+      "operation_id",
+      "idempotency_key",
+      "fingerprint",
+      "financialState",
+      "recordStatus",
+      "resultStatus",
+      "usuario",
+      "observacao",
+      "phase",
+      "issuedAt"
+    ],
+    "expiracao": "validarAutorizacaoReconciliacao rejeita issuedAt fora de +/- cinco minutos.",
+    "nonce": "authorizationId e gerado com crypto.randomBytes(16).toString('hex').",
+    "representacao": "Os campos sao serializados como array JSON em ordem fixa por CAMPOS_AUTORIZACAO_RECONCILIACAO; emissor e verificador usam o mesmo serializador antes da assinatura/validacao. Campos de seguranca consumidos estao incluidos; propriedades extras nao sao usadas para autorizacao.",
+    "substituicao": "Alterar claim assinado invalida crypto.verify. O verifier valida assinatura, fase, sessao, status, estado financeiro, campos obrigatorios e prazo."
+  },
+  "analiseNonceReplay": {
+    "consumoHost": "No ramo RECONCILE, o Host valida a assinatura, fase RELEASE e transactionId, verifica o Set de autorizacoes usadas e adiciona authorizationId antes de chamar o orquestrador. O trecho e sincrono no event loop; repeticao no mesmo Host e recusada.",
+    "consumoCapability": "O Host cria capability em WeakMap; o orquestrador a remove ao consumir, impedindo reutilizacao desse objeto.",
+    "consumoCliente": "O cliente marca authorizationId como usado antes do envio IPC. O commit exige fase COMMIT, mesma sessao, registro final/status coerentes e marcador da mesma transactionId; so entao limpa o marcador.",
+    "fases": "RELEASE e COMMIT estao assinadas e validadas separadamente. RECONCILE do Host aceita somente RELEASE; a limpeza do marcador local aceita somente COMMIT.",
+    "concorrencia": "O consumo no Host e sincronico antes de qualquer await; o cliente permite uma requisicao em voo. O teste MRT-47 nao faz duas liberacoes concorrentes usando a mesma autorizacao.",
+    "persistenciaDoConsumo": "Os Sets de nonce sao volateis e nao persistidos. A mitigacao estatica e a sessao aleatoria criada em cada Host novo e o novo par de chaves gerado quando o TefManager reinicia; tokens antigos ficam vinculados a sessao/chave anteriores. Esta garantia nao tem teste de replay apos restart.",
+    "conclusao": "Protecao local contra replay identificada; nao ha ledger duravel de nonces. A defesa apos restart depende da rotacao da chave principal e de hostSessionId novo."
+  },
+  "analiseIPC": {
+    "fluxo": [
+      "A rota autenticada passa operador/desfecho ao tefPendenciasService.",
+      "TefManager grava e relê a reconciliacao; prepara o cliente e obtem hostSessionId.",
+      "TefManager assina RELEASE; DestaxaNativeHostClient valida localmente e envia RECONCILE pelo processo filho.",
+      "DestaxaNativeHost valida assinatura, sessao, fase e transactionId; cria capability e delega ao orquestrador.",
+      "Resposta passa pelo protocolo com requestId; cliente associa a resposta a requisicao em voo e valida sucesso/transactionId.",
+      "TefManager persiste e relê status final, assina COMMIT; cliente valida assinatura/status/identidade pendente e limpa marcador."
+    ],
+    "transformacaoClaims": "A autorizacao e transportada como objeto {claims, signature}; validarAutorizacaoReconciliacao assina/verifica os campos por serializador fixo. O transporte nao depende de JSON canonico externo.",
+    "respostasAntigas": "O cliente ignora callbacks de geracoes anteriores e so resolve a requisicao atual se requestId coincidir; respostas sem request correspondente sao tratadas como tardias.",
+    "falhas": "Timeout, desconexao, Host encerrado, resposta malformada ou erro mantem o marcador do cliente; a falha do fluxo antes do commit mantem a pendencia do TefManager e o registro ainda pendente.",
+    "confirmacao": "O commit local ocorre depois do ACK de sucesso para RELEASE e da leitura do status final persistido; o commit e validado por assinatura Ed25519, status e transactionId.",
+    "limitacao": "A auditoria rastreou o IPC estaticamente, mas nao iniciou processo filho nem comprovou serializacao/ciclo de vida real."
+  },
+  "analisePersistenciaReinicializacao": {
+    "atualizacaoCondicional": "tefRepository.atualizarTransacao aceita statusEsperado e payloadEsperado, usa ambos no WHERE e exige changes===1 quando exigirUmaLinha=true.",
+    "validacao": "TefManager relê registro completo antes do RELEASE e depois da escrita do status final. Confere transactionId, operation_id, idempotency_key, fingerprint quando presentes, desfecho, financialState, status, usuario, observacao e confirmacao_explicita.",
+    "falhas": "Erros de gravacao/leitura e divergencias interrompem a liberacao; a linha permanece pendente nas fases anteriores ao status final. Falha apos o Host liberar mas antes do status final deixa marcador local e trava do TefManager ativos enquanto os processos permanecem vivos.",
+    "concorrencia": "A atualizacao do payload reconciliado e CAS por status e payload anterior, com uma linha exigida. O cliente serializa IPC em voo. A suite prova uma reconciliacao persistida vencedora, nao duas liberacoes concorrentes.",
+    "recuperacaoTefManager": "recarregarPendencias consulta linhas pendentes e reconstrui a trava/identidade. autorizar aguarda recuperacao e bloqueia se a lista nao estiver vazia.",
+    "recuperacaoNativeHost": "Nao ha leitura do banco nem bootstrap de pendencias no NativeHost. Novo runtime cria sessao aleatoria, Host novo/novo cliente iniciam com contexto e marcador vazios; o manager nao marca o cliente para cada pendencia recuperada durante recarregarPendencias.",
+    "efeito": "O fluxo oficial via TefManager permanece bloqueado; um TX_START enviado diretamente pelo DestaxaHostBridge/NativeHostClient nao consulta a trava persistida e o Host recem-criado nao possui contexto UNKNOWN."
+  },
+  "testesRevisados": {
+    "MRT47": {
+      "tipo": [
+        "Integracao entre modulos no mesmo processo: TefManager, repository e runtime NativeHost.",
+        "Persistencia real isolada: SQLite em diretorio temporario criado antes de importar o modulo database."
+      ],
+      "driver": "Mock; getDiagnostics indica dllLoaded=false.",
+      "ipc": "MockNativeHostClient chama host._processar diretamente; nao atravessa child_process/IPC.",
+      "coberturaVerificada": [
+        "Gravacao/leitura, falha de gravacao/leitura e divergencias de registro.",
+        "persistida=true, ausencia de autorizacao, replay na mesma sessao e alteracao de transactionId sem nova assinatura.",
+        "Host indisponivel simulado, falha de IPC simulada antes de entregar a requisicao ao Host.",
+        "Atualizacao concorrente de reconciliacao no banco.",
+        "Reconstrucao de TefManager sobre banco temporario e bloqueio de operacoes em runtime in-process."
+      ],
+      "lacunas": [
+        "Nao testa chave/assinatura adulterada, chave publica substituida, fase RELEASE/COMMIT cruzada ou validade expirada.",
+        "Nao testa autorizacao de outra sessao com assinatura valida, replay apos reinicio do NativeHost ou duas liberacoes simultaneas.",
+        "O teste 12 retorna HOST_UNAVAILABLE no mock antes de chamar host._processar; nao simula resposta perdida depois de o Host efetivar RELEASE.",
+        "Os testes 14-15 recriam TefManager, nao o processo NativeHost; nao verificam restauracao de trava no Host.",
+        "O teste 10 altera claim mantendo assinatura antiga; comprova rejeicao criptografica da alteracao, mas nao uma identidade diferente assinada validamente."
+      ]
+    },
+    "integracaoEntreProcessos": "Nao comprovada para a autorizacao Ed25519 MRT-47.",
+    "homologacaoFisica": "Nao realizada nem alegada.",
+    "execucaoNestaAuditoria": "Nenhum teste foi executado para evitar qualquer risco de conexao a ambiente oficial."
+  },
+  "achados": [
+    {
+      "id": "MRT48-P1-01",
+      "severidade": "P1",
+      "arquivoFuncao": [
+        "backend/services/tef/destaxa/DestaxaNativeHost.js:85-103, 250-285, 403-430",
+        "backend/services/tef/destaxa/DestaxaNativeHostClient.js:130-151, 641-679",
+        "backend/services/tef/TefManager.js:1133-1175",
+        "backend/services/tef/destaxa/DestaxaHostBridge.js:109-150"
+      ],
+      "trechoFluxo": "Reinicio cria novo Host com hostSessionId e orquestrador novos e Set de nonces vazio; novo cliente inicia _reconciliacaoPendente=null. TefManager recupera pendencias no seu proprio mapa, mas recarregarPendencias nao sincroniza o marcador do cliente nem instala um bloqueio persistido no Host. O ramo TX_START protege apenas pelo contexto atual do orquestrador; DestaxaHostBridge pode enviar TX_START diretamente pelo cliente.",
+      "evidencia": "A recuperacao principal consulta tef_transacoes e bloqueia autorizar (TefManager.js:1133 e 397-405), mas nao ha consulta/bootstrap equivalente no Host. DestaxaNativeHostRuntime construi estado novo em memoria e o cliente reinicializado inicia sem marcador. A interface de bridge envia TX_START por IPC sem consultar a pendencia do TefManager. validarTxStartComPersistencia so exige transactionId com o gate ON e retorna ok quando OFF; nao consulta nem rejeita outra linha UNKNOWN/PENDING (tefPersistenciaObrigatoria.js:276-294).",
+      "cenario": "Existe linha UNKNOWN/PENDING; processos reiniciam; o TefManager bloqueia seu caminho oficial, mas codigo que invoque o bridge/cliente diretamente envia TX_START ao Host novo, cujo contexto vazio nao registra o UNKNOWN persistido.",
+      "consequencia": "A protecao do TefManager se recupera, mas a garantia independente do NativeHost/orquestrador nao sobrevive ao restart. Um caminho interno que contorne TefManager pode iniciar nova tentativa antes da reconciliacao.",
+      "recomendacao": "Adicionar bootstrap fail-closed do Host a partir de pendencias verificadas pela persistencia oficial antes de aceitar TX_START. O bloqueio deve ser estabelecido por prova vinculada ao processo/sessao e nao por booleano ou marcador livre do cliente; tornar a identidade persistida insuficiente para ignorar pendencias; testar restart do Host e do processo principal."
+    },
+    {
+      "id": "MRT48-P2-01",
+      "severidade": "P2",
+      "arquivoFuncao": [
+        "tests/tef/mrt-47-reconciliacao-segura.test.js:67-121, 433-489"
+      ],
+      "trechoFluxo": "MockNativeHostClient.reconciliarTransacao invoca host._processar diretamente. O caso de falha IPC retorna HOST_UNAVAILABLE antes de entregar a requisicao ao runtime.",
+      "evidencia": "A suite comprova integracao entre modulos em processo e usa SQLite temporario, mas nao spawna DestaxaNativeHost.js por child_process nem transmite/recebe a autorizacao pelo canal IPC. O caso 12 nao cobre perda de ACK depois de RELEASE efetivado.",
+      "cenario": "Uma serializacao/deserializacao, desconexao ou resposta perdida entre processos pode divergir da chamada interna simulada sem falhar nos cenarios atuais.",
+      "consequencia": "A integracao entre processos e a falha critica RELEASE-ACK-COMMIT nao estao demonstradas para a fronteira real.",
+      "recomendacao": "Criar teste de integracao com child_process isolado e bridge/driver mockado: resposta malformada, disconnect antes e depois do RELEASE, timeout de ACK, retry com nova autorizacao e assertiva de que a pendencia continua bloqueada. Nao carregar DLL nem acessar servicos financeiros."
+    },
+    {
+      "id": "MRT48-P2-02",
+      "severidade": "P2",
+      "arquivoFuncao": [
+        "tests/tef/mrt-47-reconciliacao-segura.test.js:433-458, 490-520"
+      ],
+      "trechoFluxo": "A suite cobre replay no mesmo objeto Host, uma corrida de gravacao e reconstrucoes de TefManager, mas nao valida todas as propriedades criptograficas/concorrentes listadas na auditoria.",
+      "evidencia": "O caso 10 modifica transactionId sem recalcular a assinatura; os casos 14-15 nao reiniciam NativeHost; o caso 13 concorre chamadas de persistirRecon e nao duas chamadas reconciliarNativeHost RELEASE. Nao foram encontrados casos para assinatura alterada, expiracao, troca de fase, token assinado para outra sessao ou replay apos restart.",
+      "cenario": "Uma regressao em validacao de claims, uso unico ou isolamento de sessao poderia nao ser detectada pelas assercoes existentes.",
+      "consequencia": "A robustez criptografica estatica e plausivel, mas varias garantias nao possuem teste evidenciario especifico.",
+      "recomendacao": "Adicionar testes negativos de assinatura/claim, fase, sessao, expiracao e token de outra transacao assinado corretamente; testar uso concorrente da mesma autorizacao e replay apos restart, sem DLL real."
+    },
+    {
+      "id": "MRT48-P2-03",
+      "severidade": "P2",
+      "arquivoFuncao": [
+        "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js:439-508"
+      ],
+      "trechoFluxo": "reconciliarTransacao mapeia CONFIRMED_SUCCESS para SUCCESS e qualquer outro financialState para DENIED, incluindo CANCELLED.",
+      "evidencia": "O manager e protocolo aceitam CANCELLED e o registro persistido fica CANCELADO, mas o estado tecnico do contexto do NativeHost e atribuido como DENIED.",
+      "cenario": "Operador reconcilia como CANCELLED; persistencia e autorizacao dizem CANCELLED/CANCELADO, enquanto o contexto NativeHost reporta DENIED.",
+      "consequencia": "A reconciliacao produz classificacoes divergentes entre camada financeira e estado tecnico, prejudicando consultas/logs/consumidores do contexto.",
+      "recomendacao": "Definir estado tecnico terminal coerente para CANCELLED ou preservar um estado neutro especifico; acrescentar teste cobrindo status persistido, financialState e contexto retornado."
+    }
+  ],
+  "achadosPorSeveridade": {
+    "P0": [],
+    "P1": [
+      "MRT48-P1-01"
+    ],
+    "P2": [
+      "MRT48-P2-01",
+      "MRT48-P2-02",
+      "MRT48-P2-03"
+    ],
+    "P3": []
+  },
+  "limitacoesAuditoria": [
+    "Somente leitura estatica; nao foram executados testes nem processos NativeHost.",
+    "A integracao entre processos e tratada como nao comprovada, mesmo que o codigo de IPC tenha sido rastreado.",
+    "O gate foi verificado no processo desta auditoria e por evidencia anterior, nao por leitura de um processo em execucao da aplicacao.",
+    "Nenhum teste ou simulacao acessou banco oficial, DLL, V$Pague ou PinPad."
+  ],
+  "recomendacaoProximaSprint": {
+    "prioridade": "Resolver MRT48-P1-01 antes de homologacao ou de aceitar TX_START por qualquer camada que nao seja o fluxo validado do TefManager.",
+    "escopoSugerido": [
+      "Persistir/reconstruir bloqueio UNKNOWN no limite NativeHost por bootstrap validado e fail-closed.",
+      "Adicionar teste child_process/IPC com driver mockado, incluindo falha apos RELEASE antes do COMMIT.",
+      "Completar testes de assinatura adulterada, fase, sessao, expiry, concorrencia e replay apos restart.",
+      "Corrigir consistencia do estado tecnico para CANCELLED."
+    ],
+    "naoExecutado": "Nenhuma correcao foi implementada; nao iniciar MRT-49 sem avaliacao do responsavel."
+  },
+  "confirmacoes": {
+    "somenteRelatorioCriadoNestaAuditoria": true,
+    "arquivosDeImplementacaoOuTestesAlterados": false,
+    "testesExecutados": false,
+    "bancoOficialAcessado": false,
+    "identidadesMRT24MRT36MRT42Acessadas": false,
+    "DLLINITTransacaoIPCReal": false,
+    "VSPagueOuPinPadAcessado": false,
+    "gateAlterado": false
+  }
+}

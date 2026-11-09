@@ -1,11 +1,11 @@
 {
   "sprint": "MRT-40",
   "title": "Integração PDV + backend na continuidade Destaxa (99/OPCAO)",
-  "generatedAt": "2026-10-30T23:08:52.305Z",
+  "generatedAt": "2026-11-05T16:17:19.157Z",
   "classificacaoFinal": "CORRIGIDO",
   "fase1Diagnostico": {
-    "dbDir": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-sistemas-test-db",
-    "dbPath": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-sistemas-test-db\\mercadao.db",
+    "dbDir": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f",
+    "dbPath": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f\\mercadao.db",
     "ehTempCdsTestDb": true,
     "ehProgramData": false,
     "distintoProducao": true,
@@ -19,8 +19,8 @@
     ]
   },
   "evidenciaBancoTeste": {
-    "caminho": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-sistemas-test-db\\mercadao.db",
-    "criterio": "DB_DIR=os.tmpdir()/cds-sistemas-test-db + CDS_TEST_ISOLAR_BANCO=1",
+    "caminho": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f\\mercadao.db",
+    "criterio": "DB_DIR exclusivo sob os.tmpdir() + CDS_TEST_ISOLAR_BANCO=1",
     "distintoDe": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
     "comprovado": true
   },
@@ -45,8 +45,8 @@
     "total": 3,
     "amostra": [
       {
-        "transacao_id": 12,
-        "idempotency_key": "mrt40_credito_3cb6072e",
+        "transacao_id": 1,
+        "idempotency_key": "mrt40_credito_cc4243cb",
         "venda_id": null,
         "resposta_continuidade": {
           "informacao": "Credito"
@@ -64,11 +64,12 @@
           "chave": "transacao_tipo_cartao",
           "timeout": "120",
           "reconhecida": true
-        }
+        },
+        "solicitadaEm": "2026-11-05T16:17:21.259Z"
       },
       {
-        "transacao_id": 13,
-        "idempotency_key": "mrt40_debito_3cb6072e",
+        "transacao_id": 2,
+        "idempotency_key": "mrt40_debito_cc4243cb",
         "venda_id": null,
         "resposta_continuidade": {
           "informacao": "Debito"
@@ -86,11 +87,12 @@
           "chave": "transacao_tipo_cartao",
           "timeout": "120",
           "reconhecida": true
-        }
+        },
+        "solicitadaEm": "2026-11-05T16:17:21.537Z"
       },
       {
-        "transacao_id": 14,
-        "idempotency_key": "mrt40_voucher_3cb6072e",
+        "transacao_id": 3,
+        "idempotency_key": "mrt40_voucher_cc4243cb",
         "venda_id": null,
         "resposta_continuidade": {
           "informacao": "Voucher"
@@ -108,7 +110,8 @@
           "chave": "transacao_tipo_cartao",
           "timeout": "120",
           "reconhecida": true
-        }
+        },
+        "solicitadaEm": "2026-11-05T16:17:21.678Z"
       }
     ],
     "rotaEquivalente": "POST /tef/continuar"
@@ -125,29 +128,29 @@
     "docs/build/mrt-40-integracao-pdv-backend-continuidade-report.json"
   ],
   "identidadeTeste": {
-    "idempotency_key": "mrt40_pdv_3cb6072e",
-    "operation_id": "op_mrt40_3cb6072e",
-    "fingerprint": "b42d61a325910017a4ad427473cff2ba"
+    "idempotency_key": "mrt40_pdv_cc4243cb",
+    "operation_id": "op_mrt40_cc4243cb",
+    "fingerprint": "bd1581ae30e4b208427bd4efe037bf62"
   },
   "registrosTesteCriados": [
-    12,
-    13,
-    14,
-    15,
-    16,
-    17,
-    18,
-    19
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
   ],
   "registrosTesteRemovidos": [
-    19,
-    12,
-    13,
-    16,
-    15,
-    18,
-    17,
-    14
+    8,
+    1,
+    2,
+    5,
+    4,
+    7,
+    6,
+    3
   ],
   "resultadosTeste": [
     {
@@ -167,8 +170,8 @@
       "nome": "2) Fluxo PDV→backend opção Credito persistida; bridge CONTINUE; sem TX_START",
       "ok": true,
       "httpPedido": {
-        "transacao_id": 12,
-        "idempotency_key": "mrt40_credito_3cb6072e",
+        "transacao_id": 1,
+        "idempotency_key": "mrt40_credito_cc4243cb",
         "venda_id": null,
         "resposta_continuidade": {
           "informacao": "Credito"
@@ -186,7 +189,8 @@
           "chave": "transacao_tipo_cartao",
           "timeout": "120",
           "reconhecida": true
-        }
+        },
+        "solicitadaEm": "2026-11-05T16:17:21.259Z"
       },
       "continueCount": 1,
       "bridgeContinua": 1,
@@ -196,8 +200,8 @@
       "nome": "2) Fluxo PDV→backend opção Debito persistida; bridge CONTINUE; sem TX_START",
       "ok": true,
       "httpPedido": {
-        "transacao_id": 13,
-        "idempotency_key": "mrt40_debito_3cb6072e",
+        "transacao_id": 2,
+        "idempotency_key": "mrt40_debito_cc4243cb",
         "venda_id": null,
         "resposta_continuidade": {
           "informacao": "Debito"
@@ -215,7 +219,8 @@
           "chave": "transacao_tipo_cartao",
           "timeout": "120",
           "reconhecida": true
-        }
+        },
+        "solicitadaEm": "2026-11-05T16:17:21.537Z"
       },
       "continueCount": 1,
       "bridgeContinua": 2,
@@ -225,8 +230,8 @@
       "nome": "2) Fluxo PDV→backend opção Voucher persistida; bridge CONTINUE; sem TX_START",
       "ok": true,
       "httpPedido": {
-        "transacao_id": 14,
-        "idempotency_key": "mrt40_voucher_3cb6072e",
+        "transacao_id": 3,
+        "idempotency_key": "mrt40_voucher_cc4243cb",
         "venda_id": null,
         "resposta_continuidade": {
           "informacao": "Voucher"
@@ -244,7 +249,8 @@
           "chave": "transacao_tipo_cartao",
           "timeout": "120",
           "reconhecida": true
-        }
+        },
+        "solicitadaEm": "2026-11-05T16:17:21.678Z"
       },
       "continueCount": 1,
       "bridgeContinua": 3,
@@ -262,11 +268,181 @@
     {
       "nome": "5) Duplicata bloqueada no processo e após reinício; bridge não chamada",
       "ok": true,
-      "codigoDup": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+      "codigoDup": "DESTAXA_CONTINUIDADE_IDENTIDADE_DIVERGENTE",
+      "estadoPersistidoAntesReinicio": "AGUARDANDO_RESPOSTA",
+      "respostaPersistidaAntesReinicio": 1,
+      "gravacaoResposta": {
+        "iniciadoEm": "2026-11-05T16:17:21.766Z",
+        "confirmadoEm": "2026-11-05T16:17:21.776Z",
+        "transacaoId": "5",
+        "sucesso": true,
+        "duravel": true,
+        "confirmada": true,
+        "identidadeCompletaPresente": true
+      },
+      "diagnosticoPaiAntesResposta": {
+        "pid": 4328,
+        "capturadoEm": "2026-11-05T16:17:21.753Z",
+        "cwd": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE",
+        "caminhoResolvido": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f\\mercadao.db",
+        "caminhoReal": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f\\mercadao.db",
+        "caminhoDoResolver": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f\\mercadao.db",
+        "caminhoResolverDir": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f",
+        "identidadeArquivo": {
+          "dev": 505650597,
+          "ino": 7881299349181668,
+          "size": 978944,
+          "mtimeMs": 1793895440309.9434,
+          "birthtimeMs": 1793895439133.6074
+        },
+        "databaseList": [
+          {
+            "seq": 0,
+            "name": "main",
+            "file": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f\\mercadao.db"
+          }
+        ],
+        "journalMode": {
+          "journal_mode": "wal"
+        },
+        "busyTimeout": {
+          "timeout": 30000
+        },
+        "synchronous": {
+          "synchronous": 2
+        },
+        "sqliteVersion": {
+          "version": "3.41.1"
+        },
+        "transactionState": [],
+        "transactionStateError": null
+      },
+      "diagnosticoPaiAposResposta": {
+        "pid": 4328,
+        "capturadoEm": "2026-11-05T16:17:21.809Z",
+        "cwd": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE",
+        "caminhoResolvido": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f\\mercadao.db",
+        "caminhoReal": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f\\mercadao.db",
+        "caminhoDoResolver": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f\\mercadao.db",
+        "caminhoResolverDir": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f",
+        "identidadeArquivo": {
+          "dev": 505650597,
+          "ino": 7881299349181668,
+          "size": 1384448,
+          "mtimeMs": 1793895441763.1643,
+          "birthtimeMs": 1793895439133.6074
+        },
+        "databaseList": [
+          {
+            "seq": 0,
+            "name": "main",
+            "file": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f\\mercadao.db"
+          }
+        ],
+        "journalMode": {
+          "journal_mode": "wal"
+        },
+        "busyTimeout": {
+          "timeout": 30000
+        },
+        "synchronous": {
+          "synchronous": 2
+        },
+        "sqliteVersion": {
+          "version": "3.41.1"
+        },
+        "transactionState": [],
+        "transactionStateError": null
+      },
+      "rawProbeExitStatus": 0,
+      "rawProbeJson": {
+        "pid": 40364,
+        "capturadoEm": "2026-11-05T16:17:21.938Z",
+        "caminho": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f\\mercadao.db",
+        "caminhoResolver": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f\\mercadao.db",
+        "identidadeArquivo": {
+          "dev": 505650597,
+          "ino": 7881299349181668,
+          "size": 1384448,
+          "mtimeMs": 1793895441763.1643
+        },
+        "databaseList": [
+          {
+            "seq": 0,
+            "name": "main",
+            "file": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f\\mercadao.db"
+          }
+        ],
+        "journalMode": {
+          "journal_mode": "wal"
+        },
+        "busyTimeout": {
+          "timeout": 1000
+        },
+        "leituraPayload": "decodificado",
+        "estado": "AGUARDANDO_RESPOSTA",
+        "respostas": 1,
+        "solicitadaEm": "2026-11-05T16:17:21.797Z",
+        "timestampsResposta": [
+          "2026-11-05T16:17:21.740Z"
+        ],
+        "respostaVinculadaAoTimestamp": false,
+        "identidadeCompleta": true,
+        "respostasComIdentidadeCompleta": true
+      },
+      "inicioFluxoRespostaEm": "2026-11-05T16:17:21.754Z",
+      "fimFluxoRespostaEm": "2026-11-05T16:17:21.806Z",
+      "inicioFilhoEm": "2026-11-05T16:17:21.963Z",
+      "fimFilhoEm": "2026-11-05T16:17:22.549Z",
+      "processoPaiEncerradoAntesDoFilho": false,
+      "childExitStatus": 3,
       "childJson": {
-        "codigo": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+        "codigo": "DESTAXA_CONTINUIDADE_IDENTIDADE_DIVERGENTE",
         "bridgeContinua": 0,
-        "bridgeInicia": 0
+        "bridgeInicia": 0,
+        "estadoAntes": "AGUARDANDO_RESPOSTA",
+        "diagnosticoAposInicializacao": {
+          "pid": 41528,
+          "capturadoEm": "2026-11-05T16:17:22.535Z",
+          "caminhoResolvido": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f\\mercadao.db",
+          "caminhoReal": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f\\mercadao.db",
+          "caminhoDoResolver": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f\\mercadao.db",
+          "identidadeArquivo": {
+            "dev": 505650597,
+            "ino": 7881299349181668,
+            "size": 1384448,
+            "mtimeMs": 1793895441763.1643,
+            "birthtimeMs": 1793895439133.6074
+          },
+          "databaseList": [
+            {
+              "seq": 0,
+              "name": "main",
+              "file": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f\\mercadao.db"
+            }
+          ],
+          "journalMode": {
+            "journal_mode": "wal"
+          },
+          "busyTimeout": {
+            "timeout": 30000
+          },
+          "synchronous": {
+            "synchronous": 2
+          },
+          "sqliteVersion": {
+            "version": "3.41.1"
+          },
+          "transactionState": [],
+          "transactionStateError": null
+        },
+        "respostaCountAntes": 1,
+        "timestampsResposta": [
+          "2026-11-05T16:17:21.740Z"
+        ],
+        "respostaVinculadaAoTimestamp": false,
+        "respostasComIdentidadeCompleta": true,
+        "solicitadaEm": "2026-11-05T16:17:21.797Z"
       }
     },
     {
@@ -313,14 +489,14 @@
       "nome": "13) Limpeza somente registros MRT-40",
       "ok": true,
       "apagados": [
-        19,
-        12,
-        13,
-        16,
-        15,
-        18,
-        17,
-        14
+        8,
+        1,
+        2,
+        5,
+        4,
+        7,
+        6,
+        3
       ]
     }
   ],

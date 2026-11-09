@@ -105,13 +105,95 @@ function formatarValorDestaxa(valorCentavos) {
 }
 
 /**
- * Entrada CRT (parâmetro `entrada` de iniciaTransacaoDestaxa).
- * Somente `transacao_valor` (campo documentado em docs/06); tipo de cartão e
- * forma de pagamento são solicitados pelo Client via retorno 99.
- * `operacao=CRT` NÃO entra aqui — é parâmetro separado da DLL.
+ * Valores de `transacao_tipo_cartao` alinhados aos examples oficiais Destaxa 1.83
+ * (java/dotnet) e ao token de docs/07 (`Debito|Credito`).
+ * MRT-50.73: literal canônico CDS = `Debito` (ASCII), não `Débito` (docs/06).
+ * `Credito` permanece sem acento.
  */
-function buildCrtInput({ valorCentavos } = {}) {
-  return buildTransactionInput({ transacao_valor: formatarValorDestaxa(valorCentavos) });
+const TIPOS_CARTAO_CRT_DOCUMENTADOS = Object.freeze({
+  DEBITO: 'Debito',
+  CREDITO: 'Credito'
+});
+
+/** Valores documentados em docs/06 para `transacao_pagamento`. */
+const FORMAS_PAGAMENTO_CRT_DOCUMENTADAS = Object.freeze({
+  A_VISTA: 'A vista',
+  PARCELADO: 'Parcelado',
+  PRE_DATADO: 'Pré-datado'
+});
+
+function normalizarTipoPdvParaCrt(tipoPdv) {
+  return String(tipoPdv || '')
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Mapeia a classificação já feita no PDV/CDS para o campo oficial Destaxa.
+ * `cartao`/`tef` genéricos → null (Client pode solicitar via 99).
+ * Não inventa Voucher nem outros rótulos fora da doc 1.83.
+ */
+function mapearTipoCartaoCrt(tipoPdv) {
+  const tipo = normalizarTipoPdvParaCrt(tipoPdv);
+  if (!tipo) return null;
+  if (tipo.includes('debito')) return TIPOS_CARTAO_CRT_DOCUMENTADOS.DEBITO;
+  if (tipo.includes('credito')) return TIPOS_CARTAO_CRT_DOCUMENTADOS.CREDITO;
+  return null;
+}
+
+/**
+ * Forma de pagamento Destaxa a partir da modalidade CDS.
+ * Debito → `A vista`. Crédito com parcelas > 1 → `Parcelado`; senão `A vista`.
+ * `Pré-datado` só entra se o chamador informar explicitamente o valor documentado.
+ */
+function mapearFormaPagamentoCrt(tipoPdv, parcelas) {
+  const tipoCartao = mapearTipoCartaoCrt(tipoPdv);
+  if (tipoCartao === TIPOS_CARTAO_CRT_DOCUMENTADOS.DEBITO) {
+    return FORMAS_PAGAMENTO_CRT_DOCUMENTADAS.A_VISTA;
+  }
+  if (tipoCartao === TIPOS_CARTAO_CRT_DOCUMENTADOS.CREDITO) {
+    const qtd = Number(parcelas);
+    if (Number.isFinite(qtd) && qtd > 1) {
+      return FORMAS_PAGAMENTO_CRT_DOCUMENTADAS.PARCELADO;
+    }
+    return FORMAS_PAGAMENTO_CRT_DOCUMENTADAS.A_VISTA;
+  }
+  return null;
+}
+
+function valorCampoCrtDocumentado(valor, permitidos) {
+  const texto = String(valor || '').trim();
+  return Object.values(permitidos).includes(texto) ? texto : null;
+}
+
+/**
+ * Entrada CRT (parâmetro `entrada` de iniciaTransacaoDestaxa).
+ * Campos documentados em docs/06: `transacao_valor` e, quando a modalidade CDS
+ * já classifica débito/crédito, `transacao_tipo_cartao` + `transacao_pagamento`.
+ * `operacao=CRT` NÃO entra aqui — é parâmetro separado da DLL.
+ * Compatível com retorno 99: campos omitidos podem ser solicitados pelo Client;
+ * campos explícitos preservam a escolha do PDV e não substituem coletas restantes
+ * (senha PinPad, etc.).
+ */
+function buildCrtInput({
+  valorCentavos,
+  tipoPdv = null,
+  parcelas = null,
+  tipoCartao = null,
+  formaPagamento = null
+} = {}) {
+  const campos = {
+    transacao_valor: formatarValorDestaxa(valorCentavos)
+  };
+  const tipo = valorCampoCrtDocumentado(tipoCartao, TIPOS_CARTAO_CRT_DOCUMENTADOS)
+    || mapearTipoCartaoCrt(tipoPdv);
+  const forma = valorCampoCrtDocumentado(formaPagamento, FORMAS_PAGAMENTO_CRT_DOCUMENTADAS)
+    || mapearFormaPagamentoCrt(tipoPdv, parcelas);
+  if (tipo) campos.transacao_tipo_cartao = tipo;
+  if (forma) campos.transacao_pagamento = forma;
+  return buildTransactionInput(campos);
 }
 
 function classificarCodigoTransacao(codigo) {
@@ -286,6 +368,10 @@ module.exports = {
   buildTransactionInput,
   buildContinuaInput,
   buildCrtInput,
+  mapearTipoCartaoCrt,
+  mapearFormaPagamentoCrt,
+  TIPOS_CARTAO_CRT_DOCUMENTADOS,
+  FORMAS_PAGAMENTO_CRT_DOCUMENTADAS,
   formatarValorDestaxa,
   valorReaisParaCentavos,
   classificarCodigoTransacao,

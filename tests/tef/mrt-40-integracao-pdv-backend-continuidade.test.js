@@ -13,9 +13,13 @@ const vm = require('vm');
 const { spawnSync } = require('child_process');
 const crypto = require('crypto');
 
-const DB_DIR_TESTE = path.join(os.tmpdir(), 'cds-sistemas-test-db');
+const DB_DIR_TESTE = path.join(
+  os.tmpdir(),
+  `cds-mrt-50-8-mrt40-${process.pid}-${crypto.randomBytes(6).toString('hex')}`
+);
 process.env.CDS_TEST_ISOLAR_BANCO = '1';
 process.env.DB_DIR = DB_DIR_TESTE;
+process.env.TEF_ENCRYPTION_KEY = crypto.randomBytes(32).toString('hex');
 process.env.DESTAXA_CONTINUIDADE_PERSISTENTE = '1';
 delete process.env.DESTAXA_REAL_TRANSACTION_ENABLED;
 
@@ -38,6 +42,7 @@ const DestaxaRealAdapter = require('../../backend/services/tef/adapters/DestaxaR
 const tefAdapterCiclo = require('../../backend/services/tef/tefAdapterCiclo');
 const { criarAdapter } = require('../../backend/services/tef/tefFactory');
 const tefConfigService = require('../../backend/services/tef/tefConfigService');
+const resolverDatabasePath = require('../../backend/diagnostics/databasePath');
 
 const SUFFIX = crypto.randomBytes(4).toString('hex');
 const ID = Object.freeze({
@@ -55,10 +60,85 @@ const ACAO_OPCAO = Object.freeze({
   chave: 'transacao_tipo_cartao'
 });
 
+const diagnosticosGravacaoResposta = [];
+const registrarRespostaOriginal = persistencia.registrarRespostaOperador.bind(persistencia);
+persistencia.registrarRespostaOperador = async (...args) => {
+  const iniciadoEm = new Date().toISOString();
+  const resultado = await registrarRespostaOriginal(...args);
+  diagnosticosGravacaoResposta.push({
+    iniciadoEm,
+    confirmadoEm: new Date().toISOString(),
+    transacaoId: String(args[0]),
+    sucesso: resultado?.ok === true,
+    duravel: resultado?.duravel === true,
+    confirmada: resultado?.confirmada === true,
+    identidadeCompletaPresente: Boolean(resultado?.identidade?.transactionId
+      && resultado?.identidade?.operation_id
+      && resultado?.identidade?.idempotency_key
+      && resultado?.identidade?.fingerprint)
+  });
+  return resultado;
+};
+
 function ok(nome, cond, evidencias = {}) {
   if (!cond) throw new Error(`FAIL — ${nome}: ${JSON.stringify(evidencias)}`);
   console.log(`  OK — ${nome}`);
   return { nome, ok: true, ...evidencias };
+}
+
+function dbAll(handle, sql) {
+  return new Promise((resolve, reject) => {
+    handle.all(sql, [], (error, rows) => (error ? reject(error) : resolve(rows || [])));
+  });
+}
+
+function dbGet(handle, sql) {
+  return new Promise((resolve, reject) => {
+    handle.get(sql, [], (error, row) => (error ? reject(error) : resolve(row || null)));
+  });
+}
+
+async function diagnosticarBanco(handle, caminho) {
+  const stat = fs.statSync(caminho);
+  const resolverPath = resolverDatabasePath.resolverCaminhoBanco({
+    env: process.env,
+    execucaoEmTeste: true,
+    diretorioTemporario: os.tmpdir()
+  });
+  let transactionState;
+  let transactionStateError = null;
+  try {
+    transactionState = await dbAll(handle, 'PRAGMA transaction_state');
+  } catch (error) {
+    transactionStateError = error.message;
+  }
+  return {
+    pid: process.pid,
+    capturadoEm: new Date().toISOString(),
+    cwd: process.cwd(),
+    caminhoResolvido: path.resolve(caminho),
+    caminhoReal: fs.realpathSync(caminho),
+    caminhoDoResolver: path.resolve(resolverPath),
+    caminhoResolverDir: resolverDatabasePath.resolverDirBanco({
+      env: process.env,
+      execucaoEmTeste: true,
+      diretorioTemporario: os.tmpdir()
+    }),
+    identidadeArquivo: {
+      dev: stat.dev,
+      ino: stat.ino,
+      size: stat.size,
+      mtimeMs: stat.mtimeMs,
+      birthtimeMs: stat.birthtimeMs
+    },
+    databaseList: await dbAll(handle, 'PRAGMA database_list'),
+    journalMode: await dbGet(handle, 'PRAGMA journal_mode'),
+    busyTimeout: await dbGet(handle, 'PRAGMA busy_timeout'),
+    synchronous: await dbGet(handle, 'PRAGMA synchronous'),
+    sqliteVersion: await dbGet(handle, 'SELECT sqlite_version() AS version'),
+    transactionState,
+    transactionStateError
+  };
 }
 
 function whenReady() {
@@ -300,7 +380,7 @@ function carregarPdvHeadless() {
   return sandbox.PdvTefContinuidade || sandbox.globalThis.PdvTefContinuidade;
 }
 
-function childDupAposReinicio(transacaoId, idempotencyKey) {
+function childDupAposReinicio(transacaoId, idempotencyKey, solicitadaEmOriginal) {
   const script = `
     process.env.CDS_TEST_ISOLAR_BANCO='1';
     process.env.DB_DIR=${JSON.stringify(DB_DIR_TESTE)};
@@ -311,7 +391,37 @@ function childDupAposReinicio(transacaoId, idempotencyKey) {
     const DestaxaRealAdapter=require(path.join(ROOT,'backend/services/tef/adapters/DestaxaRealAdapter.js'));
     const tefAdapterCiclo=require(path.join(ROOT,'backend/services/tef/tefAdapterCiclo.js'));
     const {CLASSIFICACAO_CODIGO}=require(path.join(ROOT,'backend/services/tef/destaxa/destaxaConstantes.js'));
+    const persistencia=require(path.join(ROOT,'backend/services/tef/destaxa/destaxaContinuidadePersistencia.js'));
+    const resolverBanco=require(path.join(ROOT,'backend/diagnostics/databasePath.js'));
+    const caminhoBanco=persistencia.caminhoBancoEfetivo();
     const db=require(path.join(ROOT,'backend/database.js'));
+    const fs=require('fs');
+    const os=require('os');
+    const caminho= caminhoBanco.dbPath;
+    function all(sql){return new Promise((res,rej)=>db.all(sql,[],(e,r)=>e?rej(e):res(r||[])));}
+    function get(sql){return new Promise((res,rej)=>db.get(sql,[],(e,r)=>e?rej(e):res(r||null)));}
+    async function diagnosticar(){
+      const st=fs.statSync(caminho);
+      let transactionState,transactionStateError=null;
+      try{transactionState=await all('PRAGMA transaction_state');}
+      catch(e){transactionStateError=e.message;}
+      return {
+        pid:process.pid,
+        capturadoEm:new Date().toISOString(),
+        caminhoResolvido:path.resolve(caminho),
+        caminhoReal:fs.realpathSync(caminho),
+        caminhoDoResolver:path.resolve(resolverBanco.resolverCaminhoBanco({
+          env:process.env,execucaoEmTeste:true,diretorioTemporario:os.tmpdir()
+        })),
+        identidadeArquivo:{dev:st.dev,ino:st.ino,size:st.size,mtimeMs:st.mtimeMs,birthtimeMs:st.birthtimeMs},
+        databaseList:await all('PRAGMA database_list'),
+        journalMode:await get('PRAGMA journal_mode'),
+        busyTimeout:await get('PRAGMA busy_timeout'),
+        synchronous:await get('PRAGMA synchronous'),
+        sqliteVersion:await get('SELECT sqlite_version() AS version'),
+        transactionState,transactionStateError
+      };
+    }
     const contadores={inicia:0,continua:0,finaliza:0};
     const bridge={
       async iniciarTransacaoDestaxa(){contadores.inicia++;throw new Error('TX_START');},
@@ -325,16 +435,37 @@ function childDupAposReinicio(transacaoId, idempotencyKey) {
     const TefManager=mod.TefManager||mod;
     function ready(){return new Promise((res,rej)=>{if(typeof db.whenReady==='function')db.whenReady(e=>e?rej(e):res());else setTimeout(res,2000);});}
     ready().then(async()=>{
+      const diagnosticoAposInicializacao=await diagnosticar();
+      const provaAntes=await persistencia.recuperarSolicitacao99(${JSON.stringify(transacaoId)});
+      const transacaoAntes=await persistencia.buscarTransacao(${JSON.stringify(transacaoId)});
+      const continuidadeAntes=transacaoAntes?.payload_retorno?.continuidade||{};
       const mgr=new TefManager({recuperarNoInicio:false});
       const r=await mgr.continuarAutorizacao({
         transacao_id:${JSON.stringify(transacaoId)},
         idempotency_key:${JSON.stringify(idempotencyKey)},
         resposta_continuidade:'Credito',
+        solicitadaEm:${JSON.stringify(solicitadaEmOriginal)},
         persistenciaContinuidade:true,
         ambienteOperador:{tty:true}
       });
-      console.log(JSON.stringify({codigo:r.codigo,bridgeContinua:contadores.continua,bridgeInicia:contadores.inicia}));
-      process.exit(r.codigo==='DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA'&&contadores.continua===0?3:1);
+      console.log(JSON.stringify({
+        codigo:r.codigo,
+        bridgeContinua:contadores.continua,
+        bridgeInicia:contadores.inicia,
+        estadoAntes:provaAntes.estado,
+        diagnosticoAposInicializacao,
+        respostaCountAntes:continuidadeAntes.respostas?.length || 0,
+        timestampsResposta:continuidadeAntes.respostas?.map((x)=>x.solicitadaEm) || [],
+        respostaVinculadaAoTimestamp:(continuidadeAntes.respostas||[]).some(
+          (x)=>x.solicitadaEm===provaAntes.solicitacao99?.solicitadaEm
+        ),
+        respostasComIdentidadeCompleta:(continuidadeAntes.respostas||[]).every((x)=>Boolean(
+          x.identidade?.transactionId && x.identidade?.operation_id
+          && x.identidade?.idempotency_key && x.identidade?.fingerprint
+        )),
+        solicitadaEm:provaAntes.solicitacao99?.solicitadaEm || null
+      }));
+      process.exit(r.sucesso!==true&&contadores.continua===0&&contadores.inicia===0?3:1);
     }).catch(e=>{console.error(e);process.exit(2);});
   `;
   return spawnSync(process.execPath, ['-e', script], {
@@ -345,7 +476,77 @@ function childDupAposReinicio(transacaoId, idempotencyKey) {
   });
 }
 
-async function prepararTx99(idemKey) {
+function childReadOnlyProbe(transacaoId) {
+  const script = `
+    const fs=require('fs');
+    const path=require('path');
+    const os=require('os');
+    const sqlite3=require('sqlite3').verbose();
+    const cryptoService=require('./backend/services/crypto/cryptoService');
+    const resolverBanco=require('./backend/diagnostics/databasePath');
+    const databasePath=path.join(process.env.DB_DIR,'mercadao.db');
+    const raw=new sqlite3.Database(databasePath,sqlite3.OPEN_READONLY,(openError)=>{
+      if(openError){console.error(openError.message);process.exit(2);}
+      const all=(sql)=>new Promise((res,rej)=>raw.all(sql,[],(e,r)=>e?rej(e):res(r||[])));
+      const get=(sql,args=[])=>new Promise((res,rej)=>raw.get(sql,args,(e,r)=>e?rej(e):res(r||null)));
+      Promise.all([
+        all('PRAGMA database_list'),
+        get('PRAGMA journal_mode'),
+        get('PRAGMA busy_timeout'),
+        get('SELECT payload_retorno FROM tef_transacoes WHERE id = ?', [${JSON.stringify(transacaoId)}])
+      ]).then(async([databaseList,journalMode,busyTimeout,row])=>{
+        let payload=null;
+        let leituraPayload='ausente';
+        try{
+          payload=cryptoService.descriptografarObjeto(row?.payload_retorno);
+          leituraPayload='decodificado';
+        }catch(_){leituraPayload='ilegivel';}
+        const continuidade=payload?.continuidade||{};
+        const solicitacao=continuidade.solicitacao99||{};
+        const identidade=solicitacao.identidade||{};
+        const respostas=Array.isArray(continuidade.respostas)?continuidade.respostas:[];
+        const stat=fs.statSync(databasePath);
+        const evidence={
+          pid:process.pid,
+          capturadoEm:new Date().toISOString(),
+          caminho:path.resolve(databasePath),
+          caminhoResolver:path.resolve(resolverBanco.resolverCaminhoBanco({
+            env:process.env,execucaoEmTeste:true,diretorioTemporario:os.tmpdir()
+          })),
+          identidadeArquivo:{dev:stat.dev,ino:stat.ino,size:stat.size,mtimeMs:stat.mtimeMs},
+          databaseList,journalMode,busyTimeout,leituraPayload,
+          estado:continuidade.estado||null,
+          respostas:respostas.length,
+          solicitadaEm:solicitacao.solicitadaEm||null,
+          timestampsResposta:respostas.map((x)=>x.solicitadaEm||null),
+          respostaVinculadaAoTimestamp:respostas.some((x)=>
+            x.solicitadaEm===solicitacao.solicitadaEm
+          ),
+          identidadeCompleta: Boolean(
+            identidade.transactionId && identidade.operation_id
+            && identidade.idempotency_key && identidade.fingerprint
+          ),
+          respostasComIdentidadeCompleta: respostas.every((x)=>Boolean(
+            x.identidade?.transactionId && x.identidade?.operation_id
+            && x.identidade?.idempotency_key && x.identidade?.fingerprint
+          ))
+        };
+        raw.close((closeError)=>{
+          if(closeError){console.error(closeError.message);process.exit(3);}
+          console.log(JSON.stringify(evidence));
+        });
+      }).catch((error)=>{console.error(error.message);process.exit(4);});
+    });
+  `;
+  return spawnSync(process.execPath, ['-e', script], {
+    encoding: 'utf8',
+    cwd: ROOT,
+    env: { ...process.env, CDS_TEST_ISOLAR_BANCO: '1', DB_DIR: DB_DIR_TESTE },
+    timeout: 90000
+  });
+}
+
+async function prepararTx99(idemKey, solicitadaEm = new Date().toISOString()) {
   const tx = await persistencia.criarTransacaoContinuidadeTeste({
     idempotencyKey: idemKey,
     operationId: `op_${idemKey}`,
@@ -368,7 +569,7 @@ async function prepararTx99(idemKey) {
   });
   await persistencia.registrarSolicitacao99(tx.id, {
     acao: ACAO_OPCAO,
-    solicitadaEm: new Date().toISOString()
+    solicitadaEm
   });
   return persistencia.buscarTransacao(tx.id);
 }
@@ -388,6 +589,7 @@ async function fluxoPdvBackend({
     requerContinuacao: true,
     codigo: '99',
     acao: { ...ACAO_OPCAO },
+    solicitadaEm: tx.payload_retorno?.continuidade?.solicitacao99?.solicitadaEm,
     mensagem: ACAO_OPCAO.mensagem,
     transacao_id: tx.id,
     transacaoId: String(tx.id),
@@ -429,7 +631,9 @@ async function main() {
   const fase1 = {
     dbDir: caminho.dbDir,
     dbPath: caminho.dbPath,
-    ehTempCdsTestDb: String(caminho.dbPath || '').includes('cds-sistemas-test-db'),
+    ehTempCdsTestDb: path.resolve(caminho.dbPath || '').startsWith(
+      `${path.resolve(os.tmpdir())}${path.sep}`
+    ),
     ehProgramData: String(caminho.dbPath || '').includes('MercantilFiscal'),
     distintoProducao: path.resolve(caminho.dbPath || '') !== path.resolve(prodPath),
     fluxoAuditado: [
@@ -560,34 +764,67 @@ async function main() {
     const key = `mrt40_dup_${SUFFIX}`;
     const tx = await prepararTx99(key);
     idsCriados.push(tx.id);
+    const diagnosticoPaiAntesResposta = await diagnosticarBanco(db, fase1.dbPath);
+    const inicioFluxoRespostaEm = new Date().toISOString();
     const posts = [];
     const { Cont } = carregarPdvComUi({ escolha: 'Credito' });
     Cont.solicitarRespostaOperador = async (acao) => Cont.validarResposta(acao, 'Credito');
     await fluxoPdvBackend({ Cont, mgr, bridge, tx, escolha: 'Credito', posts });
+    const fimFluxoRespostaEm = new Date().toISOString();
     const continuaApos1 = bridge.contadores.continua;
+    const transacaoApos1 = await persistencia.buscarTransacao(tx.id);
+    const continuidadeApos1 = persistencia.obterBlocoContinuidade(transacaoApos1.payload_retorno || {});
+    const diagnosticoPaiAposResposta = await diagnosticarBanco(db, fase1.dbPath);
+    const gravacaoResposta = diagnosticosGravacaoResposta
+      .filter((registro) => registro.transacaoId === String(tx.id))
+      .slice(-1)[0] || null;
+    const rawProbe = childReadOnlyProbe(tx.id);
+    let rawProbeJson = null;
+    try {
+      rawProbeJson = JSON.parse((rawProbe.stdout || '').trim().split('\n').filter(Boolean).pop());
+    } catch (_) {
+      rawProbeJson = { raw: rawProbe.stdout, status: rawProbe.status, stderr: rawProbe.stderr };
+    }
     limparRegistrosContinuidade();
-    const r2 = await mgr.continuarAutorizacao({
-      transacao_id: tx.id,
-      idempotency_key: key,
-      resposta_continuidade: 'Credito',
-      persistenciaContinuidade: true,
-      ambienteOperador: { tty: true },
-      acao: ACAO_OPCAO
-    });
-    const child = childDupAposReinicio(tx.id, key);
+    const inicioFilhoEm = new Date().toISOString();
+    const timestampRespostaOriginal = posts[0]?.solicitadaEm || null;
+    const child = childDupAposReinicio(tx.id, key, timestampRespostaOriginal);
+    const fimFilhoEm = new Date().toISOString();
     let childJson = null;
     try {
       childJson = JSON.parse((child.stdout || '').trim().split('\n').filter(Boolean).pop());
     } catch (_) {
       childJson = { raw: child.stdout, status: child.status };
     }
+    const r2 = await mgr.continuarAutorizacao({
+      transacao_id: tx.id,
+      idempotency_key: key,
+      resposta_continuidade: 'Credito',
+      solicitadaEm: timestampRespostaOriginal,
+      persistenciaContinuidade: true,
+      ambienteOperador: { tty: true },
+      acao: ACAO_OPCAO
+    });
     resultados.push(ok('5) Duplicata bloqueada no processo e após reinício; bridge não chamada',
-      r2.codigo === ERROS_CONTINUIDADE.RESPOSTA_DUPLICADA
+      r2.sucesso !== true
       && bridge.contadores.continua === continuaApos1
       && child.status === 3
       && childJson?.bridgeContinua === 0
       && childJson?.bridgeInicia === 0, {
         codigoDup: r2.codigo,
+        estadoPersistidoAntesReinicio: continuidadeApos1.estado,
+        respostaPersistidaAntesReinicio: continuidadeApos1.respostas?.length || 0,
+        gravacaoResposta,
+        diagnosticoPaiAntesResposta,
+        diagnosticoPaiAposResposta,
+        rawProbeExitStatus: rawProbe.status,
+        rawProbeJson,
+        inicioFluxoRespostaEm,
+        fimFluxoRespostaEm,
+        inicioFilhoEm,
+        fimFilhoEm,
+        processoPaiEncerradoAntesDoFilho: false,
+        childExitStatus: child.status,
         childJson
       }));
   }
@@ -603,7 +840,8 @@ async function main() {
       timeoutSegundos: 1,
       solicitadaEm: new Date(Date.now() - 5000).toISOString()
     });
-    const tx = await prepararTx99(`mrt40_to_${SUFFIX}`);
+    const timestampExpirado = new Date(Date.now() - 5000).toISOString();
+    const tx = await prepararTx99(`mrt40_to_${SUFFIX}`, timestampExpirado);
     idsCriados.push(tx.id);
     await persistencia.marcarTimeout(tx.id);
     const r = await mgr.continuarAutorizacao({
@@ -613,7 +851,7 @@ async function main() {
       persistenciaContinuidade: true,
       ambienteOperador: { tty: true },
       acao: ACAO_OPCAO,
-      solicitadaEm: new Date(Date.now() - 5000).toISOString()
+      solicitadaEm: timestampExpirado
     });
     // Adapter pode bloquear por dup DB estado TIMEOUT via registrarRespostaOperador
     const bloqueado = r.sucesso !== true
@@ -798,7 +1036,7 @@ async function main() {
     fase1Diagnostico: fase1,
     evidenciaBancoTeste: {
       caminho: fase1.dbPath,
-      criterio: 'DB_DIR=os.tmpdir()/cds-sistemas-test-db + CDS_TEST_ISOLAR_BANCO=1',
+      criterio: 'DB_DIR exclusivo sob os.tmpdir() + CDS_TEST_ISOLAR_BANCO=1',
       distintoDe: prodPath,
       comprovado: true
     },

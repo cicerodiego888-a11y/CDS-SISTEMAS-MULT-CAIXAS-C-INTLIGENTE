@@ -154,7 +154,10 @@ async function gerarArquivoContabil() {
       const resumoRaw = resp.headers.get('X-Export-Resumo');
       if (resumoRaw) {
         const r = JSON.parse(resumoRaw);
-        resumoTxt = `ZIP gerado — NFC-e: ${r.quantidadeNfce || 0}, NF-e: ${r.quantidadeNfe || 0}, Entradas: ${r.quantidadeEntradas || 0}.`;
+        resumoTxt = `ZIP gerado — NFC-e avaliadas: ${r.quantidadeNfce || 0}, XMLs NFC-e incluídos: ${r.xmlsNfceExportados || 0}, bloqueadas: ${r.quantidadeNfceBloqueadas || 0}; NF-e: ${r.quantidadeNfe || 0}, Entradas: ${r.quantidadeEntradas || 0}.`;
+        if (r.quantidadeNfceBloqueadas) {
+          resumoTxt += ' Consulte os motivos em RELATORIOS/manifesto_exportacao.txt.';
+        }
       }
     } catch (_) { /* ignore */ }
 

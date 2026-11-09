@@ -1,0 +1,13 @@
+﻿00-introducao.md
+01-usando-a-dll-fluxo-simples.md
+02-usando-a-dll-fluxo-multi-transacao.md
+03-usando-a-dll.md
+04-interface-dll-ac.md
+05-api-iniciaclientdestaxa.md
+06-api-iniciatransacaodestaxa.md
+07-api-continuatransacaodestaxa.md
+08-api-finalizatransacaodestaxa.md
+09-tabela-codigos-de-retorno.md
+10-acoes-de-coleta.md
+markdown-body-begin.md
+markdown-body-end.md

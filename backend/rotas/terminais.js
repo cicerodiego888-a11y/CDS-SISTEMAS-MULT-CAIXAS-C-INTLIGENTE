@@ -57,87 +57,89 @@ function registrarTerminalAuto(req, res) {
 
   const { usuario_id: usuarioId, usuario_nome: usuarioNome } = extrairUsuarioHeartbeat(req);
 
+  const responderHeartbeat = (terminal) => {
+    const agora = new Date().toISOString();
+    const atualizar = (usuarioIdSeguro) => {
+      db.run(
+        `UPDATE terminais SET ultima_conexao = ?, usuario_id = ?, usuario_nome = ?, updated_at = ? WHERE id = ?`,
+        [agora, usuarioIdSeguro, usuarioNome, agora, terminal.id],
+        (updateErr) => {
+          if (updateErr) return res.status(500).json({ error: updateErr.message });
+          db.get(`SELECT * FROM terminais WHERE id = ?`, [terminal.id], (getErr, updated) => {
+            if (getErr) return res.status(500).json({ error: getErr.message });
+            if (!updated) return res.status(404).json({ error: 'Terminal não encontrado após heartbeat.' });
+            res.json({ ...updated, online: true });
+          });
+        }
+      );
+    };
+
+    if (!usuarioId) {
+      atualizar(null);
+      return;
+    }
+
+    db.get('SELECT id FROM usuarios WHERE id = ?', [usuarioId], (userErr, userRow) => {
+      if (userErr) {
+        console.error('Erro ao validar usuário do heartbeat:', userErr);
+        return atualizar(null);
+      }
+      atualizar(userRow ? usuarioId : null);
+    });
+  };
+
   db.get(`SELECT * FROM terminais WHERE hostname = ?`, [hostname], (err, terminal) => {
     if (err) return res.status(500).json({ error: err.message });
-
-    const agora = new Date().toISOString();
     if (terminal) {
-      const aplicarHeartbeat = (usuarioIdSeguro) => {
-        db.run(
-          `UPDATE terminais SET ultima_conexao = ?, usuario_id = ?, usuario_nome = ?, updated_at = ? WHERE id = ?`,
-          [agora, usuarioIdSeguro, usuarioNome, agora, terminal.id],
-          (updateErr) => {
-            if (updateErr) {
-              console.error('Erro ao atualizar terminal:', updateErr);
-            }
-            db.get(`SELECT * FROM terminais WHERE id = ?`, [terminal.id], (getErr, updated) => {
-              if (getErr) return res.status(500).json({ error: getErr.message });
-              res.json({ ...updated, online: true });
-            });
-          }
-        );
-      };
-
-      // Evita FK em terminais.usuario_id quando o JWT aponta usuário inexistente
-      if (usuarioId) {
-        db.get('SELECT id FROM usuarios WHERE id = ?', [usuarioId], (userErr, userRow) => {
-          if (userErr) {
-            console.error('Erro ao validar usuário do heartbeat:', userErr);
-            return aplicarHeartbeat(null);
-          }
-          aplicarHeartbeat(userRow ? usuarioId : null);
-        });
-        return;
-      }
-
-      aplicarHeartbeat(null);
+      responderHeartbeat(terminal);
       return;
     }
 
     const nomeTerminal = hostname;
-    // Se só existe um caixa ativo, já vincula (evita PDV novo sem caixa após reabrir no navegador).
-    db.all(
-      `SELECT id FROM caixas WHERE COALESCE(ativo, 1) = 1 ORDER BY id ASC LIMIT 2`,
-      [],
-      (errList, caixasAtivos) => {
-        if (errList) {
-          console.error('Erro ao resolver caixa único para terminal novo:', errList);
-        }
-        const unicoCaixaId = (caixasAtivos && caixasAtivos.length === 1)
-          ? caixasAtivos[0].id
-          : null;
-
-        db.run(
-          `INSERT INTO terminais (nome, hostname, caixa_id, usuario_id, usuario_nome, ativo, ultima_conexao, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)`,
-          [hostname, hostname, unicoCaixaId, usuarioId, usuarioNome, agora, agora, agora],
-          function(insertErr) {
-            if (insertErr) return res.status(500).json({ error: insertErr.message });
-
-            const novoId = this.lastID;
-            db.get(`SELECT * FROM terminais WHERE id = ?`, [novoId], (getErr, novoTerminal) => {
-              if (getErr) return res.status(500).json({ error: getErr.message });
-
-              gravarAuditoria({
-                usuario_id: req.user?.id || null,
-                usuario_nome: req.user?.nome || req.user?.username || null,
-                modulo: 'terminais',
-                acao: 'criar_terminal',
-                referencia_tipo: 'terminal',
-                referencia_id: novoId,
-                detalhes: {
-                  nome: nomeTerminal,
-                  hostname,
-                  origem: 'pdv',
-                  caixa_id_auto: unicoCaixaId
-                },
-                ip_requisicao: req.ip || null
-              }).catch((auditErr) => console.error('Erro ao gravar auditoria de terminal:', auditErr));
-
-              res.json({ ...novoTerminal, online: true });
-            });
+    const agora = new Date().toISOString();
+    db.run(
+      `INSERT INTO terminais (nome, hostname, caixa_id, usuario_id, usuario_nome, ativo, ultima_conexao, created_at, updated_at)
+       VALUES (?, ?, NULL, ?, ?, 1, ?, ?, ?)`,
+      [nomeTerminal, hostname, usuarioId, usuarioNome, agora, agora, agora],
+      function(insertErr) {
+        if (insertErr) {
+          const conflitoHostname = String(insertErr.code || '').startsWith('SQLITE_CONSTRAINT')
+            && /UNIQUE constraint failed:\s*terminais\.hostname/i.test(String(insertErr.message || ''));
+          if (!conflitoHostname) {
+            return res.status(500).json({ error: insertErr.message });
           }
-        );
+          return db.get(`SELECT * FROM terminais WHERE hostname = ?`, [hostname], (getErr, existente) => {
+            if (getErr) return res.status(500).json({ error: getErr.message });
+            if (!existente) return res.status(500).json({ error: insertErr.message });
+            responderHeartbeat(existente);
+          });
+        }
+
+        const novoId = this.lastID;
+        db.get(`SELECT * FROM terminais WHERE id = ?`, [novoId], (getErr, novoTerminal) => {
+          if (getErr) return res.status(500).json({ error: getErr.message });
+          if (!novoTerminal) {
+            return res.status(500).json({ error: 'O terminal foi inserido, mas não pôde ser relido.' });
+          }
+
+          gravarAuditoria({
+            usuario_id: req.user?.id || null,
+            usuario_nome: req.user?.nome || req.user?.username || null,
+            modulo: 'terminais',
+            acao: 'criar_terminal',
+            referencia_tipo: 'terminal',
+            referencia_id: novoId,
+            detalhes: {
+              nome: nomeTerminal,
+              hostname,
+              origem: 'pdv',
+              caixa_id: null
+            },
+            ip_requisicao: req.ip || null
+          }).catch((auditErr) => console.error('Erro ao gravar auditoria de terminal:', auditErr));
+
+          res.json({ ...novoTerminal, online: true });
+        });
       }
     );
   });

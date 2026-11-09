@@ -1,0 +1,24 @@
+{
+    "gateOk":  true,
+    "vsPagueOk":  true,
+    "portsOk":  true,
+    "dllOk":  true,
+    "profileOk":  true,
+    "keyOk":  true,
+    "electronOk":  true,
+    "jsonlOk":  true,
+    "noNativeHost":  true,
+    "dllPath":  "C:\\Program Files\\CDS ERP\\resources\\app.asar.unpacked\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+    "dllSha256":  "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+    "localStateSha256":  "26052081177AE4A83BD43FE0AB2C435330D8A252D03EF7595BD3C66C1AC86040",
+    "keySha256":  "875ECF8ADDF7A0ADDCCA778A7FADC157A275D8F81C66B68805A2DCED95459167",
+    "vsPaguePid":  44484,
+    "evidenceRoot":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\tef\\MRT-50.59-20261107T192652Z",
+    "jsonlPath":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\tef\\MRT-50.59-20261107T192652Z\\observability.jsonl",
+    "timestamp":  "20261107T192652Z",
+    "gate":  {
+                 "machine":  null,
+                 "user":  null,
+                 "process":  "0"
+             }
+}

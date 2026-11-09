@@ -1,0 +1,38 @@
+[
+    {
+        "path":  "C:\\Users\\cicer\\AppData\\Roaming\\cds-sistemas-erp\\Local State",
+        "size":  389,
+        "mtimeUtc":  "2026-11-06T21:58:20.3159786Z",
+        "sha256":  "26052081177AE4A83BD43FE0AB2C435330D8A252D03EF7595BD3C66C1AC86040"
+    },
+    {
+        "path":  "C:\\Users\\cicer\\AppData\\Roaming\\cds-sistemas-erp\\.cds-tef-crypto-context.json",
+        "size":  284,
+        "mtimeUtc":  "2026-11-06T21:58:20.3487666Z",
+        "sha256":  "AE1854015EE634865EFA93FD774DDC4A6E1EC491089BF22CCFDD30A61467388C"
+    },
+    {
+        "path":  "C:\\Users\\cicer\\AppData\\Roaming\\cds-sistemas-erp\\Preferences",
+        "size":  1014,
+        "mtimeUtc":  "2026-11-07T15:05:26.1660228Z",
+        "sha256":  "02B99CEEF19D6B2348C9556F67477CA4B53D17A10438F8F200C292BA10A5D4CA"
+    },
+    {
+        "path":  "C:\\ProgramData\\MercantilFiscal\\dados\\.tef-signing-key.v1",
+        "size":  191,
+        "mtimeUtc":  "2026-11-06T04:45:56.0456672Z",
+        "sha256":  "875ECF8ADDF7A0ADDCCA778A7FADC157A275D8F81C66B68805A2DCED95459167"
+    },
+    {
+        "path":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\tef\\MRT-50.58-20261107T191330Z\\isolated-userdata\\cds-sistemas-erp\\Local State",
+        "size":  389,
+        "mtimeUtc":  "2026-11-06T21:58:20.3159786Z",
+        "sha256":  "26052081177AE4A83BD43FE0AB2C435330D8A252D03EF7595BD3C66C1AC86040"
+    },
+    {
+        "path":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\tef\\MRT-50.58-20261107T191330Z\\sealed\\Local State",
+        "size":  389,
+        "mtimeUtc":  "2026-11-06T21:58:20.3159786Z",
+        "sha256":  "26052081177AE4A83BD43FE0AB2C435330D8A252D03EF7595BD3C66C1AC86040"
+    }
+]

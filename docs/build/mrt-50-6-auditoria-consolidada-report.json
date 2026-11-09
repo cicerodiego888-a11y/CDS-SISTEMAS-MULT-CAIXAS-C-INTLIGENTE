@@ -1,0 +1,231 @@
+{
+  "sprint": "MRT-50.6",
+  "titulo": "Auditoria consolidada de segurança TEF e prontidão para preflight",
+  "classificacaoFinal": "BLOQUEADO — CORREÇÕES NECESSÁRIAS",
+  "decisao": {
+    "aptoParaPreflight": false,
+    "motivo": "O fluxo de continuidade Destaxa pode tentar TX_CONTINUE após falha ao persistir a resposta do operador, e pode aceitar resposta sem avaliar timeout quando solicitadaEm estiver ausente. As proteções integradas de bootstrap e evidência não eliminam essas lacunas.",
+    "menorCorrecaoNecessaria": [
+      "Tornar obrigatória e fail-closed a persistência durável da resposta aceita antes de qualquer TX_CONTINUE.",
+      "Persistir e propagar o timestamp original da solicitação 99; rejeitar a continuidade se o timestamp necessário à avaliação do timeout estiver ausente ou inválido.",
+      "Adicionar testes de falha de persistência, reinicialização, timeout ausente/expirado e contador independente do driver para cada bloqueio."
+    ],
+    "autorizacaoFinanceira": "Esta classificação não autoriza transação real ou simbólica. Qualquer operação continuará dependendo de autorização explícita específica."
+  },
+  "escopo": {
+    "somenteLeituraProducao": true,
+    "arquivosDeProducaoAlterados": false,
+    "configuracoesOuVariaveisAlteradas": false,
+    "bancoOficialAberto": false,
+    "bancoOficialModificado": false,
+    "operacoesFinanceirasExecutadas": false,
+    "dllDestaxaCarregada": false,
+    "vPaguePinPadAdquirentesOuSefazAcessados": false,
+    "mrt24Mrt36Mrt42AlteradasOuOperadas": false
+  },
+  "arquivosInspecionados": [
+    "backend/services/tef/TefManager.js",
+    "backend/services/tef/tefRepository.js",
+    "backend/services/tef/tefReconciliationEvidence.js",
+    "backend/services/crypto/cryptoService.js",
+    "backend/services/tef/destaxa/DestaxaNativeHost.js",
+    "backend/services/tef/destaxa/DestaxaNativeHostClient.js",
+    "backend/services/tef/destaxa/destaxaNativeHostProtocolo.js",
+    "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js",
+    "backend/services/tef/destaxa/destaxaConstantes.js",
+    "backend/services/tef/adapters/DestaxaRealAdapter.js",
+    "backend/services/tef/destaxa/destaxaContinuidadeContrato.js",
+    "tests/tef/mrt-47-reconciliacao-segura.test.js",
+    "docs/build/mrt-47-reconciliacao-segura-report.json",
+    "docs/build/mrt-49-bootstrap-seguro-nativehost-report.json",
+    "docs/build/mrt-50-child-process-ipc-report.json"
+  ],
+  "matrizProtecoes": [
+    {
+      "area": "Persistência e integridade de RELEASE/COMMIT",
+      "classificacao": "CONCLUÍDO",
+      "arquivoFuncao": [
+        "backend/services/tef/TefManager.js: validarParEvidenciasReconciliacao, reconciliarNativeHost",
+        "backend/services/tef/tefRepository.js: listarEvidenciasReconciliacao",
+        "backend/services/tef/tefReconciliationEvidence.js: criarClaimsEvidencia, assinarEvidencia, validarEvidencia"
+      ],
+      "evidencia": "O fluxo verifica autorização RELEASE, atualiza condicionalmente a linha, relê e valida o estado final, grava evidência RELEASE assinada, autoriza COMMIT, grava evidência COMMIT vinculada ao identificador e timestamp do RELEASE, valida o par e só então atualiza o bootstrap. A evidência inclui transactionId/transacao_id, operation_id, idempotency_key, fingerprint, financialState, status, usuário e timestamp canônico; a validação confere assinatura, versão, identidade e vínculo RELEASE/COMMIT.",
+      "referencias": [
+        "backend/services/tef/TefManager.js:1850-2025",
+        "backend/services/tef/tefRepository.js:141-155",
+        "backend/services/tef/tefReconciliationEvidence.js:8-155"
+      ],
+      "limite": "O relatório não presume que SHA-256 sozinho seja autenticação. O hash legado não é usado como substituto da assinatura Ed25519."
+    },
+    {
+      "area": "Descoberta e recuperação de identidades",
+      "classificacao": "CONCLUÍDO",
+      "arquivoFuncao": [
+        "backend/services/tef/TefManager.js: recarregarPendencias, _criarBootstrapSeguranca",
+        "backend/services/tef/tefRepository.js: listarTransacoesPendentes, listarTransacoesFinalizadas, listarIdsTransacoesComTentativaReconciliacao, listarEvidenciasReconciliacao"
+      ],
+      "evidencia": "A recuperação constrói candidatos a partir de marcadores de tentativa, transações finalizadas com payload de reconciliação e identidade legível das evidências RELEASE/COMMIT. Eventos sem identidade legível ou consultas com erro abortam; candidatos sem linha ou com evidência inválida são mantidos como bloqueios de reconciliação incompleta. O bootstrap relê pendências e as inclui em blockedIdentities.",
+      "referencias": [
+        "backend/services/tef/TefManager.js:293-380",
+        "backend/services/tef/TefManager.js:1338-1500",
+        "backend/services/tef/tefRepository.js:99-155"
+      ],
+      "limite": "A recuperação falha fechada no caminho de bootstrap e na autorização normal. O agendamento de inicialização absorve a rejeição, mas não libera por si só o NativeHost: o host inicia exigindo bootstrap e a emissão do bootstrap volta a aguardar/validar a recuperação."
+    },
+    {
+      "area": "Isolamento criptográfico",
+      "classificacao": "CONCLUÍDO",
+      "arquivoFuncao": [
+        "backend/services/tef/destaxa/DestaxaNativeHostClient.js: VARIAVEIS_AMBIENTE_NATIVOHOST, criarAmbienteNativeHost",
+        "backend/services/crypto/cryptoService.js: derivarChaveEd25519"
+      ],
+      "evidencia": "O spawner constrói ambiente do filho por allowlist, não inclui TEF_ENCRYPTION_KEY e transmite a chave pública de reconciliação. cryptoService rejeita derivação privada quando DESTAXA_NATIVE_HOST_ENTRY=1. A criação e validação da assinatura privada permanecem no processo principal.",
+      "referencias": [
+        "backend/services/tef/destaxa/DestaxaNativeHostClient.js:68-108",
+        "backend/services/crypto/cryptoService.js:122-142"
+      ],
+      "limite": "A conclusão deriva do allowlist efetivo e dos testes simulados; não foi carregado o processo NativeHost ligado a DLL nem acessado ambiente financeiro."
+    },
+    {
+      "area": "Bootstrap assinado e IPC",
+      "classificacao": "TESTADO",
+      "arquivoFuncao": [
+        "backend/services/tef/destaxa/DestaxaNativeHost.js: validação e despacho de operações",
+        "backend/services/tef/destaxa/destaxaNativeHostProtocolo.js: validarBootstrapSeguranca",
+        "backend/services/tef/destaxa/DestaxaNativeHostClient.js: sincronização do bootstrap"
+      ],
+      "evidencia": "O Host inicia em SECURITY_BOOTSTRAP_REQUIRED, valida assinatura/sessão/revisão/expiração/replay e exige permissão vinculada a operação e transactionId. TX_START com outras identidades bloqueadas é recusado; TX_CONTINUE/TX_FINALIZE para identidade bloqueada também são recusados. Relatórios de MRT-49 e MRT-50 IPC registram testes negativos, reinicialização e falhas IPC.",
+      "referencias": [
+        "backend/services/tef/destaxa/DestaxaNativeHost.js:105-110,338-379,518-540",
+        "backend/services/tef/destaxa/destaxaNativeHostProtocolo.js:220-280",
+        "docs/build/mrt-49-bootstrap-seguro-nativehost-report.json:65-110",
+        "docs/build/mrt-50-child-process-ipc-report.json:65-86"
+      ],
+      "limite": "A validação integrou IPC simulado e child_process nos harnesses; não houve teste de processo conectado a DLL ou serviço financeiro."
+    },
+    {
+      "area": "Reconciliação, UNKNOWN/PENDING e liberação",
+      "classificacao": "TESTADO",
+      "arquivoFuncao": [
+        "backend/services/tef/TefManager.js: reconciliarNativeHost",
+        "backend/services/tef/destaxa/DestaxaNativeHost.js: guards de identidade financeira"
+      ],
+      "evidencia": "RELEASE sozinho não remove a pendência local. A exclusão de _pendencias e _liberacoesBootstrapPendentes só ocorre após COMMIT durável, bootstrap pós-persistência confirmado e resposta de sucesso. Falhas anteriores lançam erro e deixam a identidade bloqueada. MRT-47/MRT-49/50 testam evidências inválidas, autorização ausente, recuperação e falha de bootstrap.",
+      "referencias": [
+        "backend/services/tef/TefManager.js:1850-2025",
+        "backend/services/tef/destaxa/DestaxaNativeHost.js:364-379",
+        "docs/build/mrt-47-reconciliacao-segura-report.json:220-235"
+      ],
+      "limite": "No teste MRT-47 cenário 16, inicia=1 corresponde à TX_START que cria o estado UNKNOWN no próprio cenário; as tentativas posteriores de CONTINUE/FINALIZE/TX_START são recusadas. Portanto esse contador não deve ser interpretado como prova de zero chamadas para a TX_START inicial sob uma pendência preexistente."
+    },
+    {
+      "area": "Continuidade Destaxa retorno 99",
+      "classificacao": "BLOQUEADO",
+      "arquivoFuncao": [
+        "backend/services/tef/adapters/DestaxaRealAdapter.js: continuarPagamento",
+        "backend/services/tef/destaxa/destaxaContinuidadeContrato.js: avaliarTimeoutColeta, validarContinuidadeCompleta",
+        "backend/services/tef/TefManager.js: _marcarContinuidadeCrt, continuarTransacao"
+      ],
+      "evidencia": "A persistência da resposta do operador é opcional (flag da requisição ou DESTAXA_CONTINUIDADE_PERSISTENTE=1). Mesmo habilitada, exceção em registrarRespostaOperador é capturada e ignorada, após o que continuarPagamento ainda chama continuarCicloCrt (TX_CONTINUE). O avaliador de timeout retorna ok:true/avaliado:false quando solicitadaEm não existe; o TefManager mantém desde apenas em memória, não demonstra persistir/propagar esse campo ao payload da solicitação 99, e ao continuar lê solicitadaEm apenas de entradas/opções possivelmente ausentes.",
+      "referencias": [
+        "backend/services/tef/adapters/DestaxaRealAdapter.js:673-774",
+        "backend/services/tef/destaxa/destaxaContinuidadeContrato.js:211-245,376-389",
+        "backend/services/tef/TefManager.js:416-426,2175-2210,2288-2310"
+      ],
+      "risco": "Replay ou continuidade após reinicialização/falha pode não ser impedido por registro durável; resposta pode prosseguir sem aplicação do timeout declarado. Não ficou comprovado que a continuação só ocorra com solicitação 99 durável, vigente e vinculada a operador/sessão.",
+      "menorCorrecao": "Persistência obrigatória antes de TX_CONTINUE, sem catch que transforme falha em continuidade; armazenar timestamp original junto da solicitação 99 e negar execução se ausente, inválido ou expirado."
+    },
+    {
+      "area": "Gate e proteção contra operação real",
+      "classificacao": "TESTADO",
+      "arquivoFuncao": [
+        "backend/services/tef/destaxa/destaxaConstantes.js: transacaoRealHabilitada",
+        "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js: guards de TX_START/TX_CONTINUE/TX_FINALIZE",
+        "backend/services/tef/adapters/DestaxaRealAdapter.js: autorizarPagamento"
+      ],
+      "evidencia": "O gate só retorna habilitado quando DESTAXA_REAL_TRANSACTION_ENABLED é exatamente '1'; o spawner normaliza o valor do NativeHost para '0' salvo habilitação explícita. O adapter de produção valida persistência antes do ciclo. Os testes MRT-47 e MRT-50.3 registraram gate OFF, DLL não carregada e zero operações financeiras reais.",
+      "referencias": [
+        "backend/services/tef/destaxa/destaxaConstantes.js:63-71",
+        "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js:213-243,362-402",
+        "backend/services/tef/adapters/DestaxaRealAdapter.js:473-550",
+        "docs/build/mrt-47-reconciliacao-segura-report.json:208-235"
+      ],
+      "limite": "Gate OFF nos testes não corrige as lacunas de continuidade nem constitui autorização para qualquer transação."
+    }
+  ],
+  "testesERegressoes": [
+    {
+      "suite": "MRT-47 adaptado",
+      "comando": "node tests\\tef\\mrt-47-reconciliacao-segura.test.js",
+      "resultado": "PASSOU",
+      "cenarios": "16/16",
+      "evidencia": "SQLite temporário, bootstrap assinado e IPC simulado. Contadores independentes incluem zero para acesso direto sem bootstrap, reconciliação sem autorização e identidade pendente após reinício. No cenário UNKNOWN, inicia=1 é a chamada inicial usada para produzir UNKNOWN; continua=0 e finaliza=0, e tentativas posteriores são recusadas.",
+      "fonte": "docs/build/mrt-47-reconciliacao-segura-report.json:208-235"
+    },
+    {
+      "suite": "Baseline histórico MRT-47",
+      "resultado": "DIVERGÊNCIA NÃO RESOLVIDA",
+      "evidencia": "JSON anterior declarava 16/16; auditoria anterior referia 9 falhas/7 aprovações sem log bruto; baseline reproduzido antes da adaptação registrou 10 falhas/6 aprovações. Não atribuir a divergência exclusivamente ao harness sem evidência."
+    },
+    {
+      "suite": "MRT-49",
+      "comando": "node tests\\tef\\mrt-49-bootstrap-seguro-nativehost.test.js",
+      "resultado": "PASSOU",
+      "cenarios": "20/20",
+      "fonte": "docs/build/mrt-49-bootstrap-seguro-nativehost-report.json:65-110"
+    },
+    {
+      "suite": "MRT-50 IPC",
+      "comando": "node tests\\tef\\mrt-50-child-process-ipc.test.js",
+      "resultado": "PASSOU",
+      "cenarios": "31/31; failures vazio",
+      "fonte": "docs/build/mrt-50-child-process-ipc-report.json:65-86,2624"
+    },
+    {
+      "suite": "MRT-50.2",
+      "comando": "node tests\\tef\\mrt-50-2-integridade-evidencia-reconciliacao.test.js",
+      "resultado": "PASSOU",
+      "cenarios": "As verificações reportadas pela execução passaram; contagem não consolidada no artefato MRT-47.",
+      "limite": "Não comprova o caminho de continuidade 99 nem a falha best-effort de persistência indicada nesta auditoria."
+    },
+    {
+      "suite": "MRT-50.3",
+      "comando": "node tests\\tef\\mrt-50-3-isolamento-recuperacao.test.js",
+      "resultado": "PASSOU",
+      "cenarios": "12/12",
+      "evidencia": "Gate OFF, DLL não carregada e zero chamadas financeiras reais, conforme resultado registrado."
+    }
+  ],
+  "estadoFinalPorCategoria": {
+    "CONCLUIDO": [
+      "Auditoria estática de evidências assinadas e da ordem RELEASE/COMMIT/bootstrap.",
+      "Relatórios MRT-50.6 JSON e Markdown criados."
+    ],
+    "TESTADO": [
+      "MRT-47 adaptado 16/16.",
+      "MRT-49 20/20.",
+      "MRT-50 IPC 31/31.",
+      "MRT-50.2 passou conforme resultado registrado.",
+      "MRT-50.3 12/12."
+    ],
+    "BLOQUEADO": [
+      "Prontidão para preflight: persistência de resposta 99 opcional e falha de persistência absorvida antes de TX_CONTINUE.",
+      "Timeout 99 não é aplicado quando solicitadaEm está ausente/ inválido.",
+      "A evidência dos testes não demonstra zero chamadas de TX_START inicial no cenário que cria UNKNOWN; contagem reportada foi inicia=1."
+    ],
+    "NAO_TESTADO": [
+      "Execução de DLL Destaxa, Host financeiro, V$Pague, PinPad, adquirente ou SEFAZ.",
+      "Compatibilidade ou inspeção do banco oficial.",
+      "Teste integrado específico de persistência 99 falhando, recuperação após reboot dessa resposta e timeout com timestamp ausente/expirado no ciclo de produção.",
+      "Operação financeira simbólica ou real."
+    ]
+  },
+  "confirmacoes": {
+    "gateFinanceiro": "OFF nos testes executados; não foi alterada configuração do ambiente.",
+    "dllCarregada": false,
+    "chamadasFinanceirasReais": 0,
+    "bancoOficialAcessado": false,
+    "arquivosProducaoAlterados": false,
+    "MRT24MRT36MRT42Tocadas": false
+  }
+}

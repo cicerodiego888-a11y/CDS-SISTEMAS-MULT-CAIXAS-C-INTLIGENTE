@@ -61,15 +61,17 @@ const CHAVE_CONSOLIDADA = '23260968645756000121650010000000511873269476';
 const CHAVE_CONVENCIONAL = '23260968645756000121650010000000521873269477';
 const CHAVE_CANCELADA = '23260968645756000121650010000000531873269478';
 const CHAVE_REJEITADA = '23260968645756000121650010000000541873269479';
+const DIGEST_FIXTURE = 'RPeZioxYXIKEETEmulTDX8EzfzY=';
 
 const XML_AUTORIZADO_NFPROC = `<?xml version="1.0" encoding="UTF-8"?>
 <nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
-<NFe><infNFe Id="NFe23260968645756000121650010000000511873269476"><ide><cUF>23</cUF></ide></infNFe></NFe>
-<protNFe><infProt><cStat>100</cStat><xMotivo>Autorizado o uso da NF-e</xMotivo><nProt>123260816956854</nProt></infProt></protNFe>
+<NFe><infNFe Id="NFe23260968645756000121650010000000511873269476" versao="4.00"><ide><cUF>23</cUF></ide></infNFe></NFe>
+<protNFe versao="4.00"><infProt><chNFe>23260968645756000121650010000000511873269476</chNFe><cStat>100</cStat><xMotivo>Autorizado o uso da NF-e</xMotivo><nProt>123260816956854</nProt><digVal>${DIGEST_FIXTURE}</digVal></infProt></protNFe>
 </nfeProc>`;
 
 const XML_ENVIADO = `<?xml version="1.0" encoding="UTF-8"?>
-<NFe><infNFe Id="NFe23260968645756000121650010000000511873269476"><ide><cUF>23</cUF></ide></infNFe></NFe>`;
+<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe23260968645756000121650010000000511873269476" versao="4.00"><ide><cUF>23</cUF></ide></infNFe>
+<Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo><Reference><DigestValue>${DIGEST_FIXTURE}</DigestValue></Reference></SignedInfo><SignatureValue>fixture</SignatureValue></Signature></NFe>`;
 
 async function schemaBase(db) {
   await run(db, `CREATE TABLE vendas (
@@ -191,6 +193,9 @@ describe('RC3.19 — Cenário 1: NFC-e consolidada (venda_id NULL)', () => {
 
   it('XML autorizado é extraído corretamente (nfeProc do retorno)', () => {
     const xml = extrairXmlNfceAutorizado({
+      status: 'autorizada',
+      chave_acesso: CHAVE_CONSOLIDADA,
+      protocolo: '123260816956854',
       xml_enviado: XML_ENVIADO,
       xml_retorno: XML_AUTORIZADO_NFPROC
     });
@@ -300,8 +305,13 @@ describe('RC3.19 — Cenário 5: XML ausente gera pendência', () => {
   after(async () => { await close(db); });
 
   it('extrairXmlNfceAutorizado retorna null quando não há XML', () => {
-    const xml = extrairXmlNfceAutorizado({ xml_enviado: null, xml_retorno: null });
-    assert.equal(xml, null);
+    assert.throws(() => extrairXmlNfceAutorizado({
+      status: 'autorizada',
+      chave_acesso: CHAVE_CONSOLIDADA,
+      protocolo: '123260816956854',
+      xml_enviado: XML_ENVIADO,
+      xml_retorno: null
+    }), { code: 'XML_AUTORIZADO_NAO_DISPONIVEL' });
   });
 
   it('nota sem XML é retornada pela consulta (mas sem XML para exportar)', async () => {

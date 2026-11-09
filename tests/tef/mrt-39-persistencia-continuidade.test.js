@@ -220,7 +220,8 @@ async function main() {
     respostaBruta: 'Credito',
     transactionId: tx.id,
     idempotencyKeyInformada: ID.idempotency_key,
-    idempotencyKeyPersistida: ID.idempotency_key
+    idempotencyKeyPersistida: ID.idempotency_key,
+    solicitadaEm: recuperada.solicitacao99.solicitadaEm
   });
   const resp = await persistencia.registrarRespostaOperador(tx.id, {
     resposta: validacao.resposta
@@ -315,16 +316,19 @@ async function main() {
   });
   assert.strictEqual(rStart.codigo, CICLO_ERROS.CONTINUIDADE_SEM_RESPOSTA);
   const inicia = bridge.contadores.inicia;
-  await continuarCicloCrt({
+  const bloqueioContinuidadeSemReserva = await continuarCicloCrt({
     bridge,
     transactionId: String(tx.id),
     respostaOperador: { informacao: 'Debito' },
     acaoAtual: ACAO_OPCAO
   });
-  resultados.push(ok('9) continuidade mock sem novo TX_START',
+  resultados.push(ok('9) continuidade sem confirmação de reserva bloqueia o despacho',
     bridge.contadores.inicia === inicia
-    && bridge.contadores.continua >= 1
-    && rStart.ciclo.txStartExecutado === true));
+    && bridge.contadores.continua === 0
+    && rStart.ciclo.txStartExecutado === true
+    && bloqueioContinuidadeSemReserva.financialState === 'UNKNOWN'
+    && bloqueioContinuidadeSemReserva.retryAllowed === false
+    && bloqueioContinuidadeSemReserva.reconciliacaoObrigatoria === true));
 
   // 10) Identidades MRT-24/36 não usadas + gate OFF
   const m24 = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/build/mrt-24-primeira-crt-homologacao-report.json'), 'utf8'));

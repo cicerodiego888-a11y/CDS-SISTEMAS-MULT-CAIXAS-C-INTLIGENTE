@@ -1,0 +1,55 @@
+﻿2026-11-09 10:22:51,802 ERROR lib.VBIMain [main] V$PagueClient (60603) - Application already running: Address already in use: bind
+
+2026-11-09 10:33:38,813 ERROR lib.VBIMain [main] V$PagueClient (60603) - Application already running: Address already in use: bind
+
+2026-11-09 10:33:45,531 ERROR lib.VBIMain [main] V$PagueClient (60603) - Application already running: Address already in use: bind
+
+2026-11-09 10:33:59,741 ERROR lib.VBIMain [main] V$PagueClient (60603) - Application already running: Address already in use: bind
+
+2026-11-09 10:34:02,376 ERROR lib.VBIMain [main] V$PagueClient (60603) - Application already running: Address already in use: bind
+
+2026-11-09 10:34:03,464 ERROR lib.VBIMain [main] V$PagueClient (60603) - Application already running: Address already in use: bind
+
+2026-11-09 10:35:19,765 ERROR lib.VBIMain [main] V$PagueClient (60603) - Application already running: Address already in use: bind
+
+2026-11-09 10:35:20,783 ERROR lib.VBIMain [main] V$PagueClient (60603) - Application already running: Address already in use: bind
+
+2026-11-09 10:37:10,813 ERROR lib.VBIMain [main] V$PagueClient (60603) - Application already running: Address already in use: bind
+
+2026-11-09 10:38:29,716 INFO vespague.client.graphic.VeSPagueClient [main] 
+/\/\/\/\/\/\/\/\ V$PagueClient started at Mon Nov 09 10:38:29 GMT-03:00 2026 /\/\/\/\/\/\/\/\
+              JAVA_VERSION: 25
+       JAVA_VERSION_DETAIL: 25.0.1+8-LTS
+       JAVA_MEMORY_MAXIMUM: 512MB(Xmx)
+                   OS_NAME: Windows 10
+           OS_ARCHITECTURE: amd64
+                 HOST_NAME: desktop-4b8amm3
+          HOST_MAC_ADDRESS: 00:15:5D:F9:A6:40 | 00:15:5D:4C:10:BA | C0:A8:10:DB:EE:A2 | F2:FF:62:39:B0:F2 | C0:A8:10:DB:EE:9E | C0:A8:10:DB:EE:9F | C2:A8:10:DB:EE:9E
+       HostMacAddressGet(): 00:15:5D:F9:A6:40
+           MacAdressFilter: 00:15:5D:F9:A6:40 | 00:15:5D:4C:10:BA | C0:A8:10:DB:EE:9E
+           HOST_IP_ADDRESS: 172.27.224.1 | 172.23.208.1 | 127.0.0.1 | 10.213.212.223
+        HostIpAddressGet(): 172.27.224.1
+               APPLICATION: V$PagueClient[5.0.0]
+          APPLICATION_NAME: V$PagueClient
+         APPLICATION_TITLE: Destaxa
+       APPLICATION_VERSION: 5.0.0
+          APPLICATION_PATH: jar:file:/C:/VBI/V$Pague/Client/V$PagueClient.jar!/BOOT-INF/classes!/
+    APPLICATION_PATH_CLASS: jar:file:/C:/VBI/V$Pague/Client/V$PagueClient.jar!/BOOT-INF/classes!/(vespague.client.graphic.VSPagueClientWindows)
+       APPLICATION_JARFILE: null
+OPTIONAL_PACKAGE_DIRECTORY: null
+                   Graphic: true
+2026-11-09 10:38:29,718 INFO vespague.client.graphic.VeSPagueClient [main] Inicializando Versao 5.0.0-1-e094d4f-1084-release
+2026-11-09 10:38:29,720 INFO vespague.client.graphic.VeSPagueClient [main] V$PagueClient[5.0.0] iniciado
+2026-11-09 10:38:30,506 INFO lib.comm.VeSCommSocket [main] Trying with certificate not self signed: false
+2026-11-09 10:38:30,886 INFO lib.comm.VeSComm [main] VBIComm(app-partner.destaxa.cloud:60410(0)<>2/2026-11-09 10:38:30.624/Socket:SSLSocket[hostname=app-partner.destaxa.cloud, port=60410, Session(1794231510761|TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)]SSL/TLS) - Connected successfull
+2026-11-09 10:38:30,886 INFO lib.comm.VeSCommSocket [main] Tryied with certificate not self signed: true
+2026-11-09 10:38:30,886 INFO lib.comm.VeSComm [main] VBIComm(app-partner.destaxa.cloud:60410(0)) - Connection procedure started
+2026-11-09 10:38:30,888 INFO vespague.client.interaction.VeSPagueClientToServer [main] enviando servico [V&SCommService/V&SPagueServer/Identificar]
+2026-11-09 10:38:31,012 INFO vespague.client.interaction.VeSPagueClientToServer$1 [ThreadReceive-vspg-id-19792147] servico recebido [V&SCommService/V&SPagueServer/Identificar]
+2026-11-09 10:38:31,013 INFO vespague.client.interaction.VeSPagueClientTransactionManager [main] Desconectado do V$PagueServer 2
+2026-11-09 10:38:31,013 ERROR vespague.client.interaction.VeSPagueClientTransactionManager [main] vspg-id-19792147: [00151] Terminal não cadastrado ou desabilitado
+2026-11-09 10:38:41,072 INFO vespague.client.interaction.VeSPagueClientToServer [main] vspg-id-19792147 iniciando Destaxa-LojaACB-TACB0120
+2026-11-09 10:38:41,167 INFO lib.comm.VeSComm [main] VBIComm(>listen<:60906(0)) - Connection procedure started
+2026-11-09 10:38:41,167 INFO vespague.client.interaction.VeSPagueClientToServer [main] aplicacao configurada com modo de processamento "Background"
+2026-11-09 10:43:07,368 ERROR lib.VBIMain [main] V$PagueClient (60603) - Application already running: Address already in use: bind
+

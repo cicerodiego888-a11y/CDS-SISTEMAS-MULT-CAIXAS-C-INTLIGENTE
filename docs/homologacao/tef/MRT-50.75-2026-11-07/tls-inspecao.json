@@ -1,0 +1,23 @@
+{
+    "notBeforeUtc":  "2026-05-14T02:25:51.0000000Z",
+    "issuer":  "CN=Go Daddy Secure Certificate Authority - G2, OU=http://certs.godaddy.com/repository/, O=\"GoDaddy.com, Inc.\", L=Scottsdale, S=Arizona, C=US",
+    "thumbprint":  "CAC025F8A5F7A5B66C82E49D349BC00973B85C77",
+    "subject":  "CN=*.destaxa.cloud",
+    "chainBuildOffline":  false,
+    "chainStatus":  [
+                        {
+                            "status":  "RevocationStatusUnknown",
+                            "info":  "A função de revogação não pôde verificar a revogação do certificado."
+                        },
+                        {
+                            "status":  "OfflineRevocation",
+                            "info":  "A função de revogação não pôde verificar a revogação, pois o servidor de revogação estava offline."
+                        }
+                    ],
+    "cipher":  "Aes256",
+    "ok":  true,
+    "notAfterUtc":  "2026-11-28T02:25:51.0000000Z",
+    "authenticated":  true,
+    "sslPolicyErrorsObserved":  "None",
+    "protocol":  "Tls12"
+}

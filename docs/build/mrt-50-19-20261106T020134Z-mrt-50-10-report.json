@@ -1,0 +1,321 @@
+{
+  "sprint": "MRT-50.10",
+  "classification": "BLOQUEADA",
+  "generatedAt": "2026-11-06T02:01:37.746Z",
+  "changedFiles": [
+    "backend/services/tef/destaxa/destaxaContinuidadePersistencia.js",
+    "backend/services/tef/tefRepository.js",
+    "tests/tef/mrt-50-9-validacao-complementar.test.js",
+    "tests/tef/mrt-50-10-reserva-atomica.test.js",
+    "docs/build/mrt-50-19-20261106T020134Z-mrt-50-10-report.json",
+    "docs/build/MRT-50.19-20261106T020134Z-MRT-50.10-VALIDACAO.md"
+  ],
+  "outputPaths": {
+    "json": "docs/build/mrt-50-19-20261106T020134Z-mrt-50-10-report.json",
+    "markdown": "docs/build/MRT-50.19-20261106T020134Z-MRT-50.10-VALIDACAO.md"
+  },
+  "productionFilesChanged": [
+    "backend/services/tef/destaxa/destaxaContinuidadePersistencia.js",
+    "backend/services/tef/tefRepository.js"
+  ],
+  "database": {
+    "path": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-10-50708-0dcf418dcc53\\mercadao.db",
+    "identity": {
+      "dev": 505650597,
+      "ino": 4503599628435587
+    },
+    "journalMode": "wal"
+  },
+  "security": {
+    "gateFinanceiro": "OFF",
+    "gateFinanceiroProcessoPai": "OFF",
+    "dllLoads": 0,
+    "driverCounters": {
+      "TX_START": 0,
+      "TX_CONTINUE": 0,
+      "TX_FINALIZE": 0
+    },
+    "officialDatabaseAccessed": false,
+    "realDllAccessed": false,
+    "vspagueAccessed": false,
+    "pinpadAccessed": false,
+    "acquirersAccessed": false,
+    "sefazAccessed": false,
+    "realFinancialOperationsExecuted": false,
+    "protectedIdentitiesTouched": false
+  },
+  "strategy": {
+    "transaction": "BEGIN IMMEDIATE",
+    "connection": "Dedicated SQLite read/write connection per reservation; all decision reads, update, and COMMIT use that connection.",
+    "postCommit": "Existing independent read-only confirmation remains mandatory.",
+    "retries": "No automatic retry. SQLITE_BUSY/SQLITE_LOCKED return a fail-closed technical result."
+  },
+  "faults": [
+    {
+      "name": "A — Falha antes da gravação",
+      "mode": "before-write",
+      "status": "PASSOU",
+      "pid": 51776,
+      "gate": "OFF",
+      "databasePath": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-10-50708-0dcf418dcc53\\mercadao.db",
+      "databaseIdentity": {
+        "dev": 505650597,
+        "ino": 4503599628435587
+      },
+      "injectedResult": {
+        "ok": false,
+        "codigo": "TEF_CONTINUIDADE_PERSISTENCIA_FALHOU",
+        "mensagem": "Reserva não confirmada; a transação foi revertida quando possível",
+        "causaCodigo": "MRT5010_BEFORE_WRITE",
+        "retryAllowed": false,
+        "financialStateHint": "UNKNOWN",
+        "reconciliacaoObrigatoria": true
+      },
+      "stateBefore": "PRONTA",
+      "stateAfter": "PRONTA",
+      "expectedState": "PRONTA",
+      "rollbackOrCommitEvidence": [
+        {
+          "statement": "BEGIN IMMEDIATE",
+          "at": "2026-11-06T02:01:38.883Z",
+          "pid": 51776
+        },
+        {
+          "statement": "UPDATE_INJECTED_BEFORE_WRITE",
+          "at": "2026-11-06T02:01:38.891Z"
+        },
+        {
+          "statement": "ROLLBACK",
+          "at": "2026-11-06T02:01:38.891Z",
+          "pid": 51776
+        }
+      ],
+      "noSuccessWithoutCommit": true,
+      "noDriver": true,
+      "dllLoads": 0
+    },
+    {
+      "name": "B — Falha durante a gravação",
+      "mode": "during-write",
+      "status": "PASSOU",
+      "pid": 37380,
+      "gate": "OFF",
+      "databasePath": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-10-50708-0dcf418dcc53\\mercadao.db",
+      "databaseIdentity": {
+        "dev": 505650597,
+        "ino": 4503599628435587
+      },
+      "injectedResult": {
+        "ok": false,
+        "codigo": "TEF_CONTINUIDADE_PERSISTENCIA_FALHOU",
+        "mensagem": "Reserva não confirmada; a transação foi revertida quando possível",
+        "causaCodigo": "MRT5010_DURING_WRITE",
+        "retryAllowed": false,
+        "financialStateHint": "UNKNOWN",
+        "reconciliacaoObrigatoria": true
+      },
+      "stateBefore": "PRONTA",
+      "stateAfter": "PRONTA",
+      "expectedState": "PRONTA",
+      "rollbackOrCommitEvidence": [
+        {
+          "statement": "BEGIN IMMEDIATE",
+          "at": "2026-11-06T02:01:39.781Z",
+          "pid": 37380
+        },
+        {
+          "statement": "UPDATE_EXECUTED_ERROR_INJECTED",
+          "at": "2026-11-06T02:01:39.798Z",
+          "changes": 1
+        },
+        {
+          "statement": "ROLLBACK",
+          "at": "2026-11-06T02:01:39.798Z",
+          "pid": 37380
+        }
+      ],
+      "noSuccessWithoutCommit": true,
+      "noDriver": true,
+      "dllLoads": 0
+    },
+    {
+      "name": "C — Falha no COMMIT",
+      "mode": "commit",
+      "status": "PASSOU",
+      "pid": 48440,
+      "gate": "OFF",
+      "databasePath": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-10-50708-0dcf418dcc53\\mercadao.db",
+      "databaseIdentity": {
+        "dev": 505650597,
+        "ino": 4503599628435587
+      },
+      "injectedResult": {
+        "ok": false,
+        "codigo": "TEF_CONTINUIDADE_PERSISTENCIA_FALHOU",
+        "mensagem": "Reserva não confirmada; a transação foi revertida quando possível",
+        "causaCodigo": "SQLITE_IOERR",
+        "retryAllowed": false,
+        "financialStateHint": "UNKNOWN",
+        "reconciliacaoObrigatoria": true
+      },
+      "stateBefore": "PRONTA",
+      "stateAfter": "PRONTA",
+      "expectedState": "PRONTA",
+      "rollbackOrCommitEvidence": [
+        {
+          "statement": "BEGIN IMMEDIATE",
+          "at": "2026-11-06T02:01:40.701Z",
+          "pid": 48440
+        },
+        {
+          "statement": "COMMIT",
+          "at": "2026-11-06T02:01:40.714Z",
+          "pid": 48440
+        },
+        {
+          "statement": "ROLLBACK",
+          "at": "2026-11-06T02:01:40.714Z",
+          "pid": 48440
+        }
+      ],
+      "noSuccessWithoutCommit": true,
+      "noDriver": true,
+      "dllLoads": 0
+    },
+    {
+      "name": "D — Falha na releitura independente após COMMIT",
+      "mode": "reread",
+      "status": "PASSOU",
+      "pid": 49972,
+      "gate": "OFF",
+      "databasePath": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-10-50708-0dcf418dcc53\\mercadao.db",
+      "databaseIdentity": {
+        "dev": 505650597,
+        "ino": 4503599628435587
+      },
+      "injectedResult": {
+        "ok": false,
+        "codigo": "TEF_CONTINUIDADE_PERSISTENCIA_FALHOU",
+        "mensagem": "COMMIT confirmado, mas a releitura independente falhou; identidade permanece bloqueada",
+        "causaCodigo": "MRT5010_READBACK",
+        "retryAllowed": false,
+        "financialStateHint": "UNKNOWN",
+        "reconciliacaoObrigatoria": true
+      },
+      "stateBefore": "PRONTA",
+      "stateAfter": "INICIADO",
+      "expectedState": "INICIADO",
+      "rollbackOrCommitEvidence": [
+        {
+          "statement": "BEGIN IMMEDIATE",
+          "at": "2026-11-06T02:01:41.498Z",
+          "pid": 49972
+        },
+        {
+          "statement": "COMMIT",
+          "at": "2026-11-06T02:01:41.507Z",
+          "pid": 49972
+        }
+      ],
+      "noSuccessWithoutCommit": true,
+      "noDriver": true,
+      "dllLoads": 0
+    },
+    {
+      "name": "E — SQLITE_BUSY",
+      "mode": "busy",
+      "status": "PASSOU",
+      "pid": 50972,
+      "gate": "OFF",
+      "databasePath": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-10-50708-0dcf418dcc53\\mercadao.db",
+      "databaseIdentity": {
+        "dev": 505650597,
+        "ino": 4503599628435587
+      },
+      "injectedResult": {
+        "ok": false,
+        "codigo": "DESTAXA_CONTINUIDADE_CONCORRENCIA",
+        "mensagem": "Reserva não obtida por conflito de concorrência SQLite",
+        "causaCodigo": "SQLITE_BUSY",
+        "retryAllowed": false,
+        "financialStateHint": "UNKNOWN",
+        "reconciliacaoObrigatoria": true
+      },
+      "stateBefore": "PRONTA",
+      "stateAfter": "PRONTA",
+      "expectedState": "PRONTA",
+      "rollbackOrCommitEvidence": [
+        {
+          "statement": "BEGIN IMMEDIATE",
+          "at": "2026-11-06T02:01:42.297Z",
+          "pid": 50972
+        }
+      ],
+      "noSuccessWithoutCommit": true,
+      "noDriver": true,
+      "dllLoads": 0
+    },
+    {
+      "name": "E — SQLITE_LOCKED",
+      "mode": "locked",
+      "status": "PASSOU",
+      "pid": 46020,
+      "gate": "OFF",
+      "databasePath": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-10-50708-0dcf418dcc53\\mercadao.db",
+      "databaseIdentity": {
+        "dev": 505650597,
+        "ino": 4503599628435587
+      },
+      "injectedResult": {
+        "ok": false,
+        "codigo": "DESTAXA_CONTINUIDADE_CONCORRENCIA",
+        "mensagem": "Reserva não obtida por conflito de concorrência SQLite",
+        "causaCodigo": "SQLITE_LOCKED",
+        "retryAllowed": false,
+        "financialStateHint": "UNKNOWN",
+        "reconciliacaoObrigatoria": true
+      },
+      "stateBefore": "PRONTA",
+      "stateAfter": "PRONTA",
+      "expectedState": "PRONTA",
+      "rollbackOrCommitEvidence": [
+        {
+          "statement": "BEGIN IMMEDIATE",
+          "at": "2026-11-06T02:01:43.129Z",
+          "pid": 46020
+        }
+      ],
+      "noSuccessWithoutCommit": true,
+      "noDriver": true,
+      "dllLoads": 0
+    }
+  ],
+  "twoProcessRuns": [],
+  "threeProcessRuns": [],
+  "testsExecuted": [
+    "Falhas A-G e encerramento abrupto durante a transação",
+    "200 disputas com dois processos independentes",
+    "100 disputas com três processos independentes",
+    "Regressão MRT-50.9: concorrência, morte após INICIADO e reinicialização completa"
+  ],
+  "regressionMrt509": null,
+  "processDeath": {
+    "name": "H — Processo encerrado abruptamente durante transação aberta",
+    "passou": true,
+    "pid": 51764,
+    "signal": "SIGTERM",
+    "beganAt": "2026-11-06T02:01:44.039Z",
+    "stateBefore": "PRONTA",
+    "stateAfterTermination": "PRONTA",
+    "rollback": "SQLite recuperou/descartou a transação não commitada no encerramento do processo.",
+    "subsequentReservationSucceeded": true,
+    "dispatchId": "4ea3b31015ad2dcfbcaf85f65d302c66",
+    "driver": {
+      "inicia": 0,
+      "continua": 0,
+      "finaliza": 0
+    }
+  },
+  "error": "Error: {\"tipo\":\"process-error\",\"erro\":\"Channel closed\"}\n    at waitMessage (C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\tests\\tef\\mrt-50-10-reserva-atomica.test.js:183:24)\n    at runNextTicks (node:internal/process/task_queues:65:5)\n    at listOnTimeout (node:internal/timers:597:9)\n    at process.processTimers (node:internal/timers:571:7)\n    at async Promise.all (index 0)\n    at async runStressRounds (C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\tests\\tef\\mrt-50-10-reserva-atomica.test.js:625:27)\n    at async main (C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\tests\\tef\\mrt-50-10-reserva-atomica.test.js:498:31)",
+  "completedAt": "2026-11-06T02:01:45.702Z"
+}

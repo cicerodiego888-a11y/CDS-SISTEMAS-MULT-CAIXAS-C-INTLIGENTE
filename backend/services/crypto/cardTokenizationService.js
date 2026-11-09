@@ -32,6 +32,7 @@ class CardTokenizationService {
 
       return token;
     } catch (error) {
+      if (String(error.code || '').startsWith('TEF_CRYPTO_')) throw error;
       console.error('Erro ao tokenizar cartão:', error);
       throw new Error('Falha na tokenização do cartão');
     }
@@ -57,6 +58,7 @@ class CardTokenizationService {
           : null
       };
     } catch (error) {
+      if (String(error.code || '').startsWith('TEF_CRYPTO_')) throw error;
       console.error('Erro ao detokenizar cartão:', error);
       throw new Error('Falha na detokenização do cartão');
     }

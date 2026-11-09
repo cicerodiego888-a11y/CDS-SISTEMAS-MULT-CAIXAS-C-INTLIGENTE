@@ -1,0 +1,78 @@
+{
+    "registradoEm":  "2026-11-07T20:05:06.5611638Z",
+    "gate":  {
+                 "machine":  null,
+                 "user":  null,
+                 "process":  "0"
+             },
+    "gateOff":  true,
+    "vspague":  {
+                    "nota":  "Presença de processo/LISTEN não prova handshake com PinPad",
+                    "pid":  44484,
+                    "caminho":  "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
+                    "encontrado":  true
+                },
+    "tcpPorts":  {
+                     "60603":  {
+                                   "lines":  [
+                                                 "TCP    0.0.0.0:60603          0.0.0.0:0              LISTENING       44484",
+                                                 "TCP    [::]:60603             [::]:0                 LISTENING       44484"
+                                             ],
+                                   "listening":  true
+                               },
+                     "60906":  {
+                                   "lines":  [
+                                                 "TCP    0.0.0.0:60906          0.0.0.0:0              LISTENING       44484",
+                                                 "TCP    [::]:60906             [::]:0                 LISTENING       44484"
+                                             ],
+                                   "listening":  true
+                               }
+                 },
+    "dll":  {
+                "existe":  true,
+                "matchReferencia":  true,
+                "referencia":  "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+                "path":  "C:\\Program Files\\CDS ERP\\resources\\app.asar.unpacked\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+                "sha256":  "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+                "carregadaNestaSprint":  false
+            },
+    "windowsPinpad":  {
+                          "pnp":  [
+                                      {
+                                          "Name":  "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+                                          "Status":  "OK",
+                                          "PNPDeviceID":  "USB\\VID_1753\u0026PID_C902\\5\u00261587D4E6\u00260\u00264"
+                                      }
+                                  ],
+                          "serial":  [
+                                         {
+                                             "DeviceID":  "COM4",
+                                             "Name":  "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+                                             "PNPDeviceID":  "USB\\VID_1753\u0026PID_C902\\5\u00261587D4E6\u00260\u00264",
+                                             "Status":  "OK"
+                                         }
+                                     ]
+                      },
+    "nativeHost":  {
+                       "ativo":  false,
+                       "count":  0,
+                       "iniciadoNestaSprint":  false
+                   },
+    "banco":  {
+                  "gravacao":  false,
+                  "tamanho":  50274304,
+                  "path":  "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+                  "lastWriteTimeUtc":  "2026-11-07T19:51:31.9923558Z",
+                  "sha256AposConsulta":  "A59AD4727B2F8111F57FCF5A1F081FDACB2A110FFC6174C1485F39A6409AAFA2",
+                  "modo":  "readonly uri mode=ro + PRAGMA query_only=ON"
+              },
+    "chamadas":  {
+                     "finalizaTransacaoDestaxa":  false,
+                     "iniciaClientDestaxa":  false,
+                     "continuaTransacaoDestaxa":  false,
+                     "nativeHost":  false,
+                     "iniciaTransacaoDestaxa":  false
+                 },
+    "codigoAlterado":  false,
+    "configTefAlterada":  false
+}

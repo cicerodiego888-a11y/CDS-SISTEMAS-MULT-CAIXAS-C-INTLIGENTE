@@ -1,6 +1,9 @@
 /**
  * Centraliza segredos e chaves sensíveis via variáveis de ambiente.
  * Em produção, defina JWT_SECRET, TEF_ENCRYPTION_KEY, LICENSE_MASTER_KEY e ADMIN_SEED_PASSWORD.
+ * TEF_ENCRYPTION_KEY deriva a autoridade Ed25519 das evidências de reconciliação.
+ * O assinador exige a variável explícita com 32 bytes hexadecimais, rejeita a chave fixa
+ * de desenvolvimento e preserva o mesmo contexto para verificar evidências históricas.
  */
 
 const DEV_JWT_FALLBACK = 'cds-dev-jwt-change-in-production';

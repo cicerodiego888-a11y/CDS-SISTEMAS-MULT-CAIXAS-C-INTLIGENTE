@@ -20,13 +20,14 @@ const { assinarNFe } = require('./signer');
 const { montarLote } = require('./soapClient');
 const { enviarAutorizacao } = require('./autorizacaoRuntime');
 const { withLock, lockAtivo } = require('./nfeEmissionLockService');
-const { compactarXml, extrairChaveEProtocoloAutorizados } = require('./utils');
+const { compactarXml } = require('./utils');
 const { validarItensFiscal } = require('./validadorFiscal');
 const { validarXmlFiscal } = require('./validarXmlFiscal');
 const { montarDadosDanfe } = require('./danfe');
 const DanfeTermicoRenderer = require('./DanfeTermicoRenderer');
 const { getFiscalSubDir } = require('./paths');
 const { hidratarMetadadosPagamentoTef } = require('./tefPagamentoHydrator');
+const { montarXmlAutorizado } = require('./nfceXmlAutorizado');
 
 function itemEntraNaNfce(item) {
   return Number(item.quantidade_fiscal || 0) > 0
@@ -108,7 +109,11 @@ function carregarVenda(vendaId) {
             [vendaId],
             (pgErr, pagamentosComerciais) => {
               if (pgErr) return reject(pgErr);
-              venda.pagamentos_comerciais = hidratarMetadadosPagamentoTef(pagamentosComerciais);
+              try {
+                venda.pagamentos_comerciais = hidratarMetadadosPagamentoTef(pagamentosComerciais);
+              } catch (error) {
+                return reject(error);
+              }
               if (
                 (!Array.isArray(venda.pagamentos) || venda.pagamentos.length === 0)
                 && venda.pagamentos_comerciais.length > 0
@@ -147,7 +152,11 @@ function carregarVenda(vendaId) {
           if (recErr) return reject(recErr);
 
           if (Array.isArray(recebimentos) && recebimentos.length > 0) {
-            venda.pagamentos = hidratarMetadadosPagamentoTef(recebimentos);
+            try {
+              venda.pagamentos = hidratarMetadadosPagamentoTef(recebimentos);
+            } catch (error) {
+              return reject(error);
+            }
           }
           carregarPagamentosComerciaisEVoltar();
         });
@@ -188,6 +197,7 @@ function salvarNota(payload) {
             chave_acesso = COALESCE(NULLIF(?, ''), chave_acesso),
             xml_enviado = ?,
             xml_retorno = ?,
+            xml_autorizado = COALESCE(?, xml_autorizado),
             protocolo = ?,
             recibo = ?,
             qr_code_url = ?,
@@ -199,6 +209,7 @@ function salvarNota(payload) {
           payload.chave_acesso || '',
           payload.xml_enviado || null,
           payload.xml_retorno || null,
+          payload.xml_autorizado || null,
           payload.protocolo || null,
           payload.recibo || null,
           payload.qr_code_url || null,
@@ -215,9 +226,9 @@ function salvarNota(payload) {
       db.run(`
         INSERT INTO nfce_notas (
           venda_id, numero, serie, chave_acesso, ambiente, status,
-          xml_enviado, xml_retorno, protocolo, recibo, qr_code_url, danfe_html,
+          xml_enviado, xml_retorno, xml_autorizado, protocolo, recibo, qr_code_url, danfe_html,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
       `, [
         payload.venda_id,
         payload.numero,
@@ -227,6 +238,7 @@ function salvarNota(payload) {
         payload.status,
         payload.xml_enviado || null,
         payload.xml_retorno || null,
+        payload.xml_autorizado || null,
         payload.protocolo || null,
         payload.recibo || null,
         payload.qr_code_url || null,
@@ -302,16 +314,17 @@ async function avaliarBloqueioPorSituacaoFiscal(vendaId) {
   return null;
 }
 
-function atualizarNotaAutorizadaPorConsulta(notaId, { protocolo, xmlRetorno }) {
+function atualizarNotaAutorizadaPorConsulta(notaId, { protocolo, xmlRetorno, xmlAutorizado }) {
   return new Promise((resolve, reject) => {
     db.run(`
       UPDATE nfce_notas
       SET status = 'autorizada',
           protocolo = ?,
           xml_retorno = ?,
+          xml_autorizado = ?,
           updated_at = datetime('now', 'localtime')
       WHERE id = ?
-    `, [protocolo, xmlRetorno, notaId], (err) => (err ? reject(err) : resolve()));
+    `, [protocolo, xmlRetorno, xmlAutorizado, notaId], (err) => (err ? reject(err) : resolve()));
   });
 }
 
@@ -363,11 +376,35 @@ async function verificarSituacaoTentativaAnterior({ nota, config }) {
     `[FISCAL][NUMERACAO][NFCe] CONSULTA_TENTATIVA NUMERO=${identidade.numero} SERIE=${identidade.serie} SITUACAO=${decisao.situacao_fiscal} CSTAT=${decisao.cstat_consulta || ''}`
   );
 
-  const chaveRetornada = String(decisao.chave_retornada || '').replace(/\D/g, '');
-  if (decisao.situacao_fiscal === SITUACAO_NFCE.AUTORIZADA && (!chaveRetornada || chaveRetornada === chave)) {
+  if (decisao.situacao_fiscal === SITUACAO_NFCE.AUTORIZADA) {
+    let evidencia;
+    try {
+      evidencia = montarXmlAutorizado({
+        xmlEnviado: nota.xml_enviado,
+        xmlRetorno: (consulta && consulta.body) || consulta?.raw || '',
+        chaveAcesso: chave,
+        protocoloPersistido: nota.protocolo || null
+      });
+    } catch (evidenciaErr) {
+      console.warn('[FISCAL][NFCe][XML_AUTORIZADO] consulta sem evidência íntegra:', {
+        nota_id: nota.id,
+        code: evidenciaErr.code || 'XML_AUTORIZADO_INVALIDO',
+        erro: evidenciaErr.message || String(evidenciaErr)
+      });
+      return {
+        bloqueio: {
+          success: false,
+          ...identidade,
+          status: 'consulta_situacao_pendente',
+          message: 'A SEFAZ indicou autorização, mas o protocolo/XML retornado não pôde ser validado. A tentativa permanece bloqueada para recuperação.'
+        }
+      };
+    }
+
     await atualizarNotaAutorizadaPorConsulta(nota.id, {
-      protocolo: decisao.protocolo,
-      xmlRetorno: (consulta && consulta.body) || null
+      protocolo: evidencia.protocolo,
+      xmlRetorno: (consulta && (consulta.body || consulta.raw)) || null,
+      xmlAutorizado: evidencia.xml
     });
     return {
       autorizada: {
@@ -376,7 +413,7 @@ async function verificarSituacaoTentativaAnterior({ nota, config }) {
         recuperadaPorConsulta: true,
         status: 'autorizada',
         ...identidade,
-        protocolo: decisao.protocolo,
+        protocolo: evidencia.protocolo,
         qrCodeUrl: nota.qr_code_url || null,
         danfeHtml: nota.danfe_html || null,
         message: 'NFC-e da tentativa anterior já estava autorizada na SEFAZ; nenhuma nova emissão foi feita.'
@@ -800,6 +837,8 @@ async function emitirPorVendaId(vendaId) {
 
     let status = assinaturaErro ? 'configuracao_pendente' : 'pendente';
     let xmlRetorno = assinaturaErro ? assinaturaErro.message : null;
+    let xmlAutorizado = null;
+    let autorizacaoIncompleta = null;
     let soapResponse = null;
     let chaveAutorizada = xmlBase.chave;
     let duplicidade = null;
@@ -836,19 +875,26 @@ async function emitirPorVendaId(vendaId) {
 
       const raw = String(soapResponse.raw || soapResponse.message || '');
 
-      if (raw.includes('<cStat>100</cStat>')) {
-        status = 'autorizada';
-
-        const authSefaz = extrairChaveEProtocoloAutorizados(raw);
-        if (authSefaz?.chaveAcesso) {
-          chaveAutorizada = authSefaz.chaveAcesso;
-        }
-
-        const protMatch = raw.match(/<nProt>(.*?)<\/nProt>/);
-        if (protMatch) {
-          soapResponse.protocolo = protMatch[1];
-        } else if (authSefaz?.protocolo) {
-          soapResponse.protocolo = authSefaz.protocolo;
+      if (/<cStat>\s*(100|150)\s*<\/cStat>/i.test(raw)) {
+        try {
+          const evidencia = montarXmlAutorizado({
+            xmlEnviado: xmlAssinadoFinal,
+            xmlRetorno: raw,
+            chaveAcesso: xmlBase.chave
+          });
+          status = 'autorizada';
+          chaveAutorizada = evidencia.chaveAcesso;
+          xmlAutorizado = evidencia.xml;
+          soapResponse.protocolo = evidencia.protocolo;
+        } catch (evidenciaErr) {
+          status = 'pendente';
+          autorizacaoIncompleta = evidenciaErr;
+          console.warn('[FISCAL][NFCe][XML_AUTORIZADO] retorno de autorização incompleto:', {
+            venda_id: vendaId,
+            numero,
+            code: evidenciaErr.code || 'XML_AUTORIZADO_INVALIDO',
+            erro: evidenciaErr.message || String(evidenciaErr)
+          });
         }
       } else if (raw.includes('<cStat>539</cStat>') || String(soapResponse.cStat || '') === '539') {
         status = 'rejeitada_duplicidade';
@@ -897,7 +943,8 @@ async function emitirPorVendaId(vendaId) {
       status,
       xml_enviado: xmlAssinadoFinal,
       xml_retorno: xmlRetorno,
-      protocolo: soapResponse?.protocolo || null,
+      xml_autorizado: xmlAutorizado,
+      protocolo: status === 'autorizada' ? soapResponse?.protocolo || null : null,
       qr_code_url: qrCodeUrl,
       danfe_html: danfeHtml
     });
@@ -909,6 +956,8 @@ async function emitirPorVendaId(vendaId) {
       message = assinaturaErro.message;
     } else if (duplicidade) {
       message = `NFC-e nº ${numero} série ${configEmissao.serie} rejeitada por duplicidade (cStat 539): o número já existe na SEFAZ com outra chave de acesso. Nenhuma nova numeração será gerada automaticamente. ${MSG_RECUPERAR_DUPLICIDADE}`;
+    } else if (autorizacaoIncompleta) {
+      message = `A SEFAZ indicou autorização para a NFC-e nº ${numero}, mas a evidência retornada está incompleta ou divergente. A tentativa permanece pendente para recuperação.`;
     } else if (!autorizada) {
       const infProt = (String(xmlRetorno || '').match(/<infProt[\s\S]*?<\/infProt>/i) || [])[0] || '';
       const cStatProt = (infProt.match(/<cStat>\s*(\d+)\s*<\/cStat>/i) || [])[1];

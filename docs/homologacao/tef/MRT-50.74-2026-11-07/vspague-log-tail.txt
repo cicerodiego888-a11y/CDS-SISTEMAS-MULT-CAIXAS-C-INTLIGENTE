@@ -1,0 +1,40 @@
+﻿2026-11-07 19:23:50,038 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-263dc52d] -> coletaMensagem:[Tempo de resposta foi excedido. Isso pode ser momentâneo. Tente novamente], coletaRetorno:9, coletaSequencial:1, coletaTransacaoResposta:78
+2026-11-07 19:23:50,040 ERROR vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-263dc52d] vespague.client.interaction.VeSPagueClientTransactionManager$VeSPagueClientTransactionManagerException: Tempo de resposta foi excedido. Isso pode ser momentâneo. Tente novamente
+java.lang.RuntimeException: vespague.client.interaction.VeSPagueClientTransactionManager$VeSPagueClientTransactionManagerException: Tempo de resposta foi excedido. Isso pode ser momentâneo. Tente novamente
+	at vespague.automation.VeSPagueClientAutomationInteraction.Request(VeSPagueClientAutomationInteraction.java:1274)
+	at vespague.automation.VeSPagueClientAutomationInteraction.RequestCheck(VeSPagueClientAutomationInteraction.java:3803)
+	at vespague.automation.VeSPagueClientAutomationInteraction.ServicoExecutar(VeSPagueClientAutomationInteraction.java:3584)
+	at vespague.automation.VeSPagueClientAutomationInteraction.AutomationToService(VeSPagueClientAutomationInteraction.java:1030)
+	at vespague.automation.VeSPagueClientAutomationInteraction.Processing(VeSPagueClientAutomationInteraction.java:895)
+	at vespague.automation.VeSPagueClientAutomationInteraction.run(VeSPagueClientAutomationInteraction.java:791)
+	at lib.thread.VBIThread.run(VBIThread.java:376)
+	at java.base/java.lang.Thread.run(Unknown Source)
+Caused by: vespague.client.interaction.VeSPagueClientTransactionManager$VeSPagueClientTransactionManagerException: Tempo de resposta foi excedido. Isso pode ser momentâneo. Tente novamente
+	at vespague.client.interaction.VeSPagueClientTransactionManager.lambda$0(VeSPagueClientTransactionManager.java:2260)
+	at lib.graphic.window.VeSWindowProgress$2.run(VeSWindowProgress.java:1604)
+	at lib.graphic.window.VeSWindowProgress.ThreadExecute(VeSWindowProgress.java:1701)
+	at lib.graphic.window.VeSWindowProgress.ThreadExecute(VeSWindowProgress.java:1518)
+	at vespague.client.interaction.VeSPagueClientTransactionManager.TransactionRequest(VeSPagueClientTransactionManager.java:2256)
+	at vespague.automation.VeSPagueClientAutomationInteraction.Request(VeSPagueClientAutomationInteraction.java:1269)
+	... 7 common frames omitted
+2026-11-07 19:23:50,041 ERROR vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-263dc52d] erro durante o processamento
+java.lang.RuntimeException: vespague.client.interaction.VeSPagueClientTransactionManager$VeSPagueClientTransactionManagerException: Tempo de resposta foi excedido. Isso pode ser momentâneo. Tente novamente
+	at vespague.automation.VeSPagueClientAutomationInteraction.Request(VeSPagueClientAutomationInteraction.java:1274)
+	at vespague.automation.VeSPagueClientAutomationInteraction.RequestCheck(VeSPagueClientAutomationInteraction.java:3803)
+	at vespague.automation.VeSPagueClientAutomationInteraction.ServicoExecutar(VeSPagueClientAutomationInteraction.java:3584)
+	at vespague.automation.VeSPagueClientAutomationInteraction.AutomationToService(VeSPagueClientAutomationInteraction.java:1030)
+	at vespague.automation.VeSPagueClientAutomationInteraction.Processing(VeSPagueClientAutomationInteraction.java:895)
+	at vespague.automation.VeSPagueClientAutomationInteraction.run(VeSPagueClientAutomationInteraction.java:791)
+	at lib.thread.VBIThread.run(VBIThread.java:376)
+	at java.base/java.lang.Thread.run(Unknown Source)
+Caused by: vespague.client.interaction.VeSPagueClientTransactionManager$VeSPagueClientTransactionManagerException: Tempo de resposta foi excedido. Isso pode ser momentâneo. Tente novamente
+	at vespague.client.interaction.VeSPagueClientTransactionManager.lambda$0(VeSPagueClientTransactionManager.java:2260)
+	at lib.graphic.window.VeSWindowProgress$2.run(VeSWindowProgress.java:1604)
+	at lib.graphic.window.VeSWindowProgress.ThreadExecute(VeSWindowProgress.java:1701)
+	at lib.graphic.window.VeSWindowProgress.ThreadExecute(VeSWindowProgress.java:1518)
+	at vespague.client.interaction.VeSPagueClientTransactionManager.TransactionRequest(VeSPagueClientTransactionManager.java:2256)
+	at vespague.automation.VeSPagueClientAutomationInteraction.Request(VeSPagueClientAutomationInteraction.java:1269)
+	... 7 common frames omitted
+2026-11-07 19:23:50,042 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-263dc52d] <- retorno:1, sequencial:5, servico:finalizar
+2026-11-07 19:23:50,053 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-263dc52d] -> retorno:1, sequencial:5, servico:finalizar
+2026-11-07 19:23:50,264 WARN lib.comm.VeSComm [VBIComm.ReceiveWait(>listen<:60906(0))] VBIComm(>listen<:60906(0)) - Connection breaked: Connection breaked (-1) (127.0.0.1)

@@ -2210,6 +2210,7 @@ function criarTabelas() {
         status TEXT DEFAULT 'pendente',
         xml_enviado TEXT,
         xml_retorno TEXT,
+        xml_autorizado TEXT,
         protocolo TEXT,
         recibo TEXT,
         qr_code_url TEXT,
@@ -2236,6 +2237,7 @@ function criarTabelas() {
       aplicarAlteracaoSegura('nfce_notas', `ALTER TABLE nfce_notas ADD COLUMN fechamento_fiscal_id INTEGER`);
       aplicarAlteracaoSegura('nfce_notas', `ALTER TABLE nfce_notas ADD COLUMN fechamento_documento_id INTEGER`);
       aplicarAlteracaoSegura('nfce_notas', `ALTER TABLE nfce_notas ADD COLUMN origem TEXT DEFAULT 'venda'`);
+      aplicarAlteracaoSegura('nfce_notas', `ALTER TABLE nfce_notas ADD COLUMN xml_autorizado TEXT`);
     });
 
     // NFC-e 65 — números já ocupados na SEFAZ (CStat 539 / colisão). Não implica autorização local.

@@ -1,0 +1,4 @@
+﻿{"pagamento":false,"provider":"DESTAXA","evento":"mrt5066.start","registradoEm":"2026-11-07T20:19:17.1224504Z","tipo":"auditoria-estatica"}
+{"entrada":"transacao_valor=1.00;transacao_tipo_cartao=Débito;transacao_pagamento=A vista","provider":"DESTAXA","evento":"mrt5066.crt.static","registradoEm":"2026-11-07T20:19:17.1544311Z","debitoOk":true}
+{"tef05":{"falhou":0,"ok":15},"provider":"DESTAXA","evento":"mrt5066.tests","registradoEm":"2026-11-07T20:19:17.1644277Z","tef03":{"falhou":3,"ok":22}}
+{"financeiro":false,"registradoEm":"2026-11-07T20:19:17.1714291Z","nativo":false,"provider":"DESTAXA","codigoAlterado":false,"evento":"mrt5066.end","status":"CONCLUÍDA"}

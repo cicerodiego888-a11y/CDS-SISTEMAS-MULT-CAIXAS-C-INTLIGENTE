@@ -32,6 +32,14 @@ function criarManagerMock(opcoes = {}) {
     async garantirRecuperacao() {
       return true;
     },
+    async reconciliarNativeHost(transacaoId) {
+      return {
+        sucesso: true,
+        transactionId: String(transacaoId),
+        hostAtualizado: true,
+        travaLiberada: true
+      };
+    },
     obterTravaResultadoTardio() {
       const [primeira] = pendencias.values();
       if (!primeira) return null;
@@ -156,7 +164,7 @@ async function main() {
         { transacaoId: '8', estado: 'RECONCILIACAO_PENDENTE', codigo: '00' }
       ]]
     });
-    assert.throws(
+    await assert.rejects(
       () => svc.reconciliarExplicita({
         tefManager: manager,
         transacaoId: 8,
@@ -168,7 +176,7 @@ async function main() {
       (e) => e.code === 'TEF_RECONCILIACAO_SEM_CONFIRMACAO'
     );
     const logs = [];
-    const ok = svc.reconciliarExplicita({
+    const ok = await svc.reconciliarExplicita({
       tefManager: manager,
       repository: {
         registrarLog(id, tipo, msg, payload) {
@@ -192,14 +200,14 @@ async function main() {
     assert.strictEqual(r.codigo, 'TEF_LIBERACAO_INCONCLUSIVA_PROIBIDA');
   });
 
-  await test('AGUARDANDO_RESULTADO → reconciliação prematura', () => {
+  await test('AGUARDANDO_RESULTADO → reconciliação prematura', async () => {
     const manager = criarManagerMock({
       travas: [[
         '2',
         { transacaoId: '2', estado: 'AGUARDANDO_RESULTADO_TARDIO' }
       ]]
     });
-    assert.throws(
+    await assert.rejects(
       () => svc.reconciliarExplicita({
         tefManager: manager,
         transacaoId: 2,

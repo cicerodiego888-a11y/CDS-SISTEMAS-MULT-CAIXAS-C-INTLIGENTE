@@ -1,0 +1,281 @@
+{
+  "sprint": "MRT-46",
+  "titulo": "Auditoria da persistencia e da reconciliacao financeira UNKNOWN",
+  "classificacaoFinal": "PARCIAL",
+  "resumoExecutivo": "O fluxo oficial reconstrui pendencias a partir de tef_transacoes e bloqueia novas autorizacoes quando encontra status pendente. A rota autenticada encaminha a reconciliacao ao TefManager, que grava o resultado antes de solicitar a liberacao do NativeHost. Entretanto, a verificacao posterior confirma somente o status da linha, e o NativeHost/cliente aceitam persistida=true como declaracao do chamador, sem validar a persistencia. O teste MRT-45 contem um caso que demonstra a aceitacao direta desse campo. Portanto, nao ficou comprovado que a trava so possa ser liberada por persistencia validada.",
+  "arquivosAlterados": [
+    "docs/build/mrt-46-auditoria-persistencia-reconciliacao-report.json"
+  ],
+  "arquivosFuncoesAuditados": [
+    {
+      "arquivo": "backend/services/tef/TefManager.js",
+      "funcoes": [
+        "autorizar",
+        "_gravar",
+        "_aguardarEscritas",
+        "garantirRecuperacao",
+        "recarregarPendencias",
+        "_registrarResultadoTardio",
+        "reconciliarResultadoTardio",
+        "reconciliarNativeHost",
+        "_verificarIdempotencia"
+      ],
+      "evidencias": [
+        "autorizar aguarda recuperacao/escritas e bloqueia se _pendencias nao estiver vazio (linhas 310-319).",
+        "A recuperacao le pendencias persistidas uma vez por instancia e projeta identidade (linhas 965-967 e 1007-1050).",
+        "A operacao inicial grava identidade e financialState UNKNOWN antes de seguir para o Adapter; usa criarTransacaoExclusiva (aproximadamente linhas 470-505).",
+        "_registrarResultadoTardio registra o desfecho, atualiza a persistencia e mantem a trava para estados inconclusivos (linhas 1160-1235).",
+        "reconciliarResultadoTardio agenda leitura/atualizacao, remove a trava em memoria e retorna travaLiberada antes da conclusao do callback (linhas 1247-1309).",
+        "reconciliarNativeHost aguarda a fila e le apenas status antes de enviar persistida=true ao cliente (linhas 1313-1354)."
+      ]
+    },
+    {
+      "arquivo": "backend/services/tef/tefRepository.js",
+      "funcoes": [
+        "criarTransacaoExclusiva",
+        "listarTransacoesPendentes",
+        "consultarPendentes",
+        "atualizarTransacao"
+      ],
+      "evidencias": [
+        "criarTransacaoExclusiva grava status pendente apenas se nao existir outra pendente, em comando SQLite unico (linhas 63-97).",
+        "listarTransacoesPendentes recupera idempotency_key, codigo_transacao e payload_retorno para linhas pendentes (linhas 99-125).",
+        "atualizarTransacao filtra apenas por id; nao exige status anterior pendente nem valida atomicamente uma unica alteracao (linhas 128-172)."
+      ]
+    },
+    {
+      "arquivo": "backend/services/tef/tefPendenciasService.js",
+      "funcoes": [
+        "reconciliarExplicita",
+        "registrarHistoricoCompatibilidade"
+      ],
+      "evidencias": [
+        "Exige confirmacao_explicita e estado final permitido, e encaminha usuario/observacao ao TefManager (linhas 212-249).",
+        "Quando o manager expoe reconciliarNativeHost, aguarda essa etapa; caminho de compatibilidade nao chama NativeHost (linhas 242-279)."
+      ]
+    },
+    {
+      "arquivo": "backend/rotas/tef.js",
+      "funcoes": [
+        "POST /transacao/:id/reconciliar"
+      ],
+      "evidencias": [
+        "Deriva operador de req.user, exige identidade autenticada e encaminha id, desfecho e observacao ao servico (linhas 493-525)."
+      ]
+    },
+    {
+      "arquivo": "backend/server.js",
+      "funcoes": [
+        "montagem da rota /api/tef"
+      ],
+      "evidencias": [
+        "A rota TEF e montada com verificarToken (linha 261)."
+      ]
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/DestaxaNativeHost.js",
+      "funcoes": [
+        "_processar / OPERACOES_HOST.RECONCILE",
+        "_exigirFinanceiroConhecido",
+        "_exigirSemTransacaoAtiva",
+        "_executarNativa"
+      ],
+      "evidencias": [
+        "RECONCILE exige transactionId correspondente, confirmacao_explicita, persistida=true, desfecho final, usuario e observacao; nao consulta banco nem valida prova de persistencia (linhas 241-274).",
+        "Sem contexto no Host, um RECONCILE com esses campos retorna sucesso jaLiberada (linhas 254-258).",
+        "TX_START, TX_CONTINUE e TX_FINALIZE verificam contexto financeiro UNKNOWN antes do despacho ao bridge (linhas 358-415)."
+      ]
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/DestaxaNativeHostClient.js",
+      "funcoes": [
+        "enviar",
+        "_aoMensagem",
+        "reiniciar",
+        "reconciliarTransacao"
+      ],
+      "evidencias": [
+        "O cliente bloqueia operacoes transacionais enquanto _reconciliacaoPendente esta definido (linhas 336-347) e impede reinicio explicito nesse estado (linhas 617-630).",
+        "reconciliarTransacao confia no campo persistida=true; no estado offline/stopped/crashed limpa o marcador local sem consulta independente a persistencia (linhas 633-683)."
+      ]
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js",
+      "funcoes": [
+        "_financialStateUnknown",
+        "iniciarTransacao",
+        "continuarTransacao",
+        "finalizarTransacao",
+        "reconciliarTransacao",
+        "reset"
+      ],
+      "evidencias": [
+        "O contexto UNKNOWN bloqueia nova transacao independentemente do estado tecnico, inclusive ERROR (linhas 81-84 e 212-220).",
+        "CONTINUE, FINALIZE e reset preservam o bloqueio para UNKNOWN (linhas 330-345, 380-393 e 482-487).",
+        "A reconciliacao exige contexto/identidade e estado final, mas o dado persistida recebido nao constitui prova de banco (linhas 438-478)."
+      ]
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/destaxaNativeHostProtocolo.js",
+      "funcoes": [
+        "OPERACOES_HOST",
+        "OPERACOES_TRANSACIONAIS",
+        "validarRequest",
+        "criarRequest"
+      ],
+      "evidencias": [
+        "RECONCILE e uma operacao IPC valida, enquanto TX_START/TX_CONTINUE/TX_FINALIZE sao classificadas como transacionais (linhas 20-54 e 89-109). O protocolo valida formato, nao autorizacao ou persistencia."
+      ]
+    },
+    {
+      "arquivo": "backend/services/tef/tefAdapterCiclo.js",
+      "funcoes": [
+        "mesclarPayloadPreservandoIdentidade"
+      ],
+      "evidencias": [
+        "A mesclagem preserva identidadeAdapter, roteamento e execucao do payload anterior (linhas 112-145)."
+      ]
+    },
+    {
+      "arquivo": "backend/services/tef/tefPersistenciaObrigatoria.js",
+      "funcoes": [
+        "projetarRecuperacaoIdentidade"
+      ],
+      "evidencias": [
+        "O snapshot de recuperacao inclui transactionId, operation_id, idempotency_key, fingerprint, provedor, venda, valor e tipo (linhas 297-320)."
+      ]
+    }
+  ],
+  "fluxoEfetivoPersistencia": {
+    "descricao": "TefManager.autorizar aguarda a recuperacao; antes de encaminhar ao Adapter, cria uma linha pendente com identidade/idempotency_key e financialState inicial UNKNOWN. O INSERT exclusivo nao cria nova linha se ja houver qualquer status pendente. No startup, garantirRecuperacao chama recarregarPendencias, que le essas linhas e reconstrui a trava e a identidade recuperavel.",
+    "identidade": "A identidade da operacao, incluindo operation_id, idempotency_key, fingerprint, provedor e correlacoes, e guardada no payload persistido; a consulta de pendencias recupera tambem os campos da linha. A mesclagem usada nas atualizacoes preserva identidadeAdapter, roteamento e execucao.",
+    "limite": "O NativeHost isolado nao consulta o repositorio e nao reconstrui a trava financeira a partir do banco. A protecao apos reinicio do processo principal depende da recuperacao do TefManager; a protecao no NativeHost depende do contexto em memoria e do marcador em memoria do cliente."
+  },
+  "fluxoEfetivoReconciliacao": {
+    "descricao": "A rota autenticada deriva o operador de req.user e encaminha a identidade, financialState, observacao e confirmacao ao tefPendenciasService. O servico valida a confirmacao e o desfecho, chama TefManager.reconciliarResultadoTardio e, quando disponivel, aguarda reconciliarNativeHost. O TefManager agenda a atualizacao do registro e depois faz uma leitura do status antes de chamar o cliente NativeHost.",
+    "ordem": [
+      "Rota TEF autenticada obtém operador da sessão.",
+      "Serviço valida confirmacao_explicita e estado final permitido.",
+      "TefManager inicia atualizacao da linha e remove a trava em memoria imediatamente.",
+      "reconciliarNativeHost aguarda o callback da fila e valida somente SELECT status.",
+      "TefManager envia ao cliente RECONCILE com persistida=true.",
+      "Cliente encaminha ao NativeHost ou, se offline/crashed, limpa marcador local com base nos campos fornecidos."
+    ],
+    "operadorObservacao": "A rota usa a identidade autenticada; a observacao e exigida pelo NativeHost/manager quanto ao valor nao vazio. O servico, isoladamente, nao exige observacao antes de chamar o manager, mas o manager a valida.",
+    "identidade": "O ID de transacao e comparado entre rota/manager/cliente/Host. A verificacao pre-IPC nao valida que o registro relido contenha a reconciliacao solicitada, o operador, a observacao, idempotency_key ou o mesmo desfecho no payload."
+  },
+  "validacaoPersistenciaAntesDoReconcile": {
+    "resultado": "PARCIAL",
+    "evidencia": "reconciliarNativeHost aguarda _aguardarEscritas e le SELECT status; so envia persistida=true se a linha existe e status coincide com resultado.status.",
+    "limitacoes": [
+      "_gravar resolve sua Promise quando o callback chama pronto, sem propagar erro de leitura/escrita; callbacks de persistencia chamam pronto mesmo em erro.",
+      "A confirmacao posterior consulta somente status, nao payload_retorno.reconciliacao, financialState, usuario, observacao, identidade ou quantidade de linhas alteradas.",
+      "atualizarTransacao atualiza por id sem compare-and-swap exigindo status pendente.",
+      "reconciliarResultadoTardio retorna travaLiberada=true e apaga a trava em memoria antes da confirmacao efetiva da gravacao."
+    ]
+  },
+  "protecaoContraChamadaDiretaNativeHost": {
+    "resultado": "NAO COMPROVADA",
+    "evidencia": "O NativeHost recebe RECONCILE e aceita persistida=true como booleano do payload. Se nao houver contexto local, responde jaLiberada=true. O cliente tambem confia no mesmo booleano e pode limpar seu marcador local offline, sem acessar TefManager ou o banco.",
+    "reproducaoEstatica": "tests/tef/mrt-45-protecao-unknown.test.js chama diretamente host._processar com RECONCILE, confirmacao_explicita=true e persistida=true, recebe sucesso e inicia outra transacao simulada. Essa evidência foi lida, nao executada nesta auditoria.",
+    "impacto": "Um chamador que alcance a interface local do Host/cliente pode declarar a persistencia e contornar a validacao feita pelo caminho oficial do TefManager. A protecao local contra TX_START/CONTINUE/FINALIZE permanece ativa para contexto UNKNOWN ainda presente, mas nao protege contra uma liberacao RECONCILE direta com dados forjados."
+  },
+  "reinicializacoesEFalhas": {
+    "processoPrincipal": "TefManager reconstrui bloqueios a partir de status pendente no startup. Essa recuperacao nao foi executada durante a auditoria.",
+    "nativeHost": "O Host nao consulta o banco; seu contexto e em memoria. O cliente mantem marcador em memoria enquanto vivo, mas nao existe evidencia de recuperacao desse marcador a partir do registro persistido pelo proprio NativeHost.",
+    "persistenciaFalha": "A fila de escrita nao propaga erros por si; a leitura de status no reconciliarNativeHost geralmente falha fechada se a linha continuar pendente ou ausente, mas a remocao antecipada da trava em memoria continua sendo uma fragilidade. O insert exclusivo do fluxo oficial impede nova autorizacao persistida enquanto existir linha status pendente.",
+    "falhaAposPersistenciaAntesDaConfirmacaoIPC": "Se a linha final foi gravada mas o Host nao recebeu a confirmacao, a recuperacao principal deixara de listar a linha como pendente. O Host em execucao mantem seu contexto UNKNOWN ate RECONCILE; o comportamento offline do cliente pode limpar marcador a partir do booleano fornecido.",
+    "concorrencia": "A atualizacao por id nao condiciona status anterior pendente nem compara versao/identidade da reconciliacao. Nao foi comprovada serializacao transacional que impeça duas reconciliacoes concorrentes ou atualização substituída."
+  },
+  "protecaoContraNovasOperacoes": {
+    "fluxoPrincipal": "Autorizar chama recuperacao e bloqueia se houver pendencias em memoria; antes do Adapter, criarTransacaoExclusiva verifica atomicamente a ausencia de status pendente.",
+    "nativeHost": "TX_START chama _exigirSemTransacaoAtiva, que verifica financeiro UNKNOWN; TX_CONTINUE e TX_FINALIZE chamam _exigirFinanceiroConhecido. O orquestrador tambem bloqueia por financialState, nao apenas estado tecnico.",
+    "reconciliacao": "Os bloqueios de transacao sao contornaveis se uma chamada RECONCILE direta for aceita com persistida=true; por isso a protecao combinada nao pode ser declarada integral."
+  },
+  "testes": {
+    "executados": [],
+    "resultado": "Nenhum teste automatizado foi executado. A auditoria permaneceu somente leitura; o teste 06C abre o banco oficial em modo somente leitura para copiar/verificar esquema, o que foi evitado conforme a restricao de nao acessar banco de producao. Os testes MRT-45 incluem TX_START simulado e nao foram executados nesta auditoria.",
+    "inspecionados": [
+      {
+        "arquivo": "tests/tef/mrt-45-protecao-unknown.test.js",
+        "coberturaObservada": "Testa códigos UNKNOWN, bloqueios no Host/cliente, persistencia simulada apos reinicio e negações conclusivas; usa drivers/repositórios mockados. Inclui caso que aceita RECONCILE direto com persistida=true.",
+        "lacuna": "Nao comprova validacao do desfecho efetivamente gravado pelo TefManager antes do desbloqueio."
+      },
+      {
+        "arquivo": "tests/tef/tef-14-pendencias-orfas.test.js",
+        "coberturaObservada": "Testa o serviço com manager mockado, confirmação explícita, bloqueio de lote e recuperação delegada.",
+        "lacuna": "O mock remove a trava em memória e simula status; não verifica escrita, leitura posterior ou IPC reais."
+      },
+      {
+        "arquivo": "tests/tef/tef-destaxa-06c-persistencia.test.js",
+        "coberturaObservada": "Define cenários de workers/processos e banco temporário, com fluxo de persistência e recuperação; contém acesso somente leitura ao banco oficial para preparar/validar esquema.",
+        "lacuna": "Nao executado para respeitar a restricao absoluta de nao acessar banco oficial. Mesmo quando executado, nao comprova a segurança contra RECONCILE direto se nao houver cenário específico."
+      }
+    ]
+  },
+  "lacunas": [
+    "RECONCILE aceita um booleano persistida enviado pelo chamador; nao há prova criptográfica, capability não falsificável nem verificação independente no NativeHost.",
+    "O Host aceita sucesso jaLiberada sem contexto se o payload declarar persistida=true.",
+    "O cliente pode limpar o marcador em modo offline/crashed sem verificar persistência.",
+    "A verificação do TefManager valida apenas status e não o payload de reconciliação, identidade e desfecho efetivamente gravados.",
+    "A fila de escrita resolve sem propagar erros de persistência e a trava em memória é removida antes da conclusão confirmada.",
+    "A atualização do repositório não usa compare-and-swap nem valida o número de linhas atualizadas; concorrência/duplicidade de reconciliação não foi comprovadamente controlada.",
+    "Nenhum teste foi executado nesta auditoria; os testes revisados são majoritariamente mocks e não comprovam persistência e liberação end-to-end sob falhas."
+  ],
+  "correcoesRecomendadas": [
+    {
+      "ordem": 1,
+      "recomendacao": "Remover a autoridade do campo persistida=true recebido por IPC. Fazer o NativeHost aceitar RECONCILE apenas mediante mecanismo de autorização confiável, vinculado à identidade e ao desfecho persistidos, ou manter a liberação exclusivamente em componente que possa validar essa prova."
+    },
+    {
+      "ordem": 2,
+      "recomendacao": "Persistir em transação atômica com condição status='pendente', validar exatamente uma linha alterada e reler o registro completo, incluindo identidade original, financialState, operador, observação e desfecho, antes de solicitar RECONCILE."
+    },
+    {
+      "ordem": 3,
+      "recomendacao": "Propagar falhas da fila de escrita; manter a trava em memória até a persistência confirmada e tratar falha/timeout de IPC de forma idempotente e fail-closed."
+    },
+    {
+      "ordem": 4,
+      "recomendacao": "Vincular a reconciliação à transacaoId, operation_id e idempotency_key originais e impedir atualizações concorrentes ou repetidas por compare-and-swap/controle de versão."
+    },
+    {
+      "ordem": 5,
+      "recomendacao": "Adicionar testes temporários isolados para erro de gravação, erro de leitura, payload/status divergente, chamada direta RECONCILE, NativeHost offline/crashed, reinícios e reconciliações concorrentes; demonstrar que TX_START/TX_CONTINUE/TX_FINALIZE não chamam driver."
+    }
+  ],
+  "gateFinanceiro": {
+    "status": "OFF",
+    "evidencia": "A variável DESTAXA_REAL_TRANSACTION_ENABLED estava ausente no ambiente da auditoria; o helper transacaoRealHabilitada só retorna true quando o valor é exatamente 1 (destaxaConstantes.js:64-70). O gate não foi alterado, NativeHost/DLL não foram iniciados e nenhuma operação financeira foi executada.",
+    "limite": "O ambiente do processo de produção não foi consultado; a confirmação refere-se ao ambiente desta auditoria e à ausência de alteração/execução nesta sprint."
+  },
+  "identidadesHistoricas": {
+    "MRT-24": {
+      "statusConformeHistoricoFornecido": "UNKNOWN",
+      "consultada": false,
+      "alteradaOuReconciliada": false
+    },
+    "MRT-36": {
+      "statusConformeHistoricoFornecido": "PENDING/inconclusiva",
+      "consultada": false,
+      "alteradaOuReconciliada": false
+    },
+    "MRT-42": {
+      "statusConformeHistoricoFornecido": "PENDING/inconclusiva",
+      "consultada": false,
+      "alteradaOuReconciliada": false
+    },
+    "observacao": "Nenhum banco foi aberto ou consultado; portanto, os estados são reproduzidos do histórico fornecido e não foram revalidados nesta auditoria. Nenhuma identidade foi usada como massa de teste."
+  },
+  "restricoesEExecucao": {
+    "codigoProducaoAlterado": false,
+    "bancoConsultadoOuAlterado": false,
+    "dllCarregada": false,
+    "initExecutado": false,
+    "operacaoFinanceiraExecutada": false,
+    "continueOuFinalizeExecutado": false,
+    "vspagueOuPinpadAcessados": false,
+    "gateAlterado": false,
+    "identidadesHistoricasAcessadas": false
+  }
+}

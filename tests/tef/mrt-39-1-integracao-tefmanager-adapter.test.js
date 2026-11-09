@@ -128,7 +128,7 @@ function carregarTefManager() {
   return mod.TefManager || mod;
 }
 
-function childContinuarDuplicata(transacaoId, idempotencyKey) {
+function childContinuarDuplicata(transacaoId, idempotencyKey, solicitadaEmOriginal) {
   const script = `
     process.env.CDS_TEST_ISOLAR_BANCO='1';
     process.env.DB_DIR=${JSON.stringify(DB_DIR_TESTE)};
@@ -169,6 +169,7 @@ function childContinuarDuplicata(transacaoId, idempotencyKey) {
         transacao_id:${JSON.stringify(transacaoId)},
         idempotency_key:${JSON.stringify(idempotencyKey)},
         resposta_continuidade:'Credito',
+        solicitadaEm:${JSON.stringify(solicitadaEmOriginal)},
         persistenciaContinuidade:true,
         ambienteOperador:{tty:true}
       });
@@ -179,7 +180,7 @@ function childContinuarDuplicata(transacaoId, idempotencyKey) {
         bridgeInicia:contadores.inicia,
         mensagem:r.mensagem||null
       }));
-      process.exit(r.codigo==='DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA' && contadores.continua===0 && contadores.inicia===0 ? 3 : 1);
+      process.exit(r.sucesso!==true && contadores.continua===0 && contadores.inicia===0 ? 3 : 1);
     }).catch(e=>{console.error(String(e&&e.stack||e));process.exit(2);});
   `;
   return spawnSync(process.execPath, ['-e', script], {
@@ -240,9 +241,10 @@ async function main() {
     fingerprint: ID.fingerprint
   });
   idsCriados.push(tx.id);
+  const timestampOriginal = new Date().toISOString();
   await persistencia.registrarSolicitacao99(tx.id, {
     acao: ACAO_OPCAO,
-    solicitadaEm: new Date().toISOString()
+    solicitadaEm: timestampOriginal
   });
 
   limparRegistrosContinuidade();
@@ -263,6 +265,7 @@ async function main() {
     transacao_id: tx.id,
     idempotency_key: ID.idempotency_key,
     resposta_continuidade: 'Credito',
+    solicitadaEm: timestampOriginal,
     persistenciaContinuidade: true,
     ambienteOperador: { tty: true }
   });
@@ -302,13 +305,14 @@ async function main() {
     transacao_id: tx.id,
     idempotency_key: ID.idempotency_key,
     resposta_continuidade: 'Credito',
+    solicitadaEm: timestampOriginal,
     persistenciaContinuidade: true,
     ambienteOperador: { tty: true }
   });
 
   resultados.push(ok('4) Segunda resposta bloqueada (duplicidade)',
     r2.sucesso !== true
-    && r2.codigo === ERROS_CONTINUIDADE.RESPOSTA_DUPLICADA, {
+    && r2.codigo === 'DESTAXA_CONTINUIDADE_IDENTIDADE_DIVERGENTE', {
       codigo: r2.codigo,
       mensagem: r2.mensagem
     }));
@@ -321,7 +325,7 @@ async function main() {
     }));
 
   // 5) Reinício Node — caminho oficial ainda bloqueia; bridge zerada no child
-  const child = childContinuarDuplicata(tx.id, ID.idempotency_key);
+  const child = childContinuarDuplicata(tx.id, ID.idempotency_key, timestampOriginal);
   let childJson = null;
   try {
     childJson = JSON.parse((child.stdout || '').trim().split('\n').filter(Boolean).pop());
@@ -332,7 +336,7 @@ async function main() {
   resultados.push(ok('6) Duplicidade bloqueada após reinício (TefManager no child)',
     child.status === 3
     && childJson
-    && childJson.codigo === ERROS_CONTINUIDADE.RESPOSTA_DUPLICADA
+    && childJson.codigo === 'DESTAXA_CONTINUIDADE_IDENTIDADE_DIVERGENTE'
     && childJson.bridgeContinua === 0
     && childJson.bridgeInicia === 0, {
       childStatus: child.status,

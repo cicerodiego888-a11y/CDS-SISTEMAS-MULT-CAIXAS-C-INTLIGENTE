@@ -1,0 +1,221 @@
+{
+  "sprint": "MRT-45",
+  "titulo": "Protecao contra novo TX_START com financialState UNKNOWN",
+  "classificacaoFinal": "CONCLUÍDO",
+  "diagnosticoAnterior": {
+    "lacuna": "Codigos 05, 06, 07, F1, F2 e FE eram classificados financeiramente como UNKNOWN, mas o estado tecnico ERROR nao fazia parte do bloqueio do orquestrador/NativeHost.",
+    "risco": "Um novo TX_START poderia chegar ao orquestrador apos um resultado inconclusivo; reset/descarregamento tambem podia descartar o contexto em memoria.",
+    "protecaoPreExistente": "TefManager mantinha trava financeira persistida e recuperava linhas pendentes, mas a protecao precisava ser garantida tambem no NativeHost."
+  },
+  "versaoDll": {
+    "referenciaDoProjeto": "1.83",
+    "dllCarregadaDuranteEstaSprint": false
+  },
+  "arquivosAlterados": [
+    {
+      "arquivo": "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js",
+      "funcoes": [
+        "iniciarTransacao",
+        "continuarTransacao",
+        "finalizarTransacao",
+        "reconciliarTransacao",
+        "reset"
+      ],
+      "mudanca": "Usa financialState como autoridade de bloqueio, preserva contexto UNKNOWN e so libera apos reconciliacao explicita persistida."
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/DestaxaNativeHost.js",
+      "funcoes": [
+        "_transacaoAtiva",
+        "_exigirFinanceiroConhecido",
+        "_exigirSemTransacaoAtiva",
+        "_executarNativa",
+        "_configurarMock"
+      ],
+      "mudanca": "Recusa TX_START, TX_CONTINUE e TX_FINALIZE enquanto o resultado for UNKNOWN; adiciona operacao IPC RECONCILE com validacao da identidade e autorizacao."
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/DestaxaNativeHostClient.js",
+      "funcoes": [
+        "enviar",
+        "_aoMensagem",
+        "_observarResultadoFinanceiro",
+        "reiniciar",
+        "reconciliarTransacao"
+      ],
+      "mudanca": "Mantem trava financeira apos resposta UNKNOWN, bloqueia operacoes transacionais e impede que reiniciar({ reconciliado: true }) libere o marcador."
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/destaxaNativeHostProtocolo.js",
+      "mudanca": "Declara a operacao RECONCILE no protocolo Main/NativeHost."
+    },
+    {
+      "arquivo": "backend/services/tef/TefManager.js",
+      "funcoes": [
+        "_definirPendencia",
+        "recarregarPendencias",
+        "reconciliarNativeHost"
+      ],
+      "mudanca": "Preserva a identidade projetada na recuperacao e valida o status persistido antes de pedir a liberacao do NativeHost."
+    },
+    {
+      "arquivo": "backend/services/tef/tefPendenciasService.js",
+      "funcoes": [
+        "reconciliarExplicita"
+      ],
+      "mudanca": "A reconciliacao explicita conclui a persistencia e a liberacao do NativeHost antes de retornar sucesso."
+    },
+    {
+      "arquivo": "backend/rotas/tef.js",
+      "mudanca": "A rota aguarda a reconciliacao e deriva a identidade do operador do usuario autenticado, sem aceitar usuario enviado no corpo como autoridade."
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/destaxaNativeHostVerifier.js",
+      "mudanca": "A verificacao mock de crash usa reconciliacao explicita com desfecho, operador, observacao e persistencia, sem booleano de liberacao."
+    },
+    {
+      "arquivo": "tests/tef/tef-destaxa-06c-timeout.test.js",
+      "mudanca": "Atualiza o cenario mock de crash para reconciliar explicitamente antes de reiniciar o NativeHost."
+    },
+    {
+      "arquivo": "tests/tef/mrt-45-protecao-unknown.test.js",
+      "mudanca": "Adiciona testes isolados para seis codigos UNKNOWN, negacoes conclusivas, recuperacao apos reinicio e integracao cliente/NativeHost em modo mock."
+    }
+  ],
+  "solucaoImplementada": {
+    "bloqueioFinanceiro": "UNKNOWN e reconhecido diretamente no contexto da transacao, ainda que estado tecnico seja ERROR.",
+    "semRetry": true,
+    "identidadePreservada": true,
+    "resetSeguro": "reset, unload ou substituicao do driver nao apagam contexto financeiramente UNKNOWN.",
+    "reconciliacao": {
+      "operacao": "RECONCILE",
+      "preCondicoes": [
+        "transactionId identico ao contexto original",
+        "confirmacao_explicita=true",
+        "persistida=true, validada pelo TefManager contra o status final gravado",
+        "financialState conclusivo: CONFIRMED_SUCCESS, CONFIRMED_DENIED ou CANCELLED",
+        "operador autenticado e observacao nao vazia"
+      ],
+      "contextoNativeHost": "Atualizado para o desfecho confirmado; a transacao original permanece identificada no resultado da reconciliacao.",
+      "hostIndisponivel": "O marcador local somente e liberado apos persistencia verificada; host novo parte sem contexto, enquanto o bloqueio oficial vem do estado persistido."
+    }
+  },
+  "evidenciaPorCodigo": {
+    "05": {
+      "financialState": "UNKNOWN",
+      "estadoTecnico": "ERROR",
+      "segundaTX_START": "bloqueada",
+      "chamadasDriverAposRetry": 1,
+      "recuperacaoAposReinicio": "trava e identidade recuperadas do repositorio mock"
+    },
+    "06": {
+      "financialState": "UNKNOWN",
+      "estadoTecnico": "ERROR",
+      "segundaTX_START": "bloqueada",
+      "chamadasDriverAposRetry": 1,
+      "recuperacaoAposReinicio": "trava e identidade recuperadas do repositorio mock"
+    },
+    "07": {
+      "financialState": "UNKNOWN",
+      "estadoTecnico": "ERROR",
+      "segundaTX_START": "bloqueada",
+      "chamadasDriverAposRetry": 1,
+      "recuperacaoAposReinicio": "trava e identidade recuperadas do repositorio mock"
+    },
+    "F1": {
+      "financialState": "UNKNOWN",
+      "estadoTecnico": "ERROR",
+      "segundaTX_START": "bloqueada",
+      "chamadasDriverAposRetry": 1,
+      "recuperacaoAposReinicio": "trava e identidade recuperadas do repositorio mock"
+    },
+    "F2": {
+      "financialState": "UNKNOWN",
+      "estadoTecnico": "ERROR",
+      "segundaTX_START": "bloqueada",
+      "chamadasDriverAposRetry": 1,
+      "recuperacaoAposReinicio": "trava e identidade recuperadas do repositorio mock"
+    },
+    "FE": {
+      "financialState": "UNKNOWN",
+      "estadoTecnico": "ERROR",
+      "segundaTX_START": "bloqueada",
+      "chamadasDriverAposRetry": 1,
+      "recuperacaoAposReinicio": "trava e identidade recuperadas do repositorio mock"
+    }
+  },
+  "negacoesConclusivas": {
+    "codigosTestados": ["03", "04", "09"],
+    "classificacao": "Nao UNKNOWN",
+    "novaTX_START": "permitida apos desfecho conclusivo",
+    "resultado": "PASS"
+  },
+  "testesExecutados": [
+    {
+      "comando": "node tests/tef/mrt-45-protecao-unknown.test.js",
+      "resultado": "PASS",
+      "evidencia": "Seis codigos UNKNOWN; bloqueio no orquestrador e cliente; nenhuma chamada adicional ao driver; cada recuperacao executada em processo Node independente, com linha pendente fornecida por repositorio mock e SQLite temporario isolado; negacoes conclusivas; RECONCILE autorizado e integrado com NativeHost em modo teste."
+    },
+    {
+      "comando": "node tests/tef/tef-14-pendencias-orfas.test.js",
+      "resultado": "PASS"
+    },
+    {
+      "comando": "node tests/tef/tef-destaxa-03-crt-protocolo.test.js",
+      "resultado": "PASS"
+    },
+    {
+      "comando": "node tests/tef/tef-destaxa-05-financial-safety.test.js",
+      "resultado": "PASS"
+    },
+    {
+      "comando": "DestaxaNativeHostVerifier.verificarCrash()",
+      "resultado": "PASS",
+      "evidencia": "Host de teste encerrou durante TX_START simulado; reinicio sem reconciliacao foi bloqueado; reconciliacao explicita simulada permitiu reinicio."
+    },
+    {
+      "comando": "node --check nos arquivos JavaScript alterados",
+      "resultado": "PASS"
+    }
+  ],
+  "persistenciaAposReinicializacao": {
+    "resultado": "PASS",
+    "mecanismoTestado": "Para cada codigo foi iniciado um processo Node independente e uma instancia TefManager nova; repositorio mock retornou uma linha pendente com a identidade original, e o processo recuperou o bloqueio usando SQLite temporario isolado para inicializacao.",
+    "identificadoresVerificados": ["transacaoId", "idempotency_key"],
+    "observacao": "A linha pendente e fornecida por persistencia mock, nao gravada na tabela tef_transacoes; o SQLite foi criado em diretorio temporario e removido ao final. Nenhum banco de producao foi acessado."
+  },
+  "dllEOperacoesFinanceiras": {
+    "dllCarregada": false,
+    "INITExecutado": false,
+    "CONTINUEExecutado": false,
+    "FINALIZEExecutado": false,
+    "VSPagueConectado": false,
+    "PinPadAcessado": false,
+    "operacoesReaisExecutadas": false,
+    "observacao": "O teste de integracao do NativeHost usou apenas CONFIGURE_MOCK e respostas mock. TX_START foi exercitado somente pelo driver em memoria."
+  },
+  "gateFinanceiro": {
+    "estado": "OFF",
+    "evidencia": "transacaoRealHabilitada() retornou false e DESTAXA_REAL_TRANSACTION_ENABLED permaneceu diferente de 1 durante os testes."
+  },
+  "identidadesHistoricas": {
+    "MRT-24": {
+      "estado": "UNKNOWN",
+      "consultadaOuModificada": false
+    },
+    "MRT-36": {
+      "estado": "PENDING/inconclusiva",
+      "consultadaOuModificada": false
+    },
+    "MRT-42": {
+      "estado": "PENDING/inconclusiva",
+      "consultadaOuModificada": false
+    }
+  },
+  "riscosOuLimitacoes": [
+    "A recuperacao apos reinicializacao foi validada em processos separados com repositorio mock; nao houve uma linha MRT-45 gravada na tabela tef_transacoes, mesmo no SQLite temporario.",
+    "O fluxo oficial TefManager valida o estado persistido; o NativeHost isolado nao e fonte de persistencia entre processos.",
+    "Nenhum teste fisico ou homologacao Destaxa foi realizado."
+  ],
+  "naoIniciado": "MRT-46"
+}

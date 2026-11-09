@@ -1,0 +1,136 @@
+{
+  "sprint": "MRT-50.11",
+  "status": "APROVADA",
+  "scope": "Isolamento de assinatura e verificação de evidências TEF",
+  "security": {
+    "financialGate": "OFF",
+    "nativeHostOrCdsStarted": false,
+    "nativeDllLoaded": false,
+    "databaseAccessed": false,
+    "officialDatabaseModified": false,
+    "vPaguePinpadAcquirersOrSefazAccessed": false,
+    "financialDriverCalls": {
+      "TX_START": 0,
+      "TX_CONTINUE": 0,
+      "TX_FINALIZE": 0
+    }
+  },
+  "keyManagement": {
+    "signingSecret": "TEF_ENCRYPTION_KEY",
+    "requiredLengthBytes": 32,
+    "requiredFormat": "64 hexadecimal characters",
+    "missingOrMalformedSecretFailsClosed": true,
+    "behaviorDependsOnNodeEnv": false,
+    "fixedDevelopmentKeyAllowedForSigning": false,
+    "nativeHostPrivateDerivationBlocked": true,
+    "nativeHostEnvironmentContainsSecret": false,
+    "nativeHostEnvironmentContainsPublicKey": true,
+    "privateKeyExportedByEvidenceService": false,
+    "obterParChavesReconciliacaoExported": false,
+    "cryptoServiceExportsEd25519PrivateDeriver": false,
+    "tefManagerStoresPrivateKeyObject": false,
+    "derivation": {
+      "algorithm": "HMAC-SHA-256",
+      "contextPreserved": "CDS:TEF:ED25519:reconciliation-evidence-v1",
+      "pkcs8PrefixPreserved": true,
+      "claimsSerializationPreserved": true,
+      "recordFormatChanged": false,
+      "automaticRotation": false
+    },
+    "keySeparationEvaluation": {
+      "separateSigningSecretIntroduced": false,
+      "decision": "Keep the configured TEF_ENCRYPTION_KEY as the derivation source to preserve historical signatures.",
+      "futureMigrationRequirement": "A separate signing key requires explicit key versioning/verifier selection and a controlled migration before cutover."
+    }
+  },
+  "historicalCompatibility": {
+    "status": "PASSOU para evidências assinadas com a chave de ambiente correspondente",
+    "releaseFixtureVerified": true,
+    "commitFixtureVerified": true,
+    "historicalClaimsAndSerializationUnchanged": true,
+    "legacyConfiguredKeyAndContextPreserved": true,
+    "databaseInspected": false,
+    "qualification": "The fixed development key is rejected for new signatures and is not accepted as trustworthy historical signing material."
+  },
+  "tests": {
+    "command": "node tests\\tef\\mrt-50-11-isolamento-criptografico.test.js",
+    "nodeCheck": "PASSOU",
+    "diffCheck": "PASSOU",
+    "total": 12,
+    "passed": 12,
+    "failed": 0,
+    "nativeHostModuleLoaded": false,
+    "driverModuleOrCallExecuted": false,
+    "results": [
+      {
+        "name": "Chave ausente bloqueia assinatura em NODE_ENV=test",
+        "status": "PASSOU"
+      },
+      {
+        "name": "Chave malformada bloqueia assinatura",
+        "status": "PASSOU"
+      },
+      {
+        "name": "Chave de desenvolvimento fixa jamais assina",
+        "status": "PASSOU"
+      },
+      {
+        "name": "Chave válida assina e verifica evidência",
+        "status": "PASSOU"
+      },
+      {
+        "name": "Evidência adulterada é rejeitada",
+        "status": "PASSOU"
+      },
+      {
+        "name": "Evidência assinada com identidade divergente é rejeitada",
+        "status": "PASSOU"
+      },
+      {
+        "name": "NativeHost não pode derivar chave privada",
+        "status": "PASSOU"
+      },
+      {
+        "name": "Ambiente NativeHost recebe chave pública e exclui segredos",
+        "status": "PASSOU"
+      },
+      {
+        "name": "NativeHost verifica autorização e bootstrap usando apenas chave pública",
+        "status": "PASSOU"
+      },
+      {
+        "name": "RELEASE e COMMIT históricos continuam verificáveis com a chave de teste",
+        "status": "PASSOU"
+      },
+      {
+        "name": "TefManager e NativeHost não importam nem armazenam chave privada",
+        "status": "PASSOU"
+      },
+      {
+        "name": "Nenhum NativeHost ou driver financeiro foi iniciado",
+        "status": "PASSOU"
+      }
+    ]
+  },
+  "review": {
+    "diffReviewed": true,
+    "privateKeyReferenceScan": "PASSOU: no direct private-key references or key-pair export remain in TefManager/NativeHost.",
+    "restrictedSprintFilesModified": [],
+    "preflightReleased": false,
+    "financialOperationsAuthorized": false
+  },
+  "filesModified": [
+    "backend/config/secrets.js",
+    "backend/services/crypto/cryptoService.js",
+    "backend/services/tef/tefReconciliationEvidence.js",
+    "backend/services/tef/TefManager.js",
+    "tests/tef/mrt-50-11-isolamento-criptografico.test.js",
+    "docs/build/MRT-50.11-ISOLAMENTO-CRIPTOGRAFICO.md",
+    "docs/build/mrt-50-11-isolamento-criptografico-report.json"
+  ],
+  "limitations": [
+    "No official database was opened, so compatibility was validated with frozen RELEASE/COMMIT fixtures signed by the prior derivation under the matching test key.",
+    "The unrelated AES development fallback in cryptoService remains; it is not used by the Ed25519 signer.",
+    "A future dedicated signing secret requires an explicit migration/key-versioning design and was not introduced."
+  ]
+}

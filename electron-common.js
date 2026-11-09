@@ -1,7 +1,43 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
-const { resolverIconeJanela } = require('./electron-icon');
-const { configurarAberturaJanelas, registrarIpcAbrirModulo, registrarIpcForcarReflow, registrarIpcAbrirComprovante, registrarIpcImprimirRelatorioHtml, registrarJanelaPrincipalComoModulo, nomeImpressoraTermicaValido, enriquecerHtmlImpressaoTermica } = require('./electron-janelas-modulo');
 const path = require('path');
+const { app, BrowserWindow, ipcMain, dialog, safeStorage } = require('electron');
+
+const MODULO_ELECTRON = process.env.CDS_APP_MODULO;
+if (!['erp', 'pdv'].includes(MODULO_ELECTRON)) {
+  const error = new Error('CDS_APP_MODULO deve ser explicitamente erp ou pdv.');
+  error.code = 'TEF_MODULO_INVALIDO';
+  throw error;
+}
+
+delete process.env.TEF_ENCRYPTION_KEY;
+
+const { configurarPerfilTef } = require('./backend/services/tef/tefCryptoProfileProvisioner');
+let contextoPerfilTef = null;
+let erroContextoPerfilTef = null;
+try {
+  contextoPerfilTef = configurarPerfilTef({
+    app,
+    modulo: MODULO_ELECTRON,
+    sourceLocalStatePath: process.env.CDS_TEF_LOCAL_STATE_SOURCE
+  });
+  console.info('[TEF] Contexto criptográfico do perfil validado:', {
+    modulo: contextoPerfilTef.modulo,
+    userDataPath: contextoPerfilTef.userDataPath,
+    localStateSha256: contextoPerfilTef.localStateSha256,
+    localStateInstalado: contextoPerfilTef.localStateInstalado
+  });
+} catch (error) {
+  delete process.env.TEF_ENCRYPTION_KEY;
+  erroContextoPerfilTef = error;
+  console.error('[TEF] Falha no contexto criptográfico do perfil:', {
+    modulo: MODULO_ELECTRON,
+    etapa: error.etapa || 'contexto-criptografico',
+    codigo: error.code || 'TEF_CONTEXTO_PERFIL_CONFIGURACAO_FALHOU'
+  });
+}
+
+const { resolverIconeJanela } = require('./electron-icon');
+const { provisionarChaveTef } = require('./backend/services/tef/tefSigningKeyProvisioner');
+const { configurarAberturaJanelas, registrarIpcAbrirModulo, registrarIpcForcarReflow, registrarIpcAbrirComprovante, registrarIpcImprimirRelatorioHtml, registrarJanelaPrincipalComoModulo, nomeImpressoraTermicaValido, enriquecerHtmlImpressaoTermica } = require('./electron-janelas-modulo');
 const fs = require('fs');
 const http = require('http');
 const net = require('net');
@@ -289,12 +325,52 @@ function carregarConfiguracaoServidor(modulo = 'erp') {
   }
 }
 
+async function prepararChaveCriptograficaTef() {
+  try {
+    if (erroContextoPerfilTef) throw erroContextoPerfilTef;
+    const resultado = await provisionarChaveTef({
+      safeStorage,
+      dbDir: process.env.DB_DIR,
+      permitirGeracaoChave: false
+    });
+    console.info('[TEF] Chave original recuperada pelo armazenamento protegido:', {
+      modulo: MODULO_ELECTRON,
+      etapa: 'provisionamento-da-chave',
+      origem: resultado.origem
+    });
+    return true;
+  } catch (error) {
+    delete process.env.TEF_ENCRYPTION_KEY;
+    const codigo = error && error.code ? error.code : 'TEF_CHAVE_PROVISIONAMENTO_FALHOU';
+    const etapa = error && error.etapa ? error.etapa : 'provisionamento-da-chave';
+    const mensagem = error && error.message
+      ? error.message
+      : 'O armazenamento seguro da chave TEF está indisponível.';
+    console.error('[TEF] Startup bloqueado por falha criptográfica:', {
+      modulo: MODULO_ELECTRON,
+      etapa,
+      codigo
+    });
+    dialog.showErrorBox('TEF indisponível', `${mensagem}\n\nEtapa: ${etapa}\nCódigo: ${codigo}`);
+    return false;
+  }
+}
+
+async function exigirChaveCriptograficaTef() {
+  if (await prepararChaveCriptograficaTef()) return;
+  const error = new Error('O backend não será iniciado sem a chave criptográfica TEF validada.');
+  error.code = 'TEF_STARTUP_BLOQUEADO';
+  error.etapa = 'provisionamento-da-chave';
+  throw error;
+}
+
 function iniciarBackendLocal(tituloJanela) {
   aplicarRecuperacaoModoLocal();
   const portaPreferida = obterPortaServidor();
   return encontrarPortaDisponivel(portaPreferida)
-    .then((portaLivre) => {
+    .then(async (portaLivre) => {
       process.env.PORT = String(portaLivre);
+      await exigirChaveCriptograficaTef();
       const server = require('./backend/server');
       return aguardarListening(server).then(() => server);
     })
@@ -523,9 +599,13 @@ function createWindowRemote(remoteUrl, tituloJanela, configServidor = {}) {
 }
 
 function iniciarAplicacaoElectron(options = {}) {
-  const { modulo = 'erp', tituloJanela = 'CDS Sistemas' } = options;
+  const { modulo, tituloJanela = 'CDS Sistemas' } = options;
+  if (modulo !== MODULO_ELECTRON) {
+    const error = new Error('O módulo solicitado diverge da identidade definida pelo entrypoint Electron.');
+    error.code = 'TEF_MODULO_DIVERGENTE';
+    throw error;
+  }
   appModuloAtual = modulo;
-  process.env.CDS_APP_MODULO = modulo;
 
   app.disableHardwareAcceleration();
   app.commandLine.appendSwitch('disable-gpu');
@@ -536,6 +616,11 @@ function iniciarAplicacaoElectron(options = {}) {
 
   app.whenReady().then(async () => {
     try {
+      if (!(await prepararChaveCriptograficaTef())) {
+        app.quit();
+        return;
+      }
+
       if (!fs.existsSync(process.env.DB_DIR)) {
         fs.mkdirSync(process.env.DB_DIR, { recursive: true });
       }
@@ -593,8 +678,9 @@ function iniciarAplicacaoElectron(options = {}) {
 
       const portaPreferida = obterPortaServidor();
       encontrarPortaDisponivel(portaPreferida)
-        .then((portaLivre) => {
+        .then(async (portaLivre) => {
           process.env.PORT = String(portaLivre);
+          await exigirChaveCriptograficaTef();
           const server = require('./backend/server');
           return aguardarListening(server).then(() => server);
         })

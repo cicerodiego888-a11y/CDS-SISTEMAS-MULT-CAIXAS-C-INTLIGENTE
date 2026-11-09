@@ -1,0 +1,4 @@
+﻿{"provider":"DESTAXA","evento":"mrt5064.start","registradoEm":"2026-11-07T20:05:06.7441741Z","objetivo":"confirmacao-porta-persistida","pagamento":false}
+{"registradoEm":"2026-11-07T20:05:06.7471752Z","provider":"DESTAXA","registros":1,"gravacao":false,"porta_com":"COM4","tabela":"tef_pinpads","evento":"mrt5064.db.read"}
+{"registradoEm":"2026-11-07T20:05:06.7561742Z","gateOff":true,"provider":"DESTAXA","vspaguePid":44484,"dllMatch":true,"evento":"mrt5064.preflight"}
+{"provider":"DESTAXA","evento":"mrt5064.end","registradoEm":"2026-11-07T20:05:06.7711745Z","status":"CONCLUÍDA","pagamento":false}

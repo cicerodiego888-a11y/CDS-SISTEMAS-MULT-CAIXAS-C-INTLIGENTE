@@ -14,6 +14,7 @@
 
 const path = require('path');
 const EventEmitter = require('events');
+const destaxaLogger = require('./destaxaLogger');
 const {
   PROTOCOLO,
   OPERACOES_HOST,
@@ -21,6 +22,7 @@ const {
   ERROS_HOST,
   criarRequest,
   validarResponse,
+  validarAutorizacaoReconciliacao,
   resultadoHostIndisponivel
 } = require('./destaxaNativeHostProtocolo');
 
@@ -40,7 +42,8 @@ const CLASSIFICACAO_ENCERRAMENTO = Object.freeze({
   ENCERRAMENTO_CONTROLADO: 'ENCERRAMENTO_CONTROLADO',
   ENCERRAMENTO_INESPERADO: 'ENCERRAMENTO_INESPERADO',
   PERDA_IPC: 'PERDA_IPC',
-  CRASH_HOST: 'CRASH_HOST'
+  CRASH_HOST: 'CRASH_HOST',
+  ESTADO_INDETERMINADO: 'ESTADO_INDETERMINADO'
 });
 
 /**
@@ -49,14 +52,17 @@ const CLASSIFICACAO_ENCERRAMENTO = Object.freeze({
  */
 function classificarEncerramentoHost(saida, ctx = {}) {
   if (!saida) return CLASSIFICACAO_ENCERRAMENTO.ENCERRAMENTO_INESPERADO;
-  if (ctx.encerramentoLimpo === true || saida.motivo === 'SHUTDOWN') {
-    return CLASSIFICACAO_ENCERRAMENTO.ENCERRAMENTO_CONTROLADO;
-  }
   if (ctx.perdaIpc === true || saida.motivoIpc === 'IPC_DISCONNECT') {
     return CLASSIFICACAO_ENCERRAMENTO.PERDA_IPC;
   }
   if (saida.signal || (saida.code != null && Number(saida.code) !== 0)) {
     return CLASSIFICACAO_ENCERRAMENTO.CRASH_HOST;
+  }
+  if (ctx.encerramentoLimpo === true) {
+    return CLASSIFICACAO_ENCERRAMENTO.ENCERRAMENTO_CONTROLADO;
+  }
+  if (ctx.shutdownSolicitado === true || saida.motivo === 'SHUTDOWN') {
+    return CLASSIFICACAO_ENCERRAMENTO.ESTADO_INDETERMINADO;
   }
   if (saida.motivo === 'HOST_CRASHED') {
     // exit(0) após disconnect adiado ou queda sem sinal — inesperado, NÃO controlado
@@ -66,6 +72,51 @@ function classificarEncerramentoHost(saida, ctx = {}) {
 }
 
 const HOST_PATH = path.join(__dirname, 'DestaxaNativeHost.js');
+const VARIAVEIS_AMBIENTE_NATIVOHOST = Object.freeze([
+  'PATH',
+  'SYSTEMROOT',
+  'WINDIR',
+  'SYSTEMDRIVE',
+  'TEMP',
+  'TMP',
+  'HOME',
+  'TMPDIR',
+  'NODE_ENV',
+  'DESTAXA_NATIVE_HOST_TEST_MODE',
+  'DESTAXA_NATIVE_HOST_TRIPWIRE',
+  'DESTAXA_REAL_TRANSACTION_ENABLED'
+]);
+
+function obterVariavelAmbiente(ambiente, nome) {
+  const chave = Object.keys(ambiente || {}).find((item) =>
+    item.toUpperCase() === nome.toUpperCase());
+  return chave ? ambiente[chave] : undefined;
+}
+
+function criarAmbienteNativeHost(ambienteBase, ambienteExtra, chavePublica) {
+  const fontes = [ambienteBase || {}, ambienteExtra || {}];
+  const env = {};
+  for (const nome of VARIAVEIS_AMBIENTE_NATIVOHOST) {
+    let valor;
+    for (const fonte of fontes) {
+      const candidato = obterVariavelAmbiente(fonte, nome);
+      if (candidato !== undefined) valor = candidato;
+    }
+    if (valor !== undefined) env[nome] = valor;
+  }
+
+  env.DESTAXA_NATIVE_HOST_ENTRY = '1';
+  env.DESTAXA_NATIVE_HOST_TEST_MODE =
+    obterVariavelAmbiente(env, 'DESTAXA_NATIVE_HOST_TEST_MODE') === '1' ? '1' : '0';
+  env.DESTAXA_NATIVE_HOST_TRIPWIRE =
+    obterVariavelAmbiente(env, 'DESTAXA_NATIVE_HOST_TRIPWIRE') === '1' ? '1' : '0';
+  // MRT-50.67 — estado efetivo do gate enviado explicitamente (somente "1" ou "0")
+  env.DESTAXA_REAL_TRANSACTION_ENABLED =
+    obterVariavelAmbiente(env, 'DESTAXA_REAL_TRANSACTION_ENABLED') === '1' ? '1' : '0';
+  env.DESTAXA_RECONCILIATION_PUBLIC_KEY = String(chavePublica || '');
+  env.DESTAXA_OBSERVABILITY_LOG_PATH = destaxaLogger.obterArquivoAuditoria();
+  return env;
+}
 
 function criarSpawnerPadrao() {
   return function spawnHost(hostPath, env) {
@@ -137,6 +188,13 @@ class DestaxaNativeHostClient extends EventEmitter {
     this._estado = ESTADOS_CLIENTE.OFFLINE;
     this._processo = null;
     this._nativeSeq = 0;
+    this._reconciliationPublicKey = opcoes.reconciliationPublicKey || null;
+    this._securityBootstrapProvider = opcoes.securityBootstrapProvider || null;
+    this._securityBootstrapState = 'SECURITY_BOOTSTRAP_REQUIRED';
+    this._securityBootstrapRevision = 0;
+    this._bootstrapEmVoo = null;
+    this._bootstrapPromise = Promise.resolve();
+    this._usedReconciliationAuthorizationIds = new Set();
     this._geracao = 0;
     this._iniciando = null;
     this._info = null;
@@ -146,6 +204,7 @@ class DestaxaNativeHostClient extends EventEmitter {
     this._encerramentoPendente = false;
     this._aguardandoSaida = null;
     this._shutdownRequestId = null;
+    this._shutdownAcknowledged = false;
     this._respostasTardias = [];
     /** MRT-26 — referência ativa do pai ao host (evita unref durante nativa). */
     this._hostRefAtiva = false;
@@ -161,10 +220,46 @@ class DestaxaNativeHostClient extends EventEmitter {
       pidPai: process.pid,
       pidHost: this._info?.pid || this._processo?.pid || null,
       estado: this._estado,
+      securityBootstrapState: this._securityBootstrapState,
+      securityBootstrapRevision: this._securityBootstrapRevision,
       ...detalhe
     };
     this._eventosCicloCliente.push(entrada);
     if (this._eventosCicloCliente.length > 40) this._eventosCicloCliente.shift();
+    const evidencia = {
+      tipo,
+      em: entrada.em,
+      pidPai: entrada.pidPai,
+      pidHost: entrada.pidHost,
+      estado: entrada.estado,
+      requestId: detalhe.requestId || detalhe.requestIdEmVoo || null
+    };
+    const camposSeguros = [
+      'operation', 'timeoutAt', 'timeoutMs', 'estadoOperacao', 'operationInFlight',
+      'nativeCallCancelled', 'lockHeld', 'terminalState', 'stoppedConfirmed',
+      'classification', 'classificacaoEncerramento', 'code', 'exitCode', 'signal',
+      'horarioSaida', 'responseReceivedBeforeExit', 'responseReceived', 'sendInvoked',
+      'messageType', 'resultCode', 'errorCode', 'hasError', 'previousState',
+      'processType', 'motivo', 'forcado', 'adiado'
+    ];
+    for (const campo of camposSeguros) {
+      if (detalhe[campo] !== undefined) evidencia[campo] = detalhe[campo];
+    }
+    if (detalhe.exception) {
+      evidencia.exception = {
+        name: detalhe.exception.name || 'Error',
+        code: detalhe.exception.code || null
+      };
+    }
+    if (detalhe.resultado && typeof detalhe.resultado === 'object') {
+      evidencia.handleResult = {};
+      for (const campo of ['encerrado', 'adiado', 'forcado', 'estado', 'sucesso', 'codigo']) {
+        if (detalhe.resultado[campo] !== undefined) {
+          evidencia.handleResult[campo] = detalhe.resultado[campo];
+        }
+      }
+    }
+    destaxaLogger.registrarPersistente('nativehost.client.lifecycle', evidencia);
     this.emit('ciclo-vida', entrada);
     return entrada;
   }
@@ -204,7 +299,10 @@ class DestaxaNativeHostClient extends EventEmitter {
   getEstado() {
     return {
       estado: this._estado,
+      securityBootstrapState: this._securityBootstrapState,
+      securityBootstrapRevision: this._securityBootstrapRevision,
       pid: this._info?.pid || null,
+      hostSessionId: this._info?.hostSessionId || null,
       pidPai: process.pid,
       processType: this._info?.processType || null,
       versions: this._info?.versions || null,
@@ -227,6 +325,25 @@ class DestaxaNativeHostClient extends EventEmitter {
     };
   }
 
+  configurarChavePublicaReconciliacao(chavePublica) {
+    if (!String(chavePublica || '').trim()) {
+      throw new Error('Chave pública de reconciliação obrigatória');
+    }
+    if (this._processo && this._reconciliationPublicKey !== chavePublica) {
+      throw new Error('Chave de reconciliação não pode ser alterada com NativeHost ativo');
+    }
+    this._reconciliationPublicKey = chavePublica;
+    return true;
+  }
+
+  configurarProvedorBootstrapSeguranca(provedor) {
+    if (typeof provedor !== 'function') {
+      throw new Error('Provedor de bootstrap de segurança obrigatório');
+    }
+    this._securityBootstrapProvider = provedor;
+    return true;
+  }
+
   iniciar() {
     if (this._estado === ESTADOS_CLIENTE.READY || this._estado === ESTADOS_CLIENTE.BUSY) return Promise.resolve(true);
     if (this._iniciando) return this._iniciando;
@@ -236,7 +353,13 @@ class DestaxaNativeHostClient extends EventEmitter {
 
     this._estado = ESTADOS_CLIENTE.STARTING;
     const geracao = ++this._geracao;
-    const env = { ...process.env, ...this._envExtra, DESTAXA_NATIVE_HOST_ENTRY: '1' };
+    this._securityBootstrapState = 'SECURITY_BOOTSTRAP_REQUIRED';
+    this._securityBootstrapRevision = 0;
+    const env = criarAmbienteNativeHost(
+      process.env,
+      this._envExtra,
+      this._reconciliationPublicKey
+    );
 
     this._iniciando = new Promise((resolve) => {
       let processo = null;
@@ -249,8 +372,9 @@ class DestaxaNativeHostClient extends EventEmitter {
         resolve(ok);
       };
       const timer = setTimeout(() => {
-        this._estado = ESTADOS_CLIENTE.OFFLINE;
-        this._ultimaSaida = { motivo: 'HOST_READY não recebido', em: new Date().toISOString() };
+        this._securityBootstrapState = 'SECURITY_BOOTSTRAP_FAILED';
+        this._estado = ESTADOS_CLIENTE.CRASHED;
+        this._ultimaSaida = { motivo: 'HOST_READY/bootstrap de segurança não confirmado', em: new Date().toISOString() };
         try { processo?.matar(); } catch (_) { /* já encerrado */ }
         concluir(false);
       }, this._timeoutInicioMs);
@@ -268,17 +392,48 @@ class DestaxaNativeHostClient extends EventEmitter {
 
       processo.aoReceber((mensagem) => {
         if (geracao !== this._geracao) return;
+        this._registrarEventoCliente('ipc.message.received', {
+          requestId: mensagem?.requestId || null,
+          messageType: mensagem?.tipo || 'response',
+          operation: mensagem?.operation || null
+        });
         if (mensagem && mensagem.tipo === 'HOST_READY' && mensagem.protocol === PROTOCOLO) {
           this._info = {
             pid: mensagem.pid,
             processType: mensagem.processType,
+            hostSessionId: mensagem.hostSessionId || null,
             versions: mensagem.versions,
             modoTeste: mensagem.modoTeste,
             tripwire: mensagem.tripwire
           };
-          this._estado = ESTADOS_CLIENTE.READY;
-          this.emit('ready', { ...this._info });
-          concluir(true);
+          if (!this._info.hostSessionId) {
+            this._securityBootstrapState = 'SECURITY_BOOTSTRAP_FAILED';
+            this._estado = ESTADOS_CLIENTE.CRASHED;
+            try { processo?.matar(); } catch (_) { /* já encerrado */ }
+            concluir(false);
+            return;
+          }
+          this._sincronizarBootstrapSeguranca().then((resultado) => {
+            if (concluido || geracao !== this._geracao) return;
+            if (!resultado.ok) {
+              this._securityBootstrapState = 'SECURITY_BOOTSTRAP_FAILED';
+              this._estado = ESTADOS_CLIENTE.CRASHED;
+              this._ultimaSaida = { motivo: resultado.mensagem || 'Bootstrap de segurança falhou', em: new Date().toISOString() };
+              try { processo?.matar(); } catch (_) { /* já encerrado */ }
+              concluir(false);
+              return;
+            }
+            this._estado = ESTADOS_CLIENTE.READY;
+            this.emit('ready', { ...this._info, securityBootstrapState: this._securityBootstrapState });
+            concluir(true);
+          }).catch((error) => {
+            if (concluido || geracao !== this._geracao) return;
+            this._securityBootstrapState = 'SECURITY_BOOTSTRAP_FAILED';
+            this._estado = ESTADOS_CLIENTE.CRASHED;
+            this._ultimaSaida = { motivo: `Bootstrap de segurança falhou: ${error.message}`, em: new Date().toISOString() };
+            try { processo?.matar(); } catch (_) { /* já encerrado */ }
+            concluir(false);
+          });
           return;
         }
         this._aoMensagem(mensagem);
@@ -338,11 +493,11 @@ class DestaxaNativeHostClient extends EventEmitter {
     if (this._emVoo) {
       return this._respostaLocal(ERROS_HOST.HOST_BUSY, req, 'Chamada nativa Destaxa em andamento — operação não enviada');
     }
-    if (this._reconciliacaoPendente && operation === OPERACOES_HOST.TX_START) {
+    if (this._reconciliacaoPendente && OPERACOES_TRANSACIONAIS.has(operation)) {
       return this._respostaLocal(
         ERROS_HOST.HOST_RECONCILIATION_PENDING,
         req,
-        `Transação ${this._reconciliacaoPendente.transactionId} sem desfecho conhecido — nova transação bloqueada`
+        `Transação ${this._reconciliacaoPendente.transactionId} sem desfecho conhecido — operação financeira bloqueada`
       );
     }
 
@@ -353,6 +508,23 @@ class DestaxaNativeHostClient extends EventEmitter {
         this._emVoo = null;
         const codigo = this._estado === ESTADOS_CLIENTE.CRASHED ? ERROS_HOST.HOST_CRASHED : ERROS_HOST.HOST_UNAVAILABLE;
         return this._respostaLocal(codigo, req, `TEF Native Host indisponível: ${this._ultimaSaida?.motivo || 'sem detalhe'}`);
+      }
+    }
+    if (OPERACOES_TRANSACIONAIS.has(operation)) {
+      const sincronizacao = await this._sincronizarBootstrapSeguranca({
+        operation,
+        transactionId: req.transactionId
+      });
+      if (!sincronizacao.ok || !sincronizacao.permitAuthorized) {
+        this._emVoo = null;
+        const codigo = sincronizacao.ok
+          ? ERROS_HOST.HOST_SECURITY_OPERATION_BLOCKED
+          : ERROS_HOST.HOST_SECURITY_BOOTSTRAP_REQUIRED;
+        return this._respostaLocal(
+          codigo,
+          req,
+          sincronizacao.mensagem || `${operation} sem bootstrap/permit de segurança válido`
+        );
       }
     }
 
@@ -369,6 +541,17 @@ class DestaxaNativeHostClient extends EventEmitter {
       emVoo.timer = timeoutMs == null ? null : setTimeout(() => {
         emVoo.expirado = true;
         emVoo.resolve = null;
+        this._registrarEventoCliente('ipc.timeout', {
+          requestId: req.requestId,
+          operation: req.operation,
+          timeoutAt: new Date().toISOString(),
+          pidHost: this._info?.pid || this._processo?.pid || null,
+          timeoutMs,
+          estadoOperacao: this._estado,
+          operationInFlight: true,
+          nativeCallCancelled: false,
+          lockHeld: this._emVoo === emVoo
+        });
         this.emit('timeout', { requestId: req.requestId, operation: req.operation, transactionId: req.transactionId });
         resolve(this._respostaLocal(
           ERROS_HOST.HOST_TIMEOUT,
@@ -388,7 +571,18 @@ class DestaxaNativeHostClient extends EventEmitter {
       });
       try {
         this._processo.enviar(req);
+        this._registrarEventoCliente('ipc.message.sent', {
+          requestId: req.requestId,
+          operation: req.operation,
+          pidHost: this._info?.pid || this._processo?.pid || null,
+          sendInvoked: true
+        });
       } catch (error) {
+        this._registrarEventoCliente('ipc.send.exception', {
+          requestId: req.requestId,
+          operation: req.operation,
+          exception: { name: error.name || 'Error', code: error.code || null }
+        });
         clearTimeout(emVoo.timer);
         this._emVoo = null;
         this._estado = ESTADOS_CLIENTE.READY;
@@ -414,11 +608,55 @@ class DestaxaNativeHostClient extends EventEmitter {
       this.emit('mensagem-invalida', { motivo: invalido });
       return;
     }
+    const requestCorrelacionada = this._emVoo?.req?.requestId === mensagem.requestId
+      ? this._emVoo.req
+      : (this._bootstrapEmVoo?.req?.requestId === mensagem.requestId
+        ? this._bootstrapEmVoo.req
+        : null);
+    this._registrarEventoCliente('ipc.response.received', {
+      requestId: mensagem.requestId,
+      operation: requestCorrelacionada?.operation
+        || (mensagem.requestId === this._shutdownRequestId ? OPERACOES_HOST.SHUTDOWN : null),
+      pidHost: this._info?.pid || this._processo?.pid || null,
+      resultCode: mensagem.resultCode || null,
+      errorCode: mensagem.error?.code || null
+    });
     if (Number.isInteger(mensagem.nativeSeq) && mensagem.nativeSeq > this._nativeSeq) {
       this._nativeSeq = mensagem.nativeSeq;
     }
 
+    const bootstrapEmVoo = this._bootstrapEmVoo;
+    if (bootstrapEmVoo && bootstrapEmVoo.req.requestId === mensagem.requestId) {
+      clearTimeout(bootstrapEmVoo.timer);
+      this._bootstrapEmVoo = null;
+      const claims = bootstrapEmVoo.autorizacao?.claims;
+      const output = mensagem.output;
+      const ok = !mensagem.error
+        && output?.sucesso === true
+        && output.bootstrapId === claims?.bootstrapId
+        && output.revision === claims?.revision
+        && output.securityState === claims?.securityState;
+      if (ok) {
+        this._securityBootstrapRevision = claims.revision;
+        this._securityBootstrapState = output.securityState;
+        bootstrapEmVoo.resolve({
+          ok: true,
+          permitAuthorized: bootstrapEmVoo.operation == null
+            || (claims.permit?.operation === bootstrapEmVoo.operation
+              && claims.permit?.transactionId === bootstrapEmVoo.transactionId),
+          mensagem: null
+        });
+      } else {
+        const falha = this._falharBootstrapSeguranca(
+          mensagem.error?.message || 'NativeHost não confirmou o bootstrap de segurança'
+        );
+        bootstrapEmVoo.resolve(falha);
+      }
+      return;
+    }
+
     if (mensagem.requestId === this._shutdownRequestId) {
+      this._shutdownAcknowledged = true;
       if (mensagem.output?.transacaoPendente) {
         this._registrarReconciliacao(mensagem.output.transacaoPendente.transactionId, 'SHUTDOWN', mensagem.requestId);
       }
@@ -427,10 +665,12 @@ class DestaxaNativeHostClient extends EventEmitter {
 
     const emVoo = this._emVoo;
     if (!emVoo || emVoo.req.requestId !== mensagem.requestId) {
+      this._observarResultadoFinanceiro(mensagem, null);
       this._registrarTardia(mensagem, null);
       return;
     }
 
+    this._observarResultadoFinanceiro(mensagem, emVoo.req);
     clearTimeout(emVoo.timer);
     this._emVoo = null;
     this._estado = ESTADOS_CLIENTE.READY;
@@ -442,6 +682,103 @@ class DestaxaNativeHostClient extends EventEmitter {
 
     if (this._encerramentoPendente) {
       this._enviarShutdown();
+    }
+  }
+
+  _sincronizarBootstrapSeguranca(contexto = {}) {
+    const anterior = this._bootstrapPromise;
+    const atual = anterior.then(() => this._enviarBootstrapSeguranca(contexto));
+    this._bootstrapPromise = atual.catch(() => ({ ok: false, mensagem: 'Bootstrap de segurança falhou' }));
+    return atual;
+  }
+
+  _falharBootstrapSeguranca(mensagem) {
+    this._securityBootstrapState = 'SECURITY_BOOTSTRAP_FAILED';
+    this._estado = ESTADOS_CLIENTE.CRASHED;
+    this._ultimaSaida = { motivo: mensagem, em: new Date().toISOString() };
+    try { this._processo?.matar(); } catch (_) { /* processo já encerrado */ }
+    return { ok: false, permitAuthorized: false, mensagem };
+  }
+
+  async _enviarBootstrapSeguranca(contexto = {}) {
+    const provedor = this._securityBootstrapProvider;
+    const processo = this._processo;
+    const hostSessionId = this._info?.hostSessionId;
+    if (typeof provedor !== 'function' || !processo || !hostSessionId || processo.connected === false) {
+      return this._falharBootstrapSeguranca('Provedor, sessão ou IPC indisponível para bootstrap de segurança');
+    }
+
+    let autorizacao;
+    try {
+      autorizacao = await provedor({
+        hostSessionId,
+        revision: this._securityBootstrapRevision + 1,
+        operation: contexto.operation || null,
+        transactionId: contexto.transactionId || null
+      });
+    } catch (error) {
+      return this._falharBootstrapSeguranca(`Recuperação/autorização do bootstrap falhou: ${error.message}`);
+    }
+    const claims = autorizacao?.claims;
+    if (!claims
+      || claims.hostSessionId !== hostSessionId
+      || claims.revision !== this._securityBootstrapRevision + 1
+      || (claims.permit != null && (!contexto.operation
+        || claims.permit.operation !== contexto.operation
+        || claims.permit.transactionId !== contexto.transactionId))) {
+      return this._falharBootstrapSeguranca('Documento de bootstrap não corresponde à sessão/revisão/operação solicitada');
+    }
+
+    const req = criarRequest(
+      OPERACOES_HOST.SECURITY_BOOTSTRAP,
+      { autorizacao },
+      null,
+      this._nativeSeq
+    );
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this._bootstrapEmVoo = null;
+        resolve(this._falharBootstrapSeguranca('Timeout aguardando confirmação do bootstrap de segurança'));
+      }, this._timeoutInicioMs);
+      this._bootstrapEmVoo = {
+        req,
+        autorizacao,
+        operation: contexto.operation || null,
+        transactionId: contexto.transactionId || null,
+        timer,
+        resolve
+      };
+      try {
+        processo.enviar(req);
+      } catch (error) {
+        clearTimeout(timer);
+        this._bootstrapEmVoo = null;
+        resolve(this._falharBootstrapSeguranca(`IPC do bootstrap falhou: ${error.message}`));
+      }
+    });
+  }
+
+  async atualizarBootstrapSeguranca() {
+    if (this._estado !== ESTADOS_CLIENTE.READY || this._emVoo) {
+      return { sucesso: false, codigo: ERROS_HOST.HOST_BUSY };
+    }
+    const resultado = await this._sincronizarBootstrapSeguranca();
+    return resultado.ok
+      ? { sucesso: true, securityState: this._securityBootstrapState, revision: this._securityBootstrapRevision }
+      : { sucesso: false, codigo: ERROS_HOST.HOST_SECURITY_BOOTSTRAP_REQUIRED, mensagem: resultado.mensagem };
+  }
+
+  _observarResultadoFinanceiro(mensagem, req) {
+    const transactionId = mensagem.output?.contexto?.transactionId
+      || mensagem.transactionId
+      || req?.transactionId
+      || null;
+    const financialState = mensagem.output?.financialState
+      || mensagem.output?.contexto?.financialState
+      || mensagem.output?.contexto?.dadosUltimaResposta?.financialState;
+
+    if (req && OPERACOES_TRANSACIONAIS.has(req.operation) && financialState === 'UNKNOWN') {
+      this._registrarReconciliacao(transactionId, req.operation, mensagem.requestId);
     }
   }
 
@@ -469,11 +806,26 @@ class DestaxaNativeHostClient extends EventEmitter {
   }
 
   _aoSair(code, signal) {
+    const estadoAnterior = this._estado;
+    const pidHost = this._info?.pid || this._processo?.pid || null;
+    if (this._bootstrapEmVoo) {
+      const bootstrapEmVoo = this._bootstrapEmVoo;
+      clearTimeout(bootstrapEmVoo.timer);
+      this._bootstrapEmVoo = null;
+      this._securityBootstrapState = 'SECURITY_BOOTSTRAP_FAILED';
+      bootstrapEmVoo.resolve({
+        ok: false,
+        permitAuthorized: false,
+        mensagem: 'NativeHost encerrou antes da confirmação do bootstrap'
+      });
+    }
     const emVoo = this._emVoo && !this._emVoo.reservando ? this._emVoo : null;
     if (emVoo) this._emVoo = null;
     this._processo = null;
     const encerramentoLimpo = this._estado === ESTADOS_CLIENTE.SHUTTING_DOWN;
     const antesDePronto = this._estado === ESTADOS_CLIENTE.STARTING || this._estado === ESTADOS_CLIENTE.OFFLINE;
+    const shutdownSolicitado = Boolean(this._shutdownRequestId);
+    const horarioSaida = new Date().toISOString();
 
     const motivo = encerramentoLimpo
       ? 'SHUTDOWN'
@@ -482,6 +834,11 @@ class DestaxaNativeHostClient extends EventEmitter {
       code: code ?? null,
       signal: signal || null,
       motivo,
+      pidHost,
+      requestIdEncerramento: this._shutdownRequestId,
+      shutdownAcknowledged: this._shutdownAcknowledged,
+      estadoAnterior,
+      horarioSaida,
       motivoIpc: this._perdaIpcDetectada ? 'IPC_DISCONNECT' : null,
       operacaoEmVoo: emVoo?.req?.operation || null,
       transactionIdEmVoo: emVoo?.req?.transactionId || null,
@@ -492,30 +849,51 @@ class DestaxaNativeHostClient extends EventEmitter {
     this._ultimaSaida.classificacaoEncerramento = classificarEncerramentoHost(this._ultimaSaida, {
       perdaIpc: this._perdaIpcDetectada === true,
       encerramentoLimpo: encerramentoLimpo === true
+        && this._shutdownAcknowledged === true
+        && Number(code) === 0
+        && !signal,
+      shutdownSolicitado
     });
-    // Crash/perda IPC nunca viram ENCERRAMENTO_CONTROLADO
-    if (this._ultimaSaida.classificacaoEncerramento === CLASSIFICACAO_ENCERRAMENTO.ENCERRAMENTO_CONTROLADO
-      && !encerramentoLimpo) {
-      this._ultimaSaida.classificacaoEncerramento = CLASSIFICACAO_ENCERRAMENTO.ENCERRAMENTO_INESPERADO;
-    }
     this._hostRefAtiva = false;
     this._registrarEventoCliente('host.exit', {
+      pidHost,
       code: code ?? null,
       signal: signal || null,
       motivo: this._ultimaSaida.motivo,
       classificacaoEncerramento: this._ultimaSaida.classificacaoEncerramento,
-      operacaoEmVoo: this._ultimaSaida.operacaoEmVoo
+      requestIdEmVoo: emVoo?.req?.requestId || null,
+      responseReceivedBeforeExit: !emVoo || emVoo.respostaRecebida === true,
+      horarioSaida
     });
+    if (emVoo?.req?.requestId) {
+      this._registrarEventoCliente('ipc.process.exit.before_response', {
+        requestId: emVoo.req.requestId,
+        operation: emVoo.req.operation,
+        pidHost,
+        exitCode: code ?? null,
+        signal: signal || null,
+        responseReceived: false,
+        horarioSaida
+      });
+    }
     this._perdaIpcDetectada = false;
 
-    if (encerramentoLimpo) {
+    if (this._ultimaSaida.classificacaoEncerramento === CLASSIFICACAO_ENCERRAMENTO.ENCERRAMENTO_CONTROLADO) {
       this._estado = ESTADOS_CLIENTE.STOPPED;
-    } else if (antesDePronto) {
+    } else if (antesDePronto && !shutdownSolicitado) {
       this._estado = ESTADOS_CLIENTE.OFFLINE;
     } else {
       this._estado = ESTADOS_CLIENTE.CRASHED;
       this.emit('crash', { ...this._ultimaSaida });
     }
+    this._registrarEventoCliente('host.terminal_state', {
+      pidHost,
+      requestId: this._shutdownRequestId || emVoo?.req?.requestId || null,
+      terminalState: this._estado,
+      stoppedConfirmed: this._estado === ESTADOS_CLIENTE.STOPPED,
+      classification: this._ultimaSaida.classificacaoEncerramento,
+      horarioSaida
+    });
 
     if (emVoo && emVoo.req) {
       clearTimeout(emVoo.timer);
@@ -548,10 +926,20 @@ class DestaxaNativeHostClient extends EventEmitter {
     this._estado = ESTADOS_CLIENTE.SHUTTING_DOWN;
     const req = criarRequest(OPERACOES_HOST.SHUTDOWN, {}, null, this._nativeSeq);
     this._shutdownRequestId = req.requestId;
+    this._shutdownAcknowledged = false;
+    this._registrarEventoCliente('ipc.message.sent', {
+      requestId: req.requestId,
+      operation: OPERACOES_HOST.SHUTDOWN,
+      pidHost: this._info?.pid || this._processo?.pid || null
+    });
     try {
       this._processo.enviar(req);
-    } catch (_) {
-      try { this._processo.matar(); } catch (__) { /* já encerrado */ }
+    } catch (error) {
+      this._registrarEventoCliente('shutdown.send.exception', {
+        requestId: req.requestId,
+        exception: { name: error.name || 'Error', code: error.code || null }
+      });
+      try { this._processo.matar(); } catch (_) { /* já encerrado */ }
     }
   }
 
@@ -560,15 +948,41 @@ class DestaxaNativeHostClient extends EventEmitter {
    * (a operação nunca é tratada como cancelada); o host recebe SHUTDOWN
    * assim que a chamada retornar.
    */
-  async encerrar({ aguardarMs = 5000 } = {}) {
-    if (!this._processo || [ESTADOS_CLIENTE.OFFLINE, ESTADOS_CLIENTE.STOPPED, ESTADOS_CLIENTE.CRASHED].includes(this._estado)) {
-      return { encerrado: true, estado: this._estado };
+   async encerrar({ aguardarMs = 5000 } = {}) {
+     const estadoAnterior = this._estado;
+     this._registrarEventoCliente('shutdown.requested', {
+       pidHost: this._info?.pid || this._processo?.pid || null,
+       previousState: estadoAnterior,
+       requestId: this._emVoo?.req?.requestId || null
+     });
+     if (!this._processo || [ESTADOS_CLIENTE.OFFLINE, ESTADOS_CLIENTE.STOPPED, ESTADOS_CLIENTE.CRASHED].includes(this._estado)) {
+       const resultado = { encerrado: true, estado: this._estado };
+       this._registrarEventoCliente('shutdown.result', {
+         pidHost: this._info?.pid || null,
+         terminalState: this._estado,
+         stoppedConfirmed: this._estado === ESTADOS_CLIENTE.STOPPED,
+         resultado
+       });
+       return resultado;
     }
     if (this._emVoo) {
       this._encerramentoPendente = true;
       const emVoo = this.getEstado().emVoo;
+      this._registrarEventoCliente('shutdown.deferred', {
+        requestId: emVoo?.requestId || null,
+        operationInFlight: true,
+        nativeCallCancelled: false,
+        lockHeld: true
+      });
       this.emit('encerramento-adiado', emVoo);
-      return { encerrado: false, adiado: true, motivo: ERROS_HOST.HOST_BUSY, operacaoEmVoo: emVoo };
+      const resultado = { encerrado: false, adiado: true, motivo: ERROS_HOST.HOST_BUSY, operacaoEmVoo: emVoo };
+      this._registrarEventoCliente('shutdown.result', {
+        requestId: emVoo?.requestId || null,
+        terminalState: this._estado,
+        stoppedConfirmed: false,
+        resultado
+      });
+      return resultado;
     }
 
     const saiu = new Promise((resolve) => { this._aguardandoSaida = resolve; });
@@ -580,14 +994,30 @@ class DestaxaNativeHostClient extends EventEmitter {
     if (venceu === 'timeout' && this._processo && !this._emVoo) {
       try { this._processo.matar(); } catch (_) { /* já encerrado */ }
       await Promise.race([saiu, new Promise((resolve) => setTimeout(resolve, 1000))]);
-      return { encerrado: true, forcado: true, estado: this._estado };
+      const resultado = { encerrado: true, forcado: true, estado: this._estado };
+      this._registrarEventoCliente('shutdown.result', {
+        requestId: this._shutdownRequestId,
+        pidHost: this._info?.pid || null,
+        terminalState: this._estado,
+        stoppedConfirmed: this._estado === ESTADOS_CLIENTE.STOPPED,
+        resultado
+      });
+      return resultado;
     }
-    return { encerrado: true, estado: this._estado };
+    const resultado = { encerrado: true, estado: this._estado };
+    this._registrarEventoCliente('shutdown.result', {
+      requestId: this._shutdownRequestId,
+      pidHost: this._info?.pid || null,
+      terminalState: this._estado,
+      stoppedConfirmed: this._estado === ESTADOS_CLIENTE.STOPPED,
+      resultado
+    });
+    return resultado;
   }
 
-  /** Reinício explícito após queda. Recusa enquanto houver transação sem desfecho conhecido. */
-  async reiniciar({ reconciliado = false } = {}) {
-    if (this._reconciliacaoPendente && !reconciliado) {
+  /** Reinício explícito após queda; nunca libera uma reconciliação pendente. */
+  async reiniciar() {
+    if (this._reconciliacaoPendente) {
       return { sucesso: false, codigo: ERROS_HOST.HOST_RECONCILIATION_PENDING, reconciliacao: { ...this._reconciliacaoPendente } };
     }
     if (this._emVoo) {
@@ -596,10 +1026,134 @@ class DestaxaNativeHostClient extends EventEmitter {
     if (this._processo) {
       await this.encerrar();
     }
-    this._reconciliacaoPendente = null;
     this._estado = ESTADOS_CLIENTE.OFFLINE;
     const ok = await this.iniciar();
     return { sucesso: ok, estado: this._estado };
+  }
+
+  marcarReconciliacaoPendente(transactionId, operation = 'RECONCILE') {
+    const id = transactionId == null ? null : String(transactionId);
+    if (!id) return false;
+    if (this._reconciliacaoPendente
+      && String(this._reconciliacaoPendente.transactionId) !== id) {
+      return false;
+    }
+    this._reconciliacaoPendente = {
+      transactionId: id,
+      operation,
+      requestId: this._reconciliacaoPendente?.requestId || null,
+      em: this._reconciliacaoPendente?.em || new Date().toISOString()
+    };
+    return true;
+  }
+
+  async prepararHostParaReconciliacao(transactionId) {
+    if (!this.marcarReconciliacaoPendente(transactionId)) {
+      return { sucesso: false, codigo: ERROS_HOST.HOST_TRANSACTION_MISMATCH };
+    }
+    if (this._estado === ESTADOS_CLIENTE.READY) {
+      return { sucesso: true, hostSessionId: this._info?.hostSessionId || null };
+    }
+    if (this._emVoo
+      || [ESTADOS_CLIENTE.STARTING, ESTADOS_CLIENTE.BUSY, ESTADOS_CLIENTE.SHUTTING_DOWN].includes(this._estado)) {
+      return { sucesso: false, codigo: ERROS_HOST.HOST_BUSY };
+    }
+    if ([ESTADOS_CLIENTE.CRASHED, ESTADOS_CLIENTE.STOPPED].includes(this._estado)) {
+      this._geracao += 1;
+      this._processo = null;
+      this._info = null;
+      this._estado = ESTADOS_CLIENTE.OFFLINE;
+    }
+    const ok = await this.iniciar();
+    if (!ok || this._estado !== ESTADOS_CLIENTE.READY || !this._info?.hostSessionId) {
+      return { sucesso: false, codigo: ERROS_HOST.HOST_UNAVAILABLE };
+    }
+    return { sucesso: true, hostSessionId: this._info.hostSessionId };
+  }
+
+  async reconciliarTransacao(transactionId, autorizacao) {
+    const id = transactionId == null ? null : String(transactionId);
+    const claims = validarAutorizacaoReconciliacao(
+      autorizacao,
+      this._reconciliationPublicKey,
+      this._info?.hostSessionId
+    );
+    if (!id
+      || !claims
+      || claims.phase !== 'release'
+      || String(claims.transactionId) !== id
+      || this._usedReconciliationAuthorizationIds.has(claims.authorizationId)) {
+      return { sucesso: false, codigo: ERROS_HOST.HOST_RECONCILIATION_PENDING };
+    }
+    if (this._reconciliacaoPendente
+      && String(this._reconciliacaoPendente.transactionId) !== id) {
+      return {
+        sucesso: false,
+        codigo: ERROS_HOST.HOST_TRANSACTION_MISMATCH,
+        reconciliacao: { ...this._reconciliacaoPendente }
+      };
+    }
+    if (!this.marcarReconciliacaoPendente(id)) {
+      return { sucesso: false, codigo: ERROS_HOST.HOST_TRANSACTION_MISMATCH };
+    }
+    if (this._emVoo
+      || [ESTADOS_CLIENTE.STARTING, ESTADOS_CLIENTE.BUSY, ESTADOS_CLIENTE.SHUTTING_DOWN].includes(this._estado)) {
+      return { sucesso: false, codigo: ERROS_HOST.HOST_BUSY };
+    }
+
+    if (this._estado === ESTADOS_CLIENTE.READY && this._processo) {
+      this._usedReconciliationAuthorizationIds.add(claims.authorizationId);
+      const resposta = await this.enviar(
+        OPERACOES_HOST.RECONCILE,
+        { autorizacao },
+        { transactionId: id }
+      );
+      if (resposta.error) {
+        return { sucesso: false, codigo: resposta.error.code, mensagem: resposta.error.message };
+      }
+      if (resposta.output?.sucesso !== true
+        || String(resposta.output.transactionId || '') !== id) {
+        return { sucesso: false, codigo: ERROS_HOST.HOST_RECONCILIATION_PENDING };
+      }
+      return {
+        sucesso: true,
+        transactionId: id,
+        financialState: claims.financialState,
+        hostAtualizado: true,
+        authorizationId: claims.authorizationId
+      };
+    }
+
+    return { sucesso: false, codigo: ERROS_HOST.HOST_UNAVAILABLE };
+  }
+
+  confirmarReconciliacaoPersistida(autorizacao) {
+    const claims = validarAutorizacaoReconciliacao(
+      autorizacao,
+      this._reconciliationPublicKey,
+      this._info?.hostSessionId
+    );
+    if (!claims
+      || claims.phase !== 'commit'
+      || claims.recordStatus !== claims.resultStatus
+      || !this._reconciliacaoPendente
+      || String(this._reconciliacaoPendente.transactionId) !== String(claims.transactionId)
+      || this._usedReconciliationAuthorizationIds.has(claims.authorizationId)) {
+      return { sucesso: false, codigo: ERROS_HOST.HOST_RECONCILIATION_PENDING };
+    }
+    this._usedReconciliationAuthorizationIds.add(claims.authorizationId);
+    this._reconciliacaoPendente = null;
+    this.emit('reconciliacao-concluida', {
+      transactionId: claims.transactionId,
+      financialState: claims.financialState,
+      hostAtualizado: true
+    });
+    return {
+      sucesso: true,
+      transactionId: claims.transactionId,
+      financialState: claims.financialState,
+      hostAtualizado: true
+    };
   }
 }
 
@@ -621,6 +1175,7 @@ module.exports = {
   CLASSIFICACAO_ENCERRAMENTO,
   classificarEncerramentoHost,
   HOST_PATH,
+  criarAmbienteNativeHost,
   criarSpawnerPadrao,
   obterClienteCompartilhado,
   clienteCompartilhadoExistente

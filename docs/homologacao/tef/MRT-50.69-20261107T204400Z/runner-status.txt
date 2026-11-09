@@ -1,0 +1,2 @@
+STARTED pid=70468 at=2026-11-07T21:01:20.893Z confirmacao=EXPLICITA valor=1.00 modalidade=debito
+EXIT=1 at=2026-11-07T21:01:22.316Z

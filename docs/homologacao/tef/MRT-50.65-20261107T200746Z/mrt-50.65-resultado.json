@@ -1,0 +1,63 @@
+{
+  "sprint": "MRT-50.65",
+  "titulo": "INICIALIZAÇÃO CONTROLADA DO NATIVEHOST E CLIENT DESTAXA",
+  "status": "CONCLUÍDA",
+  "classificacao": "RETURNED_SUCCESS",
+  "registradoEm": "2026-11-07T20:07:46Z",
+  "executadoEm": {
+    "start": "2026-11-07T20:08:37.939Z",
+    "exit": "2026-11-07T20:08:38.859Z",
+    "parentExitCode": 0
+  },
+  "preflightAprovado": true,
+  "nativeHost": {
+    "pid": 73852,
+    "parentPid": 63396,
+    "processType": "utilityProcess",
+    "instancias": 1,
+    "residualApos": 0
+  },
+  "dll": {
+    "sha256": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+    "matchReferencia": true,
+    "dllLoads": 1,
+    "arch": "x64"
+  },
+  "iniciaClientDestaxa": {
+    "chamadas": 1,
+    "requestId": "7d7d1b3e8aa253ad",
+    "resultCode": "00",
+    "durationMs": 0.414,
+    "estado": "CLIENT_INITIALIZED",
+    "retry": false,
+    "timeout": false
+  },
+  "shutdown": {
+    "encerrado": true,
+    "adiado": false,
+    "forcado": false,
+    "estado": "STOPPED",
+    "stoppedConfirmed": true,
+    "classificacaoSaida": "ENCERRAMENTO_CONTROLADO"
+  },
+  "gate": {
+    "antes": { "process": "0", "user": null, "machine": null },
+    "depois": { "process": "0", "user": null, "machine": null },
+    "off": true,
+    "habilitadoTemporariamente": false
+  },
+  "chamadasFinanceiras": {
+    "iniciaTransacaoDestaxa": 0,
+    "continuaTransacaoDestaxa": 0,
+    "finalizaTransacaoDestaxa": 0
+  },
+  "integridadeOriginais": {
+    "localState": true,
+    "marker": true,
+    "key": true,
+    "dll": true
+  },
+  "autorizacaoDebitoR1": "reservada — não utilizada",
+  "bancoAlterado": false,
+  "codigoAlterado": false
+}

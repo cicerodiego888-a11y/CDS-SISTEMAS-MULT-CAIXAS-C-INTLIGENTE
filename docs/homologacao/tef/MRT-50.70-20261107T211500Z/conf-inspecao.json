@@ -1,0 +1,293 @@
+{
+  "path": "C:\\VBI\\V$Pague\\Client\\V$PagueClient_Destaxa_LojaACB_TACB0120.conf",
+  "exists": true,
+  "size": 89309,
+  "mtimeUtc": 1793909139.657159,
+  "sha256": "603D28AFDDC9477ED1EDD5AE10758FAF02EAA5DB2BF0B5BC1CC28596D4E436A9",
+  "encodingDetectada": "latin-1",
+  "linhas": 352,
+  "amostraKvMascarada": [],
+  "chavesMaisFrequentes": [
+    {
+      "chave": "ib_trace",
+      "n": 12
+    },
+    {
+      "chave": "in_receive_buffer_length",
+      "n": 10
+    },
+    {
+      "chave": "in_send_buffer_length",
+      "n": 10
+    },
+    {
+      "chave": "ib_secure_socket_layer",
+      "n": 8
+    },
+    {
+      "chave": "XMLRoot",
+      "n": 6
+    },
+    {
+      "chave": "in_reconnect_automatic_delay",
+      "n": 6
+    },
+    {
+      "chave": "in_baudrate",
+      "n": 4
+    },
+    {
+      "chave": "in_databits",
+      "n": 4
+    },
+    {
+      "chave": "in_stopbits",
+      "n": 4
+    },
+    {
+      "chave": "in_parity",
+      "n": 4
+    },
+    {
+      "chave": "in_flowcontrol",
+      "n": 4
+    },
+    {
+      "chave": "in_connect_timeout",
+      "n": 4
+    },
+    {
+      "chave": "VeSPagueParametroComunicacao",
+      "n": 4
+    },
+    {
+      "chave": "VeSPagueServerConfiguracao",
+      "n": 4
+    },
+    {
+      "chave": "VeSPagueAutomationConfiguracao",
+      "n": 4
+    },
+    {
+      "chave": "in_interface",
+      "n": 4
+    },
+    {
+      "chave": "ib_always_on_top",
+      "n": 4
+    },
+    {
+      "chave": "ib_websocket",
+      "n": 4
+    },
+    {
+      "chave": "ib_connect_script_enabled",
+      "n": 4
+    },
+    {
+      "chave": "ib_tags_validar",
+      "n": 4
+    },
+    {
+      "chave": "ib_tag_proprietaria",
+      "n": 4
+    },
+    {
+      "chave": "ib_solicitar_confirmacao_desfazimento",
+      "n": 4
+    },
+    {
+      "chave": "ib_comprovante_nulo",
+      "n": 4
+    },
+    {
+      "chave": "io_cfg_sap",
+      "n": 4
+    },
+    {
+      "chave": "in_port",
+      "n": 4
+    },
+    {
+      "chave": "in_connection_maximum",
+      "n": 4
+    },
+    {
+      "chave": "VeSCommSerialConfiguration",
+      "n": 2
+    },
+    {
+      "chave": "VeSCommSocketConfiguration",
+      "n": 2
+    },
+    {
+      "chave": "in_mode",
+      "n": 2
+    },
+    {
+      "chave": "ib_certificate_self_signed",
+      "n": 2
+    },
+    {
+      "chave": "ib_ssl_authentication",
+      "n": 2
+    },
+    {
+      "chave": "ib_big_endian",
+      "n": 2
+    },
+    {
+      "chave": "in_reconnect_wait_time",
+      "n": 2
+    },
+    {
+      "chave": "in_break_idle_time",
+      "n": 2
+    },
+    {
+      "chave": "VSPagueConfiguracaoCodigoBarras",
+      "n": 2
+    },
+    {
+      "chave": "VSPagueConfiguracaoImpressora",
+      "n": 2
+    },
+    {
+      "chave": "in_tamanho_fonte_impressao",
+      "n": 2
+    },
+    {
+      "chave": "is_comprovante_separador",
+      "n": 2
+    },
+    {
+      "chave": "VeSPagueConfiguracaoEstabelecimento",
+      "n": 2
+    },
+    {
+      "chave": "is_estabelecimento",
+      "n": 2
+    }
+  ],
+  "hitsOperacionais": {
+    "LojaACB": {
+      "count": 3,
+      "amostras": [
+        "à\u0002\u0000\u0000xpÿÿÿÿÿÿÿÿÿÿÿþÿÿÿþ\u0000\u0000\u0000\u0001ur\u0000\u0002[B¬ó\u0017ø\u0006\bTà\u0002\u0000\u0000xp\u0000\u0000\u0000\u0002\u0016fx\u0001ppt\u0000\tSAO PAULOt\u0000\u001218.760.540/0001-39t\u0000\u0001.pt\u0000\u0003ruat\u0000\u0007Destaxat\u0000\u0002SPt\u0000\u0003Ruat\u0000\u0007LojaACBt\u0000\u0004ACBRpt\u0000\u0002BRt\u0000\u000eDestaxa - ACBRpt\u0000\tComercialur\u00003[",
+        "s¬×\u0002\u0000\u0000xp\u0000\u0000\u0000\u0000ur\u0000H[Lvespague.structure.VeSPagueValorLojaRedeConfiguracao$Public***Revoked;ðyóg97÷f\u0002\u0000\u0000xp\u0000\u0000\u0000\u0000ur\u0000F[Lvespague.structure.VeSPagueValorLojaRedeConfiguracao$SoftwareCipher;",
+        "xq\u0000~\u0002ppppppppppppppppppq\u0000~\u0000\u0015pq\u0000~\u0005]ppppt\u0001desktop-4b8amm3(00:15:5D:D0:2D:3E;00:15:5D:65:9B:C4;C0:A8:10:DB:EE:A2;F2:FF:62:39:B0:F2;C0:A8:10:DB:EE:9E;C2:A8:10:DB:EE:9E;C0:A8:10:DB:EE"
+      ]
+    },
+    "TACB0120": {
+      "count": 1,
+      "amostras": [
+        "xq\u0000~\u0002ppppppppppppppppppq\u0000~\u0000\u0015pq\u0000~\u0005]ppppt\u0001desktop-4b8amm3(00:15:5D:D0:2D:3E;00:15:5D:65:9B:C4;C0:A8:10:DB:EE:A2;F2:FF:62:39:B0:F2;C0:A8:10:DB:EE:9E;C2:A8:10:DB:EE:9E;C0:A8:10:DB:EE"
+      ]
+    },
+    "COM4": {
+      "count": 0,
+      "amostras": []
+    },
+    "COM3": {
+      "count": 0,
+      "amostras": []
+    },
+    "PPC": {
+      "count": 2,
+      "amostras": [
+        "xq\u0000~\u0002ppppppppppppppppppq\u0000~\u0000\u0015pq\u0000~\u0005]ppppt\u0001desktop-4b8amm3(00:15:5D:D0:2D:3E;00:15:5D:65:9B:C4;C0:A8:10:DB:EE:A2;F2:FF:62:39:B0:F2;C0:A8:10:DB:EE:9E;C2:A8:10:DB:EE:9E;C0:A8:10:DB:EE",
+        "t\u0000\u0005D200Ct\u0000\bLANE3600t\u0000\tMOBIPIN10t\u0000\bLANE3000t\u0000\u0004MP20t\u0000\u0004P200t\u0000\u0007PPC-940t\u0000\u0005VX820t\u0000\u0006iPP320t\u0000\u0004C680t\u0000\u0004D175t\u0000\u0005P2Prot\u0000\u0006IPP320t\u0000\u0004D150t\u0000\u0007GPOS700t\u0000\u0006PPC900t\u0000\u0006PPC920t\u0000\u0006PPC800t\u0000\u0004MP15t\u0000\u0007iPP320Ct\u0000\tTE"
+      ]
+    },
+    "estabelecimento": {
+      "count": 14,
+      "amostras": [
+        "io_lst_deviceq\u0000~\u0000\u0001L\u0000\u0012is_cfg_comunicacaot\u0000\u0012Ljava/lang/String;L\u0000\u0016is_cfg_estabelecimentoq\u0000~\u0000",
+        "L\u0000\u0012is_estabelecimentoq\u0000~\u0000",
+        "io_conexaot\u0000?[Lvespague/structure/VeSPagueValorLojaRedeConfiguracao$Conexao;L\u0000\u000fio_configuracaot\u0000CLvespague/structure/VeSPagueValorLojaRedeConfiguracao$Configuracao;[\u0000\u0019io_estabeleci",
+        "io_public***t\u0000A[Lvespague/structure/VeSPagueValorLojaRedeConfiguracao$Public***;[\u0000\u0014io_public***_revokedt\u0000H[Lvespague/structure/VeSPagueValorLojaRedeConfiguracao$Public***Revoked;[\u0000",
+        "ib_desfaz_apos_sonda_habilitarq\u0000~\u0000\u0002L\u0000\u0010ib_dias_1parcelaq\u0000~\u0000\u0002L\u0000\u000fib_entrada_chipq\u0000~\u0000\u0002L\u0000\u0018ib_entrada_codigo_barrasq\u0000~\u0000\u0002L\u0000\u0016ib_entrada_contactlessq\u0000~\u0000\u0002L\u0000\u0013ib_entrada_digitadoq\u0000~\u0000\u0002L\u0000\u0014ib_ent"
+      ]
+    },
+    "loja": {
+      "count": 17,
+      "amostras": [
+        "io_cfg_lojat\u0000,Lvespague/structure/VSPagueConfiguracaoLoja;[\u0000\u0010io_cfg_parametrot\u00003[Lvespague/structure/VeSPagueConfiguracaoParametro;L\u0000\u000fio_cfg_terminalt\u00001Lvespague/structure/VeSPague",
+        "Ticket Redet\u0000\u0007DÃ©bitosq\u0000~\u0000\u001b\u0000\u0000t\u0000\u000eA00000038800B6t\u0000\u0006Tickett\u0000\u0012Ticket Top PrÃªmiot\u0000\u0007DÃ©bitosq\u0000~\u0000\u001b\u0000\u0000t\u0000\u000eA0000006510001t\u0000\bValecardt\u0000\u000eValecard Frotat\u0000\u0007DÃ©bitosq\u0000~\u0000\u001b\u0000\u0000t\u0000\u000eA0000006510002t\u0000\bVal",
+        "L\u0000\u0007is_lojaq\u0000~\u0000",
+        "à\u0002\u0000\u0000xpÿÿÿÿÿÿÿÿÿÿÿþÿÿÿþ\u0000\u0000\u0000\u0001ur\u0000\u0002[B¬ó\u0017ø\u0006\bTà\u0002\u0000\u0000xp\u0000\u0000\u0000\u0002\u0016fx\u0001ppt\u0000\tSAO PAULOt\u0000\u001218.760.540/0001-39t\u0000\u0001.pt\u0000\u0003ruat\u0000\u0007Destaxat\u0000\u0002SPt\u0000\u0003Ruat\u0000\u0007LojaACBt\u0000\u0004ACBRpt\u0000\u0002BRt\u0000\u000eDestaxa - ACBRpt\u0000\tComercialur\u00003[",
+        "in_prioridadeq\u0000~\u0002u[\u0000\u0007io_chipt\u0000<[Lvespague/structure/VeSPagueValorLojaRedeConfiguracao$Chip;[\u0000"
+      ]
+    },
+    "terminal": {
+      "count": 19,
+      "amostras": [
+        "io_cfg_lojat\u0000,Lvespague/structure/VSPagueConfiguracaoLoja;[\u0000\u0010io_cfg_parametrot\u00003[Lvespague/structure/VeSPagueConfiguracaoParametro;L\u0000\u000fio_cfg_terminalt\u00001Lvespague/structure/VeSPague",
+        "L\u0000\u0019is_identificacao_terminalq\u0000~\u0000",
+        "ib_comprovante_arqc_imprimirq\u0000~\u0000\u0002L\u0000\u0016ib_comprovante_assinarq\u0000~\u0000\u0002L\u0000\u000eib_contactlessq\u0000~\u0000\u0002L\u0000%ib_contactless_dcc_check_cvm_requiredq\u0000~\u0000\u0002L\u0000%ib_contactless_issuer_script_permitirq\u0000~\u0000\u0002L\u0000&ib",
+        "ib_dispositivo_movel_permitirq\u0000~\u0000\u0002L\u0000\u0019ib_leitor_chip_habilitadoq\u0000~\u0000\u0002L\u0000\u0018ib_lista_negra_verificarq\u0000~\u0000\u0002L\u0000\u0018ib_rejeitada_host_enviarq\u0000~\u0000\u0002L\u0000\u001bib_terminal_offline_capableq\u0000~\u0000\u0002L\u0000\u001aib_terminal",
+        "in_aid_indexq\u0000~\u0002uL\u0000\u0015in_application_formatq\u0000~\u0002uL\u0000\u0013in_application_typeq\u0000~\u0002uL\u0000)in_biased_random_selection_target_percentq\u0000~\u0002uL\u00007in_biased_random_selection_target_percent_international"
+      ]
+    },
+    "Destaxa": {
+      "count": 4,
+      "amostras": [
+        "à\u0002\u0000\u0000xpÿÿÿÿÿÿÿÿÿÿÿþÿÿÿþ\u0000\u0000\u0000\u0001ur\u0000\u0002[B¬ó\u0017ø\u0006\bTà\u0002\u0000\u0000xp\u0000\u0000\u0000\u0002\u0016fx\u0001ppt\u0000\tSAO PAULOt\u0000\u001218.760.540/0001-39t\u0000\u0001.pt\u0000\u0003ruat\u0000\u0007Destaxat\u0000\u0002SPt\u0000\u0003Ruat\u0000\u0007LojaACBt\u0000\u0004ACBRpt\u0000\u0002BRt\u0000\u000eDestaxa - ACBRpt\u0000\tComercialur\u00003[",
+        "s¬×\u0002\u0000\u0000xp\u0000\u0000\u0000\u0000ur\u0000H[Lvespague.structure.VeSPagueValorLojaRedeConfiguracao$Public***Revoked;ðyóg97÷f\u0002\u0000\u0000xp\u0000\u0000\u0000\u0000ur\u0000F[Lvespague.structure.VeSPagueValorLojaRedeConfiguracao$SoftwareCipher;",
+        "xq\u0000~\u0002ppppppppppppppppppq\u0000~\u0000\u0015pq\u0000~\u0005]ppppt\u0001desktop-4b8amm3(00:15:5D:D0:2D:3E;00:15:5D:65:9B:C4;C0:A8:10:DB:EE:A2;F2:FF:62:39:B0:F2;C0:A8:10:DB:EE:9E;C2:A8:10:DB:EE:9E;C0:A8:10:DB:EE",
+        "t\u0000\u0005D200Ct\u0000\bLANE3600t\u0000\tMOBIPIN10t\u0000\bLANE3000t\u0000\u0004MP20t\u0000\u0004P200t\u0000\u0007PPC-940t\u0000\u0005VX820t\u0000\u0006iPP320t\u0000\u0004C680t\u0000\u0004D175t\u0000\u0005P2Prot\u0000\u0006IPP320t\u0000\u0004D150t\u0000\u0007GPOS700t\u0000\u0006PPC900t\u0000\u0006PPC920t\u0000\u0006PPC800t\u0000\u0004MP15t\u0000\u0007iPP320Ct\u0000\tTE"
+      ]
+    },
+    "porta": {
+      "count": 1,
+      "amostras": [
+        "in_3des_indexq\u0000~\u0002uL\u0000\u0013in_computador_portaq\u0000~\u0002uL\u0000"
+      ]
+    },
+    "serial": {
+      "count": 1,
+      "amostras": [
+        "xq\u0000~\u0002ppppppppppppppppppq\u0000~\u0000\u0015pq\u0000~\u0005]ppppt\u0001desktop-4b8amm3(00:15:5D:D0:2D:3E;00:15:5D:65:9B:C4;C0:A8:10:DB:EE:A2;F2:FF:62:39:B0:F2;C0:A8:10:DB:EE:9E;C2:A8:10:DB:EE:9E;C0:A8:10:DB:EE"
+      ]
+    },
+    "PinPad": {
+      "count": 7,
+      "amostras": [
+        "ib_info_tef_pinpad_habilitarq\u0000~\u0000\u0002L\u0000\u001bib_inicializacao_habilitadoq\u0000~\u0000\u0002L\u0000\u0012ib_local_transacaoq\u0000~\u0000\u0002L\u0000\u0018ib_mensagem_criptografarq\u0000~\u0000\u0002L\u0000",
+        "io_gmt_ajusteq\u0000~\u0002¦L\u0000\u0013io_gmt_ajuste_veraoq\u0000~\u0002¦L\u0000$io_transacao_pendente_periodo_enviarq\u0000~\u0002¦L\u0000\u000fisHabilitaSplitq\u0000~\u0000\u0002L\u0000%isHabilitarContinuarInicializacaoErroq\u0000~\u0000\u0002L\u0000\u001aisPagamentoCarteiraD",
+        "ib_leitor_ocrq\u0000~\u0000\u0002L\u0000\u0016ib_leitor_ocr_quebradoq\u0000~\u0000\u0002L\u0000\u0014ib_pinpad_impressoraq\u0000~\u0000\u0002L\u0000",
+        "t\u0000\u0005D200Ct\u0000\bLANE3600t\u0000\tMOBIPIN10t\u0000\bLANE3000t\u0000\u0004MP20t\u0000\u0004P200t\u0000\u0007PPC-940t\u0000\u0005VX820t\u0000\u0006iPP320t\u0000\u0004C680t\u0000\u0004D175t\u0000\u0005P2Prot\u0000\u0006IPP320t\u0000\u0004D150t\u0000\u0007GPOS700t\u0000\u0006PPC900t\u0000\u0006PPC920t\u0000\u0006PPC800t\u0000\u0004MP15t\u0000\u0007iPP320Ct\u0000\tTE",
+        "loadFactorI\u0000\tthresholdxp?@\u0000\u0000\u0000\u0000\u0000`w\b\u0000\u0000\u0000\u0000\u0000\u0000Gt\u0000,configuracao.rede.ib_boleto_vencido_permitirt\u0000\u0001St\u00007configuracao.rede.ib_submerchant_identificacao_capturarq\u0000~\u0005t\u0000%configuracao.rede.ib_"
+      ]
+    },
+    "Gertec": {
+      "count": 0,
+      "amostras": []
+    },
+    "Merchant": {
+      "count": 6,
+      "amostras": [
+        "ib_pagamento_parcial_habilitarq\u0000~\u0000\u0002L\u0000\u000fib_parcele_maisq\u0000~\u0000\u0002L\u0000\u0019ib_plataforma_promocionalq\u0000~\u0000\u0002L\u0000\u001bib_pontuacao_premmia_ativarq\u0000~\u0000\u0002L\u0000\u001bib_preautorizacao_parceladaq\u0000~\u0000\u0002L\u0000\u000fib_preautorizarq",
+        "ib_submerchant_cnpj_capturarq\u0000~\u0000\u0002L\u0000 ib_submerchant_endereco_capturarq\u0000~\u0000\u0002L\u0000",
+        "ib_submerchant_estado_capturarq\u0000~\u0000\u0002L\u0000%ib_submerchant_identificacao_capturarq\u0000~\u0000\u0002L\u0000\u001bib_submerchant_mcc_capturarq\u0000~\u0000\u0002L\u0000",
+        "loadFactorI\u0000\tthresholdxp?@\u0000\u0000\u0000\u0000\u0000`w\b\u0000\u0000\u0000\u0000\u0000\u0000Gt\u0000,configuracao.rede.ib_boleto_vencido_permitirt\u0000\u0001St\u00007configuracao.rede.ib_submerchant_identificacao_capturarq\u0000~\u0005t\u0000%configuracao.rede.ib_",
+        "configuracao.rede.ib_cancelarq\u0000~\u0005t\u0000+configuracao.rede.ib_plataforma_promocionalq\u0000~\u0005t\u0000&configuracao.rede.ib_conta_carne_pagarq\u0000~\u0005t\u0000%configuracao.rede.ib_fiscal_documentoq\u0000~\u0005t\u0000(c"
+      ]
+    },
+    "Store": {
+      "count": 0,
+      "amostras": []
+    },
+    "TerminalId": {
+      "count": 0,
+      "amostras": []
+    },
+    "Company": {
+      "count": 2,
+      "amostras": [
+        "ßo\u0002\u0000\u0000xp\u0000\u0000\u0000\u0000ur\u0000?[Lvespague.structure.VeSPagueValorLojaRedeConfiguracao$Conexao;^(üd¦$¤\u0000\u0002\u0000\u0000xp\u0000\u0000\u0000\u0000sr\u0000Avespague.structure.VeSPagueValorLojaRedeConfiguracao$ConfiguracaoÝl¶ôYQG\u0002\u0000L\u0000 ca",
+        "rede.cartao-entrada-digitadoq\u0000~\u0005t\u0000*configuracao.rede.ib_transacao_estatisticaq\u0000~\u0005t\u0000!configuracao.rede.isHabilitaSplitq\u0000~\u0005t\u0000 configuracao.rede.ib_air_companyq\u0000~\u0005t\u0000,configuracao."
+      ]
+    }
+  }
+}

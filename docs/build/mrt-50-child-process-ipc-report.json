@@ -1,0 +1,2630 @@
+{
+  "sprint": "MRT-50.1",
+  "classification": "CONCLUIDA",
+  "summary": "Evidência corrigida de recuperação de reconciliações e falhas IPC, com processos principais e NativeHost independentes.",
+  "classificationByStatus": {
+    "CONCLUIDO": [
+      "Recuperação fail-closed valida a evidência integral persistida para tentativas de reconciliação em estado terminal.",
+      "Evidência ausente/inconsistente mantém a identidade bloqueada no NativeHost após reinicialização."
+    ],
+    "TESTADO": [
+      "A1 NativeHost independente inicia em SECURITY_BOOTSTRAP_REQUIRED",
+      "A2 TX_START sem bootstrap é recusado no processo NativeHost",
+      "A3 TX_CONTINUE sem bootstrap é recusado no processo NativeHost",
+      "A4 TX_FINALIZE sem bootstrap é recusado no processo NativeHost",
+      "A5 bootstrap assinado e vinculado à sessão é confirmado por IPC real",
+      "A6 bootstrap de sessão anterior é recusado pelo NativeHost",
+      "A7 permit adulterado após assinatura é recusado",
+      "A8 permit consumido não pode ser reutilizado",
+      "A9 bootstrap do TefManager atravessa IPC real antes de confirmar READY",
+      "D2 TX_START sem permit válido não chega ao driver mockado",
+      "D3 TX_CONTINUE sem permit válido não chega ao driver mockado",
+      "D4 TX_FINALIZE sem permit válido não chega ao driver mockado",
+      "B1 perda de ACK do bootstrap encerra o Host sem confirmar prontidão",
+      "B2 timeout IPC não repete nem reenvia operação",
+      "B3 encerramento e reconexão exigem nova sessão e recuperam os bloqueios",
+      "B4 resposta IPC com requestId divergente não satisfaz a solicitação",
+      "B5 resposta atrasada de geração anterior é ignorada após reinício",
+      "C1 NativeHost reiniciado recupera UNKNOWN e PENDING da persistência",
+      "C2 reinício do processo principal relê as pendências e reenvia bootstrap",
+      "C3 perda de ACK após RELEASE mantém UNKNOWN bloqueada após reinício do Host",
+      "C4 nova autorização RELEASE e leitura final removem apenas a identidade reconciliada",
+      "C5 falha na escrita após RELEASE mantém persistência pendente e Host bloqueado",
+      "C6 falha na segunda leitura mantém bloqueio após reinício e rejeita nova autorização",
+      "C6b status terminal sem reconciliação íntegra permanece bloqueado após reinício",
+      "C6c reconciliação com identidade divergente permanece bloqueada após reinício",
+      "C6d falha ao ler evidência mantém bootstrap fechado e registro inválido bloqueado",
+      "C7 falha do IPC imediatamente após COMMIT local mantém a fonte de verdade persistida",
+      "D1 processo NativeHost encerrado durante TX simulado não causa retry financeiro",
+      "D5 falha/desconexão não reexecuta automaticamente a operação financeira",
+      "D6 resposta perdida não provoca despacho financeiro duplicado",
+      "D7 reinício não elimina bloqueios UNKNOWN/PENDING persistidos"
+    ],
+    "NAO_TESTADO": [
+      "Homologação física, DLL Destaxa, V$Pague e PinPad.",
+      "Suítes legadas MRT-47/MRT-49 com seus harnesses antigos."
+    ],
+    "BLOQUEADO": []
+  },
+  "implementationChanges": [
+    "backend/services/tef/TefManager.js",
+    "backend/services/tef/tefRepository.js",
+    "tests/tef/mrt-50-child-process-ipc.test.js",
+    "docs/build/mrt-50-child-process-ipc-report.json"
+  ],
+  "database": {
+    "dbDir": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt50-main-ihhBkl",
+    "dbPath": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt50-main-ihhBkl\\mercadao.db",
+    "isolatedUnderTemp": true,
+    "officialDatabaseTouched": false,
+    "testDatabaseRemovedAfterRun": true
+  },
+  "safety": {
+    "financialGateOff": true,
+    "realDllLoaded": false,
+    "vspagueConnected": false,
+    "pinpadOrSerialAccessed": false,
+    "realFinancialOperation": false,
+    "historicalIdentitiesMrt24Mrt36Mrt42Touched": false
+  },
+  "testExecution": {
+    "command": "node tests\\tef\\mrt-50-child-process-ipc.test.js",
+    "result": "PASSOU",
+    "passed": 31,
+    "failed": 0,
+    "sqliteIsolationVerifiedBeforeDatabaseConsumers": true
+  },
+  "regressionsMrt47Mrt49": {
+    "result": "PASSOU_NOS_CENARIOS_INTEGRADOS",
+    "mrt47": "RELEASE, persistência condicional, releitura integral, COMMIT local e atualização do bootstrap cobertos nos cenários C3-C7.",
+    "mrt49": "Bootstrap real, vínculo de sessão, bloqueio no runtime NativeHost, fail-closed e reinicialização cobertos nos cenários A1-A9, B1-B5 e C1-C3.",
+    "legacyScriptsExecuted": false,
+    "reason": "Os scripts anteriores usam transporte em processo; a regressão foi adaptada neste harness child_process sem substituir o IPC por chamadas internas."
+  },
+  "processModel": {
+    "controllerPid": 19276,
+    "mainProcessPid": 41360,
+    "hostProcessType": "child_process",
+    "realIpcMessagesCaptured": 142,
+    "nativeHostRuntime": "backend/services/tef/destaxa/DestaxaNativeHost.js",
+    "driver": "NativeHost test-mode mock; tripwire enabled"
+  },
+  "independentDriverCounters": {
+    "instrumentation": "Driver mock wrapper emits separate child_process IPC telemetry before returning from each mock method.",
+    "calls": [
+      {
+        "em": "2026-11-05T16:10:41.620Z",
+        "tipo": "driver-call",
+        "source": "nativehost-child-ipc",
+        "pid": 33688,
+        "method": "iniciaTransacaoDestaxa",
+        "callNumber": 1
+      }
+    ],
+    "totals": {
+      "iniciaTransacaoDestaxa": 1
+    },
+    "blockedOperationsZeroCalls": {
+      "iniciaTransacaoDestaxa": 0,
+      "continuaTransacaoDestaxa": 0,
+      "finalizaTransacaoDestaxa": 0
+    },
+    "authorizedMockCallCount": 1,
+    "hostCrashCallsPreservedOutsideHost": 1
+  },
+  "requiredScenarioEvidence": {
+    "C3": {
+      "transactionId": "3",
+      "hostPidAtRelease": 18532,
+      "hostSessionAtRelease": "ff164ec37674e86f2d5f27369f3e4a0b",
+      "releaseProcessed": true,
+      "releaseResponseObservedByParentAdapter": true,
+      "acknowledgementDeliveredToMainClient": false,
+      "rowStatusBeforeRelease": "pendente",
+      "rowStatusAfterLostAck": "pendente",
+      "persistedReconciliationEvidenceBeforeRelease": {
+        "transactionId": "3",
+        "operation_id": "mrt50-op-release-c-ed18e8dd",
+        "idempotency_key": "mrt50-idem-release-c-d134a204",
+        "fingerprint": "mrt50-fp-release-c",
+        "financialState": "CONFIRMED_DENIED",
+        "resultStatus": "negado",
+        "usuario": "mrt50-operador-sintetico",
+        "observacao": "reconciliação isolada de identidade fictícia",
+        "confirmacao_explicita": true,
+        "em": "2026-11-05T16:10:46.064Z"
+      },
+      "persistedReconciliationEvidenceAfterRelease": true,
+      "restartedHostSession": "dde523de8cc3c9e242a664c7b0aab7a8",
+      "restartedHostPid": 35952,
+      "bootstrapAfterRestart": "SECURITY_BLOCKED",
+      "blocked": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8"
+      ],
+      "financialRequests": 0,
+      "hostExit": {
+        "em": "2026-11-05T16:10:46.131Z",
+        "tipo": "fault",
+        "action": "drop-kill",
+        "operation": "RECONCILE",
+        "requestId": "477657bcc9c4ff4e",
+        "ackDeliveredToClient": false,
+        "hostPid": 18532,
+        "hostSessionId": "ff164ec37674e86f2d5f27369f3e4a0b"
+      },
+      "releaseEvents": [
+        {
+          "em": "2026-11-05T16:10:46.130Z",
+          "direcao": "main->host",
+          "tipo": "request",
+          "operation": "RECONCILE",
+          "requestId": "477657bcc9c4ff4e",
+          "transactionId": "3",
+          "processPid": 18532
+        },
+        {
+          "em": "2026-11-05T16:10:46.131Z",
+          "direcao": "host->main",
+          "tipo": "response",
+          "operation": "RECONCILE",
+          "requestId": "477657bcc9c4ff4e",
+          "transactionId": "3",
+          "pid": 18532,
+          "resultCode": null,
+          "errorCode": null,
+          "hostSessionId": "ff164ec37674e86f2d5f27369f3e4a0b",
+          "output": {
+            "sucesso": true,
+            "transactionId": "3",
+            "financialState": "CONFIRMED_DENIED",
+            "hostAtualizado": false
+          },
+          "responseReceivedByAdapter": true
+        },
+        {
+          "em": "2026-11-05T16:10:46.131Z",
+          "tipo": "fault",
+          "action": "drop-kill",
+          "operation": "RECONCILE",
+          "requestId": "477657bcc9c4ff4e",
+          "ackDeliveredToClient": false,
+          "hostPid": 18532,
+          "hostSessionId": "ff164ec37674e86f2d5f27369f3e4a0b"
+        }
+      ]
+    },
+    "C6": {
+      "transactionId": "5",
+      "rereadError": "MRT50_READ_FAIL",
+      "terminalStatusWithoutCompletionProof": "negado",
+      "persistedFullEvidence": {
+        "transactionId": "5",
+        "operation_id": "mrt50-op-reread-fail-e-91794f22",
+        "idempotency_key": "mrt50-idem-reread-fail-e-17b2fa99",
+        "fingerprint": "mrt50-fp-reread-fail-e",
+        "financialState": "CONFIRMED_DENIED",
+        "resultStatus": "negado",
+        "usuario": "mrt50-operador-sintetico",
+        "observacao": "reconciliação isolada de identidade fictícia",
+        "confirmacao_explicita": true,
+        "em": "2026-11-05T16:10:46.736Z"
+      },
+      "blockedBeforeFreshRecovery": [
+        "1",
+        "2",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8"
+      ],
+      "freshBootstrapAfterRestart": "SECURITY_BLOCKED",
+      "blockedAfterManagerAndHostRestart": [
+        "1",
+        "2",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8"
+      ],
+      "recoveryHostSessionId": "b5b911f48b56be6848ee02c1a6b45c43",
+      "attemptedAuthorizationCode": "TEF_RESULTADO_PENDENTE",
+      "interceptedTxStarts": 0,
+      "txStartIpcCount": 0,
+      "driverCalls": {
+        "iniciaTransacaoDestaxa": 0,
+        "continuaTransacaoDestaxa": 0,
+        "finalizaTransacaoDestaxa": 0
+      },
+      "externalDriverCallCount": 0
+    },
+    "B5": {
+      "oldSession": "af781b60f18bbfa4eb31f0f161d56444",
+      "newSession": "25cb0bc8c03d26102d4e688744a6e8cf",
+      "oldRequestId": "02afd201436f29cd",
+      "newRequestId": "c1127dfef3bfad4c",
+      "oldResponseSession": "af781b60f18bbfa4eb31f0f161d56444",
+      "newResponseSession": "25cb0bc8c03d26102d4e688744a6e8cf",
+      "sameRequestStillPending": true,
+      "sameSessionAfterStale": true,
+      "sameGenerationAfterStale": true,
+      "stillWaitingAfterStale": true,
+      "ownResponseResolved": true,
+      "newHostReady": "SECURITY_BLOCKED"
+    },
+    "D1": {
+      "transactionId": "1",
+      "rowStatus": "pendente",
+      "financialState": "UNKNOWN",
+      "processExitSignal": "SIGTERM",
+      "txStartIpcCount": 1,
+      "driverCallCountFromIndependentHostTelemetry": 1,
+      "driverCallEvents": [
+        {
+          "em": "2026-11-05T16:10:50.811Z",
+          "tipo": "driver-call",
+          "source": "nativehost-child-ipc",
+          "pid": 42104,
+          "method": "iniciaTransacaoDestaxa",
+          "callNumber": 1
+        }
+      ],
+      "retryAllowed": false,
+      "isolatedDatabasePath": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt50-crash-G7C2x6"
+    },
+    "D6": {
+      "transactionId": "1",
+      "txStartIpcCount": 1,
+      "driverCallCount": 1,
+      "driverCallEvents": [
+        {
+          "em": "2026-11-05T16:10:50.811Z",
+          "tipo": "driver-call",
+          "source": "nativehost-child-ipc",
+          "pid": 42104,
+          "method": "iniciaTransacaoDestaxa",
+          "callNumber": 1
+        }
+      ],
+      "hostExitSignal": "SIGTERM",
+      "noDuplicateObserved": true
+    }
+  },
+  "criticalReleaseAckLoss": {
+    "reproduced": true,
+    "noFinancialRetry": true,
+    "pendingIdentityReblockedOnNewHost": true,
+    "persistenceRemainedPendingUntilExplicitRetry": true
+  },
+  "commitSemantics": {
+    "commitEd25519IsLocalClientValidation": true,
+    "separateCommitIpcMessageExists": false,
+    "postCommitSecurityBootstrapIpcFailureTested": true
+  },
+  "processGenerationEvidence": {
+    "oldSession": "af781b60f18bbfa4eb31f0f161d56444",
+    "newSession": "25cb0bc8c03d26102d4e688744a6e8cf",
+    "oldRequestId": "02afd201436f29cd",
+    "newRequestId": "c1127dfef3bfad4c",
+    "oldResponseSession": "af781b60f18bbfa4eb31f0f161d56444",
+    "newResponseSession": "25cb0bc8c03d26102d4e688744a6e8cf",
+    "sameRequestStillPending": true,
+    "sameSessionAfterStale": true,
+    "sameGenerationAfterStale": true,
+    "stillWaitingAfterStale": true,
+    "ownResponseResolved": true,
+    "newHostReady": "SECURITY_BLOCKED"
+  },
+  "persistenceEvidence": {
+    "c6ValidProofRecovery": {
+      "transactionId": "5",
+      "rereadError": "MRT50_READ_FAIL",
+      "terminalStatusWithoutCompletionProof": "negado",
+      "persistedFullEvidence": {
+        "transactionId": "5",
+        "operation_id": "mrt50-op-reread-fail-e-91794f22",
+        "idempotency_key": "mrt50-idem-reread-fail-e-17b2fa99",
+        "fingerprint": "mrt50-fp-reread-fail-e",
+        "financialState": "CONFIRMED_DENIED",
+        "resultStatus": "negado",
+        "usuario": "mrt50-operador-sintetico",
+        "observacao": "reconciliação isolada de identidade fictícia",
+        "confirmacao_explicita": true,
+        "em": "2026-11-05T16:10:46.736Z"
+      },
+      "blockedBeforeFreshRecovery": [
+        "1",
+        "2",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8"
+      ],
+      "freshBootstrapAfterRestart": "SECURITY_BLOCKED",
+      "blockedAfterManagerAndHostRestart": [
+        "1",
+        "2",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8"
+      ],
+      "recoveryHostSessionId": "b5b911f48b56be6848ee02c1a6b45c43",
+      "attemptedAuthorizationCode": "TEF_RESULTADO_PENDENTE",
+      "interceptedTxStarts": 0,
+      "txStartIpcCount": 0,
+      "driverCalls": {
+        "iniciaTransacaoDestaxa": 0,
+        "continuaTransacaoDestaxa": 0,
+        "finalizaTransacaoDestaxa": 0
+      },
+      "externalDriverCallCount": 0
+    },
+    "c6InvalidProofBlocked": {
+      "transactionId": "7",
+      "persistedStatus": "negado",
+      "reconciliationEvidence": null,
+      "blockedAfterRestart": [
+        "1",
+        "2",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8"
+      ],
+      "txStartError": "HOST_SECURITY_OPERATION_BLOCKED",
+      "mockDriverCalls": null
+    },
+    "c6InconsistentProofBlocked": {
+      "transactionId": "8",
+      "persistedStatus": "negado",
+      "persistedEvidence": {
+        "transactionId": "mrt50-inconsistent-identity",
+        "operation_id": "mrt50-op-inconsistent-proof-h-d782da9e",
+        "idempotency_key": "mrt50-idem-inconsistent-proof-h-b08b2597",
+        "fingerprint": "mrt50-fp-inconsistent-proof-h",
+        "financialState": "CONFIRMED_DENIED",
+        "resultStatus": "negado",
+        "usuario": "mrt50-operador-sintetico",
+        "observacao": "reconciliação isolada de identidade fictícia",
+        "confirmacao_explicita": true,
+        "em": "2026-11-05T16:10:47.248Z"
+      },
+      "blockedAfterRestart": [
+        "1",
+        "2",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8"
+      ],
+      "hostSessionId": "df817c5a585ed03cae6fce1295004844"
+    },
+    "c6EvidenceReadFailure": {
+      "transactionId": "7",
+      "evidenceReadError": "MRT50_EVIDENCE_READ_FAIL",
+      "failedClosed": true,
+      "subsequentBootstrapState": "SECURITY_BLOCKED",
+      "blockAfterReadRestored": [
+        "1",
+        "2",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8"
+      ]
+    }
+  },
+  "scenarios": [
+    {
+      "nome": "A1 NativeHost independente inicia em SECURITY_BOOTSTRAP_REQUIRED",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "pid": 33688,
+        "ppid": 19276,
+        "processType": "child_process",
+        "initialState": "SECURITY_BOOTSTRAP_REQUIRED"
+      }
+    },
+    {
+      "nome": "A2 TX_START sem bootstrap é recusado no processo NativeHost",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "error": "HOST_SECURITY_BOOTSTRAP_REQUIRED",
+        "driverCalls": 0
+      }
+    },
+    {
+      "nome": "A3 TX_CONTINUE sem bootstrap é recusado no processo NativeHost",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "error": "HOST_SECURITY_BOOTSTRAP_REQUIRED",
+        "driverCalls": 0
+      }
+    },
+    {
+      "nome": "A4 TX_FINALIZE sem bootstrap é recusado no processo NativeHost",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "error": "HOST_SECURITY_BOOTSTRAP_REQUIRED",
+        "driverCalls": 0
+      }
+    },
+    {
+      "nome": "A5 bootstrap assinado e vinculado à sessão é confirmado por IPC real",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "accepted": true,
+        "securityState": "SECURITY_BOOTSTRAP_VALIDATED"
+      }
+    },
+    {
+      "nome": "A6 bootstrap de sessão anterior é recusado pelo NativeHost",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "response": "HOST_SECURITY_BOOTSTRAP_INVALID",
+        "previousSession": "a2a82f40f5d2ba37007dcc59e7de0de1",
+        "currentSession": "2e40cbad90f400a55996a49c6d558245"
+      }
+    },
+    {
+      "nome": "A7 permit adulterado após assinatura é recusado",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "response": "HOST_SECURITY_BOOTSTRAP_INVALID"
+      }
+    },
+    {
+      "nome": "A8 permit consumido não pode ser reutilizado",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "firstMockDispatch": 1,
+        "secondUse": "HOST_SECURITY_OPERATION_BLOCKED"
+      }
+    },
+    {
+      "nome": "A9 bootstrap do TefManager atravessa IPC real antes de confirmar READY",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "mainPid": 20860,
+        "hostPid": 9980,
+        "hostPpid": 20860,
+        "hostSessionId": "c30289c36941fddebf6be1ff556b2d03",
+        "processType": "child_process",
+        "bootstrapState": "SECURITY_BLOCKED",
+        "ipcRequests": 1,
+        "ipcResponses": 1
+      }
+    },
+    {
+      "nome": "D2 TX_START sem permit válido não chega ao driver mockado",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "error": "HOST_SECURITY_OPERATION_BLOCKED",
+        "driverCalls": 0
+      }
+    },
+    {
+      "nome": "D3 TX_CONTINUE sem permit válido não chega ao driver mockado",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "error": "HOST_SECURITY_OPERATION_BLOCKED",
+        "driverCalls": 0
+      }
+    },
+    {
+      "nome": "D4 TX_FINALIZE sem permit válido não chega ao driver mockado",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "error": "HOST_SECURITY_OPERATION_BLOCKED",
+        "driverCalls": 0
+      }
+    },
+    {
+      "nome": "B1 perda de ACK do bootstrap encerra o Host sem confirmar prontidão",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "clientState": "OFFLINE",
+        "bootstrapState": "SECURITY_BOOTSTRAP_FAILED",
+        "hostPid": 28200,
+        "hostExit": {
+          "em": "2026-11-05T16:10:44.135Z",
+          "tipo": "host-exit",
+          "pid": 28200,
+          "code": null,
+          "signal": "SIGTERM"
+        },
+        "driverCalls": 0
+      }
+    },
+    {
+      "nome": "B2 timeout IPC não repete nem reenvia operação",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "timeout": "HOST_TIMEOUT",
+        "financialRequestsBefore": 3,
+        "financialRequestsAfter": 3,
+        "automaticRetry": false
+      }
+    },
+    {
+      "nome": "B3 encerramento e reconexão exigem nova sessão e recuperam os bloqueios",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "oldSession": "c30289c36941fddebf6be1ff556b2d03",
+        "newSession": "59aefc8075f6c6e42966eeb76c5753ae",
+        "blocked": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8"
+        ],
+        "bootstrapState": "SECURITY_BLOCKED"
+      }
+    },
+    {
+      "nome": "B4 resposta IPC com requestId divergente não satisfaz a solicitação",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "response": "HOST_TIMEOUT",
+        "mismatchedResponses": 1,
+        "correlationAccepted": false
+      }
+    },
+    {
+      "nome": "B5 resposta atrasada de geração anterior é ignorada após reinício",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "oldSession": "af781b60f18bbfa4eb31f0f161d56444",
+        "newSession": "25cb0bc8c03d26102d4e688744a6e8cf",
+        "oldRequestId": "02afd201436f29cd",
+        "newRequestId": "c1127dfef3bfad4c",
+        "oldResponseSession": "af781b60f18bbfa4eb31f0f161d56444",
+        "newResponseSession": "25cb0bc8c03d26102d4e688744a6e8cf",
+        "sameRequestStillPending": true,
+        "sameSessionAfterStale": true,
+        "sameGenerationAfterStale": true,
+        "stillWaitingAfterStale": true,
+        "ownResponseResolved": true,
+        "newHostReady": "SECURITY_BLOCKED"
+      }
+    },
+    {
+      "nome": "C1 NativeHost reiniciado recupera UNKNOWN e PENDING da persistência",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "hostSessionId": "62ea8fbf8baebb051d620b6912e7ae02",
+        "unknownIdentity": "1",
+        "pendingIdentity": "2",
+        "blockedIdentities": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8"
+        ]
+      }
+    },
+    {
+      "nome": "C2 reinício do processo principal relê as pendências e reenvia bootstrap",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "oldMainPid": 20860,
+        "newMainPid": 41360,
+        "newHostPid": 18532,
+        "sqlitePath": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt50-main-ihhBkl\\mercadao.db",
+        "recovered": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8"
+        ]
+      }
+    },
+    {
+      "nome": "C3 perda de ACK após RELEASE mantém UNKNOWN bloqueada após reinício do Host",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "transactionId": "3",
+        "hostPidAtRelease": 18532,
+        "hostSessionAtRelease": "ff164ec37674e86f2d5f27369f3e4a0b",
+        "releaseProcessed": true,
+        "releaseResponseObservedByParentAdapter": true,
+        "acknowledgementDeliveredToMainClient": false,
+        "rowStatusBeforeRelease": "pendente",
+        "rowStatusAfterLostAck": "pendente",
+        "persistedReconciliationEvidenceBeforeRelease": {
+          "transactionId": "3",
+          "operation_id": "mrt50-op-release-c-ed18e8dd",
+          "idempotency_key": "mrt50-idem-release-c-d134a204",
+          "fingerprint": "mrt50-fp-release-c",
+          "financialState": "CONFIRMED_DENIED",
+          "resultStatus": "negado",
+          "usuario": "mrt50-operador-sintetico",
+          "observacao": "reconciliação isolada de identidade fictícia",
+          "confirmacao_explicita": true,
+          "em": "2026-11-05T16:10:46.064Z"
+        },
+        "persistedReconciliationEvidenceAfterRelease": true,
+        "restartedHostSession": "dde523de8cc3c9e242a664c7b0aab7a8",
+        "restartedHostPid": 35952,
+        "bootstrapAfterRestart": "SECURITY_BLOCKED",
+        "blocked": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8"
+        ],
+        "financialRequests": 0,
+        "hostExit": {
+          "em": "2026-11-05T16:10:46.131Z",
+          "tipo": "fault",
+          "action": "drop-kill",
+          "operation": "RECONCILE",
+          "requestId": "477657bcc9c4ff4e",
+          "ackDeliveredToClient": false,
+          "hostPid": 18532,
+          "hostSessionId": "ff164ec37674e86f2d5f27369f3e4a0b"
+        },
+        "releaseEvents": [
+          {
+            "em": "2026-11-05T16:10:46.130Z",
+            "direcao": "main->host",
+            "tipo": "request",
+            "operation": "RECONCILE",
+            "requestId": "477657bcc9c4ff4e",
+            "transactionId": "3",
+            "processPid": 18532
+          },
+          {
+            "em": "2026-11-05T16:10:46.131Z",
+            "direcao": "host->main",
+            "tipo": "response",
+            "operation": "RECONCILE",
+            "requestId": "477657bcc9c4ff4e",
+            "transactionId": "3",
+            "pid": 18532,
+            "resultCode": null,
+            "errorCode": null,
+            "hostSessionId": "ff164ec37674e86f2d5f27369f3e4a0b",
+            "output": {
+              "sucesso": true,
+              "transactionId": "3",
+              "financialState": "CONFIRMED_DENIED",
+              "hostAtualizado": false
+            },
+            "responseReceivedByAdapter": true
+          },
+          {
+            "em": "2026-11-05T16:10:46.131Z",
+            "tipo": "fault",
+            "action": "drop-kill",
+            "operation": "RECONCILE",
+            "requestId": "477657bcc9c4ff4e",
+            "ackDeliveredToClient": false,
+            "hostPid": 18532,
+            "hostSessionId": "ff164ec37674e86f2d5f27369f3e4a0b"
+          }
+        ]
+      }
+    },
+    {
+      "nome": "C4 nova autorização RELEASE e leitura final removem apenas a identidade reconciliada",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "reconciled": "3",
+        "persistedStatus": "negado",
+        "retainedBlocks": [
+          "1",
+          "2",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8"
+        ],
+        "commitLocalValidado": true,
+        "driverCalls": null
+      }
+    },
+    {
+      "nome": "C5 falha na escrita após RELEASE mantém persistência pendente e Host bloqueado",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "transactionId": "4",
+        "writeError": "MRT50_WRITE_FAIL",
+        "rowStatus": "pendente",
+        "blocked": [
+          "1",
+          "2",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8"
+        ],
+        "freshBootstrapStillBlocks": true,
+        "driverCalls": null
+      }
+    },
+    {
+      "nome": "C6 falha na segunda leitura mantém bloqueio após reinício e rejeita nova autorização",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "transactionId": "5",
+        "rereadError": "MRT50_READ_FAIL",
+        "terminalStatusWithoutCompletionProof": "negado",
+        "persistedFullEvidence": {
+          "transactionId": "5",
+          "operation_id": "mrt50-op-reread-fail-e-91794f22",
+          "idempotency_key": "mrt50-idem-reread-fail-e-17b2fa99",
+          "fingerprint": "mrt50-fp-reread-fail-e",
+          "financialState": "CONFIRMED_DENIED",
+          "resultStatus": "negado",
+          "usuario": "mrt50-operador-sintetico",
+          "observacao": "reconciliação isolada de identidade fictícia",
+          "confirmacao_explicita": true,
+          "em": "2026-11-05T16:10:46.736Z"
+        },
+        "blockedBeforeFreshRecovery": [
+          "1",
+          "2",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8"
+        ],
+        "freshBootstrapAfterRestart": "SECURITY_BLOCKED",
+        "blockedAfterManagerAndHostRestart": [
+          "1",
+          "2",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8"
+        ],
+        "recoveryHostSessionId": "b5b911f48b56be6848ee02c1a6b45c43",
+        "attemptedAuthorizationCode": "TEF_RESULTADO_PENDENTE",
+        "interceptedTxStarts": 0,
+        "txStartIpcCount": 0,
+        "driverCalls": {
+          "iniciaTransacaoDestaxa": 0,
+          "continuaTransacaoDestaxa": 0,
+          "finalizaTransacaoDestaxa": 0
+        },
+        "externalDriverCallCount": 0
+      }
+    },
+    {
+      "nome": "C6b status terminal sem reconciliação íntegra permanece bloqueado após reinício",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "transactionId": "7",
+        "persistedStatus": "negado",
+        "reconciliationEvidence": null,
+        "blockedAfterRestart": [
+          "1",
+          "2",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8"
+        ],
+        "txStartError": "HOST_SECURITY_OPERATION_BLOCKED",
+        "mockDriverCalls": null
+      }
+    },
+    {
+      "nome": "C6c reconciliação com identidade divergente permanece bloqueada após reinício",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "transactionId": "8",
+        "persistedStatus": "negado",
+        "persistedEvidence": {
+          "transactionId": "mrt50-inconsistent-identity",
+          "operation_id": "mrt50-op-inconsistent-proof-h-d782da9e",
+          "idempotency_key": "mrt50-idem-inconsistent-proof-h-b08b2597",
+          "fingerprint": "mrt50-fp-inconsistent-proof-h",
+          "financialState": "CONFIRMED_DENIED",
+          "resultStatus": "negado",
+          "usuario": "mrt50-operador-sintetico",
+          "observacao": "reconciliação isolada de identidade fictícia",
+          "confirmacao_explicita": true,
+          "em": "2026-11-05T16:10:47.248Z"
+        },
+        "blockedAfterRestart": [
+          "1",
+          "2",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8"
+        ],
+        "hostSessionId": "df817c5a585ed03cae6fce1295004844"
+      }
+    },
+    {
+      "nome": "C6d falha ao ler evidência mantém bootstrap fechado e registro inválido bloqueado",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "transactionId": "7",
+        "evidenceReadError": "MRT50_EVIDENCE_READ_FAIL",
+        "failedClosed": true,
+        "subsequentBootstrapState": "SECURITY_BLOCKED",
+        "blockAfterReadRestored": [
+          "1",
+          "2",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8"
+        ]
+      }
+    },
+    {
+      "nome": "C7 falha do IPC imediatamente após COMMIT local mantém a fonte de verdade persistida",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "transactionId": "6",
+        "localCommitBeforeIpcFailure": true,
+        "commitIpcExists": false,
+        "postCommitBootstrapIpcLost": true,
+        "persistedStatus": "negado",
+        "newHostBlockList": [
+          "1",
+          "2",
+          "4",
+          "5",
+          "7",
+          "8"
+        ]
+      }
+    },
+    {
+      "nome": "D1 processo NativeHost encerrado durante TX simulado não causa retry financeiro",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "transactionId": "1",
+        "rowStatus": "pendente",
+        "financialState": "UNKNOWN",
+        "processExitSignal": "SIGTERM",
+        "txStartIpcCount": 1,
+        "driverCallCountFromIndependentHostTelemetry": 1,
+        "driverCallEvents": [
+          {
+            "em": "2026-11-05T16:10:50.811Z",
+            "tipo": "driver-call",
+            "source": "nativehost-child-ipc",
+            "pid": 42104,
+            "method": "iniciaTransacaoDestaxa",
+            "callNumber": 1
+          }
+        ],
+        "retryAllowed": false,
+        "isolatedDatabasePath": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt50-crash-G7C2x6"
+      }
+    },
+    {
+      "nome": "D5 falha/desconexão não reexecuta automaticamente a operação financeira",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "transactionId": "1",
+        "retryAllowed": false,
+        "txStartIpcCount": 1,
+        "driverCallCount": 1
+      }
+    },
+    {
+      "nome": "D6 resposta perdida não provoca despacho financeiro duplicado",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "transactionId": "1",
+        "txStartIpcCount": 1,
+        "driverCallCount": 1,
+        "driverCallEvents": [
+          {
+            "em": "2026-11-05T16:10:50.811Z",
+            "tipo": "driver-call",
+            "source": "nativehost-child-ipc",
+            "pid": 42104,
+            "method": "iniciaTransacaoDestaxa",
+            "callNumber": 1
+          }
+        ],
+        "hostExitSignal": "SIGTERM",
+        "noDuplicateObserved": true
+      }
+    },
+    {
+      "nome": "D7 reinício não elimina bloqueios UNKNOWN/PENDING persistidos",
+      "resultado": "PASSOU",
+      "evidencias": {
+        "unknown": {
+          "id": "1",
+          "rowStatus": "pendente",
+          "financialState": "UNKNOWN"
+        },
+        "pending": {
+          "id": "2",
+          "rowStatus": "pendente",
+          "financialState": "PENDING"
+        },
+        "hostBlocks": [
+          "1",
+          "2",
+          "4",
+          "5",
+          "7",
+          "8"
+        ]
+      }
+    }
+  ],
+  "ipcEvidence": [
+    {
+      "direcao": "host->main",
+      "tipo": "HOST_READY",
+      "pid": 18532,
+      "ppid": 41360,
+      "hostSessionId": "ff164ec37674e86f2d5f27369f3e4a0b",
+      "processType": "child_process"
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "f9a932947ca76340",
+      "transactionId": null,
+      "processPid": 18532
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "f9a932947ca76340",
+      "transactionId": null,
+      "pid": 18532,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "ff164ec37674e86f2d5f27369f3e4a0b",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "bc36c903045ac8c6",
+      "transactionId": null,
+      "processPid": 18532
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "bc36c903045ac8c6",
+      "transactionId": null,
+      "pid": 18532,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "ff164ec37674e86f2d5f27369f3e4a0b",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "RECONCILE",
+      "requestId": "477657bcc9c4ff4e",
+      "transactionId": "3",
+      "processPid": 18532
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "RECONCILE",
+      "requestId": "477657bcc9c4ff4e",
+      "transactionId": "3",
+      "pid": 18532,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "ff164ec37674e86f2d5f27369f3e4a0b",
+      "output": {
+        "sucesso": true,
+        "transactionId": "3",
+        "financialState": "CONFIRMED_DENIED",
+        "hostAtualizado": false
+      },
+      "responseReceivedByAdapter": true
+    },
+    {
+      "tipo": "fault",
+      "action": "drop-kill",
+      "operation": "RECONCILE",
+      "requestId": "477657bcc9c4ff4e",
+      "ackDeliveredToClient": false,
+      "hostPid": 18532,
+      "hostSessionId": "ff164ec37674e86f2d5f27369f3e4a0b"
+    },
+    {
+      "tipo": "host-exit",
+      "pid": 18532,
+      "code": null,
+      "signal": "SIGTERM"
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "HOST_READY",
+      "pid": 35952,
+      "ppid": 41360,
+      "hostSessionId": "dde523de8cc3c9e242a664c7b0aab7a8",
+      "processType": "child_process"
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "90cb21dc2175b7b3",
+      "transactionId": null,
+      "processPid": 35952
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "90cb21dc2175b7b3",
+      "transactionId": null,
+      "pid": 35952,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "dde523de8cc3c9e242a664c7b0aab7a8",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "6db5e464c0627a6b",
+      "transactionId": null,
+      "processPid": 35952
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "6db5e464c0627a6b",
+      "transactionId": null,
+      "pid": 35952,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "dde523de8cc3c9e242a664c7b0aab7a8",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "RECONCILE",
+      "requestId": "c8ac4a9ea8c2a9e4",
+      "transactionId": "3",
+      "processPid": 35952
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "RECONCILE",
+      "requestId": "c8ac4a9ea8c2a9e4",
+      "transactionId": "3",
+      "pid": 35952,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "dde523de8cc3c9e242a664c7b0aab7a8",
+      "output": {
+        "sucesso": true,
+        "transactionId": "3",
+        "financialState": "CONFIRMED_DENIED",
+        "hostAtualizado": false
+      },
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "71628f3ffd6a7832",
+      "transactionId": null,
+      "processPid": 35952
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "71628f3ffd6a7832",
+      "transactionId": null,
+      "pid": 35952,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "dde523de8cc3c9e242a664c7b0aab7a8",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "ec8e60119c91a52f",
+      "transactionId": null,
+      "processPid": 35952
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "ec8e60119c91a52f",
+      "transactionId": null,
+      "pid": 35952,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "dde523de8cc3c9e242a664c7b0aab7a8",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "tipo": "host-exit",
+      "pid": 35952,
+      "code": null,
+      "signal": "SIGTERM"
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "HOST_READY",
+      "pid": 41436,
+      "ppid": 41360,
+      "hostSessionId": "dc819b797bcfef983aaf48ce58345bd0",
+      "processType": "child_process"
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "263202b4f1ac0ed8",
+      "transactionId": null,
+      "processPid": 41436
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "263202b4f1ac0ed8",
+      "transactionId": null,
+      "pid": 41436,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "dc819b797bcfef983aaf48ce58345bd0",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "RECONCILE",
+      "requestId": "7ac3ab58fb1ee1f3",
+      "transactionId": "4",
+      "processPid": 41436
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "RECONCILE",
+      "requestId": "7ac3ab58fb1ee1f3",
+      "transactionId": "4",
+      "pid": 41436,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "dc819b797bcfef983aaf48ce58345bd0",
+      "output": {
+        "sucesso": true,
+        "transactionId": "4",
+        "financialState": "CONFIRMED_DENIED",
+        "hostAtualizado": false
+      },
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "fe74f4b90f2d8bf5",
+      "transactionId": null,
+      "processPid": 41436
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "fe74f4b90f2d8bf5",
+      "transactionId": null,
+      "pid": 41436,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "dc819b797bcfef983aaf48ce58345bd0",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SHUTDOWN",
+      "requestId": "fc85b622112ce32a",
+      "transactionId": null,
+      "processPid": 41436
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SHUTDOWN",
+      "requestId": "fc85b622112ce32a",
+      "transactionId": null,
+      "pid": 41436,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "dc819b797bcfef983aaf48ce58345bd0",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "tipo": "host-exit",
+      "pid": 41436,
+      "code": 0,
+      "signal": null
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "HOST_READY",
+      "pid": 39600,
+      "ppid": 41360,
+      "hostSessionId": "46cd570a441b5a88610396b6dd77ac44",
+      "processType": "child_process"
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "8e4934aa743674f5",
+      "transactionId": null,
+      "processPid": 39600
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "8e4934aa743674f5",
+      "transactionId": null,
+      "pid": 39600,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "46cd570a441b5a88610396b6dd77ac44",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "bf97c9cd773154ad",
+      "transactionId": null,
+      "processPid": 39600
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "bf97c9cd773154ad",
+      "transactionId": null,
+      "pid": 39600,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "46cd570a441b5a88610396b6dd77ac44",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "RECONCILE",
+      "requestId": "0cee4d4dcefc058c",
+      "transactionId": "5",
+      "processPid": 39600
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "RECONCILE",
+      "requestId": "0cee4d4dcefc058c",
+      "transactionId": "5",
+      "pid": 39600,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "46cd570a441b5a88610396b6dd77ac44",
+      "output": {
+        "sucesso": true,
+        "transactionId": "5",
+        "financialState": "CONFIRMED_DENIED",
+        "hostAtualizado": false
+      },
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "eb256641b3c76d64",
+      "transactionId": null,
+      "processPid": 39600
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "eb256641b3c76d64",
+      "transactionId": null,
+      "pid": 39600,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "46cd570a441b5a88610396b6dd77ac44",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SHUTDOWN",
+      "requestId": "fb816c762f0940f6",
+      "transactionId": null,
+      "processPid": 39600
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SHUTDOWN",
+      "requestId": "fb816c762f0940f6",
+      "transactionId": null,
+      "pid": 39600,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "46cd570a441b5a88610396b6dd77ac44",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "tipo": "host-exit",
+      "pid": 39600,
+      "code": 0,
+      "signal": null
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "HOST_READY",
+      "pid": 33076,
+      "ppid": 41360,
+      "hostSessionId": "b5b911f48b56be6848ee02c1a6b45c43",
+      "processType": "child_process"
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "da014142ebb15bc5",
+      "transactionId": null,
+      "processPid": 33076
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "da014142ebb15bc5",
+      "transactionId": null,
+      "pid": 33076,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "b5b911f48b56be6848ee02c1a6b45c43",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "225fcfb35099ef77",
+      "transactionId": null,
+      "processPid": 33076
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "225fcfb35099ef77",
+      "transactionId": null,
+      "pid": 33076,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "b5b911f48b56be6848ee02c1a6b45c43",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "CONFIGURE_MOCK",
+      "requestId": "c511f04dddffbf57",
+      "transactionId": null,
+      "processPid": 33076
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "CONFIGURE_MOCK",
+      "requestId": "c511f04dddffbf57",
+      "transactionId": null,
+      "pid": 33076,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "b5b911f48b56be6848ee02c1a6b45c43",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "8d176536d637ff18",
+      "transactionId": null,
+      "processPid": 33076
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "8d176536d637ff18",
+      "transactionId": null,
+      "pid": 33076,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "b5b911f48b56be6848ee02c1a6b45c43",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "96c0f785b0ce03e5",
+      "transactionId": null,
+      "processPid": 33076
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "96c0f785b0ce03e5",
+      "transactionId": null,
+      "pid": 33076,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "b5b911f48b56be6848ee02c1a6b45c43",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "RECONCILE",
+      "requestId": "dc3820a7270bbfaa",
+      "transactionId": "7",
+      "processPid": 33076
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "RECONCILE",
+      "requestId": "dc3820a7270bbfaa",
+      "transactionId": "7",
+      "pid": 33076,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "b5b911f48b56be6848ee02c1a6b45c43",
+      "output": {
+        "sucesso": true,
+        "transactionId": "7",
+        "financialState": "CONFIRMED_DENIED",
+        "hostAtualizado": false
+      },
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "0f6d3583b7453b62",
+      "transactionId": null,
+      "processPid": 33076
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "0f6d3583b7453b62",
+      "transactionId": null,
+      "pid": 33076,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "b5b911f48b56be6848ee02c1a6b45c43",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "34c81807618752cc",
+      "transactionId": null,
+      "processPid": 33076
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "34c81807618752cc",
+      "transactionId": null,
+      "pid": 33076,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "b5b911f48b56be6848ee02c1a6b45c43",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SHUTDOWN",
+      "requestId": "6f7327e2a860a2ef",
+      "transactionId": null,
+      "processPid": 33076
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SHUTDOWN",
+      "requestId": "6f7327e2a860a2ef",
+      "transactionId": null,
+      "pid": 33076,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "b5b911f48b56be6848ee02c1a6b45c43",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "tipo": "host-exit",
+      "pid": 33076,
+      "code": 0,
+      "signal": null
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "HOST_READY",
+      "pid": 27884,
+      "ppid": 41360,
+      "hostSessionId": "1ba5b45277df6b13c919e1160cee28cc",
+      "processType": "child_process"
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "1f49860f562c78b1",
+      "transactionId": null,
+      "processPid": 27884
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "1f49860f562c78b1",
+      "transactionId": null,
+      "pid": 27884,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "1ba5b45277df6b13c919e1160cee28cc",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "7d225474e80d8f0b",
+      "transactionId": null,
+      "processPid": 27884
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "7d225474e80d8f0b",
+      "transactionId": null,
+      "pid": 27884,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "1ba5b45277df6b13c919e1160cee28cc",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "TX_START",
+      "requestId": "f7db2f6ca6f92dee",
+      "transactionId": "mrt50-no-permit",
+      "processPid": 27884
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "TX_START",
+      "requestId": "f7db2f6ca6f92dee",
+      "transactionId": "mrt50-no-permit",
+      "pid": 27884,
+      "resultCode": null,
+      "errorCode": "HOST_SECURITY_OPERATION_BLOCKED",
+      "hostSessionId": "1ba5b45277df6b13c919e1160cee28cc",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "TX_CONTINUE",
+      "requestId": "da223c6dead9757c",
+      "transactionId": "mrt50-no-permit",
+      "processPid": 27884
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "TX_CONTINUE",
+      "requestId": "da223c6dead9757c",
+      "transactionId": "mrt50-no-permit",
+      "pid": 27884,
+      "resultCode": null,
+      "errorCode": "HOST_SECURITY_OPERATION_BLOCKED",
+      "hostSessionId": "1ba5b45277df6b13c919e1160cee28cc",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "TX_FINALIZE",
+      "requestId": "f50d9343470a854f",
+      "transactionId": "mrt50-no-permit",
+      "processPid": 27884
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "TX_FINALIZE",
+      "requestId": "f50d9343470a854f",
+      "transactionId": "mrt50-no-permit",
+      "pid": 27884,
+      "resultCode": null,
+      "errorCode": "HOST_SECURITY_OPERATION_BLOCKED",
+      "hostSessionId": "1ba5b45277df6b13c919e1160cee28cc",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "7951752ecdb718bb",
+      "transactionId": null,
+      "processPid": 27884
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "7951752ecdb718bb",
+      "transactionId": null,
+      "pid": 27884,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "1ba5b45277df6b13c919e1160cee28cc",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "RECONCILE",
+      "requestId": "e265e8fe00dc85f1",
+      "transactionId": "8",
+      "processPid": 27884
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "RECONCILE",
+      "requestId": "e265e8fe00dc85f1",
+      "transactionId": "8",
+      "pid": 27884,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "1ba5b45277df6b13c919e1160cee28cc",
+      "output": {
+        "sucesso": true,
+        "transactionId": "8",
+        "financialState": "CONFIRMED_DENIED",
+        "hostAtualizado": false
+      },
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "c9ecfd71175844f5",
+      "transactionId": null,
+      "processPid": 27884
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "c9ecfd71175844f5",
+      "transactionId": null,
+      "pid": 27884,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "1ba5b45277df6b13c919e1160cee28cc",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "0df3f08caf360f34",
+      "transactionId": null,
+      "processPid": 27884
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "0df3f08caf360f34",
+      "transactionId": null,
+      "pid": 27884,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "1ba5b45277df6b13c919e1160cee28cc",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SHUTDOWN",
+      "requestId": "7872db30437fe1e0",
+      "transactionId": null,
+      "processPid": 27884
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SHUTDOWN",
+      "requestId": "7872db30437fe1e0",
+      "transactionId": null,
+      "pid": 27884,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "1ba5b45277df6b13c919e1160cee28cc",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "tipo": "host-exit",
+      "pid": 27884,
+      "code": 0,
+      "signal": null
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "HOST_READY",
+      "pid": 16392,
+      "ppid": 41360,
+      "hostSessionId": "df817c5a585ed03cae6fce1295004844",
+      "processType": "child_process"
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "4cccee3166a0585f",
+      "transactionId": null,
+      "processPid": 16392
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "4cccee3166a0585f",
+      "transactionId": null,
+      "pid": 16392,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "df817c5a585ed03cae6fce1295004844",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "3be5eebbf0d44264",
+      "transactionId": null,
+      "processPid": 16392
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "3be5eebbf0d44264",
+      "transactionId": null,
+      "pid": 16392,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "df817c5a585ed03cae6fce1295004844",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SHUTDOWN",
+      "requestId": "7e326c2dd4dc580b",
+      "transactionId": null,
+      "processPid": 16392
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SHUTDOWN",
+      "requestId": "7e326c2dd4dc580b",
+      "transactionId": null,
+      "pid": 16392,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "df817c5a585ed03cae6fce1295004844",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "tipo": "host-exit",
+      "pid": 16392,
+      "code": 0,
+      "signal": null
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "HOST_READY",
+      "pid": 33648,
+      "ppid": 41360,
+      "hostSessionId": "3ec37a46372a860fa8bd3d29a4d5c292",
+      "processType": "child_process"
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "ae4db3e98f982825",
+      "transactionId": null,
+      "processPid": 33648
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "ae4db3e98f982825",
+      "transactionId": null,
+      "pid": 33648,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "3ec37a46372a860fa8bd3d29a4d5c292",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "b964698c12073b0b",
+      "transactionId": null,
+      "processPid": 33648
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "b964698c12073b0b",
+      "transactionId": null,
+      "pid": 33648,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "3ec37a46372a860fa8bd3d29a4d5c292",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "RECONCILE",
+      "requestId": "7af758b488919cc3",
+      "transactionId": "6",
+      "processPid": 33648
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "RECONCILE",
+      "requestId": "7af758b488919cc3",
+      "transactionId": "6",
+      "pid": 33648,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "3ec37a46372a860fa8bd3d29a4d5c292",
+      "output": {
+        "sucesso": true,
+        "transactionId": "6",
+        "financialState": "CONFIRMED_DENIED",
+        "hostAtualizado": false
+      },
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "9e9d97da48d07639",
+      "transactionId": null,
+      "processPid": 33648
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "9e9d97da48d07639",
+      "transactionId": null,
+      "pid": 33648,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "3ec37a46372a860fa8bd3d29a4d5c292",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "tipo": "fault",
+      "action": "drop-kill",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "9e9d97da48d07639",
+      "ackDeliveredToClient": false,
+      "hostPid": 33648,
+      "hostSessionId": "3ec37a46372a860fa8bd3d29a4d5c292"
+    },
+    {
+      "tipo": "host-exit",
+      "pid": 33648,
+      "code": null,
+      "signal": "SIGTERM"
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "HOST_READY",
+      "pid": 12104,
+      "ppid": 41360,
+      "hostSessionId": "f296ac098d28b0810b7c8a44284d616e",
+      "processType": "child_process"
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "dfcce456beac05e6",
+      "transactionId": null,
+      "processPid": 12104
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "dfcce456beac05e6",
+      "transactionId": null,
+      "pid": 12104,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "f296ac098d28b0810b7c8a44284d616e",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "921c6f508ac7a974",
+      "transactionId": null,
+      "processPid": 12104
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "921c6f508ac7a974",
+      "transactionId": null,
+      "pid": 12104,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "f296ac098d28b0810b7c8a44284d616e",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SHUTDOWN",
+      "requestId": "9accd42a5ed26805",
+      "transactionId": null,
+      "processPid": 12104
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SHUTDOWN",
+      "requestId": "9accd42a5ed26805",
+      "transactionId": null,
+      "pid": 12104,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "f296ac098d28b0810b7c8a44284d616e",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "tipo": "host-exit",
+      "pid": 12104,
+      "code": 0,
+      "signal": null
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "HOST_READY",
+      "pid": 30788,
+      "ppid": 41360,
+      "hostSessionId": "80b1bb347fa02def7115be4fb691ef3b",
+      "processType": "child_process"
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "c79aba2e39593924",
+      "transactionId": null,
+      "processPid": 30788
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "c79aba2e39593924",
+      "transactionId": null,
+      "pid": 30788,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "80b1bb347fa02def7115be4fb691ef3b",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "39a79a44f0bbd8a3",
+      "transactionId": null,
+      "processPid": 30788
+    },
+    {
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "39a79a44f0bbd8a3",
+      "transactionId": null,
+      "pid": 30788,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "80b1bb347fa02def7115be4fb691ef3b",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "em": "2026-11-05T16:10:41.404Z",
+      "direcao": "host->main",
+      "tipo": "HOST_READY",
+      "pid": 33688,
+      "ppid": 19276,
+      "hostSessionId": "a2a82f40f5d2ba37007dcc59e7de0de1",
+      "processType": "child_process"
+    },
+    {
+      "em": "2026-11-05T16:10:41.404Z",
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "CONFIGURE_MOCK",
+      "requestId": "dbd62717d174f950",
+      "transactionId": null,
+      "processPid": 33688
+    },
+    {
+      "em": "2026-11-05T16:10:41.514Z",
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "CONFIGURE_MOCK",
+      "requestId": "dbd62717d174f950",
+      "transactionId": null,
+      "pid": 33688,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "a2a82f40f5d2ba37007dcc59e7de0de1",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "em": "2026-11-05T16:10:41.514Z",
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "6c956c2ae923831e",
+      "transactionId": null,
+      "processPid": 33688
+    },
+    {
+      "em": "2026-11-05T16:10:41.522Z",
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "6c956c2ae923831e",
+      "transactionId": null,
+      "pid": 33688,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "a2a82f40f5d2ba37007dcc59e7de0de1",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "em": "2026-11-05T16:10:41.522Z",
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "TX_START",
+      "requestId": "687c5b8fded1c612",
+      "transactionId": "mrt50-before-bootstrap",
+      "processPid": 33688
+    },
+    {
+      "em": "2026-11-05T16:10:41.532Z",
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "TX_START",
+      "requestId": "687c5b8fded1c612",
+      "transactionId": "mrt50-before-bootstrap",
+      "pid": 33688,
+      "resultCode": null,
+      "errorCode": "HOST_SECURITY_BOOTSTRAP_REQUIRED",
+      "hostSessionId": "a2a82f40f5d2ba37007dcc59e7de0de1",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "em": "2026-11-05T16:10:41.532Z",
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "TX_CONTINUE",
+      "requestId": "bc456d4f083b7970",
+      "transactionId": "mrt50-before-bootstrap",
+      "processPid": 33688
+    },
+    {
+      "em": "2026-11-05T16:10:41.532Z",
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "TX_CONTINUE",
+      "requestId": "bc456d4f083b7970",
+      "transactionId": "mrt50-before-bootstrap",
+      "pid": 33688,
+      "resultCode": null,
+      "errorCode": "HOST_SECURITY_BOOTSTRAP_REQUIRED",
+      "hostSessionId": "a2a82f40f5d2ba37007dcc59e7de0de1",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "em": "2026-11-05T16:10:41.532Z",
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "TX_FINALIZE",
+      "requestId": "e75d6bc5b1e964ac",
+      "transactionId": "mrt50-before-bootstrap",
+      "processPid": 33688
+    },
+    {
+      "em": "2026-11-05T16:10:41.533Z",
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "TX_FINALIZE",
+      "requestId": "e75d6bc5b1e964ac",
+      "transactionId": "mrt50-before-bootstrap",
+      "pid": 33688,
+      "resultCode": null,
+      "errorCode": "HOST_SECURITY_BOOTSTRAP_REQUIRED",
+      "hostSessionId": "a2a82f40f5d2ba37007dcc59e7de0de1",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "em": "2026-11-05T16:10:41.533Z",
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "a69ae22375fe50b4",
+      "transactionId": null,
+      "processPid": 33688
+    },
+    {
+      "em": "2026-11-05T16:10:41.533Z",
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "a69ae22375fe50b4",
+      "transactionId": null,
+      "pid": 33688,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "a2a82f40f5d2ba37007dcc59e7de0de1",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "em": "2026-11-05T16:10:41.536Z",
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "d51bb4a2c08043f8",
+      "transactionId": null,
+      "processPid": 33688
+    },
+    {
+      "em": "2026-11-05T16:10:41.589Z",
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "d51bb4a2c08043f8",
+      "transactionId": null,
+      "pid": 33688,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "a2a82f40f5d2ba37007dcc59e7de0de1",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "em": "2026-11-05T16:10:41.590Z",
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "TX_START",
+      "requestId": "c7f06a8730569a1a",
+      "transactionId": "mrt50-no-permit",
+      "processPid": 33688
+    },
+    {
+      "em": "2026-11-05T16:10:41.596Z",
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "TX_START",
+      "requestId": "c7f06a8730569a1a",
+      "transactionId": "mrt50-no-permit",
+      "pid": 33688,
+      "resultCode": null,
+      "errorCode": "HOST_SECURITY_OPERATION_BLOCKED",
+      "hostSessionId": "a2a82f40f5d2ba37007dcc59e7de0de1",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "em": "2026-11-05T16:10:41.596Z",
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "TX_CONTINUE",
+      "requestId": "22c61d81073c806a",
+      "transactionId": "mrt50-no-permit",
+      "processPid": 33688
+    },
+    {
+      "em": "2026-11-05T16:10:41.597Z",
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "TX_CONTINUE",
+      "requestId": "22c61d81073c806a",
+      "transactionId": "mrt50-no-permit",
+      "pid": 33688,
+      "resultCode": null,
+      "errorCode": "HOST_SECURITY_OPERATION_BLOCKED",
+      "hostSessionId": "a2a82f40f5d2ba37007dcc59e7de0de1",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "em": "2026-11-05T16:10:41.597Z",
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "TX_FINALIZE",
+      "requestId": "71acc0e129c6b0f8",
+      "transactionId": "mrt50-no-permit",
+      "processPid": 33688
+    },
+    {
+      "em": "2026-11-05T16:10:41.599Z",
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "TX_FINALIZE",
+      "requestId": "71acc0e129c6b0f8",
+      "transactionId": "mrt50-no-permit",
+      "pid": 33688,
+      "resultCode": null,
+      "errorCode": "HOST_SECURITY_OPERATION_BLOCKED",
+      "hostSessionId": "a2a82f40f5d2ba37007dcc59e7de0de1",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "em": "2026-11-05T16:10:41.599Z",
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "eefc185a9c0e413d",
+      "transactionId": null,
+      "processPid": 33688
+    },
+    {
+      "em": "2026-11-05T16:10:41.605Z",
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "eefc185a9c0e413d",
+      "transactionId": null,
+      "pid": 33688,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "a2a82f40f5d2ba37007dcc59e7de0de1",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "em": "2026-11-05T16:10:41.606Z",
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "ca97663c09f2b1ba",
+      "transactionId": null,
+      "processPid": 33688
+    },
+    {
+      "em": "2026-11-05T16:10:41.611Z",
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "ca97663c09f2b1ba",
+      "transactionId": null,
+      "pid": 33688,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "a2a82f40f5d2ba37007dcc59e7de0de1",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "em": "2026-11-05T16:10:41.612Z",
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "TX_START",
+      "requestId": "023fee71809063ec",
+      "transactionId": "mrt50-permit-once",
+      "processPid": 33688
+    },
+    {
+      "em": "2026-11-05T16:10:41.620Z",
+      "tipo": "driver-call",
+      "source": "nativehost-child-ipc",
+      "pid": 33688,
+      "method": "iniciaTransacaoDestaxa",
+      "callNumber": 1
+    },
+    {
+      "em": "2026-11-05T16:10:41.621Z",
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "TX_START",
+      "requestId": "023fee71809063ec",
+      "transactionId": "mrt50-permit-once",
+      "pid": 33688,
+      "resultCode": "F1",
+      "errorCode": null,
+      "hostSessionId": "a2a82f40f5d2ba37007dcc59e7de0de1",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "em": "2026-11-05T16:10:41.621Z",
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "TX_START",
+      "requestId": "223fe16f7ab224ed",
+      "transactionId": "mrt50-permit-once",
+      "processPid": 33688
+    },
+    {
+      "em": "2026-11-05T16:10:41.629Z",
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "TX_START",
+      "requestId": "223fe16f7ab224ed",
+      "transactionId": "mrt50-permit-once",
+      "pid": 33688,
+      "resultCode": null,
+      "errorCode": "HOST_SECURITY_OPERATION_BLOCKED",
+      "hostSessionId": "a2a82f40f5d2ba37007dcc59e7de0de1",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "em": "2026-11-05T16:10:41.629Z",
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "STATUS",
+      "requestId": "17fd954bb700065e",
+      "transactionId": null,
+      "processPid": 33688
+    },
+    {
+      "em": "2026-11-05T16:10:41.635Z",
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "STATUS",
+      "requestId": "17fd954bb700065e",
+      "transactionId": null,
+      "pid": 33688,
+      "resultCode": null,
+      "errorCode": null,
+      "hostSessionId": "a2a82f40f5d2ba37007dcc59e7de0de1",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "em": "2026-11-05T16:10:41.635Z",
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "cdc0592efbfcac4f",
+      "transactionId": null,
+      "processPid": 33688
+    },
+    {
+      "em": "2026-11-05T16:10:41.642Z",
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "cdc0592efbfcac4f",
+      "transactionId": null,
+      "pid": 33688,
+      "resultCode": null,
+      "errorCode": "HOST_SECURITY_BOOTSTRAP_INVALID",
+      "hostSessionId": "a2a82f40f5d2ba37007dcc59e7de0de1",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "em": "2026-11-05T16:10:41.790Z",
+      "direcao": "host->main",
+      "tipo": "HOST_READY",
+      "pid": 13152,
+      "ppid": 19276,
+      "hostSessionId": "2e40cbad90f400a55996a49c6d558245",
+      "processType": "child_process"
+    },
+    {
+      "em": "2026-11-05T16:10:41.790Z",
+      "direcao": "main->host",
+      "tipo": "request",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "cf77608dc6ec57b3",
+      "transactionId": null,
+      "processPid": 13152
+    },
+    {
+      "em": "2026-11-05T16:10:41.865Z",
+      "direcao": "host->main",
+      "tipo": "response",
+      "operation": "SECURITY_BOOTSTRAP",
+      "requestId": "cf77608dc6ec57b3",
+      "transactionId": null,
+      "pid": 13152,
+      "resultCode": null,
+      "errorCode": "HOST_SECURITY_BOOTSTRAP_INVALID",
+      "hostSessionId": "2e40cbad90f400a55996a49c6d558245",
+      "output": null,
+      "responseReceivedByAdapter": true
+    },
+    {
+      "em": "2026-11-05T16:10:41.873Z",
+      "tipo": "host-exit",
+      "pid": 13152,
+      "code": null,
+      "signal": "SIGTERM"
+    },
+    {
+      "em": "2026-11-05T16:10:41.886Z",
+      "tipo": "host-exit",
+      "pid": 33688,
+      "code": null,
+      "signal": "SIGTERM"
+    }
+  ],
+  "failures": [],
+  "limitations": [
+    "COMMIT Ed25519 é validado localmente pelo TefManager/NativeHostClient; o protocolo não tem mensagem COMMIT própria. O teste injeta perda do ACK do bootstrap de segurança subsequente.",
+    "O teste exerce o runtime NativeHost real, mas o driver é mockado e nenhuma homologação física, DLL Destaxa, V$Pague ou PinPad é validado.",
+    "Falhas de rede/IPC são injetadas no adaptador do processo pai depois de mensagens reais atravessarem o canal IPC."
+  ]
+}

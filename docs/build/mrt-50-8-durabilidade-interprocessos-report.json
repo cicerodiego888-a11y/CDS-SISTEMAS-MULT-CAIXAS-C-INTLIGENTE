@@ -1,0 +1,391 @@
+{
+  "sprint": "MRT-50.8",
+  "classificacao": "CONCLUÍDO",
+  "escopo": "SQLite temporário e drivers mockados; nenhuma operação financeira real",
+  "arquivosProducaoAlterados": [
+    "backend/rotas/tef.js",
+    "backend/services/tef/TefManager.js",
+    "backend/services/tef/adapters/DestaxaRealAdapter.js",
+    "backend/services/tef/destaxa/destaxaContinuidadePersistencia.js",
+    "frontend/pdv/js/pdvTefContinuidade.js"
+  ],
+  "arquivosTesteAlterados": [
+    "tests/tef/mrt-50-8-durabilidade-interprocessos.test.js",
+    "tests/tef/mrt-40-integracao-pdv-backend-continuidade.test.js",
+    "tests/tef/mrt-50-7-continuidade-99.test.js",
+    "tests/tef/mrt-39-1-integracao-tefmanager-adapter.test.js"
+  ],
+  "relatoriosCriadosOuAtualizados": [
+    "docs/build/MRT-50.8-DURABILIDADE-INTERPROCESSOS.md",
+    "docs/build/mrt-50-8-durabilidade-interprocessos-report.json"
+  ],
+  "gateFinanceiro": "OFF",
+  "dllDestaxaAcessada": false,
+  "bancoOficialAcessado": false,
+  "databasePai": {
+    "pid": 27776,
+    "caminho": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-22860-a19b25ee132f\\pai-filho\\mercadao.db",
+    "identidadeArquivo": {
+      "dev": 505650597,
+      "ino": 16607023627214300,
+      "size": 978944
+    },
+    "databaseList": {
+      "seq": 0,
+      "name": "main",
+      "file": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-22860-a19b25ee132f\\pai-filho\\mercadao.db"
+    },
+    "journalMode": {
+      "journal_mode": "wal"
+    },
+    "busyTimeout": {
+      "timeout": 30000
+    },
+    "synchronous": {
+      "synchronous": 2
+    }
+  },
+  "databaseRunner": {
+    "pid": 22860,
+    "caminho": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-22860-a19b25ee132f\\mercadao.db",
+    "identidadeArquivo": {
+      "dev": 505650597,
+      "ino": 29836347532614976,
+      "size": 978944
+    },
+    "databaseList": {
+      "seq": 0,
+      "name": "main",
+      "file": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-22860-a19b25ee132f\\mercadao.db"
+    },
+    "journalMode": {
+      "journal_mode": "wal"
+    },
+    "busyTimeout": {
+      "timeout": 30000
+    },
+    "synchronous": {
+      "synchronous": 2
+    }
+  },
+  "resultadoProcessoFilhoValido": {
+    "pid": 36748,
+    "caminho": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-22860-a19b25ee132f\\pai-filho\\mercadao.db",
+    "identidadeArquivo": {
+      "dev": 505650597,
+      "ino": 16607023627214300,
+      "size": 1355776
+    },
+    "databaseList": {
+      "seq": 0,
+      "name": "main",
+      "file": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-22860-a19b25ee132f\\pai-filho\\mercadao.db"
+    },
+    "journalMode": {
+      "journal_mode": "wal"
+    },
+    "busyTimeout": {
+      "timeout": 30000
+    },
+    "synchronous": {
+      "synchronous": 2
+    }
+  },
+  "gravacaoRespostaPai": {
+    "ok": true,
+    "duravel": true,
+    "confirmada": true
+  },
+  "processoPaiEncerradoAntesDaRecuperacao": true,
+  "diagnosticoMrt40Cenario5": {
+    "caminhoPaiEFilho": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-mrt40-4328-1e657216540f\\mercadao.db",
+    "identidadeArquivoPaiEFilho": {
+      "dev": 505650597,
+      "ino": 7881299349181668
+    },
+    "journalMode": "wal",
+    "busyTimeoutPaiMs": 30000,
+    "synchronous": 2,
+    "transactionStatePragma": "Retornou conjunto vazio; não comprova estado de transação.",
+    "respostaSolicitadaEm": "2026-11-05T16:17:21.740Z",
+    "solicitacaoAtualSolicitadaEm": "2026-11-05T16:17:21.797Z",
+    "respostaLidaPeloFilho": true,
+    "respostaVinculadaAoTimestampAtual": false,
+    "codigoBloqueioFilho": "DESTAXA_CONTINUIDADE_IDENTIDADE_DIVERGENTE",
+    "inicia": 0,
+    "continua": 0,
+    "finaliza": 0
+  },
+  "causas": {
+    "comprovada": "O pai e o filho usam o mesmo arquivo SQLite. O replay não transmitia solicitadaEm e TefManager substituía o timestamp original pelo da solicitação 99 corrente.",
+    "correcao": "Timestamp original obrigatório e comparado de ponta a ponta; resposta e reserva de despacho são confirmadas por conexão SQLite independente, com estado de uso único."
+  },
+  "resultados": [
+    {
+      "cenario": "Processo filho recupera resposta confirmada pelo pai no mesmo SQLite",
+      "resultado": "PASSOU",
+      "pai": {
+        "pid": 27776,
+        "caminho": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-22860-a19b25ee132f\\pai-filho\\mercadao.db",
+        "identidadeArquivo": {
+          "dev": 505650597,
+          "ino": 16607023627214300,
+          "size": 978944
+        },
+        "databaseList": {
+          "seq": 0,
+          "name": "main",
+          "file": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-22860-a19b25ee132f\\pai-filho\\mercadao.db"
+        },
+        "journalMode": {
+          "journal_mode": "wal"
+        },
+        "busyTimeout": {
+          "timeout": 30000
+        },
+        "synchronous": {
+          "synchronous": 2
+        }
+      },
+      "filho": {
+        "pid": 36748,
+        "caminho": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-22860-a19b25ee132f\\pai-filho\\mercadao.db",
+        "identidadeArquivo": {
+          "dev": 505650597,
+          "ino": 16607023627214300,
+          "size": 1355776
+        },
+        "databaseList": {
+          "seq": 0,
+          "name": "main",
+          "file": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-8-22860-a19b25ee132f\\pai-filho\\mercadao.db"
+        },
+        "journalMode": {
+          "journal_mode": "wal"
+        },
+        "busyTimeout": {
+          "timeout": 30000
+        },
+        "synchronous": {
+          "synchronous": 2
+        }
+      },
+      "processoPaiEncerradoAntesDoFilho": true,
+      "respostaRecuperada": true,
+      "continuacaoSolicitada": true,
+      "sucessoFinanceiroImplicito": false,
+      "despachoExatamenteUmaVez": true,
+      "contadores": {
+        "inicia": 0,
+        "continua": 1,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "Replay depois da reserva durável de despacho",
+      "resultado": "PASSOU",
+      "codigo": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "Resposta inexistente no processo filho",
+      "resultado": "PASSOU",
+      "codigo": "DESTAXA_CONTINUIDADE_RESPOSTA_AUSENTE",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "Estado RESPONDIDA sem a resposta persistida",
+      "resultado": "PASSOU",
+      "codigo": "DESTAXA_CONTINUIDADE_RESPOSTA_AUSENTE",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "Caminho SQLite divergente",
+      "resultado": "PASSOU",
+      "codigo": "TEF_TRANSACAO_NAO_ENCONTRADA",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "Timestamp ausente",
+      "resultado": "PASSOU",
+      "codigo": "TEF_IDEMPOTENCY_DIVERGENTE",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "Timestamp inválido",
+      "resultado": "PASSOU",
+      "codigo": "TEF_IDEMPOTENCY_DIVERGENTE",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "Timestamp divergente",
+      "resultado": "PASSOU",
+      "codigo": "TEF_IDEMPOTENCY_DIVERGENTE",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "Identidade completa divergente",
+      "resultado": "PASSOU",
+      "codigo": "TEF_IDEMPOTENCY_DIVERGENTE",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "Ação divergente",
+      "resultado": "PASSOU",
+      "codigo": "TEF_IDEMPOTENCY_DIVERGENTE",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "Timestamp original expirado",
+      "resultado": "PASSOU",
+      "codigo": "DESTAXA_CONTINUIDADE_TIMEOUT",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "Payload persistido inválido",
+      "resultado": "PASSOU",
+      "codigo": "TEF_IDEMPOTENCY_DIVERGENTE",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "Falha de releitura da resposta",
+      "resultado": "PASSOU",
+      "codigo": "TEF_IDEMPOTENCY_DIVERGENTE",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "Falha ao recuperar solicitação pendente",
+      "resultado": "PASSOU",
+      "codigo": "TEF_CONTINUIDADE_PERSISTENCIA_FALHOU",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "SQLite inacessível ao processo filho",
+      "resultado": "PASSOU",
+      "codigo": "TEF_CONTINUIDADE_PERSISTENCIA_FALHOU",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "Persistência não confirmada em outra conexão enquanto transação não commitada",
+      "resultado": "PASSOU",
+      "persistenciaPaiConfirmada": false,
+      "respostaNaoVisivelNoFilho": true,
+      "contadoresFilho": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    }
+  ],
+  "totalCenarios": 16,
+  "regressaoMrt40Completada": true,
+  "regressaoMrt507Completada": true,
+  "regressoes": [
+    {
+      "comando": "node tests\\tef\\mrt-40-integracao-pdv-backend-continuidade.test.js",
+      "resultado": "PASSOU",
+      "cenarios": "Suíte completa; cenário 5 manteve a expectativa fail-closed e não chamou o driver no processo filho."
+    },
+    {
+      "comando": "node tests\\tef\\mrt-50-7-continuidade-99.test.js",
+      "resultado": "PASSOU",
+      "cenarios": 13
+    },
+    {
+      "comando": "node tests\\tef\\mrt-47-reconciliacao-segura.test.js",
+      "resultado": "PASSOU",
+      "isolamento": "SQLite temporário; gate OFF; driver simulado."
+    },
+    {
+      "comando": "node tests\\tef\\mrt-49-bootstrap-seguro-nativehost.test.js",
+      "resultado": "PASSOU",
+      "cenarios": 20
+    },
+    {
+      "comando": "node tests\\tef\\mrt-50-child-process-ipc.test.js",
+      "resultado": "PASSOU",
+      "cenarios": 31
+    },
+    {
+      "comando": "node tests\\tef\\mrt-50-2-integridade-evidencia-reconciliacao.test.js",
+      "resultado": "PASSOU"
+    },
+    {
+      "comando": "node tests\\tef\\mrt-50-3-isolamento-recuperacao.test.js",
+      "resultado": "PASSOU",
+      "cenarios": 12
+    },
+    {
+      "comando": "node tests\\tef\\mrt-38-hardening-continuidade-interativa.test.js",
+      "resultado": "PASSOU"
+    },
+    {
+      "comando": "node tests\\tef\\mrt-39-persistencia-continuidade.test.js",
+      "resultado": "PASSOU"
+    },
+    {
+      "comando": "node tests\\tef\\mrt-39-1-integracao-tefmanager-adapter.test.js",
+      "resultado": "PASSOU"
+    }
+  ],
+  "operacoesFinanceirasExecutadas": false,
+  "hostFisicoVspaguePinpadSefazAcessados": false,
+  "naoHomologado": true,
+  "preflightLiberado": false
+}

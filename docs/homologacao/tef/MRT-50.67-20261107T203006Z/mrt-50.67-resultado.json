@@ -1,0 +1,26 @@
+{
+  "sprint": "MRT-50.67",
+  "titulo": "CORREÇÃO DAS LACUNAS DE SEGURANÇA E CONTINUIDADE CRT",
+  "status": "CONCLUÍDA",
+  "registradoEm": "2026-11-07T20:30:06Z",
+  "testes": {
+    "tef-destaxa-03-crt-protocolo": { "ok": 25, "falhou": 0 },
+    "tef-destaxa-05-financial-safety": { "ok": 15, "falhou": 0 },
+    "mrt-50-67-homologacao-debito-gate": { "ok": 13, "falhou": 0 }
+  },
+  "gateOff": true,
+  "nativeHost": false,
+  "dllCarregada": false,
+  "chamadasFinanceiras": false,
+  "historicosUnknownMrt24_36_42": "intactos",
+  "autorizacaoDebitoR1": "reservada — não utilizada",
+  "arquivosAlterados": [
+    "backend/services/tef/adapters/DestaxaRealAdapter.js",
+    "backend/services/tef/destaxa/destaxaConstantes.js",
+    "backend/services/tef/destaxa/destaxaHomologacaoDebitoPolitica.js",
+    "backend/services/tef/destaxa/destaxaCrtCicloOrquestracao.js",
+    "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+    "backend/services/tef/destaxa/DestaxaNativeHostClient.js",
+    "tests/tef/mrt-50-67-homologacao-debito-gate.test.js"
+  ]
+}

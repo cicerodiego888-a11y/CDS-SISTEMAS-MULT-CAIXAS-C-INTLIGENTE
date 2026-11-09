@@ -1,6 +1,6 @@
-const { iniciarAplicacaoElectron } = require('./electron-common');
+process.env.CDS_APP_MODULO = 'pdv';
 
-process.env.CDS_APP_MODULO = process.env.CDS_APP_MODULO || 'pdv';
+const { iniciarAplicacaoElectron } = require('./electron-common');
 
 iniciarAplicacaoElectron({
   tituloJanela: 'CDS Sistemas - PDV',

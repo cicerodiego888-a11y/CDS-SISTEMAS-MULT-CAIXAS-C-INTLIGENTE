@@ -1,5 +1,7 @@
 'use strict';
 
+const { isDeepStrictEqual } = require('util');
+
 /**
  * MRT-21 — Orquestração segura do ciclo CRT Destaxa (mesmo Native Host / bridge).
  *
@@ -16,7 +18,8 @@ const {
   CLASSIFICACAO_CODIGO,
   FINALIZACAO_CONFIRMAR,
   FINALIZACAO_CANCELAR,
-  ERROS
+  ERROS,
+  transacaoRealHabilitada
 } = require('./destaxaConstantes');
 const { ERROS_HOST } = require('./destaxaNativeHostProtocolo');
 
@@ -31,6 +34,37 @@ const CICLO_ERROS = Object.freeze({
   INCONCLUSIVO: 'DESTAXA_CICLO_INCONCLUSIVO',
   INIT_OU_GATE: 'DESTAXA_CICLO_BLOQUEADO_PRE_TX'
 });
+
+function bridgeUsaDriverNativo(bridge) {
+  try {
+    const orq = typeof bridge?.getOrquestradorTransacao === 'function'
+      ? bridge.getOrquestradorTransacao()
+      : null;
+    return orq?._driver?.nome === 'native';
+  } catch (_) {
+    return false;
+  }
+}
+
+function bloquearCicloPorGate(passos, transactionId, soContinuidade = false) {
+  return {
+    sucesso: false,
+    conclusivo: true,
+    retryAllowed: false,
+    codigo: CICLO_ERROS.INIT_OU_GATE,
+    mensagem: 'Ciclo CRT bloqueado: gate financeiro OFF — TX_START/CONTINUE/FINALIZE nativos recusados',
+    financialState: 'UNKNOWN',
+    transactionId: transactionId || null,
+    ciclo: {
+      passos,
+      txStartExecutado: false,
+      continues: 0,
+      finalizado: false,
+      soContinuidade: soContinuidade === true
+    },
+    reconciliacaoObrigatoria: false
+  };
+}
 
 function codigoDe(resultado) {
   return String(resultado?.codigoDestaxa || resultado?.codigo || '').trim().toUpperCase();
@@ -193,6 +227,12 @@ async function executarCicloCrt(deps = {}) {
     };
   }
 
+  // MRT-50.67 — gate antes de qualquer TX_START nativo (mocks inalterados)
+  if (bridgeUsaDriverNativo(bridge) && !transacaoRealHabilitada()) {
+    emitir('TX_START_BLOQUEADO', { motivo: ERROS.DESTAXA_REAL_TRANSACTION_DISABLED });
+    return bloquearCicloPorGate(passos, transactionId, false);
+  }
+
   txStartExecutado = true;
   emitir('TX_START', { operacao, transactionId });
   let atual = await bridge.iniciarTransacaoDestaxa(operacao, camposEntrada, { transactionId });
@@ -241,7 +281,8 @@ async function executarCicloCrt(deps = {}) {
     continues,
     emitir,
     fecharInconclusivo,
-    txStartExecutado: true
+    txStartExecutado: true,
+    persistirRespostaAntesContinue: deps.persistirRespostaAntesContinue
   });
 }
 
@@ -259,6 +300,7 @@ async function continuarCicloCrt(deps = {}) {
     ? deps.maxContinues
     : MAX_CONTINUES_PADRAO;
   const onPasso = typeof deps.onPasso === 'function' ? deps.onPasso : null;
+  const persistirRespostaAntesContinue = deps.persistirRespostaAntesContinue;
   const passos = [];
   let continues = 0;
 
@@ -285,6 +327,12 @@ async function continuarCicloCrt(deps = {}) {
     reconciliacaoObrigatoria: true
   });
 
+  // MRT-50.67 — CONTINUE nativo também exige gate ON
+  if (bridgeUsaDriverNativo(bridge) && !transacaoRealHabilitada()) {
+    emitir('TX_CONTINUE_BLOQUEADO', { motivo: ERROS.DESTAXA_REAL_TRANSACTION_DISABLED });
+    return bloquearCicloPorGate(passos, transactionId, true);
+  }
+
   if (deps.respostaOperador == null && fila.length === 0) {
     return {
       sucesso: false,
@@ -305,6 +353,22 @@ async function continuarCicloCrt(deps = {}) {
 
   let atual;
   if (primeira) {
+    const persistencia = await _persistirAntesContinue({
+      persistirResposta: persistirRespostaAntesContinue,
+      transactionId,
+      acao: deps.acaoAtual || null,
+      resposta: primeira,
+      solicitadaEm: deps.solicitadaEm
+    });
+    if (!persistencia.ok) {
+      return _resultadoPersistenciaContinuidadeFalhou(
+        transactionId,
+        persistencia,
+        passos,
+        continues,
+        false
+      );
+    }
     continues += 1;
     emitir('TX_CONTINUE', { n: continues, origemResposta: 'operador_pdv', soContinuidade: true });
     atual = await bridge.continuarTransacaoDestaxa(primeira, { transactionId });
@@ -327,6 +391,22 @@ async function continuarCicloCrt(deps = {}) {
         acao: deps.acaoAtual || null,
         ciclo: { passos, txStartExecutado: false, continues: 0, finalizado: false, soContinuidade: true }
       };
+    }
+    const persistencia = await _persistirAntesContinue({
+      persistirResposta: persistirRespostaAntesContinue,
+      transactionId,
+      acao: deps.acaoAtual || null,
+      resposta: resolucao.resposta,
+      solicitadaEm: deps.solicitadaEm
+    });
+    if (!persistencia.ok) {
+      return _resultadoPersistenciaContinuidadeFalhou(
+        transactionId,
+        persistencia,
+        passos,
+        continues,
+        false
+      );
     }
     continues += 1;
     emitir('TX_CONTINUE', { n: continues, origemResposta: resolucao.origem, soContinuidade: true });
@@ -377,8 +457,98 @@ async function continuarCicloCrt(deps = {}) {
     emitir,
     fecharInconclusivo,
     txStartExecutado: false,
-    soContinuidade: true
+    soContinuidade: true,
+    persistirRespostaAntesContinue
   });
+}
+
+async function _persistirAntesContinue({
+  persistirResposta,
+  transactionId,
+  acao,
+  resposta,
+  solicitadaEm
+}) {
+  const txId = transactionId == null ? '' : String(transactionId).trim();
+  if (!txId || typeof solicitadaEm !== 'string' || !solicitadaEm.trim()) {
+    return {
+      ok: false,
+      codigo: 'TEF_CONTINUIDADE_PERSISTENCIA_FALHOU',
+      mensagem: 'TX_CONTINUE bloqueado: transactionId e timestamp original são obrigatórios'
+    };
+  }
+  if (typeof persistirResposta !== 'function') {
+    return {
+      ok: false,
+      codigo: 'TEF_CONTINUIDADE_PERSISTENCIA_FALHOU',
+      mensagem: 'TX_CONTINUE bloqueado: persistência durável da resposta não foi configurada'
+    };
+  }
+  try {
+    const resultado = await persistirResposta({
+      transactionId,
+      acao,
+      resposta,
+      solicitadaEm
+    });
+    const identidade = resultado?.identidade;
+    const identidadeCompleta = identidade
+      && String(identidade.transactionId || '') === txId
+      && ['operation_id', 'idempotency_key', 'fingerprint'].every((campo) =>
+        typeof identidade[campo] === 'string' && identidade[campo].trim() !== '');
+    const confirmacaoValida = resultado?.ok === true
+      && resultado?.duravel === true
+      && resultado?.confirmada === true
+      && String(resultado.transactionId || '') === txId
+      && resultado.solicitadaEm === solicitadaEm
+      && resultado.estadoDespacho === 'INICIADO'
+      && typeof resultado.despachoId === 'string'
+      && resultado.despachoId.trim() !== ''
+      && typeof resultado.fingerprint === 'string'
+      && resultado.fingerprint.trim() !== ''
+      && identidadeCompleta
+      && isDeepStrictEqual(resultado.resposta, resposta);
+    if (confirmacaoValida) return resultado;
+    return {
+      ok: false,
+      codigo: resultado?.codigo || 'TEF_CONTINUIDADE_PERSISTENCIA_FALHOU',
+      mensagem: resultado?.mensagem
+        || 'TX_CONTINUE bloqueado: reserva durável, identidade e resposta não foram confirmadas'
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      codigo: error.codigo || error.code || 'TEF_CONTINUIDADE_PERSISTENCIA_FALHOU',
+      mensagem: `TX_CONTINUE bloqueado por falha de persistência: ${error.message}`
+    };
+  }
+}
+
+function _resultadoPersistenciaContinuidadeFalhou(
+  transactionId,
+  persistencia,
+  passos,
+  continues,
+  txStartExecutado
+) {
+  return {
+    sucesso: false,
+    conclusivo: false,
+    inconclusivo: true,
+    retryAllowed: false,
+    codigo: persistencia.codigo || 'TEF_CONTINUIDADE_PERSISTENCIA_FALHOU',
+    mensagem: persistencia.mensagem,
+    financialState: 'UNKNOWN',
+    transactionId,
+    ciclo: {
+      passos,
+      txStartExecutado: txStartExecutado === true,
+      continues,
+      finalizado: false,
+      soContinuidade: true
+    },
+    reconciliacaoObrigatoria: true
+  };
 }
 
 async function prosseguirCicloAposResultado(ctx) {
@@ -391,11 +561,13 @@ async function prosseguirCicloAposResultado(ctx) {
     emitir,
     fecharInconclusivo,
     txStartExecutado,
-    soContinuidade
+    soContinuidade,
+    persistirRespostaAntesContinue
   } = ctx;
   let { atual, continues } = ctx;
 
   while (ehAcaoRequerida(atual)) {
+    const solicitadaEm = new Date().toISOString();
     // 99 NÃO é aprovação
     if (continues >= maxContinues) {
       return {
@@ -426,6 +598,7 @@ async function prosseguirCicloAposResultado(ctx) {
         mensagem: resolucao.mensagem,
         requerContinuacao: true,
         acao: atual.acao || null,
+        solicitadaEm,
         statusSugerido: 'pendente',
         resultadoUltimo: atual,
         ciclo: {
@@ -436,6 +609,23 @@ async function prosseguirCicloAposResultado(ctx) {
           soContinuidade: soContinuidade === true
         }
       };
+    }
+
+    const persistencia = await _persistirAntesContinue({
+      persistirResposta: persistirRespostaAntesContinue,
+      transactionId,
+      acao: atual.acao || null,
+      resposta: resolucao.resposta,
+      solicitadaEm
+    });
+    if (!persistencia.ok) {
+      return _resultadoPersistenciaContinuidadeFalhou(
+        transactionId,
+        persistencia,
+        passos,
+        continues,
+        txStartExecutado
+      );
     }
 
     continues += 1;

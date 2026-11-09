@@ -14,6 +14,7 @@ const {
 } = require('../fiscal/nfceNumeracaoOcupadosService');
 const { DOC_STATUS, STATUS } = require('./constants');
 const { toCentavos, arredondarMoeda } = require('../fiscal/modeloTotais');
+const { montarXmlAutorizado } = require('../fiscal/nfceXmlAutorizado');
 
 /** Máximo de números reconciliados automaticamente por ciclo de transmissão. */
 const MAX_RECONCILIACOES_539_POR_CICLO = 10;
@@ -383,6 +384,41 @@ async function reconciliarCstat539Documento({
 
   // Caso A — autorizado + associação segura
   if (interpretacao.autorizado) {
+    let evidencia;
+    try {
+      const chaveTransmitida = onlyDigits(chaveEnviada);
+      if (chaveTransmitida !== onlyDigits(chaveSefaz)) {
+        const err = new Error('A chave consultada não corresponde à chave originalmente transmitida.');
+        err.code = 'CHAVE_RECONCILIACAO_DIVERGENTE';
+        throw err;
+      }
+      evidencia = montarXmlAutorizado({
+        xmlEnviado: documento.xml_assinado || documento.xml_enviado || documento.xml_preparado,
+        xmlRetorno: interpretacao.raw,
+        chaveAcesso: chaveTransmitida,
+        protocoloPersistido: interpretacao.protocolo || null
+      });
+    } catch (evidenciaErr) {
+      log539('EVIDENCIA_INVALIDA', {
+        nNF: numeroEnviado,
+        chaveSefaz,
+        code: evidenciaErr.code || 'XML_AUTORIZADO_INVALIDO'
+      });
+      return {
+        resultado: RESULTADO.ERRO_CONSULTA,
+        statusDocumento: DOC_STATUS.ERRO_COM_POSSIVEL_PROCESSAMENTO,
+        statusFechamentoSugerido: STATUS.PENDENTE_RECUPERACAO,
+        ocupacao,
+        numero: numeroEnviado,
+        chaveSefaz,
+        mensagem: 'A consulta indicou autorização, mas o XML transmitido e o protocolo não puderam ser vinculados à mesma chave. O documento permanece pendente de recuperação.',
+        erro: evidenciaErr.message || String(evidenciaErr),
+        code: evidenciaErr.code || 'XML_AUTORIZADO_INVALIDO',
+        reconciliacao: true,
+        contabilizarValor: false
+      };
+    }
+
     const assoc = await avaliarAssociacaoSegura({
       db,
       fechamentoId,
@@ -391,7 +427,7 @@ async function reconciliarCstat539Documento({
       serieEnviada: serie,
       chaveEnviada,
       chaveSefaz,
-      protocolo: interpretacao.protocolo
+      protocolo: evidencia.protocolo
     });
 
     if (assoc.associavel && !assoc.idempotente) {
@@ -400,15 +436,17 @@ async function reconciliarCstat539Documento({
         `UPDATE fechamentos_fiscais_documentos
          SET status = ?, cstat = ?, xmotivo = ?, protocolo = ?,
              chave_acesso = ?, xml_retorno = COALESCE(?, xml_retorno),
+             xml_autorizado = COALESCE(?, xml_autorizado),
              data_hora_autorizacao = ?, atualizado_em = ?
          WHERE id = ?`,
         [
           DOC_STATUS.AUTORIZADO,
-          interpretacao.cStat || '100',
-          interpretacao.xMotivo || 'Recuperado via reconciliação CStat 539',
-          interpretacao.protocolo || null,
+          evidencia.cStat,
+          evidencia.xMotivo,
+          evidencia.protocolo,
           onlyDigits(chaveSefaz),
           interpretacao.raw || null,
+          evidencia.xml,
           agoraLocal(),
           agoraLocal(),
           documento.id
@@ -428,8 +466,11 @@ async function reconciliarCstat539Documento({
         ocupacao,
         numero: numeroEnviado,
         chaveSefaz: onlyDigits(chaveSefaz),
-        protocolo: interpretacao.protocolo,
-        cstatConsulta: interpretacao.cStat,
+        protocolo: evidencia.protocolo,
+        cstatConsulta: evidencia.cStat,
+        xmlAutorizado: evidencia.xml,
+        xmlRetorno: interpretacao.raw || null,
+        xMotivo: evidencia.xMotivo,
         associacao: assoc,
         mensagem:
           'Numeração reconciliada: documento autorizado localizado na SEFAZ e associado com segurança ao fechamento.',
@@ -440,6 +481,27 @@ async function reconciliarCstat539Documento({
     }
 
     if (assoc.idempotente) {
+      await run(
+        db,
+        `UPDATE fechamentos_fiscais_documentos
+         SET cstat = ?, xmotivo = ?, protocolo = ?, chave_acesso = ?,
+             xml_retorno = COALESCE(?, xml_retorno),
+             xml_autorizado = COALESCE(?, xml_autorizado),
+             data_hora_autorizacao = COALESCE(data_hora_autorizacao, ?),
+             atualizado_em = ?
+         WHERE id = ?`,
+        [
+          evidencia.cStat,
+          evidencia.xMotivo,
+          evidencia.protocolo,
+          onlyDigits(chaveSefaz),
+          interpretacao.raw || null,
+          evidencia.xml,
+          agoraLocal(),
+          agoraLocal(),
+          documento.id
+        ]
+      );
       log539('RESULTADO', {
         nNF: numeroEnviado,
         chaveSefaz,
@@ -452,7 +514,11 @@ async function reconciliarCstat539Documento({
         ocupacao,
         numero: numeroEnviado,
         chaveSefaz: onlyDigits(chaveSefaz),
-        protocolo: interpretacao.protocolo || assoc.protocolo,
+        protocolo: evidencia.protocolo || assoc.protocolo,
+        cstatConsulta: evidencia.cStat,
+        xmlAutorizado: evidencia.xml,
+        xmlRetorno: interpretacao.raw || null,
+        xMotivo: evidencia.xMotivo,
         associacao: assoc,
         mensagem: 'Documento já autorizado (idempotente) — valor não duplicado.',
         reconciliacao: true,

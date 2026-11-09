@@ -1,0 +1,26 @@
+[
+    {
+        "arquivo":  "backend/services/tef/destaxa/destaxaProtocolo.js",
+        "sha256":  "FA0EF0D0430EBE190724D98BCD4D40930017E5D8B6C3AE368F8FC9C607AD551F"
+    },
+    {
+        "arquivo":  "backend/services/tef/destaxa/destaxaConstantes.js",
+        "sha256":  "0E0A992B13349A62847266D048A1938399EB53E49FF611E44034CB241C751EF2"
+    },
+    {
+        "arquivo":  "tests/tef/mrt-50-73-crt-literal-debito.test.js",
+        "sha256":  "C09572E5E93248548AF398425175A9F28F9056A3311C641C30356B00B82FC624"
+    },
+    {
+        "arquivo":  "tests/tef/mrt-50-72-transacao-tipo-cartao-encoding.test.js",
+        "sha256":  "9B5FEA8520870F685A8A33915824D94C6F714E2808B1283DEA4CDCB3CDC1D4A5"
+    },
+    {
+        "arquivo":  "tests/tef/mrt-50-67-homologacao-debito-gate.test.js",
+        "sha256":  "4274E6138B1D03C4B124F3CABE36D006F364E508AA637546B07683FDCA48CDAF"
+    },
+    {
+        "arquivo":  "docs/homologacao/tef/MRT-50.62-20261107T195438Z/validate-crt-input.js",
+        "sha256":  "C61B05E70918B100CF55228999527818E64F35BF78C70F1A5E3E2C7C2633736A"
+    }
+]

@@ -717,6 +717,29 @@ async function carregarModoFiscalInicial() {
     await salvarModoFiscalServidor(MODO_FISCAL_PADRAO);
 }
 
+async function inicializarContextoTerminalAntesDoModoFiscal() {
+    if (!moduloAtualEhPdvExpress()) return true;
+
+    const inicializar = window && window.inicializarContextoTerminalPdv;
+    if (typeof inicializar !== 'function') {
+        console.error('[PDV] Inicializador do contexto Terminal → Caixa indisponível.');
+        return false;
+    }
+
+    try {
+        const resultado = await inicializar();
+        if (resultado && resultado.ok === true) return true;
+        console.warn(
+            '[PDV] Contexto Terminal → Caixa indisponível; consulta inicial do F12 ignorada:',
+            resultado && resultado.code ? resultado.code : 'TERMINAL_NAO_REGISTRADO'
+        );
+        return false;
+    } catch (error) {
+        console.error('[PDV] Falha ao inicializar o contexto Terminal → Caixa:', error);
+        return false;
+    }
+}
+
 async function sincronizarEstadoF12Pdv(opcoes = {}) {
     if (!implantacaoPermiteFiscal() || typeof F12PolicyResolver === 'undefined') {
         return;
@@ -1575,7 +1598,10 @@ function inicializarShellModulo(options = {}) {
         method: 'POST',
         success: function () {
             carregarConfiguracaoImplantacao().finally(async function () {
-                await carregarModoFiscalInicial();
+                const contextoTerminalPronto = await inicializarContextoTerminalAntesDoModoFiscal();
+                if (contextoTerminalPronto) {
+                    await carregarModoFiscalInicial();
+                }
                 await atualizarVisibilidadeMenuFechamentoFiscalDia();
                 iniciarSincronizacaoModoFiscalServidor();
 

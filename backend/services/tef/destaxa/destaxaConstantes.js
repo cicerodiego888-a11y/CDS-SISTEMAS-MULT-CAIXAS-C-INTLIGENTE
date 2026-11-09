@@ -50,6 +50,7 @@ const ERROS = Object.freeze({
   DESTAXA_REAL_TRANSACTION_DISABLED: 'DESTAXA_REAL_TRANSACTION_DISABLED',
   DESTAXA_OPERACAO_NAO_PERMITIDA: 'DESTAXA_OPERACAO_NAO_PERMITIDA',
   DESTAXA_VALOR_NAO_PERMITIDO: 'DESTAXA_VALOR_NAO_PERMITIDO',
+  DESTAXA_MODALIDADE_NAO_PERMITIDA: 'DESTAXA_MODALIDADE_NAO_PERMITIDA',
   DESTAXA_AMBIENTE_NAO_PERMITIDO: 'DESTAXA_AMBIENTE_NAO_PERMITIDO',
   DESTAXA_PROVIDER_INVALIDO: 'DESTAXA_PROVIDER_INVALIDO',
   DESTAXA_VSPAGUE_INDISPONIVEL: 'DESTAXA_VSPAGUE_INDISPONIVEL',
@@ -66,8 +67,33 @@ const ERROS = Object.freeze({
  */
 const REAL_TRANSACTION_ENV = 'DESTAXA_REAL_TRANSACTION_ENABLED';
 
+/**
+ * Gate financeiro efetivo.
+ * Somente o literal "1" libera TX. Ausente, vazio, "0", "true", "yes" ou
+ * qualquer outro valor → OFF (ambíguo nunca habilita).
+ */
 function transacaoRealHabilitada() {
-  return String(process.env[REAL_TRANSACTION_ENV] || '').trim() === '1';
+  return String(process.env[REAL_TRANSACTION_ENV] ?? '').trim() === '1';
+}
+
+/**
+ * Inspeção do gate (somente leitura; não altera env).
+ * @returns {{ env: string, raw: string|null, normalizado: string, habilitado: boolean, ambiguo: boolean }}
+ */
+function inspecionarGateFinanceiro(ambiente = process.env) {
+  const chave = Object.keys(ambiente || {}).find((item) =>
+    item.toUpperCase() === REAL_TRANSACTION_ENV);
+  const raw = chave ? ambiente[chave] : null;
+  const normalizado = raw == null ? '' : String(raw).trim();
+  const habilitado = normalizado === '1';
+  const ambiguo = normalizado !== '' && normalizado !== '0' && normalizado !== '1';
+  return {
+    env: REAL_TRANSACTION_ENV,
+    raw: raw == null ? null : String(raw),
+    normalizado,
+    habilitado,
+    ambiguo
+  };
 }
 
 /** Única operação real permitida até nova sprint. */
@@ -178,7 +204,7 @@ const OPERACOES = Object.freeze({
  */
 const CAMPOS_ENTRADA_CRT_DOCUMENTADOS = Object.freeze({
   transacao_pagamento: 'A vista | Parcelado | Pré-datado',
-  transacao_tipo_cartao: 'Débito | Credito',
+  transacao_tipo_cartao: 'Debito | Credito',
   transacao_valor: 'maior que zero; reais com ponto e 2 casas; exemplo 100.99'
 });
 
@@ -298,6 +324,7 @@ module.exports = {
   ERROS,
   REAL_TRANSACTION_ENV,
   transacaoRealHabilitada,
+  inspecionarGateFinanceiro,
   OPERACOES_REAIS_PERMITIDAS,
   VALOR_HOMOLOGACAO_CENTAVOS,
   AMBIENTE_TRANSACAO_REAL,

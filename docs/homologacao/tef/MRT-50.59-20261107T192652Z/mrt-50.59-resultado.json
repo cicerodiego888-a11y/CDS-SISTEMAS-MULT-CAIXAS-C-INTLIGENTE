@@ -1,0 +1,45 @@
+{
+  "mrt": "MRT-50.59",
+  "classificacao": "RETURNED_SUCCESS",
+  "geradoEm": "2026-11-07T19:29:09.548Z",
+  "nativeHostPid": 76504,
+  "requestId": "bd73b723a5ddcd8e",
+  "dllSha256": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+  "codigoRetorno": "00",
+  "descricao": "API executada com sucesso.",
+  "durationMs": 7.1287,
+  "estadoClient": "CLIENT_INITIALIZED",
+  "iniciaClientDestaxaCalls": 1,
+  "transacoes": 0,
+  "vspague": {
+    "pid": 44484,
+    "portas": [
+      { "porta": 60603, "estado": "LISTENING" },
+      { "porta": 60906, "estado": "LISTENING" }
+    ],
+    "alterado": false
+  },
+  "encerramento": {
+    "estado": "STOPPED",
+    "encerrado": true,
+    "adiado": false,
+    "forcado": false,
+    "stoppedConfirmed": true,
+    "classificacaoEncerramento": "ENCERRAMENTO_CONTROLADO"
+  },
+  "gateFinanceiro": {
+    "process": "0",
+    "user": null,
+    "machine": null,
+    "estado": "OFF",
+    "gateReal": false
+  },
+  "integridadeOriginais": {
+    "localStateInalterado": true,
+    "chaveInalterada": true,
+    "marcadorInalterado": true,
+    "dllInalterada": true
+  },
+  "jsonl": "observability.jsonl",
+  "proximaSprintIniciada": false
+}

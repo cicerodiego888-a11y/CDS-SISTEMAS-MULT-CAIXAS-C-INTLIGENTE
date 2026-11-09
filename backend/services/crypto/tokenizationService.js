@@ -9,25 +9,8 @@ class TokenizationService {
   
   constructor() {
     this.algorithm = 'aes-256-cbc';
-    this.secretKey = this._getSecretKey();
     this.ivLength = 16;
   }
-  
-  /**
-   * Obtém a chave de criptografia
-   * Em produção, deve vir de variável de ambiente ou HSM
-   */
-  _getSecretKey() {
-    const envKey = process.env.TEF_TOKENIZATION_KEY;
-    if (envKey) {
-      return Buffer.from(envKey, 'hex');
-    }
-    
-    // Chave padrão para desenvolvimento (NÃO usar em produção)
-    const defaultKey = 'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210';
-    return Buffer.from(defaultKey, 'hex');
-  }
-  
   /**
    * Gera um token único para dados sensíveis
    * @param {string} dados - Dados a serem tokenizados

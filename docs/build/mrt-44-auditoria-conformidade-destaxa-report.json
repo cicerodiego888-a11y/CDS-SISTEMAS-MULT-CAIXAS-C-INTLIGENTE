@@ -1,0 +1,771 @@
+{
+  "sprint": "MRT-44",
+  "titulo": "Auditoria de conformidade Destaxa DLL 1.83 — pré-homologação",
+  "geradoEm": "2026-11-03",
+  "escopo": "Auditoria somente leitura. Nenhuma operação financeira, INIT, chamada DLL/V$Pague, consulta ou alteração de dados de produção foi executada.",
+  "fontes": {
+    "orientacoesDestaxa": {
+      "fonte": "Orientações reproduzidas no briefing MRT-44; mensagem/documento original não está presente no workspace.",
+      "consideradas": [
+        "estabelecimento = CNPJ sem pontuação",
+        "loja = 001",
+        "terminal = terminal ativo",
+        "estabelecimento, loja e terminal são opcionais em iniciaClientDestaxa e retornam em transação aprovada",
+        "DLL atual 1.83; terminal de integração liberado; não cadastrar adquirentes",
+        "cartões físicos reais/de teste no ambiente de integração sem cobrança; driver do fabricante recomendado",
+        "log nivel_log=1 em arquivo; PIX de teste via Shipay; homologação com roteiro oficial e demonstração ao vivo",
+        "Teste 8 requer senha de supervisor para cancelamento"
+      ],
+      "limitacao": "Não foi possível verificar autenticidade, data ou conteúdo além das informações fornecidas pelo solicitante."
+    },
+    "documentacaoDll": {
+      "documentosOficiaisDisponiveisNoWorkspace": false,
+      "evidencia": "O código referencia docs/04 a docs/10 e docs/05-api-iniciaclientdestaxa.md, porém esse documento e a Biblioteca de Integração enviada não foram encontrados no repositório.",
+      "baseDaAuditoria": "Implementação, notas de fonte no código, relatórios MRT-24 a MRT-43 e evidências históricas reproduzidas nesses relatórios."
+    }
+  },
+  "resumoExecutivo": {
+    "classificacaoGeral": "NÃO PRONTO PARA HOMOLOGAÇÃO",
+    "motivos": [
+      "A versão 1.83 é identificada em log histórico de DLL, mas o binário não foi verificado independentemente nesta auditoria.",
+      "Não existe evidência atual de terminal ativo, driver Gertec instalado, registro do terminal ou transação funcional; equipamentos detectados não equivalem a homologação.",
+      "PIX e EST reais não estão habilitados no CDS; o gate real admite somente CRT de R$1,00.",
+      "Os campos de resposta necessários para conciliação/apresentação de uma aprovação não são todos mapeados a partir da saída Destaxa.",
+      "Não foi encontrada integração da exigência de senha de supervisor no fluxo de cancelamento TEF (Teste 8).",
+      "Há lacuna de bloqueio no estado interno do NativeHost: códigos de comunicação/inconclusivos são classificados como financialState UNKNOWN, mas como estado ERROR, e ERROR não está na lista de estados que bloqueiam novo TX_START. O fluxo oficial do TefManager converte o ciclo inconclusivo em PENDING e mantém trava persistida; faltam testes específicos demonstrando essa proteção para cada código no caminho nativo."
+    ],
+    "pontosConformesComEvidencia": [
+      "A entrada de iniciaClientDestaxa usa versao e aplicacao, e os parâmetros de log são anexados à entrada.",
+      "O protocolo modela 99 como ação e exige resposta explícita para COLETA/OPCAO; MRT-43 testou propagação e CONTINUE simulado sem novo TX_START.",
+      "O fluxo oficial persiste a transação antes de executar o Adapter e mantém estados pendentes/inconclusivos sem retry automático.",
+      "A chamada TX_FINALIZE(0) está condicionada a resultado conclusivo 00 no orquestrador do ciclo CRT."
+    ],
+    "restricoesCumpridasNestaAuditoria": [
+      "Nenhuma chamada INIT, CRT, PIX, EST, CONTINUE ou FINALIZE foi feita nesta auditoria.",
+      "Nenhuma conexão à DLL, V$Pague ou equipamento foi iniciada.",
+      "Gate financeiro não foi ativado; estava OFF no contexto local verificado.",
+      "Logs não foram limpos e dados de produção não foram consultados ou alterados.",
+      "Nenhum teste MRT real foi repetido."
+    ]
+  },
+  "versaoDll": {
+    "versaoIdentificada": "1.83",
+    "classificacao": "IMPLEMENTADO, NÃO TESTADO",
+    "evidencia": {
+      "relatorio": "docs/build/mrt-42-crt-real-controlada-report.json",
+      "logHistorico": "Trecho registrado em dllLog: 'Versão: 1.83 64bit - Windows 64-bit'.",
+      "arquivoBinario": "resources/tef/destaxa/win-x64/libdll-integracao-tef.dll",
+      "limitacoes": [
+        "A evidência da versão vem de execução MRT-42 anterior, não desta auditoria.",
+        "O cabeçalho/versão de arquivo do binário não foi inspecionado nesta sprint.",
+        "Não foi calculado hash nem validada a procedência do artefato."
+      ]
+    }
+  },
+  "matrizConformidade": [
+    {
+      "area": "A. Inicialização e identificação",
+      "requisitos": [
+        {
+          "requisito": "Assinatura/chamada de iniciaClientDestaxa com versao e aplicacao",
+          "classificacao": "IMPLEMENTADO, NÃO TESTADO",
+          "evidencia": "versao vem de package.json e aplicacao de APLICACAO='CDS Sistemas'; iniciaClientDestaxa recebe resultado, entrada e tamanho.",
+          "referencias": [
+            "backend/services/tef/destaxa/destaxaNativeBridge.js: montarEntradaClient, iniciarClient",
+            "backend/services/tef/destaxa/destaxaKoffiLoader.js: PROTOS.iniciaClientDestaxa"
+          ]
+        },
+        {
+          "requisito": "INIT único na abertura do terminal",
+          "classificacao": "NÃO COMPROVADO",
+          "evidencia": "Não foi encontrado caminho normal de abertura do terminal que garanta uma chamada única. iniciarClient não tem guarda de idempotência próprio; testarConexao também invoca iniciarClient. prepararAutorizacao apenas o chama quando clientInitialized está falso.",
+          "referencias": [
+            "backend/services/tef/destaxa/DestaxaNativeBridge.js: iniciarClient",
+            "backend/services/tef/adapters/DestaxaRealAdapter.js: testarConexao, prepararAutorizacao",
+            "backend/controllers/tefConfiguracaoController.js: postTestar"
+          ]
+        },
+        {
+          "requisito": "nivel_log=1, arquivo, caminho, rotação e backups",
+          "classificacao": "IMPLEMENTADO, NÃO TESTADO",
+          "evidencia": "Parâmetros configurados: C:\\CDS-SISTEMAS\\logs\\destaxa, nivel_log=1, destaxa-dll.log, tam_max_log=10 (MiB segundo nota do código) e total_bkp_log=5. O código garante diretório gravável, mas não confirma criação/rotação/backups reais pela DLL.",
+          "referencias": [
+            "backend/services/tef/destaxa/destaxaDllLogConfig.js: DESTAXA_DLL_LOG_PARAMS, garantirDiretorioLogDll",
+            "backend/services/tef/destaxa/destaxaMapeamentoTerminal.js: projetarEntradaIniciaClient",
+            "docs/build/mrt-42-crt-real-controlada-report.json: preCondicoes.logDll"
+          ]
+        },
+        {
+          "requisito": "Estabelecimento, loja e terminal opcionais; CNPJ sem pontuação, loja 001 e terminal ativo",
+          "classificacao": "IMPLEMENTADO PARCIALMENTE",
+          "evidencia": "Os três campos são opcionais e, se configurados, entram na string de iniciaClientDestaxa; PDV/caixa não são enviados. Não há validação de CNPJ sem pontuação, loja literal 001, nem verificação de que terminal_codigo corresponde ao terminal atualmente ativo. A resposta aprovada não é mapeada integralmente.",
+          "referencias": [
+            "backend/services/tef/destaxa/destaxaMapeamentoTerminal.js: MAPEAMENTO_CAMPOS, lerCampos, projetarEntradaIniciaClient",
+            "backend/services/tef/destaxa/DestaxaNativeBridge.js: montarEntradaClient"
+          ]
+        },
+        {
+          "requisito": "Compatibilidade DLL 1.83 e identificação do terminal ativo",
+          "classificacao": "NÃO COMPROVADO",
+          "evidencia": "Há DLLs nos diretórios win-x64 e win-ia32 e log MRT-42 1.83 x64, mas sem validação do artefato na auditoria, do terminal ativo no sistema Destaxa ou do registro no ambiente atual.",
+          "referencias": [
+            "resources/tef/destaxa/win-x64/libdll-integracao-tef.dll",
+            "resources/tef/destaxa/win-ia32/libdll-integracao-tef.dll",
+            "docs/build/mrt-42-crt-real-controlada-report.json: dllLog"
+          ]
+        }
+      ]
+    },
+    {
+      "area": "B. Koffi, buffers e NativeHost",
+      "requisitos": [
+        {
+          "requisito": "Quatro assinaturas Koffi e tipos dos parâmetros",
+          "classificacao": "IMPLEMENTADO, NÃO TESTADO",
+          "evidencia": "As quatro exports têm protótipos declarados, com ponteiros uint8* para buffers e int* para tamanho_saida. Não houve chamada à DLL nem validação com a documentação oficial ausente.",
+          "referencias": [
+            "backend/services/tef/destaxa/destaxaKoffiLoader.js: PROTOS, carregarBiblioteca",
+            "tests/tef/tef-destaxa-03-crt-protocolo.test.js: testes de contrato do protocolo, sem FFI real"
+          ]
+        },
+        {
+          "requisito": "Alocação/tamanho de entrada e saída, conversão e limite de QR",
+          "classificacao": "IMPLEMENTADO PARCIALMENTE",
+          "evidencia": "Saída transacional usa capacidade padrão 99000 bytes; resultado usa buffer de 2 bytes mais terminador e entrada transacional é codificada como latin1. O tamanho de saída inválido ou superior à capacidade não gera erro explícito; a leitura cai para NUL/capacidade. INIT mede entrada com string.length em vez de byteLength, e latin1 pode truncar caracteres fora da faixa.",
+          "referencias": [
+            "backend/services/tef/destaxa/DestaxaNativeBridge.js: montarBufferEntrada, lerSaidaBuffer, criarDriverTransacaoNativo, iniciarClient",
+            "backend/services/tef/destaxa/destaxaConstantes.js: BUFFER_RESULTADO_BYTES, BUFFER_SAIDA_BYTES_SUGERIDO, ENCODING_DESTAXA"
+          ]
+        },
+        {
+          "requisito": "Proteção contra encerramento durante chamada nativa",
+          "classificacao": "IMPLEMENTADO PARCIALMENTE",
+          "evidencia": "O NativeHost adia encerramento após desconexão IPC enquanto há operação nativa em voo e o cliente mantém referência ao host. Isso não cobre encerramento forçado do processo, falha do sistema ou perda física da DLL; o tratamento passa a UNKNOWN/reconciliação.",
+          "referencias": [
+            "backend/services/tef/destaxa/DestaxaNativeHost.js: aoDisconnectIpc, _concluirEncerramentoAdiadoSePendente",
+            "backend/services/tef/destaxa/DestaxaNativeHostClient.js: _segurarReferenciaHost, _emVoo"
+          ]
+        },
+        {
+          "requisito": "Comunicação NativeHost, DLL e V$Pague",
+          "classificacao": "IMPLEMENTADO, NÃO TESTADO",
+          "evidencia": "Arquitetura separa o processo nativo e o protocolo IPC. MRT-42 registra comunicação histórica com V$PagueClient em 127.0.0.1:60906 e recebimento de ação 99, sem conclusão financeira; nenhum tráfego foi iniciado nesta auditoria.",
+          "referencias": [
+            "backend/services/tef/destaxa/DestaxaNativeHost.js",
+            "backend/services/tef/destaxa/DestaxaNativeHostClient.js",
+            "docs/build/mrt-42-crt-real-controlada-report.json: execucao.sequenciaDll"
+          ]
+        }
+      ]
+    },
+    {
+      "area": "C. Ciclo, persistência e identidade",
+      "requisitos": [
+        {
+          "requisito": "Persistência anterior à chamada do Adapter/DLL",
+          "classificacao": "IMPLEMENTADO, NÃO TESTADO",
+          "evidencia": "TefManager cria registro exclusivo e bloco de identidade antes de invocar autorizarPagamento; falha de persistência impede envio financeiro. Evidências históricas MRT-31/36/42 também registram PERSISTENCIA_CONFIRMADA antes do TX_START.",
+          "referencias": [
+            "backend/services/tef/TefManager.js: autorizar, montarBlocoPersistenciaPreEnvio, repository.criarTransacaoExclusiva",
+            "backend/services/tef/tefPersistenciaObrigatoria.js: validarPersistenciaAntesEnvioFinanceiro",
+            "docs/build/mrt-36-crt-controlada-destaxa-report.json: instrumentacao"
+          ]
+        },
+        {
+          "requisito": "Correlação transactionId, idempotency_key, operation_id e duplicidade",
+          "classificacao": "IMPLEMENTADO E TESTADO",
+          "evidencia": "A persistência e o envelope IPC carregam a identidade; transactionId é separado dos campos da DLL. MRT-43 simulado bloqueou segunda autorização e resposta duplicada; contadores registraram inicia=0 na continuidade, continua=1.",
+          "referencias": [
+            "backend/services/tef/TefManager.js: autorizar, continuarAutorizacao",
+            "backend/services/tef/destaxa/DestaxaHostBridge.js: iniciarTransacaoDestaxa, continuarTransacaoDestaxa",
+            "docs/build/mrt-43-validacao-fluxo-99-opcao-report.json: resultadosTeste 5-8"
+          ]
+        },
+        {
+          "requisito": "Retorno 99 até resposta do operador, mesma transação e sem TX_START novo",
+          "classificacao": "IMPLEMENTADO E TESTADO",
+          "evidencia": "A resposta do TefManager expõe requerContinuacao/acao e persiste o payload; o PDV envia informacao; continuação chama TX_CONTINUE usando o transactionId existente. MRT-43 testou o percurso com NativeHost/Adapter simulados, não com DLL real.",
+          "referencias": [
+            "backend/services/tef/TefManager.js: autorizar, continuarAutorizacao",
+            "backend/services/tef/destaxa/destaxaCrtCicloOrquestracao.js: continuarCicloCrt",
+            "frontend/pdv/js/pdvTefContinuidade.js: conduzirContinuidade",
+            "docs/build/mrt-43-validacao-fluxo-99-opcao-report.json: caminhoValidado, resultadosTeste"
+          ]
+        },
+        {
+          "requisito": "00 conclusivo e TX_FINALIZE(0) apenas na etapa correta",
+          "classificacao": "IMPLEMENTADO, NÃO TESTADO",
+          "evidencia": "Ciclo só chama finalizaTransacaoDestaxa(0) depois que o último resultado é conclusivo; falha/timeout no FINALIZE retorna inconclusivo e requer reconciliação. Não há evidência de fluxo físico aprovado e finalizado.",
+          "referencias": [
+            "backend/services/tef/destaxa/destaxaCrtCicloOrquestracao.js: ehSucessoConclusivo, prosseguirCicloAposResultado",
+            "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js: finalizarTransacao"
+          ]
+        }
+      ]
+    },
+    {
+      "area": "D. Ações 99 e operador",
+      "requisitos": [
+        {
+          "requisito": "Interpretação de mensagem, tipo, opcao, chave, timeout, mascara e informacao",
+          "classificacao": "IMPLEMENTADO E TESTADO",
+          "evidencia": "O parser distingue DISPLAY, COLETA e OPCAO pelos campos Destaxa; a resposta de operador é serializada como informacao. MRT-43 exercitou OPCAO usando resposta literal.",
+          "referencias": [
+            "backend/services/tef/destaxa/destaxaProtocolo.js: parseParametrosDestaxa, parseAcaoSolicitada, buildContinuaInput",
+            "backend/services/tef/destaxa/destaxaContinuidadeContrato.js: normalizarAcaoContinuidade, validarRespostaOperador",
+            "docs/build/mrt-43-validacao-fluxo-99-opcao-report.json: resultadosTeste 1, 4 e 6"
+          ]
+        },
+        {
+          "requisito": "Preservação literal de Credito, Debito e Voucher",
+          "classificacao": "IMPLEMENTADO E TESTADO",
+          "evidencia": "A divisão das opções remove apenas aspas/espaços periféricos e não normaliza capitalização. MRT-43 simulou renderização e envio de Credito.",
+          "referencias": [
+            "backend/services/tef/destaxa/destaxaProtocolo.js: parseAcaoSolicitada",
+            "frontend/pdv/js/pdvTefContinuidade.js: normalizarAcao, renderização OPCAO",
+            "docs/build/mrt-43-validacao-fluxo-99-opcao-report.json: opções renderizadas e informacao=Credito"
+          ]
+        },
+        {
+          "requisito": "Timeout, ausência de operador e não retomada automática",
+          "classificacao": "IMPLEMENTADO PARCIALMENTE",
+          "evidencia": "Timeout/sem operador mantém resultado pendente, retryAllowed=false e sem reabertura automática; timeout global do Client é explicitamente não documentado. Falta evidência real de expiração/recuperação e testes abrangentes no caminho atual.",
+          "referencias": [
+            "backend/services/tef/destaxa/destaxaContinuidadeContrato.js: validarContinuidadeCompleta",
+            "backend/services/tef/adapters/DestaxaRealAdapter.js: continuarPagamento",
+            "frontend/pdv/js/pdvTefContinuidade.js: tratamento de timeout e ausência de resposta",
+            "backend/services/tef/TefManager.js: contratoTimeout e trava de pendência"
+          ]
+        }
+      ]
+    },
+    {
+      "area": "E. Aprovação e finalização",
+      "requisitos": [
+        {
+          "requisito": "Recepção e mapeamento de NSU, NSU de rede, código V$Pague, autorização, rede/adquirente, bandeira, loja, valor e modalidade",
+          "classificacao": "IMPLEMENTADO PARCIALMENTE",
+          "evidencia": "A saída bruta é preservada em parametros/payloadRetorno e transacao_nsu é mapeado para nsu. O adapter não projeta de forma explícita todos os demais campos solicitados para o contrato TEF; não há evidência de retorno aprovado com esses dados.",
+          "referencias": [
+            "backend/services/tef/adapters/DestaxaRealAdapter.js: _mapearResultadoCrt",
+            "backend/services/tef/destaxa/destaxaProtocolo.js: parseParametrosDestaxa",
+            "backend/services/tef/TefManager.js: criarRespostaAutorizacao, paraPersistencia"
+          ]
+        },
+        {
+          "requisito": "Persistir dados aprovados e imprimir comprovantes 1ª/2ª via",
+          "classificacao": "NÃO COMPROVADO",
+          "evidencia": "TefManager persiste campos presentes no contrato e mantém payload de retorno; o adapter não mapeia comprovantes da saída Destaxa e não foi encontrada evidência de impressão associada à resposta aprovada.",
+          "referencias": [
+            "backend/services/tef/adapters/DestaxaRealAdapter.js: _mapearResultadoCrt",
+            "backend/services/tef/TefManager.js: autorizar",
+            "tests/tef/mrt-43-validacao-fluxo-99-opcao.test.js: sem cenário de aprovação/comprovante"
+          ]
+        },
+        {
+          "requisito": "Não tratar 99 ou estado inconclusivo como aprovado",
+          "classificacao": "IMPLEMENTADO E TESTADO",
+          "evidencia": "99 é ACTION_REQUIRED/PENDING e requer resposta; timeout/host perdido é UNKNOWN/PENDING; o ciclo não finaliza nem declara aprovação antes de 00.",
+          "referencias": [
+            "backend/services/tef/destaxa/destaxaProtocolo.js: classificarCodigoTransacao",
+            "backend/services/tef/destaxa/destaxaCrtCicloOrquestracao.js: ehAcaoRequerida, ehInconclusivo, prosseguirCicloAposResultado",
+            "tests/tef/tef-destaxa-03-crt-protocolo.test.js",
+            "docs/build/mrt-43-validacao-fluxo-99-opcao-report.json"
+          ]
+        }
+      ]
+    },
+    {
+      "area": "F. Códigos de retorno e segurança financeira",
+      "requisitos": [
+        {
+          "codigo": "00",
+          "classificacao": "IMPLEMENTADO E TESTADO",
+          "tratamento": "SUCCESS/CONFIRMED_SUCCESS; status aprovado e sem retry. Ciclo tenta FINALIZE(0) após resultado conclusivo 00.",
+          "evidencia": "Classificação coberta por testes mock; não houve aprovação real nesta auditoria."
+        },
+        {
+          "codigo": "03",
+          "classificacao": "IMPLEMENTADO E TESTADO",
+          "tratamento": "Negação/cancelamento confirmado pelo operador; sem retry automático.",
+          "evidencia": "Tabela de códigos, classificador financeiro e testes mock 03/05."
+        },
+        {
+          "codigo": "04",
+          "classificacao": "IMPLEMENTADO E TESTADO",
+          "tratamento": "Negação/cancelamento confirmado pelo cliente; sem retry automático.",
+          "evidencia": "Tabela de códigos, classificador financeiro e testes mock 03/05."
+        },
+        {
+          "codigo": "05",
+          "classificacao": "IMPLEMENTADO PARCIALMENTE",
+          "tratamento": "Classificado como erro de entrada; financialState cai para UNKNOWN, porém estado transacional é ERROR e não integra ESTADOS_BLOQUEIAM_NOVA.",
+          "evidencia": "A proteção de persistência do TefManager pode manter pendência no fluxo oficial; não há teste específico de bloqueio após 05."
+        },
+        {
+          "codigo": "06",
+          "classificacao": "IMPLEMENTADO PARCIALMENTE",
+          "tratamento": "Erro Client↔Server; financialState UNKNOWN mas estado ERROR não bloqueia novo TX_START no guard do orquestrador/Host.",
+          "evidencia": "Risco residual de nova operação por caminho direto ao bridge/host; fluxo oficial do TefManager deve manter PENDING, sem prova de teste específico."
+        },
+        {
+          "codigo": "07",
+          "classificacao": "IMPLEMENTADO PARCIALMENTE",
+          "tratamento": "Erro Server↔Rede; financialState UNKNOWN mas estado ERROR não bloqueia novo TX_START no guard do orquestrador/Host.",
+          "evidencia": "Risco residual de nova operação por caminho direto ao bridge/host; fluxo oficial do TefManager deve manter PENDING, sem prova de teste específico."
+        },
+        {
+          "codigo": "08",
+          "classificacao": "IMPLEMENTADO E TESTADO",
+          "tratamento": "TIMEOUT/UNKNOWN, sem retry, ciclo inconclusivo e bloqueio no caminho oficial até reconciliação.",
+          "evidencia": "Testes mock TEF-DESTAXA-03/05 e classificadores financeiros."
+        },
+        {
+          "codigo": "09",
+          "classificacao": "IMPLEMENTADO E TESTADO",
+          "tratamento": "Transação cancelada pelo Client; classificada como negada/conclusiva, sem retry.",
+          "evidencia": "Tabela de códigos e classificador financeiro."
+        },
+        {
+          "codigo": "99",
+          "classificacao": "IMPLEMENTADO E TESTADO",
+          "tratamento": "ACTION_REQUIRED/PENDING; exige continuar a mesma transação, sem aprovar implicitamente.",
+          "evidencia": "25 testes TEF-DESTAXA-03 e 11 verificações do relatório MRT-43 simuladas."
+        },
+        {
+          "codigo": "FF",
+          "classificacao": "IMPLEMENTADO PARCIALMENTE",
+          "tratamento": "Erro de parâmetro; classificação ERROR. Não há bloqueio no estado interno ERROR; impacto financeiro depende da fase da chamada.",
+          "evidencia": "Tabela/classificador existentes; sem teste de bloqueio de nova tentativa após retorno nativo."
+        },
+        {
+          "codigo": "F0",
+          "classificacao": "IMPLEMENTADO PARCIALMENTE",
+          "tratamento": "Erro de sequência API; classificação ERROR. Não há bloqueio no estado interno ERROR.",
+          "evidencia": "Tabela/classificador existentes; sem teste de bloqueio de nova tentativa após retorno nativo."
+        },
+        {
+          "codigo": "F1",
+          "classificacao": "IMPLEMENTADO PARCIALMENTE",
+          "tratamento": "Erro de comunicação com o Client; financialState UNKNOWN mas estado ERROR não bloqueia novo TX_START no guard do orquestrador/Host.",
+          "evidencia": "Risco residual por caminho direto ao bridge/host; TefManager deve persistir PENDING para ciclos inconclusivos, mas não há teste específico de F1 no caminho completo."
+        },
+        {
+          "codigo": "F2",
+          "classificacao": "IMPLEMENTADO PARCIALMENTE",
+          "tratamento": "Erro interno de recursos; classificação ERROR e sem bloqueio do estado interno ERROR.",
+          "evidencia": "Tabela/classificador existentes; sem teste de bloqueio de nova tentativa após retorno nativo."
+        },
+        {
+          "codigo": "FE",
+          "classificacao": "IMPLEMENTADO PARCIALMENTE",
+          "tratamento": "Erro inesperado; classificação ERROR e financialState UNKNOWN, mas ERROR não integra a lista de estados bloqueantes.",
+          "evidencia": "Risco semelhante a F1 para caminhos diretos; requer teste e bloqueio por estado financeiro, não apenas por estado de protocolo."
+        },
+        {
+          "codigo": "A0",
+          "classificacao": "IMPLEMENTADO E TESTADO",
+          "tratamento": "UNCONFIRMED; retry proibido e estado incluído na lista que bloqueia nova transação.",
+          "evidencia": "tests/tef/tef-destaxa-03-crt-protocolo.test.js e tests/tef/tef-destaxa-05-financial-safety.test.js"
+        },
+        {
+          "codigo": "A1",
+          "classificacao": "IMPLEMENTADO E TESTADO",
+          "tratamento": "BLOCKED por transações não confirmadas; retry proibido e estado bloqueia nova transação.",
+          "evidencia": "tests/tef/tef-destaxa-03-crt-protocolo.test.js e tests/tef/tef-destaxa-05-financial-safety.test.js"
+        }
+      ]
+    },
+    {
+      "area": "G. Gertec PPC-930",
+      "requisitos": [
+        {
+          "requisito": "Compatibilidade, driver, comunicação, mensagens, leitura de cartão, senha e abortar leitura",
+          "classificacao": "BLOQUEADO POR DEPENDÊNCIA EXTERNA",
+          "evidencia": "GertecPPC930 declara explicitamente que não controla hardware diretamente e retorna conectado=false; detecção Windows/COM é apenas estrutural. O driver do fabricante e o Client/V$Pague fazem o fluxo operacional. MRT-36/42 reportam dispositivo detectado em execução anterior, não prova de driver instalado ou transação funcional.",
+          "referencias": [
+            "backend/services/tef/pinpads/GertecPPC930.js: conectar, diagnosticar, status",
+            "backend/services/tef/pinpads/detectarPpc930.js: classificarDeteccaoPpc930",
+            "docs/build/mrt-42-crt-real-controlada-report.json: preCondicoes.pinpad"
+          ]
+        },
+        {
+          "requisito": "Distinguir hardware, driver, terminal registrado e transação funcional",
+          "classificacao": "IMPLEMENTADO PARCIALMENTE",
+          "evidencia": "Detector distingue evidência de hardware, USB e driver não confirmado; registro do terminal e funcionamento de transação permanecem não comprovados."
+        }
+      ]
+    },
+    {
+      "area": "H. PIX",
+      "requisitos": [
+        {
+          "requisito": "Operação PIX, QR Code, exibição no PDV, timeout, confirmação, TXID e conciliação",
+          "classificacao": "NÃO IMPLEMENTADO",
+          "evidencia": "A constante PIX existe, mas operações reais permitidas contêm somente CRT e o ciclo financeiro executado recusa qualquer operação diferente de CRT. Não foi encontrado pipeline Destaxa/Shipay que gere/exiba QR, receba TXID ou confirme pagamento. MRT-42 registra pix_copia_cola=null e exibir_qr_tela=false.",
+          "referencias": [
+            "backend/services/tef/destaxa/destaxaConstantes.js: OPERACOES_REAIS_PERMITIDAS",
+            "backend/services/tef/destaxa/destaxaCrtCicloOrquestracao.js: executarCicloCrt",
+            "backend/services/tef/adapters/DestaxaRealAdapter.js: prepararAutorizacao, _resolverOperacao",
+            "docs/build/mrt-42-crt-real-controlada-report.json: resultadoBruto"
+          ]
+        },
+        {
+          "requisito": "Procedimento de teste Shipay",
+          "classificacao": "BLOQUEADO POR DEPENDÊNCIA EXTERNA",
+          "evidencia": "A orientação Shipay foi fornecida no briefing, mas não há roteiro/configuração/credenciais de teste anexados; nenhum PIX ou QR foi iniciado."
+        }
+      ]
+    },
+    {
+      "area": "I. Estorno, cancelamento e Teste 8",
+      "requisitos": [
+        {
+          "requisito": "Cancelar a transação corrente pela DLL",
+          "classificacao": "IMPLEMENTADO PARCIALMENTE",
+          "evidencia": "finalizaTransacaoDestaxa(9) está separado do estorno comercial e representa abortar/desfazer a transação corrente; não existe caminho demonstrado com autorização de supervisor ou teste físico.",
+          "referencias": [
+            "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js: finalizarTransacao",
+            "backend/services/tef/destaxa/destaxaCancelamentoPolitica.js: CONTRATO_CANCELAMENTO_DESTAXA"
+          ]
+        },
+        {
+          "requisito": "Estornar transação aprovada por EST com dados originais e anti-duplicidade",
+          "classificacao": "NÃO IMPLEMENTADO",
+          "evidencia": "EST está listado, mas o CDS bloqueia execução real porque os campos oficiais de entrada EST não estão documentados; não há fluxo habilitado de estorno comercial.",
+          "referencias": [
+            "backend/services/tef/destaxa/destaxaCancelamentoPolitica.js: avaliarPedidoCancelamento, CONTRATO_CANCELAMENTO_DESTAXA",
+            "backend/services/tef/adapters/DestaxaRealAdapter.js: cancelarPagamento"
+          ]
+        },
+        {
+          "requisito": "Senha de supervisor, bloqueio sem autorização e registro do supervisor para cancelamento (Teste 8)",
+          "classificacao": "NÃO IMPLEMENTADO",
+          "evidencia": "A rota TEF de cancelamento recebe transacao_id e motivo; TefManager não repassa token/senha/supervisor_id ao adapter. A autorização de supervisor encontrada no produto está associada a outros fluxos, não ao cancelamento TEF.",
+          "referencias": [
+            "backend/rotas/tef.js: POST /cancelar",
+            "backend/services/tef/TefManager.js: cancelar",
+            "backend/services/tef/adapters/DestaxaRealAdapter.js: cancelarPagamento"
+          ]
+        },
+        {
+          "requisito": "Cancelamento da venda no PDV distinto do abortar transação e do EST",
+          "classificacao": "IMPLEMENTADO PARCIALMENTE",
+          "evidencia": "Existe endpoint genérico de cancelamento TEF, mas o adapter Destaxa mantém cancelamento real não suportado e não comprova integração de fluxo comercial/supervisor."
+        }
+      ]
+    },
+    {
+      "area": "J. Histórico MRT-24 a MRT-43",
+      "requisitos": [
+        {
+          "requisito": "Preservar MRT-24 UNKNOWN",
+          "classificacao": "IMPLEMENTADO, NÃO TESTADO",
+          "evidencia": "Relatório MRT-24 registra TX_START sem retorno conclusivo, financialState UNKNOWN e retryAllowed=false. MRT-36, MRT-42 e MRT-43 registram preservação; nenhum registro foi consultado ou alterado nesta auditoria.",
+          "referencias": [
+            "docs/build/mrt-24-primeira-crt-homologacao-report.json",
+            "docs/build/mrt-36-crt-controlada-destaxa-report.json",
+            "docs/build/mrt-42-crt-real-controlada-report.json",
+            "docs/build/mrt-43-validacao-fluxo-99-opcao-report.json"
+          ]
+        },
+        {
+          "requisito": "Preservar MRT-36 PENDING/inconclusiva",
+          "classificacao": "IMPLEMENTADO, NÃO TESTADO",
+          "evidencia": "Relatórios MRT-36/42/43 mantêm estado inconclusivo e identificador próprio; não houve acesso ao banco."
+        },
+        {
+          "requisito": "Preservar MRT-42 PENDING/inconclusiva",
+          "classificacao": "IMPLEMENTADO, NÃO TESTADO",
+          "evidencia": "MRT-42 registra retorno 99/OPCAO sem resposta do operador e sem CONTINUE; timeout de coleta expirou. Estado deve permanecer pendente."
+        },
+        {
+          "requisito": "Divergência requerContinuacao no MRT-42 e correção MRT-43",
+          "classificacao": "IMPLEMENTADO E TESTADO",
+          "evidencia": "O relatório MRT-42 documenta omissão de requerContinuacao/acao no resolve de autorizar, apesar do payload 99/OPCAO, e afirma correção em TefManager. MRT-43 testa a propagação em simulação e informa que router/selection foram stubados; não comprova CONTINUE real da transação MRT-42.",
+          "referencias": [
+            "docs/build/mrt-42-crt-real-controlada-report.json: problemas, residual",
+            "backend/services/tef/TefManager.js: autorizar",
+            "docs/build/mrt-43-validacao-fluxo-99-opcao-report.json: resultadosTeste, riscosResiduais"
+          ]
+        },
+        {
+          "requisito": "Gate OFF, sem retry/liberação automática e sem regressão no caminho de autorização",
+          "classificacao": "IMPLEMENTADO PARCIALMENTE",
+          "evidencia": "Gate estava OFF no processo local verificado e MRT-43 registra gateOff=true; política proíbe retry e TefManager retém status pendente. Porém os códigos que terminam com estado interno ERROR não estão na lista do bloqueio nativo do Host, exigindo cobertura/fechamento dessa lacuna.",
+          "referencias": [
+            "backend/services/tef/destaxa/destaxaConstantes.js: transacaoRealHabilitada, OPERACOES_REAIS_PERMITIDAS",
+            "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js: ESTADOS_BLOQUEIAM_NOVA",
+            "backend/services/tef/TefManager.js: _concluirExecucao, recarregarPendencias",
+            "docs/build/mrt-43-validacao-fluxo-99-opcao-report.json: confirmacoes"
+          ]
+        }
+      ]
+    }
+  ],
+  "identidadesHistoricasPreservadas": [
+    {
+      "sprint": "MRT-24",
+      "transactionId": "mrt24_5d70e3fb2328da54",
+      "idempotencyKey": "registrada_no_runtime_nao_persistida_apos_queda",
+      "estado": "UNKNOWN",
+      "classificacao": "CRT inconclusiva; sem retorno conclusivo"
+    },
+    {
+      "sprint": "MRT-36",
+      "transactionId": "1",
+      "idempotencyKey": "mrt36_e50313b50c697f37",
+      "estado": "PENDING",
+      "classificacao": "CRT inconclusiva; sem retry"
+    },
+    {
+      "sprint": "MRT-42",
+      "transactionId": "20",
+      "idempotencyKey": "mrt42_2ed64252b58c6cd3",
+      "estado": "PENDING",
+      "classificacao": "99/OPCAO sem resposta e sem CONTINUE; inconclusiva"
+    }
+  ],
+  "arquivosEFuncoesAuditados": [
+    {
+      "arquivo": "backend/services/tef/destaxa/destaxaKoffiLoader.js",
+      "funcoes": ["PROTOS", "carregarBiblioteca"]
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/DestaxaNativeBridge.js",
+      "funcoes": ["montarEntradaClient", "criarDriverTransacaoNativo", "iniciarClient", "iniciarTransacaoDestaxa"]
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/DestaxaHostBridge.js",
+      "funcoes": ["iniciarTransacaoDestaxa", "continuarTransacaoDestaxa", "finalizarTransacaoDestaxa", "_resultadoTransacional"]
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/DestaxaNativeHost.js",
+      "funcoes": ["_transacaoAtiva", "aoDisconnectIpc", "_processar"]
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/DestaxaNativeHostClient.js",
+      "funcoes": ["enviar", "_segurarReferenciaHost", "classificarEncerramentoHost"]
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/destaxaConstantes.js",
+      "funcoes": ["CODIGOS_RESULTADO", "transacaoRealHabilitada", "classificar estados", "buffers"]
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/destaxaProtocolo.js",
+      "funcoes": ["classificarCodigoTransacao", "parseAcaoSolicitada", "buildContinuaInput"]
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js",
+      "funcoes": ["iniciarTransacao", "continuarTransacao", "finalizarTransacao", "ESTADOS_BLOQUEIAM_NOVA"]
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/destaxaCrtCicloOrquestracao.js",
+      "funcoes": ["executarCicloCrt", "continuarCicloCrt", "prosseguirCicloAposResultado"]
+    },
+    {
+      "arquivo": "backend/services/tef/adapters/DestaxaRealAdapter.js",
+      "funcoes": ["prepararAutorizacao", "_mapearResultadoCrt", "autorizarPagamento", "continuarPagamento", "cancelarPagamento"]
+    },
+    {
+      "arquivo": "backend/services/tef/TefManager.js",
+      "funcoes": ["autorizar", "continuarAutorizacao", "_concluirExecucao", "recarregarPendencias", "cancelar"]
+    },
+    {
+      "arquivo": "frontend/pdv/js/pdvTefContinuidade.js",
+      "funcoes": ["normalizarAcao", "conduzirContinuidade"]
+    },
+    {
+      "arquivo": "backend/services/tef/destaxa/destaxaCancelamentoPolitica.js",
+      "funcoes": ["avaliarPedidoCancelamento", "responderCancelamentoSeguro", "CONTRATO_CANCELAMENTO_DESTAXA"]
+    },
+    {
+      "arquivo": "backend/services/tef/pinpads/GertecPPC930.js",
+      "funcoes": ["conectar", "diagnosticar", "status"]
+    },
+    {
+      "arquivo": "backend/services/tef/pinpads/detectarPpc930.js",
+      "funcoes": ["classificarDeteccaoPpc930"]
+    }
+  ],
+  "testesExistentesEResultados": [
+    {
+      "teste": "node tests/tef/tef-destaxa-03-crt-protocolo.test.js",
+      "resultadoNestaAuditoria": "25 ok, 0 falhou",
+      "escopo": "Protocolo, buffers/encoding, códigos, ações 99, mocks e timeout. Sem chamada à DLL real."
+    },
+    {
+      "teste": "node tests/tef/tef-destaxa-05-financial-safety.test.js",
+      "resultadoNestaAuditoria": "15 ok, 0 falhou",
+      "escopo": "Classificação financeira, política sem retry e driver mock. Sem chamada à DLL real."
+    },
+    {
+      "teste": "tests/tef/mrt-43-validacao-fluxo-99-opcao.test.js",
+      "resultadoNestaAuditoria": "Não executado novamente",
+      "resultadoHistorico": "docs/build/mrt-43-validacao-fluxo-99-opcao-report.json contém verificações 0-10 como OK.",
+      "motivo": "O teste cria/atualiza relatório e done flag MRT-43 e manipula banco temporário; a execução poderia alterar arquivos/dados fora do único entregável desta sprint.",
+      "escopoHistorico": "Router/seleção stubados; Adapter/NativeHost simulados; gate OFF; sem DLL/V$Pague; não é homologação real."
+    },
+    {
+      "teste": "MRT-24, MRT-36 e MRT-42 reais controlados",
+      "resultadoNestaAuditoria": "Não executados",
+      "resultadoHistorico": "Todos inconclusivos/pendentes conforme os relatórios existentes; nenhum resultado foi promovido a aprovação/negação nesta auditoria."
+    }
+  ],
+  "pendenciasImplementacao": [
+    "Mapear explicitamente todos os campos aprovados exigidos (NSU da rede, código V$Pague, autorização, rede/adquirente, bandeira, estabelecimento, modalidade, valor e comprovantes) e validar persistência/impressão.",
+    "Vincular o retorno financialState UNKNOWN ao bloqueio durável do NativeHost/orquestrador mesmo quando estado do protocolo for ERROR; cobrir 05/06/07/F1/F2/FE com testes de não liberação.",
+    "Implementar autenticação/autorização de supervisor, registro do supervisor e bloqueio sem autorização no fluxo TEF do Teste 8.",
+    "Concluir implementação PIX/Shipay, incluindo QR, timeout, confirmação, TXID, cancelamento e conciliação, antes de habilitar PIX real.",
+    "Obter e documentar os campos oficiais de entrada EST antes de implementar estorno; até lá manter bloqueio real."
+  ],
+  "pendenciasDestaxa": [
+    "Disponibilizar no workspace a Biblioteca de Integração DLL 1.83 referenciada e a resposta oficial original mais recente para comparação auditável.",
+    "Confirmar formalmente os parâmetros de estabelecimento/loja/terminal recebidos no retorno aprovado e a identificação do terminal ativo.",
+    "Disponibilizar roteiro oficial completo de homologação e confirmar procedimento Shipay para PIX de teste.",
+    "Confirmar os campos e a sequência oficial de EST e de retorno dos dados de aprovação/comprovantes."
+  ],
+  "pendenciasPinPadDriver": [
+    "Instalar/confirmar driver PPC-930 do fabricante no terminal de homologação.",
+    "Demonstrar leitura/inserção/aproximação, digitação de senha, mensagens, abortar leitura e recuperação de falha de comunicação via V$Pague.",
+    "Registrar separadamente evidência de dispositivo detectado, driver instalado, terminal registrado e transação funcional."
+  ],
+  "riscosCriticos": [
+    {
+      "prioridade": "ALTA",
+      "risco": "Códigos de comunicação 06/07/F1 e retorno inesperado FE recebem financialState UNKNOWN, mas estado interno ERROR não consta em ESTADOS_BLOQUEIAM_NOVA no orquestrador/NativeHost.",
+      "impacto": "O fluxo oficial TefManager converte ciclos inconclusivos em PENDING e possui trava persistida, mas uma chamada direta ao bridge/host ou regressão nesse caminho pode permitir novo TX_START. Não há teste específico comprovando o bloqueio fim a fim para esses códigos.",
+      "referencias": [
+        "backend/services/tef/destaxa/destaxaProtocolo.js: classificarCodigoTransacao",
+        "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js: ESTADOS_BLOQUEIAM_NOVA, _montarRespostaDll",
+        "backend/services/tef/destaxa/DestaxaNativeHost.js: _transacaoAtiva",
+        "backend/services/tef/TefManager.js: _concluirExecucao"
+      ]
+    },
+    {
+      "prioridade": "ALTA",
+      "risco": "Dados de aprovação e comprovantes não são explicitamente projetados do retorno Destaxa para o contrato TEF, além do NSU principal.",
+      "impacto": "Pode impedir conciliação, impressão correta e comprovação completa de uma transação aprovada."
+    },
+    {
+      "prioridade": "ALTA",
+      "risco": "Teste 8 requer senha de supervisor, mas o cancelamento TEF observado não a solicita nem a registra.",
+      "impacto": "Roteiro oficial não pode ser preenchido/concluído em conformidade para cancelamento."
+    },
+    {
+      "prioridade": "MÉDIA",
+      "risco": "INIT não é intrinsecamente idempotente e não há prova de inicialização única por abertura do terminal.",
+      "impacto": "Chamadas repetidas por teste de conexão/preparação podem reinicializar o Client."
+    },
+    {
+      "prioridade": "MÉDIA",
+      "risco": "A capacidade de 99000 bytes é configurada, mas tamanho de saída fora do intervalo não é reportado explicitamente.",
+      "impacto": "Uma resposta grande, especialmente QR futuro, pode ser truncada sem diagnóstico claro."
+    },
+    {
+      "prioridade": "MÉDIA",
+      "risco": "A evidência MRT-43 é simulada e MRT-42 não recebeu CONTINUE real antes de expirar.",
+      "impacto": "O fluxo corrigido de autorização/continuidade não equivale à validação física ou homologação."
+    }
+  ],
+  "situacaoGateFinanceiro": {
+    "estadoNoProcessoLocalVerificado": "OFF",
+    "verificacao": "DESTAXA_REAL_TRANSACTION_ENABLED não estava em '1'; nenhuma alteração foi feita.",
+    "regraNoCodigo": "Gate habilita operações reais somente quando variável é exatamente '1'; operação real permitida atualmente é somente CRT de R$1,00 em homologação."
+  },
+  "situacaoHistorico": {
+    "MRT-24": "UNKNOWN — preservar como inconclusiva",
+    "MRT-36": "PENDING — preservar como inconclusiva",
+    "MRT-42": "PENDING — retorno 99/OPCAO sem resposta; sem CONTINUE; preservar como inconclusiva",
+    "MRT-43": "Correção de propagação requerContinuacao/acao validada por simulação; não é homologação real",
+    "alteracoesDeDadosNestaAuditoria": false
+  },
+  "correcoesRecomendadasOrdenadas": [
+    {
+      "ordem": 1,
+      "prioridade": "ALTA",
+      "recomendacao": "Bloquear TX_START no NativeHost por financialState inconclusivo/UNKNOWN, inclusive quando estado técnico for ERROR; manter bloqueio até reconciliação explícita e testar 05/06/07/F1/F2/FE em todos os caminhos."
+    },
+    {
+      "ordem": 2,
+      "prioridade": "ALTA",
+      "recomendacao": "Adicionar autenticação de supervisor e trilha de auditoria ao cancelamento TEF, alinhada ao Teste 8 oficial, sem confundir cancelamento corrente com EST."
+    },
+    {
+      "ordem": 3,
+      "prioridade": "ALTA",
+      "recomendacao": "Mapear e persistir o conjunto completo de dados de aprovação/comprovantes; validar impressão e conciliação com resposta oficial controlada."
+    },
+    {
+      "ordem": 4,
+      "prioridade": "ALTA",
+      "recomendacao": "Obter documentação oficial/roteiro e implementar/validar o fluxo PIX Shipay antes de alegar preparação para homologação PIX."
+    },
+    {
+      "ordem": 5,
+      "prioridade": "MÉDIA",
+      "recomendacao": "Definir guarda de INIT uma vez por ciclo de vida do terminal e testar reentrada de testarConexao/prepararAutorizacao sem chamada financeira."
+    },
+    {
+      "ordem": 6,
+      "prioridade": "MÉDIA",
+      "recomendacao": "Validar tamanhos retornados pelo Koffi, byteLength da entrada INIT e resposta truncada/limite de buffer usando stubs."
+    },
+    {
+      "ordem": 7,
+      "prioridade": "MÉDIA",
+      "recomendacao": "Executar roteiro físico controlado apenas após autorização explícita, instalação/validação de driver, confirmação do terminal e plano de reconciliação; não reutilizar identidades MRT-24/36/42."
+    }
+  ],
+  "checklistRoteiroOficialHomologacao": {
+    "roteiroOficialCompletoDisponivel": false,
+    "observacao": "A lista abaixo é um checklist prévio derivado dos requisitos MRT-44; não substitui nem inventa a sequência oficial Destaxa. Nenhuma etapa física/financeira foi executada.",
+    "itens": [
+      {
+        "item": "Confirmar versão DLL 1.83 e arquitetura no terminal de homologação",
+        "estado": "PENDENTE — evidência atual é log histórico"
+      },
+      {
+        "item": "Confirmar V$PagueClient, terminal de integração liberado e terminal ativo",
+        "estado": "PENDENTE — depende da Destaxa/ambiente atual"
+      },
+      {
+        "item": "Confirmar driver Gertec PPC-930 e demonstração física dos fluxos de cartão",
+        "estado": "PENDENTE — depende do terminal/driver"
+      },
+      {
+        "item": "Confirmar log nivel_log=1, arquivo, rotação e cinco backups",
+        "estado": "PARCIAL — configuração presente; operação/rotação real não comprovada"
+      },
+      {
+        "item": "Validar CRT aprovada e dados completos, comprovantes e impressão",
+        "estado": "PENDENTE — sem execução nesta sprint; mapeamento incompleto"
+      },
+      {
+        "item": "Validar ações DISPLAY/COLETA/OPCAO, timeout e resposta do operador",
+        "estado": "PARCIAL — simulado em MRT-43; sem validação física"
+      },
+      {
+        "item": "Validar cancelamento corrente com senha de supervisor (Teste 8)",
+        "estado": "BLOQUEADO — autenticação TEF de supervisor não encontrada"
+      },
+      {
+        "item": "Validar EST conforme campos oficiais, data, NSU e valor",
+        "estado": "BLOQUEADO — EST real desabilitado até documentação dos campos"
+      },
+      {
+        "item": "Validar PIX teste Shipay, QR, TXID e conciliação",
+        "estado": "BLOQUEADO — operação PIX real não implementada"
+      },
+      {
+        "item": "Demonstrar roteiro oficial ao vivo à Destaxa e registrar aceite",
+        "estado": "PENDENTE — requer roteiro oficial e sessão de homologação"
+      }
+    ]
+  },
+  "conclusao": {
+    "classificacao": "NÃO PRONTO PARA HOMOLOGAÇÃO",
+    "justificativa": "Há fluxo CRT e continuidade implementados e cobertos por mocks, mas faltam evidências físicas, dados completos de aprovação, autenticação de supervisor para Teste 8, PIX/Shipay, confirmação do driver/terminal e fechamento da lacuna de bloqueio para estados financeiros desconhecidos.",
+    "acaoSeguinte": "Submeter este relatório ao Tech Lead. Nenhuma correção foi implementada nesta sprint."
+  }
+}

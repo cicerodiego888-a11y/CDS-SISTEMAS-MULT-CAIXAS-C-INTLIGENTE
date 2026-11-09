@@ -13,6 +13,7 @@ const tefManager = require('./tef/TefManager');
 const tefContrato = require('./tef/tefContrato');
 const tefConfigService = require('./tef/tefConfigService');
 const tefFluxoPagamento = require('./tef/tefFluxoPagamento');
+const tefFiscalContextService = require('./tef/tefFiscalContextService');
 const midp = require('./midp');
 
 /**
@@ -36,7 +37,6 @@ async function processarFluxoPagamentoVenda({
   formaPagamento,
   pagamentos,
   tefHabilitado,
-  modoConfirmacaoFiscal,
   valorFiscalMaximo,
   preservacaoAplicada,
   midpAtivo: midpAtivoEntrada,
@@ -60,6 +60,13 @@ async function processarFluxoPagamentoVenda({
     formaPagamento,
     totalLiquidoEsperado
   );
+
+  if (pagamentosEntrada.some((pagamento) => pagamento.tef_transacao_id)) {
+    return {
+      sucesso: false,
+      erro: 'Transações TEF informadas pelo cliente não comprovam autorização fiscal.'
+    };
+  }
   
   // RC8.2.2 — midpAtivo vem exclusivamente da política MPFC (núcleo).
   // Migração: omitido → false (não consulta configuracaoService).
@@ -139,7 +146,6 @@ async function processarFluxoPagamentoVenda({
     recebimentosFiscal: distribuicao.recebimentosFiscal,
     totalFiscal,
     tefHabilitado,
-    modoConfirmacaoFiscal,
     formaPagamento,
     origem
   });
@@ -207,7 +213,6 @@ async function processarRecebimentoFiscal({
   recebimentosFiscal,
   totalFiscal,
   tefHabilitado,
-  modoConfirmacaoFiscal,
   formaPagamento,
   origem
 }) {
@@ -218,15 +223,15 @@ async function processarRecebimentoFiscal({
   
   // Determinar se deve usar TEF ou confirmação manual
   const deveUsarTef = await deveUsarTEFParaFiscal({
+    recebimentosFiscal,
     tefHabilitado,
-    modoConfirmacaoFiscal,
     formaPagamento,
     totalFiscal,
     origem
   });
   
   if (deveUsarTef) {
-    return await processarTEFFiscal(recebimentosFiscal, origem);
+    return await processarTEFFiscal(recebimentosFiscal, origem, totalFiscal);
   } else {
     return await processarConfirmacaoManualFiscal(recebimentosFiscal);
   }
@@ -235,7 +240,7 @@ async function processarRecebimentoFiscal({
 /**
  * Processa TEF para recebimentos fiscais
  */
-async function processarTEFFiscal(recebimentosFiscal, origem) {
+async function processarTEFFiscal(recebimentosFiscal, origem, totalFiscal) {
   const tefConfig = await tefConfigService.obterConfiguracao();
   const tefOn = tefFluxoPagamento.parseTefHabilitado(tefConfig.tefHabilitado);
   
@@ -254,21 +259,29 @@ async function processarTEFFiscal(recebimentosFiscal, origem) {
   }
   
   const transacoesAutorizadas = [];
-  
+  let saldoFiscalDisponivel = Number(totalFiscal || 0);
+
   for (const recebimento of recebimentosTEF) {
-    // Se já tem transação TEF, apenas valida
     if (recebimento.tef_transacao_id) {
-      transacoesAutorizadas.push(recebimento.tef_transacao_id);
-      continue;
+      return {
+        sucesso: false,
+        erro: 'Transação TEF fornecida pelo cliente não foi autorizada pelo fluxo fiscal do backend.'
+      };
     }
     
     try {
       const tipoTef = tefFluxoPagamento.normalizarTipoTef(recebimento.forma_pagamento);
+      const contextoFiscal = tefFiscalContextService.criarContextoFiscal({
+        valor: recebimento.valor,
+        valorFiscalDisponivel: saldoFiscalDisponivel,
+        tipo: tipoTef
+      });
       const retornoTEF = await tefManager.autorizar({
         venda_id: null,
         tipo: tipoTef,
         valor: recebimento.valor,
-        parcelas: 1
+        parcelas: 1,
+        contextoFiscal
       });
       
       if (!tefContrato.estaAprovado(retornoTEF)) {
@@ -292,6 +305,7 @@ async function processarTEFFiscal(recebimentosFiscal, origem) {
         recebimento.tef_transacao_id = retornoTEF.transacao_id;
         recebimento.nsu = retornoTEF.nsu;
         recebimento.autorizacao = retornoTEF.autorizacao;
+        saldoFiscalDisponivel -= Number(recebimento.valor || 0);
       }
     } catch (error) {
       console.error('Erro ao autorizar pagamento TEF fiscal:', error);
@@ -336,8 +350,8 @@ async function processarConfirmacaoManualFiscal(recebimentosFiscal) {
  * Determina se deve usar TEF para pagamento fiscal
  */
 async function deveUsarTEFParaFiscal({
+  recebimentosFiscal,
   tefHabilitado,
-  modoConfirmacaoFiscal,
   formaPagamento,
   totalFiscal,
   origem
@@ -347,18 +361,13 @@ async function deveUsarTEFParaFiscal({
   const tefOn = tefFluxoPagamento.parseTefHabilitado(tefHabilitado);
   if (!tefOn) return false;
 
-  // NF-e Avulsa: só TEF em formas integradas; não usa modo_confirmacao_fiscal (NFC-e)
-  if (tefFluxoPagamento.ehOrigemNfeAvulsa(origem)) {
-    return tefFluxoPagamento.formaPagamentoUsaTEF(formaPagamento, origem);
-  }
-  
-  // NFC-e / PDV — regra atual
-  const modoManual = String(modoConfirmacaoFiscal || 'TEF').toUpperCase() === 'MANUAL';
-  if (modoManual) return false;
-  
-  // Verificar se a forma de pagamento exige TEF
-  const formaNormalizada = tefFluxoPagamento.normalizarFormaPagamentoTEF(formaPagamento);
-  return tefFluxoPagamento.formaPagamentoUsaTEF(formaNormalizada);
+  const pagamentosFiscais = Array.isArray(recebimentosFiscal) && recebimentosFiscal.length > 0
+    ? recebimentosFiscal.map((recebimento) => recebimento.forma_pagamento)
+    : [formaPagamento];
+
+  return pagamentosFiscais.some((forma) =>
+    tefFluxoPagamento.formaPagamentoUsaTEF(forma, origem)
+  );
 }
 
 /**

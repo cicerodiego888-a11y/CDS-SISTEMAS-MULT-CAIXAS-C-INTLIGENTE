@@ -1,0 +1,14 @@
+boot 2026-11-07T21:01:20.969Z electron=22.3.27 pid=70468
+electron-require-ok 2026-11-07T21:01:20.975Z
+root=C:\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE 2026-11-07T21:01:20.975Z
+loaded-dllResolver 2026-11-07T21:01:20.977Z
+loaded-cryptoProfile 2026-11-07T21:01:20.978Z
+loaded-signingKey 2026-11-07T21:01:20.979Z
+loaded-logger 2026-11-07T21:01:20.980Z
+loaded-nativeHostClient 2026-11-07T21:01:20.984Z
+loaded-hostBridge 2026-11-07T21:01:20.985Z
+loaded-protocolo 2026-11-07T21:01:20.986Z
+loaded-constantes 2026-11-07T21:01:20.986Z
+loaded-hostProtocolo 2026-11-07T21:01:20.986Z
+loaded-evidence 2026-11-07T21:01:20.987Z
+executar-start 2026-11-07T21:01:20.988Z

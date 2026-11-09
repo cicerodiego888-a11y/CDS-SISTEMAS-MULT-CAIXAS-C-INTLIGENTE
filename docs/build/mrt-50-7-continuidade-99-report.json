@@ -1,0 +1,229 @@
+{
+  "sprint": "MRT-50.7",
+  "titulo": "Correção fail-closed da continuidade Destaxa 99",
+  "classificacaoFinal": "TESTADO",
+  "banco": {
+    "diretorio": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-7-44484-82e2c0361acc",
+    "caminho": "C:\\Users\\cicer\\AppData\\Local\\Temp\\cds-mrt-50-7-44484-82e2c0361acc\\mercadao.db",
+    "sqliteTemporario": true,
+    "bancoOficialAcessado": false
+  },
+  "gateFinanceiro": false,
+  "dllCarregada": false,
+  "operacoesFinanceirasReais": 0,
+  "contadoresDriver": [
+    {
+      "cenario": "Persistência confirmada, identidade correspondente e timestamp válido",
+      "inicia": 0,
+      "continua": 1,
+      "finaliza": 1
+    },
+    {
+      "cenario": "Falha na gravação",
+      "inicia": 0,
+      "continua": 0,
+      "finaliza": 0
+    },
+    {
+      "cenario": "Persistência indisponível",
+      "inicia": 0,
+      "continua": 0,
+      "finaliza": 0
+    },
+    {
+      "cenario": "Retorno inválido da persistência",
+      "inicia": 0,
+      "continua": 0,
+      "finaliza": 0
+    },
+    {
+      "cenario": "TefManager persiste e preserva o timestamp no recebimento da solicitação"
+    },
+    {
+      "cenario": "Reinicialização recupera o timestamp original",
+      "inicia": 0,
+      "continua": 1,
+      "finaliza": 1
+    },
+    {
+      "cenario": "Timestamp ausente",
+      "inicia": 0,
+      "continua": 0,
+      "finaliza": 0
+    },
+    {
+      "cenario": "Timestamp inválido",
+      "inicia": 0,
+      "continua": 0,
+      "finaliza": 0
+    },
+    {
+      "cenario": "Timestamp expirado",
+      "inicia": 0,
+      "continua": 0,
+      "finaliza": 0
+    },
+    {
+      "cenario": "Replay da mesma resposta rejeitado"
+    },
+    {
+      "cenario": "Resposta vinculada a outra identidade",
+      "inicia": 0,
+      "continua": 0,
+      "finaliza": 0
+    },
+    {
+      "cenario": "Falha de leitura após gravação",
+      "inicia": 0,
+      "continua": 0,
+      "finaliza": 0
+    },
+    {
+      "cenario": "Falha no fluxo mantém identidade bloqueada após recuperação",
+      "inicia": 0,
+      "continua": 0,
+      "finaliza": 0
+    }
+  ],
+  "cenarios": [
+    {
+      "cenario": "Persistência confirmada, identidade correspondente e timestamp válido",
+      "resultado": "PASSOU",
+      "solicitadaEm": "2026-11-05T16:18:02.896Z",
+      "respostaDuravel": true,
+      "contadores": {
+        "inicia": 0,
+        "continua": 1,
+        "finaliza": 1
+      }
+    },
+    {
+      "cenario": "Falha na gravação",
+      "resultado": "PASSOU",
+      "codigo": "TEF_CONTINUIDADE_PERSISTENCIA_FALHOU",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "Persistência indisponível",
+      "resultado": "PASSOU",
+      "codigo": "TEF_CONTINUIDADE_PERSISTENCIA_FALHOU",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "Retorno inválido da persistência",
+      "resultado": "PASSOU",
+      "codigo": "TEF_CONTINUIDADE_PERSISTENCIA_FALHOU",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "TefManager persiste e preserva o timestamp no recebimento da solicitação",
+      "resultado": "PASSOU",
+      "timestampOriginal": "2026-11-05T16:18:02.386Z",
+      "timestampPersistido": "2026-11-05T16:18:02.386Z"
+    },
+    {
+      "cenario": "Reinicialização recupera o timestamp original",
+      "resultado": "PASSOU",
+      "solicitadaEmOriginal": "2026-11-05T16:18:03.951Z",
+      "solicitadaEmRecuperado": "2026-11-05T16:18:03.951Z",
+      "contadores": {
+        "inicia": 0,
+        "continua": 1,
+        "finaliza": 1
+      }
+    },
+    {
+      "cenario": "Timestamp ausente",
+      "resultado": "PASSOU",
+      "codigo": "TEF_IDEMPOTENCY_DIVERGENTE",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "Timestamp inválido",
+      "resultado": "PASSOU",
+      "codigo": "TEF_IDEMPOTENCY_DIVERGENTE",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "Timestamp expirado",
+      "resultado": "PASSOU",
+      "codigo": "DESTAXA_CONTINUIDADE_TIMEOUT",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "Replay da mesma resposta rejeitado",
+      "resultado": "PASSOU",
+      "deltaContadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      },
+      "codigo": "DESTAXA_CONTINUIDADE_RESPOSTA_DUPLICADA"
+    },
+    {
+      "cenario": "Resposta vinculada a outra identidade",
+      "resultado": "PASSOU",
+      "codigo": "TEF_IDEMPOTENCY_DIVERGENTE",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    },
+    {
+      "cenario": "Falha de leitura após gravação",
+      "resultado": "PASSOU",
+      "codigo": "TEF_CONTINUIDADE_PERSISTENCIA_FALHOU",
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      },
+      "gravaçãoConfirmadaAntesDaFalha": true,
+      "falhouNaReleitura": true
+    },
+    {
+      "cenario": "Falha no fluxo mantém identidade bloqueada após recuperação",
+      "resultado": "PASSOU",
+      "transacaoPendente": true,
+      "identidadeNoMapaDeBloqueios": true,
+      "contadores": {
+        "inicia": 0,
+        "continua": 0,
+        "finaliza": 0
+      }
+    }
+  ],
+  "arquivosProducaoAlterados": [
+    "backend/services/tef/TefManager.js",
+    "backend/services/tef/adapters/DestaxaRealAdapter.js",
+    "backend/services/tef/destaxa/destaxaContinuidadeContrato.js",
+    "backend/services/tef/destaxa/destaxaContinuidadePersistencia.js",
+    "backend/services/tef/destaxa/destaxaCrtCicloOrquestracao.js"
+  ],
+  "geradoEm": "2026-11-05T16:18:05.268Z"
+}

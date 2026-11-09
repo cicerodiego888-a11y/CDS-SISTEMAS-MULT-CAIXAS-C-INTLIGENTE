@@ -24,13 +24,11 @@ describe('Hotfix 3.11A — pré-cálculo com pagamentos', () => {
     );
   });
 
-  it('não altera assinatura do ramo TEF (3.11B fora de escopo)', () => {
+  it('PDV não pré-autoriza TEF antes de o backend validar a venda', () => {
     const src = fs.readFileSync(PDV, 'utf8');
-    assert.match(src, /async function processarVendaFiscalNaoFiscal\(dadosVenda,\s*totalFiscal\)/);
-    assert.match(
-      src,
-      /if \(fluxoAB\.abrirA\) \{\s*if \(deveUsarTefAutomatico && !ehPagamentoMisto\) \{\s*const resultadoProcessamento = await processarVendaFiscalNaoFiscal\(dados,\s*fluxoAB\.valorA\)/
-    );
+    assert.doesNotMatch(src, /dados\.pagamentos = await processarPagamentosMistosTEF\(pagamentosMistos\)/);
+    assert.doesNotMatch(src, /await processarVendaFiscalNaoFiscal\(dados,\s*fluxoAB\.valorA\)/);
+    assert.match(src, /dados\.pagamentos = normalizarPagamentosSemTef\(pagamentosMistos\)/);
     assert.match(src, /const abrirA = a > 0;/);
   });
 

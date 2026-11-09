@@ -39,6 +39,7 @@ router.get('/fluxo-pdv', verificarToken, async (req, res) => {
 router.post('/pagar', async (req, res) => {
   try {
     const tefVinculoVendaService = require('../services/tef/tefVinculoVendaService');
+    const tefFiscalContextService = require('../services/tef/tefFiscalContextService');
     const {
       venda_id,
       tipo,
@@ -59,7 +60,7 @@ router.post('/pagar', async (req, res) => {
       return res.status(400).json({ error: 'Tipo de pagamento TEF não informado.' });
     }
 
-    if (!valor || Number(valor) <= 0) {
+    if (!Number.isFinite(Number(valor)) || Number(valor) <= 0) {
       return res.status(400).json({ error: 'Valor TEF inválido.' });
     }
 
@@ -73,17 +74,34 @@ router.post('/pagar', async (req, res) => {
       });
     }
 
-    const resultado = await tefService.iniciarPagamento({
-      venda_id: validacaoVenda.venda_id,
-      tipo,
+    const autorizacaoFiscal = await tefFiscalContextService.autorizarPagamentoFiscal({
+      vendaId: validacaoVenda.venda_id,
       valor: Number(valor),
-      parcelas: Number(parcelas || 1),
-      idempotency_key: idempotency_key || null,
-      // MRT-02: identidade PDV = terminais.id (nunca hostname/MAC)
-      pdv_id: pdv_id ?? pdvId ?? terminal_id ?? terminalId ?? req.terminalId ?? null,
-      empresa_id: empresa_id ?? empresaId ?? null,
-      loja_id: loja_id ?? lojaId ?? null
+      tipo,
+      idempotencyKey: idempotency_key,
+      db,
+      autorizar: (contextoFiscal) => tefService.iniciarPagamento({
+        venda_id: validacaoVenda.venda_id,
+        tipo,
+        valor: Number(valor),
+        parcelas: Number(parcelas || 1),
+        idempotency_key: idempotency_key || null,
+        contextoFiscal,
+        // MRT-02: identidade PDV = terminais.id (nunca hostname/MAC)
+        pdv_id: pdv_id ?? pdvId ?? terminal_id ?? terminalId ?? req.terminalId ?? null,
+        empresa_id: empresa_id ?? empresaId ?? null,
+        loja_id: loja_id ?? lojaId ?? null
+      })
     });
+    if (!autorizacaoFiscal.ok) {
+      return res.status(403).json({
+        sucesso: false,
+        codigo: autorizacaoFiscal.codigo,
+        error: autorizacaoFiscal.mensagem
+      });
+    }
+
+    const resultado = autorizacaoFiscal.resultado;
 
     const transacaoId = resultado?.transacao_id || resultado?.transacaoId || resultado?.id || null;
     const metaVinculo = tefVinculoVendaService.montarMetaRespostaPagamento({
@@ -152,7 +170,8 @@ router.post('/continuar', async (req, res) => {
       venda_id,
       resposta_continuidade,
       resposta,
-      acao
+      acao,
+      solicitadaEm
     } = req.body || {};
 
     const id = transacao_id ?? transacaoId;
@@ -170,7 +189,8 @@ router.post('/continuar', async (req, res) => {
       idempotency_key: idempotency_key || null,
       venda_id: venda_id != null ? venda_id : null,
       resposta_continuidade: resposta_continuidade ?? resposta ?? null,
-      acao: acao || null
+      acao: acao || null,
+      solicitadaEm: solicitadaEm || null
     });
 
     if (resultado.requerContinuacao === true) {
@@ -488,7 +508,7 @@ router.post('/reconciliar-pendentes', async (req, res) => {
 
 /**
  * Reconciliação explícita de uma pendência (operador).
- * Body: { financialState, usuario?, observacao, confirmacao_explicita: true }
+ * Body: { financialState, observacao, confirmacao_explicita: true }
  */
 router.post('/transacao/:id/reconciliar', async (req, res) => {
   try {
@@ -505,12 +525,18 @@ router.post('/transacao/:id/reconciliar', async (req, res) => {
     const financialState = req.body?.financialState;
     const observacao = req.body?.observacao;
     const confirmacao = req.body?.confirmacao_explicita === true;
-    const usuario = req.body?.usuario
-      || req.user?.username
+    const usuario = req.user?.username
       || req.user?.nome
-      || null;
+      || (req.user?.id != null ? String(req.user.id) : null);
+    if (!usuario) {
+      return res.status(401).json({
+        sucesso: false,
+        codigo: 'TEF_RECONCILIACAO_OPERADOR_NAO_AUTENTICADO',
+        erro: 'Reconciliação exige identidade de operador autenticada'
+      });
+    }
 
-    const resultado = tefPendenciasService.reconciliarExplicita({
+    const resultado = await tefPendenciasService.reconciliarExplicita({
       transacaoId,
       financialState,
       usuario,

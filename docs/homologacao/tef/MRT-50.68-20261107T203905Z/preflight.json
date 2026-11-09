@@ -1,0 +1,116 @@
+{
+    "registradoEm":  "2026-11-07T20:39:06.2149156Z",
+    "integridade5067":  [
+                            {
+                                "file":  "backend\\services\\tef\\adapters\\DestaxaRealAdapter.js",
+                                "exists":  true,
+                                "sha256":  "C032B4F1C20E077C09FA5FBA9578B1B4E5A43EEBEE028C187D8C515AB9865624",
+                                "bytes":  44492,
+                                "markers":  {
+                                                "homolog":  true,
+                                                "continuar":  true
+                                            }
+                            },
+                            {
+                                "file":  "backend\\services\\tef\\destaxa\\destaxaConstantes.js",
+                                "exists":  true,
+                                "sha256":  "37037C6EB39AD009749D0029715FF76158FE0515BF682BFE4E95BB7995DCA9C8",
+                                "bytes":  13211,
+                                "markers":  {
+                                                "inspecionar":  true,
+                                                "modalidade":  true
+                                            }
+                            },
+                            {
+                                "file":  "backend\\services\\tef\\destaxa\\destaxaHomologacaoDebitoPolitica.js",
+                                "exists":  true,
+                                "sha256":  "AD913A87EF9B77D06DA21B21E6ECFFCA6C2BD7FCE51B0DF8EA8055EEAF5E1C51",
+                                "bytes":  3114,
+                                "markers":  {
+                                                "validar":  true
+                                            }
+                            },
+                            {
+                                "file":  "backend\\services\\tef\\destaxa\\destaxaCrtCicloOrquestracao.js",
+                                "exists":  true,
+                                "sha256":  "F58A92ED594D8869B4706D83CCC92FFC5B1195D0AB18DFD01865FF4F97D39328",
+                                "bytes":  24692,
+                                "markers":  {
+                                                "gateCiclo":  true
+                                            }
+                            },
+                            {
+                                "file":  "backend\\services\\tef\\destaxa\\DestaxaNativeBridge.js",
+                                "exists":  true,
+                                "sha256":  "17C40D731E0675C06EAA60E83011D8C206A22A89AF09220BE9020B43A0EE87FE",
+                                "bytes":  19082,
+                                "markers":  {
+
+                                            }
+                            },
+                            {
+                                "file":  "backend\\services\\tef\\destaxa\\DestaxaNativeHostClient.js",
+                                "exists":  true,
+                                "sha256":  "F7D4A845CA32CCAD3B138095BF29EC34837E96D52D6DDCA0D6E770AA486C77CF",
+                                "bytes":  45434,
+                                "markers":  {
+
+                                            }
+                            },
+                            {
+                                "file":  "tests\\tef\\mrt-50-67-homologacao-debito-gate.test.js",
+                                "exists":  true,
+                                "sha256":  "BD30FA4FA6552CBBD1602B26F7D6DD4B0AF98B465B7F1C9E90759889E2638E64",
+                                "bytes":  10121,
+                                "markers":  {
+
+                                            }
+                            }
+                        ],
+    "gate":  {
+                 "machine":  null,
+                 "user":  null,
+                 "process":  "0"
+             },
+    "gateOff":  true,
+    "dll":  {
+                "match":  true,
+                "path":  "C:\\Program Files\\CDS ERP\\resources\\app.asar.unpacked\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+                "existe":  true,
+                "sha256":  "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+                "referencia":  "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279"
+            },
+    "windowsPinpad":  {
+                          "pnp":  [
+                                      {
+                                          "Name":  "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+                                          "Status":  "OK",
+                                          "PNPDeviceID":  "USB\\VID_1753\u0026PID_C902\\5\u00261587D4E6\u00260\u00264"
+                                      }
+                                  ],
+                          "serial":  [
+                                         {
+                                             "DeviceID":  "COM4",
+                                             "Name":  "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+                                             "PNPDeviceID":  "USB\\VID_1753\u0026PID_C902\\5\u00261587D4E6\u00260\u00264",
+                                             "Status":  "OK"
+                                         }
+                                     ]
+                      },
+    "portaPersistida":  {
+
+                        },
+    "vspague":  {
+                    "pid":  44484,
+                    "caminho":  "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
+                    "tcp60603":  [
+                                     "TCP    0.0.0.0:60603          0.0.0.0:0              LISTENING       44484",
+                                     "TCP    [::]:60603             [::]:0                 LISTENING       44484"
+                                 ],
+                    "tcp60906":  [
+                                     "TCP    0.0.0.0:60906          0.0.0.0:0              LISTENING       44484",
+                                     "TCP    [::]:60906             [::]:0                 LISTENING       44484"
+                                 ]
+                },
+    "nativeHostResidual":  0
+}

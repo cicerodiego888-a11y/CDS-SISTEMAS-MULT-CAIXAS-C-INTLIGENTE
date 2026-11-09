@@ -1,0 +1,16 @@
+{
+  "debitoEsperado": "transacao_valor=1.00;transacao_tipo_cartao=Débito;transacao_pagamento=A vista",
+  "debitoObtido": "transacao_valor=1.00;transacao_tipo_cartao=Débito;transacao_pagamento=A vista",
+  "debitoOk": true,
+  "creditoParcelado": "transacao_valor=1.00;transacao_tipo_cartao=Credito;transacao_pagamento=Parcelado",
+  "semTipoPdv": "transacao_valor=1.00",
+  "valorCentavos": 100,
+  "formatado": "1.00",
+  "gateProcessEnv": "0",
+  "gateHabilitada": false,
+  "chavesDebito": [
+    "transacao_valor",
+    "transacao_tipo_cartao",
+    "transacao_pagamento"
+  ]
+}

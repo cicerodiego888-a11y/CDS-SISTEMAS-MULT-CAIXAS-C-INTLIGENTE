@@ -827,6 +827,14 @@ const {
   valor_nao_fiscal: _valorNaoFiscalBody
 } = req.body;
 
+if (tef != null) {
+  return res.status(400).json({
+    sucesso: false,
+    codigo: 'TEF_CONTEXT_CLIENTE_NAO_CONFIAVEL',
+    error: 'Dados de autorização TEF devem ser produzidos e validados pelo backend.'
+  });
+}
+
 /** RC4.1.2 — ponte reserva do pedido (Expedição → Núcleo). Já vem em FaturamentoService. */
 const pedidoIdVenda = Number(pedidoIdBody || req.body?.pedidoId || 0) || null;
 
@@ -1268,17 +1276,6 @@ db.all(`
 
         const transacoesTefParaVincular = resultadoFiscal?.transacoes || [];
 
-        if (tef && tef.transacao_id) {
-          transacoesTefParaVincular.push(tef.transacao_id);
-        }
-
-        pagamentosVenda.forEach((p) => {
-          const idTef = p.tef_transacao_id || p.tef?.transacao_id;
-          if (idTef) {
-            transacoesTefParaVincular.push(idTef);
-          }
-        });
-
         // TEF-15: vínculo somente por tef_transacao_id (nunca por valor/ordem).
         require('../tef/tefVinculoVendaService').enfileirarVinculosSqlite(
           db,
@@ -1629,17 +1626,6 @@ const executarVenda = async () => {
       );
 
       const transacoesTefParaVincular = resultadoFiscal?.transacoes || [];
-
-      if (tef && tef.transacao_id) {
-        transacoesTefParaVincular.push(tef.transacao_id);
-      }
-
-      pagamentosVenda.forEach((p) => {
-        const idTef = p.tef_transacao_id || p.tef?.transacao_id;
-        if (idTef) {
-          transacoesTefParaVincular.push(idTef);
-        }
-      });
 
       // TEF-15: vínculo somente por tef_transacao_id (nunca por valor/ordem).
       require('../tef/tefVinculoVendaService').enfileirarVinculosSqlite(

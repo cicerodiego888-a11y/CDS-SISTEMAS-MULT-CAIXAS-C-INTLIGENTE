@@ -1,0 +1,90 @@
+{
+    "gate":  "0",
+    "infOem13":  {
+                     "path":  "C:\\Windows\\INF\\oem13.inf",
+                     "length":  9382,
+                     "lastWrite":  "2026-08-31T17:42:28.1603752Z"
+                 },
+    "driverStoreHints":  [
+                             "gertec_usb_cdc_plus.inf_amd64_ef28688acc679e2b",
+                             "usbser.inf_amd64_b872e297eb3a1c97"
+                         ],
+    "nativeHostCount":  0,
+    "conf":  {
+                 "FullName":  "C:\\VBI\\V$Pague\\Client\\V$PagueClient_Destaxa_LojaACB_TACB0120.conf",
+                 "Length":  89309,
+                 "LastWriteTime":  "\/Date(1793909139657)\/"
+             },
+    "logsDestaxa":  [
+                        {
+                            "Name":  "destaxa-dll.log",
+                            "Length":  10461,
+                            "LastWriteTime":  "\/Date(1794090230166)\/"
+                        },
+                        {
+                            "Name":  "dll-integracao-tef.dat",
+                            "Length":  12,
+                            "LastWriteTime":  "\/Date(1794090230054)\/"
+                        }
+                    ],
+    "logVspague":  {
+                       "FullName":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                       "Length":  22135,
+                       "LastWriteTime":  "\/Date(1794090230265)\/"
+                   },
+    "logVspagueArchived":  [
+                               {
+                                   "Name":  "vspague-client-2026-11-05.0.gz",
+                                   "Length":  1470,
+                                   "LastWriteTime":  "\/Date(1794021702636)\/"
+                               },
+                               {
+                                   "Name":  "vspague-client-2026-11-04.0.gz",
+                                   "Length":  1465,
+                                   "LastWriteTime":  "\/Date(1793909137543)\/"
+                               },
+                               {
+                                   "Name":  "vspague-client-2026-11-03.0.gz",
+                                   "Length":  1699,
+                                   "LastWriteTime":  "\/Date(1793829759785)\/"
+                               },
+                               {
+                                   "Name":  "vspague-client-2026-10-30.0.gz",
+                                   "Length":  8458,
+                                   "LastWriteTime":  "\/Date(1793729152023)\/"
+                               },
+                               {
+                                   "Name":  "vspague-client-2026-10-29.0.gz",
+                                   "Length":  1941,
+                                   "LastWriteTime":  "\/Date(1793381738744)\/"
+                               },
+                               {
+                                   "Name":  "vspague-client-2026-10-23.0.gz",
+                                   "Length":  1187,
+                                   "LastWriteTime":  "\/Date(1793299586047)\/"
+                               },
+                               {
+                                   "Name":  "vspague-client-2026-10-21.0.gz",
+                                   "Length":  1829,
+                                   "LastWriteTime":  "\/Date(1792725065244)\/"
+                               },
+                               {
+                                   "Name":  "vspague-client-2026-10-20.0.gz",
+                                   "Length":  1146,
+                                   "LastWriteTime":  "\/Date(1792555403250)\/"
+                               }
+                           ],
+    "mrtDirsPreserved":  [
+                             "MRT-50.69-20261107T204400Z",
+                             "MRT-50.70-20261107T211500Z",
+                             "MRT-50.71-20261107T211800Z",
+                             "MRT-50.72-2026-11-07",
+                             "MRT-50.73-2026-11-07",
+                             "MRT-50.74-2026-11-07",
+                             "MRT-50.75-2026-11-07",
+                             "MRT-50.76-2026-11-07",
+                             "MRT-50.77-2026-11-07"
+                         ],
+    "modeCom4":  "Status para dispositivo COM4:\r\n-----------------------------\r\n    Baud:            0\r\n    Paridade:             None\r\n� ��Bits de Dados: �������0\r\n�� �Bits de Parada: ������1\r\n ���Tempo Limite: ��������OFF\r\n    XON/XOFF:        OFF\r\n    Handshaking CTS:      OFF\r\n    Handshaking DSR:      OFF\r\n    Sensibilidade de DSR: OFF\r\n    Circuito DTR:         OFF\r\n    Circuito RTS:         ON",
+    "hostname":  "DESKTOP-4B8AMM3"
+}

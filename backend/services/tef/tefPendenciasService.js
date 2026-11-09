@@ -117,15 +117,15 @@ function listarPendenciasDoBanco(db) {
 function descriptografarPayloadSeNecessario(row, cryptoService) {
   if (!row || row.payload_retorno == null) return row;
   if (typeof row.payload_retorno === 'object') return row;
-  if (!cryptoService) return { ...row, payload_retorno: null };
-  try {
-    return {
-      ...row,
-      payload_retorno: cryptoService.descriptografarObjeto(row.payload_retorno)
-    };
-  } catch (_) {
-    return { ...row, payload_retorno: null };
+  if (!cryptoService) {
+    const error = new Error('Serviço criptográfico TEF indisponível.');
+    error.code = 'TEF_CRYPTO_KEY_UNAVAILABLE';
+    throw error;
   }
+  return {
+    ...row,
+    payload_retorno: cryptoService.descriptografarObjeto(row.payload_retorno)
+  };
 }
 
 /**
@@ -137,11 +137,7 @@ async function listarPendenciasOperacionais(opcoes = {}) {
   const cryptoService = opcoes.cryptoService || require('../crypto/cryptoService');
 
   if (typeof manager.garantirRecuperacao === 'function') {
-    try {
-      await manager.garantirRecuperacao();
-    } catch (_) {
-      // listagem continua; bloqueio de nova auth já trata falha de recuperação
-    }
+    await manager.garantirRecuperacao();
   }
 
   let rows = [];
@@ -209,7 +205,7 @@ function tentarLiberarInconclusiva() {
 /**
  * Reconciliação explícita de uma pendência (nunca em lote silencioso).
  */
-function reconciliarExplicita(opcoes = {}) {
+async function reconciliarExplicita(opcoes = {}) {
   const manager = opcoes.tefManager || tefManager;
   const {
     transacaoId,
@@ -233,37 +229,50 @@ function reconciliarExplicita(opcoes = {}) {
     );
   }
 
-  const resultado = manager.reconciliarResultadoTardio(transacaoId, {
+  if (typeof manager.reconciliarNativeHost !== 'function') {
+    throw criarErro(
+      'TEF_RECONCILIACAO_NATIVE_HOST_INDISPONIVEL',
+      'Reconciliação exige validação e liberação controlada pelo TefManager'
+    );
+  }
+
+  const resultado = await manager.reconciliarResultadoTardio(transacaoId, {
     financialState,
     usuario,
-    observacao
+    observacao,
+    confirmacao_explicita: true
   });
+
+  const liberacao = await manager.reconciliarNativeHost(transacaoId, {
+    financialState,
+    usuario,
+    observacao,
+    confirmacao_explicita: true
+  }, resultado);
 
   const repo = opcoes.repository || repository;
   let historicoRegistrado = false;
   if (repo && typeof repo.registrarLog === 'function') {
-    try {
-      repo.registrarLog(
-        Number(transacaoId),
-        'TEF14_RECONCILIACAO_EXPLICITA',
-        `Operador confirmou reconciliação como ${financialState}`,
-        {
-          financialState,
-          usuario: String(usuario || ''),
-          observacao: String(observacao || ''),
-          travaLiberada: resultado.travaLiberada === true,
-          confirmacao_explicita: true
-        }
-      );
-      historicoRegistrado = true;
-    } catch (_) {
-      historicoRegistrado = false;
-    }
+    repo.registrarLog(
+      Number(transacaoId),
+      'TEF14_RECONCILIACAO_EXPLICITA',
+      `Operador confirmou reconciliação como ${financialState}`,
+      {
+        financialState,
+        usuario: String(usuario || ''),
+        observacao: String(observacao || ''),
+        travaLiberada: resultado.travaLiberada === true,
+        confirmacao_explicita: true
+      }
+    );
+    historicoRegistrado = true;
   }
 
   return {
     sucesso: true,
     ...resultado,
+    ...liberacao,
+    travaLiberada: liberacao.travaLiberada === true,
     historicoRegistrado
   };
 }

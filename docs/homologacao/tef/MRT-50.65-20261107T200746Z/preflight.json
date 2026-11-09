@@ -1,0 +1,66 @@
+{
+    "registradoEm":  "2026-11-07T20:08:04.8098379Z",
+    "aprovado":  true,
+    "criticos":  {
+                     "portaComPersistidaCom4":  true,
+                     "vspaguePresente":  true,
+                     "tcp60603":  true,
+                     "com4":  true,
+                     "dllMatch":  true,
+                     "tcp60906":  true,
+                     "nativeHostAusente":  true,
+                     "gateOff":  true
+                 },
+    "gateAntes":  {
+                      "machine":  null,
+                      "user":  null,
+                      "process":  "0"
+                  },
+    "gateOff":  true,
+    "nativeHostAtivo":  0,
+    "vspague":  {
+                    "caminho":  "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
+                    "pid":  44484
+                },
+    "tcp":  {
+                "60603":  [
+                              "TCP    0.0.0.0:60603          0.0.0.0:0              LISTENING       44484",
+                              "TCP    [::]:60603             [::]:0                 LISTENING       44484"
+                          ],
+                "60906":  [
+                              "TCP    0.0.0.0:60906          0.0.0.0:0              LISTENING       44484",
+                              "TCP    [::]:60906             [::]:0                 LISTENING       44484"
+                          ]
+            },
+    "windowsPinpad":  {
+                          "pnp":  [
+                                      {
+                                          "Name":  "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+                                          "Status":  "OK",
+                                          "PNPDeviceID":  "USB\\VID_1753\u0026PID_C902\\5\u00261587D4E6\u00260\u00264"
+                                      }
+                                  ],
+                          "serial":  [
+                                         {
+                                             "DeviceID":  "COM4",
+                                             "Name":  "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+                                             "PNPDeviceID":  "USB\\VID_1753\u0026PID_C902\\5\u00261587D4E6\u00260\u00264",
+                                             "Status":  "OK"
+                                         }
+                                     ]
+                      },
+    "portaPersistidaReferenciaMrt5064":  {
+                                             "sprint":  "MRT-50.64-20261107T200416Z",
+                                             "codigo":  "GERTEC_PPC930",
+                                             "registroId":  1,
+                                             "coincidem":  true,
+                                             "porta_com":  "COM4"
+                                         },
+    "dll":  {
+                "match":  true,
+                "path":  "C:\\Program Files\\CDS ERP\\resources\\app.asar.unpacked\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+                "existe":  true,
+                "sha256":  "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+                "referencia":  "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279"
+            }
+}

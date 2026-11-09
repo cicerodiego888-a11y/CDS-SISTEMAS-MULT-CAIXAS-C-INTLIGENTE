@@ -1,0 +1,36 @@
+﻿{
+    "stamp":  "2026-11-09T11:04:04.5332838-03:00",
+    "stampLocal":  "2026-11-09 11:04:04 -03:00",
+    "files":  [
+                  {
+                      "label":  "destaxa-dll",
+                      "path":  "C:\\CDS-SISTEMAS\\logs\\destaxa\\destaxa-dll.log",
+                      "exists":  true,
+                      "size":  10461,
+                      "mtime":  "2026-11-07T19:23:50.1668463-03:00",
+                      "lineCount":  232,
+                      "tailPath":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\tef\\TEF-DESTAXA-51.01\\before-destaxa-dll-20261109T110404.txt",
+                      "preserveCopy":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\tef\\TEF-DESTAXA-51.01\\preserve-destaxa-dll-20261109T110404.log"
+                  },
+                  {
+                      "label":  "vspague-client",
+                      "path":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                      "exists":  true,
+                      "size":  4534,
+                      "mtime":  "2026-11-09T10:43:07.3694191-03:00",
+                      "lineCount":  55,
+                      "tailPath":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\tef\\TEF-DESTAXA-51.01\\before-vspague-client-20261109T110404.txt",
+                      "preserveCopy":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\tef\\TEF-DESTAXA-51.01\\preserve-vspague-client-20261109T110404.log"
+                  },
+                  {
+                      "label":  "nativehost-observability",
+                      "path":  "C:\\Users\\cicer\\AppData\\Local\\CDS-SISTEMAS\\logs\\destaxa-nativehost-observability.jsonl",
+                      "exists":  true,
+                      "size":  8039,
+                      "mtime":  "2026-11-09T10:46:58.7431699-03:00",
+                      "lineCount":  33,
+                      "tailPath":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\tef\\TEF-DESTAXA-51.01\\before-nativehost-observability-20261109T110404.txt",
+                      "preserveCopy":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\tef\\TEF-DESTAXA-51.01\\preserve-nativehost-observability-20261109T110404.log"
+                  }
+              ]
+}

@@ -316,7 +316,7 @@ class DestaxaNativeBridge {
     };
   }
 
-  iniciarClient(config = {}) {
+  iniciarClient(config = {}, contexto = {}) {
     const cfg = { ...this.config, ...config };
 
     if (!this._dllLoaded) {
@@ -394,26 +394,36 @@ class DestaxaNativeBridge {
     const entradaBuf = Buffer.alloc(Math.max(entrada.texto.length + 1, 1));
     entradaBuf.write(entrada.texto, 0, 'latin1');
 
-    destaxaLogger.registrar('client.init.start', {
+    const requestId = contexto.requestId || undefined;
+    destaxaLogger.registrarPersistente('client.init.start', {
+      requestId,
       processArch: this._arch,
-      dllPath: this._dllPath,
-      chavesEntrada: entrada.chaves,
       tamanhoEntrada: entrada.texto.length
     });
 
-    const inicio = process.hrtime.bigint();
+    let chamada;
     try {
-      fn(resultadoBuf, entradaBuf, entrada.texto.length);
+      chamada = destaxaLogger.executarChamadaNativaAuditada({
+        requestId,
+        pid: process.pid,
+        functionName: 'iniciaClientDestaxa',
+        fn: () => fn(resultadoBuf, entradaBuf, entrada.texto.length),
+        obterCodigoResultado: () => lerCodigoBuffer(resultadoBuf) || 'FF'
+      });
     } catch (error) {
+      if (!destaxaLogger.ehExcecaoDeChamadaNativa(error)) throw error;
       this._clientInitialized = false;
       this._estado = ESTADOS.CLIENT_ERROR;
       this._ultimoErro = {
         codigo: ERROS.DESTAXA_CLIENT_INIT_FAILED,
         mensagem: error.message
       };
-      destaxaLogger.registrar('client.init.exception', {
+      destaxaLogger.registrarPersistente('client.init.exception', {
+        requestId,
+        pid: process.pid,
+        functionName: 'iniciaClientDestaxa',
         codigo: ERROS.DESTAXA_CLIENT_INIT_FAILED,
-        duracaoMs: Number(process.hrtime.bigint() - inicio) / 1e6
+        exception: { name: error.name || 'Error', code: error.code || null }
       });
       return {
         sucesso: false,
@@ -424,8 +434,8 @@ class DestaxaNativeBridge {
       };
     }
 
-    const duracaoMs = Number(process.hrtime.bigint() - inicio) / 1e6;
-    const codigo = lerCodigoBuffer(resultadoBuf) || 'FF';
+    const duracaoMs = chamada.durationMs;
+    const codigo = chamada.resultCode || 'FF';
     const interpretado = interpretarCodigoResultado(codigo);
     this._ultimoCodigoClient = codigo;
 
@@ -442,15 +452,19 @@ class DestaxaNativeBridge {
       };
     }
 
-    destaxaLogger.registrar('client.init.result', {
+    destaxaLogger.registrarPersistente('client.init.result', {
+      requestId,
+      pid: process.pid,
+      functionName: 'iniciaClientDestaxa',
       processArch: this._arch,
-      dllPath: this._dllPath,
       codigo,
       sucesso: interpretado.sucesso,
       duracaoMs,
       estado: this._estado
     });
-    destaxaLogger.registrarBlocoReal(this.getDiagnostics(), {
+    destaxaLogger.registrarBlocoReal({ ...this.getDiagnostics(), dllPath: null }, {
+      requestId,
+      pid: process.pid,
       iniciaClientExecutado: true,
       codigoDestaxa: codigo,
       duracaoMs
@@ -499,6 +513,7 @@ class DestaxaNativeBridge {
    * Não chama nenhuma função transacional da DLL.
    */
   habilitarTransacaoReal() {
+    // MRT-50.67 — somente literal "1"; valores ambíguos permanecem OFF
     if (!transacaoRealHabilitada()) {
       return {
         sucesso: false,

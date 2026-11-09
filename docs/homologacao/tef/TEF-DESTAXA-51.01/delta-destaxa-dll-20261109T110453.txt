@@ -1,0 +1,3 @@
+﻿2026-11-09 11:04:25 INFO  api_destaxa_start_client.c:94: **** Biblioteca de integracao com o client Destaxa ****
+2026-11-09 11:04:25 INFO  api_destaxa_start_client.c:95: Versão: 1.83 64bit - Windows 64-bit
+

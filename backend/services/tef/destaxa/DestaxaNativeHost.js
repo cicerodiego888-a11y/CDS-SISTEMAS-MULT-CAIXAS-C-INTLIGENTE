@@ -17,6 +17,8 @@ const DestaxaNativeBridge = require('./DestaxaNativeBridge');
 const destaxaKoffiLoader = require('./destaxaKoffiLoader');
 const { ESTADOS_BLOQUEIAM_NOVA } = require('./destaxaTransacaoOrquestrador');
 const { transacaoRealHabilitada } = require('./destaxaConstantes');
+const destaxaLogger = require('./destaxaLogger');
+const crypto = require('crypto');
 const {
   PROTOCOLO,
   OPERACOES_HOST,
@@ -25,6 +27,10 @@ const {
   OPERACOES_TESTE,
   ERROS_HOST,
   validarRequest,
+  criarCapabilityAutorizacaoReconciliacao,
+  validarAutorizacaoReconciliacao,
+  validarBootstrapSeguranca,
+  ESTADOS_BOOTSTRAP,
   criarResponse,
   erroHost,
   resultadoHostIndisponivel
@@ -92,6 +98,17 @@ class DestaxaNativeHostRuntime {
     this._seqNativo = 0;
     this._encerrando = false;
     this._mock = null;
+    this.hostSessionId = opcoes.hostSessionId || crypto.randomBytes(16).toString('hex');
+    this._reconciliationPublicKey = opcoes.reconciliationPublicKey
+      || process.env.DESTAXA_RECONCILIATION_PUBLIC_KEY
+      || null;
+    this._usedReconciliationAuthorizations = new Set();
+    this._securityBootstrapState = ESTADOS_BOOTSTRAP.REQUIRED;
+    this._securityBootstrapRevision = 0;
+    this._usedSecurityBootstrapIds = new Set();
+    this._securityPermitUsed = new Set();
+    this._securityPermit = null;
+    this._blockedFinancialIdentities = new Map();
     /** MRT-26 — disconnect/IPC loss durante nativa: encerra só após a operação. */
     this._encerramentoAposNativa = null;
     this._eventosCiclo = [];
@@ -117,6 +134,18 @@ class DestaxaNativeHostRuntime {
     };
     this._eventosCiclo.push(entrada);
     if (this._eventosCiclo.length > 40) this._eventosCiclo.shift();
+    const evidencia = {
+      tipo,
+      em: entrada.em,
+      pid: entrada.pid,
+      ppid: entrada.ppid,
+      requestId: detalhe.requestId || entrada.operacaoAtiva?.requestId || null,
+      operation: detalhe.operation || detalhe.operacao || entrada.operacaoAtiva?.operation || null
+    };
+    for (const campo of ['duracaoMs', 'ok', 'erro', 'codigo', 'classification']) {
+      if (detalhe[campo] !== undefined) evidencia[campo] = detalhe[campo];
+    }
+    destaxaLogger.registrarPersistente('nativehost.lifecycle', evidencia);
     try {
       // eslint-disable-next-line no-console
       console.error('[TEF-NATIVE-HOST] ciclo', JSON.stringify(entrada));
@@ -174,7 +203,10 @@ class DestaxaNativeHostRuntime {
 
   _transacaoAtiva() {
     const contexto = this.bridge.getTransacaoContexto();
-    return Boolean(contexto && ESTADOS_BLOQUEIAM_NOVA.has(contexto.estado));
+    return Boolean(contexto && (
+      (contexto.financialState ?? contexto.dadosUltimaResposta?.financialState) === 'UNKNOWN'
+      || ESTADOS_BLOQUEIAM_NOVA.has(contexto.estado)
+    ));
   }
 
   status() {
@@ -182,6 +214,10 @@ class DestaxaNativeHostRuntime {
       pid: process.pid,
       ppid: typeof process.ppid === 'number' ? process.ppid : null,
       processType: this.processType,
+      hostSessionId: this.hostSessionId,
+      securityBootstrapState: this._securityBootstrapState,
+      securityBootstrapRevision: this._securityBootstrapRevision,
+      blockedFinancialIdentities: [...this._blockedFinancialIdentities.keys()],
       modoTeste: this.modoTeste,
       tripwire: this.tripwire,
       contadores: { ...this.contadores },
@@ -199,8 +235,21 @@ class DestaxaNativeHostRuntime {
   }
 
   receber(req) {
+    destaxaLogger.registrarPersistente('ipc.message.received', {
+      requestId: req?.requestId || null,
+      operation: req?.operation || null,
+      pid: process.pid,
+      messageType: 'request'
+    });
     const resposta = this.processar(req);
     this._enviar(resposta);
+    destaxaLogger.registrarPersistente('ipc.response.sent', {
+      requestId: req?.requestId || null,
+      operation: req?.operation || null,
+      pid: process.pid,
+      hasError: Boolean(resposta.error),
+      sendInvoked: true
+    });
     return resposta;
   }
 
@@ -226,6 +275,10 @@ class DestaxaNativeHostRuntime {
       return criarResponse(req, { error: erroHost(ERROS_HOST.HOST_SHUTTING_DOWN, 'TEF Native Host em encerramento') });
     }
 
+    if (operacao === OPERACOES_HOST.SECURITY_BOOTSTRAP) {
+      return this._aplicarBootstrapSeguranca(req);
+    }
+
     if (OPERACOES_NATIVAS.has(operacao)) {
       return this._processarNativa(req);
     }
@@ -235,6 +288,50 @@ class DestaxaNativeHostRuntime {
         return criarResponse(req, { output: { pong: true, pid: process.pid } });
       case OPERACOES_HOST.STATUS:
         return criarResponse(req, { output: this.status() });
+      case OPERACOES_HOST.RECONCILE: {
+        if (![ESTADOS_BOOTSTRAP.VALIDATED, ESTADOS_BOOTSTRAP.BLOCKED].includes(this._securityBootstrapState)) {
+          return criarResponse(req, {
+            error: erroHost(ERROS_HOST.HOST_SECURITY_BOOTSTRAP_REQUIRED, 'Bootstrap de segurança obrigatório antes de RECONCILE')
+          });
+        }
+        const autorizacao = req.payload.autorizacao;
+        const claims = validarAutorizacaoReconciliacao(
+          autorizacao,
+          this._reconciliationPublicKey,
+          this.hostSessionId
+        );
+        if (!claims
+          || claims.phase !== 'release'
+          || String(claims.transactionId) !== String(req.transactionId || '')
+          || !this._blockedFinancialIdentities.has(String(req.transactionId || ''))) {
+          return criarResponse(req, {
+            error: erroHost(ERROS_HOST.HOST_RECONCILIATION_PENDING, 'Autorização de reconciliação ausente, inválida ou de outra sessão/identidade')
+          });
+        }
+        if (this._usedReconciliationAuthorizations.has(claims.authorizationId)) {
+          return criarResponse(req, {
+            error: erroHost(ERROS_HOST.HOST_RECONCILIATION_PENDING, 'Autorização de reconciliação já utilizada')
+          });
+        }
+        const capability = criarCapabilityAutorizacaoReconciliacao(
+          autorizacao,
+          this._reconciliationPublicKey,
+          this.hostSessionId
+        );
+        if (!capability) {
+          return criarResponse(req, {
+            error: erroHost(ERROS_HOST.HOST_RECONCILIATION_PENDING, 'Autorização de reconciliação não pôde ser validada')
+          });
+        }
+        this._usedReconciliationAuthorizations.add(claims.authorizationId);
+        const resultado = this.bridge.getOrquestradorTransacao().reconciliarTransacao(claims, capability);
+        if (!resultado.sucesso) {
+          return criarResponse(req, {
+            error: erroHost(ERROS_HOST.HOST_RECONCILIATION_PENDING, 'Autorização válida, mas identidade ou estado do NativeHost não permite reconciliação')
+          });
+        }
+        return criarResponse(req, { output: resultado });
+      }
       case OPERACOES_HOST.CONFIGURE_MOCK:
         return criarResponse(req, { output: this._configurarMock(req.payload.passos) });
       case OPERACOES_HOST.SIMULATE_CRASH:
@@ -253,6 +350,97 @@ class DestaxaNativeHostRuntime {
       }
       default:
         return criarResponse(req, { error: erroHost(ERROS_HOST.HOST_INVALID_REQUEST, `operação sem handler: ${operacao}`) });
+    }
+  }
+
+  _aplicarBootstrapSeguranca(req) {
+    const autorizacao = req.payload.autorizacao;
+    const claims = validarBootstrapSeguranca(
+      autorizacao,
+      this._reconciliationPublicKey,
+      this.hostSessionId,
+      this._securityBootstrapRevision + 1
+    );
+    if (!claims || this._usedSecurityBootstrapIds.has(claims.bootstrapId)) {
+      this._securityBootstrapState = ESTADOS_BOOTSTRAP.FAILED;
+      this._securityPermit = null;
+      return criarResponse(req, {
+        error: erroHost(ERROS_HOST.HOST_SECURITY_BOOTSTRAP_INVALID, 'Bootstrap ausente, inválido, repetido ou de outra sessão/revisão')
+      });
+    }
+
+    this._usedSecurityBootstrapIds.add(claims.bootstrapId);
+    this._securityBootstrapRevision = claims.revision;
+    this._blockedFinancialIdentities = new Map(
+      claims.blockedIdentities.map((identity) => [identity.transactionId, { ...identity }])
+    );
+    this._securityPermit = claims.permit ? { ...claims.permit } : null;
+    this._securityBootstrapState = claims.securityState;
+    return criarResponse(req, {
+      output: {
+        sucesso: true,
+        bootstrapId: claims.bootstrapId,
+        revision: claims.revision,
+        securityState: this._securityBootstrapState,
+        blockedCount: this._blockedFinancialIdentities.size
+      }
+    });
+  }
+
+  _autorizarOperacaoTransacional(req) {
+    if (![ESTADOS_BOOTSTRAP.VALIDATED, ESTADOS_BOOTSTRAP.BLOCKED].includes(this._securityBootstrapState)) {
+      throw new ErroHost(
+        ERROS_HOST.HOST_SECURITY_BOOTSTRAP_REQUIRED,
+        `Bootstrap de segurança obrigatório; estado=${this._securityBootstrapState}`
+      );
+    }
+    const transactionId = String(req.transactionId || '');
+    if (req.operation === OPERACOES_HOST.TX_START && this._blockedFinancialIdentities.size > 0) {
+      throw new ErroHost(
+        ERROS_HOST.HOST_SECURITY_OPERATION_BLOCKED,
+        'TX_START recusado: há identidades financeiras inconclusivas recuperadas'
+      );
+    }
+    if (req.operation !== OPERACOES_HOST.TX_START && this._blockedFinancialIdentities.has(transactionId)) {
+      throw new ErroHost(
+        ERROS_HOST.HOST_RECONCILIATION_PENDING,
+        `${req.operation} recusado: transactionId ${transactionId} permanece bloqueado`
+      );
+    }
+
+    const permit = this._securityPermit;
+    if (!permit
+      || permit.operation !== req.operation
+      || permit.transactionId !== transactionId
+      || this._securityPermitUsed.has(permit.permitId)) {
+      throw new ErroHost(
+        ERROS_HOST.HOST_SECURITY_OPERATION_BLOCKED,
+        `${req.operation} recusado: autorização de operação ausente, divergente ou já consumida`
+      );
+    }
+    this._securityPermitUsed.add(permit.permitId);
+    this._securityPermit = null;
+  }
+
+  _registrarBloqueioSeInconclusivo(req, output) {
+    if (!OPERACOES_TRANSACIONAIS.has(req.operation)) return;
+    const transactionId = output?.contexto?.transactionId || req.transactionId;
+    const financialState = output?.financialState
+      || output?.contexto?.financialState
+      || output?.contexto?.dadosUltimaResposta?.financialState;
+    if (transactionId && (financialState === 'UNKNOWN' || output?.estado === 'UNKNOWN')) {
+      const id = String(transactionId);
+      if (!this._blockedFinancialIdentities.has(id)) {
+        this._blockedFinancialIdentities.set(id, {
+          transactionId: id,
+          operation_id: null,
+          idempotency_key: null,
+          fingerprint: null,
+          status: 'pendente',
+          financialState: 'UNKNOWN'
+        });
+      }
+      this._securityBootstrapState = ESTADOS_BOOTSTRAP.BLOCKED;
     }
   }
 
@@ -276,7 +464,9 @@ class DestaxaNativeHostRuntime {
       transactionId: req.transactionId || null
     });
     try {
+      if (OPERACOES_TRANSACIONAIS.has(req.operation)) this._autorizarOperacaoTransacional(req);
       const output = this._executarNativa(req);
+      this._registrarBloqueioSeInconclusivo(req, output);
       const transactionId = output?.contexto?.transactionId || req.transactionId;
       this._registrarEventoCiclo('nativa.fim', {
         operation: req.operation,
@@ -299,6 +489,7 @@ class DestaxaNativeHostRuntime {
       const output = OPERACOES_TRANSACIONAIS.has(req.operation) && code === ERROS_HOST.HOST_INTERNAL_ERROR
         ? resultadoHostIndisponivel(code, req.transactionId, error.message)
         : null;
+      this._registrarBloqueioSeInconclusivo(req, output);
       return criarResponse(req, { output, error: erroHost(code, error.message) });
     } finally {
       this._seqNativo += 1;
@@ -317,7 +508,19 @@ class DestaxaNativeHostRuntime {
     }
   }
 
+  _exigirFinanceiroConhecido(operacao) {
+    const contexto = this.bridge.getTransacaoContexto();
+    if (contexto
+      && (contexto.financialState ?? contexto.dadosUltimaResposta?.financialState) === 'UNKNOWN') {
+      throw new ErroHost(
+        ERROS_HOST.HOST_RECONCILIATION_PENDING,
+        `${operacao} recusado: transactionId ${contexto.transactionId} permanece financeiramente UNKNOWN`
+      );
+    }
+  }
+
   _exigirSemTransacaoAtiva(operacao) {
+    this._exigirFinanceiroConhecido(operacao);
     if (this._transacaoAtiva()) {
       throw new ErroHost(ERROS_HOST.HOST_TRANSACTION_ACTIVE, `${operacao} recusado: transação Destaxa ativa no host`);
     }
@@ -335,10 +538,11 @@ class DestaxaNativeHostRuntime {
         return this.bridge.load();
       case OPERACOES_HOST.INIT_CLIENT:
         this._exigirSemTransacaoAtiva(req.operation);
-        return this.bridge.iniciarClient(payload.config || {});
+        return this.bridge.iniciarClient(payload.config || {}, { requestId: req.requestId });
       case OPERACOES_HOST.ENABLE_REAL:
         return this.bridge.habilitarTransacaoReal();
       case OPERACOES_HOST.TX_START: {
+        this._exigirSemTransacaoAtiva(req.operation);
         // MRT-31 — evidência: Host recebeu TX_START (futuro; não inicia Host nesta sprint)
         try {
           const { registrarEtapaFluxo, ETAPAS_FLUXO } = require('./destaxaFluxoInstrumentacao');
@@ -355,11 +559,13 @@ class DestaxaNativeHostRuntime {
         return this.bridge.iniciarTransacaoDestaxa(payload.operacao, payload.campos || {}, { transactionId });
       }
       case OPERACOES_HOST.TX_CONTINUE:
+        this._exigirFinanceiroConhecido(req.operation);
         this._validarTransactionId(transactionId);
-        return this.bridge.continuarTransacaoDestaxa(payload.resposta || {});
+        return this.bridge.continuarTransacaoDestaxa(payload.resposta || {}, { transactionId });
       case OPERACOES_HOST.TX_FINALIZE:
+        this._exigirFinanceiroConhecido(req.operation);
         this._validarTransactionId(transactionId);
-        return this.bridge.finalizarTransacaoDestaxa(payload.confirmacao);
+        return this.bridge.finalizarTransacaoDestaxa(payload.confirmacao, { transactionId });
       case OPERACOES_HOST.UNLOAD:
         this._exigirSemTransacaoAtiva(req.operation);
         this.bridge.unload();
@@ -380,7 +586,13 @@ class DestaxaNativeHostRuntime {
    */
   _configurarMock(passos = []) {
     const lista = Array.isArray(passos) ? passos : [];
-    this.bridge.getOrquestradorTransacao().reset();
+    if (!this.bridge.getOrquestradorTransacao().reset()) {
+      return {
+        sucesso: false,
+        codigo: ERROS_HOST.HOST_RECONCILIATION_PENDING,
+        mensagem: 'Driver mock não pode substituir contexto financeiro UNKNOWN'
+      };
+    }
     const mock = this.bridge.configurarDriverTransacaoMock(lista);
     for (const metodo of ['iniciaTransacaoDestaxa', 'continuaTransacaoDestaxa', 'finalizaTransacaoDestaxa']) {
       const original = mock[metodo].bind(mock);
@@ -437,7 +649,8 @@ function iniciarHost() {
     enviar: canal.enviar,
     processType: canal.tipo,
     modoTeste: envAtiva(TEST_MODE_ENV),
-    tripwire: envAtiva(TRIPWIRE_ENV)
+    tripwire: envAtiva(TRIPWIRE_ENV),
+    reconciliationPublicKey: process.env.DESTAXA_RECONCILIATION_PUBLIC_KEY || null
   });
   // MRT-26 — disconnect NÃO chama process.exit(0) se nativa em voo
   if (typeof canal.aoDisconnect === 'function') {
@@ -454,6 +667,7 @@ function iniciarHost() {
     pid: process.pid,
     ppid: typeof process.ppid === 'number' ? process.ppid : null,
     processType: canal.tipo,
+    hostSessionId: runtime.hostSessionId,
     modoTeste: runtime.modoTeste,
     tripwire: runtime.tripwire,
     versions: { node: process.versions.node, electron: process.versions.electron || null, modules: process.versions.modules }

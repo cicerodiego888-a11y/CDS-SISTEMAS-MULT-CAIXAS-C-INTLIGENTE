@@ -1,0 +1,267 @@
+{
+  "sprint": "MRT-47",
+  "titulo": "Reconciliacao financeira segura: persistencia comprovada e liberacao controlada",
+  "classificacaoFinal": "CONCLUIDO_MRT50_5",
+  "resumoExecutivo": "A auditoria MRT-50.5 adaptou o harness MRT-47 ao bootstrap assinado: os fluxos normais agora passam por TefManager, DestaxaNativeHostClient e IPC simulado; os acessos diretos sem bootstrap continuam negativos. O baseline atual do harness antigo reproduziu 10 falhas e 6 aprovacoes, enquanto o JSON anterior declarava 16/16. A auditoria anterior registrava 9 falhas e 7 aprovacoes, mas o log bruto nao foi localizado; os 16 cenarios adaptados passaram em SQLite temporario, sem DLL ou operacao financeira real.",
+  "arquivosAlterados": [
+    "backend/rotas/tef.js",
+    "backend/services/tef/TefManager.js",
+    "backend/services/tef/destaxa/DestaxaNativeHost.js",
+    "backend/services/tef/destaxa/DestaxaNativeHostClient.js",
+    "backend/services/tef/destaxa/destaxaNativeHostProtocolo.js",
+    "backend/services/tef/destaxa/destaxaNativeHostVerifier.js",
+    "backend/services/tef/destaxa/destaxaTransacaoOrquestrador.js",
+    "backend/services/tef/tefPendenciasService.js",
+    "backend/services/tef/tefRepository.js",
+    "tests/tef/mrt-45-protecao-unknown.test.js",
+    "tests/tef/mrt-47-reconciliacao-segura.test.js",
+    "tests/tef/tef-14-pendencias-orfas.test.js",
+    "tests/tef/tef-destaxa-06c-timeout.test.js"
+  ],
+  "solucaoImplementada": {
+    "persistencia": [
+      "_gravar e a fila de escrita propagam erros ao chamador.",
+      "A atualizacao condicional exige status pendente e payload anterior esperado, e valida que exatamente uma linha foi alterada.",
+      "Depois da gravacao, o TefManager relê o registro completo e confere transactionId, operation_id, idempotency_key, fingerprint quando disponiveis, desfecho, financialState, operador, observacao e confirmacao_explicita.",
+      "A linha permanece pendente durante a validacao e a autorizacao do Host; o status conclusivo so e gravado depois da confirmacao de liberacao. O status final e relido antes do commit local."
+    ],
+    "autorizacaoNativeHost": [
+      "O TefManager assina autorizacoes Ed25519 com claims vinculados a identidade original, desfecho persistido, operador, observacao, hostSessionId, fase e identificador/nonce de autorizacao.",
+      "A chave privada permanece no processo do TefManager; o NativeHost valida a assinatura com a chave publica configurada.",
+      "A autorizacao de release e consumida uma vez pelo Host. O commit do marcador local exige nova autorizacao assinada vinculada ao status final persistido.",
+      "RECONCILE rejeita persistida=true e campos livres sem autorizacao valida. Replays, identidade divergente ou sessao divergente sao recusados."
+    ],
+    "bloqueioEFalhas": [
+      "A trava em memoria nao e removida antes da persistencia final e do commit confirmado pelo cliente.",
+      "Erros de escrita/leitura, divergencia do registro, NativeHost indisponivel e falha de IPC propagam erro e preservam a pendencia.",
+      "O cliente bloqueia operacoes transacionais enquanto o marcador de reconciliacao estiver pendente; o orquestrador/Host bloqueia TX_START, TX_CONTINUE e TX_FINALIZE para UNKNOWN.",
+      "A recuperacao do TefManager reconstrui identidade e trava a partir das linhas pendentes persistidas; nao existe retry automatico."
+    ]
+  },
+  "evidenciaPersistencia": {
+    "banco": "SQLite exclusivo em diretorio temporario criado pelos testes; nenhuma conexao ao banco oficial.",
+    "resultadoConclusivo": "O teste 1 grava e relê o registro completo, valida a identidade vinculada e libera somente a identidade reconciliada.",
+    "atualizacaoCondicional": "Status anterior pendente e payload criptografado anterior sao precondicoes; exige exatamente uma linha alterada.",
+    "falhas": [
+      "Erro de gravacao propagado; trava preservada.",
+      "Erro de leitura posterior propagado; status continua pendente.",
+      "Status ou financialState divergente, identidade divergente, operador/observacao divergentes impedem autorizacao.",
+      "Falha de IPC apos a persistencia do resultado mantem a linha pendente e o marcador.",
+      "Duas reconciliacoes concorrentes aceitam apenas uma atualizacao."
+    ]
+  },
+  "evidenciaAutorizacaoNativeHost": {
+    "persistidaTrue": "Chamada direta com persistida=true e sem prova assinada e rejeitada.",
+    "autorizacaoAusente": "RECONCILE sem autorizacao confiavel e rejeitado.",
+    "reutilizacao": "Replay de autorizacao e identidade divergente sao rejeitados.",
+    "offlineOuCrash": "NativeHost indisponivel nao limpa o marcador local.",
+    "limite": "Os testes exercitam o runtime NativeHost e falhas de transporte isoladamente, sem carregar DLL ou iniciar um processo conectado ao terminal."
+  },
+  "testesExecutados": [
+    {
+      "comando": "node tests\\tef\\mrt-47-reconciliacao-segura.test.js",
+      "resultado": "HISTORICO_DIVERGENTE",
+      "resumo": "O JSON antigo declarava 16/16. A auditoria anterior registrava 9 falhas e 7 aprovacoes, sem log bruto localizado no repositorio. O baseline reproduzido antes da adaptacao MRT-50.5 resultou em 10 falhas e 6 aprovacoes."
+    },
+    {
+      "comando": "node tests\\tef\\mrt-45-protecao-unknown.test.js",
+      "resultado": "PASSOU",
+      "resumo": "sucesso=true; UNKNOWN com estado tecnico ERROR bloqueia retry e chamadas adicionais; negacoes conclusivas 03, 04 e 09 permanecem CONFIRMED_DENIED."
+    },
+    {
+      "comando": "node tests\\tef\\tef-14-pendencias-orfas.test.js",
+      "resultado": "PASSOU",
+      "resumo": "11 aprovados, 0 falhas; executado com DB_DIR temporario."
+    },
+    {
+      "comando": "node --check nos arquivos JS alterados",
+      "resultado": "PASSOU",
+      "resumo": "Verificacao de sintaxe concluida com exit code 0."
+    }
+  ],
+  "cenariosMRT47": [
+    {
+      "numero": 1,
+      "cenario": "Gravacao e leitura integral liberam apenas a identidade vinculada",
+      "expectativaOriginal": "Persistir, reler e validar a identidade completa antes de liberar somente a transacao vinculada.",
+      "resultadoBaselineAntesAdaptacao": "FALHOU",
+      "resultado": "PASSOU"
+    },
+    {
+      "numero": 2,
+      "cenario": "Erro de gravacao e propagado e mantem trava",
+      "expectativaOriginal": "Propagar falha de gravacao e preservar pendencia e identidade.",
+      "resultadoBaselineAntesAdaptacao": "FALHOU",
+      "resultado": "PASSOU"
+    },
+    {
+      "numero": 3,
+      "cenario": "Erro de leitura posterior e propagado e mantem trava",
+      "expectativaOriginal": "Propagar falha na releitura e manter status pendente.",
+      "resultadoBaselineAntesAdaptacao": "FALHOU",
+      "resultado": "PASSOU"
+    },
+    {
+      "numero": 4,
+      "cenario": "Status divergente impede emissao de autorizacao",
+      "expectativaOriginal": "Rejeitar status persistido divergente antes de emitir autorizacao ou enviar RECONCILE.",
+      "resultadoBaselineAntesAdaptacao": "FALHOU",
+      "resultado": "PASSOU"
+    },
+    {
+      "numero": 5,
+      "cenario": "financialState divergente impede emissao de autorizacao",
+      "expectativaOriginal": "Rejeitar financialState divergente e manter a trava.",
+      "resultadoBaselineAntesAdaptacao": "PASSOU",
+      "resultado": "PASSOU"
+    },
+    {
+      "numero": 6,
+      "cenario": "Identidade divergente impede emissao de autorizacao",
+      "expectativaOriginal": "Rejeitar identidade divergente e nao emitir autorizacao.",
+      "resultadoBaselineAntesAdaptacao": "PASSOU",
+      "resultado": "PASSOU"
+    },
+    {
+      "numero": 7,
+      "cenario": "Operador ou observacao divergentes impedem emissao de autorizacao",
+      "expectativaOriginal": "Rejeitar usuario/observacao divergentes e manter a trava.",
+      "resultadoBaselineAntesAdaptacao": "PASSOU",
+      "resultado": "PASSOU"
+    },
+    {
+      "numero": 8,
+      "cenario": "persistida=true nao libera chamada direta ao NativeHost",
+      "expectativaOriginal": "Impedir bypass de reconciliacao por chamada direta e pelo marcador persistida=true.",
+      "resultadoBaselineAntesAdaptacao": "FALHOU",
+      "resultado": "PASSOU"
+    },
+    {
+      "numero": 9,
+      "cenario": "NativeHost rejeita reconciliacao sem autorizacao confiavel",
+      "expectativaOriginal": "Rejeitar RECONCILE sem autorizacao assinada confiavel.",
+      "resultadoBaselineAntesAdaptacao": "FALHOU",
+      "resultado": "PASSOU"
+    },
+    {
+      "numero": 10,
+      "cenario": "Autorizacao valida e de uso unico e vinculada a sessao/identidade",
+      "expectativaOriginal": "Aceitar uma autorizacao valida uma unica vez e rejeitar replay ou identidade/sessao divergente.",
+      "resultadoBaselineAntesAdaptacao": "FALHOU",
+      "resultado": "PASSOU"
+    },
+    {
+      "numero": 11,
+      "cenario": "NativeHost offline/crashed nao limpa marcador local",
+      "expectativaOriginal": "Preservar o marcador local se o NativeHost estiver offline ou crashed.",
+      "resultadoBaselineAntesAdaptacao": "PASSOU",
+      "resultado": "PASSOU"
+    },
+    {
+      "numero": 12,
+      "cenario": "Falha de IPC apos persistencia mantem registro pendente e trava",
+      "expectativaOriginal": "Em falha de IPC apos persistencia, manter registro pendente e marcador de reconciliacao.",
+      "resultadoBaselineAntesAdaptacao": "FALHOU",
+      "resultado": "PASSOU"
+    },
+    {
+      "numero": 13,
+      "cenario": "Duas reconciliacoes concorrentes nao sobrescrevem resultado",
+      "expectativaOriginal": "Aceitar no maximo uma atualizacao concorrente sem sobrescrever o desfecho.",
+      "resultadoBaselineAntesAdaptacao": "FALHOU",
+      "resultado": "PASSOU"
+    },
+    {
+      "numero": 14,
+      "cenario": "Reinicializacao do processo principal reconstroi trava e identidade",
+      "expectativaOriginal": "Reconstruir trava e identidade persistida em nova instancia do TefManager.",
+      "resultadoBaselineAntesAdaptacao": "PASSOU",
+      "resultado": "PASSOU"
+    },
+    {
+      "numero": 15,
+      "cenario": "Transacao ainda pendente apos reinicio nao e liberada automaticamente",
+      "expectativaOriginal": "Manter transacao pendente bloqueada, sem liberacao ou retry automatico.",
+      "resultadoBaselineAntesAdaptacao": "PASSOU",
+      "resultado": "PASSOU"
+    },
+    {
+      "numero": 16,
+      "cenario": "TX_START, TX_CONTINUE e TX_FINALIZE bloqueados enquanto UNKNOWN",
+      "expectativaOriginal": "Sob UNKNOWN, bloquear continuacao/finalizacao e nova transacao conforme o bootstrap/estado bloqueado; registrar chamadas ao driver.",
+      "resultadoBaselineAntesAdaptacao": "FALHOU",
+      "resultado": "PASSOU"
+    }
+  ],
+  "auditoriaMRT50_5": {
+    "arquivosAlterados": [
+      "tests/tef/mrt-47-reconciliacao-segura.test.js",
+      "docs/build/mrt-47-reconciliacao-segura-report.json"
+    ],
+    "divergenciaHistorica": {
+      "jsonAnterior": "16/16 aprovados",
+      "registroDescritoNaAuditoriaAnterior": "9 falhas, 7 aprovacoes",
+      "logBrutoLocalizadoNoRepositorio": false,
+      "baselineReproduzidoAntesDaAdaptacao": {
+        "aprovados": 6,
+        "falhas": 10,
+        "cenariosComFalha": [1, 2, 3, 4, 8, 9, 10, 12, 13, 16]
+      },
+      "conclusao": "O baseline atual nao confirma o agregado historico 9/7; a diferenca e mantida explicita, nao atribuida sem prova exclusivamente ao harness. Falhas 1-3, 8-10, 12-13 e 16 decorriam do exercicio sem bootstrap atual; a falha 4 usava status final no mock de releitura e entrava no fluxo de validacao de evidencias."
+    },
+    "resultadoAdaptado": {
+      "aprovados": 16,
+      "falhas": 0,
+      "banco": "SQLite temporario",
+      "fluxoNormal": "TefManager -> DestaxaNativeHostClient real -> IPC em processo -> NativeHost com bootstrap assinado",
+      "acessoDiretoSemBootstrap": "Mantido como teste negativo; TX_START e RECONCILE permanecem bloqueados.",
+      "gateFinanceiro": false,
+      "dllCarregada": false,
+      "operacoesFinanceirasReais": 0,
+      "contadoresIndependentes": {
+        "acessoDiretoSemBootstrap": { "inicia": 0, "continua": 0, "finaliza": 0 },
+        "reconciliacaoSemAutorizacao": { "inicia": 0, "continua": 0, "finaliza": 0 },
+        "identidadePendenteAposReinicio": { "inicia": 0, "continua": 0, "finaliza": 0 },
+        "UNKNOWN": { "inicia": 1, "continua": 0, "finaliza": 0 }
+      }
+    },
+    "regressoes": {
+      "MRT-49": "PASSOU; 20 cenarios, incluindo assinatura invalida, bootstrap ausente/de sessao anterior, UNKNOWN/PENDING e recuperacao.",
+      "MRT-50_IPC": "PASSOU; failures vazio.",
+      "MRT-50.2": "PASSOU; todas as verificacoes reportadas como PASSOU.",
+      "MRT-50.3": "PASSOU; 12/12, gate financeiro OFF, DLL nao carregada e chamadas financeiras reais zero."
+    }
+  },
+  "falhasSimuladas": [
+    "Falha de escrita e de leitura posterior.",
+    "Divergencias de status, financialState, identidade, operador e observacao.",
+    "RECONCILE direto com persistida=true, sem autorizacao e com autorizacao repetida.",
+    "NativeHost offline/crashed, falha de IPC e reconciliacoes concorrentes."
+  ],
+  "reinicializacao": {
+    "processoPrincipal": "PASSOU: nova instancia do TefManager recupera a transacao pendente e sua identidade a partir do SQLite temporario.",
+    "pendenciaSemDesfecho": "PASSOU: continua pendente, bloqueada e sem retry automatico.",
+    "NativeHost": "Falha offline/crashed simulada; nao foi executada reinicializacao de processo conectado a DLL."
+  },
+  "gateFinanceiro": {
+    "ativo": false,
+    "evidencia": "DESTAXA_REAL_TRANSACTION_ENABLED=0 nos testes MRT-47; gateFinanceiro=false nos resultados MRT-45 e MRT-47."
+  },
+  "operacoesReais": {
+    "dllCarregada": false,
+    "initExecutado": false,
+    "operacoesFinanceiras": false,
+    "vPagueConectado": false,
+    "pinPadAcessado": false,
+    "evidencia": "Drivers mockados; nenhuma operacao real foi iniciada. O teste de bloqueio registrou chamadas mockadas inicia=1, continua=0 e finaliza=0 para o caso UNKNOWN."
+  },
+  "identidadesHistoricas": {
+    "MRT-24": "UNKNOWN; nao consultada nem modificada.",
+    "MRT-36": "PENDING/inconclusiva; nao consultada nem modificada.",
+    "MRT-42": "PENDING/inconclusiva; nao consultada nem modificada."
+  },
+  "limitacoes": [
+    "Nenhum teste de DLL real, V$Pague, PinPad ou homologacao fisica foi executado, conforme as restricoes.",
+    "A validacao de restart usa reconstrucao de instancia e SQLite temporario; indisponibilidade/falha do Host e simulada no transporte."
+  ]
+}

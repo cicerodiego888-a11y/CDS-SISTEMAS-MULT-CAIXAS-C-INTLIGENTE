@@ -1,7 +1,7 @@
 {
   "sprint": "MRT-38",
   "title": "Hardening da continuidade interativa Destaxa",
-  "generatedAt": "2026-10-30T22:37:15.567Z",
+  "generatedAt": "2026-11-05T16:11:31.383Z",
   "classificacaoGeral": "CORRIGIDO",
   "identidades": {
     "usadasNosTestes": {
@@ -21,7 +21,7 @@
     "naoAprovar99": "IMPLEMENTADO",
     "semNovoTxStartNaContinuidade": "IMPLEMENTADO",
     "correlacaoIdentidadeCiclo": "IMPLEMENTADO",
-    "adapterContinuarSemTxStart": "IMPLEMENTADO",
+    "adapterContinuarSemPersistencia": "BLOQUEADO",
     "protecaoRespostaDuplicada": "CORRIGIDO",
     "protecaoTimeout": "CORRIGIDO",
     "protecaoSemTty": "CORRIGIDO",
@@ -92,8 +92,14 @@
         "ok": true
       },
       {
-        "nome": "6) Adapter.continuarPagamento monta continuidade sem TX_START",
-        "ok": true
+        "nome": "6) Adapter blocks before driver without durable solicitud 99",
+        "ok": true,
+        "codigo": "TEF_TRANSACAO_NAO_ENCONTRADA",
+        "driverCalls": {
+          "inicia": 0,
+          "continua": 0,
+          "finaliza": 0
+        }
       },
       {
         "nome": "7) resposta duplicada bloqueada",

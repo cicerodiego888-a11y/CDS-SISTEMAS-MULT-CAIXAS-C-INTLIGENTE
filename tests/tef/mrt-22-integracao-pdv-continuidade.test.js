@@ -38,6 +38,28 @@ const { buildCrtInput } = require('../../backend/services/tef/destaxa/destaxaPro
 const { ERROS_HOST } = require('../../backend/services/tef/destaxa/destaxaNativeHostProtocolo');
 const tefContrato = require('../../backend/services/tef/tefContrato');
 
+let despachoMockSeq = 0;
+function persistirRespostaContinuidadeMock({ transactionId, resposta, solicitadaEm }) {
+  const txId = String(transactionId);
+  return {
+    ok: true,
+    duravel: true,
+    confirmada: true,
+    transactionId: txId,
+    solicitadaEm,
+    estadoDespacho: 'INICIADO',
+    despachoId: `mrt22-dispatch-${++despachoMockSeq}`,
+    fingerprint: 'a'.repeat(64),
+    identidade: {
+      transactionId: txId,
+      operation_id: `mrt22-op-${txId}`,
+      idempotency_key: `mrt22-idem-${txId}`,
+      fingerprint: `mrt22-fp-${txId}`
+    },
+    resposta
+  };
+}
+
 function criarBridge(passos, opcoes = {}) {
   const orq = new DestaxaTransacaoOrquestrador({
     driver: new DestaxaTransacaoMockDriver(passos),
@@ -120,7 +142,8 @@ async function main() {
       bridge,
       operacao: OPERACOES.CRT,
       camposEntrada: entrada.campos,
-      transactionId: 't1'
+      transactionId: 't1',
+      persistirRespostaAntesContinue: persistirRespostaContinuidadeMock
     });
     ok('1. DISPLAY com auto-ack', r.sucesso === true && bridge.contadores.continua === 1 && bridge.contadores.inicia === 1);
   }
@@ -136,7 +159,8 @@ async function main() {
       bridge,
       operacao: OPERACOES.CRT,
       camposEntrada: entrada.campos,
-      transactionId: 't2'
+      transactionId: 't2',
+      persistirRespostaAntesContinue: persistirRespostaContinuidadeMock
     });
     assert.strictEqual(start.requerContinuacao, true);
     const v = validarRespostaOperador(start.acao, '1.00');
@@ -145,7 +169,9 @@ async function main() {
       bridge,
       transactionId: 't2',
       respostaOperador: v.resposta,
-      acaoAtual: start.acao
+      acaoAtual: start.acao,
+      solicitadaEm: new Date().toISOString(),
+      persistirRespostaAntesContinue: persistirRespostaContinuidadeMock
     });
     ok('2. COLETA com resposta válida', cont.sucesso === true && bridge.contadores.inicia === 1);
   }
@@ -186,7 +212,8 @@ async function main() {
       bridge,
       operacao: OPERACOES.CRT,
       camposEntrada: entrada.campos,
-      transactionId: 't6'
+      transactionId: 't6',
+      persistirRespostaAntesContinue: persistirRespostaContinuidadeMock
     });
     // após display auto, deve pedir COLETA
     assert.ok(s1.requerContinuacao === true);
@@ -194,14 +221,18 @@ async function main() {
       bridge,
       transactionId: 't6',
       respostaOperador: { informacao: '1.00' },
-      acaoAtual: s1.acao
+      acaoAtual: s1.acao,
+      solicitadaEm: new Date().toISOString(),
+      persistirRespostaAntesContinue: persistirRespostaContinuidadeMock
     });
     assert.ok(c1.requerContinuacao === true);
     const c2 = await continuarCicloCrt({
       bridge,
       transactionId: 't6',
       respostaOperador: { informacao: 'A' },
-      acaoAtual: c1.acao
+      acaoAtual: c1.acao,
+      solicitadaEm: new Date().toISOString(),
+      persistirRespostaAntesContinue: persistirRespostaContinuidadeMock
     });
     ok('6. Múltiplas solicitações consecutivas', c2.sucesso === true && bridge.contadores.inicia === 1
       && bridge.contadores.continua >= 3);
@@ -236,13 +267,16 @@ async function main() {
       bridge,
       operacao: OPERACOES.CRT,
       camposEntrada: entrada.campos,
-      transactionId: 't8'
+      transactionId: 't8',
+      persistirRespostaAntesContinue: persistirRespostaContinuidadeMock
     });
     const c = await continuarCicloCrt({
       bridge,
       transactionId: 't8',
       respostaOperador: { informacao: '1.00' },
-      acaoAtual: s.acao
+      acaoAtual: s.acao,
+      solicitadaEm: new Date().toISOString(),
+      persistirRespostaAntesContinue: persistirRespostaContinuidadeMock
     });
     ok('8. Timeout durante continuidade', c.inconclusivo === true && c.retryAllowed === false
       && c.reconciliacaoObrigatoria === true && bridge.contadores.inicia === 1);

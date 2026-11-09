@@ -129,7 +129,14 @@ async function verificarCrash() {
     { transactionId: 'tx-nova' }
   );
   const reinicioSemReconciliar = await cliente.reiniciar();
-  const reinicioReconciliado = await cliente.reiniciar({ reconciliado: true });
+  const reconciliacao = await cliente.reconciliarTransacao('tx-crash', {
+    financialState: 'CONFIRMED_DENIED',
+    usuario: 'verificador-native-host',
+    observacao: 'resultado de simulação reconciliado explicitamente',
+    confirmacao_explicita: true,
+    persistida: true
+  });
+  const reinicioReconciliado = await cliente.reiniciar();
   const ping = await cliente.enviar(OPERACOES_HOST.PING);
   const encerramento = await cliente.encerrar();
 
@@ -151,6 +158,8 @@ async function verificarCrash() {
       state: estadoAposTx.estado,
       newTransaction: novaTransacao.error?.code || null,
       restartWithoutReconciliation: reinicioSemReconciliar,
+      directReconciliationBlocked: reconciliacao.sucesso === false,
+      explicitReconciliation: reconciliacao,
       restartReconciled: reinicioReconciliado.sucesso,
       pingAfterRestart: ping.output?.pong === true
     },

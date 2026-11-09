@@ -1,0 +1,75 @@
+{
+  "mrt": "MRT-50.74",
+  "classificacao": "REJEITADA",
+  "keepAlive": false,
+  "evidencias": {
+    "confirmacaoUsuario": true,
+    "gateJanela": {
+      "ligadoEm": "2026-11-07T22:23:36.899Z",
+      "desligadoEm": "2026-11-07T22:23:50.143Z",
+      "motivoOff": "pos-ciclo-crt"
+    },
+    "nativeHostPid": 46832,
+    "clientInit": {
+      "sucesso": true,
+      "codigo": "00",
+      "estado": "CLIENT_INITIALIZED",
+      "mensagem": "Client Destaxa inicializado"
+    },
+    "enableReal": {
+      "sucesso": true,
+      "codigo": null,
+      "mensagem": null
+    },
+    "crt": {
+      "transactionId": "mrt74_032a3f9732f75c24",
+      "entrada": "transacao_valor=1.00;transacao_tipo_cartao=Debito;transacao_pagamento=A vista",
+      "passos": [
+        {
+          "tipo": "TX_START",
+          "em": "2026-11-07T22:23:50.142Z",
+          "codigo": "09",
+          "estado": "DENIED",
+          "requerContinuacao": false,
+          "acaoTipo": null,
+          "acaoMensagem": null,
+          "financialState": "CONFIRMED_DENIED",
+          "sucesso": false,
+          "mensagem": "Transação cancelada pelo Client.",
+          "naoExecutada": false
+        }
+      ],
+      "resultadoFinal": {
+        "sucesso": false,
+        "recusada": true,
+        "inconclusivo": false,
+        "bloqueadaPre": false,
+        "codigoDestaxa": "09",
+        "financialState": "CONFIRMED_DENIED",
+        "mensagem": "Transação cancelada pelo Client."
+      }
+    },
+    "pinpad": {
+      "displayVistos": [],
+      "coletas": [],
+      "opcoes": [],
+      "evidenciaInteracao": false
+    },
+    "classificacao": "REJEITADA",
+    "shutdown": {
+      "encerrado": true,
+      "estado": "STOPPED",
+      "forcado": false,
+      "adiado": false
+    },
+    "hashes5073": {
+      "protocolo": "FA0EF0D0430EBE190724D98BCD4D40930017E5D8B6C3AE368F8FC9C607AD551F",
+      "constantes": "0E0A992B13349A62847266D048A1938399EB53E49FF611E44034CB241C751EF2"
+    }
+  },
+  "gateApos": {
+    "process": "0",
+    "habilitado": false
+  },
+  "geradoEm": "2026-11-07T22:23:50.186Z"
+}

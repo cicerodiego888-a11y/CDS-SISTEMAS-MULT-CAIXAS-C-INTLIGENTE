@@ -1,0 +1,32 @@
+[
+    {
+        "name":  "MRT-50.59-INICIALIZACAO.md",
+        "size":  3877,
+        "mtimeUtc":  "2026-11-07T19:29:53.7293343Z",
+        "sha256":  "DFD00A489E38C4889F161A730D668375935E61D9B384E3D59FF9BABD05FEEA54"
+    },
+    {
+        "name":  "mrt-50.59-resultado.json",
+        "size":  1172,
+        "mtimeUtc":  "2026-11-07T19:29:57.7367286Z",
+        "sha256":  "B78354AA3DAD69630916384102D9ED22788106C04AF59DF3DAA7BAC0CD7262E1"
+    },
+    {
+        "name":  "observability.jsonl",
+        "size":  16303,
+        "mtimeUtc":  "2026-11-07T19:29:09.5446060Z",
+        "sha256":  "3534D30682034B6D209E668D1BD7402D50CAE76BCB9972E639DB28BDE5CE5216"
+    },
+    {
+        "name":  "runner-result.json",
+        "size":  8304,
+        "mtimeUtc":  "2026-11-07T19:29:09.5486061Z",
+        "sha256":  "59D31EE9E000B7775C05060D3A917A1C365A2DD2CAC0DDA5CD3E133EE27BA309"
+    },
+    {
+        "name":  "hashes-final.json",
+        "size":  339,
+        "mtimeUtc":  "2026-11-07T19:29:30.9834916Z",
+        "sha256":  "F2B323E62A17F547AED2E479AD12AF7666E8CA55EEEA7CFE5B0E255A0A9F0423"
+    }
+]

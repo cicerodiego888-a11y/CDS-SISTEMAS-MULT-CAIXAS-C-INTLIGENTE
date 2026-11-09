@@ -92,20 +92,14 @@ function lerPayloadTransacao(transacao) {
   if (typeof p === 'object') return p;
   if (typeof p !== 'string') return {};
 
-  // MRT-14 — payload pode estar criptografado (tefRepository) ou JSON puro legado
-  try {
-    const cryptoService = require('../crypto/cryptoService');
-    if (typeof cryptoService.descriptografarObjeto === 'function') {
-      const dec = cryptoService.descriptografarObjeto(p);
-      if (dec && typeof dec === 'object') return dec;
-    }
-  } catch (_) { /* tenta JSON abaixo */ }
-
+  // Payloads JSON puros legados continuam legíveis sem chave.
   try {
     const parsed = JSON.parse(p);
     return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch (_) {
-    return {};
+  } catch {
+    const cryptoService = require('../crypto/cryptoService');
+    const dec = cryptoService.descriptografarObjeto(p);
+    return dec && typeof dec === 'object' ? dec : {};
   }
 }
 

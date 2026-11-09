@@ -1,0 +1,60 @@
+{
+  "mrt": "MRT-50.60",
+  "status": "BLOQUEADA",
+  "geradoEm": "2026-11-07T19:36:00Z",
+  "funcaoConsultaDocumentada": null,
+  "motivoBloqueio": "A documentação oficial Destaxa 1.83 e a tabela PE da DLL listam apenas iniciaClientDestaxa, iniciaTransacaoDestaxa, continuaTransacaoDestaxa e finalizaTransacaoDestaxa. Não há API não financeira de consulta/status/identificação de PinPad.",
+  "apisDocumentadas": [
+    "iniciaClientDestaxa",
+    "iniciaTransacaoDestaxa",
+    "continuaTransacaoDestaxa",
+    "finalizaTransacaoDestaxa"
+  ],
+  "peExports": [
+    "continuaTransacaoDestaxa",
+    "finalizaTransacaoDestaxa",
+    "iniciaClientDestaxa",
+    "iniciaTransacaoDestaxa"
+  ],
+  "candidatosRejeitados": [
+    {
+      "codigo": "CST",
+      "via": "iniciaTransacaoDestaxa",
+      "motivo": "Inicia fluxo transacional (consulta geral), não é status isolado"
+    },
+    {
+      "codigo": "CPF",
+      "via": "iniciaTransacaoDestaxa",
+      "motivo": "Solicita digitação no PinPad dentro de transação"
+    }
+  ],
+  "mecanismo": {
+    "windows": "USB CDC serial Gertec VID_1753 PID_C902",
+    "cds": "não controla hardware diretamente; middleware do provedor",
+    "destaxa": "PinPad aparece no fluxo interativo de continuaTransacaoDestaxa"
+  },
+  "ppc930Windows": {
+    "detectado": true,
+    "portaAtiva": "COM4",
+    "nome": "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+    "status": "OK",
+    "comunicacaoDestaxaComprovada": false
+  },
+  "comunicacaoDllPinpad": {
+    "comprovada": false,
+    "consultaExecutada": false
+  },
+  "dllSha256": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+  "dllHashMatchBaseline": true,
+  "gateFinanceiro": {
+    "process": "0",
+    "user": null,
+    "machine": null,
+    "estado": "OFF"
+  },
+  "transacoes": 0,
+  "iniciaClientRepetido": false,
+  "mrt5059ArtefatosInalterados": true,
+  "autorizacaoTransacao1RealNaoUtilizada": true,
+  "proximaPendencia": "Fluxo transacional controlado autorizado (ex.: CRT R$1,00) ou confirmação Destaxa de API de diagnóstico fora do ciclo transacional"
+}

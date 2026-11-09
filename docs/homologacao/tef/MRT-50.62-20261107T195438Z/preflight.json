@@ -1,0 +1,17 @@
+{
+    "comWindows":  [
+                       "COM4"
+                   ],
+    "pagamentoExecutado":  false,
+    "gate":  {
+                 "machine":  null,
+                 "user":  null,
+                 "process":  "0"
+             },
+    "vspaguePid":  44484,
+    "nativeHostAtivo":  false,
+    "gateOff":  true,
+    "dllMatch":  true,
+    "bancoOficialAberto":  false,
+    "dllSha256":  "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279"
+}

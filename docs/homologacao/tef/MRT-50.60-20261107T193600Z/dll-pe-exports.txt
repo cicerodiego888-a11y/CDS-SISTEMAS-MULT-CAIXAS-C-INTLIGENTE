@@ -1,0 +1,4 @@
+﻿continuaTransacaoDestaxa
+finalizaTransacaoDestaxa
+iniciaClientDestaxa
+iniciaTransacaoDestaxa

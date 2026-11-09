@@ -1,0 +1,19 @@
+{
+  "gravacao": false,
+  "cfg": {
+    "provedor": "destaxa",
+    "ambiente": "homologacao",
+    "empresa_codigo": null,
+    "loja_codigo": null,
+    "terminal_codigo": null,
+    "habilitado": 1
+  },
+  "pin": {
+    "codigo": "GERTEC_PPC930",
+    "porta_com": "COM4",
+    "habilitado": 1,
+    "ativo": 1,
+    "modelo": "PPC930"
+  },
+  "pendencias": []
+}

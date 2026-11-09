@@ -1,0 +1,307 @@
+{
+  "mrt": "MRT-50.65",
+  "classificacao": "RETURNED_SUCCESS",
+  "phase": "nativehost-shutdown",
+  "electron": "22.3.27",
+  "evidencias": {
+    "nativeHostPid": 73852,
+    "requestId": "7d7d1b3e8aa253ad",
+    "dllSha256": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+    "clientReturn": {
+      "success": true,
+      "code": "00",
+      "destaxaCode": "00",
+      "description": "API executada com sucesso.",
+      "message": "Client Destaxa inicializado",
+      "state": "CLIENT_INITIALIZED",
+      "durationMs": 0.414,
+      "dllLoaded": true,
+      "exportsValid": true,
+      "dllLoads": 1,
+      "clientInitialized": true,
+      "clientResultCode": "00",
+      "gateReal": false
+    },
+    "shutdown": {
+      "encerrado": true,
+      "adiado": false,
+      "forcado": false,
+      "estado": "STOPPED",
+      "stoppedConfirmed": true
+    },
+    "ipcEvents": [
+      {
+        "evento": "ipc.message.received",
+        "tipo": null,
+        "requestId": "9b53611216066ea2",
+        "resultCode": null
+      },
+      {
+        "evento": "ipc.response.sent",
+        "tipo": null,
+        "requestId": "9b53611216066ea2",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "ipc.message.received",
+        "requestId": "9b53611216066ea2",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "ipc.response.received",
+        "requestId": "9b53611216066ea2",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "nativa.envio",
+        "requestId": "bf859d3820eb1066",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "ipc.message.sent",
+        "requestId": "bf859d3820eb1066",
+        "resultCode": null
+      },
+      {
+        "evento": "ipc.message.received",
+        "tipo": null,
+        "requestId": "bf859d3820eb1066",
+        "resultCode": null
+      },
+      {
+        "evento": "ipc.response.sent",
+        "tipo": null,
+        "requestId": "bf859d3820eb1066",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "ipc.message.received",
+        "requestId": "bf859d3820eb1066",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "ipc.response.received",
+        "requestId": "bf859d3820eb1066",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "nativa.envio",
+        "requestId": "22be1d3357851f5f",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "ipc.message.sent",
+        "requestId": "22be1d3357851f5f",
+        "resultCode": null
+      },
+      {
+        "evento": "ipc.message.received",
+        "tipo": null,
+        "requestId": "22be1d3357851f5f",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.lifecycle",
+        "tipo": "nativa.inicio",
+        "requestId": "22be1d3357851f5f",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.lifecycle",
+        "tipo": "nativa.fim",
+        "requestId": "22be1d3357851f5f",
+        "resultCode": null
+      },
+      {
+        "evento": "ipc.response.sent",
+        "tipo": null,
+        "requestId": "22be1d3357851f5f",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "ipc.message.received",
+        "requestId": "22be1d3357851f5f",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "ipc.response.received",
+        "requestId": "22be1d3357851f5f",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "nativa.envio",
+        "requestId": "935dc981c3608443",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "ipc.message.sent",
+        "requestId": "935dc981c3608443",
+        "resultCode": null
+      },
+      {
+        "evento": "ipc.message.received",
+        "tipo": null,
+        "requestId": "935dc981c3608443",
+        "resultCode": null
+      },
+      {
+        "evento": "ipc.response.sent",
+        "tipo": null,
+        "requestId": "935dc981c3608443",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "ipc.message.received",
+        "requestId": "935dc981c3608443",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "ipc.response.received",
+        "requestId": "935dc981c3608443",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "nativa.envio",
+        "requestId": "7d7d1b3e8aa253ad",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "ipc.message.sent",
+        "requestId": "7d7d1b3e8aa253ad",
+        "resultCode": null
+      },
+      {
+        "evento": "ipc.message.received",
+        "tipo": null,
+        "requestId": "7d7d1b3e8aa253ad",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.lifecycle",
+        "tipo": "nativa.inicio",
+        "requestId": "7d7d1b3e8aa253ad",
+        "resultCode": null
+      },
+      {
+        "evento": "client.init.start",
+        "tipo": null,
+        "requestId": "7d7d1b3e8aa253ad",
+        "resultCode": null
+      },
+      {
+        "evento": "native.call.enter",
+        "tipo": null,
+        "requestId": "7d7d1b3e8aa253ad",
+        "resultCode": null
+      },
+      {
+        "evento": "native.call.return",
+        "tipo": null,
+        "requestId": "7d7d1b3e8aa253ad",
+        "resultCode": "00"
+      },
+      {
+        "evento": "client.init.result",
+        "tipo": null,
+        "requestId": "7d7d1b3e8aa253ad",
+        "resultCode": null
+      },
+      {
+        "evento": "diagnostic.block",
+        "tipo": null,
+        "requestId": "7d7d1b3e8aa253ad",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.lifecycle",
+        "tipo": "nativa.fim",
+        "requestId": "7d7d1b3e8aa253ad",
+        "resultCode": null
+      },
+      {
+        "evento": "ipc.response.sent",
+        "tipo": null,
+        "requestId": "7d7d1b3e8aa253ad",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "ipc.message.received",
+        "requestId": "7d7d1b3e8aa253ad",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "ipc.response.received",
+        "requestId": "7d7d1b3e8aa253ad",
+        "resultCode": "00"
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "nativa.envio",
+        "requestId": "91672d480f4733cd",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "ipc.message.sent",
+        "requestId": "91672d480f4733cd",
+        "resultCode": null
+      },
+      {
+        "evento": "ipc.message.received",
+        "tipo": null,
+        "requestId": "91672d480f4733cd",
+        "resultCode": null
+      },
+      {
+        "evento": "ipc.response.sent",
+        "tipo": null,
+        "requestId": "91672d480f4733cd",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "ipc.message.received",
+        "requestId": "91672d480f4733cd",
+        "resultCode": null
+      },
+      {
+        "evento": "nativehost.client.lifecycle",
+        "tipo": "ipc.response.received",
+        "requestId": "91672d480f4733cd",
+        "resultCode": null
+      }
+    ]
+  },
+  "success": true,
+  "dll": {
+    "path": "C:\\Program Files\\CDS ERP\\resources\\app.asar.unpacked\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+    "processArch": "x64",
+    "dllArch": "x64",
+    "peMachine": "AMD64",
+    "size": 136782,
+    "sha256": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+    "origin": "configurado",
+    "packageVersion": "1.83",
+    "koffiVersion": "3.3.1"
+  },
+  "initError": null,
+  "geradoEm": "2026-11-07T20:08:38.769Z"
+}

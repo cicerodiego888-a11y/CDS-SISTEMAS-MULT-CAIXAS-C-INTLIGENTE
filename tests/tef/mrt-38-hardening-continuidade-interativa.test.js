@@ -8,11 +8,19 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.resolve(__dirname, '../..');
 const REPORT_PATH = path.join(ROOT, 'docs/build/mrt-38-hardening-continuidade-interativa-report.json');
+const DB_DIR_TESTE = path.join(os.tmpdir(), `cds-mrt38-${process.pid}`);
+process.env.CDS_TEST_ISOLAR_BANCO = '1';
+process.env.DB_DIR = DB_DIR_TESTE;
+process.env.DESTAXA_REAL_TRANSACTION_ENABLED = '0';
+delete process.env.DESTAXA_CONTINUIDADE_PERSISTENTE;
+
+const db = require('../../backend/database');
 
 const {
   REAL_TRANSACTION_ENV,
@@ -61,13 +69,42 @@ const ACAO_OPCAO = Object.freeze({
   timeout: '120',
   chave: 'transacao_tipo_cartao'
 });
+const SOLICITADA_EM = new Date().toISOString();
 
 const SAIDA_99 = 'mensagem=Tipo do Cartao;opcao=Credito|Debito|Voucher;tipo=X;timeout=120;chave=transacao_tipo_cartao';
+let despachoMockSeq = 0;
+
+function persistirRespostaContinuidadeMock({ transactionId, resposta, solicitadaEm }) {
+  const txId = String(transactionId);
+  return {
+    ok: true,
+    duravel: true,
+    confirmada: true,
+    transactionId: txId,
+    solicitadaEm,
+    estadoDespacho: 'INICIADO',
+    despachoId: `mrt38-dispatch-${++despachoMockSeq}`,
+    fingerprint: 'a'.repeat(64),
+    identidade: {
+      transactionId: txId,
+      operation_id: ID_MRT38.operation_id,
+      idempotency_key: ID_MRT38.idempotency_key,
+      fingerprint: ID_MRT38.fingerprint || 'mrt38-fingerprint'
+    },
+    resposta
+  };
+}
 
 function ok(nome, cond, evidencias = {}) {
   if (!cond) throw new Error(`FAIL — ${nome}: ${JSON.stringify(evidencias)}`);
   console.log(`  OK — ${nome}`);
   return { nome, ok: true, ...evidencias };
+}
+
+function whenReady() {
+  return new Promise((resolve, reject) => {
+    db.whenReady((error) => (error ? reject(error) : resolve()));
+  });
 }
 
 function criarBridgeMock(passos, opcoes = {}) {
@@ -128,6 +165,7 @@ function carregarPdvContinuidade() {
 }
 
 async function main() {
+  await whenReady();
   const geradoEm = new Date().toISOString();
   console.log('=== MRT-38 — Hardening continuidade interativa (mocks) ===\n');
 
@@ -163,7 +201,8 @@ async function main() {
       respostaBruta: opcao,
       transactionId: ID_MRT38.transactionId,
       idempotencyKeyInformada: ID_MRT38.idempotency_key,
-      idempotencyKeyPersistida: ID_MRT38.idempotency_key
+      idempotencyKeyPersistida: ID_MRT38.idempotency_key,
+      solicitadaEm: SOLICITADA_EM
     });
     const entrada = buildContinuaInput(v.resposta);
     resultados.push(ok(`2) opção válida literal ${opcao} → informacao=${opcao}`,
@@ -224,7 +263,9 @@ async function main() {
     bridge: bridgeOk,
     transactionId: ID_MRT38.transactionId,
     respostaOperador: { informacao: 'Credito' },
-    acaoAtual: acaoParsed
+    acaoAtual: acaoParsed,
+    solicitadaEm: SOLICITADA_EM,
+    persistirRespostaAntesContinue: persistirRespostaContinuidadeMock
   });
   resultados.push(ok('5) CONTINUE mock Credito: mesma transactionId; zero TX_START extra',
     rCont.sucesso === true
@@ -234,7 +275,7 @@ async function main() {
     && rCont.ciclo?.txStartExecutado === false));
   capacidades.correlacaoIdentidadeCiclo = 'IMPLEMENTADO';
 
-  // --- Adapter.continuarPagamento mock ---
+  // --- Adapter.continuarPagamento requires a durable request ---
   limparRegistrosContinuidade();
   const bridgeAd = criarBridgeMock([
     { fn: 'continua', codigo: '00', saida: '' },
@@ -252,24 +293,30 @@ async function main() {
     acao: ACAO_OPCAO,
     resposta_continuidade: { informacao: 'Credito' }
   });
-  resultados.push(ok('6) Adapter.continuarPagamento monta continuidade sem TX_START',
+  resultados.push(ok('6) Adapter blocks before driver without durable solicitud 99',
     bridgeAd.contadores.inicia === 0
-    && bridgeAd.contadores.continua >= 1
+    && bridgeAd.contadores.continua === 0
     && rAd.retryAllowed === false
-    && (rAd.sucesso === true || rAd.requerContinuacao === true || rAd.codigo != null)));
-  capacidades.adapterContinuarSemTxStart = 'IMPLEMENTADO';
+    && rAd.sucesso !== true
+    && Boolean(rAd.codigo), {
+      codigo: rAd.codigo,
+      driverCalls: bridgeAd.contadores
+    }));
+  capacidades.adapterContinuarSemPersistencia = 'BLOQUEADO';
 
   // --- Duplicata ---
   limparRegistrosContinuidade();
   const d1 = validarContinuidadeCompleta({
     acao: ACAO_OPCAO,
     respostaBruta: 'Credito',
-    transactionId: ID_MRT38.transactionId
+    transactionId: ID_MRT38.transactionId,
+    solicitadaEm: SOLICITADA_EM
   });
   const d2 = validarContinuidadeCompleta({
     acao: ACAO_OPCAO,
     respostaBruta: 'Credito',
-    transactionId: ID_MRT38.transactionId
+    transactionId: ID_MRT38.transactionId,
+    solicitadaEm: SOLICITADA_EM
   });
   resultados.push(ok('7) resposta duplicada bloqueada',
     d1.ok === true && d2.ok === false && d2.codigo === ERROS_CONTINUIDADE.RESPOSTA_DUPLICADA));
@@ -367,6 +414,8 @@ async function main() {
     bridge: bridgeTo,
     transactionId: 'tx-to-cont',
     respostaOperador: { informacao: 'Credito' },
+    solicitadaEm: SOLICITADA_EM,
+    persistirRespostaAntesContinue: persistirRespostaContinuidadeMock,
     acaoAtual: ACAO_OPCAO
   });
   resultados.push(ok('12) timeout/perda em CONTINUE → inconclusivo; sem retry; sem novo TX_START',
@@ -485,4 +534,11 @@ async function main() {
 main().catch((err) => {
   console.error(err);
   process.exitCode = 1;
+}).finally(async () => {
+  if (typeof db.close === 'function') {
+    await new Promise((resolve) => db.close(() => resolve()));
+  }
+  if (path.basename(DB_DIR_TESTE).startsWith('cds-mrt38-')) {
+    fs.rmSync(DB_DIR_TESTE, { recursive: true, force: true });
+  }
 });

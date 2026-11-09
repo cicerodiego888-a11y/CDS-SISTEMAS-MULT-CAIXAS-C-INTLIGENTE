@@ -248,7 +248,8 @@
             idempotency_key: idempotencyKey,
             venda_id: vendaId,
             resposta_continuidade: { displayAck: true },
-            acao
+            acao,
+            solicitadaEm: atual.solicitadaEm || atual.continuidade?.solicitadaEm
           });
           const payload = data && typeof data === 'object' ? data : {};
           payload.idempotency_key = payload.idempotency_key || idempotencyKey;
@@ -293,7 +294,8 @@
           idempotency_key: idempotencyKey,
           venda_id: vendaId,
           resposta_continuidade: coleta.resposta,
-          acao
+          acao,
+          solicitadaEm: atual.solicitadaEm || atual.continuidade?.solicitadaEm
         }));
       } catch (err) {
         return {
@@ -363,6 +365,7 @@
         requerContinuacao: true,
         codigo: '99',
         acao,
+        solicitadaEm: sol.solicitadaEm,
         mensagem: acao.mensagem || sol.mensagem || 'Continuidade TEF pendente — responda as opções',
         transacao_id: Number(id) || id,
         transacaoId: String(id),

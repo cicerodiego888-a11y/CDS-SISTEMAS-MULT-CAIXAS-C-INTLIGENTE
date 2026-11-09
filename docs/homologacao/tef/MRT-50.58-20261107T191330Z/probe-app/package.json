@@ -1,0 +1,5 @@
+{
+  "name": "cds-sistemas",
+  "version": "1.0.3",
+  "main": "../harness-recuperacao.js"
+}

@@ -1,0 +1,202 @@
+{
+  "banco": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+  "modo": "readonly uri mode=ro",
+  "gravacao": false,
+  "consultadoEm": "2026-11-07T20:04:41.402439+00:00",
+  "tabelasTef": [
+    "tef_alertas_fraude",
+    "tef_alertas_monitoramento",
+    "tef_auditoria_acesso",
+    "tef_backups",
+    "tef_conciliacao",
+    "tef_conciliacoes",
+    "tef_configuracao",
+    "tef_configuracoes",
+    "tef_fechamentos",
+    "tef_locks",
+    "tef_logs",
+    "tef_metricas",
+    "tef_notificacoes_falha",
+    "tef_operacoes",
+    "tef_pinpad_catalogo",
+    "tef_pinpads",
+    "tef_servidores",
+    "tef_tokens",
+    "tef_tokens_cartao",
+    "tef_transacoes"
+  ],
+  "colunasTefPinpads": [
+    {
+      "cid": 0,
+      "name": "id",
+      "type": "INTEGER",
+      "notnull": 0,
+      "pk": 1
+    },
+    {
+      "cid": 1,
+      "name": "tef_configuracao_id",
+      "type": "INTEGER",
+      "notnull": 0,
+      "pk": 0
+    },
+    {
+      "cid": 2,
+      "name": "habilitado",
+      "type": "INTEGER",
+      "notnull": 0,
+      "pk": 0
+    },
+    {
+      "cid": 3,
+      "name": "fabricante",
+      "type": "TEXT",
+      "notnull": 0,
+      "pk": 0
+    },
+    {
+      "cid": 4,
+      "name": "modelo",
+      "type": "TEXT",
+      "notnull": 0,
+      "pk": 0
+    },
+    {
+      "cid": 5,
+      "name": "tipo_conexao",
+      "type": "TEXT",
+      "notnull": 0,
+      "pk": 0
+    },
+    {
+      "cid": 6,
+      "name": "porta_com",
+      "type": "TEXT",
+      "notnull": 0,
+      "pk": 0
+    },
+    {
+      "cid": 7,
+      "name": "ip",
+      "type": "TEXT",
+      "notnull": 0,
+      "pk": 0
+    },
+    {
+      "cid": 8,
+      "name": "porta",
+      "type": "INTEGER",
+      "notnull": 0,
+      "pk": 0
+    },
+    {
+      "cid": 9,
+      "name": "serial",
+      "type": "TEXT",
+      "notnull": 0,
+      "pk": 0
+    },
+    {
+      "cid": 10,
+      "name": "status",
+      "type": "TEXT",
+      "notnull": 0,
+      "pk": 0
+    },
+    {
+      "cid": 11,
+      "name": "ultima_conexao",
+      "type": "TEXT",
+      "notnull": 0,
+      "pk": 0
+    },
+    {
+      "cid": 12,
+      "name": "codigo",
+      "type": "TEXT",
+      "notnull": 0,
+      "pk": 0
+    },
+    {
+      "cid": 13,
+      "name": "nome",
+      "type": "TEXT",
+      "notnull": 0,
+      "pk": 0
+    },
+    {
+      "cid": 14,
+      "name": "ativo",
+      "type": "INTEGER",
+      "notnull": 0,
+      "pk": 0
+    }
+  ],
+  "tef_pinpads_count": 1,
+  "tef_pinpads": [
+    {
+      "id": 1,
+      "tef_configuracao_id": 1,
+      "habilitado": 1,
+      "codigo": "GERTEC_PPC930",
+      "nome": "Gertec PPC930",
+      "fabricante": "Gertec",
+      "modelo": "PPC930",
+      "porta_com": "COM4",
+      "tipo_conexao": "usb",
+      "ip": null,
+      "status": "desconhecido",
+      "ultima_conexao": null,
+      "serial": null,
+      "_config": {
+        "id": 1,
+        "habilitado": 1,
+        "provedor": "destaxa",
+        "ambiente": "homologacao",
+        "empresa_codigo": null,
+        "loja_codigo": null,
+        "criado_em": "2026-09-17 20:18:31",
+        "atualizado_em": "2026-11-06 18:30:46"
+      }
+    }
+  ],
+  "tef_configuracao": {
+    "colunas": [
+      "id",
+      "habilitado",
+      "provedor",
+      "ambiente",
+      "timeout",
+      "tentativas",
+      "empresa_codigo",
+      "loja_codigo",
+      "pdv_codigo",
+      "terminal_codigo",
+      "caixa_codigo",
+      "criado_em",
+      "atualizado_em",
+      "tipo_integracao",
+      "sdk_path",
+      "exe_path",
+      "ip_tef",
+      "porta_tef"
+    ],
+    "registros": [
+      {
+        "id": 1,
+        "habilitado": 1,
+        "provedor": "destaxa",
+        "ambiente": "homologacao",
+        "empresa_codigo": null,
+        "loja_codigo": null,
+        "criado_em": "2026-09-17 20:18:31",
+        "atualizado_em": "2026-11-06 18:30:46"
+      }
+    ]
+  },
+  "identificacao": {
+    "totalRegistros": 1,
+    "candidatosDestaxaOuGertec": 1,
+    "criterio": "provedor/config contendo destaxa OU codigo/nome Gertec/PPC"
+  }
+}

@@ -1,0 +1,43 @@
+[
+  {
+    "fonte": "tef-ppc930-05-report.json",
+    "configurada": "COM3",
+    "windowsNaEpoca": "COM3",
+    "nota": "Naquela data Windows e config coincidiam em COM3; CDS não abriu serial para Destaxa"
+  },
+  {
+    "fonte": "tef-ppc930-06-report.json / tef-ppc930-11-report.json",
+    "configurada": "COM3",
+    "quando": "2026-10-29T17:44:17",
+    "nota": "Snapshots com porta_com COM3"
+  },
+  {
+    "fonte": "tef-auditoria-08-report.json",
+    "configurada": "COM3",
+    "quando": "2026-10-29T16:56:10",
+    "nota": "Auditoria com porta_com COM3"
+  },
+  {
+    "fonte": "tef-destaxa-11-config-por-pdv-report.json",
+    "configurada": "COM4",
+    "quando": "2026-10-29T20:47:41",
+    "nota": "Primeiro snapshot acessível pós-mudança apontando COM4"
+  },
+  {
+    "fonte": "mrt-09-auditoria-prontidao-real-report.json",
+    "configurada": "COM4",
+    "quando": "2026-10-30T00:04:19"
+  },
+  {
+    "fonte": "mrt-18-preparacao-homologacao-report.json",
+    "configurada": "COM4",
+    "quando": "2026-10-30T15:23:56",
+    "nota": "Último relatório acessível com porta_com antes desta sprint"
+  },
+  {
+    "fonte": "MRT-50.60 / MRT-50.63 Windows",
+    "windows": "COM4",
+    "status": "OK",
+    "nota": "Dispositivo atual PPC-920/930 CDC USB-to-Serial Port (COM4)"
+  }
+]

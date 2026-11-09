@@ -46,6 +46,9 @@ async function garantirColunasHistorico(db) {
   if (!names.has('origem')) {
     alters.push("ALTER TABLE nfce_notas ADD COLUMN origem TEXT DEFAULT 'venda'");
   }
+  if (!names.has('xml_autorizado')) {
+    alters.push('ALTER TABLE nfce_notas ADD COLUMN xml_autorizado TEXT');
+  }
   for (const sql of alters) {
     try {
       await run(db, sql);
@@ -85,6 +88,7 @@ async function tornarVendaIdOpcional(db) {
         status TEXT DEFAULT 'pendente',
         xml_enviado TEXT,
         xml_retorno TEXT,
+        xml_autorizado TEXT,
         protocolo TEXT,
         recibo TEXT,
         qr_code_url TEXT,
@@ -98,17 +102,20 @@ async function tornarVendaIdOpcional(db) {
     `);
     const names = cols.map((c) => c.name);
     const hasOrigem = names.includes('origem');
+    const hasXmlAutorizado = names.includes('xml_autorizado');
     const hasFf = names.includes('fechamento_fiscal_id');
     const hasFd = names.includes('fechamento_documento_id');
     await run(db, `
       INSERT INTO nfce_notas_ff_mig (
         id, venda_id, numero, serie, chave_acesso, ambiente, status,
-        xml_enviado, xml_retorno, protocolo, recibo, qr_code_url, danfe_html,
+        xml_enviado, xml_retorno, xml_autorizado, protocolo, recibo, qr_code_url, danfe_html,
         fechamento_fiscal_id, fechamento_documento_id, origem, created_at, updated_at
       )
       SELECT
         id, venda_id, numero, serie, chave_acesso, ambiente, status,
-        xml_enviado, xml_retorno, protocolo, recibo, qr_code_url, danfe_html,
+        xml_enviado, xml_retorno,
+        ${hasXmlAutorizado ? 'xml_autorizado' : 'NULL'},
+        protocolo, recibo, qr_code_url, danfe_html,
         ${hasFf ? 'fechamento_fiscal_id' : 'NULL'},
         ${hasFd ? 'fechamento_documento_id' : 'NULL'},
         ${hasOrigem ? "COALESCE(origem, 'venda')" : "'venda'"},
@@ -184,8 +191,22 @@ async function persistirNfceAutorizadaDoFechamento(db, documento, opts = {}) {
   }
 
   const xmlEnviado = doc.xml_enviado || doc.xml_assinado || doc.xml_preparado || null;
-  const xmlRetorno = doc.xml_retorno || doc.xml_autorizado || null;
-  const protocolo = doc.protocolo || null;
+  const xmlRetorno = doc.xml_retorno || null;
+  const { validarXmlProcessado, montarXmlAutorizado } = require('../fiscal/nfceXmlAutorizado');
+  const xmlValidado = doc.xml_autorizado
+    ? validarXmlProcessado(doc.xml_autorizado, {
+      xmlEnviado,
+      chaveAcesso: chave,
+      protocoloPersistido: doc.protocolo || null
+    })
+    : montarXmlAutorizado({
+      xmlEnviado,
+      xmlRetorno,
+      chaveAcesso: chave,
+      protocoloPersistido: doc.protocolo || null
+    });
+  const xmlAutorizado = xmlValidado.xml;
+  const protocolo = xmlValidado.protocolo;
   const recibo = doc.recibo || null;
 
   if (existente) {
@@ -195,6 +216,7 @@ async function persistirNfceAutorizadaDoFechamento(db, documento, opts = {}) {
        SET status = ?,
            xml_enviado = COALESCE(?, xml_enviado),
            xml_retorno = COALESCE(?, xml_retorno),
+           xml_autorizado = COALESCE(?, xml_autorizado),
            protocolo = COALESCE(?, protocolo),
            recibo = COALESCE(?, recibo),
            chave_acesso = COALESCE(?, chave_acesso),
@@ -210,6 +232,7 @@ async function persistirNfceAutorizadaDoFechamento(db, documento, opts = {}) {
         'autorizada',
         xmlEnviado,
         xmlRetorno,
+        xmlAutorizado,
         protocolo,
         recibo,
         chave || null,
@@ -241,10 +264,10 @@ async function persistirNfceAutorizadaDoFechamento(db, documento, opts = {}) {
     db,
     `INSERT INTO nfce_notas (
        venda_id, numero, serie, chave_acesso, ambiente, status,
-       xml_enviado, xml_retorno, protocolo, recibo, qr_code_url, danfe_html,
+       xml_enviado, xml_retorno, xml_autorizado, protocolo, recibo, qr_code_url, danfe_html,
        fechamento_fiscal_id, fechamento_documento_id, origem,
        created_at, updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))`,
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))`,
     [
       null,
       numero,
@@ -254,6 +277,7 @@ async function persistirNfceAutorizadaDoFechamento(db, documento, opts = {}) {
       'autorizada',
       xmlEnviado,
       xmlRetorno,
+      xmlAutorizado,
       protocolo,
       recibo,
       fechamentoId,

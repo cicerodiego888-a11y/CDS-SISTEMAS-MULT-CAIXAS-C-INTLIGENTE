@@ -1,0 +1,238 @@
+{
+  "mrt": "MRT-50.72",
+  "atualizadoPor": "MRT-50.73",
+  "gate": "0",
+  "nativo": false,
+  "dll": false,
+  "tx": false,
+  "encodingContratoCds": "latin1",
+  "producaoAtual": {
+    "tipoDebito": "Debito",
+    "crtDebito": "transacao_valor=1.00;transacao_tipo_cartao=Debito;transacao_pagamento=A vista"
+  },
+  "divergenciasDocumentais": [
+    {
+      "fonte": "docs/06",
+      "valor": "Débito"
+    },
+    {
+      "fonte": "examples + docs/07 + CDS MRT-50.73",
+      "valor": "Debito"
+    }
+  ],
+  "matriz": [
+    {
+      "rotulo": "docs06_accent_historico",
+      "valor": "Débito",
+      "origem": "docs/06 (histórico; rejeitado allowlist CDS pós-50.73)",
+      "representacao": {
+        "rotulo": "docs06_accent_historico",
+        "textoOriginal": "Débito",
+        "codePoints": [
+          {
+            "char": "D",
+            "unicode": "U+0044"
+          },
+          {
+            "char": "é",
+            "unicode": "U+00E9"
+          },
+          {
+            "char": "b",
+            "unicode": "U+0062"
+          },
+          {
+            "char": "i",
+            "unicode": "U+0069"
+          },
+          {
+            "char": "t",
+            "unicode": "U+0074"
+          },
+          {
+            "char": "o",
+            "unicode": "U+006F"
+          }
+        ],
+        "utf8Hex": "44c3a96269746f",
+        "utf8Len": 7,
+        "latin1Hex": "44e96269746f",
+        "latin1Len": 6,
+        "latin1Representavel": true,
+        "utf8DiffereLatin1": true
+      },
+      "serializacaoCrt": {
+        "texto": "transacao_valor=1.00;transacao_tipo_cartao=Débito;transacao_pagamento=A vista",
+        "encodingContratoCds": "latin1",
+        "tamanhoDeclaradoLatin1": 77,
+        "tamanhoUtf8": 78,
+        "bytesLatin1Hex": "7472616e736163616f5f76616c6f723d312e30303b7472616e736163616f5f7469706f5f63617274616f3d44e96269746f3b7472616e736163616f5f706167616d656e746f3d41207669737461",
+        "bytesUtf8Hex": "7472616e736163616f5f76616c6f723d312e30303b7472616e736163616f5f7469706f5f63617274616f3d44c3a96269746f3b7472616e736163616f5f706167616d656e746f3d41207669737461",
+        "bufferComNulLen": 78,
+        "nulTerminal": true
+      }
+    },
+    {
+      "rotulo": "canonico_ascii",
+      "valor": "Debito",
+      "origem": "examples java/dotnet + docs/07 + CDS MRT-50.73",
+      "representacao": {
+        "rotulo": "canonico_ascii",
+        "textoOriginal": "Debito",
+        "codePoints": [
+          {
+            "char": "D",
+            "unicode": "U+0044"
+          },
+          {
+            "char": "e",
+            "unicode": "U+0065"
+          },
+          {
+            "char": "b",
+            "unicode": "U+0062"
+          },
+          {
+            "char": "i",
+            "unicode": "U+0069"
+          },
+          {
+            "char": "t",
+            "unicode": "U+0074"
+          },
+          {
+            "char": "o",
+            "unicode": "U+006F"
+          }
+        ],
+        "utf8Hex": "44656269746f",
+        "utf8Len": 6,
+        "latin1Hex": "44656269746f",
+        "latin1Len": 6,
+        "latin1Representavel": true,
+        "utf8DiffereLatin1": false
+      },
+      "serializacaoCrt": {
+        "texto": "transacao_valor=1.00;transacao_tipo_cartao=Debito;transacao_pagamento=A vista",
+        "encodingContratoCds": "latin1",
+        "tamanhoDeclaradoLatin1": 77,
+        "tamanhoUtf8": 77,
+        "bytesLatin1Hex": "7472616e736163616f5f76616c6f723d312e30303b7472616e736163616f5f7469706f5f63617274616f3d44656269746f3b7472616e736163616f5f706167616d656e746f3d41207669737461",
+        "bytesUtf8Hex": "7472616e736163616f5f76616c6f723d312e30303b7472616e736163616f5f7469706f5f63617274616f3d44656269746f3b7472616e736163616f5f706167616d656e746f3d41207669737461",
+        "bufferComNulLen": 78,
+        "nulTerminal": true
+      }
+    },
+    {
+      "rotulo": "upper_ascii",
+      "valor": "DEBITO",
+      "origem": "variante não documentada como aceita",
+      "representacao": {
+        "rotulo": "upper_ascii",
+        "textoOriginal": "DEBITO",
+        "codePoints": [
+          {
+            "char": "D",
+            "unicode": "U+0044"
+          },
+          {
+            "char": "E",
+            "unicode": "U+0045"
+          },
+          {
+            "char": "B",
+            "unicode": "U+0042"
+          },
+          {
+            "char": "I",
+            "unicode": "U+0049"
+          },
+          {
+            "char": "T",
+            "unicode": "U+0054"
+          },
+          {
+            "char": "O",
+            "unicode": "U+004F"
+          }
+        ],
+        "utf8Hex": "44454249544f",
+        "utf8Len": 6,
+        "latin1Hex": "44454249544f",
+        "latin1Len": 6,
+        "latin1Representavel": true,
+        "utf8DiffereLatin1": false
+      },
+      "serializacaoCrt": {
+        "texto": "transacao_valor=1.00;transacao_tipo_cartao=DEBITO;transacao_pagamento=A vista",
+        "encodingContratoCds": "latin1",
+        "tamanhoDeclaradoLatin1": 77,
+        "tamanhoUtf8": 77,
+        "bytesLatin1Hex": "7472616e736163616f5f76616c6f723d312e30303b7472616e736163616f5f7469706f5f63617274616f3d44454249544f3b7472616e736163616f5f706167616d656e746f3d41207669737461",
+        "bytesUtf8Hex": "7472616e736163616f5f76616c6f723d312e30303b7472616e736163616f5f7469706f5f63617274616f3d44454249544f3b7472616e736163616f5f706167616d656e746f3d41207669737461",
+        "bufferComNulLen": 78,
+        "nulTerminal": true
+      }
+    },
+    {
+      "rotulo": "docs06_credito",
+      "valor": "Credito",
+      "origem": "docs/06 + examples (controle sem acento)",
+      "representacao": {
+        "rotulo": "docs06_credito",
+        "textoOriginal": "Credito",
+        "codePoints": [
+          {
+            "char": "C",
+            "unicode": "U+0043"
+          },
+          {
+            "char": "r",
+            "unicode": "U+0072"
+          },
+          {
+            "char": "e",
+            "unicode": "U+0065"
+          },
+          {
+            "char": "d",
+            "unicode": "U+0064"
+          },
+          {
+            "char": "i",
+            "unicode": "U+0069"
+          },
+          {
+            "char": "t",
+            "unicode": "U+0074"
+          },
+          {
+            "char": "o",
+            "unicode": "U+006F"
+          }
+        ],
+        "utf8Hex": "4372656469746f",
+        "utf8Len": 7,
+        "latin1Hex": "4372656469746f",
+        "latin1Len": 7,
+        "latin1Representavel": true,
+        "utf8DiffereLatin1": false
+      },
+      "serializacaoCrt": {
+        "texto": "transacao_valor=1.00;transacao_tipo_cartao=Credito;transacao_pagamento=A vista",
+        "encodingContratoCds": "latin1",
+        "tamanhoDeclaradoLatin1": 78,
+        "tamanhoUtf8": 78,
+        "bytesLatin1Hex": "7472616e736163616f5f76616c6f723d312e30303b7472616e736163616f5f7469706f5f63617274616f3d4372656469746f3b7472616e736163616f5f706167616d656e746f3d41207669737461",
+        "bytesUtf8Hex": "7472616e736163616f5f76616c6f723d312e30303b7472616e736163616f5f7469706f5f63617274616f3d4372656469746f3b7472616e736163616f5f706167616d656e746f3d41207669737461",
+        "bufferComNulLen": 79,
+        "nulTerminal": true
+      }
+    }
+  ],
+  "testes": {
+    "passou": 8,
+    "falhou": 0
+  },
+  "geradoEm": "2026-11-07T22:17:44.606Z"
+}

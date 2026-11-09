@@ -233,6 +233,20 @@ async function montarPronto(db, valor = 700, data = '2026-09-11', cnpj = '123456
   return get(db, `SELECT * FROM fechamentos_fiscais WHERE id = ?`, [ff.id]);
 }
 
+function chaveDoXmlAssinado(xml) {
+  const match = String(xml || '').match(/<infNFe\b[^>]*\bId=["']NFe(\d{44})["']/i);
+  if (!match) throw new Error('Fixture de transmissão sem chave no infNFe.');
+  return match[1];
+}
+
+function respostaAutorizada(chave, numero = 0) {
+  const protocolo = `123${String(numero).padStart(12, '0').slice(-12)}`;
+  return `<retEnviNFe xmlns="http://www.portalfiscal.inf.br/nfe"><cStat>104</cStat>`
+    + `<xMotivo>Lote processado</xMotivo><protNFe versao="4.00"><infProt>`
+    + `<chNFe>${chave}</chNFe><cStat>100</cStat><xMotivo>Autorizado o uso da NF-e</xMotivo>`
+    + `<nProt>${protocolo}</nProt></infProt></protNFe></retEnviNFe>`;
+}
+
 function depsTx(db, overrides = {}) {
   numeroSeq = 500;
   return {
@@ -245,16 +259,17 @@ function depsTx(db, overrides = {}) {
       xmlAssinado: String(xmlSemAssinatura).replace('</NFe>', '<Signature/></NFe>'),
       qrCodeUrl: 'https://qr'
     }),
-    enviarAutorizacao: overrides.enviarAutorizacao || (async () => ({
+    enviarAutorizacao: overrides.enviarAutorizacao || (async ({ xmlAssinado, numero }) => ({
       success: true,
-      raw: '<cStat>100</cStat><xMotivo>Autorizado</xMotivo><nProt>PROT-OK</nProt>',
+      raw: respostaAutorizada(chaveDoXmlAssinado(xmlAssinado), numero),
       cStat: '100',
-      protocolo: 'PROT-OK'
+      protocolo: `123${String(numero).padStart(12, '0').slice(-12)}`
     })),
-    consultarProtocolo: overrides.consultarProtocolo || (async () => ({
+    consultarProtocolo: overrides.consultarProtocolo || (async ({ chave }) => ({
       success: true,
-      raw: '<cStat>100</cStat><xMotivo>Autorizado</xMotivo><nProt>PROT-REC</nProt>',
-      cStat: '100'
+      raw: respostaAutorizada(chave, 999),
+      cStat: '100',
+      protocolo: '123000000000999'
     })),
     ...overrides
   };
@@ -506,7 +521,7 @@ async function main() {
     await run(
       db,
       `UPDATE fechamentos_fiscais_documentos
-       SET status='EMITINDO', chave_acesso='35260912345678000199550010000005011234567890'
+       SET status='EMITINDO'
        WHERE fechamento_fiscal_id=?`,
       [ff.id]
     );
@@ -620,14 +635,14 @@ async function main() {
     const ff = await montarPronto(db, 700);
     let envios = 0;
     const deps = depsTx(db, {
-      enviarAutorizacao: async () => {
+      enviarAutorizacao: async ({ xmlAssinado, numero }) => {
         envios += 1;
         await new Promise((r) => setTimeout(r, 30));
         return {
           success: true,
-          raw: '<cStat>100</cStat><nProt>P1</nProt><xMotivo>Autorizado</xMotivo>',
+          raw: respostaAutorizada(chaveDoXmlAssinado(xmlAssinado), numero),
           cStat: '100',
-          protocolo: 'P1'
+          protocolo: `123${String(numero).padStart(12, '0').slice(-12)}`
         };
       }
     });

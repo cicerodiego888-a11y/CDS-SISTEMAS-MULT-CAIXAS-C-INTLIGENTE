@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "com4": true,
+  "nh": 0,
+  "vsOk": true,
+  "dllOk": true,
+  "hash5073Ok": true,
+  "protocoloHash": "FA0EF0D0430EBE190724D98BCD4D40930017E5D8B6C3AE368F8FC9C607AD551F",
+  "constantesHash": "0E0A992B13349A62847266D048A1938399EB53E49FF611E44034CB241C751EF2",
+  "crtOk": true,
+  "crtTexto": "transacao_valor=1.00;transacao_tipo_cartao=Debito;transacao_pagamento=A vista",
+  "gateProcess": "0",
+  "gateOff": true,
+  "isolatedLivre": true,
+  "keyOk": true,
+  "profileOk": true,
+  "electronOk": true,
+  "em": "2026-11-07T22:23:35.490Z"
+}

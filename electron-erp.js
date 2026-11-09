@@ -1,3 +1,5 @@
+process.env.CDS_APP_MODULO = 'erp';
+
 const { app } = require('electron');
 const { iniciarAplicacaoElectron } = require('./electron-common');
 
@@ -99,8 +101,6 @@ app.on('browser-window-created', (_event, window) => {
     registrarDiagnostico('BrowserWindow closed', { mensagem: 'janela fechada' });
   });
 });
-
-process.env.CDS_APP_MODULO = process.env.CDS_APP_MODULO || 'erp';
 
 iniciarAplicacaoElectron({
   tituloJanela: 'CDS Sistemas - Plataforma Inteligente de Gestão',

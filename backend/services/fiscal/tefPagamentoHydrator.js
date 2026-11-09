@@ -5,18 +5,9 @@ const cryptoService = require('../crypto/cryptoService');
 function hidratarMetadadosPagamentoTef(pagamentos) {
   return (pagamentos || []).map((pagamento) => {
     let retornoTef = null;
-    let erroPayload = null;
 
     if (pagamento.tef_payload_retorno) {
-      try {
-        retornoTef = cryptoService.descriptografarObjeto(pagamento.tef_payload_retorno);
-      } catch (error) {
-        erroPayload = error.message;
-        console.error(
-          `Não foi possível recuperar o payload TEF ${pagamento.tef_transacao_id}:`,
-          error.message
-        );
-      }
+      retornoTef = cryptoService.descriptografarObjeto(pagamento.tef_payload_retorno);
     }
 
     const tef = pagamento.tef_transacao_id != null
@@ -37,7 +28,6 @@ function hidratarMetadadosPagamentoTef(pagamentos) {
     return {
       ...pagamento,
       tef: tef || undefined,
-      ...(erroPayload ? { tef_payload_error: erroPayload } : {}),
       cnpj_credenciadora: tef?.cnpj_credenciadora || null
     };
   });

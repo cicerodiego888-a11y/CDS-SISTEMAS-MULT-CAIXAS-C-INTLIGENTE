@@ -1,0 +1,59 @@
+{
+  "mrt": "MRT-50.75",
+  "gate": "0",
+  "nativo": false,
+  "tx": false,
+  "alvo": {
+    "host": "app-partner.destaxa.cloud",
+    "porta": 60410,
+    "ipResolvido": "129.148.36.0",
+    "processoClient": "VSPagueClient -h app-partner.destaxa.cloud -p 60410 -atv server -tls"
+  },
+  "dns": {
+    "ok": true,
+    "tipo": "A",
+    "ttlObservado": 51,
+    "bloqueioDnsLocal": false
+  },
+  "tcp": {
+    "Test-NetConnection": true,
+    "pingIcmp": false,
+    "notaPing": "ICMP falhou; não indica bloqueio de 60410 (TCP OK)"
+  },
+  "tls": {
+    "handshakeAutenticado": true,
+    "protocolo": "Tls12",
+    "cipher": "Aes256",
+    "subject": "CN=*.destaxa.cloud",
+    "issuer": "Go Daddy Secure Certificate Authority - G2",
+    "validadeUtc": {
+      "notBefore": "2026-05-14T02:25:51Z",
+      "notAfter": "2026-11-28T02:25:51Z"
+    },
+    "sslPolicyErrors": "None",
+    "chainOfflineRevocationWarnings": true,
+    "certificadosAlterados": false
+  },
+  "proxy": {
+    "ProxyEnable": 0
+  },
+  "firewall": {
+    "perfisAtivos": ["Domain", "Private", "Public"],
+    "evidenciaBloqueio60410": "não comprovada (TCP/TLS estabelecem)"
+  },
+  "padraoAplicacao": {
+    "tlsEstabelece": true,
+    "identificarEnviado": true,
+    "connectionBreakedImediatamenteAposTls": true,
+    "peer": "129.148.36.0",
+    "timeoutAposApproxMs": 10000,
+    "recorrenteNoDia": true
+  },
+  "exclusoesComprovadas": [
+    "Falha DNS",
+    "Impossibilidade de abrir TCP 60410 a partir desta estação",
+    "Certificado TLS expirado ou sslPolicyErrors no probe passivo",
+    "Rejeição de tipoCartao=Debito (MRT-50.74)",
+    "Sequencial inválido como causa do timeout cloud (recuperado antes do Identificar)"
+  ]
+}

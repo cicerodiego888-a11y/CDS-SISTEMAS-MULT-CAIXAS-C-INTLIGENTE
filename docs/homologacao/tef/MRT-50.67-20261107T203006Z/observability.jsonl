@@ -1,0 +1,3 @@
+﻿{"provider":"DESTAXA","evento":"mrt5067.start","registradoEm":"2026-11-07T20:30:07.2138678Z","pagamento":false}
+{"registradoEm":"2026-11-07T20:30:07.2178872Z","mrt67":"13/13","provider":"DESTAXA","tef03":"25/25","tef05":"15/15","evento":"mrt5067.tests"}
+{"financeiro":false,"registradoEm":"2026-11-07T20:30:07.2348684Z","nativo":false,"provider":"DESTAXA","evento":"mrt5067.end","status":"CONCLUÍDA"}

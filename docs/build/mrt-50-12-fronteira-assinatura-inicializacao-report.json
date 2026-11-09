@@ -1,0 +1,91 @@
+{
+  "sprint": "MRT-50.12",
+  "status": "APROVADA_TESTES_ISOLADOS",
+  "arquivosAlterados": [
+    "backend/services/tef/tefReconciliationEvidence.js",
+    "backend/services/tef/TefManager.js",
+    "tests/tef/mrt-50-12-fronteira-assinatura.test.js",
+    "docs/build/MRT-50.12-FRONTEIRA-ASSINATURA-INICIALIZACAO.md",
+    "docs/build/mrt-50-12-fronteira-assinatura-inicializacao-report.json"
+  ],
+  "contratos": {
+    "assinarEvidencia": {
+      "camposExatos": true,
+      "eventos": [
+        "TEF_RECONCILIACAO_LIBERADA",
+        "TEF_RECONCILIACAO_COMMIT_CONFIRMADO"
+      ],
+      "valida": [
+        "identidade completa e transactionId igual a transacao_id",
+        "financialState e resultStatus compatíveis",
+        "timestamp ISO canônico",
+        "RELEASE sem vínculo anterior",
+        "COMMIT vinculado a RELEASE anterior"
+      ]
+    },
+    "assinarAutorizacaoReconciliacao": {
+      "camposExatos": true,
+      "valida": [
+        "identidade completa",
+        "authorizationId e hostSessionId",
+        "phase release ou commit",
+        "recordStatus e resultStatus compatíveis com financialState",
+        "issuedAt na janela existente de cinco minutos"
+      ]
+    },
+    "assinarBootstrapSeguranca": {
+      "camposExatos": true,
+      "valida": [
+        "protocolo, sessão, bootstrapId, revisão e issuedAt",
+        "recoveryComplete e recoveryResult",
+        "blockedIdentities ordenadas, únicas e com contrato exato",
+        "securityState consistente com blockedIdentities",
+        "permit limitado ao contrato transacional existente"
+      ]
+    }
+  },
+  "inicializacao": {
+    "obterChavePublicaNoEscopoDoModulo": false,
+    "falhaCriptografica": "TefManager explicita estado INDISPONIVEL e bloqueia autorizar, continuar, cancelar, reconciliação e bootstrap",
+    "importacaoModuloIndependente": "PASSOU",
+    "cdsCompletoIniciado": false
+  },
+  "compatibilidadeHistorica": {
+    "formatoEvidenciaAlterado": false,
+    "algoritmoEd25519Alterado": false,
+    "contextoHmacAlterado": false,
+    "rotacaoDeChaves": false,
+    "fixturesHistoricasModificadas": false,
+    "releaseCommitHistoricosVerificados": "PASSOU com a chave explícita de teste via regressão MRT-50.11"
+  },
+  "validacao": {
+    "mrt5012": {
+      "comando": "node tests/tef/mrt-50-12-fronteira-assinatura.test.js",
+      "resultado": "PASSOU",
+      "casos": 17,
+      "falhas": 0
+    },
+    "mrt5011": {
+      "comando": "node tests/tef/mrt-50-11-isolamento-criptografico.test.js",
+      "resultado": "PASSOU",
+      "casos": 12,
+      "falhas": 0
+    },
+    "nodeCheckArquivosJavaScriptAlterados": "PASSOU",
+    "gitDiffCheck": "PASSOU"
+  },
+  "segurancaEIsolamento": {
+    "DESTAXA_REAL_TRANSACTION_ENABLED": "0",
+    "TX_START": 0,
+    "TX_CONTINUE": 0,
+    "TX_FINALIZE": 0,
+    "driverFinanceiro": "não invocado",
+    "bancoOficial": "não acessado",
+    "sqliteTeste": "DB_DIR temporário isolado, removido após teste",
+    "nativeHost": "não iniciado",
+    "dllDestaxa": "não carregada",
+    "V$Pague_PinPad_adquirentes_SEFAZ": "não acessados",
+    "preflight": "permanece bloqueado"
+  },
+  "observacao": "APROVAÇÃO limitada à fronteira criptográfica e aos testes isolados. Não representa homologação física nem autorização de operação financeira real."
+}

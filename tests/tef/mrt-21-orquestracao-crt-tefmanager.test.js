@@ -30,6 +30,28 @@ const { ERROS_HOST } = require('../../backend/services/tef/destaxa/destaxaNative
 const { buildCrtInput } = require('../../backend/services/tef/destaxa/destaxaProtocolo');
 const tefContrato = require('../../backend/services/tef/tefContrato');
 
+let despachoMockSeq = 0;
+function persistirRespostaContinuidadeMock({ transactionId, resposta, solicitadaEm }) {
+  const txId = String(transactionId);
+  return {
+    ok: true,
+    duravel: true,
+    confirmada: true,
+    transactionId: txId,
+    solicitadaEm,
+    estadoDespacho: 'INICIADO',
+    despachoId: `mrt21-dispatch-${++despachoMockSeq}`,
+    fingerprint: 'a'.repeat(64),
+    identidade: {
+      transactionId: txId,
+      operation_id: `mrt21-op-${txId}`,
+      idempotency_key: `mrt21-idem-${txId}`,
+      fingerprint: `mrt21-fp-${txId}`
+    },
+    resposta
+  };
+}
+
 function criarBridgeMock(passos, opcoes = {}) {
   const orq = new DestaxaTransacaoOrquestrador({
     driver: new DestaxaTransacaoMockDriver(passos),
@@ -173,7 +195,8 @@ async function main() {
       bridge,
       operacao: OPERACOES.CRT,
       camposEntrada: entrada.campos,
-      transactionId: 'tx-2'
+      transactionId: 'tx-2',
+      persistirRespostaAntesContinue: persistirRespostaContinuidadeMock
     });
     ok('2. CRT com retorno 99 e continuação', r.sucesso === true && r.ciclo.continues === 1 && bridge.contadores.continua === 1);
   }
@@ -192,7 +215,8 @@ async function main() {
       operacao: OPERACOES.CRT,
       camposEntrada: entrada.campos,
       respostasContinuidade: [{ informacao: '1.00' }],
-      transactionId: 'tx-3'
+      transactionId: 'tx-3',
+      persistirRespostaAntesContinue: persistirRespostaContinuidadeMock
     });
     ok('3. Múltiplas continuações', r.sucesso === true && r.ciclo.continues === 3 && bridge.contadores.continua === 3);
   }
@@ -272,7 +296,8 @@ async function main() {
       bridge,
       operacao: OPERACOES.CRT,
       camposEntrada: entrada.campos,
-      transactionId: 'tx-8'
+      transactionId: 'tx-8',
+      persistirRespostaAntesContinue: persistirRespostaContinuidadeMock
     });
     ok('8. Timeout em TX_CONTINUE', r.inconclusivo === true && r.retryAllowed === false
       && bridge.contadores.continua === 1 && bridge.contadores.finaliza === 0);
@@ -290,7 +315,8 @@ async function main() {
       bridge,
       operacao: OPERACOES.CRT,
       camposEntrada: entrada.campos,
-      transactionId: 'tx-9'
+      transactionId: 'tx-9',
+      persistirRespostaAntesContinue: persistirRespostaContinuidadeMock
     });
     ok('9. Host encerrado durante o ciclo', r.codigo === CICLO_ERROS.HOST_ENCERRADO
       && r.retryAllowed === false && r.reconciliacaoObrigatoria === true);

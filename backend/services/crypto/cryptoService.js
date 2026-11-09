@@ -1,38 +1,50 @@
 const crypto = require('crypto');
+const { chaveDesenvolvimentoProibida } = require('../tef/tefReconciliationEvidence');
 
 /**
  * Serviço de criptografia AES-256 para dados sensíveis
  * Conforme PCI-DSS 3.2.1 - Armazenamento seguro de dados sensíveis
  */
 class CryptoService {
-  
+
   constructor() {
-    // Chave de criptografia (em produção, deve vir de variável de ambiente ou HSM)
     this.algorithm = 'aes-256-cbc';
-    this.secretKey = this._getSecretKey();
     this.ivLength = 16;
   }
-  
+
   /**
-   * Obtém a chave de criptografia
-   * Em produção, deve vir de variável de ambiente ou HSM
+   * Obtém a chave explicitamente provisionada pelo processo Electron.
    */
   _getSecretKey() {
     const envKey = process.env.TEF_ENCRYPTION_KEY;
-    if (envKey) {
-      return Buffer.from(envKey, 'hex');
+    if (envKey == null || envKey === '') {
+      const error = new Error('Chave TEF indisponível.');
+      error.code = 'TEF_CRYPTO_KEY_UNAVAILABLE';
+      throw error;
     }
 
-    if (process.env.NODE_ENV === 'production') {
-      console.error('[SEGURANÇA] TEF_ENCRYPTION_KEY não definido em produção.');
-    } else {
-      console.warn('[SEGURANÇA] TEF_ENCRYPTION_KEY não definido — usando chave de desenvolvimento.');
+    if (!/^[0-9a-fA-F]{64}$/.test(envKey)) {
+      const error = new Error('Chave TEF inválida.');
+      error.code = 'TEF_CRYPTO_KEY_INVALID';
+      throw error;
     }
 
-    const defaultKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-    return Buffer.from(defaultKey, 'hex');
+    if (chaveDesenvolvimentoProibida(envKey)) {
+      const error = new Error('Chave TEF inválida.');
+      error.code = 'TEF_CRYPTO_KEY_INVALID';
+      throw error;
+    }
+
+    return Buffer.from(envKey, 'hex');
   }
-  
+
+  _erroCriptografia(error, code, message) {
+    if (error && /^TEF_CRYPTO_KEY_/.test(error.code || '')) return error;
+    const wrapped = new Error(message);
+    wrapped.code = code;
+    return wrapped;
+  }
+
   /**
    * Criptografa dados usando AES-256-CBC
    * @param {string} texto - Texto a ser criptografado
@@ -40,22 +52,25 @@ class CryptoService {
    */
   criptografar(texto) {
     if (!texto) return null;
-    
+
     try {
       const iv = crypto.randomBytes(this.ivLength);
-      const cipher = crypto.createCipheriv(this.algorithm, this.secretKey, iv);
-      
+      const cipher = crypto.createCipheriv(this.algorithm, this._getSecretKey(), iv);
+
       let criptografado = cipher.update(texto, 'utf8', 'hex');
       criptografado += cipher.final('hex');
-      
+
       // Concatenar IV com o texto criptografado
       return iv.toString('hex') + ':' + criptografado;
     } catch (error) {
-      console.error('Erro ao criptografar dados:', error);
-      throw new Error('Falha na criptografia de dados');
+      throw this._erroCriptografia(
+        error,
+        'TEF_CRYPTO_ENCRYPTION_FAILED',
+        'Falha na criptografia de dados.'
+      );
     }
   }
-  
+
   /**
    * Descriptografa dados usando AES-256-CBC
    * @param {string} textoCriptografado - Texto criptografado em formato hex
@@ -63,28 +78,37 @@ class CryptoService {
    */
   descriptografar(textoCriptografado) {
     if (!textoCriptografado) return null;
-    
+
     try {
+      const secretKey = this._getSecretKey();
       const partes = textoCriptografado.split(':');
       if (partes.length !== 2) {
         throw new Error('Formato de criptografia inválido');
       }
-      
+
+      if (!/^[0-9a-fA-F]{32}$/.test(partes[0])
+          || !/^(?:[0-9a-fA-F]{2})+$/.test(partes[1])) {
+        throw new Error('Formato de criptografia inválido');
+      }
+
       const iv = Buffer.from(partes[0], 'hex');
       const criptografado = partes[1];
-      
-      const decipher = crypto.createDecipheriv(this.algorithm, this.secretKey, iv);
-      
+
+      const decipher = crypto.createDecipheriv(this.algorithm, secretKey, iv);
+
       let descriptografado = decipher.update(criptografado, 'hex', 'utf8');
       descriptografado += decipher.final('utf8');
-      
+
       return descriptografado;
     } catch (error) {
-      console.error('Erro ao descriptografar dados:', error);
-      throw new Error('Falha na descriptografia de dados');
+      throw this._erroCriptografia(
+        error,
+        'TEF_CRYPTO_DECRYPTION_FAILED',
+        'Falha na descriptografia de dados.'
+      );
     }
   }
-  
+
   /**
    * Criptografa objeto JSON
    * @param {Object} objeto - Objeto a ser criptografado
@@ -92,16 +116,19 @@ class CryptoService {
    */
   criptografarObjeto(objeto) {
     if (!objeto) return null;
-    
+
     try {
       const texto = JSON.stringify(objeto);
       return this.criptografar(texto);
     } catch (error) {
-      console.error('Erro ao criptografar objeto:', error);
-      throw new Error('Falha na criptografia de objeto');
+      throw this._erroCriptografia(
+        error,
+        'TEF_CRYPTO_ENCRYPTION_FAILED',
+        'Falha na criptografia de objeto.'
+      );
     }
   }
-  
+
   /**
    * Descriptografa objeto JSON
    * @param {string} textoCriptografado - Objeto criptografado em formato hex
@@ -109,16 +136,19 @@ class CryptoService {
    */
   descriptografarObjeto(textoCriptografado) {
     if (!textoCriptografado) return null;
-    
+
     try {
       const texto = this.descriptografar(textoCriptografado);
       return JSON.parse(texto);
     } catch (error) {
-      console.error('Erro ao descriptografar objeto:', error);
-      throw new Error('Falha na descriptografia de objeto');
+      throw this._erroCriptografia(
+        error,
+        'TEF_CRYPTO_DECRYPTION_FAILED',
+        'Falha na descriptografia de objeto.'
+      );
     }
   }
-  
+
   /**
    * Gera hash SHA-256 para integridade de dados
    * @param {string} texto - Texto para gerar hash
@@ -126,10 +156,10 @@ class CryptoService {
    */
   gerarHash(texto) {
     if (!texto) return null;
-    
+
     return crypto.createHash('sha256').update(texto).digest('hex');
   }
-  
+
   /**
    * Gera token aleatório seguro
    * @param {number} tamanho - Tamanho do token em bytes

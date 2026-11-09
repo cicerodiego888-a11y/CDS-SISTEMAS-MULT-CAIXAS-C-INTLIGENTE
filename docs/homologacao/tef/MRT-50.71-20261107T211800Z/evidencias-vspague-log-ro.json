@@ -1,0 +1,37 @@
+{
+  "fonte": "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+  "modo": "somente_leitura",
+  "interacao_vspague": false,
+  "extratos": [
+    {
+      "quando": "2026-11-07 00:22:04",
+      "fato": "Client iniciou identidade Destaxa-LojaACB-TACB0120 após Identificar",
+      "linha": "iniciando Destaxa-LojaACB-TACB0120"
+    },
+    {
+      "quando": "2026-11-07 15:20:46",
+      "fato": "Reinício do Client com mesma identidade Destaxa-LojaACB-TACB0120; modo Background",
+      "linha": "iniciando Destaxa-LojaACB-TACB0120"
+    },
+    {
+      "quando": "2026-11-07 15:20:36",
+      "fato": "Erro transitório de conexão Partner Cloud no Identificar (Problema de conexão!)",
+      "linha": "Problema de conexão!"
+    },
+    {
+      "quando": "2026-11-07 18:01:22",
+      "fato": "Sessão coincidente com MRT-50.69: iniciar aceito (aplicacao CDS Sistemas / versao 1.0.3); executar CRT Débito 1.00 rejeitado pelo Client com retorno 5 e mensagem sobre transacao_tipo_cartao",
+      "linhas_chave": [
+        "<- aplicacao:CDS Sistemas, aplicacaoTela:Destaxa, retorno:1, sequencial:1, servico:iniciar, versao:1.0.3",
+        "<- retorno:1, sequencial:2, servico:executar, transacao:[Cartao Vender], pagamento:A vista, tipoCartao:Débito, valor:1.00",
+        "Tag <transacao_tipo_cartao> inexistente ou seu conteudo é inválido",
+        "-> mensagem:[Tag <transacao_tipo_cartao> inexistente ou seu conteudo e invalido], retorno:5, sequencial:2"
+      ]
+    }
+  ],
+  "observacoes": [
+    "Log não menciona COM4, PinPad ou PPC-930 explicitamente.",
+    "Identidade operacional do Client = Destaxa-LojaACB-TACB0120; isso não prova literais de estabelecimento/loja/terminal para iniciaClientDestaxa.",
+    "Não houve reinício nem interação com V$Pague nesta sprint; apenas leitura do arquivo de log já existente."
+  ]
+}

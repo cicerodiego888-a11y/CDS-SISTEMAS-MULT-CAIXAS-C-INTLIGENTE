@@ -1,0 +1,55 @@
+{
+  "mrt": "MRT-50.61",
+  "status": "CONCLUÍDA",
+  "geradoEm": "2026-11-07T19:43:25Z",
+  "pagamentoExecutado": false,
+  "iniciaTransacaoChamada": false,
+  "continuaTransacaoChamada": false,
+  "finalizaTransacaoChamada": false,
+  "pinpadComandosEnviados": false,
+  "bancoOficialAberto": false,
+  "gateFinanceiro": {
+    "process": "0",
+    "user": null,
+    "machine": null,
+    "estado": "OFF"
+  },
+  "dllSha256": "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+  "dllHashMatch": true,
+  "ppc930": {
+    "porta": "COM4",
+    "nome": "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+    "statusObservado": "OK"
+  },
+  "vspague": {
+    "processo": "VSPagueClient.exe",
+    "pid": 44484,
+    "portas": [60603, 60906],
+    "estado": "LISTENING"
+  },
+  "paymentTerminalManager": "AUSENTE — fluxo real via TefManager → DestaxaRealAdapter → DestaxaHostBridge → NativeHost",
+  "assinaturaOficial": {
+    "funcao": "iniciaTransacaoDestaxa",
+    "operacaoDebitoAutorizada": "CRT",
+    "entradaDocumentadaDebito": "transacao_tipo_cartao=Débito;transacao_pagamento=A vista;transacao_valor=1.00",
+    "entradaAtualCdsBuildCrtInput": "transacao_valor=1.00",
+    "observacao": "Tipo de cartão hoje delegado ao Client via retorno 99; campo Débito é oficial e pode ser incluído na sprint de execução"
+  },
+  "protecoes": {
+    "identificadorUnico": true,
+    "bloqueioSegundaTentativa": true,
+    "operacaoEmAndamento": true,
+    "jsonl": true,
+    "timeoutUnknown": true,
+    "retryFinanceiroAutomatico": false,
+    "encerramentoControladoNativeHost": true
+  },
+  "lacunasParaExecucaoFutura": [
+    "Gate deve ser ligado só com confirmação explícita na sprint de cobrança",
+    "Decidir se entrada CRT incluirá transacao_tipo_cartao=Débito",
+    "Confirmar porta COM persistida (histórico COM3 vs Windows COM4) sem improvisar",
+    "Novo NativeHost/Client na sessão de execução"
+  ],
+  "autorizacao1RealReservadaNaoUtilizada": true,
+  "proximaEtapa": "Aguardar decisão do usuário; não executar cobrança automaticamente"
+}

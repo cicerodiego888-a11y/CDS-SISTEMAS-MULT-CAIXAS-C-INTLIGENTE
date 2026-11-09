@@ -1,0 +1,64 @@
+{
+    "gate":  "0",
+    "expectedSha":  "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+    "dllInstalled":  {
+                         "path":  "C:\\Program Files\\CDS ERP\\resources\\app.asar.unpacked\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+                         "exists":  true,
+                         "sha256":  "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+                         "matchExpected":  true,
+                         "size":  136782,
+                         "lastWriteUtc":  "2026-10-29T18:36:44.0000000Z"
+                     },
+    "dllDesktopCandidates":  [
+                                 {
+                                     "path":  "C:\\Users\\cicer\\Desktop\\DLL DESTAXA\\1_83-20260831T165940Z-1-001\\1_83\\build32\\libdll-integracao-tef.dll",
+                                     "size":  130997,
+                                     "sha256":  "0160FAD1EF27D6EF6FB79AD4899998B36FAFD2FA836BF20039104CF6364C10CE",
+                                     "lastWrite":  "2026-08-31T17:03:20.7775333Z"
+                                 },
+                                 {
+                                     "path":  "C:\\Users\\cicer\\Desktop\\DLL DESTAXA\\1_83-20260831T165940Z-1-001\\1_83\\build64\\libdll-integracao-tef.dll",
+                                     "size":  136782,
+                                     "sha256":  "65972ACA50ED6CA90ECA4B88A73489E57D9BA08A73D4077A4CCC3EBDC4D69279",
+                                     "lastWrite":  "2026-08-31T17:03:20.7462846Z"
+                                 },
+                                 {
+                                     "path":  "C:\\Users\\cicer\\Desktop\\DLL DESTAXA\\1_83-20260831T165940Z-1-001\\1_83\\examples\\dotnet\\bin\\Debug\\net9.0\\libdll-integracao-tef.dll",
+                                     "size":  210501,
+                                     "sha256":  "59BD965685E4A40E8BE56ABFD773B75C0B3AE515D2637D1624377C29D13DC797",
+                                     "lastWrite":  "2026-08-31T17:03:20.0744082Z"
+                                 },
+                                 {
+                                     "path":  "C:\\Users\\cicer\\Desktop\\DLL DESTAXA\\1_83-20260831T165940Z-1-001\\1_83\\examples\\java\\app\\build\\resources\\main\\win32-x86-64\\libdll-integracao-tef.dll",
+                                     "size":  208174,
+                                     "sha256":  "05488602D45E928269D90B2F2E3474CC128FF0C176615AF8890E90C239BC654B",
+                                     "lastWrite":  "2026-08-31T17:03:17.0492982Z"
+                                 },
+                                 {
+                                     "path":  "C:\\Users\\cicer\\Desktop\\DLL DESTAXA\\1_83-20260831T165940Z-1-001\\1_83\\examples\\java\\app\\src\\main\\resources\\win32-x86-64\\32bits\\libdll-integracao-tef.dll",
+                                     "size":  198287,
+                                     "sha256":  "7CADDA3B2ED008993C8134999857A4487D1A946857331CFB8299B9870329575C",
+                                     "lastWrite":  "2026-08-31T17:03:16.6274187Z"
+                                 }
+                             ],
+    "versionHintFiles":  [
+                             null
+                         ],
+    "logDir":  {
+                   "path":  "C:\\CDS-SISTEMAS\\logs\\destaxa",
+                   "exists":  true,
+                   "writeProbeOk":  true,
+                   "arquivos":  [
+                                    {
+                                        "Name":  "destaxa-dll.log",
+                                        "Length":  10461,
+                                        "LastWriteTime":  "\/Date(1794090230166)\/"
+                                    },
+                                    {
+                                        "Name":  "dll-integracao-tef.dat",
+                                        "Length":  12,
+                                        "LastWriteTime":  "\/Date(1794090230054)\/"
+                                    }
+                                ]
+               }
+}

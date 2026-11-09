@@ -1,0 +1,35 @@
+{
+  "mrt": "MRT-50.70",
+  "gravacao": false,
+  "nativa": false,
+  "iniciaClientProjetado": {
+    "versao": "1.0.3",
+    "aplicacao": "CDS Sistemas",
+    "estabelecimento": null,
+    "loja": null,
+    "terminal": null,
+    "texto": "versao=1.0.3;aplicacao=CDS Sistemas;diretorio_trabalho=C:\\CDS-SISTEMAS\\logs\\destaxa;nivel_log=1;nome_arquivo_log=destaxa-dll.log;tam_max_log=10;total_bkp_log=5",
+    "tamanho": 159,
+    "bateComMrt5069": true
+  },
+  "crtProjetado": {
+    "texto": "transacao_valor=1.00;transacao_tipo_cartao=Débito;transacao_pagamento=A vista",
+    "bytesLatin1": 77,
+    "bufferComNul": 78,
+    "accentDebitoHex": "e9",
+    "encoding": "latin1"
+  },
+  "codigo05": {
+    "descricao": "Dados coletados insuficientes ou invalidos",
+    "classificacaoProtocolo": "ERROR",
+    "financialState": "UNKNOWN",
+    "retryAllowed": false,
+    "requerContinuacao": false
+  },
+  "testes": {
+    "tef-destaxa-03": "25 ok",
+    "mrt-28": "aprovada",
+    "tef-destaxa-05": "15 ok",
+    "tef-destaxa-10": "7 ok / 3 falhas (backup fixture ausente)"
+  }
+}
