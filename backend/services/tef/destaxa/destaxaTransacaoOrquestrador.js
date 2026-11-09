@@ -52,6 +52,7 @@ class DestaxaTransacaoOrquestrador {
     this._driver = opcoes.driver || null;
     this._contexto = null;
     this._permitirTransacaoReal = opcoes.permitirTransacaoReal === true;
+    this._exceptionalPermit = opcoes.exceptionalPermit || null;
   }
 
   definirDriver(driver) {
@@ -62,8 +63,23 @@ class DestaxaTransacaoOrquestrador {
     this._permitirTransacaoReal = permitir === true;
   }
 
+  definirPermitExcepcional(permit) {
+    this._exceptionalPermit = permit && permit.exceptional === true ? permit : null;
+  }
+
+  obterPermitExcepcional() {
+    return this._exceptionalPermit || null;
+  }
+
   _driverNativo() {
     return this._driver?.nome === 'native';
+  }
+
+  _gateRealOuExcepcionalOk() {
+    const {
+      transacaoRealEfetivaPermitida
+    } = require('./destaxaAutorizacaoExcepcional');
+    return transacaoRealEfetivaPermitida(this._exceptionalPermit);
   }
 
   _bloqueioGateReal() {
@@ -237,7 +253,7 @@ class DestaxaTransacaoOrquestrador {
     const op = String(operacao || '').trim().toUpperCase();
 
     if (this._driverNativo()) {
-      if (!transacaoRealHabilitada()) {
+      if (!this._gateRealOuExcepcionalOk()) {
         return this._bloqueioGateReal();
       }
       if (!this._permitirTransacaoReal) {
@@ -359,7 +375,7 @@ class DestaxaTransacaoOrquestrador {
       return this._falha(ERROS.DESTAXA_TRANSACAO_REAL_BLOQUEADA, 'Driver ausente', ESTADOS_TRANSACAO.ERROR);
     }
 
-    if (this._driverNativo() && !transacaoRealHabilitada()) {
+    if (this._driverNativo() && !this._gateRealOuExcepcionalOk()) {
       return this._bloqueioGateReal();
     }
 
@@ -398,7 +414,7 @@ class DestaxaTransacaoOrquestrador {
       return this._falha(ERROS.DESTAXA_TRANSACAO_REAL_BLOQUEADA, 'Driver ausente', ESTADOS_TRANSACAO.ERROR);
     }
 
-    if (this._driverNativo() && !transacaoRealHabilitada()) {
+    if (this._driverNativo() && !this._gateRealOuExcepcionalOk()) {
       return this._bloqueioGateReal();
     }
 

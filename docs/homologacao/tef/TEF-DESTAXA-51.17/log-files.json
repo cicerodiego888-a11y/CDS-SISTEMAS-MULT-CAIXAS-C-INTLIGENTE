@@ -1,0 +1,44 @@
+[
+    {
+        "path":  "C:\\CDS-SISTEMAS\\logs\\destaxa\\destaxa-dll.log",
+        "exists":  true,
+        "bytes":  15249,
+        "mtime":  "2026-11-09T15:54:51.7571084-03:00"
+    },
+    {
+        "path":  "C:\\Users\\cicer\\AppData\\Local\\CDS-SISTEMAS\\logs\\destaxa-nativehost-observability.jsonl",
+        "exists":  true,
+        "bytes":  92222,
+        "mtime":  "2026-11-09T15:54:48.2835288-03:00"
+    },
+    {
+        "path":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+        "exists":  true,
+        "bytes":  95216,
+        "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+    },
+    {
+        "path":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\tef\\TEF-DESTAXA-51.03\\emissao-autorizacao.json",
+        "exists":  true,
+        "bytes":  715,
+        "mtime":  "2026-11-09T13:54:25.4805957-03:00"
+    },
+    {
+        "path":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\tef\\TEF-DESTAXA-51.03\\precheck-etapa2.json",
+        "exists":  true,
+        "bytes":  673,
+        "mtime":  "2026-11-09T13:53:58.0321602-03:00"
+    },
+    {
+        "path":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\tef\\TEF-DESTAXA-51.03\\RELATORIO.md",
+        "exists":  true,
+        "bytes":  5610,
+        "mtime":  "2026-11-09T12:52:33.7007585-03:00"
+    },
+    {
+        "path":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\tef\\TEF-DESTAXA-51.03\\STATUS-ETAPA2.md",
+        "exists":  true,
+        "bytes":  2491,
+        "mtime":  "2026-11-09T13:56:24.4695810-03:00"
+    }
+]

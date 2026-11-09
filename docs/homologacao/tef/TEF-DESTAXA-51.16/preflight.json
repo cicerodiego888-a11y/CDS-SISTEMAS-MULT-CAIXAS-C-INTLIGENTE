@@ -1,0 +1,54 @@
+{
+    "em":  "2026-11-09T17:11:58.6414345-03:00",
+    "pid18236":  true,
+    "responding":  true,
+    "title":  "CDS Sistemas - PDV",
+    "cmd":  "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" electron-pdv.js --cds-forcar-local",
+    "mainsCount":  1,
+    "http3001":  200,
+    "listen3001Pid":  [
+                          18236
+                      ],
+    "vspague":  {
+                    "id":  10256,
+                    "responding":  true,
+                    "start":  "2026-11-09T12:24:10.7988719-03:00"
+                },
+    "tcp60906":  [
+                     {
+                         "state":  "Listen",
+                         "pid":  10256
+                     }
+                 ],
+    "com4":  {
+                 "status":  "OK",
+                 "name":  "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+                 "id":  "COM4"
+             },
+    "nativeHostOrRunner":  0,
+    "gate":  {
+                 "process":  "0",
+                 "user":  null,
+                 "machine":  null
+             },
+    "ledgerSha":  "EF6865C4F70B3551B19612A9C6E93B65C0ADCAD2219AE29CBD265BDD7727A5E8",
+    "ledgerMtime":  "2026-11-09T18:54:48.2825289Z",
+    "auths":  [
+                  {
+                      "id":  "5aed71f2b6e19f7f14303f69242c6796",
+                      "status":  "CONSUMED",
+                      "motivo":  "TEF-DESTAXA-51.03-ETAPA2-homologacao-debito-r1"
+                  },
+                  {
+                      "id":  "ba08c88e8e67410f3048bac5e10c4046",
+                      "status":  "CONSUMED",
+                      "motivo":  "TEF-DESTAXA-51.10-homologacao-tx-continue-r1"
+                  }
+              ],
+    "issued":  0,
+    "tx5110":  {
+                   "fin":  "UNKNOWN",
+                   "id":  "tx-5110-2dbbb6922eb64990",
+                   "class":  "UNKNOWN"
+               }
+}

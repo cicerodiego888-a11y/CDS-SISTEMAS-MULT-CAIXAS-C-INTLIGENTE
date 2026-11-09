@@ -1,0 +1,88 @@
+{
+    "revalidadoEmLocal":  "2026-11-09T16:52:00.4508953-03:00",
+    "revalidadoEmUtc":  "2026-11-09T19:52:00.4538923Z",
+    "acao":  "NAO_REINICIADO_INSTANCIA_VALIDA_EXISTENTE",
+    "pdvMainPid":  18236,
+    "httpOk":  true,
+    "httpStatus":  200,
+    "gate":  {
+                 "process":  "0",
+                 "user":  null,
+                 "machine":  null
+             },
+    "ledgerSha":  "EF6865C4F70B3551B19612A9C6E93B65C0ADCAD2219AE29CBD265BDD7727A5E8",
+    "ledgerMtimeUtc":  "2026-11-09T18:54:48.2825289Z",
+    "auths":  [
+                  {
+                      "id":  "5aed71f2b6e19f7f14303f69242c6796",
+                      "status":  "CONSUMED",
+                      "consumidoEm":  "2026-11-09T16:58:43.030Z"
+                  },
+                  {
+                      "id":  "ba08c88e8e67410f3048bac5e10c4046",
+                      "status":  "CONSUMED",
+                      "consumidoEm":  "2026-11-09T18:54:48.281Z"
+                  }
+              ],
+    "tx5110":  {
+                   "id":  "tx-5110-2dbbb6922eb64990",
+                   "classificacao":  "UNKNOWN",
+                   "financialState":  "UNKNOWN"
+               },
+    "hashes":  [
+                   {
+                       "file":  "backend/services/tef/TefManager.js",
+                       "diskSha256":  "96e9a34bd52d0df564092285422ba2a70973100e03d6206eba7cee95ecc889a4",
+                       "manifestSha256":  "e3aa97a693008a6885abe837ced1644338b10ec82a7ec5e4ceb0421987c178df",
+                       "matchManifest":  false
+                   },
+                   {
+                       "file":  "backend/services/tef/tefRepository.js",
+                       "diskSha256":  "d28b6b83784b02f05ffc01a495dca5e9b79115aaff5738bc284f02292dc41234",
+                       "manifestSha256":  "d28b6b83784b02f05ffc01a495dca5e9b79115aaff5738bc284f02292dc41234",
+                       "matchManifest":  true
+                   },
+                   {
+                       "file":  "backend/services/tef/adapters/DestaxaRealAdapter.js",
+                       "diskSha256":  "6aab12121a2e4055935dfb4981b167086fc94ee4a62efb9e3ea59a96f54063fa",
+                       "manifestSha256":  "2b7f97f510f5489901617c8c1393b7adbfad1b18f8a5239d53aff8e12fb9676b",
+                       "matchManifest":  false
+                   },
+                   {
+                       "file":  "backend/services/tef/destaxa/destaxaCrtCicloOrquestracao.js",
+                       "diskSha256":  "ce0bc01693edcb417881b758bd0c76d735c1110a746148608436084e07b3fd62",
+                       "manifestSha256":  "3b4ac04bb1ad7ddf80742b3ad4d2cf21e177ee5fdfdd304acfb0328fae683d6d",
+                       "matchManifest":  false
+                   },
+                   {
+                       "file":  "backend/services/tef/destaxa/destaxaContinuidadePersistencia.js",
+                       "diskSha256":  "0ae061ccf676ccb0a6ce124450240a7a0cea2486c4d937398000b35b82e300f0",
+                       "manifestSha256":  "0ae061ccf676ccb0a6ce124450240a7a0cea2486c4d937398000b35b82e300f0",
+                       "matchManifest":  true
+                   }
+               ],
+    "nativeHostOrRunnerCount":  0,
+    "obsMtime":  "2026-11-09T15:54:48.2835288-03:00",
+    "obsNewAfter1950zApprox":  0,
+    "tefKeyLine":  "[TEF] Chave original recuperada pelo armazenamento protegido: {",
+    "auditDirname":  "  \"dirname\": \"C:\\\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\",",
+    "integridadeHint":  "  \"status\": \"ERRO\",",
+    "staticTefManager":  {
+                             "autorizar":  true,
+                             "criarTransacaoExclusiva":  true,
+                             "preparacaoComPersistencia":  true,
+                             "persistenciaConfirmadaAposInsert":  true,
+                             "autorizarPagamentoAposPrep":  false,
+                             "registrarSolicitacao99":  true
+                         },
+    "vspague":  {
+                    "Id":  10256,
+                    "Responding":  true,
+                    "StartTime":  "\/Date(1794237850798)\/"
+                },
+    "com4":  {
+                 "DeviceID":  "COM4",
+                 "Status":  "OK",
+                 "Name":  "PPC-920/930 CDC USB-to-Serial Port (COM4)"
+             }
+}

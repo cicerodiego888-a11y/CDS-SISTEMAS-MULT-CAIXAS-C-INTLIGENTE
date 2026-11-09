@@ -1,0 +1,19 @@
+{
+    "gateProcess":  "0",
+    "gateUser":  null,
+    "gateMachine":  null,
+    "ledgerSha":  "EF6865C4F70B3551B19612A9C6E93B65C0ADCAD2219AE29CBD265BDD7727A5E8",
+    "ledgerMtimeUtc":  "2026-11-09T18:54:48.2825289Z",
+    "ledgerLen":  1364,
+    "auths":  [
+                  "5aed71f2b6e19f7f14303f69242c6796=CONSUMED",
+                  "ba08c88e8e67410f3048bac5e10c4046=CONSUMED"
+              ],
+    "issuedCount":  0,
+    "tx5110":  "tx-5110-2dbbb6922eb64990",
+    "class5110":  "UNKNOWN",
+    "fin5110":  "UNKNOWN",
+    "obsMtime":  "2026-11-09T15:54:48.2835288-03:00",
+    "obsSize":  92222,
+    "established60906":  0
+}

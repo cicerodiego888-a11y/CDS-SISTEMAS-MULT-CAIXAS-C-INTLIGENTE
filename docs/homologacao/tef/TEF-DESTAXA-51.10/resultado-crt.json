@@ -1,0 +1,93 @@
+{
+  "sprint": "TEF-DESTAXA-51.10",
+  "inicioIso": "2026-11-09T18:54:44.788Z",
+  "fimIso": "2026-11-09T18:54:51.758Z",
+  "durationMs": 6904.4071,
+  "authorizationId": "ba08c88e8e67410f3048bac5e10c4046",
+  "transactionId": "tx-5110-2dbbb6922eb64990",
+  "idempotencyKey": "idem-5110-35226e1d49f415d8",
+  "gate": {
+    "raw": "0",
+    "efetivo": "0"
+  },
+  "execucaoNativa": "in-process",
+  "resposta": {
+    "sucesso": false,
+    "status": "pendente",
+    "nsu": null,
+    "autorizacao": null,
+    "cnpj_credenciadora": null,
+    "provedor": "DESTAXA",
+    "adquirente": null,
+    "bandeira": null,
+    "comprovanteCliente": null,
+    "comprovanteLoja": null,
+    "transacaoId": null,
+    "codigo": "TEF_TRANSACAO_NAO_ENCONTRADA",
+    "mensagem": "Solicitação 99 não confirmada em armazenamento durável",
+    "payloadRetorno": {
+      "operacao": "CRT",
+      "codigoDestaxa": null,
+      "estado": null,
+      "acao": null,
+      "parametros": {}
+    },
+    "modo": "real",
+    "financialState": "UNKNOWN",
+    "protocolState": null,
+    "retryAllowed": false,
+    "retryReason": null,
+    "transactionAttempted": true,
+    "requerContinuacao": false,
+    "requerFinalizacao": false,
+    "acao": null,
+    "clientInitializationCode": "00",
+    "transactionCode": null,
+    "inconclusivo": true,
+    "reconciliacaoObrigatoria": true,
+    "cicloCrt": {
+      "passos": [
+        {
+          "passo": "TX_START",
+          "em": "2026-11-09T18:54:48.305Z",
+          "operacao": "CRT",
+          "transactionId": "tx-5110-2dbbb6922eb64990"
+        },
+        {
+          "passo": "TX_START_RESULT",
+          "em": "2026-11-09T18:54:51.720Z",
+          "codigoDestaxa": "99",
+          "requerContinuacao": true,
+          "sucesso": false
+        }
+      ],
+      "txStartExecutado": true,
+      "continues": 0,
+      "finalizado": false,
+      "soContinuidade": true
+    },
+    "vinculoVendaPdv": {
+      "venda_id": null,
+      "pdv_codigo": null,
+      "caixa_codigo": null,
+      "transactionId": "tx-5110-2dbbb6922eb64990"
+    }
+  },
+  "erro": null,
+  "authApos": {
+    "authorizationId": "ba08c88e8e67410f3048bac5e10c4046",
+    "status": "CONSUMED",
+    "valorCentavos": 100,
+    "tipoPermitido": [
+      "cartao_debito",
+      "debito"
+    ],
+    "formaPagamento": "A vista",
+    "operacao": "CRT",
+    "emitidoEm": "2026-11-09T18:47:09.473Z",
+    "expiresAt": "2026-11-09T19:17:09.473Z",
+    "consumidoEm": "2026-11-09T18:54:48.281Z",
+    "motivo": "TEF-DESTAXA-51.10-homologacao-tx-continue-r1"
+  },
+  "classificacao": "UNKNOWN"
+}

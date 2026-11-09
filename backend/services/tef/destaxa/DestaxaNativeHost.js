@@ -540,7 +540,9 @@ class DestaxaNativeHostRuntime {
         this._exigirSemTransacaoAtiva(req.operation);
         return this.bridge.iniciarClient(payload.config || {}, { requestId: req.requestId });
       case OPERACOES_HOST.ENABLE_REAL:
-        return this.bridge.habilitarTransacaoReal();
+        return this.bridge.habilitarTransacaoReal({
+          exceptionalPermit: payload?.exceptionalPermit || null
+        });
       case OPERACOES_HOST.TX_START: {
         this._exigirSemTransacaoAtiva(req.operation);
         // MRT-31 — evidência: Host recebeu TX_START (futuro; não inicia Host nesta sprint)

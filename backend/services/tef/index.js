@@ -9,12 +9,17 @@ async function iniciarPagamento(dados) {
   const resultado = await tefManager.autorizar(dados);
 
   if (resultado.requerContinuacao === true) {
+    // TEF-DESTAXA-51.05 — preservar solicitadaEm/idempotency para POST /tef/continuar
     return {
       ...tefContrato.paraRespostaApi(resultado, resultado.transacao_id || resultado.transacaoId),
       requerContinuacao: true,
       acao: resultado.acao || null,
+      solicitadaEm: resultado.solicitadaEm || null,
       cicloCrt: resultado.cicloCrt || null,
       vinculoVendaPdv: resultado.vinculoVendaPdv || null,
+      idempotency_key: resultado.idempotency_key || null,
+      inconclusivo: resultado.inconclusivo === true,
+      reconciliacaoObrigatoria: resultado.reconciliacaoObrigatoria === true,
       retryAllowed: false
     };
   }

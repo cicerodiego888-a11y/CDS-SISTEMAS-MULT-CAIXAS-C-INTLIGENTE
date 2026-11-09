@@ -1,0 +1,50 @@
+{
+    "gateProcess":  "0",
+    "gateUser":  null,
+    "gateMachine":  null,
+    "ledgerSha":  "EF6865C4F70B3551B19612A9C6E93B65C0ADCAD2219AE29CBD265BDD7727A5E8",
+    "ledgerMtime":  "2026-11-09T18:54:48.2825289Z",
+    "ledgerLen":  1364,
+    "authSummary":  "5aed71f2=CONSUMED; ba08c88e=CONSUMED",
+    "tx5110":  "tx-5110-2dbbb6922eb64990",
+    "class5110":  "UNKNOWN",
+    "fin5110":  "UNKNOWN",
+    "pendenteInfo":  "NÃO VERIFICÁVEL (sqlite3 CLI ausente; não abrir DB via require nesta etapa)",
+    "hashes":  [
+                   {
+                       "file":  "backend\\services\\tef\\TefManager.js",
+                       "sha256":  "96E9A34BD52D0DF564092285422BA2A70973100E03D6206EBA7CEE95ECC889A4",
+                       "vs513":  "IGUAL"
+                   },
+                   {
+                       "file":  "backend\\services\\tef\\destaxa\\destaxaCrtCicloOrquestracao.js",
+                       "sha256":  "CE0BC01693EDCB417881B758BD0C76D735C1110A746148608436084E07B3FD62",
+                       "vs513":  "IGUAL"
+                   },
+                   {
+                       "file":  "backend\\services\\tef\\adapters\\DestaxaRealAdapter.js",
+                       "sha256":  "6AAB12121A2E4055935DFB4981B167086FC94EE4A62EFB9E3EA59A96F54063FA",
+                       "vs513":  "IGUAL"
+                   },
+                   {
+                       "file":  "backend\\services\\tef\\destaxa\\destaxaContinuidadePersistencia.js",
+                       "sha256":  "0AE061CCF676CCB0A6CE124450240A7A0CEA2486C4D937398000B35B82E300F0",
+                       "vs513":  "IGUAL"
+                   },
+                   {
+                       "file":  "backend\\services\\tef\\tefRepository.js",
+                       "sha256":  "D28B6B83784B02F05FFC01A495DCA5E9B79115AAFF5738BC284F02292DC41234",
+                       "vs513":  "IGUAL"
+                   },
+                   {
+                       "file":  "backend\\services\\tef\\destaxa\\destaxaContinuidadeEstados.js",
+                       "sha256":  "CF4060F8792C0289EB58FC49E6B5B15182DD4D487DAC85777168AE7D2FD25437",
+                       "vs513":  "SEM_REF_51.13"
+                   },
+                   {
+                       "file":  "electron-manifest.json",
+                       "sha256":  "9E5ED43CCEA5C0AD510AB12A92230E93377768958829DB5B851BCD8AAAF85DDB",
+                       "vs513":  "SEM_REF_51.13"
+                   }
+               ]
+}

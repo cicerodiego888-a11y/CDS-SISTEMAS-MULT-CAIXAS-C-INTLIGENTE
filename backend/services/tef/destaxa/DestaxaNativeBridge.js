@@ -508,18 +508,43 @@ class DestaxaNativeBridge {
   }
 
   /**
-   * Instala o driver nativo no orquestrador. Recusa sem o gate financeiro
-   * (DESTAXA_REAL_TRANSACTION_ENABLED=1) ou sem Client inicializado.
+   * Instala o driver nativo no orquestrador.
+   * Aceita DESTAXA_REAL_TRANSACTION_ENABLED=1 OU permit excepcional one-shot
+   * já consumido (TEF-DESTAXA-51.02). Não liga o env global.
    * Não chama nenhuma função transacional da DLL.
    */
-  habilitarTransacaoReal() {
-    // MRT-50.67 — somente literal "1"; valores ambíguos permanecem OFF
-    if (!transacaoRealHabilitada()) {
+  habilitarTransacaoReal(opcoes = {}) {
+    const {
+      transacaoRealEfetivaPermitida,
+      validarPermitExcepcional
+    } = require('./destaxaAutorizacaoExcepcional');
+    const exceptionalPermit = opcoes && opcoes.exceptionalPermit
+      ? opcoes.exceptionalPermit
+      : null;
+
+    // MRT-50.67 / 51.02 — env literal "1" OU capability one-shot consumida
+    if (!transacaoRealEfetivaPermitida(exceptionalPermit)) {
       return {
         sucesso: false,
         codigo: ERROS.DESTAXA_REAL_TRANSACTION_DISABLED,
         mensagem: `Transação Destaxa real desabilitada: ${REAL_TRANSACTION_ENV} != 1`
       };
+    }
+    if (exceptionalPermit) {
+      const check = validarPermitExcepcional(exceptionalPermit, {
+        valorCentavos: exceptionalPermit.valorCentavos,
+        tipoPdv: Array.isArray(exceptionalPermit.tipoPermitido)
+          ? exceptionalPermit.tipoPermitido[0]
+          : null,
+        operacao: exceptionalPermit.operacao
+      });
+      if (!check.ok) {
+        return {
+          sucesso: false,
+          codigo: check.codigo || ERROS.DESTAXA_REAL_TRANSACTION_DISABLED,
+          mensagem: check.mensagem || 'Permit excepcional inválido'
+        };
+      }
     }
     if (!this._dllLoaded || !this._exportsValid || !this._clientInitialized) {
       return {
@@ -531,8 +556,13 @@ class DestaxaNativeBridge {
     this._mockTransacaoDriver = null;
     this._orquestrador.definirDriver(criarDriverTransacaoNativo(this._nativo.exports));
     this._orquestrador.definirPermissaoTransacaoReal(true);
-    destaxaLogger.registrar('transacao.real.driver.habilitado', { dllPath: this._dllPath });
-    return { sucesso: true };
+    this._orquestrador.definirPermitExcepcional(exceptionalPermit);
+    destaxaLogger.registrar('transacao.real.driver.habilitado', {
+      dllPath: this._dllPath,
+      exceptional: Boolean(exceptionalPermit),
+      authorizationId: exceptionalPermit?.authorizationId || null
+    });
+    return { sucesso: true, exceptional: Boolean(exceptionalPermit) };
   }
 
   iniciarTransacaoDestaxa(operacao, camposEntrada = {}, opcoes = {}) {
@@ -549,6 +579,10 @@ class DestaxaNativeBridge {
 
   unload() {
     this.limparTransacaoDestaxa();
+    try {
+      this._orquestrador.definirPermitExcepcional(null);
+      this._orquestrador.definirPermissaoTransacaoReal(false);
+    } catch (_) { /* ignore */ }
     if (this._nativo && typeof this._nativo.unload === 'function') {
       this._nativo.unload();
     }

@@ -1,0 +1,432 @@
+{
+  "coletadoEm": "2026-11-09T20:17:20.141Z",
+  "dbPath": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+  "dbSha256": "c5726b14bbd0d1b9c7c3cd3b8c8de39d7b8b169f7e36c48ff4bcfc73e9710517",
+  "schemaSql": "CREATE TABLE tef_transacoes (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        venda_id INTEGER,\n        tipo TEXT NOT NULL,\n        valor DECIMAL(10,2) NOT NULL,\n        parcelas INTEGER DEFAULT 1,\n        status TEXT DEFAULT 'pendente',\n        provedor TEXT DEFAULT 'SITEF',\n        adquirente TEXT,\n        bandeira TEXT,\n        nsu TEXT,\n        autorizacao TEXT,\n        codigo_transacao TEXT,\n        codigo_resposta TEXT,\n        mensagem_resposta TEXT,\n        nfce_numero INTEGER,\n        nfce_chave TEXT,\n        idempotency_key TEXT UNIQUE,\n        comprovante_cliente TEXT,\n        comprovante_estabelecimento TEXT,\n        payload_retorno TEXT,\n        data_hora DATETIME DEFAULT CURRENT_TIMESTAMP,\n        criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,\n        atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP,\n        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP\n      , reversao_executada INTEGER DEFAULT 0, reversao_motivo TEXT, reversao_data DATETIME)",
+  "colunas": [
+    {
+      "cid": 0,
+      "name": "id",
+      "type": "INTEGER",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 1
+    },
+    {
+      "cid": 1,
+      "name": "venda_id",
+      "type": "INTEGER",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 2,
+      "name": "tipo",
+      "type": "TEXT",
+      "notnull": 1,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 3,
+      "name": "valor",
+      "type": "DECIMAL(10,2)",
+      "notnull": 1,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 4,
+      "name": "parcelas",
+      "type": "INTEGER",
+      "notnull": 0,
+      "dflt_value": "1",
+      "pk": 0
+    },
+    {
+      "cid": 5,
+      "name": "status",
+      "type": "TEXT",
+      "notnull": 0,
+      "dflt_value": "'pendente'",
+      "pk": 0
+    },
+    {
+      "cid": 6,
+      "name": "provedor",
+      "type": "TEXT",
+      "notnull": 0,
+      "dflt_value": "'SITEF'",
+      "pk": 0
+    },
+    {
+      "cid": 7,
+      "name": "adquirente",
+      "type": "TEXT",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 8,
+      "name": "bandeira",
+      "type": "TEXT",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 9,
+      "name": "nsu",
+      "type": "TEXT",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 10,
+      "name": "autorizacao",
+      "type": "TEXT",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 11,
+      "name": "codigo_transacao",
+      "type": "TEXT",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 12,
+      "name": "codigo_resposta",
+      "type": "TEXT",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 13,
+      "name": "mensagem_resposta",
+      "type": "TEXT",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 14,
+      "name": "nfce_numero",
+      "type": "INTEGER",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 15,
+      "name": "nfce_chave",
+      "type": "TEXT",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 16,
+      "name": "idempotency_key",
+      "type": "TEXT",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 17,
+      "name": "comprovante_cliente",
+      "type": "TEXT",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 18,
+      "name": "comprovante_estabelecimento",
+      "type": "TEXT",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 19,
+      "name": "payload_retorno",
+      "type": "TEXT",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 20,
+      "name": "data_hora",
+      "type": "DATETIME",
+      "notnull": 0,
+      "dflt_value": "CURRENT_TIMESTAMP",
+      "pk": 0
+    },
+    {
+      "cid": 21,
+      "name": "criado_em",
+      "type": "DATETIME",
+      "notnull": 0,
+      "dflt_value": "CURRENT_TIMESTAMP",
+      "pk": 0
+    },
+    {
+      "cid": 22,
+      "name": "atualizado_em",
+      "type": "DATETIME",
+      "notnull": 0,
+      "dflt_value": "CURRENT_TIMESTAMP",
+      "pk": 0
+    },
+    {
+      "cid": 23,
+      "name": "created_at",
+      "type": "DATETIME",
+      "notnull": 0,
+      "dflt_value": "CURRENT_TIMESTAMP",
+      "pk": 0
+    },
+    {
+      "cid": 24,
+      "name": "updated_at",
+      "type": "DATETIME",
+      "notnull": 0,
+      "dflt_value": "CURRENT_TIMESTAMP",
+      "pk": 0
+    },
+    {
+      "cid": 25,
+      "name": "reversao_executada",
+      "type": "INTEGER",
+      "notnull": 0,
+      "dflt_value": "0",
+      "pk": 0
+    },
+    {
+      "cid": 26,
+      "name": "reversao_motivo",
+      "type": "TEXT",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 27,
+      "name": "reversao_data",
+      "type": "DATETIME",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    }
+  ],
+  "tabelasTef": [
+    {
+      "name": "tef_transacoes"
+    },
+    {
+      "name": "tef_logs"
+    },
+    {
+      "name": "tef_configuracoes"
+    },
+    {
+      "name": "tef_tokens"
+    },
+    {
+      "name": "tef_locks"
+    },
+    {
+      "name": "tef_auditoria_acesso"
+    },
+    {
+      "name": "tef_alertas_fraude"
+    },
+    {
+      "name": "tef_notificacoes_falha"
+    },
+    {
+      "name": "tef_tokens_cartao"
+    },
+    {
+      "name": "tef_conciliacao"
+    },
+    {
+      "name": "tef_backups"
+    },
+    {
+      "name": "tef_metricas"
+    },
+    {
+      "name": "tef_alertas_monitoramento"
+    },
+    {
+      "name": "tef_configuracao"
+    },
+    {
+      "name": "tef_servidores"
+    },
+    {
+      "name": "tef_pinpads"
+    },
+    {
+      "name": "tef_operacoes"
+    },
+    {
+      "name": "tef_conciliacoes"
+    },
+    {
+      "name": "tef_fechamentos"
+    },
+    {
+      "name": "tef_pinpad_catalogo"
+    }
+  ],
+  "linha": {
+    "id": 1,
+    "venda_id": null,
+    "tipo": "cartao_debito",
+    "valor": 1,
+    "parcelas": 1,
+    "status": "pendente",
+    "provedor": "destaxa",
+    "adquirente": null,
+    "bandeira": null,
+    "nsu": null,
+    "autorizacao": null,
+    "codigo_transacao": "1",
+    "codigo_resposta": null,
+    "mensagem_resposta": null,
+    "nfce_numero": null,
+    "nfce_chave": null,
+    "idempotency_key": "tef-fp-90b41858f0aff5d47c573e5c3d86bc62",
+    "comprovante_cliente": null,
+    "comprovante_estabelecimento": null,
+    "payload_retorno": {
+      "type": "string",
+      "length": 3073,
+      "head": "346a964419080a03bdab3a59c55a1a78:d1ba41dbb72277f80cce64906f577b72e7a4fb478780a05"
+    },
+    "data_hora": "2026-11-09 16:58:43",
+    "criado_em": "2026-11-09 16:58:43",
+    "atualizado_em": "2026-11-09 16:59:12",
+    "created_at": "2026-11-09 16:58:43",
+    "updated_at": "2026-11-09 16:58:43",
+    "reversao_executada": 0,
+    "reversao_motivo": null,
+    "reversao_data": null
+  },
+  "payloadParsed": null,
+  "payloadDecrypted": null,
+  "decryptErro": "Cannot find module 'C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\backend\\services\\cryptoService'\nRequire stack:\n- C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\docs\\homologacao\\tef\\TEF-DESTAXA-51.17\\dump-id1-readonly.js",
+  "pendentes": [
+    {
+      "id": 1,
+      "status": "pendente",
+      "valor": 1,
+      "tipo": "cartao_debito",
+      "provedor": "destaxa",
+      "idempotency_key": "tef-fp-90b41858f0aff5d47c573e5c3d86bc62",
+      "criado_em": "2026-11-09 16:58:43",
+      "atualizado_em": "2026-11-09 16:59:12"
+    }
+  ],
+  "porIdempotencyKey": [
+    {
+      "id": 1,
+      "status": "pendente",
+      "valor": 1,
+      "tipo": "cartao_debito",
+      "provedor": "destaxa",
+      "idempotency_key": "tef-fp-90b41858f0aff5d47c573e5c3d86bc62",
+      "criado_em": "2026-11-09 16:58:43"
+    }
+  ],
+  "porCodigoTransacao": [
+    {
+      "id": 1,
+      "status": "pendente",
+      "codigo_transacao": "1",
+      "idempotency_key": "tef-fp-90b41858f0aff5d47c573e5c3d86bc62"
+    }
+  ],
+  "tefLogs": [
+    {
+      "_erro": "no such column: detalhes",
+      "cols": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "INTEGER",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "transacao_id",
+          "type": "INTEGER",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "tipo",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "mensagem",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "payload",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "criado_em",
+          "type": "DATETIME",
+          "notnull": 0,
+          "dflt_value": "CURRENT_TIMESTAMP",
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "hash_integridade",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ]
+    }
+  ],
+  "auditoria": [
+    {
+      "_erro": "no such column: data_hora"
+    }
+  ],
+  "vendaRel": null,
+  "recebimentos": []
+}

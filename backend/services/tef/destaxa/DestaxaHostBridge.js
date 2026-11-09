@@ -77,8 +77,12 @@ class DestaxaHostBridge {
     return r.error ? { ...this._falha(r), estado: r.error.code } : r.output;
   }
 
-  async habilitarTransacaoReal() {
-    const r = await this._chamar(OPERACOES_HOST.ENABLE_REAL);
+  async habilitarTransacaoReal(opcoes = {}) {
+    const payload = {};
+    if (opcoes && opcoes.exceptionalPermit) {
+      payload.exceptionalPermit = sanitizar(opcoes.exceptionalPermit);
+    }
+    const r = await this._chamar(OPERACOES_HOST.ENABLE_REAL, payload);
     return r.error ? this._falha(r) : r.output;
   }
 

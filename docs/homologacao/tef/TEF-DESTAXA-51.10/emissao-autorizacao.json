@@ -1,0 +1,38 @@
+{
+  "ok": true,
+  "autorizacao": {
+    "authorizationId": "ba08c88e8e67410f3048bac5e10c4046",
+    "status": "ISSUED",
+    "valorCentavos": 100,
+    "tipoPermitido": [
+      "cartao_debito",
+      "debito"
+    ],
+    "formaPagamento": "A vista",
+    "operacao": "CRT",
+    "emitidoEm": "2026-11-09T18:47:09.473Z",
+    "expiresAt": "2026-11-09T19:17:09.473Z",
+    "consumidoEm": null,
+    "motivo": "TEF-DESTAXA-51.10-homologacao-tx-continue-r1"
+  },
+  "ledgerPath": "C:\\Users\\cicer\\AppData\\Local\\CDS-SISTEMAS\\tef\\destaxa-autorizacao-excepcional.json",
+  "gateProcess": "0",
+  "ledgerAntesPreview": [
+    {
+      "id": "5aed71f2b6e19f7f14303f69242c6796",
+      "status": "CONSUMED"
+    }
+  ],
+  "ledgerDepoisPreview": [
+    {
+      "id": "5aed71f2b6e19f7f14303f69242c6796",
+      "status": "CONSUMED",
+      "expiresAt": "2026-11-09T17:24:10.595Z"
+    },
+    {
+      "id": "ba08c88e8e67410f3048bac5e10c4046",
+      "status": "ISSUED",
+      "expiresAt": "2026-11-09T19:17:09.473Z"
+    }
+  ]
+}

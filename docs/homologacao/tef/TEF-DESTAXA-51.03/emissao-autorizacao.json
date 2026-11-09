@@ -1,0 +1,20 @@
+{
+    "valorCentavos":  100,
+    "tipoPermitido":  [
+                          "cartao_debito",
+                          "debito"
+                      ],
+    "motivo":  "TEF-DESTAXA-51.03-ETAPA2-homologacao-debito-r1",
+    "operacao":  "CRT",
+    "expiresAt":  "2026-11-09T17:24:10.595Z",
+    "emitidoPor":  "responsavel-autorizado-51.03",
+    "formaPagamento":  "A vista",
+    "emitidoEm":  "2026-11-09T16:54:10.595Z",
+    "authorizationId":  "5aed71f2b6e19f7f14303f69242c6796",
+    "status":  "ISSUED",
+    "gateAposEmissao":  {
+                            "user":  null,
+                            "process":  null,
+                            "machine":  null
+                        }
+}

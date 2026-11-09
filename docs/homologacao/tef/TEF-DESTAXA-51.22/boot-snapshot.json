@@ -1,0 +1,141 @@
+{
+    "coletadoEm":  "2026-11-09T21:21:38.508Z",
+    "workspace":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE",
+    "workspaceTefManager":  {
+                                "path":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\backend\\services\\tef\\TefManager.js",
+                                "sha256":  "F969747342BECA01E93F4694CF71768F2CF99B8A65B4E86BCB5FFA26EB5A427C",
+                                "matchExpected5120":  true,
+                                "hasIntentCicloAutomaticoContinue":  true,
+                                "hasFinalizeGateContinuidade":  true,
+                                "intentAutorizar":  true,
+                                "intentContinuar":  true
+                            },
+    "electrons":  [
+                      {
+                          "ProcessId":  16832,
+                          "ParentProcessId":  16916,
+                          "Name":  "cmd.exe",
+                          "ExecutablePath":  "C:\\WINDOWS\\system32\\cmd.exe",
+                          "CommandLine":  "C:\\WINDOWS\\system32\\cmd.exe /c \"\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\.bin\\electron.cmd\" electron-pdv.js --cds-forcar-local \""
+                      },
+                      {
+                          "ProcessId":  18276,
+                          "ParentProcessId":  16832,
+                          "Name":  "node.exe",
+                          "ExecutablePath":  "C:\\Program Files\\nodejs\\node.exe",
+                          "CommandLine":  "\"node\"   \"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\.bin\\\\..\\electron\\cli.js\" electron-pdv.js --cds-forcar-local"
+                      },
+                      {
+                          "ProcessId":  18324,
+                          "ParentProcessId":  18276,
+                          "Name":  "electron.exe",
+                          "ExecutablePath":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe",
+                          "CommandLine":  "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" electron-pdv.js --cds-forcar-local"
+                      },
+                      {
+                          "ProcessId":  14140,
+                          "ParentProcessId":  18324,
+                          "Name":  "electron.exe",
+                          "ExecutablePath":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe",
+                          "CommandLine":  "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" --type=gpu-process --user-data-dir=\"C:\\Users\\cicer\\AppData\\Roaming\\cds-sistemas-pdv\" --gpu-preferences=UAAAAAAAAADgAgAYAAAAAAAAAAAAAAAAAABgAAAAAAAwAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAEgAAAAAAAAASAAAAAAAAAAYAAAAAgAAABAAAAAAAAAAGAAAAAAAAAAQAAAAAAAAAAAAAAAOAAAAEAAAAAAAAAABAAAADgAAAAgAAAAAAAAACAAAAAAAAAA= --use-gl=disabled --mojo-platform-channel-handle=1688 --field-trial-handle=1744,i,12550400753891231171,1279361474208044897,131072 --disable-features=SpareRendererForSitePerProcess,UseSkiaRenderer,WinRetrieveSuggestionsOnlyOnDemand /prefetch:2"
+                      },
+                      {
+                          "ProcessId":  11588,
+                          "ParentProcessId":  18324,
+                          "Name":  "electron.exe",
+                          "ExecutablePath":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe",
+                          "CommandLine":  "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" --type=utility --utility-sub-type=network.mojom.NetworkService --lang=pt-BR --service-sandbox-type=none --user-data-dir=\"C:\\Users\\cicer\\AppData\\Roaming\\cds-sistemas-pdv\" --mojo-platform-channel-handle=2064 --field-trial-handle=1744,i,12550400753891231171,1279361474208044897,131072 --disable-features=SpareRendererForSitePerProcess,UseSkiaRenderer,WinRetrieveSuggestionsOnlyOnDemand /prefetch:8"
+                      },
+                      {
+                          "ProcessId":  17476,
+                          "ParentProcessId":  18324,
+                          "Name":  "electron.exe",
+                          "ExecutablePath":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe",
+                          "CommandLine":  "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" --type=renderer --user-data-dir=\"C:\\Users\\cicer\\AppData\\Roaming\\cds-sistemas-pdv\" --app-path=\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\" --no-sandbox --no-zygote --first-renderer-process --disable-gpu-compositing --lang=pt-BR --device-scale-factor=1.25 --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=4 --time-ticks-at-unix-epoch=-1794234322063310 --launch-time-ticks=24893934698 --mojo-platform-channel-handle=2888 --field-trial-handle=1744,i,12550400753891231171,1279361474208044897,131072 --disable-features=SpareRendererForSitePerProcess,UseSkiaRenderer,WinRetrieveSuggestionsOnlyOnDemand /prefetch:1"
+                      },
+                      {
+                          "ProcessId":  8912,
+                          "ParentProcessId":  11416,
+                          "Name":  "cmd.exe",
+                          "ExecutablePath":  "C:\\WINDOWS\\system32\\cmd.exe",
+                          "CommandLine":  "C:\\WINDOWS\\system32\\cmd.exe /d /s /c \"powershell -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object { $_.Name -eq \u0027electron.exe\u0027 -or ($_.CommandLine -and $_.CommandLine -match \u0027electron-pdv|electron\\\\.exe\u0027) } | Select-Object ProcessId,ParentProcessId,Name,ExecutablePath,CommandLine | ConvertTo-Json -Depth 4\"\""
+                      },
+                      {
+                          "ProcessId":  18784,
+                          "ParentProcessId":  8912,
+                          "Name":  "powershell.exe",
+                          "ExecutablePath":  "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                          "CommandLine":  "powershell  -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object { $_.Name -eq \u0027electron.exe\u0027 -or ($_.CommandLine -and $_.CommandLine -match \u0027electron-pdv|electron\\\\.exe\u0027) } | Select-Object ProcessId,ParentProcessId,Name,ExecutablePath,CommandLine | ConvertTo-Json -Depth 4\""
+                      }
+                  ],
+    "mains":  [
+                  {
+                      "ProcessId":  16832,
+                      "ParentProcessId":  16916,
+                      "Name":  "cmd.exe",
+                      "ExecutablePath":  "C:\\WINDOWS\\system32\\cmd.exe",
+                      "CommandLine":  "C:\\WINDOWS\\system32\\cmd.exe /c \"\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\.bin\\electron.cmd\" electron-pdv.js --cds-forcar-local \""
+                  },
+                  {
+                      "ProcessId":  18276,
+                      "ParentProcessId":  16832,
+                      "Name":  "node.exe",
+                      "ExecutablePath":  "C:\\Program Files\\nodejs\\node.exe",
+                      "CommandLine":  "\"node\"   \"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\.bin\\\\..\\electron\\cli.js\" electron-pdv.js --cds-forcar-local"
+                  },
+                  {
+                      "ProcessId":  18324,
+                      "ParentProcessId":  18276,
+                      "Name":  "electron.exe",
+                      "ExecutablePath":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe",
+                      "CommandLine":  "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" electron-pdv.js --cds-forcar-local"
+                  }
+              ],
+    "http3001":  {
+                     "ok":  true,
+                     "status":  302
+                 },
+    "logs":  {
+                 "stdoutBytes":  60457,
+                 "stderrBytes":  4087,
+                 "markers":  {
+                                 "ELECTRON_AUDIT":  true,
+                                 "modoLocal":  true,
+                                 "HTTP_LISTENING":  true,
+                                 "TX_START":  false,
+                                 "TX_CONTINUE":  false,
+                                 "CRT":  false,
+                                 "intentCicloInLogs":  false
+                             },
+                 "auditMeta":  {
+                                   "versionErp":  "1.0.3",
+                                   "versionElectron":  "22.3.27",
+                                   "versionChrome":  "108.0.5359.215",
+                                   "versionNode":  "16.17.1",
+                                   "rodandoDeAsar":  false,
+                                   "dirname":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE",
+                                   "resourcesPath":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\resources",
+                                   "execPath":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe",
+                                   "dbDir":  "C:\\ProgramData\\MercantilFiscal\\dados",
+                                   "port":  null,
+                                   "modulo":  "pdv"
+                               },
+                 "tefManagerLogHits":  [
+                                           "backend/services/tef/TefManager.js\",",
+                                           "backend/services/tef/TefManager.js\u0027,",
+                                           "backend/services/tef/TefManager.js"
+                                       ]
+             },
+    "gateEnv":  "0",
+    "runtimeProof":  {
+                         "classificacao":  "READY_FOR_REVIEW",
+                         "integrityBootReadTefManager":  true,
+                         "runtimeMain":  {
+                                             "cmd":  "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" electron-pdv.js --cds-forcar-local",
+                                             "title":  "CDS Sistemas - PDV",
+                                             "pid":  18324,
+                                             "responding":  true,
+                                             "startTime":  "2026-11-09T18:20:12.7971778-03:00"
+                                         }
+                     }
+}

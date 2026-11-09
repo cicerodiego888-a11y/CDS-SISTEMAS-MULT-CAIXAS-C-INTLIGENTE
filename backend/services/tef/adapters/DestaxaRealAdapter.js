@@ -503,6 +503,31 @@ class DestaxaRealAdapter extends BaseAdapter {
     };
     checks.realTransactionGate = { env: REAL_TRANSACTION_ENV, enabled: gateAberto };
 
+    // TEF-DESTAXA-51.02 — autorização excepcional ISSUED (ainda não consumida)
+    let autorizacaoExcepcionalId = null;
+    if (!gateAberto) {
+      const {
+        encontrarAutorizacaoIssuidaCompativel
+      } = require('../destaxa/destaxaAutorizacaoExcepcional');
+      const encontrada = encontrarAutorizacaoIssuidaCompativel({
+        valorCentavos,
+        tipoPdv: dados.tipo,
+        operacao: OPERACOES.CRT,
+        authorizationId: dados.autorizacaoExcepcionalId || dados.authorizationId || null
+      });
+      checks.autorizacaoExcepcional = {
+        encontrada: encontrada.ok === true,
+        authorizationId: encontrada.autorizacao?.authorizationId || null,
+        status: encontrada.autorizacao?.status || null,
+        codigo: encontrada.ok ? null : (encontrada.codigo || null)
+      };
+      if (encontrada.ok) {
+        autorizacaoExcepcionalId = encontrada.autorizacao.authorizationId;
+      }
+    } else {
+      checks.autorizacaoExcepcional = { encontrada: false, authorizationId: null, status: null, codigo: null };
+    }
+
     const contexto = {
       operacao: OPERACOES.CRT,
       valorCentavos,
@@ -511,10 +536,11 @@ class DestaxaRealAdapter extends BaseAdapter {
       tipoCartaoDestaxa,
       formaPagamentoDestaxa,
       clientInitializationCode: checks.client.clientInitializationCode,
+      autorizacaoExcepcionalId,
       checks
     };
 
-    if (!gateAberto) {
+    if (!gateAberto && !autorizacaoExcepcionalId) {
       return {
         pronto: false,
         readiness: READINESS_REAL,
@@ -528,7 +554,12 @@ class DestaxaRealAdapter extends BaseAdapter {
       };
     }
 
-    return { pronto: true, readiness: READINESS_REAL, contexto };
+    return {
+      pronto: true,
+      readiness: READINESS_REAL,
+      contexto,
+      autorizacaoExcepcionalId
+    };
   }
 
   _mapearResultadoCrt(resultado, contexto) {
@@ -590,13 +621,55 @@ class DestaxaRealAdapter extends BaseAdapter {
       return preparo.resposta;
     }
 
+    // TEF-DESTAXA-51.02 — consumo atômico da autorização excepcional ANTES de TX
+    let exceptionalPermit = null;
+    const authExcepcionalId = preparo.autorizacaoExcepcionalId
+      || preparo.contexto?.autorizacaoExcepcionalId
+      || dados.autorizacaoExcepcionalId
+      || null;
+    if (!transacaoRealHabilitada()) {
+      if (!authExcepcionalId) {
+        return this._respostaBloqueio(
+          ERROS.DESTAXA_REAL_TRANSACTION_DISABLED,
+          `Transação Destaxa real desabilitada: ${REAL_TRANSACTION_ENV} != 1`,
+          preparo.contexto?.checks || {},
+          { tipoErro: 'gate_financeiro', readiness: READINESS_REAL }
+        );
+      }
+      const {
+        consumirAutorizacaoExcepcionalAtomico
+      } = require('../destaxa/destaxaAutorizacaoExcepcional');
+      const consumo = consumirAutorizacaoExcepcionalAtomico({
+        authorizationId: authExcepcionalId,
+        valorCentavos: preparo.contexto?.valorCentavos,
+        tipoPdv: preparo.contexto?.tipoPdv || dados.tipo,
+        operacao: preparo.contexto?.operacao || OPERACOES.CRT
+      });
+      if (!consumo.ok || !consumo.permit) {
+        return this._respostaBloqueio(
+          consumo.codigo || ERROS.DESTAXA_REAL_TRANSACTION_DISABLED,
+          consumo.mensagem || 'Falha ao consumir autorização excepcional',
+          {
+            ...(preparo.contexto?.checks || {}),
+            autorizacaoExcepcionalConsumo: {
+              ok: false,
+              codigo: consumo.codigo || null,
+              authorizationId: authExcepcionalId
+            }
+          },
+          { tipoErro: 'gate_financeiro', readiness: READINESS_REAL }
+        );
+      }
+      exceptionalPermit = consumo.permit;
+    }
+
     // MRT-27 — bloquear bypass de produção antes de qualquer chamada financeira à DLL
     const {
       validarPersistenciaAntesEnvioFinanceiro,
       ERROS_PERSISTENCIA
     } = require('../tefPersistenciaObrigatoria');
     const guardPersistencia = validarPersistenciaAntesEnvioFinanceiro(preparacao, dados, {
-      gateOn: transacaoRealHabilitada()
+      gateOn: transacaoRealHabilitada() || Boolean(exceptionalPermit)
     });
     if (!guardPersistencia.ok) {
       return this._respostaBloqueio(
@@ -619,11 +692,14 @@ class DestaxaRealAdapter extends BaseAdapter {
       }, {
         persistenciaConfirmada: true,
         gateFinanceiro: transacaoRealHabilitada() === true,
+        autorizacaoExcepcional: Boolean(exceptionalPermit),
         preparacaoPronta: true
       });
     } catch (_) { /* instrumentação best-effort */ }
 
-    const habilitacao = await this.bridge.habilitarTransacaoReal();
+    const habilitacao = await this.bridge.habilitarTransacaoReal(
+      exceptionalPermit ? { exceptionalPermit } : {}
+    );
     if (!habilitacao.sucesso) {
       return this._respostaBloqueio(habilitacao.codigo, habilitacao.mensagem, preparo.contexto.checks, {
         tipoErro: habilitacao.codigo === ERROS.DESTAXA_REAL_TRANSACTION_DISABLED ? 'gate_financeiro' : 'pre_condicao'

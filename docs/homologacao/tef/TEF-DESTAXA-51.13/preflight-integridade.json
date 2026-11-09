@@ -1,0 +1,94 @@
+{
+    "ledger":  {
+                   "path":  "C:\\Users\\cicer\\AppData\\Local\\CDS-SISTEMAS\\tef\\destaxa-autorizacao-excepcional.json",
+                   "exists":  true,
+                   "sha256":  "EF6865C4F70B3551B19612A9C6E93B65C0ADCAD2219AE29CBD265BDD7727A5E8",
+                   "mtimeUtc":  "2026-11-09T18:54:48.2825289Z",
+                   "length":  1364,
+                   "rawHead":  "{\n  \"versao\": 1,\n  \"atualizadoEm\": \"2026-11-09T18:54:48.281Z\",\n  \"autorizacoes\": [\n    {\n      \"authorizationId\": \"5aed71f2b6e19f7f14303f69242c6796\",\n      \"status\": \"CONSUMED\",\n      \"valorCentavos\": 100,\n      \"tipoPermitido\": [\n        \"cartao_debito\",\n        \"debito\"\n      ],\n      \"formaPagamento\": \"A vista\",\n      \"operacao\": \"CRT\",\n      \"emitidoEm\": \"2026-11-09T16:54:10.595Z\",\n      \"expiresAtMs\": 1794245050595,\n      \"expiresAt\": \"2026-11-09T17:24:10.595Z\",\n      \"consumidoEm\": \"2026-11-09T16:58:43.030Z\",\n      \"motivo\": \"TEF-DESTAXA-51.03-ETAPA2-homologacao-debito-r1\",\n      \"emitidoPor\": \"responsavel-autorizado-51.03\",\n      \"consumidoValorCentavos\": 100,\n      \"consumidoTipo\": \"cartao_debito\"\n    },\n    {\n      \"authorizationId\": \"ba08c88e8e67410f3048bac5e10c4046\",\n      \"status\": \"CONSUMED\",\n      \"valorCentavos\": 100,\n      \"tipoPermitido\": [\n        \"cartao_debito\",\n        \"debito\"\n      ],\n      \"formaPagamento\": \"A vista\",\n      \"operacao\": \"CRT\",\n      \"emitidoEm\": \"2026-11-09T18:47:09.473Z\",\n      \"expiresAtMs\": 1794251829473,\n      \"expiresAt\": \"2026-11-09T19:17:09.473Z\",\n      \"consumidoEm\": \"2026-11-09T18:54:48.281Z\",\n      \"motivo\": \"TEF-DESTAXA-51.10-homologacao-tx-continue-r1\",\n      \"emitidoPor\": \"responsavel-autorizado-51.10\",\n      \"consumidoValorCentavos\": 100,\n      \"consumidoTipo\": \"cartao_debito\"\n    }\n  ]\n}\n"
+               },
+    "hashes":  [
+                   {
+                       "file":  "backend\\services\\tef\\TefManager.js",
+                       "sha256":  "96E9A34BD52D0DF564092285422BA2A70973100E03D6206EBA7CEE95ECC889A4",
+                       "bytes":  117844,
+                       "mtimeUtc":  "2026-11-09T17:54:53.5535219Z"
+                   },
+                   {
+                       "file":  "backend\\services\\tef\\tefRepository.js",
+                       "sha256":  "D28B6B83784B02F05FFC01A495DCA5E9B79115AAFF5738BC284F02292DC41234",
+                       "bytes":  11116,
+                       "mtimeUtc":  "2026-11-06T02:47:38.5959711Z"
+                   },
+                   {
+                       "file":  "backend\\services\\tef\\tefPersistenciaObrigatoria.js",
+                       "sha256":  "2E581985B5DFFCD7D25C49772BA237F6F9992E54B100FF34F2C7BB75862CEA0B",
+                       "bytes":  11790,
+                       "mtimeUtc":  "2026-10-30T20:22:35.4427179Z"
+                   },
+                   {
+                       "file":  "backend\\services\\tef\\adapters\\DestaxaRealAdapter.js",
+                       "sha256":  "6AAB12121A2E4055935DFB4981B167086FC94EE4A62EFB9E3EA59A96F54063FA",
+                       "bytes":  47504,
+                       "mtimeUtc":  "2026-11-09T15:41:44.5668247Z"
+                   },
+                   {
+                       "file":  "backend\\services\\tef\\destaxa\\destaxaContinuidadePersistencia.js",
+                       "sha256":  "0AE061CCF676CCB0A6CE124450240A7A0CEA2486C4D937398000B35B82E300F0",
+                       "bytes":  32404,
+                       "mtimeUtc":  "2026-11-06T02:47:38.8220078Z"
+                   },
+                   {
+                       "file":  "backend\\services\\tef\\destaxa\\destaxaCrtCicloOrquestracao.js",
+                       "sha256":  "CE0BC01693EDCB417881B758BD0C76D735C1110A746148608436084E07B3FD62",
+                       "bytes":  26854,
+                       "mtimeUtc":  "2026-11-09T17:55:33.4847343Z"
+                   },
+                   {
+                       "file":  "docs\\homologacao\\tef\\TEF-DESTAXA-51.10\\tef-51-10-runner.js",
+                       "sha256":  "DE51637E6735C91A0ABFF5B24568DEBFE0445A3A9E188FA9113EDD5CBBAFC76E",
+                       "bytes":  2056,
+                       "mtimeUtc":  "2026-11-09T19:15:43.1642485Z"
+                   },
+                   {
+                       "file":  "docs\\homologacao\\tef\\TEF-DESTAXA-51.10\\tef-51-10-runner.HISTORICO-INEQ-51.10.js",
+                       "sha256":  "674A73FD1BB038F900BCBD86D90946BE2605739745C03207E642B031EB05D01E",
+                       "bytes":  6650,
+                       "mtimeUtc":  "2026-11-09T19:16:23.7069037Z"
+                   },
+                   {
+                       "file":  "docs\\homologacao\\tef\\TEF-DESTAXA-51.10\\resultado-crt.json",
+                       "sha256":  "0B90B30D474C8E0951BC71C63E6C61F8C395A68A6A335D843BA5120A0E2F9210",
+                       "bytes":  2540,
+                       "mtimeUtc":  "2026-11-09T18:54:51.7591096Z"
+                   }
+               ],
+    "tefManagerMarkers":  {
+                              "criarTransacaoExclusiva":  true,
+                              "preparacaoComPersistencia":  true,
+                              "persistenciaConfirmada":  true,
+                              "autorizarPagamento":  true
+                          },
+    "runnerDesativado":  {
+                             "desativado":  true,
+                             "semAutorizar":  true,
+                             "semPersistFlag":  true
+                         },
+    "runnerEmExecucao":  [
+
+                         ],
+    "nodes":  [
+                  {
+                      "pid":  10656,
+                      "cmd":  "c:\\Users\\cicer\\AppData\\Local\\Programs\\cursor\\resources\\app\\resources\\helpers\\node.exe --max-old-space-size=3072 -e \"process.title = process.env[\\\"VSCODE_PROCESS_TITLE\\\"]; require(process.argv[1])\" c:\\Users\\cicer\\AppData\\Local\\Programs\\cursor\\resources\\app\\extensions\\node_modules\\typescript\\lib\\tsserver.js --serverMode partialSemantic --useInferredProjectPerProjectRoot --disableAutomaticTypingAcquisition --cancellationPipeName C:\\Users\\cicer\\AppData\\Local\\Temp\\vscode-typescript\\cc2da9cf0b5275ff0188\\tscancellation-4fcf8cf84c406c6a91b6.tmp* --locale en --noGetErrOnBackgroundUpdate --canUseWatchEvents --validateDefaultNpmLocation"
+                  },
+                  {
+                      "pid":  3980,
+                      "cmd":  "c:\\Users\\cicer\\AppData\\Local\\Programs\\cursor\\resources\\app\\resources\\helpers\\node.exe --max-old-space-size=3072 -e \"process.title = process.env[\\\"VSCODE_PROCESS_TITLE\\\"]; require(process.argv[1])\" c:\\Users\\cicer\\AppData\\Local\\Programs\\cursor\\resources\\app\\extensions\\node_modules\\typescript\\lib\\tsserver.js --useInferredProjectPerProjectRoot --enableTelemetry --cancellationPipeName C:\\Users\\cicer\\AppData\\Local\\Temp\\vscode-typescript\\cc2da9cf0b5275ff0188\\tscancellation-8f8483966176bbb16651.tmp* --locale en --noGetErrOnBackgroundUpdate --canUseWatchEvents --validateDefaultNpmLocation"
+                  },
+                  {
+                      "pid":  3816,
+                      "cmd":  "c:\\Users\\cicer\\AppData\\Local\\Programs\\cursor\\resources\\app\\resources\\helpers\\node.exe c:/Users/cicer/AppData/Local/Programs/cursor/resources/app/extensions/node_modules/typescript/lib/typingsInstaller.js --globalTypingsCacheLocation C:/Users/cicer/AppData/Local/Microsoft/TypeScript/6.0 --enableTelemetry --typesMapLocation c:/Users/cicer/AppData/Local/Programs/cursor/resources/app/extensions/node_modules/typescript/lib/typesMap.json --validateDefaultNpmLocation"
+                  }
+              ]
+}

@@ -96,6 +96,17 @@ function validarRespostaOperador(acao, respostaBruta) {
   }
 
   if (tipo === TIPOS_CONTINUIDADE.COLETA) {
+    const { ehColetaDelegadaAoPinPad } = require('./destaxaContinuidadeEstados');
+    // PinPad captura cartão/senha no terminal — AC envia informacao vazia (MRT-50.74 / 51.05).
+    if (ehColetaDelegadaAoPinPad(acaoN)) {
+      let valorPin = '';
+      if (typeof respostaBruta === 'string' || typeof respostaBruta === 'number') {
+        valorPin = String(respostaBruta);
+      } else if (respostaBruta && typeof respostaBruta === 'object' && respostaBruta.informacao != null) {
+        valorPin = String(respostaBruta.informacao);
+      }
+      return { ok: true, resposta: { informacao: valorPin }, tipo, pinpadAck: true };
+    }
     let valor = null;
     if (respostaBruta == null) {
       return {
@@ -453,5 +464,11 @@ module.exports = {
   limparRegistrosContinuidade,
   correlacionarIdentidadeContinuidade,
   validarContinuidadeCompleta,
-  CICLO_ERROS_REF: CICLO_ERROS
+  CICLO_ERROS_REF: CICLO_ERROS,
+  // reexport 51.05
+  ehColetaDelegadaAoPinPad: (...args) =>
+    require('./destaxaContinuidadeEstados').ehColetaDelegadaAoPinPad(...args),
+  ESTADOS_CONTINUIDADE: require('./destaxaContinuidadeEstados').ESTADOS_CONTINUIDADE,
+  TIMEOUT_PDV_CONTINUIDADE_PADRAO_SEG:
+    require('./destaxaContinuidadeEstados').TIMEOUT_PDV_CONTINUIDADE_PADRAO_SEG
 };

@@ -1,0 +1,7 @@
+{
+    "comando":  ".\\node_modules\\.bin\\electron.cmd electron-pdv.js --cds-forcar-local",
+    "gate":  "0",
+    "inicioUtc":  "2026-11-09T21:20:12.5809166Z",
+    "cwd":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE",
+    "wrapperPid":  16832
+}

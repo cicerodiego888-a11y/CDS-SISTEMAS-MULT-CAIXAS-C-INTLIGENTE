@@ -1,0 +1,438 @@
+[
+  {
+    "id": 4,
+    "tipo": "INICIO",
+    "mensagem": "Transação TEF iniciada — persistida antes do Adapter/DLL",
+    "criado_em": "2026-11-09 16:58:43",
+    "payload": {
+      "venda_id": null,
+      "tipo": "cartao_debito",
+      "valor": 1,
+      "parcelas": 1,
+      "contextoFiscal": {
+        "valorCentavos": 100,
+        "tipo": "cartao_debito"
+      },
+      "_routeDecision": {
+        "sucesso": true,
+        "codigo": "SINGLETON_FALLBACK",
+        "mensagem": "Roteamento compatível singleton (pdvId omitido) — fluxo TEF atual preservado — lease lease_94f8eeedd1bbebbe adquirido",
+        "modo": "ALLOCATE",
+        "pdvId": null,
+        "pdv": null,
+        "empresaId": null,
+        "lojaId": null,
+        "terminalTefId": "singleton:instalacao",
+        "dispositivoId": null,
+        "provedor": "destaxa",
+        "ambiente": "homologacao",
+        "adapterBinding": {
+          "fonte": "tef_configuracao_singleton",
+          "modo": "COMPAT_SINGLETON",
+          "registro": {
+            "id": 1,
+            "habilitado": 1,
+            "provedor": "destaxa",
+            "ambiente": "homologacao",
+            "timeout": 60,
+            "tentativas": 1,
+            "empresa_codigo": null,
+            "loja_codigo": null,
+            "pdv_codigo": null,
+            "terminal_codigo": null,
+            "caixa_codigo": null,
+            "criado_em": "2026-09-17 20:18:31",
+            "atualizado_em": "2026-11-06 18:30:46",
+            "tipo_integracao": "dll",
+            "sdk_path": null,
+            "exe_path": null,
+            "ip_tef": null,
+            "porta_tef": "",
+            "pinpadHabilitado": "true",
+            "pinpadModelo": "GERTEC_PPC930",
+            "pinpadCodigo": "GERTEC_PPC930",
+            "portaCom": "COM4",
+            "tipoConexao": "usb"
+          },
+          "executionMode": "native-host",
+          "terminalTefId": null,
+          "dispositivoId": null,
+          "pinpadPortaCom": "COM4"
+        },
+        "isolamento": {
+          "lockKeySugerida": "lease:lease_94f8eeedd1bbebbe",
+          "permiteParaleloNoMesmoHost": false,
+          "alocacaoAtiva": true,
+          "leaseId": "lease_94f8eeedd1bbebbe",
+          "terminalTefId": "singleton:instalacao",
+          "runtimeKey": "runtime:destaxa:global",
+          "tipoOcupacao": "TERMINAL+RUNTIME"
+        },
+        "executionContext": {
+          "topologia": "MULTI_ESTACAO",
+          "pdvId": null,
+          "terminalTefId": "singleton:instalacao",
+          "dispositivoId": null,
+          "estacao": {
+            "id": null,
+            "hostname": null,
+            "mac": null,
+            "local": false,
+            "origem": null,
+            "identidadeEhPdv": false,
+            "identidadeEhTerminalTef": false
+          },
+          "localidadeExecucao": "INDETERMINADA",
+          "runtime": {
+            "provedor": "destaxa",
+            "isolamento": "GLOBAL_SERIALIZE",
+            "runtimeKey": "runtime:destaxa:global",
+            "singletonDestaxa": true
+          },
+          "dispositivo": {
+            "presente": false,
+            "disponivel": false,
+            "motivo": "Terminal lógico sem dispositivo físico vinculado",
+            "codigo": "TERMINAL_SEM_DISPOSITIVO",
+            "portaCom": null,
+            "tipo": null
+          },
+          "codigo": "TERMINAL_SEM_DISPOSITIVO",
+          "mensagem": "Terminal lógico sem dispositivo físico vinculado",
+          "limitacoes": [
+            {
+              "codigo": "TERMINAL_SEM_DISPOSITIVO",
+              "mensagem": "Terminal lógico sem dispositivo físico vinculado"
+            },
+            {
+              "codigo": "TOPOLOGIA_INCOMPATIVEL_PROVEDOR",
+              "mensagem": "Destaxa runtime singleton não cobre MULTI_ESTACAO sem bridge remota"
+            }
+          ],
+          "compatibilidade": {
+            "matriz": {
+              "suportado": false,
+              "execucao": "REQUER_COMUNICACAO_ENTRE_PCS",
+              "pagamentosSimultaneos": false,
+              "nota": "Native Host / V$Pague por hostname-MAC; remote-future fora do escopo"
+            },
+            "topologiaSuportada": false,
+            "pagamentosSimultaneos": false
+          },
+          "identidades": {
+            "comercial": "pdvId = terminais.id",
+            "terminalLogico": "terminalTefId",
+            "dispositivoFisico": "dispositivoId",
+            "estacaoExecucao": "hostname/MAC — nunca pdvId"
+          },
+          "meta": {
+            "inferencia": {
+              "topologia": "MULTI_ESTACAO",
+              "estacoesDistintas": 5,
+              "pdvsNaEstacaoAtual": null
+            },
+            "comparacaoEstacao": {
+              "local": null,
+              "motivo": "hostHints ausentes — localidade indeterminada"
+            },
+            "bloqueante": false,
+            "hostHintsUsadosComoIdentidadeComercial": false,
+            "allocatorPreservado": true
+          }
+        },
+        "extensoes": {
+          "registry": "TerminalRegistry ativo (MRT-03) — store memória + migration proposta",
+          "allocation": "TerminalAllocator ativo (MRT-04) — opt-in request.allocate=true",
+          "concurrency": "Destaxa GLOBAL_SERIALIZE; outros PER_TERMINAL até evidência",
+          "multiPdvBinding": "Binding Registry quando há cadastro; senão LIMIT 1 singleton",
+          "executionContext": "ExecutionContext MRT-05 — topologia + estação física ≠ pdvId",
+          "executionRemote": "MULTI_ESTACAO Destaxa requer bridge remota — não implementada",
+          "persistenciaOficial": "Migration proposta NÃO aplicada ao banco oficial (MRT-03)",
+          "tefManagerFinanceiro": "Fluxo financeiro TefManager inalterado — alocação/contexto não substituem TEF-13/14",
+          "adapterSelection": "MRT-12 — autorização seleciona adapter via RouteDecision.adapterBinding (sem LIMIT 1 cego)"
+        },
+        "meta": {
+          "operacao": "autorizar",
+          "pdvOmitido": true,
+          "registryAtivo": true,
+          "registryHit": false,
+          "registryMiss": false,
+          "alocacaoAtiva": true,
+          "singletonDisponivel": true,
+          "extensionPoints": {
+            "registry": "TerminalRegistry ativo (MRT-03) — store memória + migration proposta",
+            "allocation": "TerminalAllocator ativo (MRT-04) — opt-in request.allocate=true",
+            "concurrency": "Destaxa GLOBAL_SERIALIZE; outros PER_TERMINAL até evidência",
+            "multiPdvBinding": "Binding Registry quando há cadastro; senão LIMIT 1 singleton",
+            "executionContext": "ExecutionContext MRT-05 — topologia + estação física ≠ pdvId",
+            "executionRemote": "MULTI_ESTACAO Destaxa requer bridge remota — não implementada",
+            "persistenciaOficial": "Migration proposta NÃO aplicada ao banco oficial (MRT-03)",
+            "tefManagerFinanceiro": "Fluxo financeiro TefManager inalterado — alocação/contexto não substituem TEF-13/14",
+            "adapterSelection": "MRT-12 — autorização seleciona adapter via RouteDecision.adapterBinding (sem LIMIT 1 cego)"
+          },
+          "executionContextResolvido": true,
+          "topologia": "MULTI_ESTACAO",
+          "localidadeExecucao": "INDETERMINADA",
+          "lease": {
+            "leaseId": "lease_94f8eeedd1bbebbe",
+            "terminalTefId": "singleton:instalacao",
+            "runtimeKey": "runtime:destaxa:global",
+            "pdvId": null,
+            "provedor": "destaxa",
+            "adquiridoEm": "2026-11-09T16:58:40.240Z",
+            "expiraEm": "2026-11-09T17:00:40.240Z",
+            "ocupacaoTimeoutMs": 120000,
+            "resultadoFinanceiroInconclusivo": false,
+            "liberado": false,
+            "liberadoEm": null,
+            "motivoLiberacao": null,
+            "meta": {
+              "politica": "GLOBAL_SERIALIZE",
+              "permiteTerminaisParalelos": false,
+              "operacao": "autorizar",
+              "modoRouter": "COMPAT_SINGLETON"
+            }
+          },
+          "politicaIsolamento": {
+            "provedor": "destaxa",
+            "modo": "GLOBAL_SERIALIZE",
+            "runtimeKey": "runtime:destaxa:global",
+            "permiteTerminaisParalelos": false,
+            "motivo": "Native Host singleton + V$Pague hostname/MAC; multi-terminal não documentado"
+          }
+        }
+      },
+      "idempotency_key": "tef-fp-90b41858f0aff5d47c573e5c3d86bc62",
+      "operation_id": "op_ef2ed65b9230_744378e59797f9a7",
+      "_fingerprint": "90b41858f0aff5d47c573e5c3d86bc62",
+      "_adapterSelection": {
+        "provedor": "destaxa",
+        "terminalTefId": "singleton:instalacao",
+        "modo": "ALLOCATE",
+        "fonte": "tef_configuracao_singleton",
+        "executionMode": "native-host",
+        "codigo": "ADAPTER_OK"
+      },
+      "persistencia": {
+        "operation_id": "op_ef2ed65b9230_744378e59797f9a7",
+        "fingerprint": "90b41858f0aff5d47c573e5c3d86bc62",
+        "idempotency_key": "tef-fp-90b41858f0aff5d47c573e5c3d86bc62",
+        "venda_id": null,
+        "pdvId": null,
+        "terminalTefId": "singleton:instalacao",
+        "provedor": "destaxa",
+        "valor": 1,
+        "tipo": "cartao_debito",
+        "estadoFinanceiroInicial": "UNKNOWN",
+        "dataHora": "2026-11-09T16:58:43.010Z",
+        "persistidoAntesDll": true,
+        "sprint": "MRT-27"
+      }
+    }
+  },
+  {
+    "id": 5,
+    "tipo": "MRT39_SOLICITACAO_99",
+    "mensagem": "Solicitação 99/OPCAO persistida",
+    "criado_em": "2026-11-09 16:59:12",
+    "payload": {
+      "chave": null,
+      "opcoes": [],
+      "timeout": null
+    }
+  },
+  {
+    "id": 6,
+    "tipo": "MRT39_RESPOSTA_CONTINUIDADE",
+    "mensagem": "Resposta OPCAO persistida",
+    "criado_em": "2026-11-09 16:59:12",
+    "payload": {
+      "fingerprint": "displayAck",
+      "continueCount": 1,
+      "txStartCount": 1
+    }
+  },
+  {
+    "id": 7,
+    "tipo": "CICLO_CRT",
+    "mensagem": "Orquestração CRT Destaxa",
+    "criado_em": "2026-11-09 16:59:12",
+    "payload": {
+      "passos": [
+        {
+          "passo": "TX_START",
+          "em": "2026-11-09T16:58:43.106Z",
+          "operacao": "CRT",
+          "transactionId": "1"
+        },
+        {
+          "passo": "TX_START_RESULT",
+          "em": "2026-11-09T16:59:12.875Z",
+          "codigoDestaxa": "99",
+          "requerContinuacao": true,
+          "sucesso": false
+        },
+        {
+          "passo": "TX_CONTINUE",
+          "em": "2026-11-09T16:59:12.934Z",
+          "n": 1,
+          "tipoAcao": "DISPLAY",
+          "origemResposta": "display_ack"
+        },
+        {
+          "passo": "TX_CONTINUE_RESULT",
+          "em": "2026-11-09T16:59:12.950Z",
+          "n": 1,
+          "codigoDestaxa": "HOST_SECURITY_OPERATION_BLOCKED",
+          "requerContinuacao": false
+        }
+      ],
+      "continues": 0,
+      "finalizado": false,
+      "vinculo": {
+        "venda_id": null,
+        "pdv_codigo": null,
+        "caixa_codigo": null,
+        "transactionId": "1"
+      },
+      "inconclusivo": true,
+      "retryAllowed": false
+    }
+  },
+  {
+    "id": 8,
+    "tipo": "RETORNO",
+    "mensagem": "Código não conclusivo após ciclo: HOST_SECURITY_OPERATION_BLOCKED",
+    "criado_em": "2026-11-09 16:59:12",
+    "payload": {
+      "sucesso": false,
+      "status": "pendente",
+      "nsu": null,
+      "autorizacao": null,
+      "cnpj_credenciadora": null,
+      "provedor": "Destaxa",
+      "adquirente": null,
+      "bandeira": null,
+      "comprovanteCliente": null,
+      "comprovanteLoja": null,
+      "transacaoId": "1",
+      "codigo": "DESTAXA_CICLO_INCONCLUSIVO",
+      "mensagem": "Código não conclusivo após ciclo: HOST_SECURITY_OPERATION_BLOCKED",
+      "payloadRetorno": {
+        "operacao": "CRT",
+        "codigoDestaxa": "HOST_SECURITY_OPERATION_BLOCKED",
+        "estado": null,
+        "acao": null,
+        "parametros": {}
+      },
+      "modo": "real",
+      "financialState": "UNKNOWN",
+      "protocolState": "UNKNOWN",
+      "retryAllowed": false,
+      "retryReason": "HOST_SECURITY_OPERATION_BLOCKED"
+    }
+  },
+  {
+    "id": 9,
+    "tipo": "DECISAO_RETRY",
+    "mensagem": "HOST_SECURITY_OPERATION_BLOCKED",
+    "criado_em": "2026-11-09 16:59:12",
+    "payload": {
+      "transactionId": "1",
+      "provider": "destaxa",
+      "operation": "cartao_debito",
+      "resultCode": "DESTAXA_CICLO_INCONCLUSIVO",
+      "state": "UNKNOWN",
+      "financialState": "UNKNOWN",
+      "retryAllowed": false,
+      "retryReason": "HOST_SECURITY_OPERATION_BLOCKED",
+      "timestamp": "2026-11-09T16:59:12.958Z"
+    }
+  },
+  {
+    "id": 10,
+    "tipo": "MRT06_LEASE",
+    "mensagem": "Operação financeira inconclusiva — lease de terminal permanece (TEF-14)",
+    "criado_em": "2026-11-09 16:59:12",
+    "payload": {
+      "leaseId": "lease_94f8eeedd1bbebbe",
+      "acao": "MARCAR_INCONCLUSIVO",
+      "motivo": null,
+      "aplicado": {
+        "ok": true,
+        "lease": {
+          "leaseId": "lease_94f8eeedd1bbebbe",
+          "terminalTefId": "singleton:instalacao",
+          "runtimeKey": "runtime:destaxa:global",
+          "pdvId": null,
+          "provedor": "destaxa",
+          "adquiridoEm": "2026-11-09T16:58:40.240Z",
+          "expiraEm": null,
+          "ocupacaoTimeoutMs": 120000,
+          "resultadoFinanceiroInconclusivo": true,
+          "liberado": false,
+          "liberadoEm": null,
+          "motivoLiberacao": null,
+          "meta": {
+            "politica": "GLOBAL_SERIALIZE",
+            "permiteTerminaisParalelos": false,
+            "operacao": "autorizar",
+            "modoRouter": "COMPAT_SINGLETON"
+          }
+        },
+        "acao": "MARCAR_INCONCLUSIVO"
+      }
+    }
+  },
+  {
+    "id": 11,
+    "tipo": "TEF_RESULTADO_PENDENTE_RECUPERADO",
+    "mensagem": "Transação TEF sem desfecho seguro recuperada do banco — nova autorização bloqueada",
+    "criado_em": "2026-11-09 18:30:12",
+    "payload": {
+      "transactionId": "1",
+      "status": "pendente",
+      "estado": "RECONCILIACAO_PENDENTE",
+      "financialState": "UNKNOWN",
+      "resultCode": "HOST_SECURITY_OPERATION_BLOCKED",
+      "provider": "destaxa",
+      "criadoEm": "2026-11-09 16:58:43",
+      "execucaoOrigemAtiva": false,
+      "retryAllowed": false
+    }
+  },
+  {
+    "id": 12,
+    "tipo": "TEF_RESULTADO_PENDENTE_RECUPERADO",
+    "mensagem": "Transação TEF sem desfecho seguro recuperada do banco — nova autorização bloqueada",
+    "criado_em": "2026-11-09 19:01:43",
+    "payload": {
+      "transactionId": "1",
+      "status": "pendente",
+      "estado": "RECONCILIACAO_PENDENTE",
+      "financialState": "UNKNOWN",
+      "resultCode": "HOST_SECURITY_OPERATION_BLOCKED",
+      "provider": "destaxa",
+      "criadoEm": "2026-11-09 16:58:43",
+      "execucaoOrigemAtiva": false,
+      "retryAllowed": false
+    }
+  },
+  {
+    "id": 13,
+    "tipo": "TEF_RESULTADO_PENDENTE_RECUPERADO",
+    "mensagem": "Transação TEF sem desfecho seguro recuperada do banco — nova autorização bloqueada",
+    "criado_em": "2026-11-09 19:35:51",
+    "payload": {
+      "transactionId": "1",
+      "status": "pendente",
+      "estado": "RECONCILIACAO_PENDENTE",
+      "financialState": "UNKNOWN",
+      "resultCode": "HOST_SECURITY_OPERATION_BLOCKED",
+      "provider": "destaxa",
+      "criadoEm": "2026-11-09 16:58:43",
+      "execucaoOrigemAtiva": false,
+      "retryAllowed": false
+    }
+  }
+]

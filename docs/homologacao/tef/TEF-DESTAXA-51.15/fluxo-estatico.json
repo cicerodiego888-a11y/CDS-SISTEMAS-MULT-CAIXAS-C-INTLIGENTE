@@ -1,0 +1,46 @@
+{
+    "tefManager":  {
+                       "autorizar":  true,
+                       "criarTransacaoExclusiva":  true,
+                       "preparacaoComPersistencia":  true,
+                       "persistenciaConfirmadaTrue":  true,
+                       "INSERT_OK":  true,
+                       "autorizarPagamentoCall":  true,
+                       "ordemPrepAntesAuth":  true,
+                       "registrarSolicitacao99":  true,
+                       "offsetPrep":  41249,
+                       "offsetAuthCall":  41971,
+                       "offsetCriar":  33089
+                   },
+    "repository":  {
+                       "criarTransacaoExclusiva":  true,
+                       "lastID":  true,
+                       "insertWhereNotPendente":  true
+                   },
+    "adapter":  {
+                    "validarPersistenciaAntesEnvio":  true,
+                    "autorizarPagamento":  true,
+                    "persistirRespostaContinuidade":  true,
+                    "registrarSolicitacao99":  true,
+                    "mensagem99Fallback":  true,
+                    "permitirCriarSolicitacao":  true
+                },
+    "ciclo":  {
+                  "persistirAntesContinue":  true,
+                  "persistirRespostaAntesContinue":  true,
+                  "resultadoPersistenciaFalhou":  true,
+                  "exigeDuravelConfirmada":  true,
+                  "soContinuidade":  true
+              },
+    "persistencia99":  {
+                           "registrarSolicitacao99":  true,
+                           "buscarTransacao":  true,
+                           "teNaoEncontrada":  true,
+                           "gravarContinuidade":  true,
+                           "confirmaReleitura":  true
+                       },
+    "gateModulo":  {
+                       "validarPersistenciaAntesEnvioFinanceiro":  true,
+                       "exigePersistenciaConfirmada":  true
+                   }
+}

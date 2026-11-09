@@ -1,0 +1,5 @@
+		
+
+	
+2026-11-09 13:59:12 DEBUG protocol.c:792: Renomeado automacao_coleta_mensagem -> mensagem.
+2026-11-09 13:59:12 DEBUG protocol.c:792: Renomeado automacao_coleta_palavra_chave -> chave.

@@ -1,0 +1,17 @@
+{
+  "dbPath": "C:\\ProgramData\\MercantilFiscal\\dados\\mercadao.db",
+  "ok": true,
+  "engine": "node:sqlite",
+  "count": 1,
+  "pendentes": [
+    {
+      "id": 1,
+      "status": "pendente",
+      "valor": 1,
+      "tipo": "cartao_debito",
+      "provedor": "destaxa",
+      "idempotency_key": "tef-fp-90b41858f0aff5d47c573e5c3d86bc62",
+      "criado_em": "2026-11-09 16:58:43"
+    }
+  ]
+}

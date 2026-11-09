@@ -1,0 +1,154 @@
+{
+    "vspagueLogFiles":  [
+                            {
+                                "path":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                                "mtime":  "2026-11-09T15:57:53.0642284-03:00",
+                                "bytes":  95216
+                            },
+                            {
+                                "path":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                                "mtime":  "2026-11-09T15:57:53.0642284-03:00",
+                                "bytes":  95216
+                            },
+                            {
+                                "path":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                                "mtime":  "2026-11-09T15:57:53.0642284-03:00",
+                                "bytes":  95216
+                            }
+                        ],
+    "cdsTefFiles":  [
+                        {
+                            "path":  "C:\\Users\\cicer\\AppData\\Local\\CDS-SISTEMAS\\tef\\destaxa-autorizacao-excepcional.json",
+                            "mtime":  "2026-11-09T15:54:48.2825289-03:00",
+                            "bytes":  1364
+                        }
+                    ],
+    "keywordHits":  [
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "00151",
+                            "snippet":  "e.client.interaction.VeSPagueClientTransactionManager [main] vspg-id-049d0aac: [00151] Terminal não cadastrado ou desabilitado 2026-11-09 11:47:48,430 INFO vespague.client.interaction.VeSPagueClientT",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        },
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "TABELA EXPIRADA",
+                            "snippet":  "id-66c550a0] \u003c- {commandId:\u0027TLI\u0027, statusCode=\u0027020\u0027, isSuccess=\u0027false\u0027, display=\u0027TABELA EXPIRADA\u0027} 2026-11-09 13:59:11,308 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        },
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "TLS",
+                            "snippet":  "d, port=60410, Session(1794243729165|TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)]SSL/TLS) - Connected successfull 2026-11-09 14:02:09,334 INFO lib.comm.VeSCommSocket [VBICommSocket.Connect] Tryied with ce",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        },
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "Connection breaked",
+                            "snippet":  "eceiveWait(\u003elisten\u003c:60906(0))] VBIComm(\u003elisten\u003c:60906(0)) - Connection breaked: Connection breaked (-1) (127.0.0.1) 2026-11-09 15:56:51,699 WARN vespague.automation.VeSPagueClientAutomationInteractio",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        },
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "60906",
+                            "snippet":  "WARN lib.comm.VeSComm [VBIComm.ReceiveWait(\u003elisten\u003c:60906(0))] VBIComm(\u003elisten\u003c:60906(0)) - Connection breaked: Connection breaked (-1) (127.0.0.1) 2026-11-09 15:56:51,699 WARN vespague.automation.Ve",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        },
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "error",
+                            "snippet":  "2026-11-09 10:22:51,802 ERROR lib.VBIMain [main] V$PagueClient (60603) - Application already running: Address already in use: bind 2026-11-09 10:33:38,813 ERROR lib.VBIMain [main] V$PagueClient (606",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        },
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "ERROR",
+                            "snippet":  "excedido ao aguardar resposta do PIN-Pad (60 segundos) 2026-11-09 15:57:52,035 ERROR vespague.client.device.VeSPaguePinpad [Cartão Vender-vspg-id-66c550a0] Erro de leitura do cartão ou cartão inválid",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        },
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "00151",
+                            "snippet":  "e.client.interaction.VeSPagueClientTransactionManager [main] vspg-id-049d0aac: [00151] Terminal não cadastrado ou desabilitado 2026-11-09 11:47:48,430 INFO vespague.client.interaction.VeSPagueClientT",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        },
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "TABELA EXPIRADA",
+                            "snippet":  "id-66c550a0] \u003c- {commandId:\u0027TLI\u0027, statusCode=\u0027020\u0027, isSuccess=\u0027false\u0027, display=\u0027TABELA EXPIRADA\u0027} 2026-11-09 13:59:11,308 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        },
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "TLS",
+                            "snippet":  "d, port=60410, Session(1794243729165|TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)]SSL/TLS) - Connected successfull 2026-11-09 14:02:09,334 INFO lib.comm.VeSCommSocket [VBICommSocket.Connect] Tryied with ce",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        },
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "Connection breaked",
+                            "snippet":  "eceiveWait(\u003elisten\u003c:60906(0))] VBIComm(\u003elisten\u003c:60906(0)) - Connection breaked: Connection breaked (-1) (127.0.0.1) 2026-11-09 15:56:51,699 WARN vespague.automation.VeSPagueClientAutomationInteractio",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        },
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "60906",
+                            "snippet":  "WARN lib.comm.VeSComm [VBIComm.ReceiveWait(\u003elisten\u003c:60906(0))] VBIComm(\u003elisten\u003c:60906(0)) - Connection breaked: Connection breaked (-1) (127.0.0.1) 2026-11-09 15:56:51,699 WARN vespague.automation.Ve",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        },
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "error",
+                            "snippet":  "2026-11-09 10:22:51,802 ERROR lib.VBIMain [main] V$PagueClient (60603) - Application already running: Address already in use: bind 2026-11-09 10:33:38,813 ERROR lib.VBIMain [main] V$PagueClient (606",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        },
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "ERROR",
+                            "snippet":  "excedido ao aguardar resposta do PIN-Pad (60 segundos) 2026-11-09 15:57:52,035 ERROR vespague.client.device.VeSPaguePinpad [Cartão Vender-vspg-id-66c550a0] Erro de leitura do cartão ou cartão inválid",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        },
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "00151",
+                            "snippet":  "e.client.interaction.VeSPagueClientTransactionManager [main] vspg-id-049d0aac: [00151] Terminal não cadastrado ou desabilitado 2026-11-09 11:47:48,430 INFO vespague.client.interaction.VeSPagueClientT",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        },
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "TABELA EXPIRADA",
+                            "snippet":  "id-66c550a0] \u003c- {commandId:\u0027TLI\u0027, statusCode=\u0027020\u0027, isSuccess=\u0027false\u0027, display=\u0027TABELA EXPIRADA\u0027} 2026-11-09 13:59:11,308 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        },
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "TLS",
+                            "snippet":  "d, port=60410, Session(1794243729165|TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)]SSL/TLS) - Connected successfull 2026-11-09 14:02:09,334 INFO lib.comm.VeSCommSocket [VBICommSocket.Connect] Tryied with ce",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        },
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "Connection breaked",
+                            "snippet":  "eceiveWait(\u003elisten\u003c:60906(0))] VBIComm(\u003elisten\u003c:60906(0)) - Connection breaked: Connection breaked (-1) (127.0.0.1) 2026-11-09 15:56:51,699 WARN vespague.automation.VeSPagueClientAutomationInteractio",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        },
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "60906",
+                            "snippet":  "WARN lib.comm.VeSComm [VBIComm.ReceiveWait(\u003elisten\u003c:60906(0))] VBIComm(\u003elisten\u003c:60906(0)) - Connection breaked: Connection breaked (-1) (127.0.0.1) 2026-11-09 15:56:51,699 WARN vespague.automation.Ve",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        },
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "error",
+                            "snippet":  "2026-11-09 10:22:51,802 ERROR lib.VBIMain [main] V$PagueClient (60603) - Application already running: Address already in use: bind 2026-11-09 10:33:38,813 ERROR lib.VBIMain [main] V$PagueClient (606",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        },
+                        {
+                            "file":  "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+                            "keyword":  "ERROR",
+                            "snippet":  "excedido ao aguardar resposta do PIN-Pad (60 segundos) 2026-11-09 15:57:52,035 ERROR vespague.client.device.VeSPaguePinpad [Cartão Vender-vspg-id-66c550a0] Erro de leitura do cartão ou cartão inválid",
+                            "mtime":  "2026-11-09T15:57:53.0642284-03:00"
+                        }
+                    ]
+}

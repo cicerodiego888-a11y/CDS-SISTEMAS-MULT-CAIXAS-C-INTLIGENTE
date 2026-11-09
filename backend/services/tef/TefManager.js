@@ -355,6 +355,14 @@ class TefManager {
       const continuidadeAtiva = this._continuidadeCrt
         && String(this._continuidadeCrt.transacaoId) === transactionId;
       const intent = this._nativeHostIntent.getStore();
+      // TEF-DESTAXA-51.20 — ciclo automático autorizar (intent com TX_START+TX_CONTINUE)
+      // pode emitir permit novo de TX_CONTINUE sem _continuidadeCrt.
+      // TX_FINALIZE e o path PDV (intent só CONTINUE/FINALIZE) continuam exigindo
+      // continuidadeAtiva. Permit permanece one-shot por operação/transactionId.
+      const intentCicloAutomaticoContinue = operation === 'TX_CONTINUE'
+        && Array.isArray(intent?.allowedOperations)
+        && intent.allowedOperations.includes('TX_START')
+        && intent.allowedOperations.includes('TX_CONTINUE');
       const execucaoAutorizada = Boolean(
         transactionId
         && linhaAtiva
@@ -364,7 +372,8 @@ class TefManager {
         && Array.isArray(intent?.allowedOperations)
         && intent.allowedOperations.includes(operation)
         && (operation === 'TX_START'
-          || (continuidadeAtiva && ['TX_CONTINUE', 'TX_FINALIZE'].includes(operation)))
+          || (continuidadeAtiva && ['TX_CONTINUE', 'TX_FINALIZE'].includes(operation))
+          || intentCicloAutomaticoContinue)
       );
       const semOutrasPendencias = execucaoAutorizada
         && linhasParaBloqueio.every((linha) => String(linha.id) === transactionId);
@@ -1060,6 +1069,8 @@ class TefManager {
                         return reject(updateErr);
                       }
                       if (retornoBruto.requerContinuacao === true) {
+                        // 51.05 — cede o event loop do Electron main antes da persistência 99
+                        await new Promise((r) => setImmediate(r));
                         try {
                           await this._persistirSolicitacao99(transacaoId, retornoBruto, {
                             idempotency_key: dadosNormalizados.idempotency_key,
@@ -1081,6 +1092,11 @@ class TefManager {
                           });
                           return reject(error);
                         }
+                        // 51.05 — libera _emExecucao para permitir POST /tef/continuar (sem concluir ciclo)
+                        this._liberarSlotExecucaoParaContinuidade(transacaoId, {
+                          tipoAcao: retornoBruto.acao?.tipo || null,
+                          codigo: retornoBruto.codigo || '99'
+                        });
                       }
                       // MRT-42 — continuidade 99: não "concluir" o ciclo; PDV deve POST /tef/continuar
                       if (retornoBruto.requerContinuacao !== true) {
@@ -1338,6 +1354,34 @@ class TefManager {
         ?? false,
       recuperacao: dados.recuperacao ?? atual.recuperacao ?? null
     });
+  }
+
+  /**
+   * TEF-DESTAXA-51.05 — libera o slot `_emExecucao` após 99 sem concluir o ciclo.
+   * Mantém `_continuidadeCrt` / pendência para POST /tef/continuar.
+   * Sem isso, continuarAutorizacao retorna TEF_CONTINUIDADE_EM_EXECUCAO e TX_CONTINUE nunca sai.
+   */
+  _liberarSlotExecucaoParaContinuidade(transacaoId, meta = {}) {
+    const id = String(transacaoId);
+    this._emExecucao.delete(id);
+    try {
+      const {
+        registrarEventoContinuidade,
+        ESTADOS_CONTINUIDADE
+      } = require('./destaxa/destaxaContinuidadeEstados');
+      registrarEventoContinuidade('aguardando_pdv', {
+        estado: ESTADOS_CONTINUIDADE.AGUARDANDO_RESPOSTA_OPERADOR,
+        transactionId: id,
+        tipoAcao: meta.tipoAcao || null,
+        codigo: meta.codigo || null
+      });
+    } catch (_) { /* best-effort */ }
+    try {
+      repository.registrarLog(id, 'CONTINUIDADE_AGUARDANDO_PDV', 'Slot _emExecucao liberado para POST /tef/continuar', {
+        requerContinuacao: true,
+        tipoAcao: meta.tipoAcao || null
+      });
+    } catch (_) { /* best-effort */ }
   }
 
   /** Chamada ao adapter terminou dentro do prazo: pendente mantém a trava, desfecho final a remove. */

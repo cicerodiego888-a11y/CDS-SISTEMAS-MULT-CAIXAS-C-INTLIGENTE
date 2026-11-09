@@ -1,0 +1,37 @@
+[
+    {
+        "file":  "backend/services/tef/TefManager.js",
+        "diskSha256":  "96e9a34bd52d0df564092285422ba2a70973100e03d6206eba7cee95ecc889a4",
+        "manifestSha256":  "e3aa97a693008a6885abe837ced1644338b10ec82a7ec5e4ceb0421987c178df",
+        "match":  false,
+        "inManifest":  true
+    },
+    {
+        "file":  "backend/services/tef/destaxa/destaxaCrtCicloOrquestracao.js",
+        "diskSha256":  "ce0bc01693edcb417881b758bd0c76d735c1110a746148608436084e07b3fd62",
+        "manifestSha256":  "3b4ac04bb1ad7ddf80742b3ad4d2cf21e177ee5fdfdd304acfb0328fae683d6d",
+        "match":  false,
+        "inManifest":  true
+    },
+    {
+        "file":  "backend/services/tef/adapters/DestaxaRealAdapter.js",
+        "diskSha256":  "6aab12121a2e4055935dfb4981b167086fc94ee4a62efb9e3ea59a96f54063fa",
+        "manifestSha256":  "2b7f97f510f5489901617c8c1393b7adbfad1b18f8a5239d53aff8e12fb9676b",
+        "match":  false,
+        "inManifest":  true
+    },
+    {
+        "file":  "backend/services/tef/destaxa/destaxaContinuidadePersistencia.js",
+        "diskSha256":  "0ae061ccf676ccb0a6ce124450240a7a0cea2486c4d937398000b35b82e300f0",
+        "manifestSha256":  "0ae061ccf676ccb0a6ce124450240a7a0cea2486c4d937398000b35b82e300f0",
+        "match":  true,
+        "inManifest":  true
+    },
+    {
+        "file":  "backend/services/tef/tefRepository.js",
+        "diskSha256":  "d28b6b83784b02f05ffc01a495dca5e9b79115aaff5738bc284f02292dc41234",
+        "manifestSha256":  "d28b6b83784b02f05ffc01a495dca5e9b79115aaff5738bc284f02292dc41234",
+        "match":  true,
+        "inManifest":  true
+    }
+]

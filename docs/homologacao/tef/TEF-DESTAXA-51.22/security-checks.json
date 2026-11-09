@@ -1,0 +1,9 @@
+{
+  "coletadoEm": "2026-11-09T21:22:22.052Z",
+  "gateEnv": "0",
+  "intentCiclo": true,
+  "finalizeViaContinuidade": true,
+  "autorizarOps": true,
+  "continuarOps": true,
+  "shortcutOnlyContinue": true
+}

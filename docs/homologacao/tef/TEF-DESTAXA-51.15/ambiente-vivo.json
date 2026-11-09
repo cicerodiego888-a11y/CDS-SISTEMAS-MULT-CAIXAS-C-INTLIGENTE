@@ -1,0 +1,36 @@
+{
+    "coletadoEm":  "2026-11-09T17:07:26.3807760-03:00",
+    "pid18236Exists":  true,
+    "pid18236Responding":  true,
+    "pid18236Title":  "CDS Sistemas - PDV",
+    "pid18236Cmd":  "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" electron-pdv.js --cds-forcar-local",
+    "pid18236Exe":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe",
+    "electronPdvMains":  [
+                             {
+                                 "pid":  18236,
+                                 "cmd":  "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" electron-pdv.js --cds-forcar-local"
+                             }
+                         ],
+    "electronCount":  4,
+    "http3001":  200,
+    "listen3001Pid":  [
+                          18236
+                      ],
+    "vspague":  {
+                    "id":  10256,
+                    "responding":  true,
+                    "start":  "2026-11-09T12:24:10.7988719-03:00"
+                },
+    "tcp60906":  [
+                     {
+                         "state":  "Listen",
+                         "pid":  10256
+                     }
+                 ],
+    "com4":  {
+                 "id":  "COM4",
+                 "status":  "OK",
+                 "name":  "PPC-920/930 CDC USB-to-Serial Port (COM4)"
+             },
+    "nativeHostOrRunner":  0
+}

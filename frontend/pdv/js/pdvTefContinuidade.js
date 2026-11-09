@@ -39,12 +39,25 @@
       || (codigo === '99' && resultado.sucesso !== true);
   }
 
+  /** COLETA no PinPad (cartão/senha) — ack vazio; não digitar PAN no PDV (51.05 / MRT-50.74). */
+  function ehColetaPinPad(acao) {
+    const a = normalizarAcao(acao);
+    const chave = String(a.chave || '').toLowerCase();
+    if (/cartao|senha|pin|track|emv|chip|aproxim|transacao_cartao/.test(chave)) return true;
+    const msg = String(a.mensagem || '').toLowerCase();
+    return /aproxime|insira|passe o cart|aguarde a senha|digite a senha|pin-pad|pinpad/.test(msg);
+  }
+
   function validarResposta(acao, valor) {
     const a = normalizarAcao(acao);
     if (a.tipo === TIPOS.DISPLAY || !a.tipo) {
       return { ok: true, resposta: { displayAck: true } };
     }
     if (a.tipo === TIPOS.COLETA) {
+      if (ehColetaPinPad(a)) {
+        const texto = valor == null ? '' : String(valor);
+        return { ok: true, resposta: { informacao: texto }, pinpadAck: true };
+      }
       const texto = valor == null ? '' : String(valor).trim();
       if (!texto) {
         return { ok: false, codigo: 'DESTAXA_PDV_COLETA_VAZIA', mensagem: 'Informe o valor solicitado.' };
@@ -174,21 +187,22 @@
         }
       });
 
-      // Timeout da ação (segundos Destaxa) — não inventa valor; só aplica se veio na ação
-      const timeoutSeg = Number(a.timeout);
-      if (Number.isFinite(timeoutSeg) && timeoutSeg > 0) {
-        setTimeout(() => {
-          if (submetido) return;
-          submetido = true;
-          fechar({
-            ok: false,
-            cancelado: false,
-            codigo: 'DESTAXA_CONTINUIDADE_TIMEOUT',
-            mensagem: `Timeout de coleta (${timeoutSeg}s) no PDV — continuidade interrompida`,
-            retryAllowed: false
-          });
-        }, timeoutSeg * 1000);
-      }
+      // Timeout Destaxa se declarado; senão teto PDV 90s (< 120s V$Pague) — 51.05
+      const timeoutDeclarado = Number(a.timeout);
+      const timeoutSeg = (Number.isFinite(timeoutDeclarado) && timeoutDeclarado > 0)
+        ? timeoutDeclarado
+        : 90;
+      setTimeout(() => {
+        if (submetido) return;
+        submetido = true;
+        fechar({
+          ok: false,
+          cancelado: false,
+          codigo: 'DESTAXA_CONTINUIDADE_TIMEOUT',
+          mensagem: `Timeout de coleta (${timeoutSeg}s) no PDV — continuidade interrompida; UNKNOWN; sem retry`,
+          retryAllowed: false
+        });
+      }, timeoutSeg * 1000);
 
       $overlay.modal('show');
     });
@@ -240,14 +254,17 @@
     while (ehContinuidade(atual) && passos < maxPassos) {
       passos += 1;
       const acao = normalizarAcao(atual.acao);
-      if (acao.tipo === TIPOS.DISPLAY) {
-        // DISPLAY: backend já faz auto-ack quando possível; se chegou ao PDV, envia ack explícito
+      if (acao.tipo === TIPOS.DISPLAY || (acao.tipo === TIPOS.COLETA && ehColetaPinPad(acao))) {
+        // DISPLAY ou COLETA PinPad: ack imediato (informacao vazia no PinPad) — 51.05
+        const respostaContinuidade = acao.tipo === TIPOS.DISPLAY
+          ? { displayAck: true }
+          : { informacao: '' };
         try {
           const { response, data } = await postFn(apiUrl, token, {
             transacao_id: atual.transacao_id || atual.transacaoId,
             idempotency_key: idempotencyKey,
             venda_id: vendaId,
-            resposta_continuidade: { displayAck: true },
+            resposta_continuidade: respostaContinuidade,
             acao,
             solicitadaEm: atual.solicitadaEm || atual.continuidade?.solicitadaEm
           });
@@ -260,7 +277,7 @@
             sucesso: false,
             status: 'pendente',
             codigo: 'DESTAXA_PDV_FALHA_COMUNICACAO',
-            mensagem: err?.message || 'Falha de comunicação no DISPLAY ack',
+            mensagem: err?.message || 'Falha de comunicação no ack de continuidade',
             requerContinuacao: true,
             inconclusivo: true,
             retryAllowed: false,
@@ -380,6 +397,7 @@
     normalizarAcao,
     ehContinuidade,
     validarResposta,
+    ehColetaPinPad,
     solicitarRespostaOperador,
     conduzirContinuidade,
     postContinuar,

@@ -1,0 +1,53 @@
+{
+  "coletadoEm": "2026-11-09T21:10:00.000Z",
+  "workspaceTefManagerSha256": "F969747342BECA01E93F4694CF71768F2CF99B8A65B4E86BCB5FFA26EB5A427C",
+  "matchExpected5120": true,
+  "pdvProcesso": null,
+  "http3001": "unreachable",
+  "vspague": {
+    "pid": 10256,
+    "name": "VSPagueClient.exe",
+    "cmd": "VSPagueClient -Xms64m -Xmx512m -Dfile.encoding=ISO8859-1 -Duser.timezone=America/Recife -jar C:\\VBI\\V$Pague\\Client\\V$PagueClient.jar -h app-partner.destaxa.cloud -p 60410 -atv server -tls"
+  },
+  "tcp60906": {
+    "state": "Listen",
+    "owningProcess": 10256
+  },
+  "com4": {
+    "deviceId": "COM4",
+    "name": "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+    "status": "OK",
+    "opened": false
+  },
+  "vspagueConf": "C:\\VBI\\V$Pague\\Client\\V$PagueClient_Destaxa_LojaACB_TACB0120.conf",
+  "dllLog": {
+    "path": "C:\\CDS-SISTEMAS\\logs\\destaxa\\destaxa-dll.log",
+    "bytes": 15249,
+    "mtime": "2026-11-09T15:54:51.7571084-03:00"
+  },
+  "vspagueLog": {
+    "path": "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+    "bytes": 95216,
+    "mtime": "2026-11-09T15:57:53.0642284-03:00"
+  },
+  "observability": {
+    "path": "C:\\Users\\cicer\\AppData\\Local\\CDS-SISTEMAS\\logs\\destaxa-nativehost-observability.jsonl",
+    "bytes": 143879,
+    "mtime": "2026-11-09T17:58:53.4461196-03:00"
+  },
+  "asarPdv": {
+    "path": "dist\\pdv\\win-unpacked\\resources\\app.asar",
+    "sha256": "2CE3DEC66A7679F9E79CF3A28DA2B21B54C1B5F70724498385A7536600CB7F1C",
+    "mtime": "2026-11-07T00:50:54.0472832-03:00",
+    "containsIntentCicloAutomaticoContinue": false,
+    "containsLegacyContinuidadeGate": true
+  },
+  "homologacaoHistoricaPdv": {
+    "fonte": "docs/homologacao/tef/TEF-DESTAXA-51.15/ambiente-vivo.json",
+    "cmd": "node_modules\\electron\\dist\\electron.exe electron-pdv.js --cds-forcar-local",
+    "origem": "workspace (não ASAR)"
+  },
+  "gateEnv": {
+    "DESTAXA_REAL_TRANSACTION_ENABLED": "0"
+  }
+}

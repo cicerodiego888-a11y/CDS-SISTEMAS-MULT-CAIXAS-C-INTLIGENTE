@@ -283,6 +283,16 @@ async function processarTEFFiscal(recebimentosFiscal, origem, totalFiscal) {
         parcelas: 1,
         contextoFiscal
       });
+
+      // TEF-DESTAXA-51.05 — 99/continuidade não é falha financeira; não cancelar nem tratar como negado
+      if (retornoTEF.requerContinuacao === true) {
+        return {
+          sucesso: false,
+          requerContinuacao: true,
+          erro: retornoTEF.mensagem || 'TEF aguarda continuidade (99)',
+          tef: retornoTEF
+        };
+      }
       
       if (!tefContrato.estaAprovado(retornoTEF)) {
         // Cancelar transações anteriores

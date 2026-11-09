@@ -46,6 +46,21 @@ function bridgeUsaDriverNativo(bridge) {
   }
 }
 
+/** Gate env ON ou permit excepcional one-shot já instalado no orquestrador. */
+function bridgePossuiGateOuExcepcional(bridge) {
+  if (transacaoRealHabilitada()) return true;
+  try {
+    const orq = typeof bridge?.getOrquestradorTransacao === 'function'
+      ? bridge.getOrquestradorTransacao()
+      : null;
+    const permit = typeof orq?.obterPermitExcepcional === 'function'
+      ? orq.obterPermitExcepcional()
+      : null;
+    if (permit && permit.exceptional === true && permit.oneShot === true) return true;
+  } catch (_) { /* ignore */ }
+  return false;
+}
+
 function bloquearCicloPorGate(passos, transactionId, soContinuidade = false) {
   return {
     sucesso: false,
@@ -115,15 +130,37 @@ function ehNegado(resultado) {
 
 /**
  * Resolve resposta para continuaTransacaoDestaxa sem inventar coleta/opção.
- * DISPLAY → ack vazio. COLETA/OPCAO → fila explícita do chamador.
+ * DISPLAY → ack vazio.
+ * COLETA PinPad (cartão/senha no terminal) → informacao vazia (MRT-50.74 / 51.05) — não inventa PAN.
+ * COLETA/OPCAO tipadas → fila explícita do chamador / PDV.
  */
 function resolverRespostaContinuidade(acao, filaRespostas) {
+  const {
+    ehColetaDelegadaAoPinPad,
+    registrarEventoContinuidade,
+    ESTADOS_CONTINUIDADE
+  } = require('./destaxaContinuidadeEstados');
   const tipo = acao?.tipo || null;
   if (tipo === TIPOS_ACAO.DISPLAY || tipo == null) {
     return { ok: true, resposta: { displayAck: true }, origem: 'display_ack' };
   }
+  if (tipo === TIPOS_ACAO.COLETA && ehColetaDelegadaAoPinPad(acao)) {
+    registrarEventoContinuidade('pinpad_ack_vazio', {
+      estado: ESTADOS_CONTINUIDADE.CONTINUANDO,
+      tipoAcao: tipo,
+      chave: acao?.chave || null,
+      origem: 'pinpad_ack_vazio'
+    });
+    return { ok: true, resposta: { informacao: '' }, origem: 'pinpad_ack_vazio' };
+  }
   if (tipo === TIPOS_ACAO.COLETA || tipo === TIPOS_ACAO.OPCAO) {
     if (!Array.isArray(filaRespostas) || filaRespostas.length === 0) {
+      registrarEventoContinuidade('sem_resposta_fila', {
+        estado: ESTADOS_CONTINUIDADE.AGUARDANDO_RESPOSTA_OPERADOR,
+        tipoAcao: tipo,
+        chave: acao?.chave || null,
+        codigo: CICLO_ERROS.CONTINUIDADE_SEM_RESPOSTA
+      });
       return {
         ok: false,
         codigo: CICLO_ERROS.CONTINUIDADE_SEM_RESPOSTA,
@@ -227,14 +264,16 @@ async function executarCicloCrt(deps = {}) {
     };
   }
 
-  // MRT-50.67 — gate antes de qualquer TX_START nativo (mocks inalterados)
-  if (bridgeUsaDriverNativo(bridge) && !transacaoRealHabilitada()) {
+  // MRT-50.67 / 51.02 — gate env ou permit excepcional antes de TX_START nativo
+  if (bridgeUsaDriverNativo(bridge) && !bridgePossuiGateOuExcepcional(bridge)) {
     emitir('TX_START_BLOQUEADO', { motivo: ERROS.DESTAXA_REAL_TRANSACTION_DISABLED });
     return bloquearCicloPorGate(passos, transactionId, false);
   }
 
   txStartExecutado = true;
   emitir('TX_START', { operacao, transactionId });
+  // 51.05 — cede event loop do Electron main antes da IPC TX_START (evita NOT_RESPONDING)
+  await new Promise((r) => setImmediate(r));
   let atual = await bridge.iniciarTransacaoDestaxa(operacao, camposEntrada, { transactionId });
   emitir('TX_START_RESULT', {
     codigoDestaxa: codigoDe(atual),
@@ -327,8 +366,8 @@ async function continuarCicloCrt(deps = {}) {
     reconciliacaoObrigatoria: true
   });
 
-  // MRT-50.67 — CONTINUE nativo também exige gate ON
-  if (bridgeUsaDriverNativo(bridge) && !transacaoRealHabilitada()) {
+  // MRT-50.67 / 51.02 — CONTINUE nativo exige gate env OU permit excepcional
+  if (bridgeUsaDriverNativo(bridge) && !bridgePossuiGateOuExcepcional(bridge)) {
     emitir('TX_CONTINUE_BLOQUEADO', { motivo: ERROS.DESTAXA_REAL_TRANSACTION_DISABLED });
     return bloquearCicloPorGate(passos, transactionId, true);
   }
@@ -634,6 +673,21 @@ async function prosseguirCicloAposResultado(ctx) {
       tipoAcao: atual.acao?.tipo || null,
       origemResposta: resolucao.origem
     });
+    try {
+      const {
+        registrarEventoContinuidade,
+        ESTADOS_CONTINUIDADE
+      } = require('./destaxaContinuidadeEstados');
+      registrarEventoContinuidade('tx_continue', {
+        estado: ESTADOS_CONTINUIDADE.CONTINUANDO,
+        transactionId,
+        tipoAcao: atual.acao?.tipo || null,
+        origem: resolucao.origem,
+        codigo: null
+      });
+    } catch (_) { /* best-effort */ }
+    // Cede o event loop do Electron main antes da IPC nativa (51.05).
+    await new Promise((r) => setImmediate(r));
     atual = await bridge.continuarTransacaoDestaxa(resolucao.resposta, { transactionId });
     emitir('TX_CONTINUE_RESULT', {
       n: continues,

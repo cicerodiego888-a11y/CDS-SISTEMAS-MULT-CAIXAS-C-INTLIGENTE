@@ -1,0 +1,88 @@
+{
+    "coletadoEm":  "2026-11-09T16:36:35.6740450-03:00",
+    "wrapperAlive":  true,
+    "wrapperPid":  8276,
+    "electronCount":  4,
+    "electrons":  [
+                      {
+                          "pid":  18236,
+                          "parent":  4620,
+                          "responding":  true,
+                          "startTime":  "2026-11-09T16:35:47.6611304-03:00",
+                          "title":  "CDS Sistemas - PDV",
+                          "exe":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe",
+                          "cmd":  "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" electron-pdv.js --cds-forcar-local"
+                      },
+                      {
+                          "pid":  856,
+                          "parent":  18236,
+                          "responding":  true,
+                          "startTime":  "2026-11-09T16:35:47.9350993-03:00",
+                          "title":  "",
+                          "exe":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe",
+                          "cmd":  "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" --type=gpu-process --user-data-dir=\"C:\\Users\\cicer\\AppData\\Roaming\\cds-sistemas-pdv\" --gpu-preferences=UAAAAAAAAADgAgAYAAAAAAAAAAAAAAAAAABgAAAAAAAwAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAEgAAAAAAAAASAAAAAAAAAAYAAAAAgAAABAAAAAAAAAAGAAAAAAAAAAQAAAAAAAAAAAAAAAOAAAAEAAAAAAAAAABAAAADgAAAAgAAAAAAAAACAAAAAAAAAA= --use-gl=disabled --mojo-platform-channel-handle=1700 --field-trial-handle=1576,i,754429616113596271,4428528616618320938,131072 --disable-features=SpareRendererForSitePerProcess,UseSkiaRenderer,WinRetrieveSuggestionsOnlyOnDemand /prefetch:2"
+                      },
+                      {
+                          "pid":  17584,
+                          "parent":  18236,
+                          "responding":  true,
+                          "startTime":  "2026-11-09T16:35:48.0291847-03:00",
+                          "title":  "",
+                          "exe":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe",
+                          "cmd":  "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" --type=utility --utility-sub-type=network.mojom.NetworkService --lang=pt-BR --service-sandbox-type=none --user-data-dir=\"C:\\Users\\cicer\\AppData\\Roaming\\cds-sistemas-pdv\" --mojo-platform-channel-handle=2060 --field-trial-handle=1576,i,754429616113596271,4428528616618320938,131072 --disable-features=SpareRendererForSitePerProcess,UseSkiaRenderer,WinRetrieveSuggestionsOnlyOnDemand /prefetch:8"
+                      },
+                      {
+                          "pid":  8608,
+                          "parent":  18236,
+                          "responding":  true,
+                          "startTime":  "2026-11-09T16:35:51.2194395-03:00",
+                          "title":  "",
+                          "exe":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe",
+                          "cmd":  "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" --type=renderer --user-data-dir=\"C:\\Users\\cicer\\AppData\\Roaming\\cds-sistemas-pdv\" --app-path=\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\" --no-sandbox --no-zygote --first-renderer-process --disable-gpu-compositing --lang=pt-BR --device-scale-factor=1.25 --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=4 --time-ticks-at-unix-epoch=-1794234322062700 --launch-time-ticks=18629151195 --mojo-platform-channel-handle=2432 --field-trial-handle=1576,i,754429616113596271,4428528616618320938,131072 --disable-features=SpareRendererForSitePerProcess,UseSkiaRenderer,WinRetrieveSuggestionsOnlyOnDemand /prefetch:1"
+                      }
+                  ],
+    "listenPorts":  [
+                        {
+                            "port":  3001,
+                            "pid":  18236,
+                            "addr":  "::"
+                        }
+                    ],
+    "vspague":  {
+                    "Id":  10256,
+                    "Responding":  true,
+                    "StartTime":  "\/Date(1794237850798)\/"
+                },
+    "tcp60906":  [
+                     {
+                         "state":  "Listen",
+                         "pid":  10256
+                     }
+                 ],
+    "com4":  {
+                 "DeviceID":  "COM4",
+                 "Name":  "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+                 "Status":  "OK"
+             },
+    "nativeHostCount":  0,
+    "logMarkers":  {
+                       "DESTAXA_REAL_HARNESS":  false,
+                       "HTTP LISTENING":  true,
+                       "ELECTRON-AUDIT":  true,
+                       "Modo local forçado":  true,
+                       "Backend iniciado":  false,
+                       "Porta escolhida":  false,
+                       "ERRO":  true,
+                       "integridade":  true,
+                       "TX_START":  false,
+                       "TX_CONTINUE":  false,
+                       "iniciaClientDestaxa":  false,
+                       "NativeHost":  true,
+                       "RC3":  true,
+                       "hash divergente":  true,
+                       "CRT":  true,
+                       "autorizarPagamento":  false
+                   },
+    "stdoutBytes":  60455,
+    "stderrBytes":  4087
+}

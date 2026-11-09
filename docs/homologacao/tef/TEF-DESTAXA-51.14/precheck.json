@@ -1,0 +1,16 @@
+{
+    "em":  "2026-11-09T16:35:19.2830756-03:00",
+    "cwd":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE",
+    "electronPdv":  true,
+    "electronCmd":  true,
+    "electronProcs":  1,
+    "gate":  "0",
+    "harnessFlags":  {
+                         "DESTAXA_REAL_HARNESS":  null,
+                         "DESTAXA_CRT_PATH_CHECK":  null,
+                         "TEF_DESTAXA_REAL_TEST":  null,
+                         "DESTAXA_NATIVE_HOST_CHECK":  null
+                     },
+    "bootSafe":  true,
+    "motivoBootSafe":  "Harness/CRT/NativeHost check env unset; gate=0; electron-pdv -\u003e electron-common sem auto TEF; electron.js só TEF se env harness=1"
+}

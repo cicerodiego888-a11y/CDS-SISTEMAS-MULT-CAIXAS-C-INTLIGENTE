@@ -1,0 +1,80 @@
+﻿2026-11-09 14:06:10,692 WARN vespague.client.graphic.transacao.cartao.VeSPagueBotaoCartaoProcessar [Cartão Vender-vspg-id-66c550a0] Erro durante o envio da mensagem ao server.
+vespague.exception.VeSPagueClientException: Transação cancelada pela Aplicação Comercial
+	at vespague.automation.VeSPagueClientAutomationInteraction.RespostaAplicacaoComercialConsistir(VeSPagueClientAutomationInteraction.java:5978)
+	at vespague.client.interaction.VeSPagueClientTransactionManager.TransactionStart(VeSPagueClientTransactionManager.java:2955)
+	at vespague.client.graphic.transacao.VeSPagueBotaoBaseProcessarGenerico.TransactionToServerSendAndReceive(VeSPagueBotaoBaseProcessarGenerico.java:426)
+	at vespague.client.graphic.transacao.cartao.VeSPagueBotaoCartaoProcessar.TransactionToServerSendAndReceive(VeSPagueBotaoCartaoProcessar.java:1839)
+	at vespague.client.graphic.transacao.VeSPagueBotaoBaseProcessarGenerico.DadoConsistir(VeSPagueBotaoBaseProcessarGenerico.java:158)
+	at vespague.client.graphic.transacao.VeSPagueWindowProcessar.DadoConsistirGravar(VeSPagueWindowProcessar.java:705)
+	at vespague.client.graphic.transacao.VeSPagueWindowProcessar.ProximoComponentIr(VeSPagueWindowProcessar.java:651)
+	at vespague.client.graphic.transacao.VeSPagueWindowProcessar.Inicializar(VeSPagueWindowProcessar.java:442)
+	at vespague.client.graphic.transacao.VeSPagueWindowProcessar.Inicializar(VeSPagueWindowProcessar.java:400)
+	at vespague.client.graphic.transacao.VeSPagueWindowTransacaoProcessar.Inicializar(VeSPagueWindowTransacaoProcessar.java:581)
+	at vespague.client.graphic.transacao.cartao.VeSPagueWindowTransacaoCartaoProcessar.Inicializar(VeSPagueWindowTransacaoCartaoProcessar.java:351)
+	at vespague.client.graphic.transacao.VeSPagueWindowTransacaoProcessar.<init>(VeSPagueWindowTransacaoProcessar.java:372)
+	at vespague.client.graphic.transacao.cartao.VeSPagueWindowTransacaoCartaoProcessar.<init>(VeSPagueWindowTransacaoCartaoProcessar.java:62)
+	at vespague.client.graphic.transacao.cartao.VeSPagueWindowTransacaoCartaoProcessar.<init>(VeSPagueWindowTransacaoCartaoProcessar.java:109)
+	at vespague.client.graphic.transacao.cartao.VeSPagueWindowTransacaoCartaoProcessar.<init>(VeSPagueWindowTransacaoCartaoProcessar.java:83)
+	at vespague.client.interaction.VeSPagueClientTransactionManager$1.run(VeSPagueClientTransactionManager.java:276)
+	at java.base/java.lang.Thread.run(Unknown Source)
+	at vespague.client.interaction.VeSPagueClientTransactionManager$36.run(VeSPagueClientTransactionManager.java:2533)
+2026-11-09 14:06:10,695 INFO vespague.automation.VeSPagueClientAutomationInteraction [Cartão Vender-vspg-id-66c550a0] -> coletaMensagem:[Transação cancelada pela Aplicação Comercial], coletaRetorno:9, coletaSequencial:5, coletaTransacaoResposta:78
+2026-11-09 14:06:10,696 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] Finalizando a comunicação
+2026-11-09 14:06:10,696 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] -> {commandId:'CLO'}
+2026-11-09 14:06:10,973 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] <- {commandId:'CLO', statusCode='000', isSuccess='true'}
+2026-11-09 14:06:10,974 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] Finalizado a comunicação com sucesso
+2026-11-09 14:06:10,975 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] Fechando a porta de comunicação
+2026-11-09 14:06:10,977 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] Fechado a porta de comunicação com sucesso
+2026-11-09 14:06:11,000 INFO vespague.automation.VeSPagueClientAutomationInteraction [Cartão Vender-vspg-id-66c550a0] -> mensagem:[Transação cancelada pela Aplicação Comercial], retorno:9, sequencial:2, transacao:[Cartão Vender], resposta:78
+2026-11-09 14:06:11,003 INFO vespague.client.interaction.VeSPagueClientTransactionManager$36 [Cartão Vender-vspg-id-66c550a0] transacao finalizada
+2026-11-09 14:48:56,022 WARN lib.comm.VeSComm [VBIComm.ReceiveWait(>listen<:60906(0))] VBIComm(>listen<:60906(0)) - Connection breaked: Connection reset (127.0.0.1)
+2026-11-09 15:54:48,564 INFO lib.comm.VeSComm [VBICommSocket.Listen] VBIComm(>listen<:60906(0)<>2/2026-11-09 15:54:48.473/Socket:Socket[addr=/127.0.0.1,port=54854,localport=60906]) - Connected successfull
+2026-11-09 15:54:48,607 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-66c550a0] <- aplicacao:CDS Sistemas, aplicacaoTela:Destaxa, retorno:1, sequencial:1, servico:iniciar, versao:1.0.3
+2026-11-09 15:54:48,634 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-66c550a0] -> mensagem:[Sequencial invalido], retorno:2, sequencial:3
+2026-11-09 15:54:48,638 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-66c550a0] <- aplicacao:CDS Sistemas, aplicacaoTela:Destaxa, retorno:1, sequencial:3, servico:iniciar, versao:1.0.3
+2026-11-09 15:54:48,646 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-66c550a0] -> aplicacao:V$PagueClient, aplicacaoTela:Destaxa, estado:11, retorno:1, sequencial:3, servico:iniciar, versao:5.0.0
+2026-11-09 15:54:48,658 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-66c550a0] <- retorno:1, sequencial:4, servico:executar, transacao:[Cartao Vender], pagamento:A vista, tipoCartao:Debito, valor:1.00
+2026-11-09 15:54:48,730 INFO vespague.client.interaction.VeSPagueClientTransactionManager [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-66c550a0] definindo 1 para a contra senha por nao encontrar o arquivo de log
+2026-11-09 15:54:48,738 INFO vespague.client.interaction.VeSPagueClientTransactionManager$36 [Cartão Vender-vspg-id-66c550a0] transacao iniciada
+2026-11-09 15:54:49,696 INFO lib.comm.VeSComm [Cartão Vender-vspg-id-66c550a0] VBIComm(COM4<>1/2026-11-09 15:54:49.696) - Connected successfull
+2026-11-09 15:54:49,698 INFO lib.comm.VeSComm [Cartão Vender-vspg-id-66c550a0] VBIComm(COM4) - Connection procedure started
+2026-11-09 15:54:49,713 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] Iniciando a comunicação ...
+2026-11-09 15:54:49,716 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] -> {commandId:'OPN'}
+2026-11-09 15:54:49,855 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] <- {commandId:'OPN', statusCode='000', isSuccess='true'}
+2026-11-09 15:54:49,857 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] Iniciado a comunicação com sucesso
+2026-11-09 15:54:49,859 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] -> {commandId:'DSP', display:'    Destaxa          1.0.3      '}
+2026-11-09 15:54:50,060 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] <- {commandId:'DSP', statusCode='000', isSuccess='true'}
+2026-11-09 15:54:50,163 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] -> {commandId:'DWK'}
+2026-11-09 15:54:50,363 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] <- {commandId:'DWK', statusCode='000', isSuccess='true'}
+2026-11-09 15:54:50,376 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] -> {commandId:'DSP', display:'    Destaxa          1.0.3      '}
+2026-11-09 15:54:50,561 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] <- {commandId:'DSP', statusCode='000', isSuccess='true'}
+2026-11-09 15:54:50,577 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] Iniciando a comunicação ...
+2026-11-09 15:54:50,578 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] -> {commandId:'OPN'}
+2026-11-09 15:54:50,764 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] <- {commandId:'OPN', statusCode='000', isSuccess='true'}
+2026-11-09 15:54:50,768 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] Iniciado a comunicação com sucesso
+2026-11-09 15:54:50,768 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] -> {commandId:'DSP', display:'    Destaxa          1.0.3      '}
+2026-11-09 15:54:50,964 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] <- {commandId:'DSP', statusCode='000', isSuccess='true'}
+2026-11-09 15:54:51,043 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] -> {commandId:'DWK'}
+2026-11-09 15:54:51,178 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] <- {commandId:'DWK', statusCode='000', isSuccess='true'}
+2026-11-09 15:54:51,181 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] -> {commandId:'DSP', display:'    Destaxa          1.0.3      '}
+2026-11-09 15:54:51,379 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] <- {commandId:'DSP', statusCode='000', isSuccess='true'}
+2026-11-09 15:54:51,381 INFO vespague.structure.VeSPagueConfiguracaoClient [Cartão Vender-vspg-id-66c550a0] Userede usando a posição EMV 2
+2026-11-09 15:54:51,387 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] -> {commandId:'GTS'}
+2026-11-09 15:54:51,480 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] <- {commandId:'GTS', statusCode='000', isSuccess='true'}
+2026-11-09 15:54:51,485 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] PP > 2026-11-09 00:00:00.001
+2026-11-09 15:54:51,486 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] V$ > 2026-11-09 00:00:00.001
+2026-11-09 15:54:51,694 INFO vespague.automation.VeSPagueClientAutomationInteraction [Cartão Vender-vspg-id-66c550a0] -> coletaMensagem:[Aguarde a passagem/inserção/aproximação do cartão no PIN-Pad.], coletaPalavraChave:transacao_cartao_numero, coletaRetorno:0, coletaSequencial:1
+2026-11-09 15:54:51,796 WARN lib.comm.VeSComm [VBIComm.ReceiveWait(>listen<:60906(0))] VBIComm(>listen<:60906(0)) - Connection breaked: Connection breaked (-1) (127.0.0.1)
+2026-11-09 15:56:51,699 WARN vespague.automation.VeSPagueClientAutomationInteraction [Cartão Vender-vspg-id-66c550a0] Tempo excedido ao aguardar resposta da aplicação comercial (120 segundos)
+2026-11-09 15:56:51,720 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] -> {commandId:'DEX'}
+2026-11-09 15:56:51,971 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] <- {commandId:'DEX', statusCode='000', isSuccess='true'}
+2026-11-09 15:56:51,976 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] -> {commandId:'CKE'}
+2026-11-09 15:57:52,022 WARN lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] Tempo excedido ao aguardar resposta do PIN-Pad (60 segundos)
+2026-11-09 15:57:52,035 ERROR vespague.client.device.VeSPaguePinpad [Cartão Vender-vspg-id-66c550a0] Erro de leitura do cartão ou cartão inválido.
+2026-11-09 15:57:52,044 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] Finalizando a comunicação
+2026-11-09 15:57:52,045 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] -> {commandId:'CLO'}
+2026-11-09 15:57:53,014 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] <- {commandId:'CLO', statusCode='000', isSuccess='true'}
+2026-11-09 15:57:53,014 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] Finalizado a comunicação com sucesso
+2026-11-09 15:57:53,016 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] Fechando a porta de comunicação
+2026-11-09 15:57:53,017 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cartão Vender-vspg-id-66c550a0] Fechado a porta de comunicação com sucesso
+2026-11-09 15:57:53,063 INFO vespague.client.interaction.VeSPagueClientTransactionManager$36 [Cartão Vender-vspg-id-66c550a0] transacao finalizada

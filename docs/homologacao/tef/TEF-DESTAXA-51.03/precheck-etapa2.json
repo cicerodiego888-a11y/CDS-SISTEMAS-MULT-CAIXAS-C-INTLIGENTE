@@ -1,0 +1,21 @@
+{
+    "nhSize":  50439,
+    "gateProcess":  null,
+    "capturedAt":  "2026-11-09T13:53:57.7881610-03:00",
+    "conf":  {
+                 "Name":  "V$PagueClient_Destaxa_LojaACB_TACB0120.conf",
+                 "Length":  89271,
+                 "LastWriteTime":  "\/Date(1794237853369)\/"
+             },
+    "vspague":  {
+                    "Id":  10256,
+                    "StartTime":  "\/Date(1794237850798)\/",
+                    "Responding":  true
+                },
+    "gateUser":  null,
+    "dllSize":  10879,
+    "gateMachine":  null,
+    "vspagueLogSize":  25594,
+    "ledgerExists":  false,
+    "sprint":  "TEF-DESTAXA-51.03-ETAPA2"
+}

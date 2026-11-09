@@ -1,0 +1,44 @@
+{
+    "versao":  1,
+    "atualizadoEm":  "2026-11-09T18:54:48.281Z",
+    "autorizacoes":  [
+                         {
+                             "authorizationId":  "5aed71f2b6e19f7f14303f69242c6796",
+                             "status":  "CONSUMED",
+                             "valorCentavos":  100,
+                             "tipoPermitido":  [
+                                                   "cartao_debito",
+                                                   "debito"
+                                               ],
+                             "formaPagamento":  "A vista",
+                             "operacao":  "CRT",
+                             "emitidoEm":  "2026-11-09T16:54:10.595Z",
+                             "expiresAtMs":  1794245050595,
+                             "expiresAt":  "2026-11-09T17:24:10.595Z",
+                             "consumidoEm":  "2026-11-09T16:58:43.030Z",
+                             "motivo":  "TEF-DESTAXA-51.03-ETAPA2-homologacao-debito-r1",
+                             "emitidoPor":  "responsavel-autorizado-51.03",
+                             "consumidoValorCentavos":  100,
+                             "consumidoTipo":  "cartao_debito"
+                         },
+                         {
+                             "authorizationId":  "ba08c88e8e67410f3048bac5e10c4046",
+                             "status":  "CONSUMED",
+                             "valorCentavos":  100,
+                             "tipoPermitido":  [
+                                                   "cartao_debito",
+                                                   "debito"
+                                               ],
+                             "formaPagamento":  "A vista",
+                             "operacao":  "CRT",
+                             "emitidoEm":  "2026-11-09T18:47:09.473Z",
+                             "expiresAtMs":  1794251829473,
+                             "expiresAt":  "2026-11-09T19:17:09.473Z",
+                             "consumidoEm":  "2026-11-09T18:54:48.281Z",
+                             "motivo":  "TEF-DESTAXA-51.10-homologacao-tx-continue-r1",
+                             "emitidoPor":  "responsavel-autorizado-51.10",
+                             "consumidoValorCentavos":  100,
+                             "consumidoTipo":  "cartao_debito"
+                         }
+                     ]
+}
