@@ -1,0 +1,159 @@
+{
+  "ts": "2026-11-10T20:26:57.810Z",
+  "tx3Resumo": {
+    "id": 3,
+    "status": "pendente",
+    "nsu": "2338",
+    "autorizacao": "211139",
+    "venda_id": 66,
+    "valor": 1,
+    "tipo": "cartao_debito",
+    "codigo_resposta": null,
+    "mensagem_resposta": null,
+    "len_comp_cli": 1057,
+    "len_comp_loj": 1057,
+    "criado_em": "2026-11-10 20:26:08",
+    "atualizado_em": "2026-11-10 20:26:23",
+    "idempotency_key": "tef-segunda-tentativa-bd6a8809bc64abb7"
+  },
+  "tx3Nsu": "2338",
+  "tx3Autorizacao": "211139",
+  "tx3Status": "pendente",
+  "tx3ComprovanteClienteLen": 1057,
+  "tx3ComprovanteLojaLen": 1057,
+  "logs": [
+    {
+      "id": 26,
+      "tipo": "INICIO",
+      "mensagem": "Transação TEF iniciada — persistida antes do Adapter/DLL",
+      "criado_em": "2026-11-10 20:26:08",
+      "acao": null,
+      "codigo": "SINGLETON_FALLBACK"
+    },
+    {
+      "id": 27,
+      "tipo": "MRT39_SOLICITACAO_99",
+      "mensagem": "Solicitação 99/OPCAO persistida",
+      "criado_em": "2026-11-10 20:26:11",
+      "acao": null,
+      "codigo": null
+    },
+    {
+      "id": 28,
+      "tipo": "MRT39_RESPOSTA_CONTINUIDADE",
+      "mensagem": "Resposta OPCAO persistida",
+      "criado_em": "2026-11-10 20:26:11",
+      "acao": null,
+      "codigo": null
+    },
+    {
+      "id": 29,
+      "tipo": "MRT39_SOLICITACAO_99",
+      "mensagem": "Solicitação 99/OPCAO persistida",
+      "criado_em": "2026-11-10 20:26:20",
+      "acao": null,
+      "codigo": null
+    },
+    {
+      "id": 30,
+      "tipo": "MRT39_RESPOSTA_CONTINUIDADE",
+      "mensagem": "Resposta OPCAO persistida",
+      "criado_em": "2026-11-10 20:26:20",
+      "acao": null,
+      "codigo": null
+    },
+    {
+      "id": 31,
+      "tipo": "MRT39_SOLICITACAO_99",
+      "mensagem": "Solicitação 99/OPCAO persistida",
+      "criado_em": "2026-11-10 20:26:21",
+      "acao": null,
+      "codigo": null
+    },
+    {
+      "id": 32,
+      "tipo": "MRT39_RESPOSTA_CONTINUIDADE",
+      "mensagem": "Resposta OPCAO persistida",
+      "criado_em": "2026-11-10 20:26:21",
+      "acao": null,
+      "codigo": null
+    },
+    {
+      "id": 33,
+      "tipo": "MRT39_SOLICITACAO_99",
+      "mensagem": "Solicitação 99/OPCAO persistida",
+      "criado_em": "2026-11-10 20:26:22",
+      "acao": null,
+      "codigo": null
+    },
+    {
+      "id": 34,
+      "tipo": "MRT39_RESPOSTA_CONTINUIDADE",
+      "mensagem": "Resposta OPCAO persistida",
+      "criado_em": "2026-11-10 20:26:22",
+      "acao": null,
+      "codigo": null
+    },
+    {
+      "id": 35,
+      "tipo": "CICLO_CRT",
+      "mensagem": "Orquestração CRT Destaxa",
+      "criado_em": "2026-11-10 20:26:23",
+      "acao": null,
+      "codigo": "99"
+    },
+    {
+      "id": 36,
+      "tipo": "RETORNO",
+      "mensagem": "TX_FINALIZE sem bootstrap/permit de segurança válido",
+      "criado_em": "2026-11-10 20:26:23",
+      "acao": null,
+      "codigo": null
+    },
+    {
+      "id": 37,
+      "tipo": "DECISAO_RETRY",
+      "mensagem": "TEF_CONFIRMED_SUCCESS_NO_RETRY",
+      "criado_em": "2026-11-10 20:26:23",
+      "acao": null,
+      "codigo": null
+    },
+    {
+      "id": 38,
+      "tipo": "MRT06_LEASE",
+      "mensagem": "Operação financeira inconclusiva — lease de terminal permanece (TEF-14)",
+      "criado_em": "2026-11-10 20:26:23",
+      "acao": "MARCAR_INCONCLUSIVO",
+      "codigo": null
+    }
+  ],
+  "venda66": {
+    "id": 66,
+    "total": 1,
+    "valor_fiscal": 1,
+    "status": "concluida",
+    "status_pagamento": "quitada",
+    "tef_transacao_id": null,
+    "forma_pagamento": "cartao_debito"
+  },
+  "permit": {
+    "authorizationId": "cff481501f704f672b3e956f4bcb62b4",
+    "status": "CONSUMED",
+    "valorCentavos": 100,
+    "tipoPermitido": [
+      "cartao_debito",
+      "debito"
+    ],
+    "formaPagamento": "A vista",
+    "operacao": "CRT",
+    "emitidoEm": "2026-11-10T20:23:59.117Z",
+    "expiresAtMs": 1794344039117,
+    "expiresAt": "2026-11-10T20:53:59.117Z",
+    "consumidoEm": "2026-11-10T20:26:08.282Z",
+    "motivo": "TEF-SEGUNDA-TENTATIVA-homologacao-debito-r1",
+    "emitidoPor": "product-owner-go-verbal-pinpad-presente",
+    "consumidoValorCentavos": 100,
+    "consumidoTipo": "cartao_debito"
+  },
+  "gate": null
+}

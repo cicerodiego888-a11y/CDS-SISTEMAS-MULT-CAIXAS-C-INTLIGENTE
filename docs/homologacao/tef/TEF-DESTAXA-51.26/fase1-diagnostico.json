@@ -1,0 +1,78 @@
+{
+    "fase":  "1-diagnostico",
+    "coletadoEm":  "2026-11-10T13:22:47.6829497-03:00",
+    "gateProcess":  null,
+    "gateUser":  null,
+    "gateMachine":  null,
+    "hashes":  {
+                   "backend\\services\\tef\\TefManager.js":  "F969747342BECA01E93F4694CF71768F2CF99B8A65B4E86BCB5FFA26EB5A427C",
+                   "backend\\services\\tef\\destaxa\\destaxaProtocolo.js":  "084F846AD8D9844C37CDB5BAFD17586E70A535E45274030F86370329EDBB2804",
+                   "backend\\services\\tef\\destaxa\\DestaxaNativeBridge.js":  "989E8C08BB893CB2C7BF4626ACFA8A38E0B0AF867F98D2F90AEF7F1E2494FE78",
+                   "backend\\services\\tef\\adapters\\DestaxaRealAdapter.js":  "8D3B60ECCBCBB18EACB6D84785BF15ABC786F8BC7C2117E043851FCE846892A9",
+                   "backend\\services\\tef\\destaxa\\destaxaCrtCicloOrquestracao.js":  "EF42EEF025625F148CD48C209714A84E715EAAE2FBB3448B6DAB47A79540ABC6"
+               },
+    "marker5120":  true,
+    "marker5125":  true,
+    "dllWorkspace":  [
+                         {
+                             "path":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-ia32\\libdll-integracao-tef.dll",
+                             "mtime":  "2026-08-31T14:03:22.0000000-03:00",
+                             "length":  130997
+                         },
+                         {
+                             "path":  "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+                             "mtime":  "2026-08-31T14:03:22.0000000-03:00",
+                             "length":  136782
+                         }
+                     ],
+    "dllProgramFiles":  {
+                            "path":  "C:\\Program Files\\CDS ERP\\resources\\app.asar.unpacked\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+                            "mtime":  "2026-10-29T15:36:44.0000000-03:00",
+                            "length":  136782
+                        },
+    "dllDesktop183":  {
+                          "path":  "C:\\Users\\cicer\\Desktop\\DLL DESTAXA\\1_83-20260831T165940Z-1-001\\1_83\\build64\\libdll-integracao-tef.dll",
+                          "mtime":  "2026-08-31T14:03:20.7462846-03:00",
+                          "length":  136782
+                      },
+    "packageName":  "cds-sistemas",
+    "electronDep":  "22.3.27",
+    "processes":  [
+                      {
+                          "cmd":  "c:\\Users\\cicer\\AppData\\Local\\Programs\\cursor\\resources\\app\\resources\\helpers\\node.exe --max-old-space-size=3072 -e \"process.title = process.env[\\\"VSCODE_PROCESS_TITLE\\\"]; require(process.argv[1])\" c:\\Users\\cicer\\AppData\\Local\\Programs\\curso",
+                          "pid":  7880,
+                          "name":  "node.exe"
+                      },
+                      {
+                          "cmd":  "c:\\Users\\cicer\\AppData\\Local\\Programs\\cursor\\resources\\app\\resources\\helpers\\node.exe --max-old-space-size=3072 -e \"process.title = process.env[\\\"VSCODE_PROCESS_TITLE\\\"]; require(process.argv[1])\" c:\\Users\\cicer\\AppData\\Local\\Programs\\curso",
+                          "pid":  18592,
+                          "name":  "node.exe"
+                      },
+                      {
+                          "cmd":  "c:\\Users\\cicer\\AppData\\Local\\Programs\\cursor\\resources\\app\\resources\\helpers\\node.exe c:/Users/cicer/AppData/Local/Programs/cursor/resources/app/extensions/node_modules/typescript/lib/typingsInstaller.js --globalTypingsCacheLocation C:/User",
+                          "pid":  16016,
+                          "name":  "node.exe"
+                      }
+                  ],
+    "serialPorts":  [
+                        {
+                            "name":  "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+                            "id":  "COM4",
+                            "pnp":  "USB\\VID_1753\u0026PID_C902\\5\u00261587D4E6\u00260\u00264",
+                            "desc":  "PPC-920/930 CDC USB-to-Serial Port"
+                        }
+                    ],
+    "pnpPinpadLike":  [
+                          {
+                              "status":  "OK",
+                              "name":  "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+                              "pnp":  "USB\\VID_1753\u0026PID_C902\\5\u00261587D4E6\u00260\u00264"
+                          }
+                      ],
+    "listeners":  [
+
+                  ],
+    "vspaguePaths":  [
+                         "C:\\VBI\\V$Pague\\Client"
+                     ]
+}

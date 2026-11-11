@@ -22,6 +22,10 @@ const {
   transacaoRealHabilitada
 } = require('./destaxaConstantes');
 const { ERROS_HOST } = require('./destaxaNativeHostProtocolo');
+const {
+  extrairEvidenciasRetorno00,
+  classificarRetornoA1
+} = require('./destaxaProtocolo');
 
 const MAX_CONTINUES_PADRAO = 32;
 
@@ -32,7 +36,10 @@ const CICLO_ERROS = Object.freeze({
   HOST_ENCERRADO: 'DESTAXA_CICLO_HOST_ENCERRADO',
   HOST_BUSY: 'DESTAXA_CICLO_HOST_BUSY',
   INCONCLUSIVO: 'DESTAXA_CICLO_INCONCLUSIVO',
-  INIT_OU_GATE: 'DESTAXA_CICLO_BLOQUEADO_PRE_TX'
+  INIT_OU_GATE: 'DESTAXA_CICLO_BLOQUEADO_PRE_TX',
+  /** TEF-DESTAXA-51.25 — FINALIZE(0) bloqueado sem evidências 00 persistidas/confirmadas */
+  EVIDENCIAS_NAO_PERSISTIDAS: 'DESTAXA_CICLO_EVIDENCIAS_NAO_PERSISTIDAS',
+  A1_BLOQUEADO: 'DESTAXA_CICLO_A1_BLOQUEADO'
 });
 
 function bridgeUsaDriverNativo(bridge) {
@@ -126,6 +133,147 @@ function ehNegado(resultado) {
   const c = codigoDe(resultado);
   return ['03', '04', '09'].includes(c)
     || resultado?.classificacao === CLASSIFICACAO_CODIGO.DENIED;
+}
+
+function ehA1(resultado) {
+  return codigoDe(resultado) === 'A1';
+}
+
+function fecharBloqueioA1({
+  resultado,
+  transactionId,
+  passos,
+  continues,
+  txStartExecutado,
+  soContinuidade,
+  origemApi
+}) {
+  const meta = classificarRetornoA1(origemApi || 'iniciaTransacaoDestaxa', {
+    transactionId: resultado?.contexto?.transactionId || transactionId || null
+  });
+  return {
+    sucesso: false,
+    conclusivo: false,
+    inconclusivo: true,
+    retryAllowed: false,
+    bloqueadoA1: true,
+    codigo: CICLO_ERROS.A1_BLOQUEADO,
+    codigoDestaxa: 'A1',
+    mensagem: meta.mensagem,
+    financialState: 'BLOCKED',
+    estado: 'BLOCKED',
+    a1: meta,
+    resultadoUltimo: resultado,
+    resultadoInicio: null,
+    evidencias: null,
+    finalizeExecutado: false,
+    transactionId: meta.transactionId,
+    ciclo: {
+      passos,
+      txStartExecutado: txStartExecutado === true,
+      continues,
+      finalizado: false,
+      soContinuidade: soContinuidade === true
+    },
+    reconciliacaoObrigatoria: true
+  };
+}
+
+async function _confirmarPersistenciaEvidencias00({
+  persistirEvidencias,
+  exigirEvidencias,
+  transactionId,
+  resultado00,
+  evidencias,
+  emitir
+}) {
+  emitir('RECEBER_00', {
+    codigoDestaxa: '00',
+    nsu: evidencias?.nsu || null,
+    temAutorizacao: Boolean(evidencias?.autorizacao),
+    temComprovante1via: Boolean(evidencias?.comprovanteCliente),
+    temComprovante2via: Boolean(evidencias?.comprovanteLoja)
+  });
+  emitir('EXTRAIR_EVIDENCIAS', {
+    completa: evidencias?.completa === true,
+    parcial: evidencias?.parcial === true
+  });
+
+  if (exigirEvidencias !== true && typeof persistirEvidencias !== 'function') {
+    return {
+      ok: true,
+      skipped: true,
+      evidencias,
+      confirmada: false
+    };
+  }
+
+  if (typeof persistirEvidencias !== 'function') {
+    return {
+      ok: false,
+      codigo: CICLO_ERROS.EVIDENCIAS_NAO_PERSISTIDAS,
+      mensagem: 'FINALIZE(0) bloqueado: callback de persistência de evidências 00 ausente',
+      evidencias
+    };
+  }
+
+  if (evidencias?.completa !== true) {
+    return {
+      ok: false,
+      codigo: CICLO_ERROS.EVIDENCIAS_NAO_PERSISTIDAS,
+      mensagem: 'FINALIZE(0) bloqueado: evidências do retorno 00 incompletas (NSU ausente)',
+      evidencias,
+      parcial: true
+    };
+  }
+
+  emitir('PERSISTIR_EVIDENCIAS', { transactionId });
+  let resultado;
+  try {
+    resultado = await persistirEvidencias({
+      transactionId,
+      resultado00,
+      evidencias
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      codigo: error.codigo || error.code || CICLO_ERROS.EVIDENCIAS_NAO_PERSISTIDAS,
+      mensagem: `FINALIZE(0) bloqueado: falha ao persistir evidências 00: ${error.message}`,
+      evidencias
+    };
+  }
+
+  const txId = transactionId == null ? '' : String(transactionId).trim();
+  const confirmada = resultado?.ok === true
+    && resultado?.confirmada === true
+    && resultado?.duravel === true
+    && String(resultado.transactionId || '') === txId
+    && resultado?.evidencias?.nsu
+    && String(resultado.evidencias.nsu) === String(evidencias.nsu);
+
+  emitir('CONFIRMAR_PERSISTENCIA', {
+    confirmada,
+    codigo: resultado?.codigo || null
+  });
+
+  if (!confirmada) {
+    return {
+      ok: false,
+      codigo: resultado?.codigo || CICLO_ERROS.EVIDENCIAS_NAO_PERSISTIDAS,
+      mensagem: resultado?.mensagem
+        || 'FINALIZE(0) bloqueado: persistência das evidências 00 não confirmada',
+      evidencias,
+      persistencia: resultado || null
+    };
+  }
+
+  return {
+    ok: true,
+    confirmada: true,
+    evidencias: resultado.evidencias || evidencias,
+    persistencia: resultado
+  };
 }
 
 /**
@@ -306,6 +454,19 @@ async function executarCicloCrt(deps = {}) {
       reconciliacaoObrigatoria: true
     };
   }
+  if (ehA1(atual)) {
+    emitir('A1_BLOQUEADO', { origemApi: 'iniciaTransacaoDestaxa' });
+    return fecharBloqueioA1({
+      resultado: atual,
+      transactionId,
+      passos,
+      continues,
+      txStartExecutado: true,
+      soContinuidade: false,
+      origemApi: 'iniciaTransacaoDestaxa'
+    });
+  }
+
   if (ehInconclusivo(atual)) {
     return fecharInconclusivo(atual, 'Timeout/inconclusivo em TX_START');
   }
@@ -321,7 +482,9 @@ async function executarCicloCrt(deps = {}) {
     emitir,
     fecharInconclusivo,
     txStartExecutado: true,
-    persistirRespostaAntesContinue: deps.persistirRespostaAntesContinue
+    persistirRespostaAntesContinue: deps.persistirRespostaAntesContinue,
+    persistirEvidenciasAntesFinalize: deps.persistirEvidenciasAntesFinalize,
+    exigirEvidenciasAntesFinalize: deps.exigirEvidenciasAntesFinalize === true
   });
 }
 
@@ -481,6 +644,19 @@ async function continuarCicloCrt(deps = {}) {
       reconciliacaoObrigatoria: true
     };
   }
+  if (ehA1(atual)) {
+    emitir('A1_BLOQUEADO', { origemApi: 'continuaTransacaoDestaxa' });
+    return fecharBloqueioA1({
+      resultado: atual,
+      transactionId,
+      passos,
+      continues,
+      txStartExecutado: false,
+      soContinuidade: true,
+      origemApi: 'continuaTransacaoDestaxa'
+    });
+  }
+
   if (ehInconclusivo(atual)) {
     return fecharInconclusivo(atual, 'Timeout/inconclusivo em TX_CONTINUE');
   }
@@ -497,7 +673,9 @@ async function continuarCicloCrt(deps = {}) {
     fecharInconclusivo,
     txStartExecutado: false,
     soContinuidade: true,
-    persistirRespostaAntesContinue
+    persistirRespostaAntesContinue,
+    persistirEvidenciasAntesFinalize: deps.persistirEvidenciasAntesFinalize,
+    exigirEvidenciasAntesFinalize: deps.exigirEvidenciasAntesFinalize === true
   });
 }
 
@@ -601,7 +779,9 @@ async function prosseguirCicloAposResultado(ctx) {
     fecharInconclusivo,
     txStartExecutado,
     soContinuidade,
-    persistirRespostaAntesContinue
+    persistirRespostaAntesContinue,
+    persistirEvidenciasAntesFinalize,
+    exigirEvidenciasAntesFinalize
   } = ctx;
   let { atual, continues } = ctx;
 
@@ -731,6 +911,19 @@ async function prosseguirCicloAposResultado(ctx) {
         reconciliacaoObrigatoria: true
       };
     }
+    if (ehA1(atual)) {
+      emitir('A1_BLOQUEADO', { origemApi: 'continuaTransacaoDestaxa' });
+      return fecharBloqueioA1({
+        resultado: atual,
+        transactionId,
+        passos,
+        continues,
+        txStartExecutado,
+        soContinuidade,
+        origemApi: 'continuaTransacaoDestaxa'
+      });
+    }
+
     if (ehInconclusivo(atual)) {
       return fecharInconclusivo(atual, 'Timeout/inconclusivo em TX_CONTINUE');
     }
@@ -748,6 +941,9 @@ async function prosseguirCicloAposResultado(ctx) {
       financialState: atual.financialState || 'CONFIRMED_DENIED',
       mensagem: atual.mensagem || atual.descricao || 'Transação negada pelo provedor',
       resultadoUltimo: atual,
+      resultadoInicio: null,
+      evidencias: null,
+      finalizeExecutado: false,
       ciclo: {
         passos,
         txStartExecutado: txStartExecutado === true,
@@ -758,34 +954,142 @@ async function prosseguirCicloAposResultado(ctx) {
     };
   }
 
+  if (ehA1(atual)) {
+    emitir('A1_BLOQUEADO', { origemApi: 'iniciaTransacaoDestaxa' });
+    return fecharBloqueioA1({
+      resultado: atual,
+      transactionId,
+      passos,
+      continues,
+      txStartExecutado,
+      soContinuidade,
+      origemApi: 'iniciaTransacaoDestaxa'
+    });
+  }
+
   if (!ehSucessoConclusivo(atual)) {
     return fecharInconclusivo(atual, `Código não conclusivo após ciclo: ${codigoDe(atual) || '(vazio)'}`);
   }
 
+  // TEF-DESTAXA-51.25 — preservar evidências do 00 ANTES de FINALIZE(0)
+  const resultadoInicio = atual;
+  const evidencias = extrairEvidenciasRetorno00(resultadoInicio);
+  const persistenciaEvidencias = await _confirmarPersistenciaEvidencias00({
+    persistirEvidencias: persistirEvidenciasAntesFinalize,
+    exigirEvidencias: exigirEvidenciasAntesFinalize === true,
+    transactionId,
+    resultado00: resultadoInicio,
+    evidencias,
+    emitir
+  });
+
+  if (persistenciaEvidencias.ok !== true || (
+    exigirEvidenciasAntesFinalize === true && persistenciaEvidencias.confirmada !== true
+  )) {
+    if (persistenciaEvidencias.skipped === true && exigirEvidenciasAntesFinalize !== true) {
+      // legado/testes sem hook — FINALIZE permitido sem evidências duráveis
+    } else {
+      return {
+        sucesso: false,
+        conclusivo: false,
+        inconclusivo: true,
+        retryAllowed: false,
+        codigo: persistenciaEvidencias.codigo || CICLO_ERROS.EVIDENCIAS_NAO_PERSISTIDAS,
+        codigoDestaxa: '00',
+        mensagem: persistenciaEvidencias.mensagem
+          || 'Evidências do retorno 00 não confirmadas — FINALIZE(0) não executado',
+        financialState: 'UNKNOWN',
+        resultadoInicio,
+        resultadoUltimo: resultadoInicio,
+        evidencias: persistenciaEvidencias.evidencias || evidencias,
+        evidenciasPersistidas: false,
+        finalizeExecutado: false,
+        transactionId: resultadoInicio?.contexto?.transactionId || transactionId,
+        ciclo: {
+          passos,
+          txStartExecutado: txStartExecutado === true,
+          continues,
+          finalizado: false,
+          soContinuidade: soContinuidade === true
+        },
+        reconciliacaoObrigatoria: true
+      };
+    }
+  }
+
+  const evidenciasConfirmadas = persistenciaEvidencias.evidencias || evidencias;
   emitir('TX_FINALIZE', { confirmacao: FINALIZACAO_CONFIRMAR });
   const finalizado = await bridge.finalizarTransacaoDestaxa(FINALIZACAO_CONFIRMAR, { transactionId });
   emitir('TX_FINALIZE_RESULT', {
     codigoDestaxa: codigoDe(finalizado),
     sucesso: finalizado?.sucesso === true
   });
+  emitir('PERSISTIR_RESULTADO_FINAL', {
+    codigoDestaxa: codigoDe(finalizado),
+    evidenciasPreservadas: true
+  });
 
   if (ehHostMorto(finalizado) || ehInconclusivo(finalizado)) {
-    return fecharInconclusivo(finalizado, 'Inconclusivo/host em TX_FINALIZE — reconciliação obrigatória');
+    return {
+      ...fecharInconclusivo(finalizado, 'Inconclusivo/host em TX_FINALIZE — reconciliação obrigatória'),
+      resultadoInicio,
+      evidencias: evidenciasConfirmadas,
+      evidenciasPersistidas: persistenciaEvidencias.confirmada === true,
+      finalizeExecutado: true,
+      confirmacao: FINALIZACAO_CONFIRMAR
+    };
   }
 
   const okFinal = ehSucessoConclusivo(finalizado) || finalizado?.sucesso === true;
+  if (!okFinal) {
+    return {
+      sucesso: false,
+      conclusivo: false,
+      inconclusivo: true,
+      retryAllowed: false,
+      codigo: CICLO_ERROS.INCONCLUSIVO,
+      codigoDestaxa: codigoDe(finalizado) || '00',
+      mensagem: finalizado?.mensagem || finalizado?.descricao
+        || 'FINALIZE(0) sem sucesso — evidências 00 preservadas; reconciliação obrigatória',
+      financialState: finalizado?.financialState || 'UNKNOWN',
+      confirmacao: FINALIZACAO_CONFIRMAR,
+      resultadoInicio,
+      resultadoUltimo: finalizado,
+      evidencias: evidenciasConfirmadas,
+      evidenciasPersistidas: persistenciaEvidencias.confirmada === true,
+      finalizeExecutado: true,
+      transactionId: finalizado?.contexto?.transactionId
+        || resultadoInicio?.contexto?.transactionId
+        || transactionId,
+      ciclo: {
+        passos,
+        txStartExecutado: txStartExecutado === true,
+        continues,
+        finalizado: true,
+        soContinuidade: soContinuidade === true
+      },
+      reconciliacaoObrigatoria: true
+    };
+  }
+
   return {
-    sucesso: okFinal,
+    sucesso: true,
     conclusivo: true,
     retryAllowed: false,
-    codigoDestaxa: codigoDe(finalizado) || codigoDe(atual),
-    classificacao: okFinal ? CLASSIFICACAO_CODIGO.SUCCESS : (finalizado.classificacao || null),
-    financialState: finalizado.financialState || (okFinal ? 'CONFIRMED_SUCCESS' : 'UNKNOWN'),
-    mensagem: finalizado.mensagem || finalizado.descricao || (okFinal ? 'CRT finalizada' : 'Falha na finalização'),
+    codigoDestaxa: codigoDe(finalizado) || codigoDe(resultadoInicio) || '00',
+    classificacao: CLASSIFICACAO_CODIGO.SUCCESS,
+    financialState: finalizado.financialState || 'CONFIRMED_SUCCESS',
+    mensagem: finalizado.mensagem || finalizado.descricao || 'CRT finalizada',
     confirmacao: FINALIZACAO_CONFIRMAR,
-    resultadoInicio: atual,
+    resultadoInicio,
     resultadoUltimo: finalizado,
-    transactionId: finalizado?.contexto?.transactionId || atual?.contexto?.transactionId || transactionId,
+    evidencias: evidenciasConfirmadas,
+    evidenciasPersistidas: persistenciaEvidencias.confirmada === true
+      || persistenciaEvidencias.skipped === true,
+    finalizeExecutado: true,
+    transactionId: finalizado?.contexto?.transactionId
+      || resultadoInicio?.contexto?.transactionId
+      || transactionId,
     ciclo: {
       passos,
       txStartExecutado: txStartExecutado === true,

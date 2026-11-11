@@ -567,7 +567,10 @@ class DestaxaNativeHostRuntime {
       case OPERACOES_HOST.TX_FINALIZE:
         this._exigirFinanceiroConhecido(req.operation);
         this._validarTransactionId(transactionId);
-        return this.bridge.finalizarTransacaoDestaxa(payload.confirmacao, { transactionId });
+        return this.bridge.finalizarTransacaoDestaxa(payload.confirmacao, {
+          transactionId,
+          autorizacaoRecuperacao: payload?.autorizacaoRecuperacao || null
+        });
       case OPERACOES_HOST.UNLOAD:
         this._exigirSemTransacaoAtiva(req.operation);
         this.bridge.unload();

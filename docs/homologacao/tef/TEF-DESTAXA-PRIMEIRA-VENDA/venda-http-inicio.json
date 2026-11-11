@@ -1,0 +1,14 @@
+{
+  "event": "primeira-venda-tef-pagar-start",
+  "startedAt": "2026-11-10T19:29:01.592Z",
+  "idempotency": "tef-primeira-venda-9dd272f1d91f84df",
+  "path": "/api/tef/pagar",
+  "body": {
+    "tipo": "cartao_debito",
+    "valor": 1,
+    "parcelas": 1,
+    "venda_id": 65,
+    "idempotency_key": "tef-primeira-venda-9dd272f1d91f84df"
+  },
+  "avisoOperador": "APROXIME/INSIRA O CARTÃO DE DÉBITO NO PINPAD GERTEC COM4 AGORA — UMA OPERAÇÃO"
+}

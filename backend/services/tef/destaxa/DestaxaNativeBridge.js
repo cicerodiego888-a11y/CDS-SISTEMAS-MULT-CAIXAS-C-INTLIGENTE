@@ -470,6 +470,25 @@ class DestaxaNativeBridge {
       duracaoMs
     });
 
+    // TEF-DESTAXA-51.25 — A1 em iniciaClientDestaxa: classificar/bloquear sem finalização automática
+    const bloqueadoA1 = String(codigo || '').toUpperCase() === 'A1';
+    let a1 = null;
+    if (bloqueadoA1) {
+      try {
+        const { classificarRetornoA1 } = require('./destaxaProtocolo');
+        a1 = classificarRetornoA1('iniciaClientDestaxa', {
+          finalizacaoAutomatica: false
+        });
+      } catch (_) {
+        a1 = {
+          codigo: 'A1',
+          origemApi: 'iniciaClientDestaxa',
+          finalizacaoAutomatica: false,
+          financialState: 'BLOCKED'
+        };
+      }
+    }
+
     return {
       sucesso: interpretado.sucesso,
       codigo: interpretado.sucesso ? CODIGO_CLIENT_OK : ERROS.DESTAXA_CLIENT_INIT_FAILED,
@@ -482,6 +501,9 @@ class DestaxaNativeBridge {
       duracaoMs,
       entrada: entrada.texto,
       tamanhoEntrada: entrada.texto.length,
+      bloqueadoA1,
+      a1,
+      finalizacaoAutomaticaA1: false,
       diagnostico: this.getDiagnostics()
     };
   }
@@ -530,7 +552,22 @@ class DestaxaNativeBridge {
         mensagem: `Transação Destaxa real desabilitada: ${REAL_TRANSACTION_ENV} != 1`
       };
     }
-    if (exceptionalPermit) {
+    // SPRINT 51.47 — permit de recuperação TX3: TX_FINALIZE(0)/id=3; não exige CRT.
+    let recuperacaoTx3 = false;
+    if (exceptionalPermit && exceptionalPermit.purpose === 'RECUPERACAO_PROTOCOLAR_TX3') {
+      recuperacaoTx3 = exceptionalPermit.operation === 'TX_FINALIZE'
+        && Number(exceptionalPermit.confirmacao) === 0
+        && String(exceptionalPermit.transactionId) === '3'
+        && exceptionalPermit.exceptional === true
+        && exceptionalPermit.oneShot === true;
+      if (!recuperacaoTx3) {
+        return {
+          sucesso: false,
+          codigo: ERROS.DESTAXA_REAL_TRANSACTION_DISABLED,
+          mensagem: 'Permit RECUPERACAO_PROTOCOLAR_TX3 inválido (exige TX_FINALIZE/confirmacao=0/transactionId=3)'
+        };
+      }
+    } else if (exceptionalPermit) {
       const check = validarPermitExcepcional(exceptionalPermit, {
         valorCentavos: exceptionalPermit.valorCentavos,
         tipoPdv: Array.isArray(exceptionalPermit.tipoPermitido)
@@ -546,7 +583,11 @@ class DestaxaNativeBridge {
         };
       }
     }
-    if (!this._dllLoaded || !this._exportsValid || !this._clientInitialized) {
+    // Recuperação: INIT_CLIENT=A1 deixa clientInitialized=false; DLL/exports + A1 bastam.
+    const pendenciaA1Recuperacao = recuperacaoTx3
+      && String(this._ultimoCodigoClient || '').toUpperCase() === 'A1';
+    if (!this._dllLoaded || !this._exportsValid
+        || (!this._clientInitialized && !pendenciaA1Recuperacao)) {
       return {
         sucesso: false,
         codigo: ERROS.DESTAXA_CLIENT_INIT_FAILED,
@@ -573,8 +614,8 @@ class DestaxaNativeBridge {
     return this._orquestrador.continuarTransacao(respostaEntrada);
   }
 
-  finalizarTransacaoDestaxa(confirmacao) {
-    return this._orquestrador.finalizarTransacao(confirmacao);
+  finalizarTransacaoDestaxa(confirmacao, opcoes = {}) {
+    return this._orquestrador.finalizarTransacao(confirmacao, opcoes || {});
   }
 
   unload() {

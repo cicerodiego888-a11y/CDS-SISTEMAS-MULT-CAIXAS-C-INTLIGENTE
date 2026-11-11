@@ -357,12 +357,19 @@ class TefManager {
       const intent = this._nativeHostIntent.getStore();
       // TEF-DESTAXA-51.20 — ciclo automático autorizar (intent com TX_START+TX_CONTINUE)
       // pode emitir permit novo de TX_CONTINUE sem _continuidadeCrt.
-      // TX_FINALIZE e o path PDV (intent só CONTINUE/FINALIZE) continuam exigindo
-      // continuidadeAtiva. Permit permanece one-shot por operação/transactionId.
+      // TEF-DESTAXA-51.41 — o mesmo ciclo (intent completo com TX_FINALIZE) também
+      // emite permit one-shot de TX_FINALIZE sem _continuidadeCrt. O path PDV
+      // (intent só CONTINUE/FINALIZE) continua exigindo continuidadeAtiva.
+      // Permit permanece one-shot por operação/transactionId.
       const intentCicloAutomaticoContinue = operation === 'TX_CONTINUE'
         && Array.isArray(intent?.allowedOperations)
         && intent.allowedOperations.includes('TX_START')
         && intent.allowedOperations.includes('TX_CONTINUE');
+      const intentCicloAutomaticoFinalize = operation === 'TX_FINALIZE'
+        && Array.isArray(intent?.allowedOperations)
+        && intent.allowedOperations.includes('TX_START')
+        && intent.allowedOperations.includes('TX_CONTINUE')
+        && intent.allowedOperations.includes('TX_FINALIZE');
       const execucaoAutorizada = Boolean(
         transactionId
         && linhaAtiva
@@ -373,7 +380,8 @@ class TefManager {
         && intent.allowedOperations.includes(operation)
         && (operation === 'TX_START'
           || (continuidadeAtiva && ['TX_CONTINUE', 'TX_FINALIZE'].includes(operation))
-          || intentCicloAutomaticoContinue)
+          || intentCicloAutomaticoContinue
+          || intentCicloAutomaticoFinalize)
       );
       const semOutrasPendencias = execucaoAutorizada
         && linhasParaBloqueio.every((linha) => String(linha.id) === transactionId);

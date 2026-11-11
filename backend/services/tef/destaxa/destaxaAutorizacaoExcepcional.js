@@ -2,6 +2,8 @@
 
 /**
  * TEF-DESTAXA-51.02 — Autorização excepcional de uso único (R$1,00 débito CRT).
+ * TEF-DESTAXA-51.51 — vínculo operacional opcional (Destaxa + Gertec COM + PDV)
+ *   e anti-duplicidade de ISSUED; emissão recusada se gate global estiver ON.
  *
  * Gate DESTAXA_REAL_TRANSACTION_ENABLED permanece OFF por padrão.
  * Emissão somente por chamada explícita (nunca no boot).
@@ -171,6 +173,46 @@ function auditar(evento, dados = {}) {
   }
 }
 
+function normalizarTextoCurto(valor, max = 64) {
+  if (valor == null) return null;
+  const texto = String(valor).trim();
+  if (!texto) return null;
+  return texto.slice(0, max);
+}
+
+/**
+ * Vincula a autorização ao canal operacional (opcional; legado sem vínculo continua válido).
+ * @returns {null|{provedor:string,portaCom:string,pinpadCodigo:string,canal:string}}
+ */
+function normalizarVinculoOperacional(vinculo = null) {
+  if (!vinculo || typeof vinculo !== 'object') return null;
+  const provedor = normalizarTextoCurto(vinculo.provedor, 32);
+  const portaCom = normalizarTextoCurto(vinculo.portaCom || vinculo.porta_com, 16);
+  const pinpadCodigo = normalizarTextoCurto(
+    vinculo.pinpadCodigo || vinculo.pinpad_codigo || vinculo.pinpadModelo,
+    48
+  );
+  const canal = normalizarTextoCurto(vinculo.canal, 32);
+  if (!provedor && !portaCom && !pinpadCodigo && !canal) return null;
+  return {
+    provedor: provedor ? provedor.toLowerCase() : null,
+    portaCom: portaCom ? portaCom.toUpperCase() : null,
+    pinpadCodigo: pinpadCodigo ? pinpadCodigo.toUpperCase() : null,
+    canal: canal || null
+  };
+}
+
+function vinculoCompativel(auth, contexto = {}) {
+  const vinculo = auth && auth.vinculo ? normalizarVinculoOperacional(auth.vinculo) : null;
+  if (!vinculo) return true;
+  const ctx = normalizarVinculoOperacional(contexto) || {};
+  if (vinculo.provedor && vinculo.provedor !== (ctx.provedor || null)) return false;
+  if (vinculo.portaCom && vinculo.portaCom !== (ctx.portaCom || null)) return false;
+  if (vinculo.pinpadCodigo && vinculo.pinpadCodigo !== (ctx.pinpadCodigo || null)) return false;
+  if (vinculo.canal && vinculo.canal !== (ctx.canal || null)) return false;
+  return true;
+}
+
 function projetarPublico(auth) {
   if (!auth) return null;
   return {
@@ -183,7 +225,9 @@ function projetarPublico(auth) {
     emitidoEm: auth.emitidoEm,
     expiresAt: auth.expiresAt,
     consumidoEm: auth.consumidoEm || null,
-    motivo: auth.motivo || null
+    motivo: auth.motivo || null,
+    vinculo: auth.vinculo ? { ...auth.vinculo } : null,
+    retryAllowed: false
   };
 }
 
@@ -208,13 +252,23 @@ function tipoCompativel(tipoPdv, tipoPermitido = []) {
 
 /**
  * Emite autorização excepcional one-shot. NÃO chamar no boot.
+ * TEF-DESTAXA-51.51 — recusa gate global ON e recusa segundo ISSUED simultâneo.
  */
 function emitirAutorizacaoExcepcional(opcoes = {}) {
+  if (transacaoRealHabilitada()) {
+    const erro = new Error(
+      `Emissão excepcional recusada: ${REAL_TRANSACTION_ENV}=1 (usar one-shot com gate OFF)`
+    );
+    erro.codigo = ERROS.DESTAXA_AUTORIZACAO_EXCEPCIONAL_GATE_GLOBAL;
+    throw erro;
+  }
+
   const ttlMs = Number.isFinite(Number(opcoes.ttlMs)) && Number(opcoes.ttlMs) > 0
     ? Math.floor(Number(opcoes.ttlMs))
     : TTL_PADRAO_MS;
   const agora = agoraMs();
   const authorizationId = String(opcoes.authorizationId || novoId()).trim();
+  const vinculo = normalizarVinculoOperacional(opcoes.vinculo || null);
   const registro = {
     authorizationId,
     status: ESTADOS_AUTH.ISSUED,
@@ -227,11 +281,25 @@ function emitirAutorizacaoExcepcional(opcoes = {}) {
     expiresAt: new Date(agora + ttlMs).toISOString(),
     consumidoEm: null,
     motivo: String(opcoes.motivo || 'homologacao-debito-r1').slice(0, 120),
-    emitidoPor: String(opcoes.emitidoPor || 'manual').slice(0, 80)
+    emitidoPor: String(opcoes.emitidoPor || 'manual').slice(0, 80),
+    vinculo,
+    retryAllowed: false,
+    operacoesProibidas: Object.freeze([
+      'PIX', 'CNC', 'CANCEL', 'ESTORNO', 'CREDITO', 'RETRY'
+    ])
   };
 
   return comLockLedger((ledger, ledgerPath) => {
     marcarExpiradas(ledger, agora);
+    const issuedAtivas = ledger.autorizacoes.filter((a) => a.status === ESTADOS_AUTH.ISSUED);
+    if (issuedAtivas.length > 0) {
+      const erro = new Error(
+        `Já existe autorização ISSUED (${issuedAtivas[0].authorizationId}) — anti-duplicidade`
+      );
+      erro.codigo = ERROS.DESTAXA_AUTORIZACAO_EXCEPCIONAL_DUPLICADA;
+      erro.authorizationIdExistente = issuedAtivas[0].authorizationId;
+      throw erro;
+    }
     if (ledger.autorizacoes.some((a) => a.authorizationId === authorizationId)) {
       const erro = new Error(`authorizationId já existe: ${authorizationId}`);
       erro.codigo = ERROS.DESTAXA_AUTORIZACAO_EXCEPCIONAL_INVALIDA;
@@ -243,11 +311,15 @@ function emitirAutorizacaoExcepcional(opcoes = {}) {
       authorizationId,
       expiresAt: registro.expiresAt,
       valorCentavos: registro.valorCentavos,
-      operacao: registro.operacao
+      operacao: registro.operacao,
+      vinculo: registro.vinculo,
+      sprint: 'TEF-DESTAXA-51.51'
     });
     return {
       ok: true,
-      autorizacao: projetarPublico(registro)
+      autorizacao: projetarPublico(registro),
+      gateEnv: process.env[REAL_TRANSACTION_ENV] || null,
+      gateGlobalLigado: false
     };
   });
 }
@@ -288,7 +360,8 @@ function encontrarAutorizacaoIssuidaCompativel({
   valorCentavos = null,
   tipoPdv = null,
   operacao = OPERACOES.CRT,
-  authorizationId = null
+  authorizationId = null,
+  vinculo = null
 } = {}) {
   return comLockLedger((ledger, ledgerPath) => {
     const agora = agoraMs();
@@ -305,6 +378,7 @@ function encontrarAutorizacaoIssuidaCompativel({
       if (Number(auth.valorCentavos) !== Number(valorCentavos)) continue;
       if (String(auth.operacao || '').toUpperCase() !== String(operacao || '').toUpperCase()) continue;
       if (!tipoCompativel(tipoPdv, auth.tipoPermitido)) continue;
+      if (!vinculoCompativel(auth, vinculo)) continue;
       return {
         ok: true,
         autorizacao: projetarPublico(auth)
@@ -325,7 +399,8 @@ function consumirAutorizacaoExcepcionalAtomico({
   authorizationId = null,
   valorCentavos = null,
   tipoPdv = null,
-  operacao = OPERACOES.CRT
+  operacao = OPERACOES.CRT,
+  vinculo = null
 } = {}) {
   return comLockLedger((ledger, ledgerPath) => {
     const agora = agoraMs();
@@ -340,7 +415,8 @@ function consumirAutorizacaoExcepcionalAtomico({
         if (a.status !== ESTADOS_AUTH.ISSUED) return false;
         if (Number(a.valorCentavos) !== Number(valorCentavos)) return false;
         if (String(a.operacao || '').toUpperCase() !== String(operacao || '').toUpperCase()) return false;
-        return tipoCompativel(tipoPdv, a.tipoPermitido);
+        if (!tipoCompativel(tipoPdv, a.tipoPermitido)) return false;
+        return vinculoCompativel(a, vinculo);
       }) || null;
     }
 
@@ -390,7 +466,8 @@ function consumirAutorizacaoExcepcionalAtomico({
 
     if (Number(auth.valorCentavos) !== Number(valorCentavos)
       || String(auth.operacao || '').toUpperCase() !== String(operacao || '').toUpperCase()
-      || !tipoCompativel(tipoPdv, auth.tipoPermitido)) {
+      || !tipoCompativel(tipoPdv, auth.tipoPermitido)
+      || !vinculoCompativel(auth, vinculo)) {
       auditar('autorizacao.excepcional.consumo_falhou', {
         authorizationId: auth.authorizationId,
         motivo: 'constraints'
@@ -398,7 +475,7 @@ function consumirAutorizacaoExcepcionalAtomico({
       return {
         ok: false,
         codigo: ERROS.DESTAXA_AUTORIZACAO_EXCEPCIONAL_INVALIDA,
-        mensagem: 'Autorização excepcional incompatível com valor/modalidade/operação',
+        mensagem: 'Autorização excepcional incompatível com valor/modalidade/operação/vínculo',
         permit: null,
         autorizacao: projetarPublico(auth)
       };
@@ -408,6 +485,7 @@ function consumirAutorizacaoExcepcionalAtomico({
     auth.consumidoEm = new Date(agora).toISOString();
     auth.consumidoValorCentavos = Number(valorCentavos);
     auth.consumidoTipo = normalizarTipoTef(tipoPdv);
+    auth.consumidoVinculo = normalizarVinculoOperacional(vinculo);
     gravarLedgerUnlocked(ledgerPath, ledger);
 
     const permit = Object.freeze({
@@ -419,7 +497,11 @@ function consumirAutorizacaoExcepcionalAtomico({
       consumidoEm: auth.consumidoEm,
       exceptional: true,
       oneShot: true,
-      retryAllowed: false
+      retryAllowed: false,
+      vinculo: auth.vinculo ? Object.freeze({ ...auth.vinculo }) : null,
+      operacoesProibidas: Object.freeze([
+        'PIX', 'CNC', 'CANCEL', 'ESTORNO', 'CREDITO', 'RETRY'
+      ])
     });
 
     auditar('autorizacao.excepcional.consumida', {
@@ -499,7 +581,11 @@ function descreverPolitica() {
     ledgerPath: obterCaminhoLedger(),
     estados: { ...ESTADOS_AUTH },
     emitOnBoot: false,
-    retryAposConsumo: false
+    retryAposConsumo: false,
+    antiDuplicidadeIssued: true,
+    recusaGateGlobalOn: true,
+    vinculoOperacionalOpcional: true,
+    operacoesProibidas: ['PIX', 'CNC', 'CANCEL', 'ESTORNO', 'CREDITO', 'RETRY']
   };
 }
 
@@ -515,5 +601,7 @@ module.exports = {
   configurarCaminhoLedgerParaTeste,
   limparCaminhoLedgerDeTeste,
   obterCaminhoLedger,
-  descreverPolitica
+  descreverPolitica,
+  normalizarVinculoOperacional,
+  vinculoCompativel
 };

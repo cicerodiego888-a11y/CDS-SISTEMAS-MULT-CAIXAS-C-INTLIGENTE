@@ -1,0 +1,1804 @@
+{
+  "vspPath": "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+  "totalLines": 543,
+  "windowHits": [
+    {
+      "lineNo": 332,
+      "text": "2026-11-10 16:29:14,248 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 333,
+      "text": "2026-11-10 16:29:14,250 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 334,
+      "text": "2026-11-10 16:29:14,448 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 335,
+      "text": "2026-11-10 16:29:14,449 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 336,
+      "text": "2026-11-10 16:29:14,650 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 337,
+      "text": "2026-11-10 16:29:14,652 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 338,
+      "text": "2026-11-10 16:29:14,852 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 339,
+      "text": "2026-11-10 16:29:14,855 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 340,
+      "text": "2026-11-10 16:29:15,053 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 341,
+      "text": "2026-11-10 16:29:15,055 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 342,
+      "text": "2026-11-10 16:29:15,254 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 343,
+      "text": "2026-11-10 16:29:15,256 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 344,
+      "text": "2026-11-10 16:29:15,455 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 345,
+      "text": "2026-11-10 16:29:15,456 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 346,
+      "text": "2026-11-10 16:29:15,657 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 347,
+      "text": "2026-11-10 16:29:15,660 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 348,
+      "text": "2026-11-10 16:29:15,859 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 349,
+      "text": "2026-11-10 16:29:15,861 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 350,
+      "text": "2026-11-10 16:29:16,058 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 351,
+      "text": "2026-11-10 16:29:16,059 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 352,
+      "text": "2026-11-10 16:29:16,261 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 353,
+      "text": "2026-11-10 16:29:16,262 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 354,
+      "text": "2026-11-10 16:29:16,462 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 355,
+      "text": "2026-11-10 16:29:16,463 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 356,
+      "text": "2026-11-10 16:29:16,664 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 357,
+      "text": "2026-11-10 16:29:16,666 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 358,
+      "text": "2026-11-10 16:29:16,866 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 359,
+      "text": "2026-11-10 16:29:16,868 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 360,
+      "text": "2026-11-10 16:29:17,067 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 361,
+      "text": "2026-11-10 16:29:17,069 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 362,
+      "text": "2026-11-10 16:29:17,268 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 363,
+      "text": "2026-11-10 16:29:17,270 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 364,
+      "text": "2026-11-10 16:29:17,469 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 365,
+      "text": "2026-11-10 16:29:17,471 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 366,
+      "text": "2026-11-10 16:29:17,671 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 367,
+      "text": "2026-11-10 16:29:17,672 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 368,
+      "text": "2026-11-10 16:29:17,873 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 369,
+      "text": "2026-11-10 16:29:17,875 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 370,
+      "text": "2026-11-10 16:29:18,073 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 371,
+      "text": "2026-11-10 16:29:18,076 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 372,
+      "text": "2026-11-10 16:29:18,275 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 373,
+      "text": "2026-11-10 16:29:18,276 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 374,
+      "text": "2026-11-10 16:29:18,477 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 375,
+      "text": "2026-11-10 16:29:18,478 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 376,
+      "text": "2026-11-10 16:29:18,678 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 377,
+      "text": "2026-11-10 16:29:18,680 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 378,
+      "text": "2026-11-10 16:29:18,879 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 379,
+      "text": "2026-11-10 16:29:18,881 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 380,
+      "text": "2026-11-10 16:29:19,384 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 381,
+      "text": "2026-11-10 16:29:19,385 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 382,
+      "text": "2026-11-10 16:29:19,585 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 383,
+      "text": "2026-11-10 16:29:19,587 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 384,
+      "text": "2026-11-10 16:29:19,786 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 385,
+      "text": "2026-11-10 16:29:19,789 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 386,
+      "text": "2026-11-10 16:29:19,987 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 387,
+      "text": "2026-11-10 16:29:19,990 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 388,
+      "text": "2026-11-10 16:29:20,188 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 389,
+      "text": "2026-11-10 16:29:20,190 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 390,
+      "text": "2026-11-10 16:29:20,340 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 391,
+      "text": "2026-11-10 16:29:20,341 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 392,
+      "text": "2026-11-10 16:29:20,490 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 393,
+      "text": "2026-11-10 16:29:20,491 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 394,
+      "text": "2026-11-10 16:29:20,693 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 395,
+      "text": "2026-11-10 16:29:20,695 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 396,
+      "text": "2026-11-10 16:29:20,843 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 397,
+      "text": "2026-11-10 16:29:20,844 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 398,
+      "text": "2026-11-10 16:29:20,994 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 399,
+      "text": "2026-11-10 16:29:20,996 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 400,
+      "text": "2026-11-10 16:29:21,147 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 401,
+      "text": "2026-11-10 16:29:21,148 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 402,
+      "text": "2026-11-10 16:29:21,297 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 403,
+      "text": "2026-11-10 16:29:21,299 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 404,
+      "text": "2026-11-10 16:29:21,448 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 405,
+      "text": "2026-11-10 16:29:21,450 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 406,
+      "text": "2026-11-10 16:29:21,598 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 407,
+      "text": "2026-11-10 16:29:21,600 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 408,
+      "text": "2026-11-10 16:29:21,750 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 409,
+      "text": "2026-11-10 16:29:21,752 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 410,
+      "text": "2026-11-10 16:29:21,900 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 411,
+      "text": "2026-11-10 16:29:21,903 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 412,
+      "text": "2026-11-10 16:29:22,050 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 413,
+      "text": "2026-11-10 16:29:22,051 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 414,
+      "text": "2026-11-10 16:29:22,201 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 415,
+      "text": "2026-11-10 16:29:22,203 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 416,
+      "text": "2026-11-10 16:29:22,352 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 417,
+      "text": "2026-11-10 16:29:22,354 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 418,
+      "text": "2026-11-10 16:29:22,502 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 419,
+      "text": "2026-11-10 16:29:22,503 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 420,
+      "text": "2026-11-10 16:29:22,704 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 421,
+      "text": "2026-11-10 16:29:22,706 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 422,
+      "text": "2026-11-10 16:29:22,855 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 423,
+      "text": "2026-11-10 16:29:22,857 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 424,
+      "text": "2026-11-10 16:29:23,007 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 425,
+      "text": "2026-11-10 16:29:23,009 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 426,
+      "text": "2026-11-10 16:29:23,209 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 427,
+      "text": "2026-11-10 16:29:23,212 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 428,
+      "text": "2026-11-10 16:29:23,713 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 429,
+      "text": "2026-11-10 16:29:23,716 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 430,
+      "text": "2026-11-10 16:29:23,914 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 431,
+      "text": "2026-11-10 16:29:23,916 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 432,
+      "text": "2026-11-10 16:29:24,065 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 433,
+      "text": "2026-11-10 16:29:24,067 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 434,
+      "text": "2026-11-10 16:29:24,217 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 435,
+      "text": "2026-11-10 16:29:24,219 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 436,
+      "text": "2026-11-10 16:29:24,368 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 437,
+      "text": "2026-11-10 16:29:24,371 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 438,
+      "text": "2026-11-10 16:29:24,519 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 439,
+      "text": "2026-11-10 16:29:24,520 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 440,
+      "text": "2026-11-10 16:29:24,670 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 441,
+      "text": "2026-11-10 16:29:24,672 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 442,
+      "text": "2026-11-10 16:29:24,821 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 443,
+      "text": "2026-11-10 16:29:24,822 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 444,
+      "text": "2026-11-10 16:29:24,972 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 445,
+      "text": "2026-11-10 16:29:24,974 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 446,
+      "text": "2026-11-10 16:29:25,173 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 447,
+      "text": "2026-11-10 16:29:25,174 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 448,
+      "text": "2026-11-10 16:29:25,374 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 449,
+      "text": "2026-11-10 16:29:25,376 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 450,
+      "text": "2026-11-10 16:29:25,526 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 451,
+      "text": "2026-11-10 16:29:25,527 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 452,
+      "text": "2026-11-10 16:29:25,677 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 453,
+      "text": "2026-11-10 16:29:25,678 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 454,
+      "text": "2026-11-10 16:29:25,827 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 455,
+      "text": "2026-11-10 16:29:25,829 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 456,
+      "text": "2026-11-10 16:29:25,978 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 457,
+      "text": "2026-11-10 16:29:25,981 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 458,
+      "text": "2026-11-10 16:29:26,128 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 459,
+      "text": "2026-11-10 16:29:26,129 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 460,
+      "text": "2026-11-10 16:29:26,330 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 461,
+      "text": "2026-11-10 16:29:26,331 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 462,
+      "text": "2026-11-10 16:29:26,481 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 463,
+      "text": "2026-11-10 16:29:26,484 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 464,
+      "text": "2026-11-10 16:29:26,632 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 465,
+      "text": "2026-11-10 16:29:26,633 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 466,
+      "text": "2026-11-10 16:29:26,783 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 467,
+      "text": "2026-11-10 16:29:26,785 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 468,
+      "text": "2026-11-10 16:29:26,935 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 469,
+      "text": "2026-11-10 16:29:26,936 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 470,
+      "text": "2026-11-10 16:29:28,092 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 471,
+      "text": "2026-11-10 16:29:28,094 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 472,
+      "text": "2026-11-10 16:29:28,495 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 473,
+      "text": "2026-11-10 16:29:28,497 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 474,
+      "text": "2026-11-10 16:29:28,597 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 475,
+      "text": "2026-11-10 16:29:28,599 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 476,
+      "text": "2026-11-10 16:29:29,002 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 477,
+      "text": "2026-11-10 16:29:29,003 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 478,
+      "text": "2026-11-10 16:29:29,103 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 479,
+      "text": "2026-11-10 16:29:29,105 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 480,
+      "text": "2026-11-10 16:29:29,505 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 481,
+      "text": "2026-11-10 16:29:29,506 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 482,
+      "text": "2026-11-10 16:29:29,605 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 483,
+      "text": "2026-11-10 16:29:29,607 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 484,
+      "text": "2026-11-10 16:29:30,008 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 485,
+      "text": "2026-11-10 16:29:30,009 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 486,
+      "text": "2026-11-10 16:29:30,110 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 487,
+      "text": "2026-11-10 16:29:30,110 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 488,
+      "text": "2026-11-10 16:29:30,514 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 489,
+      "text": "2026-11-10 16:29:30,515 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 490,
+      "text": "2026-11-10 16:29:30,614 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 491,
+      "text": "2026-11-10 16:29:30,615 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 492,
+      "text": "2026-11-10 16:29:31,017 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 493,
+      "text": "2026-11-10 16:29:31,018 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 494,
+      "text": "2026-11-10 16:29:31,117 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 495,
+      "text": "2026-11-10 16:29:31,119 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 496,
+      "text": "2026-11-10 16:29:31,519 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 497,
+      "text": "2026-11-10 16:29:31,521 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 498,
+      "text": "2026-11-10 16:29:31,620 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 499,
+      "text": "2026-11-10 16:29:31,621 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 500,
+      "text": "2026-11-10 16:29:32,020 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 501,
+      "text": "2026-11-10 16:29:32,021 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 502,
+      "text": "2026-11-10 16:29:32,120 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 503,
+      "text": "2026-11-10 16:29:32,122 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'DSP', display:'    Destaxa          1.0.3      '}"
+    },
+    {
+      "lineNo": 504,
+      "text": "2026-11-10 16:29:32,321 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'DSP', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 505,
+      "text": "2026-11-10 16:29:32,347 INFO vespague.client.interaction.VeSPagueClientToServer [Cart�o Vender-vspg-id-82fea91a] enviando servico [V&SCommService/Configura Transacao]"
+    },
+    {
+      "lineNo": 506,
+      "text": "2026-11-10 16:29:32,349 INFO lib.comm.VeSCommSocket$1 [VBICommSocket.Connect] VBICommSocket(app-partner.destaxa.cloud:60410(0)) - Reconnection on demand in progress ... lib.comm.VeSCommSocket$1@4a021bb1"
+    },
+    {
+      "lineNo": 507,
+      "text": "2026-11-10 16:29:32,660 INFO lib.comm.VeSCommSocket [VBICommSocket.Connect] Trying with certificate not self signed: false"
+    },
+    {
+      "lineNo": 508,
+      "text": "2026-11-10 16:29:32,845 INFO lib.comm.VeSComm [VBICommSocket.Connect] VBIComm(app-partner.destaxa.cloud:60410(0)<>6/2026-11-10 16:29:32.719/Socket:SSLSocket[hostname=app-partner.destaxa.cloud, port=60410, Session(1794338972777|TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)]SSL/TLS) - Connected successfull"
+    },
+    {
+      "lineNo": 509,
+      "text": "2026-11-10 16:29:32,845 INFO lib.comm.VeSCommSocket [VBICommSocket.Connect] Tryied with certificate not self signed: true"
+    },
+    {
+      "lineNo": 510,
+      "text": "2026-11-10 16:29:32,914 INFO vespague.client.interaction.VeSPagueClientToServer$1 [ThreadReceive-vspg-id-82fea91a] servico recebido [V&SCommService/Configura Transacao]"
+    },
+    {
+      "lineNo": 511,
+      "text": "2026-11-10 16:29:32,915 INFO vespague.client.interaction.VeSPagueClientTransactionManager [Cart�o Vender-vspg-id-82fea91a] Desconectado do V$PagueServer 6"
+    },
+    {
+      "lineNo": 512,
+      "text": "2026-11-10 16:29:32,915 ERROR vespague.client.interaction.VeSPagueClientTransactionManager [Cart�o Vender-vspg-id-82fea91a] erro no processamento da transacao de estatistica"
+    },
+    {
+      "lineNo": 524,
+      "text": "2026-11-10 16:29:33,074 INFO vespague.automation.VeSPagueClientAutomationInteraction [Cart�o Vender-vspg-id-82fea91a] -> coletaMensagem:[Aguarde a passagem/inser��o/aproxima��o do cart�o no PIN-Pad.], coletaPalavraChave:transacao_cartao_numero, coletaRetorno:0, coletaSequencial:1"
+    },
+    {
+      "lineNo": 525,
+      "text": "2026-11-10 16:29:33,369 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-82fea91a] <- coletaRetorno:0, coletaSequencial:1"
+    },
+    {
+      "lineNo": 526,
+      "text": "2026-11-10 16:29:33,390 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'DEX'}"
+    },
+    {
+      "lineNo": 527,
+      "text": "2026-11-10 16:29:33,581 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'DEX', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 528,
+      "text": "2026-11-10 16:29:33,581 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'CKE'}"
+    },
+    {
+      "lineNo": 529,
+      "text": "2026-11-10 16:30:33,633 WARN lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] Tempo excedido ao aguardar resposta do PIN-Pad (60 segundos)"
+    },
+    {
+      "lineNo": 530,
+      "text": "2026-11-10 16:30:33,636 ERROR vespague.client.device.VeSPaguePinpad [Cart�o Vender-vspg-id-82fea91a] Erro de leitura do cart�o ou cart�o inv�lido."
+    },
+    {
+      "lineNo": 531,
+      "text": "2026-11-10 16:30:33,640 INFO vespague.automation.VeSPagueClientAutomationInteraction [Cart�o Vender-vspg-id-82fea91a] -> coletaMensagem:[PINPAD desconectado."
+    },
+    {
+      "lineNo": 532,
+      "text": "Conecte o pinpad em outra porta  USB e tente novamente. Se ainda n�o funcionar, contate o suporte t�cnico.], coletaRetorno:9, coletaSequencial:2, coletaTransacaoResposta:78"
+    },
+    {
+      "lineNo": 533,
+      "text": "2026-11-10 16:30:33,641 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] Finalizando a comunica��o"
+    },
+    {
+      "lineNo": 534,
+      "text": "2026-11-10 16:30:33,641 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'CLO'}"
+    },
+    {
+      "lineNo": 535,
+      "text": "2026-11-10 16:30:33,693 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-82fea91a] <- retorno:1, sequencial:3, servico:finalizar"
+    },
+    {
+      "lineNo": 536,
+      "text": "2026-11-10 16:30:33,696 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-82fea91a] -> retorno:1, sequencial:3, servico:finalizar"
+    },
+    {
+      "lineNo": 537,
+      "text": "2026-11-10 16:30:34,704 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'CLO', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 538,
+      "text": "2026-11-10 16:30:34,705 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] Finalizado a comunica��o com sucesso"
+    },
+    {
+      "lineNo": 539,
+      "text": "2026-11-10 16:30:34,705 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] Fechando a porta de comunica��o"
+    },
+    {
+      "lineNo": 540,
+      "text": "2026-11-10 16:30:34,706 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] Fechado a porta de comunica��o com sucesso"
+    },
+    {
+      "lineNo": 541,
+      "text": "2026-11-10 16:30:34,719 INFO vespague.automation.VeSPagueClientAutomationInteraction [Cart�o Vender-vspg-id-82fea91a] -> mensagem:[Transacao cancelada pelo operador.], retorno:3, sequencial:2, servico:executar, transacao:[Cart�o Vender], resposta:078"
+    },
+    {
+      "lineNo": 542,
+      "text": "2026-11-10 16:30:34,725 INFO vespague.client.interaction.VeSPagueClientTransactionManager$36 [Cart�o Vender-vspg-id-82fea91a] transacao finalizada"
+    }
+  ],
+  "tail": [
+    {
+      "lineNo": 294,
+      "text": "2026-11-10 16:29:10,210 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 295,
+      "text": "2026-11-10 16:29:10,212 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 296,
+      "text": "2026-11-10 16:29:10,412 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 297,
+      "text": "2026-11-10 16:29:10,413 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 298,
+      "text": "2026-11-10 16:29:10,613 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 299,
+      "text": "2026-11-10 16:29:10,616 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 300,
+      "text": "2026-11-10 16:29:10,816 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 301,
+      "text": "2026-11-10 16:29:10,818 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 302,
+      "text": "2026-11-10 16:29:11,018 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 303,
+      "text": "2026-11-10 16:29:11,020 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 304,
+      "text": "2026-11-10 16:29:11,220 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 305,
+      "text": "2026-11-10 16:29:11,221 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 306,
+      "text": "2026-11-10 16:29:11,421 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 307,
+      "text": "2026-11-10 16:29:11,423 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 308,
+      "text": "2026-11-10 16:29:11,624 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 309,
+      "text": "2026-11-10 16:29:11,625 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 310,
+      "text": "2026-11-10 16:29:11,825 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 311,
+      "text": "2026-11-10 16:29:11,826 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 312,
+      "text": "2026-11-10 16:29:12,026 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 313,
+      "text": "2026-11-10 16:29:12,029 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 314,
+      "text": "2026-11-10 16:29:12,228 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 315,
+      "text": "2026-11-10 16:29:12,230 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 316,
+      "text": "2026-11-10 16:29:12,429 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 317,
+      "text": "2026-11-10 16:29:12,430 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 318,
+      "text": "2026-11-10 16:29:12,631 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 319,
+      "text": "2026-11-10 16:29:12,632 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 320,
+      "text": "2026-11-10 16:29:12,833 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 321,
+      "text": "2026-11-10 16:29:12,834 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 322,
+      "text": "2026-11-10 16:29:13,035 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 323,
+      "text": "2026-11-10 16:29:13,036 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 324,
+      "text": "2026-11-10 16:29:13,237 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 325,
+      "text": "2026-11-10 16:29:13,240 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 326,
+      "text": "2026-11-10 16:29:13,439 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 327,
+      "text": "2026-11-10 16:29:13,440 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 328,
+      "text": "2026-11-10 16:29:13,640 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 329,
+      "text": "2026-11-10 16:29:13,641 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 330,
+      "text": "2026-11-10 16:29:13,843 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 331,
+      "text": "2026-11-10 16:29:13,845 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 332,
+      "text": "2026-11-10 16:29:14,248 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 333,
+      "text": "2026-11-10 16:29:14,250 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 334,
+      "text": "2026-11-10 16:29:14,448 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 335,
+      "text": "2026-11-10 16:29:14,449 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 336,
+      "text": "2026-11-10 16:29:14,650 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 337,
+      "text": "2026-11-10 16:29:14,652 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 338,
+      "text": "2026-11-10 16:29:14,852 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 339,
+      "text": "2026-11-10 16:29:14,855 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 340,
+      "text": "2026-11-10 16:29:15,053 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 341,
+      "text": "2026-11-10 16:29:15,055 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 342,
+      "text": "2026-11-10 16:29:15,254 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 343,
+      "text": "2026-11-10 16:29:15,256 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 344,
+      "text": "2026-11-10 16:29:15,455 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 345,
+      "text": "2026-11-10 16:29:15,456 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 346,
+      "text": "2026-11-10 16:29:15,657 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 347,
+      "text": "2026-11-10 16:29:15,660 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 348,
+      "text": "2026-11-10 16:29:15,859 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 349,
+      "text": "2026-11-10 16:29:15,861 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 350,
+      "text": "2026-11-10 16:29:16,058 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 351,
+      "text": "2026-11-10 16:29:16,059 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 352,
+      "text": "2026-11-10 16:29:16,261 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 353,
+      "text": "2026-11-10 16:29:16,262 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 354,
+      "text": "2026-11-10 16:29:16,462 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 355,
+      "text": "2026-11-10 16:29:16,463 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 356,
+      "text": "2026-11-10 16:29:16,664 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 357,
+      "text": "2026-11-10 16:29:16,666 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 358,
+      "text": "2026-11-10 16:29:16,866 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 359,
+      "text": "2026-11-10 16:29:16,868 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 360,
+      "text": "2026-11-10 16:29:17,067 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 361,
+      "text": "2026-11-10 16:29:17,069 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 362,
+      "text": "2026-11-10 16:29:17,268 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 363,
+      "text": "2026-11-10 16:29:17,270 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 364,
+      "text": "2026-11-10 16:29:17,469 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 365,
+      "text": "2026-11-10 16:29:17,471 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 366,
+      "text": "2026-11-10 16:29:17,671 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 367,
+      "text": "2026-11-10 16:29:17,672 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 368,
+      "text": "2026-11-10 16:29:17,873 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 369,
+      "text": "2026-11-10 16:29:17,875 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 370,
+      "text": "2026-11-10 16:29:18,073 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 371,
+      "text": "2026-11-10 16:29:18,076 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 372,
+      "text": "2026-11-10 16:29:18,275 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 373,
+      "text": "2026-11-10 16:29:18,276 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 374,
+      "text": "2026-11-10 16:29:18,477 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 375,
+      "text": "2026-11-10 16:29:18,478 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 376,
+      "text": "2026-11-10 16:29:18,678 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 377,
+      "text": "2026-11-10 16:29:18,680 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 378,
+      "text": "2026-11-10 16:29:18,879 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 379,
+      "text": "2026-11-10 16:29:18,881 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 380,
+      "text": "2026-11-10 16:29:19,384 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 381,
+      "text": "2026-11-10 16:29:19,385 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 382,
+      "text": "2026-11-10 16:29:19,585 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 383,
+      "text": "2026-11-10 16:29:19,587 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 384,
+      "text": "2026-11-10 16:29:19,786 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 385,
+      "text": "2026-11-10 16:29:19,789 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 386,
+      "text": "2026-11-10 16:29:19,987 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 387,
+      "text": "2026-11-10 16:29:19,990 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 388,
+      "text": "2026-11-10 16:29:20,188 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 389,
+      "text": "2026-11-10 16:29:20,190 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 390,
+      "text": "2026-11-10 16:29:20,340 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 391,
+      "text": "2026-11-10 16:29:20,341 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 392,
+      "text": "2026-11-10 16:29:20,490 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 393,
+      "text": "2026-11-10 16:29:20,491 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 394,
+      "text": "2026-11-10 16:29:20,693 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 395,
+      "text": "2026-11-10 16:29:20,695 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 396,
+      "text": "2026-11-10 16:29:20,843 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 397,
+      "text": "2026-11-10 16:29:20,844 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 398,
+      "text": "2026-11-10 16:29:20,994 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 399,
+      "text": "2026-11-10 16:29:20,996 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 400,
+      "text": "2026-11-10 16:29:21,147 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 401,
+      "text": "2026-11-10 16:29:21,148 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 402,
+      "text": "2026-11-10 16:29:21,297 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 403,
+      "text": "2026-11-10 16:29:21,299 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 404,
+      "text": "2026-11-10 16:29:21,448 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 405,
+      "text": "2026-11-10 16:29:21,450 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 406,
+      "text": "2026-11-10 16:29:21,598 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 407,
+      "text": "2026-11-10 16:29:21,600 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 408,
+      "text": "2026-11-10 16:29:21,750 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 409,
+      "text": "2026-11-10 16:29:21,752 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 410,
+      "text": "2026-11-10 16:29:21,900 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 411,
+      "text": "2026-11-10 16:29:21,903 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 412,
+      "text": "2026-11-10 16:29:22,050 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 413,
+      "text": "2026-11-10 16:29:22,051 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 414,
+      "text": "2026-11-10 16:29:22,201 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 415,
+      "text": "2026-11-10 16:29:22,203 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 416,
+      "text": "2026-11-10 16:29:22,352 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 417,
+      "text": "2026-11-10 16:29:22,354 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 418,
+      "text": "2026-11-10 16:29:22,502 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 419,
+      "text": "2026-11-10 16:29:22,503 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 420,
+      "text": "2026-11-10 16:29:22,704 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 421,
+      "text": "2026-11-10 16:29:22,706 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 422,
+      "text": "2026-11-10 16:29:22,855 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 423,
+      "text": "2026-11-10 16:29:22,857 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 424,
+      "text": "2026-11-10 16:29:23,007 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 425,
+      "text": "2026-11-10 16:29:23,009 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 426,
+      "text": "2026-11-10 16:29:23,209 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 427,
+      "text": "2026-11-10 16:29:23,212 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 428,
+      "text": "2026-11-10 16:29:23,713 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 429,
+      "text": "2026-11-10 16:29:23,716 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 430,
+      "text": "2026-11-10 16:29:23,914 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 431,
+      "text": "2026-11-10 16:29:23,916 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 432,
+      "text": "2026-11-10 16:29:24,065 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 433,
+      "text": "2026-11-10 16:29:24,067 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 434,
+      "text": "2026-11-10 16:29:24,217 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 435,
+      "text": "2026-11-10 16:29:24,219 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 436,
+      "text": "2026-11-10 16:29:24,368 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 437,
+      "text": "2026-11-10 16:29:24,371 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 438,
+      "text": "2026-11-10 16:29:24,519 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 439,
+      "text": "2026-11-10 16:29:24,520 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 440,
+      "text": "2026-11-10 16:29:24,670 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 441,
+      "text": "2026-11-10 16:29:24,672 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 442,
+      "text": "2026-11-10 16:29:24,821 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 443,
+      "text": "2026-11-10 16:29:24,822 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 444,
+      "text": "2026-11-10 16:29:24,972 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 445,
+      "text": "2026-11-10 16:29:24,974 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 446,
+      "text": "2026-11-10 16:29:25,173 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 447,
+      "text": "2026-11-10 16:29:25,174 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 448,
+      "text": "2026-11-10 16:29:25,374 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 449,
+      "text": "2026-11-10 16:29:25,376 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 450,
+      "text": "2026-11-10 16:29:25,526 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 451,
+      "text": "2026-11-10 16:29:25,527 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 452,
+      "text": "2026-11-10 16:29:25,677 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 453,
+      "text": "2026-11-10 16:29:25,678 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 454,
+      "text": "2026-11-10 16:29:25,827 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 455,
+      "text": "2026-11-10 16:29:25,829 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 456,
+      "text": "2026-11-10 16:29:25,978 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 457,
+      "text": "2026-11-10 16:29:25,981 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 458,
+      "text": "2026-11-10 16:29:26,128 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 459,
+      "text": "2026-11-10 16:29:26,129 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 460,
+      "text": "2026-11-10 16:29:26,330 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 461,
+      "text": "2026-11-10 16:29:26,331 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 462,
+      "text": "2026-11-10 16:29:26,481 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 463,
+      "text": "2026-11-10 16:29:26,484 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 464,
+      "text": "2026-11-10 16:29:26,632 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 465,
+      "text": "2026-11-10 16:29:26,633 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 466,
+      "text": "2026-11-10 16:29:26,783 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 467,
+      "text": "2026-11-10 16:29:26,785 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 468,
+      "text": "2026-11-10 16:29:26,935 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 469,
+      "text": "2026-11-10 16:29:26,936 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 470,
+      "text": "2026-11-10 16:29:28,092 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 471,
+      "text": "2026-11-10 16:29:28,094 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 472,
+      "text": "2026-11-10 16:29:28,495 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 473,
+      "text": "2026-11-10 16:29:28,497 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 474,
+      "text": "2026-11-10 16:29:28,597 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 475,
+      "text": "2026-11-10 16:29:28,599 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 476,
+      "text": "2026-11-10 16:29:29,002 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 477,
+      "text": "2026-11-10 16:29:29,003 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 478,
+      "text": "2026-11-10 16:29:29,103 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 479,
+      "text": "2026-11-10 16:29:29,105 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 480,
+      "text": "2026-11-10 16:29:29,505 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 481,
+      "text": "2026-11-10 16:29:29,506 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 482,
+      "text": "2026-11-10 16:29:29,605 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 483,
+      "text": "2026-11-10 16:29:29,607 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 484,
+      "text": "2026-11-10 16:29:30,008 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 485,
+      "text": "2026-11-10 16:29:30,009 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 486,
+      "text": "2026-11-10 16:29:30,110 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 487,
+      "text": "2026-11-10 16:29:30,110 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 488,
+      "text": "2026-11-10 16:29:30,514 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 489,
+      "text": "2026-11-10 16:29:30,515 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 490,
+      "text": "2026-11-10 16:29:30,614 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 491,
+      "text": "2026-11-10 16:29:30,615 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 492,
+      "text": "2026-11-10 16:29:31,017 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 493,
+      "text": "2026-11-10 16:29:31,018 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 494,
+      "text": "2026-11-10 16:29:31,117 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 495,
+      "text": "2026-11-10 16:29:31,119 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 496,
+      "text": "2026-11-10 16:29:31,519 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 497,
+      "text": "2026-11-10 16:29:31,521 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 498,
+      "text": "2026-11-10 16:29:31,620 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 499,
+      "text": "2026-11-10 16:29:31,621 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 500,
+      "text": "2026-11-10 16:29:32,020 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 501,
+      "text": "2026-11-10 16:29:32,021 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 502,
+      "text": "2026-11-10 16:29:32,120 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 503,
+      "text": "2026-11-10 16:29:32,122 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'DSP', display:'    Destaxa          1.0.3      '}"
+    },
+    {
+      "lineNo": 504,
+      "text": "2026-11-10 16:29:32,321 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'DSP', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 505,
+      "text": "2026-11-10 16:29:32,347 INFO vespague.client.interaction.VeSPagueClientToServer [Cart�o Vender-vspg-id-82fea91a] enviando servico [V&SCommService/Configura Transacao]"
+    },
+    {
+      "lineNo": 506,
+      "text": "2026-11-10 16:29:32,349 INFO lib.comm.VeSCommSocket$1 [VBICommSocket.Connect] VBICommSocket(app-partner.destaxa.cloud:60410(0)) - Reconnection on demand in progress ... lib.comm.VeSCommSocket$1@4a021bb1"
+    },
+    {
+      "lineNo": 507,
+      "text": "2026-11-10 16:29:32,660 INFO lib.comm.VeSCommSocket [VBICommSocket.Connect] Trying with certificate not self signed: false"
+    },
+    {
+      "lineNo": 508,
+      "text": "2026-11-10 16:29:32,845 INFO lib.comm.VeSComm [VBICommSocket.Connect] VBIComm(app-partner.destaxa.cloud:60410(0)<>6/2026-11-10 16:29:32.719/Socket:SSLSocket[hostname=app-partner.destaxa.cloud, port=60410, Session(1794338972777|TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)]SSL/TLS) - Connected successfull"
+    },
+    {
+      "lineNo": 509,
+      "text": "2026-11-10 16:29:32,845 INFO lib.comm.VeSCommSocket [VBICommSocket.Connect] Tryied with certificate not self signed: true"
+    },
+    {
+      "lineNo": 510,
+      "text": "2026-11-10 16:29:32,914 INFO vespague.client.interaction.VeSPagueClientToServer$1 [ThreadReceive-vspg-id-82fea91a] servico recebido [V&SCommService/Configura Transacao]"
+    },
+    {
+      "lineNo": 511,
+      "text": "2026-11-10 16:29:32,915 INFO vespague.client.interaction.VeSPagueClientTransactionManager [Cart�o Vender-vspg-id-82fea91a] Desconectado do V$PagueServer 6"
+    },
+    {
+      "lineNo": 512,
+      "text": "2026-11-10 16:29:32,915 ERROR vespague.client.interaction.VeSPagueClientTransactionManager [Cart�o Vender-vspg-id-82fea91a] erro no processamento da transacao de estatistica"
+    },
+    {
+      "lineNo": 513,
+      "text": "vespague.exception.VeSPagueClientException: Nenhuma configura��o encontrada para a opera��o"
+    },
+    {
+      "lineNo": 514,
+      "text": "\tat vespague.client.interaction.VeSPagueClientToServer.configuraTransacao(VeSPagueClientToServer.java:5065)"
+    },
+    {
+      "lineNo": 515,
+      "text": "\tat vespague.client.interaction.VeSPagueClientToServer.lambda$1(VeSPagueClientToServer.java:4980)"
+    },
+    {
+      "lineNo": 516,
+      "text": "\tat lib.graphic.window.VeSWindowProgress$2.run(VeSWindowProgress.java:1604)"
+    },
+    {
+      "lineNo": 517,
+      "text": "\tat lib.graphic.window.VeSWindowProgress.ThreadExecute(VeSWindowProgress.java:1701)"
+    },
+    {
+      "lineNo": 518,
+      "text": "\tat lib.graphic.window.VeSWindowProgress.ThreadExecute(VeSWindowProgress.java:1518)"
+    },
+    {
+      "lineNo": 519,
+      "text": "\tat vespague.client.interaction.VeSPagueClientToServer.configuraTransacao(VeSPagueClientToServer.java:4977)"
+    },
+    {
+      "lineNo": 520,
+      "text": "\tat vespague.client.interaction.VeSPagueClientToServer.configuraTransacao(VeSPagueClientToServer.java:4967)"
+    },
+    {
+      "lineNo": 521,
+      "text": "\tat vespague.client.interaction.VeSPagueClientTransactionManager.TransacaoEstatisticaEnviar(VeSPagueClientTransactionManager.java:4378)"
+    },
+    {
+      "lineNo": 522,
+      "text": "\tat vespague.client.interaction.VeSPagueClientTransactionManager.transacaoPinpadComunicacaoIniciar(VeSPagueClientTransactionManager.java:6530)"
+    },
+    {
+      "lineNo": 523,
+      "text": "\tat vespague.client.interaction.VeSPagueClientTransactionManager$36.run(VeSPagueClientTransactionManager.java:2472)"
+    },
+    {
+      "lineNo": 524,
+      "text": "2026-11-10 16:29:33,074 INFO vespague.automation.VeSPagueClientAutomationInteraction [Cart�o Vender-vspg-id-82fea91a] -> coletaMensagem:[Aguarde a passagem/inser��o/aproxima��o do cart�o no PIN-Pad.], coletaPalavraChave:transacao_cartao_numero, coletaRetorno:0, coletaSequencial:1"
+    },
+    {
+      "lineNo": 525,
+      "text": "2026-11-10 16:29:33,369 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-82fea91a] <- coletaRetorno:0, coletaSequencial:1"
+    },
+    {
+      "lineNo": 526,
+      "text": "2026-11-10 16:29:33,390 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'DEX'}"
+    },
+    {
+      "lineNo": 527,
+      "text": "2026-11-10 16:29:33,581 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'DEX', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 528,
+      "text": "2026-11-10 16:29:33,581 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'CKE'}"
+    },
+    {
+      "lineNo": 529,
+      "text": "2026-11-10 16:30:33,633 WARN lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] Tempo excedido ao aguardar resposta do PIN-Pad (60 segundos)"
+    },
+    {
+      "lineNo": 530,
+      "text": "2026-11-10 16:30:33,636 ERROR vespague.client.device.VeSPaguePinpad [Cart�o Vender-vspg-id-82fea91a] Erro de leitura do cart�o ou cart�o inv�lido."
+    },
+    {
+      "lineNo": 531,
+      "text": "2026-11-10 16:30:33,640 INFO vespague.automation.VeSPagueClientAutomationInteraction [Cart�o Vender-vspg-id-82fea91a] -> coletaMensagem:[PINPAD desconectado."
+    },
+    {
+      "lineNo": 532,
+      "text": "Conecte o pinpad em outra porta  USB e tente novamente. Se ainda n�o funcionar, contate o suporte t�cnico.], coletaRetorno:9, coletaSequencial:2, coletaTransacaoResposta:78"
+    },
+    {
+      "lineNo": 533,
+      "text": "2026-11-10 16:30:33,641 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] Finalizando a comunica��o"
+    },
+    {
+      "lineNo": 534,
+      "text": "2026-11-10 16:30:33,641 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'CLO'}"
+    },
+    {
+      "lineNo": 535,
+      "text": "2026-11-10 16:30:33,693 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-82fea91a] <- retorno:1, sequencial:3, servico:finalizar"
+    },
+    {
+      "lineNo": 536,
+      "text": "2026-11-10 16:30:33,696 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-82fea91a] -> retorno:1, sequencial:3, servico:finalizar"
+    },
+    {
+      "lineNo": 537,
+      "text": "2026-11-10 16:30:34,704 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'CLO', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 538,
+      "text": "2026-11-10 16:30:34,705 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] Finalizado a comunica��o com sucesso"
+    },
+    {
+      "lineNo": 539,
+      "text": "2026-11-10 16:30:34,705 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] Fechando a porta de comunica��o"
+    },
+    {
+      "lineNo": 540,
+      "text": "2026-11-10 16:30:34,706 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] Fechado a porta de comunica��o com sucesso"
+    },
+    {
+      "lineNo": 541,
+      "text": "2026-11-10 16:30:34,719 INFO vespague.automation.VeSPagueClientAutomationInteraction [Cart�o Vender-vspg-id-82fea91a] -> mensagem:[Transacao cancelada pelo operador.], retorno:3, sequencial:2, servico:executar, transacao:[Cart�o Vender], resposta:078"
+    },
+    {
+      "lineNo": 542,
+      "text": "2026-11-10 16:30:34,725 INFO vespague.client.interaction.VeSPagueClientTransactionManager$36 [Cart�o Vender-vspg-id-82fea91a] transacao finalizada"
+    }
+  ]
+}

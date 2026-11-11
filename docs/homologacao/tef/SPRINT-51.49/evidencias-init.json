@@ -1,0 +1,46 @@
+{
+  "sprint": "SPRINT-51.49",
+  "proposito": "INIT_CLIENT_ONLY",
+  "inicio": "2026-11-10T23:43:06.711Z",
+  "proibicoes": {
+    "TX_START": true,
+    "TX_CONTINUE": true,
+    "TX_FINALIZE": true,
+    "CRT": true,
+    "ENABLE_REAL": true,
+    "permit": true
+  },
+  "gateEnv": "0",
+  "nativeHost": {
+    "pid": 14256,
+    "ppid": 16508,
+    "hostSessionId": "ecef111f043a10471c4f1d126f02985f",
+    "securityBootstrapState": "SECURITY_BOOTSTRAP_VALIDATED",
+    "gateReal": false
+  },
+  "initClient": {
+    "codigoDestaxa": "00",
+    "clientSucesso": true,
+    "bloqueadoA1": false,
+    "mensagem": "Client Destaxa inicializado",
+    "clientInitialized": true,
+    "clientResultCode": "00",
+    "operacaoAtiva": null,
+    "gateReal": false,
+    "dllLoaded": true,
+    "requestCorrelacao": "ver observability iniciaClientDestaxa nesta janela"
+  },
+  "statusFinal": {
+    "error": null,
+    "clientInitialized": true,
+    "clientResultCode": "00",
+    "gateReal": false,
+    "operacaoAtiva": null,
+    "dllLoaded": true
+  },
+  "ok": true,
+  "classificacao": "INIT_OK",
+  "mensagem": "INIT_CLIENT=00 / CLIENT_INITIALIZED — sem operação financeira.",
+  "fim": "2026-11-10T23:43:07.363Z",
+  "gateEnvFinal": "0"
+}

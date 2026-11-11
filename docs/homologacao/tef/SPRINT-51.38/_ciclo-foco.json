@@ -1,0 +1,4304 @@
+{
+  "focusedCount": 89,
+  "focused": [
+    {
+      "lineNo": 727,
+      "ts": "2026-11-10T19:29:01.708Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": null,
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "motivo"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:01.708Z\",\"tipo\":\"host.ref\",\"em\":\"2026-11-10T19:29:01.707Z\",\"pidPai\":10292,\"pidHost\":null,\"estado\":\"STARTING\",\"requestId\":null,\"motivo\":\"start\"}"
+    },
+    {
+      "lineNo": 728,
+      "ts": "2026-11-10T19:29:01.718Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": null,
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "processType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:01.718Z\",\"tipo\":\"host.spawn\",\"em\":\"2026-11-10T19:29:01.718Z\",\"pidPai\":10292,\"pidHost\":null,\"estado\":\"STARTING\",\"requestId\":null,\"processType\":\"utilityProcess\"}"
+    },
+    {
+      "lineNo": 729,
+      "ts": "2026-11-10T19:29:01.990Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": null,
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:01.990Z\",\"tipo\":\"host.ready\",\"em\":\"2026-11-10T19:29:01.979Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":null,\"operation\":null}"
+    },
+    {
+      "lineNo": 730,
+      "ts": "2026-11-10T19:29:02.008Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": null,
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.008Z\",\"tipo\":\"ipc.message.received\",\"em\":\"2026-11-10T19:29:02.008Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"STARTING\",\"requestId\":null,\"operation\":null,\"messageType\":\"HOST_READY\"}"
+    },
+    {
+      "lineNo": 731,
+      "ts": "2026-11-10T19:29:02.027Z",
+      "event": "ipc.message.received",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "136ae5d6c1d202a5",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.message.received\",\"registradoEm\":\"2026-11-10T19:29:02.027Z\",\"requestId\":\"136ae5d6c1d202a5\",\"operation\":\"SECURITY_BOOTSTRAP\",\"pid\":19920,\"messageType\":\"request\"}"
+    },
+    {
+      "lineNo": 732,
+      "ts": "2026-11-10T19:29:02.032Z",
+      "event": "ipc.response.sent",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "136ae5d6c1d202a5",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "hasError",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.response.sent\",\"registradoEm\":\"2026-11-10T19:29:02.032Z\",\"requestId\":\"136ae5d6c1d202a5\",\"operation\":\"SECURITY_BOOTSTRAP\",\"pid\":19920,\"hasError\":false,\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 733,
+      "ts": "2026-11-10T19:29:02.032Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "136ae5d6c1d202a5",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.032Z\",\"tipo\":\"ipc.message.received\",\"em\":\"2026-11-10T19:29:02.031Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"STARTING\",\"requestId\":\"136ae5d6c1d202a5\",\"operation\":null,\"messageType\":\"response\"}"
+    },
+    {
+      "lineNo": 734,
+      "ts": "2026-11-10T19:29:02.038Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "136ae5d6c1d202a5",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "resultCode",
+        "errorCode"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.038Z\",\"tipo\":\"ipc.response.received\",\"em\":\"2026-11-10T19:29:02.038Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"STARTING\",\"requestId\":\"136ae5d6c1d202a5\",\"operation\":\"SECURITY_BOOTSTRAP\",\"resultCode\":null,\"errorCode\":null}"
+    },
+    {
+      "lineNo": 735,
+      "ts": "2026-11-10T19:29:02.042Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": null,
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "motivo"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.042Z\",\"tipo\":\"host.ref\",\"em\":\"2026-11-10T19:29:02.042Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":null,\"motivo\":\"enviar:STATUS\"}"
+    },
+    {
+      "lineNo": 736,
+      "ts": "2026-11-10T19:29:02.045Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "a2fa984339cc8b38",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.045Z\",\"tipo\":\"nativa.envio\",\"em\":\"2026-11-10T19:29:02.045Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"a2fa984339cc8b38\",\"operation\":\"STATUS\"}"
+    },
+    {
+      "lineNo": 738,
+      "ts": "2026-11-10T19:29:02.048Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "a2fa984339cc8b38",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.048Z\",\"tipo\":\"ipc.message.sent\",\"em\":\"2026-11-10T19:29:02.048Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"a2fa984339cc8b38\",\"operation\":\"STATUS\",\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 737,
+      "ts": "2026-11-10T19:29:02.049Z",
+      "event": "ipc.message.received",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "a2fa984339cc8b38",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.message.received\",\"registradoEm\":\"2026-11-10T19:29:02.049Z\",\"requestId\":\"a2fa984339cc8b38\",\"operation\":\"STATUS\",\"pid\":19920,\"messageType\":\"request\"}"
+    },
+    {
+      "lineNo": 739,
+      "ts": "2026-11-10T19:29:02.061Z",
+      "event": "ipc.response.sent",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "a2fa984339cc8b38",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "hasError",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.response.sent\",\"registradoEm\":\"2026-11-10T19:29:02.061Z\",\"requestId\":\"a2fa984339cc8b38\",\"operation\":\"STATUS\",\"pid\":19920,\"hasError\":false,\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 740,
+      "ts": "2026-11-10T19:29:02.061Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "a2fa984339cc8b38",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.061Z\",\"tipo\":\"ipc.message.received\",\"em\":\"2026-11-10T19:29:02.061Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"a2fa984339cc8b38\",\"operation\":null,\"messageType\":\"response\"}"
+    },
+    {
+      "lineNo": 741,
+      "ts": "2026-11-10T19:29:02.067Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "a2fa984339cc8b38",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "resultCode",
+        "errorCode"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.067Z\",\"tipo\":\"ipc.response.received\",\"em\":\"2026-11-10T19:29:02.067Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"a2fa984339cc8b38\",\"operation\":\"STATUS\",\"resultCode\":null,\"errorCode\":null}"
+    },
+    {
+      "lineNo": 742,
+      "ts": "2026-11-10T19:29:02.070Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": null,
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "motivo"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.070Z\",\"tipo\":\"host.ref\",\"em\":\"2026-11-10T19:29:02.070Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":null,\"motivo\":\"enviar:LOAD\"}"
+    },
+    {
+      "lineNo": 743,
+      "ts": "2026-11-10T19:29:02.074Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "9c6323f78c45cf84",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.074Z\",\"tipo\":\"nativa.envio\",\"em\":\"2026-11-10T19:29:02.074Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"9c6323f78c45cf84\",\"operation\":\"LOAD\"}"
+    },
+    {
+      "lineNo": 744,
+      "ts": "2026-11-10T19:29:02.077Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "9c6323f78c45cf84",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.077Z\",\"tipo\":\"ipc.message.sent\",\"em\":\"2026-11-10T19:29:02.077Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"9c6323f78c45cf84\",\"operation\":\"LOAD\",\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 745,
+      "ts": "2026-11-10T19:29:02.078Z",
+      "event": "ipc.message.received",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "9c6323f78c45cf84",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.message.received\",\"registradoEm\":\"2026-11-10T19:29:02.078Z\",\"requestId\":\"9c6323f78c45cf84\",\"operation\":\"LOAD\",\"pid\":19920,\"messageType\":\"request\"}"
+    },
+    {
+      "lineNo": 746,
+      "ts": "2026-11-10T19:29:02.092Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": "9c6323f78c45cf84",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.092Z\",\"tipo\":\"nativa.inicio\",\"em\":\"2026-11-10T19:29:02.084Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":\"9c6323f78c45cf84\",\"operation\":\"LOAD\"}"
+    },
+    {
+      "lineNo": 747,
+      "ts": "2026-11-10T19:29:02.124Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": "9c6323f78c45cf84",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation",
+        "duracaoMs",
+        "ok"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.124Z\",\"tipo\":\"nativa.fim\",\"em\":\"2026-11-10T19:29:02.115Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":\"9c6323f78c45cf84\",\"operation\":\"LOAD\",\"duracaoMs\":31,\"ok\":true}"
+    },
+    {
+      "lineNo": 749,
+      "ts": "2026-11-10T19:29:02.127Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "9c6323f78c45cf84",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.127Z\",\"tipo\":\"ipc.message.received\",\"em\":\"2026-11-10T19:29:02.127Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"9c6323f78c45cf84\",\"operation\":null,\"messageType\":\"response\"}"
+    },
+    {
+      "lineNo": 748,
+      "ts": "2026-11-10T19:29:02.128Z",
+      "event": "ipc.response.sent",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "9c6323f78c45cf84",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "hasError",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.response.sent\",\"registradoEm\":\"2026-11-10T19:29:02.128Z\",\"requestId\":\"9c6323f78c45cf84\",\"operation\":\"LOAD\",\"pid\":19920,\"hasError\":false,\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 750,
+      "ts": "2026-11-10T19:29:02.133Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "9c6323f78c45cf84",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "resultCode",
+        "errorCode"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.133Z\",\"tipo\":\"ipc.response.received\",\"em\":\"2026-11-10T19:29:02.133Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"9c6323f78c45cf84\",\"operation\":\"LOAD\",\"resultCode\":null,\"errorCode\":null}"
+    },
+    {
+      "lineNo": 751,
+      "ts": "2026-11-10T19:29:02.136Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": null,
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "motivo"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.136Z\",\"tipo\":\"host.ref\",\"em\":\"2026-11-10T19:29:02.136Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":null,\"motivo\":\"enviar:STATUS\"}"
+    },
+    {
+      "lineNo": 752,
+      "ts": "2026-11-10T19:29:02.139Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "3f90c43223b34fdb",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.139Z\",\"tipo\":\"nativa.envio\",\"em\":\"2026-11-10T19:29:02.139Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"3f90c43223b34fdb\",\"operation\":\"STATUS\"}"
+    },
+    {
+      "lineNo": 753,
+      "ts": "2026-11-10T19:29:02.143Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "3f90c43223b34fdb",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.143Z\",\"tipo\":\"ipc.message.sent\",\"em\":\"2026-11-10T19:29:02.143Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"3f90c43223b34fdb\",\"operation\":\"STATUS\",\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 754,
+      "ts": "2026-11-10T19:29:02.144Z",
+      "event": "ipc.message.received",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "3f90c43223b34fdb",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.message.received\",\"registradoEm\":\"2026-11-10T19:29:02.144Z\",\"requestId\":\"3f90c43223b34fdb\",\"operation\":\"STATUS\",\"pid\":19920,\"messageType\":\"request\"}"
+    },
+    {
+      "lineNo": 756,
+      "ts": "2026-11-10T19:29:02.158Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "3f90c43223b34fdb",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.158Z\",\"tipo\":\"ipc.message.received\",\"em\":\"2026-11-10T19:29:02.158Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"3f90c43223b34fdb\",\"operation\":null,\"messageType\":\"response\"}"
+    },
+    {
+      "lineNo": 755,
+      "ts": "2026-11-10T19:29:02.159Z",
+      "event": "ipc.response.sent",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "3f90c43223b34fdb",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "hasError",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.response.sent\",\"registradoEm\":\"2026-11-10T19:29:02.159Z\",\"requestId\":\"3f90c43223b34fdb\",\"operation\":\"STATUS\",\"pid\":19920,\"hasError\":false,\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 757,
+      "ts": "2026-11-10T19:29:02.163Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "3f90c43223b34fdb",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "resultCode",
+        "errorCode"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.163Z\",\"tipo\":\"ipc.response.received\",\"em\":\"2026-11-10T19:29:02.163Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"3f90c43223b34fdb\",\"operation\":\"STATUS\",\"resultCode\":null,\"errorCode\":null}"
+    },
+    {
+      "lineNo": 758,
+      "ts": "2026-11-10T19:29:02.167Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": null,
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "motivo"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.167Z\",\"tipo\":\"host.ref\",\"em\":\"2026-11-10T19:29:02.167Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":null,\"motivo\":\"enviar:INIT_CLIENT\"}"
+    },
+    {
+      "lineNo": 759,
+      "ts": "2026-11-10T19:29:02.170Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.170Z\",\"tipo\":\"nativa.envio\",\"em\":\"2026-11-10T19:29:02.170Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"267855993f5de40f\",\"operation\":\"INIT_CLIENT\"}"
+    },
+    {
+      "lineNo": 761,
+      "ts": "2026-11-10T19:29:02.173Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.173Z\",\"tipo\":\"ipc.message.sent\",\"em\":\"2026-11-10T19:29:02.173Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"267855993f5de40f\",\"operation\":\"INIT_CLIENT\",\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 760,
+      "ts": "2026-11-10T19:29:02.174Z",
+      "event": "ipc.message.received",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.message.received\",\"registradoEm\":\"2026-11-10T19:29:02.174Z\",\"requestId\":\"267855993f5de40f\",\"operation\":\"INIT_CLIENT\",\"pid\":19920,\"messageType\":\"request\"}"
+    },
+    {
+      "lineNo": 762,
+      "ts": "2026-11-10T19:29:02.186Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.186Z\",\"tipo\":\"nativa.inicio\",\"em\":\"2026-11-10T19:29:02.177Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":\"267855993f5de40f\",\"operation\":\"INIT_CLIENT\"}"
+    },
+    {
+      "lineNo": 763,
+      "ts": "2026-11-10T19:29:02.193Z",
+      "event": "client.init.start",
+      "pid": null,
+      "ppid": null,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "processArch",
+        "tamanhoEntrada"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"client.init.start\",\"registradoEm\":\"2026-11-10T19:29:02.193Z\",\"requestId\":\"267855993f5de40f\",\"processArch\":\"x64\",\"tamanhoEntrada\":159}"
+    },
+    {
+      "lineNo": 764,
+      "ts": "2026-11-10T19:29:02.197Z",
+      "event": "native.call.enter",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "pid",
+        "functionName",
+        "startedAt",
+        "entryConfirmed"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"native.call.enter\",\"registradoEm\":\"2026-11-10T19:29:02.197Z\",\"requestId\":\"267855993f5de40f\",\"pid\":19920,\"functionName\":\"iniciaClientDestaxa\",\"startedAt\":\"2026-11-10T19:29:02.197Z\",\"entryConfirmed\":true}"
+    },
+    {
+      "lineNo": 765,
+      "ts": "2026-11-10T19:29:02.201Z",
+      "event": "native.call.return",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": "00",
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "pid",
+        "functionName",
+        "startedAt",
+        "returnedAt",
+        "durationMs",
+        "resultCode",
+        "result"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"native.call.return\",\"registradoEm\":\"2026-11-10T19:29:02.201Z\",\"requestId\":\"267855993f5de40f\",\"pid\":19920,\"functionName\":\"iniciaClientDestaxa\",\"startedAt\":\"2026-11-10T19:29:02.197Z\",\"returnedAt\":\"2026-11-10T19:29:02.200Z\",\"durationMs\":0.7976,\"resultCode\":\"00\",\"result\":{\"code\":\"00\"}}"
+    },
+    {
+      "lineNo": 766,
+      "ts": "2026-11-10T19:29:02.204Z",
+      "event": "client.init.result",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": "00",
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "pid",
+        "functionName",
+        "processArch",
+        "codigo",
+        "sucesso",
+        "duracaoMs",
+        "estado"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"client.init.result\",\"registradoEm\":\"2026-11-10T19:29:02.204Z\",\"requestId\":\"267855993f5de40f\",\"pid\":19920,\"functionName\":\"iniciaClientDestaxa\",\"processArch\":\"x64\",\"codigo\":\"00\",\"sucesso\":true,\"duracaoMs\":0.7976,\"estado\":\"CLIENT_INITIALIZED\"}"
+    },
+    {
+      "lineNo": 767,
+      "ts": "2026-11-10T19:29:02.207Z",
+      "event": "diagnostic.block",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "pid",
+        "functionName",
+        "bloco"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"diagnostic.block\",\"registradoEm\":\"2026-11-10T19:29:02.207Z\",\"requestId\":\"267855993f5de40f\",\"pid\":19920,\"functionName\":\"iniciaClientDestaxa\",\"bloco\":\"[DESTAXA]\\nArquitetura: x64\\nDLL: \\nDLL encontrada: true\\nDLL carregada: true\\nExports: iniciaClientDestaxa=true; iniciaTransacaoDestaxa=true; continuaTransacaoDestaxa=true; finalizaTransacaoDestaxa=true\\niniciaClient: true\\nCódigo: 00\\nTempo: 0.7976ms\\nEstado: CLIENT_INITIALIZED\"}"
+    },
+    {
+      "lineNo": 768,
+      "ts": "2026-11-10T19:29:02.221Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation",
+        "duracaoMs",
+        "ok"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.221Z\",\"tipo\":\"nativa.fim\",\"em\":\"2026-11-10T19:29:02.211Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":\"267855993f5de40f\",\"operation\":\"INIT_CLIENT\",\"duracaoMs\":34,\"ok\":true}"
+    },
+    {
+      "lineNo": 769,
+      "ts": "2026-11-10T19:29:02.224Z",
+      "event": "ipc.response.sent",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "hasError",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.response.sent\",\"registradoEm\":\"2026-11-10T19:29:02.224Z\",\"requestId\":\"267855993f5de40f\",\"operation\":\"INIT_CLIENT\",\"pid\":19920,\"hasError\":false,\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 770,
+      "ts": "2026-11-10T19:29:02.224Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.224Z\",\"tipo\":\"ipc.message.received\",\"em\":\"2026-11-10T19:29:02.224Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"267855993f5de40f\",\"operation\":null,\"messageType\":\"response\"}"
+    },
+    {
+      "lineNo": 771,
+      "ts": "2026-11-10T19:29:02.230Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": "00",
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "resultCode",
+        "errorCode"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.230Z\",\"tipo\":\"ipc.response.received\",\"em\":\"2026-11-10T19:29:02.230Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"267855993f5de40f\",\"operation\":\"INIT_CLIENT\",\"resultCode\":\"00\",\"errorCode\":null}"
+    },
+    {
+      "lineNo": 772,
+      "ts": "2026-11-10T19:29:02.233Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": null,
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "motivo"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.233Z\",\"tipo\":\"host.ref\",\"em\":\"2026-11-10T19:29:02.233Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":null,\"motivo\":\"enviar:STATUS\"}"
+    },
+    {
+      "lineNo": 773,
+      "ts": "2026-11-10T19:29:02.236Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "6abf0c72d27e6905",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.236Z\",\"tipo\":\"nativa.envio\",\"em\":\"2026-11-10T19:29:02.236Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"6abf0c72d27e6905\",\"operation\":\"STATUS\"}"
+    },
+    {
+      "lineNo": 775,
+      "ts": "2026-11-10T19:29:02.239Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "6abf0c72d27e6905",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.239Z\",\"tipo\":\"ipc.message.sent\",\"em\":\"2026-11-10T19:29:02.239Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"6abf0c72d27e6905\",\"operation\":\"STATUS\",\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 774,
+      "ts": "2026-11-10T19:29:02.240Z",
+      "event": "ipc.message.received",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "6abf0c72d27e6905",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.message.received\",\"registradoEm\":\"2026-11-10T19:29:02.240Z\",\"requestId\":\"6abf0c72d27e6905\",\"operation\":\"STATUS\",\"pid\":19920,\"messageType\":\"request\"}"
+    },
+    {
+      "lineNo": 777,
+      "ts": "2026-11-10T19:29:02.253Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "6abf0c72d27e6905",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.253Z\",\"tipo\":\"ipc.message.received\",\"em\":\"2026-11-10T19:29:02.253Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"6abf0c72d27e6905\",\"operation\":null,\"messageType\":\"response\"}"
+    },
+    {
+      "lineNo": 776,
+      "ts": "2026-11-10T19:29:02.254Z",
+      "event": "ipc.response.sent",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "6abf0c72d27e6905",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "hasError",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.response.sent\",\"registradoEm\":\"2026-11-10T19:29:02.254Z\",\"requestId\":\"6abf0c72d27e6905\",\"operation\":\"STATUS\",\"pid\":19920,\"hasError\":false,\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 778,
+      "ts": "2026-11-10T19:29:02.259Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "6abf0c72d27e6905",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "resultCode",
+        "errorCode"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.259Z\",\"tipo\":\"ipc.response.received\",\"em\":\"2026-11-10T19:29:02.259Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"6abf0c72d27e6905\",\"operation\":\"STATUS\",\"resultCode\":null,\"errorCode\":null}"
+    },
+    {
+      "lineNo": 779,
+      "ts": "2026-11-10T19:29:04.109Z",
+      "event": "autorizacao.excepcional.consumida",
+      "pid": null,
+      "ppid": null,
+      "requestId": null,
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "sprint",
+        "authorizationId",
+        "valorCentavos",
+        "tipo",
+        "operacao"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"autorizacao.excepcional.consumida\",\"registradoEm\":\"2026-11-10T19:29:04.109Z\",\"sprint\":\"TEF-DESTAXA-51.02\",\"authorizationId\":\"71506b7e1d6c73a419a8679bed07819f\",\"valorCentavos\":100,\"tipo\":\"cartao_debito\",\"operacao\":\"CRT\"}"
+    },
+    {
+      "lineNo": 780,
+      "ts": "2026-11-10T19:29:04.127Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": null,
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "motivo"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.127Z\",\"tipo\":\"host.ref\",\"em\":\"2026-11-10T19:29:04.127Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":null,\"motivo\":\"enviar:ENABLE_REAL\"}"
+    },
+    {
+      "lineNo": 781,
+      "ts": "2026-11-10T19:29:04.131Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "53ac41ae39c6cde9",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.131Z\",\"tipo\":\"nativa.envio\",\"em\":\"2026-11-10T19:29:04.131Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"53ac41ae39c6cde9\",\"operation\":\"ENABLE_REAL\"}"
+    },
+    {
+      "lineNo": 783,
+      "ts": "2026-11-10T19:29:04.135Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "53ac41ae39c6cde9",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.135Z\",\"tipo\":\"ipc.message.sent\",\"em\":\"2026-11-10T19:29:04.135Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"53ac41ae39c6cde9\",\"operation\":\"ENABLE_REAL\",\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 782,
+      "ts": "2026-11-10T19:29:04.136Z",
+      "event": "ipc.message.received",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "53ac41ae39c6cde9",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.message.received\",\"registradoEm\":\"2026-11-10T19:29:04.136Z\",\"requestId\":\"53ac41ae39c6cde9\",\"operation\":\"ENABLE_REAL\",\"pid\":19920,\"messageType\":\"request\"}"
+    },
+    {
+      "lineNo": 784,
+      "ts": "2026-11-10T19:29:04.150Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": "53ac41ae39c6cde9",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.150Z\",\"tipo\":\"nativa.inicio\",\"em\":\"2026-11-10T19:29:04.139Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":\"53ac41ae39c6cde9\",\"operation\":\"ENABLE_REAL\"}"
+    },
+    {
+      "lineNo": 785,
+      "ts": "2026-11-10T19:29:04.168Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": "53ac41ae39c6cde9",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation",
+        "duracaoMs",
+        "ok"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.168Z\",\"tipo\":\"nativa.fim\",\"em\":\"2026-11-10T19:29:04.158Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":\"53ac41ae39c6cde9\",\"operation\":\"ENABLE_REAL\",\"duracaoMs\":19,\"ok\":true}"
+    },
+    {
+      "lineNo": 786,
+      "ts": "2026-11-10T19:29:04.173Z",
+      "event": "ipc.response.sent",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "53ac41ae39c6cde9",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "hasError",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.response.sent\",\"registradoEm\":\"2026-11-10T19:29:04.173Z\",\"requestId\":\"53ac41ae39c6cde9\",\"operation\":\"ENABLE_REAL\",\"pid\":19920,\"hasError\":false,\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 787,
+      "ts": "2026-11-10T19:29:04.188Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "53ac41ae39c6cde9",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.188Z\",\"tipo\":\"ipc.message.received\",\"em\":\"2026-11-10T19:29:04.188Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"53ac41ae39c6cde9\",\"operation\":null,\"messageType\":\"response\"}"
+    },
+    {
+      "lineNo": 788,
+      "ts": "2026-11-10T19:29:04.193Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "53ac41ae39c6cde9",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "resultCode",
+        "errorCode"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.193Z\",\"tipo\":\"ipc.response.received\",\"em\":\"2026-11-10T19:29:04.193Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"53ac41ae39c6cde9\",\"operation\":\"ENABLE_REAL\",\"resultCode\":null,\"errorCode\":null}"
+    },
+    {
+      "lineNo": 789,
+      "ts": "2026-11-10T19:29:04.242Z",
+      "event": "ipc.message.received",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "84c50ebfdb570956",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.message.received\",\"registradoEm\":\"2026-11-10T19:29:04.242Z\",\"requestId\":\"84c50ebfdb570956\",\"operation\":\"SECURITY_BOOTSTRAP\",\"pid\":19920,\"messageType\":\"request\"}"
+    },
+    {
+      "lineNo": 790,
+      "ts": "2026-11-10T19:29:04.245Z",
+      "event": "ipc.response.sent",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "84c50ebfdb570956",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "hasError",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.response.sent\",\"registradoEm\":\"2026-11-10T19:29:04.245Z\",\"requestId\":\"84c50ebfdb570956\",\"operation\":\"SECURITY_BOOTSTRAP\",\"pid\":19920,\"hasError\":false,\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 791,
+      "ts": "2026-11-10T19:29:04.245Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "84c50ebfdb570956",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.245Z\",\"tipo\":\"ipc.message.received\",\"em\":\"2026-11-10T19:29:04.244Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"READY\",\"requestId\":\"84c50ebfdb570956\",\"operation\":null,\"messageType\":\"response\"}"
+    },
+    {
+      "lineNo": 792,
+      "ts": "2026-11-10T19:29:04.250Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "84c50ebfdb570956",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "resultCode",
+        "errorCode"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.250Z\",\"tipo\":\"ipc.response.received\",\"em\":\"2026-11-10T19:29:04.250Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"READY\",\"requestId\":\"84c50ebfdb570956\",\"operation\":\"SECURITY_BOOTSTRAP\",\"resultCode\":null,\"errorCode\":null}"
+    },
+    {
+      "lineNo": 793,
+      "ts": "2026-11-10T19:29:04.254Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": null,
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "motivo"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.254Z\",\"tipo\":\"host.ref\",\"em\":\"2026-11-10T19:29:04.254Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":null,\"motivo\":\"enviar:TX_START\"}"
+    },
+    {
+      "lineNo": 794,
+      "ts": "2026-11-10T19:29:04.259Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "a2ceee9b6c95cf6f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.259Z\",\"tipo\":\"nativa.envio\",\"em\":\"2026-11-10T19:29:04.259Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"a2ceee9b6c95cf6f\",\"operation\":\"TX_START\"}"
+    },
+    {
+      "lineNo": 796,
+      "ts": "2026-11-10T19:29:04.263Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "a2ceee9b6c95cf6f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.263Z\",\"tipo\":\"ipc.message.sent\",\"em\":\"2026-11-10T19:29:04.263Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"a2ceee9b6c95cf6f\",\"operation\":\"TX_START\",\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 795,
+      "ts": "2026-11-10T19:29:04.264Z",
+      "event": "ipc.message.received",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "a2ceee9b6c95cf6f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.message.received\",\"registradoEm\":\"2026-11-10T19:29:04.264Z\",\"requestId\":\"a2ceee9b6c95cf6f\",\"operation\":\"TX_START\",\"pid\":19920,\"messageType\":\"request\"}"
+    },
+    {
+      "lineNo": 797,
+      "ts": "2026-11-10T19:29:04.276Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": "a2ceee9b6c95cf6f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.276Z\",\"tipo\":\"nativa.inicio\",\"em\":\"2026-11-10T19:29:04.267Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":\"a2ceee9b6c95cf6f\",\"operation\":\"TX_START\"}"
+    },
+    {
+      "lineNo": 798,
+      "ts": "2026-11-10T19:29:33.118Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": "a2ceee9b6c95cf6f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation",
+        "duracaoMs",
+        "ok"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:33.118Z\",\"tipo\":\"nativa.fim\",\"em\":\"2026-11-10T19:29:33.104Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":\"a2ceee9b6c95cf6f\",\"operation\":\"TX_START\",\"duracaoMs\":28837,\"ok\":true}"
+    },
+    {
+      "lineNo": 800,
+      "ts": "2026-11-10T19:29:33.121Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "a2ceee9b6c95cf6f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:33.121Z\",\"tipo\":\"ipc.message.received\",\"em\":\"2026-11-10T19:29:33.121Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"a2ceee9b6c95cf6f\",\"operation\":null,\"messageType\":\"response\"}"
+    },
+    {
+      "lineNo": 799,
+      "ts": "2026-11-10T19:29:33.122Z",
+      "event": "ipc.response.sent",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "a2ceee9b6c95cf6f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "hasError",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.response.sent\",\"registradoEm\":\"2026-11-10T19:29:33.122Z\",\"requestId\":\"a2ceee9b6c95cf6f\",\"operation\":\"TX_START\",\"pid\":19920,\"hasError\":false,\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 801,
+      "ts": "2026-11-10T19:29:33.127Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "a2ceee9b6c95cf6f",
+      "operationId": null,
+      "transactionId": null,
+      "code": "99",
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "resultCode",
+        "errorCode"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:33.127Z\",\"tipo\":\"ipc.response.received\",\"em\":\"2026-11-10T19:29:33.127Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"a2ceee9b6c95cf6f\",\"operation\":\"TX_START\",\"resultCode\":\"99\",\"errorCode\":null}"
+    },
+    {
+      "lineNo": 802,
+      "ts": "2026-11-10T19:29:33.216Z",
+      "event": "continuidade.tx_continue",
+      "pid": null,
+      "ppid": null,
+      "requestId": null,
+      "operationId": null,
+      "transactionId": "2",
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "sprint",
+        "estado",
+        "transactionId",
+        "requestId",
+        "codigo",
+        "tipoAcao",
+        "chave",
+        "origem",
+        "retryAllowed"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"continuidade.tx_continue\",\"registradoEm\":\"2026-11-10T19:29:33.216Z\",\"sprint\":\"TEF-DESTAXA-51.05\",\"estado\":\"CONTINUANDO\",\"transactionId\":\"2\",\"requestId\":null,\"codigo\":null,\"tipoAcao\":\"DISPLAY\",\"chave\":\"[REDACTED]\",\"origem\":\"display_ack\",\"retryAllowed\":false}"
+    },
+    {
+      "lineNo": 803,
+      "ts": "2026-11-10T19:29:33.230Z",
+      "event": "ipc.message.received",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "71d21485773b78f2",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.message.received\",\"registradoEm\":\"2026-11-10T19:29:33.230Z\",\"requestId\":\"71d21485773b78f2\",\"operation\":\"SECURITY_BOOTSTRAP\",\"pid\":19920,\"messageType\":\"request\"}"
+    },
+    {
+      "lineNo": 805,
+      "ts": "2026-11-10T19:29:33.234Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "71d21485773b78f2",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:33.234Z\",\"tipo\":\"ipc.message.received\",\"em\":\"2026-11-10T19:29:33.234Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"READY\",\"requestId\":\"71d21485773b78f2\",\"operation\":null,\"messageType\":\"response\"}"
+    },
+    {
+      "lineNo": 804,
+      "ts": "2026-11-10T19:29:33.235Z",
+      "event": "ipc.response.sent",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "71d21485773b78f2",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "hasError",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.response.sent\",\"registradoEm\":\"2026-11-10T19:29:33.235Z\",\"requestId\":\"71d21485773b78f2\",\"operation\":\"SECURITY_BOOTSTRAP\",\"pid\":19920,\"hasError\":false,\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 806,
+      "ts": "2026-11-10T19:29:33.242Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "71d21485773b78f2",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "resultCode",
+        "errorCode"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:33.242Z\",\"tipo\":\"ipc.response.received\",\"em\":\"2026-11-10T19:29:33.242Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"READY\",\"requestId\":\"71d21485773b78f2\",\"operation\":\"SECURITY_BOOTSTRAP\",\"resultCode\":null,\"errorCode\":null}"
+    },
+    {
+      "lineNo": 807,
+      "ts": "2026-11-10T19:29:33.246Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": null,
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "motivo"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:33.246Z\",\"tipo\":\"host.ref\",\"em\":\"2026-11-10T19:29:33.246Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":null,\"motivo\":\"enviar:TX_CONTINUE\"}"
+    },
+    {
+      "lineNo": 808,
+      "ts": "2026-11-10T19:29:33.250Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "b26da9c674734d32",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:33.250Z\",\"tipo\":\"nativa.envio\",\"em\":\"2026-11-10T19:29:33.250Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"b26da9c674734d32\",\"operation\":\"TX_CONTINUE\"}"
+    },
+    {
+      "lineNo": 809,
+      "ts": "2026-11-10T19:29:33.254Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "b26da9c674734d32",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:33.254Z\",\"tipo\":\"ipc.message.sent\",\"em\":\"2026-11-10T19:29:33.254Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"b26da9c674734d32\",\"operation\":\"TX_CONTINUE\",\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 810,
+      "ts": "2026-11-10T19:29:33.255Z",
+      "event": "ipc.message.received",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "b26da9c674734d32",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.message.received\",\"registradoEm\":\"2026-11-10T19:29:33.255Z\",\"requestId\":\"b26da9c674734d32\",\"operation\":\"TX_CONTINUE\",\"pid\":19920,\"messageType\":\"request\"}"
+    },
+    {
+      "lineNo": 811,
+      "ts": "2026-11-10T19:29:33.276Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": "b26da9c674734d32",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:33.276Z\",\"tipo\":\"nativa.inicio\",\"em\":\"2026-11-10T19:29:33.261Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":\"b26da9c674734d32\",\"operation\":\"TX_CONTINUE\"}"
+    },
+    {
+      "lineNo": 812,
+      "ts": "2026-11-10T19:30:33.718Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": "b26da9c674734d32",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation",
+        "duracaoMs",
+        "ok"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:30:33.718Z\",\"tipo\":\"nativa.fim\",\"em\":\"2026-11-10T19:30:33.697Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":\"b26da9c674734d32\",\"operation\":\"TX_CONTINUE\",\"duracaoMs\":60436,\"ok\":true}"
+    },
+    {
+      "lineNo": 814,
+      "ts": "2026-11-10T19:30:33.723Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "b26da9c674734d32",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:30:33.723Z\",\"tipo\":\"ipc.message.received\",\"em\":\"2026-11-10T19:30:33.723Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"b26da9c674734d32\",\"operation\":null,\"messageType\":\"response\"}"
+    },
+    {
+      "lineNo": 813,
+      "ts": "2026-11-10T19:30:33.724Z",
+      "event": "ipc.response.sent",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "b26da9c674734d32",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "hasError",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.response.sent\",\"registradoEm\":\"2026-11-10T19:30:33.724Z\",\"requestId\":\"b26da9c674734d32\",\"operation\":\"TX_CONTINUE\",\"pid\":19920,\"hasError\":false,\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 815,
+      "ts": "2026-11-10T19:30:33.730Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "b26da9c674734d32",
+      "operationId": null,
+      "transactionId": null,
+      "code": "09",
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "resultCode",
+        "errorCode"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:30:33.730Z\",\"tipo\":\"ipc.response.received\",\"em\":\"2026-11-10T19:30:33.729Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"b26da9c674734d32\",\"operation\":\"TX_CONTINUE\",\"resultCode\":\"09\",\"errorCode\":null}"
+    }
+  ],
+  "dllRelated": [
+    {
+      "lineNo": 742,
+      "ts": "2026-11-10T19:29:02.070Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": null,
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "motivo"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.070Z\",\"tipo\":\"host.ref\",\"em\":\"2026-11-10T19:29:02.070Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":null,\"motivo\":\"enviar:LOAD\"}"
+    },
+    {
+      "lineNo": 743,
+      "ts": "2026-11-10T19:29:02.074Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "9c6323f78c45cf84",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.074Z\",\"tipo\":\"nativa.envio\",\"em\":\"2026-11-10T19:29:02.074Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"9c6323f78c45cf84\",\"operation\":\"LOAD\"}"
+    },
+    {
+      "lineNo": 744,
+      "ts": "2026-11-10T19:29:02.077Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "9c6323f78c45cf84",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.077Z\",\"tipo\":\"ipc.message.sent\",\"em\":\"2026-11-10T19:29:02.077Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"9c6323f78c45cf84\",\"operation\":\"LOAD\",\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 745,
+      "ts": "2026-11-10T19:29:02.078Z",
+      "event": "ipc.message.received",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "9c6323f78c45cf84",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.message.received\",\"registradoEm\":\"2026-11-10T19:29:02.078Z\",\"requestId\":\"9c6323f78c45cf84\",\"operation\":\"LOAD\",\"pid\":19920,\"messageType\":\"request\"}"
+    },
+    {
+      "lineNo": 746,
+      "ts": "2026-11-10T19:29:02.092Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": "9c6323f78c45cf84",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.092Z\",\"tipo\":\"nativa.inicio\",\"em\":\"2026-11-10T19:29:02.084Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":\"9c6323f78c45cf84\",\"operation\":\"LOAD\"}"
+    },
+    {
+      "lineNo": 747,
+      "ts": "2026-11-10T19:29:02.124Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": "9c6323f78c45cf84",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation",
+        "duracaoMs",
+        "ok"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.124Z\",\"tipo\":\"nativa.fim\",\"em\":\"2026-11-10T19:29:02.115Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":\"9c6323f78c45cf84\",\"operation\":\"LOAD\",\"duracaoMs\":31,\"ok\":true}"
+    },
+    {
+      "lineNo": 748,
+      "ts": "2026-11-10T19:29:02.128Z",
+      "event": "ipc.response.sent",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "9c6323f78c45cf84",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "hasError",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.response.sent\",\"registradoEm\":\"2026-11-10T19:29:02.128Z\",\"requestId\":\"9c6323f78c45cf84\",\"operation\":\"LOAD\",\"pid\":19920,\"hasError\":false,\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 750,
+      "ts": "2026-11-10T19:29:02.133Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "9c6323f78c45cf84",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "resultCode",
+        "errorCode"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.133Z\",\"tipo\":\"ipc.response.received\",\"em\":\"2026-11-10T19:29:02.133Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"9c6323f78c45cf84\",\"operation\":\"LOAD\",\"resultCode\":null,\"errorCode\":null}"
+    },
+    {
+      "lineNo": 758,
+      "ts": "2026-11-10T19:29:02.167Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": null,
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "motivo"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.167Z\",\"tipo\":\"host.ref\",\"em\":\"2026-11-10T19:29:02.167Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":null,\"motivo\":\"enviar:INIT_CLIENT\"}"
+    },
+    {
+      "lineNo": 759,
+      "ts": "2026-11-10T19:29:02.170Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.170Z\",\"tipo\":\"nativa.envio\",\"em\":\"2026-11-10T19:29:02.170Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"267855993f5de40f\",\"operation\":\"INIT_CLIENT\"}"
+    },
+    {
+      "lineNo": 760,
+      "ts": "2026-11-10T19:29:02.174Z",
+      "event": "ipc.message.received",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.message.received\",\"registradoEm\":\"2026-11-10T19:29:02.174Z\",\"requestId\":\"267855993f5de40f\",\"operation\":\"INIT_CLIENT\",\"pid\":19920,\"messageType\":\"request\"}"
+    },
+    {
+      "lineNo": 761,
+      "ts": "2026-11-10T19:29:02.173Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.173Z\",\"tipo\":\"ipc.message.sent\",\"em\":\"2026-11-10T19:29:02.173Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"267855993f5de40f\",\"operation\":\"INIT_CLIENT\",\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 762,
+      "ts": "2026-11-10T19:29:02.186Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.186Z\",\"tipo\":\"nativa.inicio\",\"em\":\"2026-11-10T19:29:02.177Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":\"267855993f5de40f\",\"operation\":\"INIT_CLIENT\"}"
+    },
+    {
+      "lineNo": 763,
+      "ts": "2026-11-10T19:29:02.193Z",
+      "event": "client.init.start",
+      "pid": null,
+      "ppid": null,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "processArch",
+        "tamanhoEntrada"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"client.init.start\",\"registradoEm\":\"2026-11-10T19:29:02.193Z\",\"requestId\":\"267855993f5de40f\",\"processArch\":\"x64\",\"tamanhoEntrada\":159}"
+    },
+    {
+      "lineNo": 766,
+      "ts": "2026-11-10T19:29:02.204Z",
+      "event": "client.init.result",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": "00",
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "pid",
+        "functionName",
+        "processArch",
+        "codigo",
+        "sucesso",
+        "duracaoMs",
+        "estado"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"client.init.result\",\"registradoEm\":\"2026-11-10T19:29:02.204Z\",\"requestId\":\"267855993f5de40f\",\"pid\":19920,\"functionName\":\"iniciaClientDestaxa\",\"processArch\":\"x64\",\"codigo\":\"00\",\"sucesso\":true,\"duracaoMs\":0.7976,\"estado\":\"CLIENT_INITIALIZED\"}"
+    },
+    {
+      "lineNo": 767,
+      "ts": "2026-11-10T19:29:02.207Z",
+      "event": "diagnostic.block",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "pid",
+        "functionName",
+        "bloco"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"diagnostic.block\",\"registradoEm\":\"2026-11-10T19:29:02.207Z\",\"requestId\":\"267855993f5de40f\",\"pid\":19920,\"functionName\":\"iniciaClientDestaxa\",\"bloco\":\"[DESTAXA]\\nArquitetura: x64\\nDLL: \\nDLL encontrada: true\\nDLL carregada: true\\nExports: iniciaClientDestaxa=true; iniciaTransacaoDestaxa=true; continuaTransacaoDestaxa=true; finalizaTransacaoDestaxa=true\\niniciaClient: true\\nCódigo: 00\\nTempo: 0.7976ms\\nEstado: CLIENT_INITIALIZED\"}"
+    },
+    {
+      "lineNo": 768,
+      "ts": "2026-11-10T19:29:02.221Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation",
+        "duracaoMs",
+        "ok"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.221Z\",\"tipo\":\"nativa.fim\",\"em\":\"2026-11-10T19:29:02.211Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":\"267855993f5de40f\",\"operation\":\"INIT_CLIENT\",\"duracaoMs\":34,\"ok\":true}"
+    },
+    {
+      "lineNo": 769,
+      "ts": "2026-11-10T19:29:02.224Z",
+      "event": "ipc.response.sent",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "hasError",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.response.sent\",\"registradoEm\":\"2026-11-10T19:29:02.224Z\",\"requestId\":\"267855993f5de40f\",\"operation\":\"INIT_CLIENT\",\"pid\":19920,\"hasError\":false,\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 771,
+      "ts": "2026-11-10T19:29:02.230Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "267855993f5de40f",
+      "operationId": null,
+      "transactionId": null,
+      "code": "00",
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "resultCode",
+        "errorCode"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:02.230Z\",\"tipo\":\"ipc.response.received\",\"em\":\"2026-11-10T19:29:02.230Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"267855993f5de40f\",\"operation\":\"INIT_CLIENT\",\"resultCode\":\"00\",\"errorCode\":null}"
+    },
+    {
+      "lineNo": 780,
+      "ts": "2026-11-10T19:29:04.127Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": null,
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "motivo"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.127Z\",\"tipo\":\"host.ref\",\"em\":\"2026-11-10T19:29:04.127Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":null,\"motivo\":\"enviar:ENABLE_REAL\"}"
+    },
+    {
+      "lineNo": 781,
+      "ts": "2026-11-10T19:29:04.131Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "53ac41ae39c6cde9",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.131Z\",\"tipo\":\"nativa.envio\",\"em\":\"2026-11-10T19:29:04.131Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"53ac41ae39c6cde9\",\"operation\":\"ENABLE_REAL\"}"
+    },
+    {
+      "lineNo": 782,
+      "ts": "2026-11-10T19:29:04.136Z",
+      "event": "ipc.message.received",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "53ac41ae39c6cde9",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.message.received\",\"registradoEm\":\"2026-11-10T19:29:04.136Z\",\"requestId\":\"53ac41ae39c6cde9\",\"operation\":\"ENABLE_REAL\",\"pid\":19920,\"messageType\":\"request\"}"
+    },
+    {
+      "lineNo": 783,
+      "ts": "2026-11-10T19:29:04.135Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "53ac41ae39c6cde9",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.135Z\",\"tipo\":\"ipc.message.sent\",\"em\":\"2026-11-10T19:29:04.135Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"53ac41ae39c6cde9\",\"operation\":\"ENABLE_REAL\",\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 784,
+      "ts": "2026-11-10T19:29:04.150Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": "53ac41ae39c6cde9",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.150Z\",\"tipo\":\"nativa.inicio\",\"em\":\"2026-11-10T19:29:04.139Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":\"53ac41ae39c6cde9\",\"operation\":\"ENABLE_REAL\"}"
+    },
+    {
+      "lineNo": 785,
+      "ts": "2026-11-10T19:29:04.168Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": "53ac41ae39c6cde9",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation",
+        "duracaoMs",
+        "ok"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.168Z\",\"tipo\":\"nativa.fim\",\"em\":\"2026-11-10T19:29:04.158Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":\"53ac41ae39c6cde9\",\"operation\":\"ENABLE_REAL\",\"duracaoMs\":19,\"ok\":true}"
+    },
+    {
+      "lineNo": 786,
+      "ts": "2026-11-10T19:29:04.173Z",
+      "event": "ipc.response.sent",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "53ac41ae39c6cde9",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "hasError",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.response.sent\",\"registradoEm\":\"2026-11-10T19:29:04.173Z\",\"requestId\":\"53ac41ae39c6cde9\",\"operation\":\"ENABLE_REAL\",\"pid\":19920,\"hasError\":false,\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 788,
+      "ts": "2026-11-10T19:29:04.193Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "53ac41ae39c6cde9",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "resultCode",
+        "errorCode"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.193Z\",\"tipo\":\"ipc.response.received\",\"em\":\"2026-11-10T19:29:04.193Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"53ac41ae39c6cde9\",\"operation\":\"ENABLE_REAL\",\"resultCode\":null,\"errorCode\":null}"
+    },
+    {
+      "lineNo": 793,
+      "ts": "2026-11-10T19:29:04.254Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": null,
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "motivo"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.254Z\",\"tipo\":\"host.ref\",\"em\":\"2026-11-10T19:29:04.254Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":null,\"motivo\":\"enviar:TX_START\"}"
+    },
+    {
+      "lineNo": 794,
+      "ts": "2026-11-10T19:29:04.259Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "a2ceee9b6c95cf6f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.259Z\",\"tipo\":\"nativa.envio\",\"em\":\"2026-11-10T19:29:04.259Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"a2ceee9b6c95cf6f\",\"operation\":\"TX_START\"}"
+    },
+    {
+      "lineNo": 795,
+      "ts": "2026-11-10T19:29:04.264Z",
+      "event": "ipc.message.received",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "a2ceee9b6c95cf6f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.message.received\",\"registradoEm\":\"2026-11-10T19:29:04.264Z\",\"requestId\":\"a2ceee9b6c95cf6f\",\"operation\":\"TX_START\",\"pid\":19920,\"messageType\":\"request\"}"
+    },
+    {
+      "lineNo": 796,
+      "ts": "2026-11-10T19:29:04.263Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "a2ceee9b6c95cf6f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.263Z\",\"tipo\":\"ipc.message.sent\",\"em\":\"2026-11-10T19:29:04.263Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"a2ceee9b6c95cf6f\",\"operation\":\"TX_START\",\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 797,
+      "ts": "2026-11-10T19:29:04.276Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": "a2ceee9b6c95cf6f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:04.276Z\",\"tipo\":\"nativa.inicio\",\"em\":\"2026-11-10T19:29:04.267Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":\"a2ceee9b6c95cf6f\",\"operation\":\"TX_START\"}"
+    },
+    {
+      "lineNo": 798,
+      "ts": "2026-11-10T19:29:33.118Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": "a2ceee9b6c95cf6f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation",
+        "duracaoMs",
+        "ok"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:33.118Z\",\"tipo\":\"nativa.fim\",\"em\":\"2026-11-10T19:29:33.104Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":\"a2ceee9b6c95cf6f\",\"operation\":\"TX_START\",\"duracaoMs\":28837,\"ok\":true}"
+    },
+    {
+      "lineNo": 799,
+      "ts": "2026-11-10T19:29:33.122Z",
+      "event": "ipc.response.sent",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "a2ceee9b6c95cf6f",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "hasError",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.response.sent\",\"registradoEm\":\"2026-11-10T19:29:33.122Z\",\"requestId\":\"a2ceee9b6c95cf6f\",\"operation\":\"TX_START\",\"pid\":19920,\"hasError\":false,\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 801,
+      "ts": "2026-11-10T19:29:33.127Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "a2ceee9b6c95cf6f",
+      "operationId": null,
+      "transactionId": null,
+      "code": "99",
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "resultCode",
+        "errorCode"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:33.127Z\",\"tipo\":\"ipc.response.received\",\"em\":\"2026-11-10T19:29:33.127Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"a2ceee9b6c95cf6f\",\"operation\":\"TX_START\",\"resultCode\":\"99\",\"errorCode\":null}"
+    },
+    {
+      "lineNo": 802,
+      "ts": "2026-11-10T19:29:33.216Z",
+      "event": "continuidade.tx_continue",
+      "pid": null,
+      "ppid": null,
+      "requestId": null,
+      "operationId": null,
+      "transactionId": "2",
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "sprint",
+        "estado",
+        "transactionId",
+        "requestId",
+        "codigo",
+        "tipoAcao",
+        "chave",
+        "origem",
+        "retryAllowed"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"continuidade.tx_continue\",\"registradoEm\":\"2026-11-10T19:29:33.216Z\",\"sprint\":\"TEF-DESTAXA-51.05\",\"estado\":\"CONTINUANDO\",\"transactionId\":\"2\",\"requestId\":null,\"codigo\":null,\"tipoAcao\":\"DISPLAY\",\"chave\":\"[REDACTED]\",\"origem\":\"display_ack\",\"retryAllowed\":false}"
+    },
+    {
+      "lineNo": 807,
+      "ts": "2026-11-10T19:29:33.246Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": null,
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "motivo"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:33.246Z\",\"tipo\":\"host.ref\",\"em\":\"2026-11-10T19:29:33.246Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":null,\"motivo\":\"enviar:TX_CONTINUE\"}"
+    },
+    {
+      "lineNo": 808,
+      "ts": "2026-11-10T19:29:33.250Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "b26da9c674734d32",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:33.250Z\",\"tipo\":\"nativa.envio\",\"em\":\"2026-11-10T19:29:33.250Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"b26da9c674734d32\",\"operation\":\"TX_CONTINUE\"}"
+    },
+    {
+      "lineNo": 809,
+      "ts": "2026-11-10T19:29:33.254Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "b26da9c674734d32",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:33.254Z\",\"tipo\":\"ipc.message.sent\",\"em\":\"2026-11-10T19:29:33.254Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"b26da9c674734d32\",\"operation\":\"TX_CONTINUE\",\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 810,
+      "ts": "2026-11-10T19:29:33.255Z",
+      "event": "ipc.message.received",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "b26da9c674734d32",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "messageType"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.message.received\",\"registradoEm\":\"2026-11-10T19:29:33.255Z\",\"requestId\":\"b26da9c674734d32\",\"operation\":\"TX_CONTINUE\",\"pid\":19920,\"messageType\":\"request\"}"
+    },
+    {
+      "lineNo": 811,
+      "ts": "2026-11-10T19:29:33.276Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": "b26da9c674734d32",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:29:33.276Z\",\"tipo\":\"nativa.inicio\",\"em\":\"2026-11-10T19:29:33.261Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":\"b26da9c674734d32\",\"operation\":\"TX_CONTINUE\"}"
+    },
+    {
+      "lineNo": 812,
+      "ts": "2026-11-10T19:30:33.718Z",
+      "event": "nativehost.lifecycle",
+      "pid": 19920,
+      "ppid": 10292,
+      "requestId": "b26da9c674734d32",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pid",
+        "ppid",
+        "requestId",
+        "operation",
+        "duracaoMs",
+        "ok"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.lifecycle\",\"registradoEm\":\"2026-11-10T19:30:33.718Z\",\"tipo\":\"nativa.fim\",\"em\":\"2026-11-10T19:30:33.697Z\",\"pid\":19920,\"ppid\":10292,\"requestId\":\"b26da9c674734d32\",\"operation\":\"TX_CONTINUE\",\"duracaoMs\":60436,\"ok\":true}"
+    },
+    {
+      "lineNo": 813,
+      "ts": "2026-11-10T19:30:33.724Z",
+      "event": "ipc.response.sent",
+      "pid": 19920,
+      "ppid": null,
+      "requestId": "b26da9c674734d32",
+      "operationId": null,
+      "transactionId": null,
+      "code": null,
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "requestId",
+        "operation",
+        "pid",
+        "hasError",
+        "sendInvoked"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"ipc.response.sent\",\"registradoEm\":\"2026-11-10T19:30:33.724Z\",\"requestId\":\"b26da9c674734d32\",\"operation\":\"TX_CONTINUE\",\"pid\":19920,\"hasError\":false,\"sendInvoked\":true}"
+    },
+    {
+      "lineNo": 815,
+      "ts": "2026-11-10T19:30:33.730Z",
+      "event": "nativehost.client.lifecycle",
+      "pid": null,
+      "ppid": null,
+      "requestId": "b26da9c674734d32",
+      "operationId": null,
+      "transactionId": null,
+      "code": "09",
+      "message": null,
+      "direction": null,
+      "dll": null,
+      "rawKeys": [
+        "provider",
+        "evento",
+        "registradoEm",
+        "tipo",
+        "em",
+        "pidPai",
+        "pidHost",
+        "estado",
+        "requestId",
+        "operation",
+        "resultCode",
+        "errorCode"
+      ],
+      "snippet": "{\"provider\":\"DESTAXA\",\"evento\":\"nativehost.client.lifecycle\",\"registradoEm\":\"2026-11-10T19:30:33.730Z\",\"tipo\":\"ipc.response.received\",\"em\":\"2026-11-10T19:30:33.729Z\",\"pidPai\":10292,\"pidHost\":19920,\"estado\":\"BUSY\",\"requestId\":\"b26da9c674734d32\",\"operation\":\"TX_CONTINUE\",\"resultCode\":\"09\",\"errorCode\":null}"
+    }
+  ],
+  "vspFocus": [
+    {
+      "lineNo": 358,
+      "text": "2026-11-10 16:29:16,866 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 359,
+      "text": "2026-11-10 16:29:16,868 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 360,
+      "text": "2026-11-10 16:29:17,067 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 361,
+      "text": "2026-11-10 16:29:17,069 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 362,
+      "text": "2026-11-10 16:29:17,268 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 363,
+      "text": "2026-11-10 16:29:17,270 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 364,
+      "text": "2026-11-10 16:29:17,469 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 365,
+      "text": "2026-11-10 16:29:17,471 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 366,
+      "text": "2026-11-10 16:29:17,671 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 367,
+      "text": "2026-11-10 16:29:17,672 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 368,
+      "text": "2026-11-10 16:29:17,873 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 369,
+      "text": "2026-11-10 16:29:17,875 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 370,
+      "text": "2026-11-10 16:29:18,073 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 371,
+      "text": "2026-11-10 16:29:18,076 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 372,
+      "text": "2026-11-10 16:29:18,275 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 373,
+      "text": "2026-11-10 16:29:18,276 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 374,
+      "text": "2026-11-10 16:29:18,477 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 375,
+      "text": "2026-11-10 16:29:18,478 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 376,
+      "text": "2026-11-10 16:29:18,678 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 377,
+      "text": "2026-11-10 16:29:18,680 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 378,
+      "text": "2026-11-10 16:29:18,879 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 379,
+      "text": "2026-11-10 16:29:18,881 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 380,
+      "text": "2026-11-10 16:29:19,384 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 381,
+      "text": "2026-11-10 16:29:19,385 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 382,
+      "text": "2026-11-10 16:29:19,585 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 383,
+      "text": "2026-11-10 16:29:19,587 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 384,
+      "text": "2026-11-10 16:29:19,786 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 385,
+      "text": "2026-11-10 16:29:19,789 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 386,
+      "text": "2026-11-10 16:29:19,987 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 387,
+      "text": "2026-11-10 16:29:19,990 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 388,
+      "text": "2026-11-10 16:29:20,188 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 389,
+      "text": "2026-11-10 16:29:20,190 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 390,
+      "text": "2026-11-10 16:29:20,340 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 391,
+      "text": "2026-11-10 16:29:20,341 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 392,
+      "text": "2026-11-10 16:29:20,490 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 393,
+      "text": "2026-11-10 16:29:20,491 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 394,
+      "text": "2026-11-10 16:29:20,693 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 395,
+      "text": "2026-11-10 16:29:20,695 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 396,
+      "text": "2026-11-10 16:29:20,843 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 397,
+      "text": "2026-11-10 16:29:20,844 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 398,
+      "text": "2026-11-10 16:29:20,994 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 399,
+      "text": "2026-11-10 16:29:20,996 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 400,
+      "text": "2026-11-10 16:29:21,147 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 401,
+      "text": "2026-11-10 16:29:21,148 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 402,
+      "text": "2026-11-10 16:29:21,297 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 403,
+      "text": "2026-11-10 16:29:21,299 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 404,
+      "text": "2026-11-10 16:29:21,448 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 405,
+      "text": "2026-11-10 16:29:21,450 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 406,
+      "text": "2026-11-10 16:29:21,598 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 407,
+      "text": "2026-11-10 16:29:21,600 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 408,
+      "text": "2026-11-10 16:29:21,750 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 409,
+      "text": "2026-11-10 16:29:21,752 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 410,
+      "text": "2026-11-10 16:29:21,900 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 411,
+      "text": "2026-11-10 16:29:21,903 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 412,
+      "text": "2026-11-10 16:29:22,050 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 413,
+      "text": "2026-11-10 16:29:22,051 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 414,
+      "text": "2026-11-10 16:29:22,201 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 415,
+      "text": "2026-11-10 16:29:22,203 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 416,
+      "text": "2026-11-10 16:29:22,352 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 417,
+      "text": "2026-11-10 16:29:22,354 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 418,
+      "text": "2026-11-10 16:29:22,502 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 419,
+      "text": "2026-11-10 16:29:22,503 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 420,
+      "text": "2026-11-10 16:29:22,704 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 421,
+      "text": "2026-11-10 16:29:22,706 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 422,
+      "text": "2026-11-10 16:29:22,855 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 423,
+      "text": "2026-11-10 16:29:22,857 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 424,
+      "text": "2026-11-10 16:29:23,007 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 425,
+      "text": "2026-11-10 16:29:23,009 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 426,
+      "text": "2026-11-10 16:29:23,209 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 427,
+      "text": "2026-11-10 16:29:23,212 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 428,
+      "text": "2026-11-10 16:29:23,713 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 429,
+      "text": "2026-11-10 16:29:23,716 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 430,
+      "text": "2026-11-10 16:29:23,914 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 431,
+      "text": "2026-11-10 16:29:23,916 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 432,
+      "text": "2026-11-10 16:29:24,065 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 433,
+      "text": "2026-11-10 16:29:24,067 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 434,
+      "text": "2026-11-10 16:29:24,217 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 435,
+      "text": "2026-11-10 16:29:24,219 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 436,
+      "text": "2026-11-10 16:29:24,368 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 437,
+      "text": "2026-11-10 16:29:24,371 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 438,
+      "text": "2026-11-10 16:29:24,519 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 439,
+      "text": "2026-11-10 16:29:24,520 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 440,
+      "text": "2026-11-10 16:29:24,670 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 441,
+      "text": "2026-11-10 16:29:24,672 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 442,
+      "text": "2026-11-10 16:29:24,821 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 443,
+      "text": "2026-11-10 16:29:24,822 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 444,
+      "text": "2026-11-10 16:29:24,972 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 445,
+      "text": "2026-11-10 16:29:24,974 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 446,
+      "text": "2026-11-10 16:29:25,173 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 447,
+      "text": "2026-11-10 16:29:25,174 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 448,
+      "text": "2026-11-10 16:29:25,374 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 449,
+      "text": "2026-11-10 16:29:25,376 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 450,
+      "text": "2026-11-10 16:29:25,526 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 451,
+      "text": "2026-11-10 16:29:25,527 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 452,
+      "text": "2026-11-10 16:29:25,677 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 453,
+      "text": "2026-11-10 16:29:25,678 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 454,
+      "text": "2026-11-10 16:29:25,827 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 455,
+      "text": "2026-11-10 16:29:25,829 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 456,
+      "text": "2026-11-10 16:29:25,978 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 457,
+      "text": "2026-11-10 16:29:25,981 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 458,
+      "text": "2026-11-10 16:29:26,128 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 459,
+      "text": "2026-11-10 16:29:26,129 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 460,
+      "text": "2026-11-10 16:29:26,330 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 461,
+      "text": "2026-11-10 16:29:26,331 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 462,
+      "text": "2026-11-10 16:29:26,481 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 463,
+      "text": "2026-11-10 16:29:26,484 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 464,
+      "text": "2026-11-10 16:29:26,632 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 465,
+      "text": "2026-11-10 16:29:26,633 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 466,
+      "text": "2026-11-10 16:29:26,783 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 467,
+      "text": "2026-11-10 16:29:26,785 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLR'}"
+    },
+    {
+      "lineNo": 468,
+      "text": "2026-11-10 16:29:26,935 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLR', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 469,
+      "text": "2026-11-10 16:29:26,936 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 470,
+      "text": "2026-11-10 16:29:28,092 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 471,
+      "text": "2026-11-10 16:29:28,094 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 472,
+      "text": "2026-11-10 16:29:28,495 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 473,
+      "text": "2026-11-10 16:29:28,497 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 474,
+      "text": "2026-11-10 16:29:28,597 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 475,
+      "text": "2026-11-10 16:29:28,599 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 476,
+      "text": "2026-11-10 16:29:29,002 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 477,
+      "text": "2026-11-10 16:29:29,003 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 478,
+      "text": "2026-11-10 16:29:29,103 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 479,
+      "text": "2026-11-10 16:29:29,105 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 480,
+      "text": "2026-11-10 16:29:29,505 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 481,
+      "text": "2026-11-10 16:29:29,506 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 482,
+      "text": "2026-11-10 16:29:29,605 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 483,
+      "text": "2026-11-10 16:29:29,607 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 484,
+      "text": "2026-11-10 16:29:30,008 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 485,
+      "text": "2026-11-10 16:29:30,009 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 486,
+      "text": "2026-11-10 16:29:30,110 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 487,
+      "text": "2026-11-10 16:29:30,110 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 488,
+      "text": "2026-11-10 16:29:30,514 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 489,
+      "text": "2026-11-10 16:29:30,515 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 490,
+      "text": "2026-11-10 16:29:30,614 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 491,
+      "text": "2026-11-10 16:29:30,615 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 492,
+      "text": "2026-11-10 16:29:31,017 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 493,
+      "text": "2026-11-10 16:29:31,018 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 494,
+      "text": "2026-11-10 16:29:31,117 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 495,
+      "text": "2026-11-10 16:29:31,119 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 496,
+      "text": "2026-11-10 16:29:31,519 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 497,
+      "text": "2026-11-10 16:29:31,521 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 498,
+      "text": "2026-11-10 16:29:31,620 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 499,
+      "text": "2026-11-10 16:29:31,621 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLI'}"
+    },
+    {
+      "lineNo": 500,
+      "text": "2026-11-10 16:29:32,020 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLI', statusCode='020', isSuccess='false', display='TABELA EXPIRADA'}"
+    },
+    {
+      "lineNo": 501,
+      "text": "2026-11-10 16:29:32,021 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'TLE'}"
+    },
+    {
+      "lineNo": 502,
+      "text": "2026-11-10 16:29:32,120 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'TLE', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 503,
+      "text": "2026-11-10 16:29:32,122 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'DSP', display:'    Destaxa          1.0.3      '}"
+    },
+    {
+      "lineNo": 504,
+      "text": "2026-11-10 16:29:32,321 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'DSP', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 505,
+      "text": "2026-11-10 16:29:32,347 INFO vespague.client.interaction.VeSPagueClientToServer [Cart�o Vender-vspg-id-82fea91a] enviando servico [V&SCommService/Configura Transacao]"
+    },
+    {
+      "lineNo": 506,
+      "text": "2026-11-10 16:29:32,349 INFO lib.comm.VeSCommSocket$1 [VBICommSocket.Connect] VBICommSocket(app-partner.destaxa.cloud:60410(0)) - Reconnection on demand in progress ... lib.comm.VeSCommSocket$1@4a021bb1"
+    },
+    {
+      "lineNo": 507,
+      "text": "2026-11-10 16:29:32,660 INFO lib.comm.VeSCommSocket [VBICommSocket.Connect] Trying with certificate not self signed: false"
+    },
+    {
+      "lineNo": 508,
+      "text": "2026-11-10 16:29:32,845 INFO lib.comm.VeSComm [VBICommSocket.Connect] VBIComm(app-partner.destaxa.cloud:60410(0)<>6/2026-11-10 16:29:32.719/Socket:SSLSocket[hostname=app-partner.destaxa.cloud, port=60410, Session(1794338972777|TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)]SSL/TLS) - Connected successfull"
+    },
+    {
+      "lineNo": 509,
+      "text": "2026-11-10 16:29:32,845 INFO lib.comm.VeSCommSocket [VBICommSocket.Connect] Tryied with certificate not self signed: true"
+    },
+    {
+      "lineNo": 510,
+      "text": "2026-11-10 16:29:32,914 INFO vespague.client.interaction.VeSPagueClientToServer$1 [ThreadReceive-vspg-id-82fea91a] servico recebido [V&SCommService/Configura Transacao]"
+    },
+    {
+      "lineNo": 511,
+      "text": "2026-11-10 16:29:32,915 INFO vespague.client.interaction.VeSPagueClientTransactionManager [Cart�o Vender-vspg-id-82fea91a] Desconectado do V$PagueServer 6"
+    },
+    {
+      "lineNo": 512,
+      "text": "2026-11-10 16:29:32,915 ERROR vespague.client.interaction.VeSPagueClientTransactionManager [Cart�o Vender-vspg-id-82fea91a] erro no processamento da transacao de estatistica"
+    },
+    {
+      "lineNo": 514,
+      "text": "\tat vespague.client.interaction.VeSPagueClientToServer.configuraTransacao(VeSPagueClientToServer.java:5065)"
+    },
+    {
+      "lineNo": 519,
+      "text": "\tat vespague.client.interaction.VeSPagueClientToServer.configuraTransacao(VeSPagueClientToServer.java:4977)"
+    },
+    {
+      "lineNo": 520,
+      "text": "\tat vespague.client.interaction.VeSPagueClientToServer.configuraTransacao(VeSPagueClientToServer.java:4967)"
+    },
+    {
+      "lineNo": 521,
+      "text": "\tat vespague.client.interaction.VeSPagueClientTransactionManager.TransacaoEstatisticaEnviar(VeSPagueClientTransactionManager.java:4378)"
+    },
+    {
+      "lineNo": 522,
+      "text": "\tat vespague.client.interaction.VeSPagueClientTransactionManager.transacaoPinpadComunicacaoIniciar(VeSPagueClientTransactionManager.java:6530)"
+    },
+    {
+      "lineNo": 523,
+      "text": "\tat vespague.client.interaction.VeSPagueClientTransactionManager$36.run(VeSPagueClientTransactionManager.java:2472)"
+    },
+    {
+      "lineNo": 524,
+      "text": "2026-11-10 16:29:33,074 INFO vespague.automation.VeSPagueClientAutomationInteraction [Cart�o Vender-vspg-id-82fea91a] -> coletaMensagem:[Aguarde a passagem/inser��o/aproxima��o do cart�o no PIN-Pad.], coletaPalavraChave:transacao_cartao_numero, coletaRetorno:0, coletaSequencial:1"
+    },
+    {
+      "lineNo": 525,
+      "text": "2026-11-10 16:29:33,369 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-82fea91a] <- coletaRetorno:0, coletaSequencial:1"
+    },
+    {
+      "lineNo": 526,
+      "text": "2026-11-10 16:29:33,390 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'DEX'}"
+    },
+    {
+      "lineNo": 527,
+      "text": "2026-11-10 16:29:33,581 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'DEX', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 528,
+      "text": "2026-11-10 16:29:33,581 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'CKE'}"
+    },
+    {
+      "lineNo": 529,
+      "text": "2026-11-10 16:30:33,633 WARN lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] Tempo excedido ao aguardar resposta do PIN-Pad (60 segundos)"
+    },
+    {
+      "lineNo": 530,
+      "text": "2026-11-10 16:30:33,636 ERROR vespague.client.device.VeSPaguePinpad [Cart�o Vender-vspg-id-82fea91a] Erro de leitura do cart�o ou cart�o inv�lido."
+    },
+    {
+      "lineNo": 531,
+      "text": "2026-11-10 16:30:33,640 INFO vespague.automation.VeSPagueClientAutomationInteraction [Cart�o Vender-vspg-id-82fea91a] -> coletaMensagem:[PINPAD desconectado."
+    },
+    {
+      "lineNo": 532,
+      "text": "Conecte o pinpad em outra porta  USB e tente novamente. Se ainda n�o funcionar, contate o suporte t�cnico.], coletaRetorno:9, coletaSequencial:2, coletaTransacaoResposta:78"
+    },
+    {
+      "lineNo": 533,
+      "text": "2026-11-10 16:30:33,641 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] Finalizando a comunica��o"
+    },
+    {
+      "lineNo": 534,
+      "text": "2026-11-10 16:30:33,641 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] -> {commandId:'CLO'}"
+    },
+    {
+      "lineNo": 535,
+      "text": "2026-11-10 16:30:33,693 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-82fea91a] <- retorno:1, sequencial:3, servico:finalizar"
+    },
+    {
+      "lineNo": 536,
+      "text": "2026-11-10 16:30:33,696 INFO vespague.automation.VeSPagueClientAutomationInteraction [VSPagueClientAutomationInteractionBackground.Receive-vspg-id-82fea91a] -> retorno:1, sequencial:3, servico:finalizar"
+    },
+    {
+      "lineNo": 537,
+      "text": "2026-11-10 16:30:34,704 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] <- {commandId:'CLO', statusCode='000', isSuccess='true'}"
+    },
+    {
+      "lineNo": 538,
+      "text": "2026-11-10 16:30:34,705 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] Finalizado a comunica��o com sucesso"
+    },
+    {
+      "lineNo": 539,
+      "text": "2026-11-10 16:30:34,705 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] Fechando a porta de comunica��o"
+    },
+    {
+      "lineNo": 540,
+      "text": "2026-11-10 16:30:34,706 INFO lib.device.pinpad.VeSPinpadCompartilhado [Cart�o Vender-vspg-id-82fea91a] Fechado a porta de comunica��o com sucesso"
+    },
+    {
+      "lineNo": 541,
+      "text": "2026-11-10 16:30:34,719 INFO vespague.automation.VeSPagueClientAutomationInteraction [Cart�o Vender-vspg-id-82fea91a] -> mensagem:[Transacao cancelada pelo operador.], retorno:3, sequencial:2, servico:executar, transacao:[Cart�o Vender], resposta:078"
+    },
+    {
+      "lineNo": 542,
+      "text": "2026-11-10 16:30:34,725 INFO vespague.client.interaction.VeSPagueClientTransactionManager$36 [Cart�o Vender-vspg-id-82fea91a] transacao finalizada"
+    }
+  ],
+  "auditorias": [],
+  "codesSeen": [
+    "00",
+    "99",
+    "09"
+  ],
+  "eventsSeen": [
+    "nativehost.client.lifecycle",
+    "nativehost.lifecycle",
+    "ipc.message.received",
+    "ipc.response.sent",
+    "client.init.start",
+    "native.call.enter",
+    "native.call.return",
+    "client.init.result",
+    "diagnostic.block",
+    "autorizacao.excepcional.consumida",
+    "continuidade.tx_continue"
+  ]
+}

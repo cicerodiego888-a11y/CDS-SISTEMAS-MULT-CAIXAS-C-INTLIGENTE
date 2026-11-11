@@ -1,0 +1,1118 @@
+{
+  "lastOkInit": {
+    "ts": "2026-11-10T20:26:06.562Z",
+    "evento": "nativehost.client.lifecycle",
+    "functionName": null,
+    "operation": "INIT_CLIENT",
+    "resultCode": "00",
+    "estado": "BUSY",
+    "pid": 9260,
+    "pidPai": 5700,
+    "requestId": "a1352ed5ebfb748c",
+    "clientInitialized": null
+  },
+  "f0CountTotal": 6,
+  "f0Today": [
+    {
+      "ts": "2026-11-10T21:45:55.212Z",
+      "evento": "native.call.return",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": "F0",
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "4c74eeeece0e5e98",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:45:55.218Z",
+      "evento": "client.init.result",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": "F0",
+      "sucesso": false,
+      "estado": "CLIENT_ERROR",
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "4c74eeeece0e5e98",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:45:55.261Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": "F0",
+      "estado": "BUSY",
+      "pid": 14688,
+      "pidPai": 12832,
+      "requestId": "4c74eeeece0e5e98",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:46:37.624Z",
+      "evento": "native.call.return",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": "F0",
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "1487ed54e5eff4c1",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:46:37.630Z",
+      "evento": "client.init.result",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": "F0",
+      "sucesso": false,
+      "estado": "CLIENT_ERROR",
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "1487ed54e5eff4c1",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:46:37.675Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": "F0",
+      "estado": "BUSY",
+      "pid": 14688,
+      "pidPai": 12832,
+      "requestId": "1487ed54e5eff4c1",
+      "clientInitialized": null
+    }
+  ],
+  "windowInitTimeline": [
+    {
+      "ts": "2026-11-10T21:44:57.599Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": "BUSY",
+      "pid": 14688,
+      "pidPai": 12832,
+      "requestId": "1a83ad933cc4fb7b",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:44:57.603Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": "BUSY",
+      "pid": 14688,
+      "pidPai": 12832,
+      "requestId": "1a83ad933cc4fb7b",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:44:57.603Z",
+      "evento": "ipc.message.received",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "1a83ad933cc4fb7b",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:44:57.611Z",
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "1a83ad933cc4fb7b",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:44:57.641Z",
+      "evento": "client.init.start",
+      "functionName": null,
+      "operation": null,
+      "resultCode": null,
+      "estado": null,
+      "pid": null,
+      "pidPai": null,
+      "requestId": "1a83ad933cc4fb7b",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:44:57.646Z",
+      "evento": "native.call.enter",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": null,
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "1a83ad933cc4fb7b",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:44:57.654Z",
+      "evento": "native.call.return",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": "A1",
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "1a83ad933cc4fb7b",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:44:57.661Z",
+      "evento": "client.init.result",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": "A1",
+      "sucesso": false,
+      "estado": "CLIENT_ERROR",
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "1a83ad933cc4fb7b",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:44:57.671Z",
+      "evento": "diagnostic.block",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": null,
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "1a83ad933cc4fb7b",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:44:57.678Z",
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "1a83ad933cc4fb7b",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:44:57.709Z",
+      "evento": "ipc.response.sent",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "1a83ad933cc4fb7b",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:44:57.719Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": "A1",
+      "estado": "BUSY",
+      "pid": 14688,
+      "pidPai": 12832,
+      "requestId": "1a83ad933cc4fb7b",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:45:55.148Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": "BUSY",
+      "pid": 14688,
+      "pidPai": 12832,
+      "requestId": "4c74eeeece0e5e98",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:45:55.155Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": "BUSY",
+      "pid": 14688,
+      "pidPai": 12832,
+      "requestId": "4c74eeeece0e5e98",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:45:55.154Z",
+      "evento": "ipc.message.received",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "4c74eeeece0e5e98",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:45:55.164Z",
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "4c74eeeece0e5e98",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:45:55.192Z",
+      "evento": "client.init.start",
+      "functionName": null,
+      "operation": null,
+      "resultCode": null,
+      "estado": null,
+      "pid": null,
+      "pidPai": null,
+      "requestId": "4c74eeeece0e5e98",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:45:55.198Z",
+      "evento": "native.call.enter",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": null,
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "4c74eeeece0e5e98",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:45:55.212Z",
+      "evento": "native.call.return",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": "F0",
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "4c74eeeece0e5e98",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:45:55.218Z",
+      "evento": "client.init.result",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": "F0",
+      "sucesso": false,
+      "estado": "CLIENT_ERROR",
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "4c74eeeece0e5e98",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:45:55.222Z",
+      "evento": "diagnostic.block",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": null,
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "4c74eeeece0e5e98",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:45:55.226Z",
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "4c74eeeece0e5e98",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:45:55.252Z",
+      "evento": "ipc.response.sent",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "4c74eeeece0e5e98",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:45:55.261Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": "F0",
+      "estado": "BUSY",
+      "pid": 14688,
+      "pidPai": 12832,
+      "requestId": "4c74eeeece0e5e98",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:46:37.581Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": "BUSY",
+      "pid": 14688,
+      "pidPai": 12832,
+      "requestId": "1487ed54e5eff4c1",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:46:37.584Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": "BUSY",
+      "pid": 14688,
+      "pidPai": 12832,
+      "requestId": "1487ed54e5eff4c1",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:46:37.585Z",
+      "evento": "ipc.message.received",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "1487ed54e5eff4c1",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:46:37.592Z",
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "1487ed54e5eff4c1",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:46:37.615Z",
+      "evento": "client.init.start",
+      "functionName": null,
+      "operation": null,
+      "resultCode": null,
+      "estado": null,
+      "pid": null,
+      "pidPai": null,
+      "requestId": "1487ed54e5eff4c1",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:46:37.620Z",
+      "evento": "native.call.enter",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": null,
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "1487ed54e5eff4c1",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:46:37.624Z",
+      "evento": "native.call.return",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": "F0",
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "1487ed54e5eff4c1",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:46:37.630Z",
+      "evento": "client.init.result",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": "F0",
+      "sucesso": false,
+      "estado": "CLIENT_ERROR",
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "1487ed54e5eff4c1",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:46:37.634Z",
+      "evento": "diagnostic.block",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": null,
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "1487ed54e5eff4c1",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:46:37.640Z",
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "1487ed54e5eff4c1",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:46:37.667Z",
+      "evento": "ipc.response.sent",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": null,
+      "pid": 14688,
+      "pidPai": null,
+      "requestId": "1487ed54e5eff4c1",
+      "clientInitialized": null
+    },
+    {
+      "ts": "2026-11-10T21:46:37.675Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": "F0",
+      "estado": "BUSY",
+      "pid": 14688,
+      "pidPai": 12832,
+      "requestId": "1487ed54e5eff4c1",
+      "clientInitialized": null
+    }
+  ],
+  "loadRecent": [
+    {
+      "ts": "2026-11-10T19:46:29.177Z",
+      "evento": "nativehost.client.lifecycle",
+      "operation": "LOAD",
+      "resultCode": null,
+      "pid": 22136,
+      "requestId": "2dccb94f3f729d54"
+    },
+    {
+      "ts": "2026-11-10T19:46:29.177Z",
+      "evento": "ipc.message.received",
+      "operation": "LOAD",
+      "resultCode": null,
+      "pid": 22136,
+      "requestId": "2dccb94f3f729d54"
+    },
+    {
+      "ts": "2026-11-10T19:46:29.182Z",
+      "evento": "nativehost.lifecycle",
+      "operation": "LOAD",
+      "resultCode": null,
+      "pid": 22136,
+      "requestId": "2dccb94f3f729d54"
+    },
+    {
+      "ts": "2026-11-10T19:46:29.206Z",
+      "evento": "nativehost.lifecycle",
+      "operation": "LOAD",
+      "resultCode": null,
+      "pid": 22136,
+      "requestId": "2dccb94f3f729d54"
+    },
+    {
+      "ts": "2026-11-10T19:46:29.218Z",
+      "evento": "ipc.response.sent",
+      "operation": "LOAD",
+      "resultCode": null,
+      "pid": 22136,
+      "requestId": "2dccb94f3f729d54"
+    },
+    {
+      "ts": "2026-11-10T19:46:29.224Z",
+      "evento": "nativehost.client.lifecycle",
+      "operation": "LOAD",
+      "resultCode": null,
+      "pid": 22136,
+      "requestId": "2dccb94f3f729d54"
+    },
+    {
+      "ts": "2026-11-10T20:26:06.405Z",
+      "evento": "nativehost.client.lifecycle",
+      "operation": "LOAD",
+      "resultCode": null,
+      "pid": 9260,
+      "requestId": "72e13b9ebb74f81f"
+    },
+    {
+      "ts": "2026-11-10T20:26:06.410Z",
+      "evento": "ipc.message.received",
+      "operation": "LOAD",
+      "resultCode": null,
+      "pid": 9260,
+      "requestId": "72e13b9ebb74f81f"
+    },
+    {
+      "ts": "2026-11-10T20:26:06.409Z",
+      "evento": "nativehost.client.lifecycle",
+      "operation": "LOAD",
+      "resultCode": null,
+      "pid": 9260,
+      "requestId": "72e13b9ebb74f81f"
+    },
+    {
+      "ts": "2026-11-10T20:26:06.413Z",
+      "evento": "nativehost.lifecycle",
+      "operation": "LOAD",
+      "resultCode": null,
+      "pid": 9260,
+      "requestId": "72e13b9ebb74f81f"
+    },
+    {
+      "ts": "2026-11-10T20:26:06.446Z",
+      "evento": "nativehost.lifecycle",
+      "operation": "LOAD",
+      "resultCode": null,
+      "pid": 9260,
+      "requestId": "72e13b9ebb74f81f"
+    },
+    {
+      "ts": "2026-11-10T20:26:06.458Z",
+      "evento": "ipc.response.sent",
+      "operation": "LOAD",
+      "resultCode": null,
+      "pid": 9260,
+      "requestId": "72e13b9ebb74f81f"
+    },
+    {
+      "ts": "2026-11-10T20:26:06.464Z",
+      "evento": "nativehost.client.lifecycle",
+      "operation": "LOAD",
+      "resultCode": null,
+      "pid": 9260,
+      "requestId": "72e13b9ebb74f81f"
+    },
+    {
+      "ts": "2026-11-10T21:44:57.474Z",
+      "evento": "nativehost.client.lifecycle",
+      "operation": "LOAD",
+      "resultCode": null,
+      "pid": 14688,
+      "requestId": "bcb529f87e22c1c0"
+    },
+    {
+      "ts": "2026-11-10T21:44:57.478Z",
+      "evento": "nativehost.client.lifecycle",
+      "operation": "LOAD",
+      "resultCode": null,
+      "pid": 14688,
+      "requestId": "bcb529f87e22c1c0"
+    },
+    {
+      "ts": "2026-11-10T21:44:57.477Z",
+      "evento": "ipc.message.received",
+      "operation": "LOAD",
+      "resultCode": null,
+      "pid": 14688,
+      "requestId": "bcb529f87e22c1c0"
+    },
+    {
+      "ts": "2026-11-10T21:44:57.485Z",
+      "evento": "nativehost.lifecycle",
+      "operation": "LOAD",
+      "resultCode": null,
+      "pid": 14688,
+      "requestId": "bcb529f87e22c1c0"
+    },
+    {
+      "ts": "2026-11-10T21:44:57.526Z",
+      "evento": "nativehost.lifecycle",
+      "operation": "LOAD",
+      "resultCode": null,
+      "pid": 14688,
+      "requestId": "bcb529f87e22c1c0"
+    },
+    {
+      "ts": "2026-11-10T21:44:57.544Z",
+      "evento": "ipc.response.sent",
+      "operation": "LOAD",
+      "resultCode": null,
+      "pid": 14688,
+      "requestId": "bcb529f87e22c1c0"
+    },
+    {
+      "ts": "2026-11-10T21:44:57.551Z",
+      "evento": "nativehost.client.lifecycle",
+      "operation": "LOAD",
+      "resultCode": null,
+      "pid": 14688,
+      "requestId": "bcb529f87e22c1c0"
+    }
+  ],
+  "txStartInWindow": [
+    {
+      "ts": "2026-11-10T21:44:57.671Z",
+      "evento": "diagnostic.block",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": null,
+      "requestId": "1a83ad933cc4fb7b"
+    },
+    {
+      "ts": "2026-11-10T21:45:55.222Z",
+      "evento": "diagnostic.block",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": null,
+      "requestId": "4c74eeeece0e5e98"
+    },
+    {
+      "ts": "2026-11-10T21:46:37.634Z",
+      "evento": "diagnostic.block",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": null,
+      "requestId": "1487ed54e5eff4c1"
+    }
+  ],
+  "fromRestartSample": [
+    {
+      "ts": "2026-11-10T21:44:57.402Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "SECURITY_BOOTSTRAP",
+      "resultCode": null,
+      "estado": "STARTING",
+      "requestId": "65bd58d55abe4447",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.463Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "STATUS",
+      "resultCode": null,
+      "estado": "BUSY",
+      "requestId": "66b95575e025db89",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.469Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": null,
+      "resultCode": null,
+      "estado": "BUSY",
+      "requestId": null,
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.474Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "LOAD",
+      "resultCode": null,
+      "estado": "BUSY",
+      "requestId": "bcb529f87e22c1c0",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.478Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "LOAD",
+      "resultCode": null,
+      "estado": "BUSY",
+      "requestId": "bcb529f87e22c1c0",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.477Z",
+      "evento": "ipc.message.received",
+      "functionName": null,
+      "operation": "LOAD",
+      "resultCode": null,
+      "estado": null,
+      "requestId": "bcb529f87e22c1c0",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.485Z",
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "LOAD",
+      "resultCode": null,
+      "estado": null,
+      "requestId": "bcb529f87e22c1c0",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.526Z",
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "LOAD",
+      "resultCode": null,
+      "estado": null,
+      "requestId": "bcb529f87e22c1c0",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.544Z",
+      "evento": "ipc.response.sent",
+      "functionName": null,
+      "operation": "LOAD",
+      "resultCode": null,
+      "estado": null,
+      "requestId": "bcb529f87e22c1c0",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.551Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "LOAD",
+      "resultCode": null,
+      "estado": "BUSY",
+      "requestId": "bcb529f87e22c1c0",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.589Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "STATUS",
+      "resultCode": null,
+      "estado": "BUSY",
+      "requestId": "31125d0de3e80eb1",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.594Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": null,
+      "resultCode": null,
+      "estado": "BUSY",
+      "requestId": null,
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.599Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": "BUSY",
+      "requestId": "1a83ad933cc4fb7b",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.603Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": "BUSY",
+      "requestId": "1a83ad933cc4fb7b",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.603Z",
+      "evento": "ipc.message.received",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": null,
+      "requestId": "1a83ad933cc4fb7b",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.611Z",
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": null,
+      "requestId": "1a83ad933cc4fb7b",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.641Z",
+      "evento": "client.init.start",
+      "functionName": null,
+      "operation": null,
+      "resultCode": null,
+      "estado": null,
+      "requestId": "1a83ad933cc4fb7b",
+      "pid": null
+    },
+    {
+      "ts": "2026-11-10T21:44:57.646Z",
+      "evento": "native.call.enter",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": null,
+      "estado": null,
+      "requestId": "1a83ad933cc4fb7b",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.654Z",
+      "evento": "native.call.return",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": "A1",
+      "estado": null,
+      "requestId": "1a83ad933cc4fb7b",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.661Z",
+      "evento": "client.init.result",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": "A1",
+      "estado": "CLIENT_ERROR",
+      "requestId": "1a83ad933cc4fb7b",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.671Z",
+      "evento": "diagnostic.block",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": null,
+      "estado": null,
+      "requestId": "1a83ad933cc4fb7b",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.678Z",
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": null,
+      "requestId": "1a83ad933cc4fb7b",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.709Z",
+      "evento": "ipc.response.sent",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": null,
+      "requestId": "1a83ad933cc4fb7b",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.719Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": "A1",
+      "estado": "BUSY",
+      "requestId": "1a83ad933cc4fb7b",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:44:57.779Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "STATUS",
+      "resultCode": null,
+      "estado": "BUSY",
+      "requestId": "392ae35199a99f4f",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:45:55.068Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "STATUS",
+      "resultCode": null,
+      "estado": "BUSY",
+      "requestId": "2ff62d786c49ce5e",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:45:55.126Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "STATUS",
+      "resultCode": null,
+      "estado": "BUSY",
+      "requestId": "6b9b9a3eba67db6a",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:45:55.141Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": null,
+      "resultCode": null,
+      "estado": "BUSY",
+      "requestId": null,
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:45:55.148Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": "BUSY",
+      "requestId": "4c74eeeece0e5e98",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:45:55.155Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": "BUSY",
+      "requestId": "4c74eeeece0e5e98",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:45:55.154Z",
+      "evento": "ipc.message.received",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": null,
+      "requestId": "4c74eeeece0e5e98",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:45:55.164Z",
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": null,
+      "requestId": "4c74eeeece0e5e98",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:45:55.192Z",
+      "evento": "client.init.start",
+      "functionName": null,
+      "operation": null,
+      "resultCode": null,
+      "estado": null,
+      "requestId": "4c74eeeece0e5e98",
+      "pid": null
+    },
+    {
+      "ts": "2026-11-10T21:45:55.198Z",
+      "evento": "native.call.enter",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": null,
+      "estado": null,
+      "requestId": "4c74eeeece0e5e98",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:45:55.212Z",
+      "evento": "native.call.return",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": "F0",
+      "estado": null,
+      "requestId": "4c74eeeece0e5e98",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:45:55.218Z",
+      "evento": "client.init.result",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": "F0",
+      "estado": "CLIENT_ERROR",
+      "requestId": "4c74eeeece0e5e98",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:45:55.222Z",
+      "evento": "diagnostic.block",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": null,
+      "estado": null,
+      "requestId": "4c74eeeece0e5e98",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:45:55.226Z",
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": null,
+      "requestId": "4c74eeeece0e5e98",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:45:55.252Z",
+      "evento": "ipc.response.sent",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "estado": null,
+      "requestId": "4c74eeeece0e5e98",
+      "pid": 14688
+    },
+    {
+      "ts": "2026-11-10T21:45:55.261Z",
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": "F0",
+      "estado": "BUSY",
+      "requestId": "4c74eeeece0e5e98",
+      "pid": 14688
+    }
+  ]
+}

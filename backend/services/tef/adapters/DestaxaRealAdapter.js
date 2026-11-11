@@ -10,7 +10,9 @@ const {
   mapearTipoCartaoCrt,
   mapearFormaPagamentoCrt,
   valorReaisParaCentavos,
-  parseParametrosDestaxa
+  parseParametrosDestaxa,
+  extrairEvidenciasRetorno00,
+  extrairCnpjCredenciadoraDeParametros
 } = require('../destaxa/destaxaProtocolo');
 const {
   PROVIDER,
@@ -503,7 +505,19 @@ class DestaxaRealAdapter extends BaseAdapter {
     };
     checks.realTransactionGate = { env: REAL_TRANSACTION_ENV, enabled: gateAberto };
 
-    // TEF-DESTAXA-51.02 — autorização excepcional ISSUED (ainda não consumida)
+    // TEF-DESTAXA-51.02 / 51.51 — autorização excepcional ISSUED (ainda não consumida)
+    // Vínculo operacional: Destaxa + porta COM configurada + pinpad + canal PDV.
+    const vinculoOperacional = {
+      provedor: 'destaxa',
+      portaCom: portaConfigurada,
+      pinpadCodigo: String(
+        configTef?.pinpadCodigo
+        || configTef?.pinpadModelo
+        || checks.pinpad?.model
+        || ''
+      ).trim() || null,
+      canal: 'pdv_oficial'
+    };
     let autorizacaoExcepcionalId = null;
     if (!gateAberto) {
       const {
@@ -513,19 +527,27 @@ class DestaxaRealAdapter extends BaseAdapter {
         valorCentavos,
         tipoPdv: dados.tipo,
         operacao: OPERACOES.CRT,
-        authorizationId: dados.autorizacaoExcepcionalId || dados.authorizationId || null
+        authorizationId: dados.autorizacaoExcepcionalId || dados.authorizationId || null,
+        vinculo: vinculoOperacional
       });
       checks.autorizacaoExcepcional = {
         encontrada: encontrada.ok === true,
         authorizationId: encontrada.autorizacao?.authorizationId || null,
         status: encontrada.autorizacao?.status || null,
-        codigo: encontrada.ok ? null : (encontrada.codigo || null)
+        codigo: encontrada.ok ? null : (encontrada.codigo || null),
+        vinculo: vinculoOperacional
       };
       if (encontrada.ok) {
         autorizacaoExcepcionalId = encontrada.autorizacao.authorizationId;
       }
     } else {
-      checks.autorizacaoExcepcional = { encontrada: false, authorizationId: null, status: null, codigo: null };
+      checks.autorizacaoExcepcional = {
+        encontrada: false,
+        authorizationId: null,
+        status: null,
+        codigo: null,
+        vinculo: vinculoOperacional
+      };
     }
 
     const contexto = {
@@ -537,6 +559,7 @@ class DestaxaRealAdapter extends BaseAdapter {
       formaPagamentoDestaxa,
       clientInitializationCode: checks.client.clientInitializationCode,
       autorizacaoExcepcionalId,
+      vinculoOperacional,
       checks
     };
 
@@ -565,7 +588,12 @@ class DestaxaRealAdapter extends BaseAdapter {
   _mapearResultadoCrt(resultado, contexto) {
     const classificacao = resultado.classificacao || null;
     const status = STATUS_POR_CLASSIFICACAO[classificacao] || tefContrato.STATUS.ERRO;
-    const parametros = parseParametrosDestaxa(resultado.saida);
+    // TEF-DESTAXA-51.25 — evidências oficiais do retorno 00 (não usar só FINALIZE)
+    const evidencias = resultado.evidencias
+      || extrairEvidenciasRetorno00(resultado);
+    const parametros = {
+      ...(evidencias.parametros || parseParametrosDestaxa(resultado.saida) || {})
+    };
     const acao = resultado.acao
       ? {
         tipo: resultado.acao.tipo || null,
@@ -576,11 +604,34 @@ class DestaxaRealAdapter extends BaseAdapter {
       }
       : null;
 
+    // TEF-DESTAXA-51.54 — CNPJ fiscal = somente parametros.transacao_rede_cnpj (14 dígitos).
+    // Proibido: CNPJ Destaxa do comprovante/conf, provedor, terminal ou estabelecimento.
+    const cnpjCredenciadora = evidencias.cnpj_credenciadora
+      || extrairCnpjCredenciadoraDeParametros(parametros);
+    const adquirente = evidencias.adquirente
+      || (parametros.transacao_rede != null && String(parametros.transacao_rede).trim()
+        ? String(parametros.transacao_rede).trim()
+        : null);
+    const bandeira = evidencias.bandeira
+      || (parametros.transacao_administradora != null && String(parametros.transacao_administradora).trim()
+        ? String(parametros.transacao_administradora).trim()
+        : null);
+
     return {
       ...tefContrato.criarRespostaAutorizacao({
         sucesso: resultado.sucesso === true,
         status,
-        nsu: parametros.transacao_nsu || null,
+        nsu: evidencias.nsu || parametros.transacao_nsu || null,
+        autorizacao: evidencias.autorizacao || parametros.transacao_autorizacao || null,
+        cnpj_credenciadora: cnpjCredenciadora,
+        adquirente,
+        bandeira,
+        comprovanteCliente: evidencias.comprovanteCliente
+          || parametros.transacao_comprovante_1via
+          || null,
+        comprovanteLoja: evidencias.comprovanteLoja
+          || parametros.transacao_comprovante_2via
+          || null,
         provedor: PROVIDER,
         transacaoId: resultado.contexto?.transactionId || null,
         codigo: resultado.codigoDestaxa || resultado.codigo || null,
@@ -590,7 +641,16 @@ class DestaxaRealAdapter extends BaseAdapter {
           codigoDestaxa: resultado.codigoDestaxa || null,
           estado: resultado.estado || null,
           acao,
-          parametros
+          parametros,
+          cnpj_credenciadora: cnpjCredenciadora,
+          evidenciasDestaxa00: {
+            transacao_nsu: evidencias.transacao_nsu,
+            transacao_autorizacao: evidencias.transacao_autorizacao,
+            transacao_comprovante_1via: evidencias.transacao_comprovante_1via,
+            transacao_comprovante_2via: evidencias.transacao_comprovante_2via,
+            transacao_rede_cnpj: evidencias.transacao_rede_cnpj || null,
+            saidaOriginal: evidencias.saidaOriginal || null
+          }
         },
         modo: this.modo,
         financialState: resultado.financialState || null,
@@ -602,6 +662,7 @@ class DestaxaRealAdapter extends BaseAdapter {
       requerContinuacao: resultado.requerContinuacao === true,
       requerFinalizacao: classificacao === CLASSIFICACAO_CODIGO.SUCCESS,
       acao,
+      evidenciasDestaxa00: evidencias,
       clientInitializationCode: contexto.clientInitializationCode,
       transactionCode: resultado.codigoDestaxa || null
     };
@@ -643,7 +704,8 @@ class DestaxaRealAdapter extends BaseAdapter {
         authorizationId: authExcepcionalId,
         valorCentavos: preparo.contexto?.valorCentavos,
         tipoPdv: preparo.contexto?.tipoPdv || dados.tipo,
-        operacao: preparo.contexto?.operacao || OPERACOES.CRT
+        operacao: preparo.contexto?.operacao || OPERACOES.CRT,
+        vinculo: preparo.contexto?.vinculoOperacional || null
       });
       if (!consumo.ok || !consumo.permit) {
         return this._respostaBloqueio(
@@ -717,6 +779,7 @@ class DestaxaRealAdapter extends BaseAdapter {
       camposEntrada: preparo.contexto.camposEntrada,
       transactionId,
       exigirPersistencia: true,
+      exigirEvidenciasAntesFinalize: true,
       respostasContinuidade: dados.respostasContinuidade || dados.continuidade || [],
       maxContinues: dados.maxContinuesCrt,
       persistirRespostaAntesContinue: (continuidade) =>
@@ -726,6 +789,13 @@ class DestaxaRealAdapter extends BaseAdapter {
             || preparacao?.idempotency_key
             || dados.idempotency_key,
           permitirCriarSolicitacao: true
+        }),
+      persistirEvidenciasAntesFinalize: (payload) =>
+        this._persistirEvidenciasRetorno00({
+          ...payload,
+          idempotencyKey: guardPersistencia.idempotencyKey
+            || preparacao?.idempotency_key
+            || dados.idempotency_key
         })
     });
 
@@ -739,21 +809,40 @@ class DestaxaRealAdapter extends BaseAdapter {
     return this._mapearSaidaCiclo(ciclo, preparo.contexto, vinculo, transactionId);
   }
 
+  _fonteEvidenciasCiclo(ciclo, transactionId) {
+    const inicio = ciclo?.resultadoInicio || null;
+    const evidencias = ciclo?.evidencias
+      || (inicio ? extrairEvidenciasRetorno00(inicio) : null);
+    return {
+      resultadoFonte: inicio || ciclo?.resultadoUltimo || null,
+      evidencias,
+      transactionId: ciclo?.transactionId || transactionId || null
+    };
+  }
+
   _mapearSaidaCiclo(ciclo, contextoChecks, vinculo, transactionId) {
     const { CICLO_ERROS } = require('../destaxa/destaxaCrtCicloOrquestracao');
     const {
       normalizarAcaoContinuidade
     } = require('../destaxa/destaxaContinuidadeContrato');
+    const { resultadoFonte, evidencias } = this._fonteEvidenciasCiclo(ciclo, transactionId);
 
     if (ciclo.inconclusivo === true || ciclo.reconciliacaoObrigatoria === true) {
+      const fonte = resultadoFonte || ciclo.resultadoUltimo || {
+        sucesso: false,
+        codigoDestaxa: ciclo.codigoDestaxa,
+        codigo: ciclo.codigo,
+        mensagem: ciclo.mensagem,
+        financialState: ciclo.financialState,
+        estado: ciclo.estado,
+        retryAllowed: false
+      };
       return {
-        ...this._mapearResultadoCrt(ciclo.resultadoUltimo || {
+        ...this._mapearResultadoCrt({
+          ...fonte,
+          evidencias: evidencias || fonte.evidencias || null,
           sucesso: false,
-          codigoDestaxa: ciclo.codigoDestaxa,
-          codigo: ciclo.codigo,
-          mensagem: ciclo.mensagem,
-          financialState: ciclo.financialState,
-          estado: ciclo.estado,
+          financialState: ciclo.financialState || fonte.financialState || 'UNKNOWN',
           retryAllowed: false
         }, contextoChecks || {}),
         sucesso: false,
@@ -764,6 +853,10 @@ class DestaxaRealAdapter extends BaseAdapter {
         retryAllowed: false,
         inconclusivo: true,
         reconciliacaoObrigatoria: true,
+        evidenciasPersistidas: ciclo.evidenciasPersistidas === true,
+        finalizeExecutado: ciclo.finalizeExecutado === true,
+        bloqueadoA1: ciclo.bloqueadoA1 === true,
+        a1: ciclo.a1 || null,
         transactionAttempted: true,
         cicloCrt: ciclo.ciclo,
         vinculoVendaPdv: vinculo
@@ -820,14 +913,18 @@ class DestaxaRealAdapter extends BaseAdapter {
     }
 
     if (ciclo.sucesso === true && ciclo.conclusivo === true) {
+      // TEF-DESTAXA-51.25 — mapear evidências de resultadoInicio (00), não de FINALIZE
+      const fonte00 = ciclo.resultadoInicio || resultadoFonte || ciclo.resultadoUltimo || {};
       const mapeado = this._mapearResultadoCrt({
-        ...(ciclo.resultadoUltimo || {}),
+        ...fonte00,
+        saida: fonte00.saida || evidencias?.saidaOriginal || '',
+        evidencias: ciclo.evidencias || evidencias || null,
         sucesso: true,
         codigoDestaxa: ciclo.codigoDestaxa || '00',
         classificacao: CLASSIFICACAO_CODIGO.SUCCESS,
         financialState: ciclo.financialState || 'CONFIRMED_SUCCESS',
         contexto: {
-          ...(ciclo.resultadoUltimo?.contexto || {}),
+          ...(fonte00.contexto || {}),
           transactionId: ciclo.transactionId || transactionId
         },
         retryAllowed: false
@@ -837,6 +934,9 @@ class DestaxaRealAdapter extends BaseAdapter {
         sucesso: true,
         status: tefContrato.STATUS.APROVADO,
         retryAllowed: false,
+        evidenciasPersistidas: ciclo.evidenciasPersistidas === true,
+        finalizeExecutado: ciclo.finalizeExecutado === true,
+        confirmacao: ciclo.confirmacao,
         cicloCrt: ciclo.ciclo,
         vinculoVendaPdv: vinculo,
         requerFinalizacao: false,
@@ -986,6 +1086,7 @@ class DestaxaRealAdapter extends BaseAdapter {
       acaoAtual: validacao.acao || acao,
       solicitadaEm,
       maxContinues: dados.maxContinuesCrt,
+      exigirEvidenciasAntesFinalize: true,
       persistirRespostaAntesContinue: (continuidade) =>
         this._persistirRespostaContinuidade({
           ...continuidade,
@@ -993,6 +1094,11 @@ class DestaxaRealAdapter extends BaseAdapter {
           identidadeEsperada: dados.identidadePersistida || recuperacao.identidade,
           exigirRespostaPersistida: dados.exigirRespostaPersistida === true,
           permitirCriarSolicitacao: true
+        }),
+      persistirEvidenciasAntesFinalize: (payload) =>
+        this._persistirEvidenciasRetorno00({
+          ...payload,
+          idempotencyKey: recuperacao.identidade?.idempotency_key
         })
     });
 
@@ -1017,6 +1123,193 @@ class DestaxaRealAdapter extends BaseAdapter {
       financialState: 'UNKNOWN',
       reconciliacaoObrigatoria: true,
       transactionAttempted: false
+    };
+  }
+
+  /**
+   * TEF-DESTAXA-51.25 — persiste NSU/autorização/comprovantes do retorno 00
+   * antes de FINALIZE(0). Mantém status pendente. Confirma por re-leitura.
+   * Não executa FINALIZE(9) em falha. Não toca operações históricas sem id.
+   */
+  async _persistirEvidenciasRetorno00({
+    transactionId,
+    resultado00 = null,
+    evidencias = null,
+    idempotencyKey = null
+  } = {}) {
+    const repository = require('../tefRepository');
+    const txId = transactionId == null ? '' : String(transactionId).trim();
+    if (!txId) {
+      return {
+        ok: false,
+        confirmada: false,
+        duravel: false,
+        codigo: 'TEF_EVIDENCIAS_SEM_TRANSACTION_ID',
+        mensagem: 'Persistência de evidências 00 bloqueada: transactionId ausente'
+      };
+    }
+
+    const evid = evidencias || extrairEvidenciasRetorno00(resultado00);
+    if (evid.completa !== true || !evid.nsu) {
+      return {
+        ok: false,
+        confirmada: false,
+        duravel: false,
+        codigo: 'TEF_EVIDENCIAS_00_INCOMPLETAS',
+        mensagem: 'Persistência de evidências 00 bloqueada: NSU ausente ou parcial',
+        evidencias: evid,
+        transactionId: txId
+      };
+    }
+
+    const obter = () => new Promise((resolve, reject) => {
+      repository.obterTransacaoPorId(txId, (err, row) => (err ? reject(err) : resolve(row || null)));
+    });
+
+    let atual;
+    try {
+      atual = await obter();
+    } catch (error) {
+      return {
+        ok: false,
+        confirmada: false,
+        duravel: false,
+        codigo: error.code || 'TEF_EVIDENCIAS_LEITURA_FALHOU',
+        mensagem: `Falha ao ler transação para evidências 00: ${error.message}`,
+        evidencias: evid,
+        transactionId: txId
+      };
+    }
+
+    if (!atual) {
+      return {
+        ok: false,
+        confirmada: false,
+        duravel: false,
+        codigo: 'TEF_TRANSACAO_NAO_ENCONTRADA',
+        mensagem: `Transação ${txId} ausente para persistir evidências 00`,
+        evidencias: evid,
+        transactionId: txId
+      };
+    }
+
+    if (idempotencyKey
+      && atual.idempotency_key
+      && String(atual.idempotency_key) !== String(idempotencyKey)) {
+      return {
+        ok: false,
+        confirmada: false,
+        duravel: false,
+        codigo: 'TEF_EVIDENCIAS_IDENTIDADE_DIVERGENTE',
+        mensagem: 'Persistência de evidências 00 bloqueada: idempotency_key diverge',
+        evidencias: evid,
+        transactionId: txId
+      };
+    }
+
+    const payloadAtual = atual.payload_retorno && typeof atual.payload_retorno === 'object'
+      ? { ...atual.payload_retorno }
+      : {};
+    const blocoExistente = payloadAtual.evidenciasDestaxa00;
+    if (blocoExistente?.confirmada === true
+      && String(blocoExistente.transacao_nsu || '') === String(evid.nsu)
+      && String(atual.nsu || '') === String(evid.nsu)
+      && (evid.autorizacao == null || String(atual.autorizacao || '') === String(evid.autorizacao))) {
+      return {
+        ok: true,
+        confirmada: true,
+        duravel: true,
+        idempotente: true,
+        transactionId: txId,
+        evidencias: evid,
+        codigo: 'TEF_EVIDENCIAS_00_JA_PERSISTIDAS'
+      };
+    }
+
+    payloadAtual.evidenciasDestaxa00 = {
+      transacao_nsu: evid.transacao_nsu,
+      transacao_autorizacao: evid.transacao_autorizacao,
+      transacao_comprovante_1via: evid.transacao_comprovante_1via,
+      transacao_comprovante_2via: evid.transacao_comprovante_2via,
+      saidaOriginal: evid.saidaOriginal || null,
+      confirmada: true,
+      persistidoEm: new Date().toISOString(),
+      fase: 'ANTES_FINALIZE_0',
+      sprint: 'TEF-DESTAXA-51.25'
+    };
+
+    const atualizar = () => new Promise((resolve, reject) => {
+      repository.atualizarTransacao(txId, {
+        status: atual.status || 'pendente',
+        nsu: evid.nsu,
+        autorizacao: evid.autorizacao,
+        codigo_transacao: atual.codigo_transacao || null,
+        adquirente: atual.adquirente || null,
+        bandeira: atual.bandeira || null,
+        comprovante_cliente: evid.comprovanteCliente,
+        comprovante_estabelecimento: evid.comprovanteLoja,
+        payload_retorno: payloadAtual,
+        venda_id: atual.venda_id || null
+      }, (err, resultado) => (err ? reject(err) : resolve(resultado || null)), {
+        statusEsperado: atual.status,
+        exigirUmaLinha: true
+      });
+    });
+
+    try {
+      await atualizar();
+    } catch (error) {
+      return {
+        ok: false,
+        confirmada: false,
+        duravel: false,
+        codigo: error.code || 'TEF_EVIDENCIAS_PERSISTENCIA_FALHOU',
+        mensagem: `Falha ao gravar evidências 00: ${error.message}`,
+        evidencias: evid,
+        transactionId: txId
+      };
+    }
+
+    let relida;
+    try {
+      relida = await obter();
+    } catch (error) {
+      return {
+        ok: false,
+        confirmada: false,
+        duravel: false,
+        codigo: 'TEF_EVIDENCIAS_CONFIRMACAO_FALHOU',
+        mensagem: `Evidências 00 gravadas sem confirmação por re-leitura: ${error.message}`,
+        evidencias: evid,
+        transactionId: txId
+      };
+    }
+
+    const nsuOk = relida && String(relida.nsu || '') === String(evid.nsu);
+    const authOk = !evid.autorizacao
+      || (relida && String(relida.autorizacao || '') === String(evid.autorizacao));
+    const blocoOk = relida?.payload_retorno?.evidenciasDestaxa00?.confirmada === true
+      && String(relida.payload_retorno.evidenciasDestaxa00.transacao_nsu || '') === String(evid.nsu);
+
+    if (!nsuOk || !authOk || !blocoOk) {
+      return {
+        ok: false,
+        confirmada: false,
+        duravel: false,
+        codigo: 'TEF_EVIDENCIAS_CONFIRMACAO_DIVERGENTE',
+        mensagem: 'Re-leitura não confirmou NSU/autorização/evidênciasDestaxa00',
+        evidencias: evid,
+        transactionId: txId
+      };
+    }
+
+    return {
+      ok: true,
+      confirmada: true,
+      duravel: true,
+      transactionId: txId,
+      evidencias: evid,
+      codigo: 'TEF_EVIDENCIAS_00_PERSISTIDAS'
     };
   }
 

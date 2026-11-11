@@ -1,6 +1,29 @@
 'use strict';
 
 const cryptoService = require('../crypto/cryptoService');
+const {
+  extrairCnpjCredenciadoraDeParametros,
+  normalizarCnpjCredenciadoraDestaxa
+} = require('../tef/destaxa/destaxaProtocolo');
+
+/**
+ * TEF-DESTAXA-51.54 — resolve CNPJ fiscal sem inventar.
+ * Ordem: top-level cnpj_credenciadora / cnpj_instituicao → parametros.transacao_rede_cnpj.
+ * Nunca lê comprovante nem CNPJ Destaxa textual.
+ */
+function resolverCnpjCredenciadoraDoPayload(retornoTef) {
+  if (!retornoTef || typeof retornoTef !== 'object') return null;
+
+  const direto = normalizarCnpjCredenciadoraDestaxa(
+    retornoTef.cnpj_credenciadora || retornoTef.cnpj_instituicao || null
+  );
+  if (direto) return direto;
+
+  const parametros = retornoTef.parametros
+    || (retornoTef.payloadRetorno && retornoTef.payloadRetorno.parametros)
+    || null;
+  return extrairCnpjCredenciadoraDeParametros(parametros || {});
+}
 
 function hidratarMetadadosPagamentoTef(pagamentos) {
   return (pagamentos || []).map((pagamento) => {
@@ -10,6 +33,16 @@ function hidratarMetadadosPagamentoTef(pagamentos) {
       retornoTef = cryptoService.descriptografarObjeto(pagamento.tef_payload_retorno);
     }
 
+    const cnpjCredenciadora = resolverCnpjCredenciadoraDoPayload(retornoTef);
+    const bandeira = pagamento.tef_bandeira
+      || retornoTef?.bandeira
+      || retornoTef?.parametros?.transacao_administradora
+      || null;
+    const adquirente = pagamento.tef_adquirente
+      || retornoTef?.adquirente
+      || retornoTef?.parametros?.transacao_rede
+      || null;
+
     const tef = pagamento.tef_transacao_id != null
       ? {
         transacao_id: String(pagamento.tef_transacao_id),
@@ -18,10 +51,10 @@ function hidratarMetadadosPagamentoTef(pagamentos) {
         provedor: pagamento.tef_provedor || null,
         nsu: pagamento.tef_nsu || pagamento.nsu || null,
         autorizacao: pagamento.tef_autorizacao || pagamento.autorizacao || null,
-        bandeira: pagamento.tef_bandeira || null,
-        adquirente: pagamento.tef_adquirente || null,
-        cnpj_credenciadora: retornoTef?.cnpj_credenciadora || null,
-        cnpj_instituicao: retornoTef?.cnpj_instituicao || null
+        bandeira: bandeira || null,
+        adquirente: adquirente || null,
+        cnpj_credenciadora: cnpjCredenciadora,
+        cnpj_instituicao: normalizarCnpjCredenciadoraDestaxa(retornoTef?.cnpj_instituicao) || null
       }
       : null;
 
@@ -33,4 +66,7 @@ function hidratarMetadadosPagamentoTef(pagamentos) {
   });
 }
 
-module.exports = { hidratarMetadadosPagamentoTef };
+module.exports = {
+  hidratarMetadadosPagamentoTef,
+  resolverCnpjCredenciadoraDoPayload
+};

@@ -28,6 +28,7 @@ const PDV_GRACE_PREFIXES = [
   '/api/pix',
   '/api/tef',
   '/api/fiscal',
+  '/api/f12',
   '/api/impressao',
   '/api/terminais',
   '/api/equipamentos',

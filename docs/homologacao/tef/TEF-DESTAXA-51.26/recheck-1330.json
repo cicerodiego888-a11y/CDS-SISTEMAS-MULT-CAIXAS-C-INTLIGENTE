@@ -1,0 +1,39 @@
+{
+  "recheckInicio": "2026-11-10T13:30:38-03:00",
+  "recheckFim": "2026-11-10T13:31:14-03:00",
+  "vspague": {
+    "running": true,
+    "pid": 18472,
+    "exe": "C:\\VBI\\Java\\bin\\VSPagueClient.exe",
+    "jar": "C:\\VBI\\V$Pague\\Client\\V$PagueClient.jar",
+    "host": "app-partner.destaxa.cloud",
+    "portCloud": 60410,
+    "listenerLocal": 60906,
+    "tls": true
+  },
+  "pdvElectron": {
+    "running": false,
+    "listener3001": false
+  },
+  "pinpad": {
+    "com4": true,
+    "name": "PPC-920/930 CDC USB-to-Serial Port (COM4)"
+  },
+  "gate": { "habilitado": false },
+  "hashes": {
+    "TefManager": "F969747342BECA01E93F4694CF71768F2CF99B8A65B4E86BCB5FFA26EB5A427C",
+    "DestaxaRealAdapter": "8D3B60ECCBCBB18EACB6D84785BF15ABC786F8BC7C2117E043851FCE846892A9",
+    "marker5120": true,
+    "marker5125": true
+  },
+  "id1": {
+    "status": "pendente",
+    "nsu": null,
+    "autorizacao": null,
+    "atualizado_em": "2026-11-09 16:59:12",
+    "pendentesCount": 1
+  },
+  "autorizacaoCrtEspecifica": false,
+  "autorizacaoInitOperacional": false,
+  "decisao": "NO-GO"
+}

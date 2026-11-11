@@ -72,7 +72,7 @@ function decidirPermitBootstrapLegado({
 }
 
 /**
- * Espelho fiel da regra atual em TefManager._criarBootstrapSeguranca (51.20).
+ * Espelho fiel da regra atual em TefManager._criarBootstrapSeguranca (51.20 + 51.41).
  */
 function decidirPermitBootstrap({
   transactionId,
@@ -89,6 +89,11 @@ function decidirPermitBootstrap({
     && Array.isArray(intent?.allowedOperations)
     && intent.allowedOperations.includes('TX_START')
     && intent.allowedOperations.includes('TX_CONTINUE');
+  const intentCicloAutomaticoFinalize = operation === 'TX_FINALIZE'
+    && Array.isArray(intent?.allowedOperations)
+    && intent.allowedOperations.includes('TX_START')
+    && intent.allowedOperations.includes('TX_CONTINUE')
+    && intent.allowedOperations.includes('TX_FINALIZE');
   const execucaoAutorizada = Boolean(
     transactionId
     && linhaAtiva
@@ -99,7 +104,8 @@ function decidirPermitBootstrap({
     && intent.allowedOperations.includes(operation)
     && (operation === 'TX_START'
       || (continuidadeAtiva && ['TX_CONTINUE', 'TX_FINALIZE'].includes(operation))
-      || intentCicloAutomaticoContinue)
+      || intentCicloAutomaticoContinue
+      || intentCicloAutomaticoFinalize)
   );
   if (!execucaoAutorizada) return null;
   return {
@@ -160,14 +166,17 @@ function novoHostModoTeste() {
 
 console.log('\nTEF-DESTAXA-51.19/51.20 — bootstrap TX_CONTINUE\n');
 
-test('S1) Fonte TefManager contém atalho 51.20 e preserva gate FINALIZE/PDV', () => {
+test('S1) Fonte TefManager contém atalho 51.20/51.41 e preserva gate PDV', () => {
   const src = fs.readFileSync(TEF_MANAGER, 'utf8');
   assert.ok(src.includes('intentCicloAutomaticoContinue'));
+  assert.ok(src.includes('intentCicloAutomaticoFinalize'));
   assert.ok(src.includes("operation === 'TX_CONTINUE'"));
+  assert.ok(src.includes("operation === 'TX_FINALIZE'"));
   assert.ok(src.includes("intent.allowedOperations.includes('TX_START')"));
   assert.ok(src.includes("intent.allowedOperations.includes('TX_CONTINUE')"));
   assert.ok(src.includes("continuidadeAtiva && ['TX_CONTINUE', 'TX_FINALIZE'].includes(operation)"));
   assert.ok(src.includes('TEF-DESTAXA-51.20'));
+  assert.ok(src.includes('TEF-DESTAXA-51.41'));
 });
 
 test('S2) Adapter ainda não marca _continuidadeCrt (path in-cycle permanece)', () => {
@@ -249,14 +258,43 @@ test('6) Fluxo PDV independente: CONTINUE sem _continuidadeCrt permanece bloquea
   assert.ok(decidirPermitBootstrap(pdv));
 });
 
-test('7) TX_FINALIZE NÃO recebe permit pelo atalho do ciclo automático', () => {
+test('7) TX_FINALIZE recebe permit no ciclo automático completo (51.41)', () => {
   const finalize = decidirPermitBootstrap(contextoCicloAutomatico('TX_FINALIZE'));
-  assert.strictEqual(finalize, null, 'FINALIZE in-cycle sem _continuidadeCrt deve ser negado');
+  assert.ok(finalize, '51.41 deve emitir permit one-shot de TX_FINALIZE no ciclo automático');
+  assert.strictEqual(finalize.operation, 'TX_FINALIZE');
+  assert.strictEqual(finalize.transactionId, '1');
   const comMarca = decidirPermitBootstrap(contextoCicloAutomatico('TX_FINALIZE', {
     continuidadeCrt: { transacaoId: '1' }
   }));
   assert.ok(comMarca);
   assert.strictEqual(comMarca.operation, 'TX_FINALIZE');
+});
+
+test('7b) TX_FINALIZE path PDV sem _continuidadeCrt permanece bloqueado', () => {
+  const pdvFinalize = {
+    transactionId: '1',
+    operation: 'TX_FINALIZE',
+    linhaAtiva: { id: '1' },
+    emExecucao: true,
+    intent: { transactionId: '1', allowedOperations: ['TX_CONTINUE', 'TX_FINALIZE'] },
+    continuidadeCrt: null
+  };
+  assert.strictEqual(
+    decidirPermitBootstrap(pdvFinalize),
+    null,
+    'path PDV (sem TX_START no intent) continua exigindo continuidadeAtiva'
+  );
+  pdvFinalize.continuidadeCrt = { transacaoId: '1' };
+  assert.ok(decidirPermitBootstrap(pdvFinalize));
+});
+
+test('7c) TX_FINALIZE bloqueado se intent completo não lista TX_FINALIZE', () => {
+  assert.strictEqual(decidirPermitBootstrap(contextoCicloAutomatico('TX_FINALIZE', {
+    intent: {
+      transactionId: '1',
+      allowedOperations: ['TX_START', 'TX_CONTINUE']
+    }
+  })), null);
 });
 
 test('8) Permit de TX_START não pode ser reutilizado no Host', () => {

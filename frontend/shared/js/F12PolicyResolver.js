@@ -58,7 +58,14 @@ window.F12PolicyResolver = {
       });
 
       if (!response.ok) {
-        console.error('[F12] Failed to resolve contexto:', response.status);
+        let detalhe = '';
+        try {
+          const errBody = await response.json();
+          detalhe = errBody && (errBody.erro || errBody.error)
+            ? ` ${errBody.erro || errBody.error}`
+            : '';
+        } catch (_) { /* ignore */ }
+        console.error('[F12] Failed to resolve contexto:', response.status + detalhe);
         return null;
       }
 

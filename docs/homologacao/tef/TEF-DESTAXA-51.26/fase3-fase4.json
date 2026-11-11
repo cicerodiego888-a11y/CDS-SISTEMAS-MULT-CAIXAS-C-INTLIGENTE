@@ -1,0 +1,17 @@
+{
+  "fase3": {
+    "executada": false,
+    "motivo": "Sem autorização específica para inicialização operacional (NativeHost/V$Pague/COM4). Sprint 51.26 não autoriza init automático.",
+    "observacoes": [
+      "V$Pague Client instalado em C:\\VBI\\V$Pague\\Client (JAR), processo NÃO em execução",
+      "Nenhum listener nas portas 3001/60601/60602/60906",
+      "Nenhum Electron/PDV workspace em execução",
+      "PinPad COM4 presente (passivo) — COM4 NÃO aberto por esta sprint"
+    ]
+  },
+  "fase4": {
+    "decisao": "NO-GO",
+    "crtReal": false,
+    "autorizacaoCrtEspecifica": false
+  }
+}

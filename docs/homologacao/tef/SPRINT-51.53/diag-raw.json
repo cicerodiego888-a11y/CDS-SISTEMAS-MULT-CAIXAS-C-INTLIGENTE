@@ -1,0 +1,299 @@
+{
+  "cmp": {
+    "authSame": true,
+    "nsuSame": false,
+    "cliSame": false,
+    "estSame": false,
+    "payloadSame": false,
+    "idemSame": false
+  },
+  "tx3": {
+    "id": 3,
+    "status": "aprovado",
+    "nsu": "2338",
+    "autorizacao": "211139",
+    "venda_id": 66,
+    "bandeira": null,
+    "adquirente": null,
+    "codigo_transacao": "3",
+    "idempotency_key": "tef-segunda-tentativa-bd6a8809bc64abb7",
+    "criado_em": "2026-11-10 20:26:08",
+    "atualizado_em": "2026-11-10 20:39:53",
+    "payload": {
+      "_err": "Unexpected token 'a', \"a0bcde7a35\"... is not valid JSON",
+      "head": "a0bcde7a35951fa6a45328808c3d1609:c6876c988ae62101b012c6a702c9b17b548dfd38bafaf532fec56f7f9ec6e0959aeed440fb2c0a248a86a9090e1fa22dc6c6d961eb5c1beb55ad32fa40eb7ce086f35aba75b89b993a006ff7a773af5f41aa7b6"
+    },
+    "cli": {
+      "plain": false,
+      "len": 1057,
+      "head": "2a120554d2a513bb6b42fd304f7a9c9e:698c337691ef912ce689100d8b4b3eb14f824702b459179"
+    },
+    "est": {
+      "plain": false,
+      "len": 1057,
+      "head": "f375c9638f28657710e1474292805336:41071779eb65daceb877672936e48d3d8af144223ed2b80"
+    }
+  },
+  "tx4": {
+    "id": 4,
+    "status": "aprovado",
+    "nsu": "2348",
+    "autorizacao": "211139",
+    "venda_id": 67,
+    "bandeira": null,
+    "adquirente": null,
+    "codigo_transacao": "4",
+    "codigo_resposta": null,
+    "mensagem_resposta": null,
+    "idempotency_key": "tef-fp-3013003139b3377c3a00c365209ce13e",
+    "criado_em": "2026-11-11 00:56:33",
+    "atualizado_em": "2026-11-11 00:56:52",
+    "payload": {
+      "_err": "Unexpected non-whitespace character after JSON at position 9 (line 1 column 10)",
+      "head": "809118145cda1d843d8e9a50ac57c844:1e7de03ec30f045d3d7bdf69ce3aef151d463e420d96688de34b7e86b130e677a373a8900881edf0aa6a6102ca073fd67fc6fa12ec177b94d2a64384a35c2e0dee3be3e75f765cf181609678500091a0518f609"
+    },
+    "cli": {
+      "plain": false,
+      "len": 1057,
+      "head": "f3d35893ba7331a637ff00f8ac52451b:bcf1c3d3b28552376816da53535f95bbcfc380a7eea7cfb"
+    },
+    "est": {
+      "plain": false,
+      "len": 1057,
+      "head": "886298b652faa7c40634ce07909e44eb:32250ffb828d6e2d74db2de9dd1115763015f60d32b41e3"
+    }
+  },
+  "pag": [
+    {
+      "id": 79,
+      "venda_id": 66,
+      "forma_pagamento": "cartao_debito",
+      "valor": 1,
+      "tef_transacao_id": null,
+      "tef_nsu": null,
+      "tef_autorizacao": null,
+      "tef_bandeira": null,
+      "tef_adquirente": null,
+      "tef_comprovante_cliente": null,
+      "tef_comprovante_estabelecimento": null,
+      "criado_em": "2026-11-10 20:25:36",
+      "tipo_recebimento": "B"
+    },
+    {
+      "id": 80,
+      "venda_id": 67,
+      "forma_pagamento": "cartao_debito",
+      "valor": 1,
+      "tef_transacao_id": 4,
+      "tef_nsu": "2348",
+      "tef_autorizacao": "211139",
+      "tef_bandeira": null,
+      "tef_adquirente": null,
+      "tef_comprovante_cliente": null,
+      "tef_comprovante_estabelecimento": null,
+      "criado_em": "2026-11-11 00:56:52",
+      "tipo_recebimento": "A"
+    }
+  ],
+  "rec": [
+    {
+      "id": 79,
+      "venda_id": 66,
+      "tipo_recebimento": "nao_fiscal",
+      "forma_pagamento": "cartao_debito",
+      "valor": 1,
+      "tef_transacao_id": null,
+      "nsu": null,
+      "autorizacao": null,
+      "status": "aprovado",
+      "created_at": "2026-11-10 20:25:36"
+    },
+    {
+      "id": 80,
+      "venda_id": 67,
+      "tipo_recebimento": "fiscal",
+      "forma_pagamento": "cartao_debito",
+      "valor": 1,
+      "tef_transacao_id": 4,
+      "nsu": "2348",
+      "autorizacao": "211139",
+      "status": "aprovado",
+      "created_at": "2026-11-11 00:56:52"
+    }
+  ],
+  "nfce": [
+    {
+      "id": 52,
+      "status": "rejeitada",
+      "numero": 10052,
+      "serie": 1,
+      "chave": "23261147627408000151650010000100521206093071",
+      "protocolo": null,
+      "ambiente": 1,
+      "created_at": "2026-11-10 21:56:53",
+      "updated_at": "2026-11-10 21:56:53",
+      "lens": {
+        "env": 6147,
+        "ret": 970,
+        "aut": 0
+      },
+      "cAut": "211139",
+      "tBand": "99",
+      "cnpj": null,
+      "tpIntegra": "1",
+      "card": "<card><tpIntegra>1</tpIntegra><tBand>99</tBand><cAut>211139</cAut></card>",
+      "detPag": "<detPag><tPag>04</tPag><vPag>1.00</vPag><card><tpIntegra>1</tpIntegra><tBand>99</tBand><cAut>211139</cAut></card></detPag>",
+      "cStatRet": "104",
+      "xMotivo": "Lote processado",
+      "has211139": true,
+      "has2348": false,
+      "has2338": false
+    }
+  ],
+  "logs": [
+    {
+      "id": 44,
+      "transacao_id": 4,
+      "tipo": "INICIO",
+      "mensagem": "Transação TEF iniciada — persistida antes do Adapter/DLL",
+      "criado_em": "2026-11-11 00:56:33",
+      "payload_head": "{\"venda_id\":null,\"tipo\":\"cartao_debito\",\"valor\":1,\"parcelas\":1,\"contextoFiscal\":{\"valorCentavos\":100,\"tipo\":\"cartao_debito\"},\"_routeDecision\":{\"sucesso\":true,\"codigo\":\"SINGLETON_FALLBACK\",\"mensagem\":\"Roteamento compatível singleton (pdvId omitido) — fluxo TEF atual preservado — lease lease_10efaf6706d41bc2 adquirido\",\"modo\":\"ALLOCATE\",\"pdvId\":null,\"pdv\":null,\"empresaId\":null,\"lojaId\":null,\"terminalTefId\":\"singleton:instalacao\",\"dispositivoId\":null,\"provedor\":\"destaxa\",\"ambiente\":\"homologacao\",\"adapterBinding\":{\"fonte\":\"tef_configuracao_singleton\",\"modo\":\"COMPAT_SINGLETON\",\"registro\":{\"id\":1,\"habilitado\":1,\"provedor\":\"destaxa\",\"ambiente\":\"homologacao\",\"timeout\":60,\"tentativas\":1,\"empresa_codigo\":null,\"loja_codigo\":null,\"pdv_codigo\":null,\"terminal_codigo\":null,\"caixa_codigo\":null,\"criado_em\""
+    },
+    {
+      "id": 45,
+      "transacao_id": 4,
+      "tipo": "MRT39_SOLICITACAO_99",
+      "mensagem": "Solicitação 99/OPCAO persistida",
+      "criado_em": "2026-11-11 00:56:37",
+      "payload_head": "{\"chave\":null,\"opcoes\":[],\"timeout\":null}"
+    },
+    {
+      "id": 46,
+      "transacao_id": 4,
+      "tipo": "MRT39_RESPOSTA_CONTINUIDADE",
+      "mensagem": "Resposta OPCAO persistida",
+      "criado_em": "2026-11-11 00:56:37",
+      "payload_head": "{\"fingerprint\":\"displayAck\",\"continueCount\":1,\"txStartCount\":1}"
+    },
+    {
+      "id": 47,
+      "transacao_id": 4,
+      "tipo": "MRT39_SOLICITACAO_99",
+      "mensagem": "Solicitação 99/OPCAO persistida",
+      "criado_em": "2026-11-11 00:56:49",
+      "payload_head": "{\"chave\":null,\"opcoes\":[],\"timeout\":null}"
+    },
+    {
+      "id": 48,
+      "transacao_id": 4,
+      "tipo": "MRT39_RESPOSTA_CONTINUIDADE",
+      "mensagem": "Resposta OPCAO persistida",
+      "criado_em": "2026-11-11 00:56:49",
+      "payload_head": "{\"fingerprint\":\"displayAck\",\"continueCount\":2,\"txStartCount\":1}"
+    },
+    {
+      "id": 49,
+      "transacao_id": 4,
+      "tipo": "MRT39_SOLICITACAO_99",
+      "mensagem": "Solicitação 99/OPCAO persistida",
+      "criado_em": "2026-11-11 00:56:50",
+      "payload_head": "{\"chave\":null,\"opcoes\":[],\"timeout\":null}"
+    },
+    {
+      "id": 50,
+      "transacao_id": 4,
+      "tipo": "MRT39_RESPOSTA_CONTINUIDADE",
+      "mensagem": "Resposta OPCAO persistida",
+      "criado_em": "2026-11-11 00:56:50",
+      "payload_head": "{\"fingerprint\":\"displayAck\",\"continueCount\":3,\"txStartCount\":1}"
+    },
+    {
+      "id": 51,
+      "transacao_id": 4,
+      "tipo": "MRT39_SOLICITACAO_99",
+      "mensagem": "Solicitação 99/OPCAO persistida",
+      "criado_em": "2026-11-11 00:56:51",
+      "payload_head": "{\"chave\":null,\"opcoes\":[],\"timeout\":null}"
+    },
+    {
+      "id": 52,
+      "transacao_id": 4,
+      "tipo": "MRT39_RESPOSTA_CONTINUIDADE",
+      "mensagem": "Resposta OPCAO persistida",
+      "criado_em": "2026-11-11 00:56:51",
+      "payload_head": "{\"fingerprint\":\"displayAck\",\"continueCount\":4,\"txStartCount\":1}"
+    },
+    {
+      "id": 53,
+      "transacao_id": 4,
+      "tipo": "CICLO_CRT",
+      "mensagem": "Orquestração CRT Destaxa",
+      "criado_em": "2026-11-11 00:56:52",
+      "payload_head": "{\"passos\":[{\"passo\":\"TX_START\",\"em\":\"2026-11-11T00:56:33.486Z\",\"operacao\":\"CRT\",\"transactionId\":\"4\"},{\"passo\":\"TX_START_RESULT\",\"em\":\"2026-11-11T00:56:37.091Z\",\"codigoDestaxa\":\"99\",\"requerContinuacao\":true,\"sucesso\":false},{\"passo\":\"TX_CONTINUE\",\"em\":\"2026-11-11T00:56:37.207Z\",\"n\":1,\"tipoAcao\":\"DISPLAY\",\"origemResposta\":\"display_ack\"},{\"passo\":\"TX_CONTINUE_RESULT\",\"em\":\"2026-11-11T00:56:49.241Z\",\"n\":1,\"codigoDestaxa\":\"99\",\"requerContinuacao\":true},{\"passo\":\"TX_CONTINUE\",\"em\":\"2026-11-11T00:56:49.346Z\",\"n\":2,\"tipoAcao\":\"DISPLAY\",\"origemResposta\":\"display_ack\"},{\"passo\":\"TX_CONTINUE_RESULT\",\"em\":\"2026-11-11T00:56:50.022Z\",\"n\":2,\"codigoDestaxa\":\"99\",\"requerContinuacao\":true},{\"passo\":\"TX_CONTINUE\",\"em\":\"2026-11-11T00:56:50.112Z\",\"n\":3,\"tipoAcao\":\"DISPLAY\",\"origemResposta\":\"display_ack\"},{\"pas"
+    },
+    {
+      "id": 54,
+      "transacao_id": 4,
+      "tipo": "RETORNO",
+      "mensagem": "API executada com sucesso.",
+      "criado_em": "2026-11-11 00:56:52",
+      "payload_head": "{\"sucesso\":true,\"status\":\"aprovado\",\"nsu\":\"2348\",\"autorizacao\":\"**1139\",\"cnpj_credenciadora\":null,\"provedor\":\"Destaxa\",\"adquirente\":null,\"bandeira\":null,\"comprovanteCliente\":\"/\\\\/\\\\/ Destaxa 18.760.540/0001-39\\\\/\\\\/\\\\/\\r\\n\\r\\n               USEREDE               \\r\\n                                      \\r\\nCOMPR:022111391    VALOR:         1.00\\r\\nESTAB:                 017667967881238\\r\\n11/11/26-00:56:50 TERM:PV199999/190223\\r\\nCARTAO: ************4745\\r\\nAUTORIZACAO: 211139\\r\\nARQC:166DF063D5841216\\r\\nAID:                                  \\r\\n    TRANSACAO AUTORIZADA MEDIANTE     \\r\\n    USO DE SENHA PESSOAL.             \\r\\n                                      \\r\\n/\\\\/\\\\/\\\\/ Destaxa 10100017275719 \\\\/\\\\/\\\\/\\\\\",\"comprovanteLoja\":\"/\\\\/\\\\/ Destaxa 18.760.540/0001-39\\\\/\\\\/\\\\/\\r\\n\\r\\n    "
+    },
+    {
+      "id": 55,
+      "transacao_id": 4,
+      "tipo": "DECISAO_RETRY",
+      "mensagem": "TEF_CONFIRMED_SUCCESS_NO_RETRY",
+      "criado_em": "2026-11-11 00:56:52",
+      "payload_head": "{\"transactionId\":\"4\",\"provider\":\"destaxa\",\"operation\":\"cartao_debito\",\"resultCode\":\"00\",\"state\":\"SUCCESS\",\"financialState\":\"CONFIRMED_SUCCESS\",\"retryAllowed\":false,\"retryReason\":\"TEF_CONFIRMED_SUCCESS_NO_RETRY\",\"timestamp\":\"2026-11-11T00:56:52.893Z\"}"
+    },
+    {
+      "id": 56,
+      "transacao_id": 4,
+      "tipo": "MRT06_LEASE",
+      "mensagem": "Resultado financeiro confirmado (sucesso)",
+      "criado_em": "2026-11-11 00:56:52",
+      "payload_head": "{\"leaseId\":\"lease_10efaf6706d41bc2\",\"acao\":\"LIBERAR\",\"motivo\":\"SUCESSO_CONFIRMADO\",\"aplicado\":{\"ok\":true,\"codigo\":\"ALLOCATED\",\"mensagem\":\"Lease liberado\",\"lease\":{\"leaseId\":\"lease_10efaf6706d41bc2\",\"terminalTefId\":\"singleton:instalacao\",\"runtimeKey\":\"runtime:destaxa:global\",\"pdvId\":null,\"provedor\":\"destaxa\",\"adquiridoEm\":\"2026-11-11T00:56:29.690Z\",\"expiraEm\":\"2026-11-11T00:58:29.690Z\",\"ocupacaoTimeoutMs\":120000,\"resultadoFinanceiroInconclusivo\":false,\"liberado\":true,\"liberadoEm\":\"2026-11-11T00:56:52.904Z\",\"motivoLiberacao\":\"SUCESSO_CONFIRMADO\",\"meta\":{\"politica\":\"GLOBAL_SERIALIZE\",\"permiteTerminaisParalelos\":false,\"operacao\":\"autorizar\",\"modoRouter\":\"COMPAT_SINGLETON\"}},\"acao\":\"LIBERAR\"}}"
+    }
+  ],
+  "ledgerAuth": {
+    "authorizationId": "c3fb636267106ce343ca300d64cf7041",
+    "status": "CONSUMED",
+    "valorCentavos": 100,
+    "tipoPermitido": [
+      "cartao_debito",
+      "debito"
+    ],
+    "formaPagamento": "A vista",
+    "operacao": "CRT",
+    "emitidoEm": "2026-11-11T00:54:25.964Z",
+    "expiresAtMs": 1794358800011,
+    "expiresAt": "2026-11-11T01:00:00.011Z",
+    "consumidoEm": "2026-11-11T00:56:33.388Z",
+    "motivo": "SPRINT-51.52-reemissao-urgente-homologacao-debito-r1",
+    "emitidoPor": "product-owner-go-verbal-51.52",
+    "vinculo": {
+      "provedor": "destaxa",
+      "portaCom": "COM4",
+      "pinpadCodigo": "GERTEC_PPC930",
+      "canal": "pdv_oficial"
+    },
+    "retryAllowed": false,
+    "operacoesProibidas": [
+      "PIX",
+      "CNC",
+      "CANCEL",
+      "ESTORNO",
+      "CREDITO",
+      "RETRY"
+    ],
+    "consumidoValorCentavos": 100,
+    "consumidoTipo": "cartao_debito",
+    "consumidoVinculo": {
+      "provedor": "destaxa",
+      "portaCom": "COM4",
+      "pinpadCodigo": "GERTEC_PPC930",
+      "canal": "pdv_oficial"
+    }
+  }
+}

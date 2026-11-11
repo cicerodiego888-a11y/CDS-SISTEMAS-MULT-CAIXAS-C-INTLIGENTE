@@ -46,6 +46,9 @@ describe('Tolerância PDV — allowlist operacional', () => {
     assert.equal(licencaMw.isAllowedDuringPdvGrace({ originalUrl: '/api/pix/criar-cobranca', method: 'POST' }), true);
     assert.equal(licencaMw.isAllowedDuringPdvGrace({ originalUrl: '/api/tef/pagar', method: 'POST' }), true);
     assert.equal(licencaMw.isAllowedDuringPdvGrace({ originalUrl: '/api/produtos', method: 'GET' }), true);
+    // Sprint 51.39 — F12 do PDV precisa resolver contexto durante a tolerância
+    assert.equal(licencaMw.isAllowedDuringPdvGrace({ originalUrl: '/api/f12/contexto/2', method: 'GET' }), true);
+    assert.equal(licencaMw.isAllowedDuringPdvGrace({ originalUrl: '/api/f12/info', method: 'GET' }), true);
   });
 
   it('não libera ERP/backoffice na tolerância do PDV', () => {

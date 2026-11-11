@@ -1,0 +1,48 @@
+{
+  "ok": true,
+  "autorizacao": {
+    "authorizationId": "71506b7e1d6c73a419a8679bed07819f",
+    "status": "ISSUED",
+    "valorCentavos": 100,
+    "tipoPermitido": [
+      "cartao_debito",
+      "debito"
+    ],
+    "formaPagamento": "A vista",
+    "operacao": "CRT",
+    "emitidoEm": "2026-11-10T19:18:00.322Z",
+    "expiresAt": "2026-11-10T19:48:00.322Z",
+    "consumidoEm": null,
+    "motivo": "TEF-DESTAXA-PRIMEIRA-VENDA-homologacao-debito-r1"
+  },
+  "ledgerPath": "C:\\Users\\cicer\\AppData\\Local\\CDS-SISTEMAS\\tef\\destaxa-autorizacao-excepcional.json",
+  "gateProcess": null,
+  "instrucao": "Dentro de 30 min: no PDV oficial, venda R$ 1,00 débito COM4 — uma única operação. Sem retry se UNKNOWN.",
+  "ledgerAntesPreview": [
+    {
+      "id": "5aed71f2b6e19f7f14303f69242c6796",
+      "status": "CONSUMED"
+    },
+    {
+      "id": "ba08c88e8e67410f3048bac5e10c4046",
+      "status": "CONSUMED"
+    }
+  ],
+  "ledgerDepoisPreview": [
+    {
+      "id": "5aed71f2b6e19f7f14303f69242c6796",
+      "status": "CONSUMED",
+      "expiresAt": "2026-11-09T17:24:10.595Z"
+    },
+    {
+      "id": "ba08c88e8e67410f3048bac5e10c4046",
+      "status": "CONSUMED",
+      "expiresAt": "2026-11-09T19:17:09.473Z"
+    },
+    {
+      "id": "71506b7e1d6c73a419a8679bed07819f",
+      "status": "ISSUED",
+      "expiresAt": "2026-11-10T19:48:00.322Z"
+    }
+  ]
+}

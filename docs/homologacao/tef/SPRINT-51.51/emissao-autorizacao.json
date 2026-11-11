@@ -1,0 +1,87 @@
+{
+  "ok": true,
+  "classificacao": "LIBERACAO_ONESHOT_EMITIDA",
+  "autorizacao": {
+    "authorizationId": "7528947cd63e0ccfcf2831cff56663bb",
+    "status": "ISSUED",
+    "valorCentavos": 100,
+    "tipoPermitido": [
+      "cartao_debito",
+      "debito"
+    ],
+    "formaPagamento": "A vista",
+    "operacao": "CRT",
+    "emitidoEm": "2026-11-11T00:00:27.005Z",
+    "expiresAt": "2026-11-11T00:30:27.005Z",
+    "consumidoEm": null,
+    "motivo": "SPRINT-51.51-pos-recuperacao-tx3-homologacao-debito-r1",
+    "vinculo": {
+      "provedor": "destaxa",
+      "portaCom": "COM4",
+      "pinpadCodigo": "GERTEC_PPC930",
+      "canal": "pdv_oficial"
+    },
+    "retryAllowed": false
+  },
+  "vinculo": {
+    "provedor": "destaxa",
+    "portaCom": "COM4",
+    "pinpadCodigo": "GERTEC_PPC930",
+    "canal": "pdv_oficial"
+  },
+  "ledgerPath": "C:\\Users\\cicer\\AppData\\Local\\CDS-SISTEMAS\\tef\\destaxa-autorizacao-excepcional.json",
+  "gateProcess": "0",
+  "gateGlobalLigado": false,
+  "cobrancaExecutada": false,
+  "instrucao": [
+    "No PDV oficial (Electron), dentro do TTL:",
+    "1) Confirmar mensagem de prontidão (sem bloqueio de gate).",
+    "2) Uma única venda R$ 1,00 débito Destaxa Gertec COM4.",
+    "3) Sem retry / PIX / crédito / cancelamento / estorno.",
+    "4) Se UNKNOWN/timeout: interromper e preservar evidências.",
+    "5) Gate global deve permanecer OFF."
+  ],
+  "ledgerDepoisPreview": [
+    {
+      "id": "71506b7e1d6c73a419a8679bed07819f",
+      "status": "CONSUMED",
+      "valorCentavos": 100,
+      "expiresAt": "2026-11-10T19:48:00.322Z",
+      "vinculo": null,
+      "motivo": "TEF-DESTAXA-PRIMEIRA-VENDA-homologacao-debito-r1"
+    },
+    {
+      "id": "cff481501f704f672b3e956f4bcb62b4",
+      "status": "CONSUMED",
+      "valorCentavos": 100,
+      "expiresAt": "2026-11-10T20:53:59.117Z",
+      "vinculo": null,
+      "motivo": "TEF-SEGUNDA-TENTATIVA-homologacao-debito-r1"
+    },
+    {
+      "id": "7528947cd63e0ccfcf2831cff56663bb",
+      "status": "ISSUED",
+      "valorCentavos": 100,
+      "expiresAt": "2026-11-11T00:30:27.005Z",
+      "vinculo": {
+        "provedor": "destaxa",
+        "portaCom": "COM4",
+        "pinpadCodigo": "GERTEC_PPC930",
+        "canal": "pdv_oficial"
+      },
+      "motivo": "SPRINT-51.51-pos-recuperacao-tx3-homologacao-debito-r1"
+    }
+  ],
+  "precheck": {
+    "pin": {
+      "porta_com": "COM4",
+      "codigo": "GERTEC_PPC930",
+      "fabricante": "Gertec",
+      "modelo": "PPC930",
+      "habilitado": 1,
+      "ativo": 1
+    },
+    "maxId": 3,
+    "pendentes": []
+  }
+}

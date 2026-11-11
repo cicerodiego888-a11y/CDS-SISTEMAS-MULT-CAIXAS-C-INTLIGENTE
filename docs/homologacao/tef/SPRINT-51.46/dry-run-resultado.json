@@ -1,0 +1,155 @@
+{
+  "ts": "2026-11-10T22:19:16.732Z",
+  "sprint": "SPRINT-51.46",
+  "path": "RECUPERACAO_PROTOCOLAR_TX3",
+  "dryRun": true,
+  "execucaoReal": false,
+  "dllChamada": false,
+  "nativeHostChamado": false,
+  "vespagueChamado": false,
+  "permitLedgerEscrito": false,
+  "gateGlobal": "OFF",
+  "ok": true,
+  "elegivel": true,
+  "abortado": false,
+  "codigo": null,
+  "mensagem": "Runner controlado TX3 concluído em dry-run — sem chamada nativa.",
+  "runId": "runner-tx3-87c7e7788ca4",
+  "identidade": {
+    "transactionId": "3",
+    "nsu": "2338",
+    "autorizacao": "211139",
+    "vendaId": 66,
+    "idempotency_key": "tef-segunda-tentativa-bd6a8809bc64abb7",
+    "codigoVespague": "10100017275707"
+  },
+  "sessao": {
+    "ok": true,
+    "abortar": false,
+    "codigo": null,
+    "mensagem": "Estado de sessão Destaxa compatível com recuperação (A1 declarado).",
+    "codigoInit": "A1",
+    "classificado": {
+      "ok": true,
+      "prosseguirFinalize": true,
+      "codigo": "A1",
+      "mensagem": "A1 — pré-condição de recuperação satisfeita."
+    },
+    "fonte": "NativeHost observability 2026-11-10T21:44:57Z requestId=1a83ad933cc4fb7b (SPRINT-51.43)",
+    "leituraNativa": false
+  },
+  "exclusividade": {
+    "ok": true,
+    "abortarAntesFinalize": false,
+    "codigo": null,
+    "mensagem": "Exclusividade da pendência Destaxa comprovada para TX 3 (A1 + correlação).",
+    "correlacao": {
+      "nsu": "2338",
+      "autorizacao": "211139",
+      "codigoVespague": "10100017275707",
+      "codigoInitClient": "A1"
+    }
+  },
+  "autorizacaoPo": {
+    "tokenGoPo": "GO-PO-RECUPERACAO-TX3-FINALIZE-0",
+    "operador": "PO/Cicero — SPRINT-51.46 dry-run",
+    "autorizadoEm": "2026-11-10T22:19:16.732Z"
+  },
+  "permit": {
+    "dryRun": true,
+    "ledgerEscrito": false,
+    "hostPermit": {
+      "permitId": "dry-run-3a06a169a492ca19",
+      "operation": "TX_FINALIZE",
+      "transactionId": "3",
+      "purpose": "RECUPERACAO_PROTOCOLAR_TX3",
+      "confirmacao": 0
+    },
+    "exceptionalPermit": {
+      "purpose": "RECUPERACAO_PROTOCOLAR_TX3",
+      "operation": "TX_FINALIZE",
+      "confirmacao": 0,
+      "transactionId": "3",
+      "oneShot": true,
+      "dryRun": true,
+      "retryAutomatico": false
+    }
+  },
+  "procedimentoExecucao": [
+    "1. Obter GO explícito do PO com token GO-PO-RECUPERACAO-TX3-FINALIZE-0 em sprint de execução nomeada.",
+    "2. Revalidar readonly CDS: id=3, NSU 2338, auth 211139, venda 66, vespague 10100017275707.",
+    "3. Confirmar exclusividade A1 (fonte NativeHost) + confirmação PO de pendência única.",
+    "4. Emitir permit one-shot excepcional TX_FINALIZE + transactionId=3 + confirmacao=0 (ledger).",
+    "5. SECURITY_BOOTSTRAP + LOAD (sem CRT / START / CONTINUE).",
+    "6. INIT_CLIENT: seguir só se A1; abortar se 00 ou F0; sem retry.",
+    "7. Única chamada finalizaTransacaoDestaxa(0) / TX_FINALIZE via path RECUPERACAO_PROTOCOLAR_TX3.",
+    "8. INIT_CLIENT pós: esperar 00; se A1 persistir ou ≠00 → parar e escalar.",
+    "9. Auditoria tef_logs; não alterar TX2/TX3/venda66; gate permanece OFF."
+  ],
+  "auditoriaResumo": [
+    {
+      "fase": "PRECHECK_IDENTIDADE",
+      "evento": "INICIO",
+      "codigo": null
+    },
+    {
+      "fase": "PRECHECK_IDENTIDADE",
+      "evento": "IDENTIDADE_OK",
+      "codigo": null
+    },
+    {
+      "fase": "PRECHECK_SESSAO",
+      "evento": "SESSAO_OK",
+      "codigo": null
+    },
+    {
+      "fase": "EXCLUSIVIDADE",
+      "evento": "EXCLUSIVIDADE_OK",
+      "codigo": null
+    },
+    {
+      "fase": "AUTORIZACAO_PO",
+      "evento": "PO_AUTORIZADO",
+      "codigo": null
+    },
+    {
+      "fase": "PERMIT",
+      "evento": "PERMIT_DRY_RUN_EMITIDO",
+      "codigo": null
+    },
+    {
+      "fase": "GATE_NATIVO",
+      "evento": "NATIVO_NAO_CHAMADO",
+      "codigo": null
+    },
+    {
+      "fase": "AUDITORIA",
+      "evento": "AUDITORIA_REGISTRADA",
+      "codigo": null
+    },
+    {
+      "fase": "CONCLUIDO",
+      "evento": "DRY_RUN_PRONTO",
+      "codigo": null
+    }
+  ],
+  "snapshotReadonly": {
+    "tx3": {
+      "id": 3,
+      "status": "aprovado",
+      "nsu": "2338",
+      "autorizacao": "211139",
+      "venda_id": 66,
+      "idempotency_key": "tef-segunda-tentativa-bd6a8809bc64abb7"
+    },
+    "venda66": {
+      "id": 66,
+      "total": 1,
+      "status": "concluida",
+      "status_pagamento": "quitada",
+      "tef_transacao_id": 3,
+      "forma_pagamento": "cartao_debito"
+    },
+    "pendentes": []
+  }
+}

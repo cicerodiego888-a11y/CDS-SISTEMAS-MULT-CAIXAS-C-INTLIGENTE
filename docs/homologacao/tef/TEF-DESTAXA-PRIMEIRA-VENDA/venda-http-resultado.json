@@ -1,0 +1,43 @@
+{
+  "startedAt": "2026-11-10T19:29:01.592Z",
+  "endedAt": "2026-11-10T19:29:34.118Z",
+  "idempotency": "tef-primeira-venda-9dd272f1d91f84df",
+  "statusCode": 422,
+  "resposta": {
+    "sucesso": false,
+    "status": "pendente",
+    "aprovado": false,
+    "comprovante_cliente": null,
+    "comprovante_estabelecimento": null,
+    "transacaoId": "2",
+    "transacao_id": 2,
+    "codigo": "TIMEOUT",
+    "mensagem": "Timeout de 30000ms excedido na operação TEF",
+    "modo": null,
+    "financialState": "UNKNOWN",
+    "cancelConfirmed": false,
+    "cancelOutcome": null,
+    "protocolState": "TIMEOUT",
+    "retryAllowed": false,
+    "retryReason": "TEF_TIMEOUT_NO_RETRY",
+    "payloadRetorno": null,
+    "pix_copia_cola": null,
+    "exibir_qr_tela": false,
+    "venda_id": 65,
+    "estado_vinculo": "VENDA_INFORMADA",
+    "idempotency_key": "tef-primeira-venda-9dd272f1d91f84df",
+    "operation_id": "tef-primeira-venda-9dd272f1d91f84df",
+    "tef_transacao_id": 2,
+    "associacao_por_valor_proibida": true,
+    "associacao_por_ordem_proibida": true,
+    "vinculo": {
+      "venda_id": 65,
+      "estado_vinculo": "VENDA_INFORMADA",
+      "idempotency_key": "tef-primeira-venda-9dd272f1d91f84df",
+      "operation_id": "tef-primeira-venda-9dd272f1d91f84df",
+      "tef_transacao_id": 2,
+      "associacao_por_valor_proibida": true,
+      "associacao_por_ordem_proibida": true
+    }
+  }
+}

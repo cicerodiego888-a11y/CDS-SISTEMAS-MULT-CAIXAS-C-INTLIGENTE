@@ -1,0 +1,21 @@
+{
+  "sprint": "SPRINT-51.54",
+  "transmissaoSefaz": false,
+  "origemCnpj": {
+    "campoOficial": "transacao_rede_cnpj",
+    "valorBruto": "01.425.787/0001-04",
+    "valorNormalizado": "01425787000104",
+    "naoUsado": "18.760.540/0001-39 (CNPJ Destaxa no comprovante/conf)"
+  },
+  "cardAntesBug392": "<card><tpIntegra>1</tpIntegra><tBand>99</tBand><cAut>211139</cAut></card>",
+  "xmlDebito": "<pag>\n      <detPag>\n        <tPag>04</tPag>\n    <vPag>1.00</vPag>\n        <card>\n          <tpIntegra>1</tpIntegra>\n      <CNPJ>01425787000104</CNPJ><tBand>01</tBand><cAut>211139</cAut></card></detPag></pag>",
+  "xmlCredito": "<pag>\n      <detPag>\n        <tPag>03</tPag>\n    <vPag>1.00</vPag>\n        <card>\n          <tpIntegra>1</tpIntegra>\n      <CNPJ>01425787000104</CNPJ><tBand>02</tBand><cAut>ABC123</cAut></card></detPag></pag>",
+  "validacaoLocal": {
+    "debito": {
+      "ok": true
+    },
+    "credito": {
+      "ok": true
+    }
+  }
+}

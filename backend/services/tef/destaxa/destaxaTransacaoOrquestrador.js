@@ -392,13 +392,100 @@ class DestaxaTransacaoOrquestrador {
     }
   }
 
-  finalizarTransacao(confirmacao) {
+  /**
+   * SPRINT 51.45 — FINALIZE sem _contexto CRT somente com autorização
+   * RECUPERACAO_PROTOCOLAR_TX3 (confirmacao=0, transactionId=3).
+   */
+  _autorizacaoRecuperacaoProtocolarTx3(opcoes = {}) {
+    const auth = opcoes.autorizacaoRecuperacao || opcoes.recuperacaoProtocolarTx3 || null;
+    if (!auth || auth.path !== 'RECUPERACAO_PROTOCOLAR_TX3') return null;
+    if (auth.permiteFinalizarSemContextoCrt !== true) return null;
+    if (String(auth.transactionId || '') !== '3') return null;
+    if (Number(auth.confirmacao) !== FINALIZACAO_CONFIRMAR) return null;
+    if (auth.retryAutomatico === true) return null;
+    if (!auth.exclusividade || auth.exclusividade.ok !== true) return null;
+    if (auth.exclusividade.abortarAntesFinalize === true) return null;
+    return auth;
+  }
+
+  finalizarTransacao(confirmacao, opcoes = {}) {
+    const recuperacaoTx3 = this._autorizacaoRecuperacaoProtocolarTx3(opcoes);
+    const conf = Number(confirmacao);
+
     if (!this._contexto) {
-      return this._falha(
-        ERROS.DESTAXA_TRANSACAO_NAO_ENCONTRADA,
-        'Nenhuma transação Destaxa ativa para finalizar',
-        ESTADOS_TRANSACAO.ERROR
-      );
+      if (!recuperacaoTx3) {
+        return this._falha(
+          ERROS.DESTAXA_TRANSACAO_NAO_ENCONTRADA,
+          'Nenhuma transação Destaxa ativa para finalizar',
+          ESTADOS_TRANSACAO.ERROR
+        );
+      }
+      if (conf === FINALIZACAO_CANCELAR || conf === 9) {
+        return this._falha(
+          ERROS.DESTAXA_INVALID_CONFIGURATION,
+          'RECUPERACAO_PROTOCOLAR_TX3 bloqueia FINALIZE(9)',
+          ESTADOS_TRANSACAO.ERROR
+        );
+      }
+      if (conf !== FINALIZACAO_CONFIRMAR) {
+        return this._falha(
+          ERROS.DESTAXA_INVALID_CONFIGURATION,
+          'RECUPERACAO_PROTOCOLAR_TX3 exige confirmacao=0',
+          ESTADOS_TRANSACAO.ERROR
+        );
+      }
+      if (!this._driver) {
+        return this._falha(ERROS.DESTAXA_TRANSACAO_REAL_BLOQUEADA, 'Driver ausente', ESTADOS_TRANSACAO.ERROR);
+      }
+      if (recuperacaoTx3.exceptionalPermit) {
+        this.definirPermitExcepcional(recuperacaoTx3.exceptionalPermit);
+      }
+      if (this._driverNativo() && !this._gateRealOuExcepcionalOk()) {
+        return this._bloqueioGateReal();
+      }
+
+      const inicio = process.hrtime.bigint();
+      this._log('transacao.finalize.recuperacao_tx3', {
+        confirmacao: conf,
+        path: 'RECUPERACAO_PROTOCOLAR_TX3',
+        transactionId: '3',
+        semContextoCrt: true
+      });
+
+      try {
+        const resultadoDll = this._driver.finalizaTransacaoDestaxa(conf);
+        const classificacao = classificarCodigoTransacao(resultadoDll.codigo);
+        const duracaoMs = Number(process.hrtime.bigint() - inicio) / 1e6;
+        const sucesso = classificacao.classificacao === CLASSIFICACAO_CODIGO.SUCCESS;
+        return {
+          sucesso,
+          codigo: sucesso ? classificacao.codigo : (classificacao.codigo || ERROS.DESTAXA_TRANSACAO_EM_ANDAMENTO),
+          codigoDestaxa: classificacao.codigo,
+          mensagem: classificacao.descricao || null,
+          financialState: classificacao.financialState,
+          duracaoMs,
+          confirmacao: conf,
+          confirmacaoDescricao: 'confirma',
+          recuperacaoProtocolarTx3: true,
+          semContextoCrt: true,
+          transactionId: '3',
+          retryAllowed: false
+        };
+      } catch (error) {
+        const duracaoMs = Number(process.hrtime.bigint() - inicio) / 1e6;
+        return {
+          sucesso: false,
+          codigo: ERROS.DESTAXA_TRANSACAO_EM_ANDAMENTO,
+          codigoDestaxa: 'UNKNOWN',
+          mensagem: String(error?.message || error || ''),
+          confirmacao: conf,
+          recuperacaoProtocolarTx3: true,
+          semContextoCrt: true,
+          transactionId: '3',
+          retryAllowed: false,
+          duracaoMs
+        };
+      }
     }
 
     if (this._financialStateUnknown()) {
@@ -418,7 +505,6 @@ class DestaxaTransacaoOrquestrador {
       return this._bloqueioGateReal();
     }
 
-    const conf = Number(confirmacao);
     if (conf !== FINALIZACAO_CONFIRMAR && conf !== FINALIZACAO_CANCELAR) {
       return this._falha(
         ERROS.DESTAXA_INVALID_CONFIGURATION,

@@ -284,6 +284,8 @@ router.get('/venda/:vendaId/comprovantes', (req, res) => {
 router.get('/venda/:vendaId/resumo', (req, res) => {
   const vendaId = Number(req.params.vendaId);
 
+  // TEF: preferir vínculo em venda_pagamentos; fallback para vendas.tef_transacao_id /
+  // tef_transacoes (ex.: recuperação administrativa 51.42 sem espelho em pagamentos).
   db.get(`
     SELECT
       v.id AS venda_id,
@@ -296,11 +298,11 @@ router.get('/venda/:vendaId/resumo', (req, res) => {
       n.status AS nfce_status,
       n.protocolo AS nfce_protocolo,
 
-      vp.tef_transacao_id,
-      vp.tef_nsu,
-      vp.tef_autorizacao,
-      vp.tef_bandeira,
-      vp.tef_adquirente
+      COALESCE(vp.tef_transacao_id, tt.id) AS tef_transacao_id,
+      COALESCE(vp.tef_nsu, tt.nsu) AS tef_nsu,
+      COALESCE(vp.tef_autorizacao, tt.autorizacao) AS tef_autorizacao,
+      COALESCE(vp.tef_bandeira, tt.bandeira) AS tef_bandeira,
+      COALESCE(vp.tef_adquirente, tt.adquirente) AS tef_adquirente
 
     FROM vendas v
 
@@ -310,6 +312,9 @@ router.get('/venda/:vendaId/resumo', (req, res) => {
     LEFT JOIN venda_pagamentos vp
       ON vp.venda_id = v.id
       AND vp.tef_transacao_id IS NOT NULL
+
+    LEFT JOIN tef_transacoes tt
+      ON tt.id = COALESCE(v.tef_transacao_id, vp.tef_transacao_id)
 
     WHERE v.id = ?
 

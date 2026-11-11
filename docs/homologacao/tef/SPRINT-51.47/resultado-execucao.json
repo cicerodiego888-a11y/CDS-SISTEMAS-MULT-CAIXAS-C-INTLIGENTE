@@ -1,0 +1,566 @@
+{
+  "sprint": "SPRINT-51.47",
+  "path": "RECUPERACAO_PROTOCOLAR_TX3",
+  "inicio": "2026-11-10T22:44:10.207Z",
+  "autorizacaoPo": {
+    "data": "2026-11-10",
+    "tokenGoPo": "GO-PO-RECUPERACAO-TX3-FINALIZE-0",
+    "escopo": {
+      "tefId": 3,
+      "vendaId": 66,
+      "valor": 1,
+      "nsu": "2338",
+      "nsuRede": "241255",
+      "autorizacao": "211139",
+      "vespague": "10100017275707",
+      "terminal": "TACB0120",
+      "operacao": "finalizaTransacaoDestaxa(0)"
+    }
+  },
+  "gateEnv": null,
+  "prevalidacoes": {
+    "ok": true,
+    "snapshot": {
+      "tx3": {
+        "id": 3,
+        "status": "aprovado",
+        "nsu": "2338",
+        "nsu_host": null,
+        "autorizacao": "211139",
+        "venda_id": 66,
+        "valor": 1,
+        "idempotency_key": "tef-segunda-tentativa-bd6a8809bc64abb7",
+        "comprovante_cliente_len": 1057,
+        "comprovante_loja_len": 0
+      },
+      "venda66": {
+        "id": 66,
+        "total": 1,
+        "status": "concluida",
+        "status_pagamento": "quitada",
+        "tef_transacao_id": 3,
+        "forma_pagamento": "cartao_debito"
+      },
+      "pendentes": [],
+      "maxTefId": 3,
+      "tx2": {
+        "id": 2,
+        "status": "negado",
+        "nsu": null,
+        "autorizacao": null,
+        "venda_id": 65
+      }
+    }
+  },
+  "exclusividade": {
+    "ok": true,
+    "abortarAntesFinalize": false,
+    "codigo": null,
+    "mensagem": "Exclusividade da pendência Destaxa comprovada para TX 3 (A1 + correlação).",
+    "correlacao": {
+      "nsu": "2338",
+      "autorizacao": "211139",
+      "codigoVespague": "10100017275707",
+      "codigoInitClient": "A1"
+    }
+  },
+  "sessao": {
+    "nativeHostPid": 9264,
+    "ppid": 13820,
+    "hostSessionId": "df3ca68fb6cc5080d823efb9485228c3",
+    "securityBootstrapState": "SECURITY_BOOTSTRAP_VALIDATED",
+    "gateReal": false,
+    "dllLoadedAntes": false
+  },
+  "permit": {
+    "hostPermitPlanejado": {
+      "permitId": "26dd92d489243a2d52483a2aee5bb75f",
+      "operation": "TX_FINALIZE",
+      "transactionId": "3",
+      "purpose": "RECUPERACAO_PROTOCOLAR_TX3",
+      "confirmacao": 0
+    },
+    "exceptionalPermit": {
+      "purpose": "RECUPERACAO_PROTOCOLAR_TX3",
+      "operation": "TX_FINALIZE",
+      "confirmacao": 0,
+      "transactionId": "3",
+      "oneShot": true,
+      "dryRun": false,
+      "exceptional": true
+    },
+    "ledgerEscrito": false,
+    "notas": "Host permit one-shot emitido no SECURITY_BOOTSTRAP imediatamente antes do TX_FINALIZE; exceptionalPermit em memória para gate OFF."
+  },
+  "initClientAtual": {
+    "sucessoDll": true,
+    "codigoDestaxa": "A1",
+    "clientSucesso": false,
+    "bloqueadoA1": true,
+    "mensagem": "iniciaClientDestaxa retornou A1 — Existem transações não confirmada. Será necessário que as confirme ou cancele antes de iniciar novas transações.",
+    "statusAposClient": {
+      "clientInitialized": false,
+      "clientResultCode": "A1",
+      "dllLoaded": true,
+      "operacaoAtiva": null,
+      "gateReal": false
+    },
+    "leituraNativaAtual": true,
+    "fonte": "NativeHost pid=9264 INIT_CLIENT SPRINT-51.47"
+  },
+  "enableReal": {
+    "error": null,
+    "output": {
+      "sucesso": true,
+      "exceptional": true
+    }
+  },
+  "finalize": {
+    "error": null,
+    "output": {
+      "sucesso": true,
+      "codigo": "00",
+      "codigoDestaxa": "00",
+      "mensagem": "API executada com sucesso.",
+      "financialState": "CONFIRMED_SUCCESS",
+      "duracaoMs": 998.6422,
+      "confirmacao": 0,
+      "confirmacaoDescricao": "confirma",
+      "recuperacaoProtocolarTx3": true,
+      "semContextoCrt": true,
+      "transactionId": "3",
+      "retryAllowed": false
+    },
+    "resultCode": "00",
+    "requestId": "75407b78ceda91c9",
+    "confirmacao": 0,
+    "transactionId": "3",
+    "chamadaUnica": true
+  },
+  "initClientPos": {
+    "error": null,
+    "output": {
+      "sucesso": true,
+      "codigo": "00",
+      "codigoDestaxa": "00",
+      "descricaoCodigo": "API executada com sucesso.",
+      "mensagem": "Client Destaxa inicializado",
+      "estado": "CLIENT_INITIALIZED",
+      "duracaoMs": 8.2193,
+      "entrada": "versao=1.0.3;aplicacao=CDS Sistemas;diretorio_trabalho=C:\\CDS-SISTEMAS\\logs\\destaxa;nivel_log=1;nome_arquivo_log=destaxa-dll.log;tam_max_log=10;total_bkp_log=5",
+      "tamanhoEntrada": 159,
+      "bloqueadoA1": false,
+      "a1": null,
+      "finalizacaoAutomaticaA1": false,
+      "diagnostico": {
+        "provider": "DESTAXA",
+        "mode": "REAL",
+        "processArch": "x64",
+        "dllArch": "x64",
+        "dllPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+        "dllExists": true,
+        "dllLoaded": true,
+        "exportsValid": true,
+        "exports": {
+          "iniciaClientDestaxa": true,
+          "iniciaTransacaoDestaxa": true,
+          "continuaTransacaoDestaxa": true,
+          "finalizaTransacaoDestaxa": true
+        },
+        "clientInitialized": true,
+        "clientResultCode": "00",
+        "estado": "CLIENT_INITIALIZED",
+        "tefDisponivel": false,
+        "transactionCommunicationValidated": false,
+        "authorizationAvailable": false,
+        "ultimoCodigoClient": "00",
+        "ultimoErro": null
+      }
+    },
+    "codigoDestaxa": "00",
+    "clientInitialized": true
+  },
+  "posLeituraCds": {
+    "tx3": {
+      "id": 3,
+      "status": "aprovado",
+      "nsu": "2338",
+      "nsu_host": null,
+      "autorizacao": "211139",
+      "venda_id": 66,
+      "valor": 1,
+      "idempotency_key": "tef-segunda-tentativa-bd6a8809bc64abb7",
+      "comprovante_cliente_len": 1057,
+      "comprovante_loja_len": 0
+    },
+    "venda66": {
+      "id": 66,
+      "total": 1,
+      "status": "concluida",
+      "status_pagamento": "quitada",
+      "tef_transacao_id": 3,
+      "forma_pagamento": "cartao_debito"
+    },
+    "pendentes": [],
+    "maxTefId": 3,
+    "tx2": {
+      "id": 2,
+      "status": "negado",
+      "nsu": null,
+      "autorizacao": null,
+      "venda_id": 65
+    }
+  },
+  "chamadasFinalize": 1,
+  "novaCobranca": false,
+  "classificacao": "SUCESSO_RECUPERACAO",
+  "abortado": false,
+  "codigoAbort": null,
+  "mensagem": "FINALIZE(0)=00 e INIT pós=00; TX3/venda66 preservadas; sem nova cobrança.",
+  "ambiente": {
+    "ok": true,
+    "vspague": [
+      {
+        "ProcessId": 20760,
+        "Name": "VSPagueClient.exe",
+        "CommandLine": "VSPagueClient  -Xms64m -Xmx512m -Dfile.encoding=ISO8859-1 -Duser.timezone=America/Recife -jar C:\\VBI\\V$Pague\\Client\\V$PagueClient.jar -h app-partner.destaxa.cloud -p 60410 -atv server -tls"
+      }
+    ],
+    "electronWorkspaceConcorrente": [],
+    "mensagem": "Um V$Pague Client ativo; sem segundo Client."
+  },
+  "preservacao": {
+    "nsuIgual": true,
+    "authIgual": true,
+    "statusAprovado": true,
+    "vendaVinculo": true,
+    "comprovanteClienteLenIgual": true,
+    "comprovanteLojaLenIgual": true,
+    "tx2Inalterado": true
+  },
+  "observabilityPath": "C:\\Users\\cicer\\AppData\\Local\\CDS-SISTEMAS\\logs\\destaxa-nativehost-observability.jsonl",
+  "correlacaoLogs": [
+    {
+      "evento": "diagnostic.block",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": null,
+      "requestId": "1487ed54e5eff4c1",
+      "registradoEm": "2026-11-10T21:46:37.634Z"
+    },
+    {
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "requestId": "1487ed54e5eff4c1",
+      "registradoEm": "2026-11-10T21:46:37.662Z"
+    },
+    {
+      "evento": "ipc.response.sent",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "requestId": "1487ed54e5eff4c1",
+      "registradoEm": "2026-11-10T21:46:37.667Z"
+    },
+    {
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": "F0",
+      "requestId": "1487ed54e5eff4c1",
+      "registradoEm": "2026-11-10T21:46:37.675Z"
+    },
+    {
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "requestId": "8e0dff0c80b4ff3e",
+      "registradoEm": "2026-11-10T22:44:11.197Z"
+    },
+    {
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "requestId": "8e0dff0c80b4ff3e",
+      "registradoEm": "2026-11-10T22:44:11.200Z"
+    },
+    {
+      "evento": "ipc.message.received",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "requestId": "8e0dff0c80b4ff3e",
+      "registradoEm": "2026-11-10T22:44:11.200Z"
+    },
+    {
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "requestId": "8e0dff0c80b4ff3e",
+      "registradoEm": "2026-11-10T22:44:11.224Z"
+    },
+    {
+      "evento": "native.call.enter",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": null,
+      "requestId": "8e0dff0c80b4ff3e",
+      "registradoEm": "2026-11-10T22:44:11.240Z"
+    },
+    {
+      "evento": "native.call.return",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": "A1",
+      "requestId": "8e0dff0c80b4ff3e",
+      "registradoEm": "2026-11-10T22:44:11.244Z"
+    },
+    {
+      "evento": "client.init.result",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": "A1",
+      "requestId": "8e0dff0c80b4ff3e",
+      "registradoEm": "2026-11-10T22:44:11.248Z"
+    },
+    {
+      "evento": "diagnostic.block",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": null,
+      "requestId": "8e0dff0c80b4ff3e",
+      "registradoEm": "2026-11-10T22:44:11.252Z"
+    },
+    {
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "requestId": "8e0dff0c80b4ff3e",
+      "registradoEm": "2026-11-10T22:44:11.267Z"
+    },
+    {
+      "evento": "ipc.response.sent",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "requestId": "8e0dff0c80b4ff3e",
+      "registradoEm": "2026-11-10T22:44:11.271Z"
+    },
+    {
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": "A1",
+      "requestId": "8e0dff0c80b4ff3e",
+      "registradoEm": "2026-11-10T22:44:11.279Z"
+    },
+    {
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "ENABLE_REAL",
+      "resultCode": null,
+      "requestId": "d8ae510433ba2d2d",
+      "registradoEm": "2026-11-10T22:44:11.329Z"
+    },
+    {
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "ENABLE_REAL",
+      "resultCode": null,
+      "requestId": "d8ae510433ba2d2d",
+      "registradoEm": "2026-11-10T22:44:11.333Z"
+    },
+    {
+      "evento": "ipc.message.received",
+      "functionName": null,
+      "operation": "ENABLE_REAL",
+      "resultCode": null,
+      "requestId": "d8ae510433ba2d2d",
+      "registradoEm": "2026-11-10T22:44:11.333Z"
+    },
+    {
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "ENABLE_REAL",
+      "resultCode": null,
+      "requestId": "d8ae510433ba2d2d",
+      "registradoEm": "2026-11-10T22:44:11.353Z"
+    },
+    {
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "ENABLE_REAL",
+      "resultCode": null,
+      "requestId": "d8ae510433ba2d2d",
+      "registradoEm": "2026-11-10T22:44:11.376Z"
+    },
+    {
+      "evento": "ipc.response.sent",
+      "functionName": null,
+      "operation": "ENABLE_REAL",
+      "resultCode": null,
+      "requestId": "d8ae510433ba2d2d",
+      "registradoEm": "2026-11-10T22:44:11.380Z"
+    },
+    {
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "ENABLE_REAL",
+      "resultCode": null,
+      "requestId": "d8ae510433ba2d2d",
+      "registradoEm": "2026-11-10T22:44:11.389Z"
+    },
+    {
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "TX_FINALIZE",
+      "resultCode": null,
+      "requestId": "75407b78ceda91c9",
+      "registradoEm": "2026-11-10T22:44:11.423Z"
+    },
+    {
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "TX_FINALIZE",
+      "resultCode": null,
+      "requestId": "75407b78ceda91c9",
+      "registradoEm": "2026-11-10T22:44:11.427Z"
+    },
+    {
+      "evento": "ipc.message.received",
+      "functionName": null,
+      "operation": "TX_FINALIZE",
+      "resultCode": null,
+      "requestId": "75407b78ceda91c9",
+      "registradoEm": "2026-11-10T22:44:11.427Z"
+    },
+    {
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "TX_FINALIZE",
+      "resultCode": null,
+      "requestId": "75407b78ceda91c9",
+      "registradoEm": "2026-11-10T22:44:11.445Z"
+    },
+    {
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "TX_FINALIZE",
+      "resultCode": null,
+      "requestId": "75407b78ceda91c9",
+      "registradoEm": "2026-11-10T22:44:12.458Z"
+    },
+    {
+      "evento": "ipc.response.sent",
+      "functionName": null,
+      "operation": "TX_FINALIZE",
+      "resultCode": null,
+      "requestId": "75407b78ceda91c9",
+      "registradoEm": "2026-11-10T22:44:12.461Z"
+    },
+    {
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "TX_FINALIZE",
+      "resultCode": "00",
+      "requestId": "75407b78ceda91c9",
+      "registradoEm": "2026-11-10T22:44:12.468Z"
+    },
+    {
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "requestId": "3035541d67820326",
+      "registradoEm": "2026-11-10T22:44:12.478Z"
+    },
+    {
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "requestId": "3035541d67820326",
+      "registradoEm": "2026-11-10T22:44:12.483Z"
+    },
+    {
+      "evento": "ipc.message.received",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "requestId": "3035541d67820326",
+      "registradoEm": "2026-11-10T22:44:12.482Z"
+    },
+    {
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "requestId": "3035541d67820326",
+      "registradoEm": "2026-11-10T22:44:12.502Z"
+    },
+    {
+      "evento": "native.call.enter",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": null,
+      "requestId": "3035541d67820326",
+      "registradoEm": "2026-11-10T22:44:12.510Z"
+    },
+    {
+      "evento": "native.call.return",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": "00",
+      "requestId": "3035541d67820326",
+      "registradoEm": "2026-11-10T22:44:12.522Z"
+    },
+    {
+      "evento": "client.init.result",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": "00",
+      "requestId": "3035541d67820326",
+      "registradoEm": "2026-11-10T22:44:12.526Z"
+    },
+    {
+      "evento": "diagnostic.block",
+      "functionName": "iniciaClientDestaxa",
+      "operation": null,
+      "resultCode": null,
+      "requestId": "3035541d67820326",
+      "registradoEm": "2026-11-10T22:44:12.529Z"
+    },
+    {
+      "evento": "nativehost.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "requestId": "3035541d67820326",
+      "registradoEm": "2026-11-10T22:44:12.550Z"
+    },
+    {
+      "evento": "ipc.response.sent",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": null,
+      "requestId": "3035541d67820326",
+      "registradoEm": "2026-11-10T22:44:12.553Z"
+    },
+    {
+      "evento": "nativehost.client.lifecycle",
+      "functionName": null,
+      "operation": "INIT_CLIENT",
+      "resultCode": "00",
+      "requestId": "3035541d67820326",
+      "registradoEm": "2026-11-10T22:44:12.559Z"
+    }
+  ],
+  "fim": "2026-11-10T22:44:12.613Z",
+  "gateEnvFinal": "0"
+}

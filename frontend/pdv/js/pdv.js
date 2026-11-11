@@ -9285,9 +9285,22 @@ $(document).on('hidden.bs.modal', '.modal', function () {
 
 async function verResumoVendaFiscalTEF(vendaId) {
     try {
-        const response = await fetch(`${API_URL}/tef/venda/${vendaId}/resumo`);
-        const data = await response.json();
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
+        const response = await fetch(`${API_URL}/tef/venda/${vendaId}/resumo`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        const data = await response.json().catch(() => ({}));
 
+        if (response.status === 401) {
+            throw new Error(data.error || 'Acesso negado. Faça login novamente.');
+        }
+        if (response.status === 403) {
+            throw new Error(data.error || 'Token inválido ou expirado. Faça login novamente.');
+        }
         if (!response.ok) {
             throw new Error(data.error || 'Erro ao buscar resumo da venda.');
         }
@@ -9300,7 +9313,8 @@ STATUS DA TENTATIVA: ${data.nfce_status || 'Não informado'}
 CHAVE: ${data.nfce_chave || 'Não informada'}
 
 TEF:
-Adquirente: ${data.tef_adquirente || 'Não possui TEF'}
+Transação: ${data.tef_transacao_id || 'Não possui TEF'}
+Adquirente: ${data.tef_adquirente || '-'}
 Bandeira: ${data.tef_bandeira || '-'}
 NSU: ${data.tef_nsu || '-'}
 Autorização: ${data.tef_autorizacao || '-'}

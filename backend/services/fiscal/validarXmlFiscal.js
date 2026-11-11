@@ -95,12 +95,36 @@ function validarPagamentosETroco(xml, totais) {
   for (const detalhe of detalhesPagamento) {
     if (!/<card(?:\s[^>]*)?(?:>|\/>)/.test(detalhe)) continue;
     const card = bloco(detalhe, 'card');
-    const tipoIntegracao = tag(card, 'tpIntegra');
-    if (!['1', '2'].includes(String(tipoIntegracao || '').trim())) {
+    const tipoIntegracao = String(tag(card, 'tpIntegra') || '').trim();
+    if (!['1', '2'].includes(tipoIntegracao)) {
       const erro = new Error('Grupo card exige tpIntegra válido (1=integrado, 2=não integrado).');
       erro.code = 'XML_PAGAMENTO_TPINTEGRA_AUSENTE';
       erro.detalhes = { campo: 'tpIntegra' };
       throw erro;
+    }
+
+    // TEF-DESTAXA-51.54 — cartão integrado (tPag 03/04 + tpIntegra=1) exige CNPJ + cAut
+    // antes do envio SEFAZ (evita cStat 392). PIX (17) permanece com regras próprias.
+    const tPag = String(tag(detalhe, 'tPag') || '').trim();
+    if (tipoIntegracao === '1' && (tPag === '03' || tPag === '04')) {
+      const cnpj = String(tag(card, 'CNPJ') || '').replace(/\D/g, '');
+      if (!/^\d{14}$/.test(cnpj)) {
+        const erro = new Error(
+          'Cartão integrado (tpIntegra=1) exige CNPJ da credenciadora com 14 dígitos.'
+        );
+        erro.code = 'XML_PAGAMENTO_CNPJ_CREDENCIADORA_AUSENTE';
+        erro.detalhes = { campo: 'CNPJ', tPag, tpIntegra: tipoIntegracao, cnpj: cnpj || null };
+        throw erro;
+      }
+      const cAut = String(tag(card, 'cAut') || '').trim();
+      if (!cAut) {
+        const erro = new Error(
+          'Cartão integrado (tpIntegra=1) exige cAut (código de autorização).'
+        );
+        erro.code = 'XML_PAGAMENTO_CAUT_AUSENTE';
+        erro.detalhes = { campo: 'cAut', tPag, tpIntegra: tipoIntegracao };
+        throw erro;
+      }
     }
   }
 

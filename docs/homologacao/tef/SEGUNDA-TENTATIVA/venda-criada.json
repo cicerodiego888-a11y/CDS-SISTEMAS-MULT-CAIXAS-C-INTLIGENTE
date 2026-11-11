@@ -1,0 +1,14 @@
+{
+  "statusCode": 200,
+  "body": {
+    "id": 66,
+    "venda_id": 66,
+    "codigo": "VND-20261110172536",
+    "message": "Venda registrada com sucesso",
+    "status": "concluida",
+    "status_pagamento": "quitada",
+    "valor_fiscal": 1,
+    "valor_nao_fiscal": 0,
+    "fiscal": null
+  }
+}

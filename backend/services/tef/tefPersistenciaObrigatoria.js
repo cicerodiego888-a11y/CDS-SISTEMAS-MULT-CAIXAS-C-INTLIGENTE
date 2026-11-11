@@ -174,6 +174,21 @@ function classificarIdempotencia(row, fingerprintEsperado = null) {
     };
   }
 
+  if (status === 'nao_realizada' || financialState === FINANCIAL_STATES.INEXISTENT) {
+    return {
+      acao: 'PRESERVAR_INEXISTENTE',
+      codigo: 'TEF_OPERACAO_INEXISTENTE_PRESERVADA',
+      reutilizar: true,
+      bloquearEnvio: true,
+      transacaoId: row.id,
+      status: row.status,
+      provedor: row.provedor || null,
+      idempotency_key: row.idempotency_key || null,
+      financialState: FINANCIAL_STATES.INEXISTENT,
+      mesmoFingerprint
+    };
+  }
+
   if (STATUS_PENDENTE.has(status)
     || financialState === FINANCIAL_STATES.UNKNOWN
     || financialState === FINANCIAL_STATES.PENDING

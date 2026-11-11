@@ -8,6 +8,8 @@ const STATUS = {
   NEGADO: 'negado',
   PENDENTE: 'pendente',
   CANCELADO: 'cancelado',
+  /** Administrativo: tentativa sem existência financeira na adquirente (≠ cancelado). */
+  NAO_REALIZADA: 'nao_realizada',
   ERRO: 'erro'
 };
 
@@ -16,6 +18,9 @@ function normalizarStatus(valor) {
   if (['aprovado', 'approved', 'ok', 'success'].includes(s)) return STATUS.APROVADO;
   if (['negado', 'negada', 'denied', 'reprovado'].includes(s)) return STATUS.NEGADO;
   if (['cancelado', 'cancelada', 'cancelled'].includes(s)) return STATUS.CANCELADO;
+  if (['nao_realizada', 'nao-realizada', 'inexistente', 'inexistent'].includes(s)) {
+    return STATUS.NAO_REALIZADA;
+  }
   if (['pendente', 'pending', 'processando'].includes(s)) return STATUS.PENDENTE;
   return STATUS.ERRO;
 }

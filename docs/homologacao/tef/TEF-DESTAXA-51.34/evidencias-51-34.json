@@ -1,0 +1,61 @@
+{
+  "sprint": "TEF-DESTAXA-51.34",
+  "inicio": "2026-11-10T18:48:50.877Z",
+  "gateEnvAntes": null,
+  "proibicoes": {
+    "iniciaClientDestaxa": false,
+    "LOAD": false,
+    "TX_START": false,
+    "TX_CONTINUE": false,
+    "TX_FINALIZE": false,
+    "COM4": false
+  },
+  "nativeHost": {
+    "pid": 19016,
+    "ppid": 11292,
+    "processType": "utilityProcess",
+    "hostSessionId": "3245bf4e9363df5b4e71ab2d7c46073d",
+    "securityBootstrapState": "SECURITY_BOOTSTRAP_VALIDATED",
+    "securityBootstrapRevision": 1,
+    "gateReal": false,
+    "operacaoAtiva": null,
+    "dllLoaded": false,
+    "dllLoads": 0,
+    "clientInitialized": false,
+    "canal": "Electron utilityProcess IPC (cds-tef-native-host/1)"
+  },
+  "ping": {
+    "ok": true,
+    "requestId": "7617349968ebdc9f",
+    "resultCode": null,
+    "output": {
+      "pong": true,
+      "pid": 19016
+    },
+    "error": null,
+    "tempoMs": 20
+  },
+  "statusPosPing": {
+    "ok": true,
+    "tempoMs": 31,
+    "gateReal": false,
+    "dllLoaded": false,
+    "dllLoads": 0,
+    "clientInitialized": false,
+    "securityBootstrapState": "SECURITY_BOOTSTRAP_VALIDATED",
+    "error": null
+  },
+  "destaxa60906": {
+    "handshakeProtocolar": "INIT_CLIENT/iniciaClientDestaxa",
+    "executado": false,
+    "motivo": "Proibição absoluta da sprint 51.34 — iniciaClientDestaxa não autorizado"
+  },
+  "gateEnvDepois": null,
+  "encerramento": {
+    "encerrado": true,
+    "estado": "STOPPED"
+  },
+  "fim": "2026-11-10T18:48:51.164Z",
+  "classificacaoSugerida": "PARTIAL_CDS_NATIVEHOST_OK_DESTAXA_HANDSHAKE_PENDENTE",
+  "sucessoEscopo": true
+}

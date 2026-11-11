@@ -1,0 +1,118 @@
+{
+  "sprint": "TEF-DESTAXA-51.35",
+  "inicio": "2026-11-10T18:52:37.256Z",
+  "gateEnvAntes": null,
+  "dllPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+  "dllExists": true,
+  "arch": "x64",
+  "proibicoesRespeitadas": {
+    "TX_START": true,
+    "TX_CONTINUE": true,
+    "TX_FINALIZE": true,
+    "CRT": true,
+    "ENABLE_REAL": true,
+    "COM4_pagamento": true
+  },
+  "bootstrapMs": 177,
+  "nativeHost": {
+    "pid": 2176,
+    "ppid": 15164,
+    "processType": "utilityProcess",
+    "hostSessionId": "f345d40989ecb15cf1c54c58ffb2bb9d",
+    "securityBootstrapState": "SECURITY_BOOTSTRAP_VALIDATED",
+    "securityBootstrapRevision": 1,
+    "gateReal": false,
+    "dllLoadedAntes": false,
+    "dllLoadsAntes": 0
+  },
+  "initMs": 324,
+  "load": {
+    "sucesso": true,
+    "codigo": null,
+    "mensagem": null,
+    "statusAposLoad": {
+      "dllLoaded": true,
+      "exportsValid": true,
+      "dllPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+      "dllLoads": 1,
+      "processArch": "x64",
+      "dllArch": "x64",
+      "gateReal": false
+    }
+  },
+  "initClient": {
+    "sucesso": true,
+    "codigo": "00",
+    "codigoDestaxa": "00",
+    "descricao": "API executada com sucesso.",
+    "mensagem": "Client Destaxa inicializado",
+    "estado": "CLIENT_INITIALIZED",
+    "duracaoMs": 7.7001,
+    "statusAposClient": {
+      "clientInitialized": true,
+      "clientResultCode": "00",
+      "dllLoaded": true,
+      "dllLoads": 1,
+      "gateReal": false,
+      "operacaoAtiva": null
+    }
+  },
+  "initError": null,
+  "statusFinalMs": 30,
+  "statusFinal": {
+    "ok": true,
+    "error": null,
+    "gateReal": false,
+    "operacaoAtiva": null,
+    "dllLoaded": true,
+    "exportsValid": true,
+    "dllPath": "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\resources\\tef\\destaxa\\win-x64\\libdll-integracao-tef.dll",
+    "dllLoads": 1,
+    "clientInitialized": true,
+    "clientResultCode": "00",
+    "estado": "CLIENT_INITIALIZED",
+    "securityBootstrapState": "SECURITY_BOOTSTRAP_VALIDATED"
+  },
+  "observabilityPath": "C:\\Users\\cicer\\AppData\\Local\\CDS-SISTEMAS\\logs\\destaxa-nativehost-observability.jsonl",
+  "correlacao": [
+    {
+      "evento": "client.init.start",
+      "functionName": null,
+      "requestId": "efd35c9a67e295f5",
+      "resultCode": null,
+      "registradoEm": "2026-11-10T18:52:37.711Z"
+    },
+    {
+      "evento": "native.call.enter",
+      "functionName": "iniciaClientDestaxa",
+      "requestId": "efd35c9a67e295f5",
+      "resultCode": null,
+      "registradoEm": "2026-11-10T18:52:37.715Z"
+    },
+    {
+      "evento": "native.call.return",
+      "functionName": "iniciaClientDestaxa",
+      "requestId": "efd35c9a67e295f5",
+      "resultCode": "00",
+      "registradoEm": "2026-11-10T18:52:37.726Z"
+    },
+    {
+      "evento": "client.init.result",
+      "functionName": "iniciaClientDestaxa",
+      "requestId": "efd35c9a67e295f5",
+      "resultCode": "00",
+      "registradoEm": "2026-11-10T18:52:37.729Z"
+    },
+    {
+      "evento": "diagnostic.block",
+      "functionName": "iniciaClientDestaxa",
+      "requestId": "efd35c9a67e295f5",
+      "resultCode": null,
+      "registradoEm": "2026-11-10T18:52:37.732Z"
+    }
+  ],
+  "gateEnvDepois": "0",
+  "fim": "2026-11-10T18:52:37.821Z",
+  "classificacao": "READY",
+  "keepAlive": true
+}

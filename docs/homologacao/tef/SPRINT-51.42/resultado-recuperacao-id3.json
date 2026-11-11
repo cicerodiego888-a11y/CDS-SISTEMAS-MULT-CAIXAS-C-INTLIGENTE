@@ -1,0 +1,222 @@
+{
+  "ok": true,
+  "dryRun": false,
+  "ts": "2026-11-10T20:40:02.012Z",
+  "db": "C:/ProgramData/MercantilFiscal/dados/mercadao.db",
+  "resultado": {
+    "ok": true,
+    "idempotente": true,
+    "alterado": false,
+    "statusAnterior": "aprovado",
+    "statusPosterior": "aprovado",
+    "financialState": "CONFIRMED_SUCCESS",
+    "nsu": "2338",
+    "autorizacao": "211139",
+    "mensagem": "Recuperação administrativa já aplicada (idempotente).",
+    "persistencia": null
+  },
+  "auditoriaResumo": {
+    "sprint": "SPRINT-51.42",
+    "origem": "RECUPERACAO_ADMINISTRATIVA_DESTAXA_00",
+    "operador": "PO/Cicero — SPRINT-51.42",
+    "horario": "2026-11-10T20:40:02.012Z",
+    "evidenciaDestaxa": {
+      "codigoDestaxa": "00",
+      "estado": "SUCCESS",
+      "nsu": "2338",
+      "nsuRede": "241255",
+      "autorizacao": "211139",
+      "fonteLog": "tef_logs.id=36 (RETORNO) + colunas claras id=3"
+    },
+    "vinculoVenda": {
+      "venda_id": 66,
+      "tef_transacao_id_anterior": 3,
+      "tef_transacao_id_posterior": 3
+    },
+    "preservacoes": {
+      "nsu": "2338",
+      "autorizacao": "211139",
+      "comprovante_cliente_len": 1057,
+      "comprovante_estabelecimento_len": 1057,
+      "payload_retorno_preservado": true,
+      "venda_total": 1,
+      "venda_valor_fiscal": 1,
+      "semNovoRecebimento": true,
+      "semAlteracaoRecebimentos": true,
+      "semEventoFiscal": true,
+      "semChamadaDll": true,
+      "semCrt": true,
+      "semTxStartContinueFinalize": true,
+      "semNovoPermit": true,
+      "semGateGlobal": true,
+      "tx2Intocada": true
+    }
+  },
+  "antes": {
+    "tx": {
+      "id": 3,
+      "status": "aprovado",
+      "valor": 1,
+      "tipo": "cartao_debito",
+      "nsu": "2338",
+      "autorizacao": "211139",
+      "venda_id": 66,
+      "codigo_resposta": "00",
+      "mensagem_resposta": "RECUPERACAO_ADMINISTRATIVA CONFIRMED_SUCCESS (SPRINT-51.42) — Destaxa 00; NSU/autorização/comprovantes preservados; sem FINALIZE DLL.",
+      "len_comp_cli": 1057,
+      "len_comp_loj": 1057,
+      "len_payload": 16097,
+      "idempotency_key": "tef-segunda-tentativa-bd6a8809bc64abb7",
+      "criado_em": "2026-11-10 20:26:08",
+      "atualizado_em": "2026-11-10 20:39:53"
+    },
+    "tx2": {
+      "id": 2,
+      "status": "negado",
+      "nsu": null,
+      "autorizacao": null,
+      "venda_id": 65
+    },
+    "venda": {
+      "id": 66,
+      "total": 1,
+      "valor_fiscal": 1,
+      "status": "concluida",
+      "status_pagamento": "quitada",
+      "tef_transacao_id": 3,
+      "forma_pagamento": "cartao_debito"
+    },
+    "recebimentos": [
+      {
+        "id": 79,
+        "venda_id": 66,
+        "valor": 1,
+        "tipo_recebimento": "nao_fiscal",
+        "status": "aprovado",
+        "tef_transacao_id": null
+      }
+    ],
+    "logs": [
+      {
+        "id": 39,
+        "tipo": "RECUPERACAO_ADMINISTRATIVA_APROVADO",
+        "mensagem": "Recuperação administrativa CONFIRMED_SUCCESS (aprovado) — SPRINT-51.42; evidência Destaxa 00; vínculo venda 66",
+        "criado_em": "2026-11-10 20:39:53"
+      },
+      {
+        "id": 38,
+        "tipo": "MRT06_LEASE",
+        "mensagem": "Operação financeira inconclusiva — lease de terminal permanece (TEF-14)",
+        "criado_em": "2026-11-10 20:26:23"
+      },
+      {
+        "id": 37,
+        "tipo": "DECISAO_RETRY",
+        "mensagem": "TEF_CONFIRMED_SUCCESS_NO_RETRY",
+        "criado_em": "2026-11-10 20:26:23"
+      },
+      {
+        "id": 36,
+        "tipo": "RETORNO",
+        "mensagem": "TX_FINALIZE sem bootstrap/permit de segurança válido",
+        "criado_em": "2026-11-10 20:26:23"
+      },
+      {
+        "id": 35,
+        "tipo": "CICLO_CRT",
+        "mensagem": "Orquestração CRT Destaxa",
+        "criado_em": "2026-11-10 20:26:23"
+      }
+    ],
+    "pendentes": []
+  },
+  "depois": {
+    "tx": {
+      "id": 3,
+      "status": "aprovado",
+      "valor": 1,
+      "tipo": "cartao_debito",
+      "nsu": "2338",
+      "autorizacao": "211139",
+      "venda_id": 66,
+      "codigo_resposta": "00",
+      "mensagem_resposta": "RECUPERACAO_ADMINISTRATIVA CONFIRMED_SUCCESS (SPRINT-51.42) — Destaxa 00; NSU/autorização/comprovantes preservados; sem FINALIZE DLL.",
+      "len_comp_cli": 1057,
+      "len_comp_loj": 1057,
+      "len_payload": 16097,
+      "idempotency_key": "tef-segunda-tentativa-bd6a8809bc64abb7",
+      "criado_em": "2026-11-10 20:26:08",
+      "atualizado_em": "2026-11-10 20:39:53"
+    },
+    "tx2": {
+      "id": 2,
+      "status": "negado",
+      "nsu": null,
+      "autorizacao": null,
+      "venda_id": 65
+    },
+    "venda": {
+      "id": 66,
+      "total": 1,
+      "valor_fiscal": 1,
+      "status": "concluida",
+      "status_pagamento": "quitada",
+      "tef_transacao_id": 3,
+      "forma_pagamento": "cartao_debito"
+    },
+    "recebimentos": [
+      {
+        "id": 79,
+        "venda_id": 66,
+        "valor": 1,
+        "tipo_recebimento": "nao_fiscal",
+        "status": "aprovado",
+        "tef_transacao_id": null
+      }
+    ],
+    "logs": [
+      {
+        "id": 39,
+        "tipo": "RECUPERACAO_ADMINISTRATIVA_APROVADO",
+        "mensagem": "Recuperação administrativa CONFIRMED_SUCCESS (aprovado) — SPRINT-51.42; evidência Destaxa 00; vínculo venda 66",
+        "criado_em": "2026-11-10 20:39:53"
+      },
+      {
+        "id": 38,
+        "tipo": "MRT06_LEASE",
+        "mensagem": "Operação financeira inconclusiva — lease de terminal permanece (TEF-14)",
+        "criado_em": "2026-11-10 20:26:23"
+      },
+      {
+        "id": 37,
+        "tipo": "DECISAO_RETRY",
+        "mensagem": "TEF_CONFIRMED_SUCCESS_NO_RETRY",
+        "criado_em": "2026-11-10 20:26:23"
+      },
+      {
+        "id": 36,
+        "tipo": "RETORNO",
+        "mensagem": "TX_FINALIZE sem bootstrap/permit de segurança válido",
+        "criado_em": "2026-11-10 20:26:23"
+      },
+      {
+        "id": 35,
+        "tipo": "CICLO_CRT",
+        "mensagem": "Orquestração CRT Destaxa",
+        "criado_em": "2026-11-10 20:26:23"
+      }
+    ],
+    "pendentes": []
+  },
+  "confirmacoes": {
+    "tx3Aprovado": true,
+    "nsu2338": true,
+    "auth211139": true,
+    "comprovantesIntactos": true,
+    "venda66Vinculada": true,
+    "totaisInalterados": true,
+    "recebimentosInalterados": true,
+    "tx2Intocada": true,
+    "semPendentes": true
+  }
+}

@@ -1,0 +1,38 @@
+{
+    "fase":  "2-bloqueios",
+    "coletadoEm":  "2026-11-10T13:23:21.1511894-03:00",
+    "procsRelacionados":  [
+
+                          ],
+    "services":  [
+
+                 ],
+    "vspagueClientExists":  true,
+    "vspagueExe":  [
+
+                   ],
+    "vspagueLogs":  true,
+    "codeChecks":  {
+                       "finalizeCondicionado":  true,
+                       "promoveComprovantes":  true,
+                       "mapResultadoInicio":  true,
+                       "a1SemFinalizeAuto":  true,
+                       "criarExclusiva":  true,
+                       "extrairEvidencias":  true,
+                       "persistirEvidenciasAntesFinalize":  true,
+                       "bloquearPendente":  true,
+                       "exigirEvidenciasAntesFinalize":  true,
+                       "unknownNoRetry":  true,
+                       "intentCicloAutomaticoContinue":  true,
+                       "a1NoRetry":  true,
+                       "naoFinalize9EmFalhaPersist":  true,
+                       "promoveAutorizacao":  true,
+                       "hashTefManager5120":  true
+                   },
+    "codeChecksFailed":  [
+
+                         ],
+    "dllSizeMatch183":  true,
+    "electronExeExists":  true,
+    "electronExeVersion":  "22.3.27"
+}

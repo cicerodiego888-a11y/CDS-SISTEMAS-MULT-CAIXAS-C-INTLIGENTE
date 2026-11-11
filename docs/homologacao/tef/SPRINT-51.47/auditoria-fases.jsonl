@@ -1,0 +1,11 @@
+{"ts":"2026-11-10T22:44:10.208Z","sprint":"SPRINT-51.47","fase":"BOOT","evento":"INICIO","pid":13820,"electron":"22.3.27"}
+{"ts":"2026-11-10T22:44:10.729Z","sprint":"SPRINT-51.47","fase":"PRECHECK","evento":"AMBIENTE_OK","vspaguePid":20760}
+{"ts":"2026-11-10T22:44:10.790Z","sprint":"SPRINT-51.47","fase":"PRECHECK","evento":"CDS_OK","id":3,"status":"aprovado","nsu":"2338","nsu_host":null,"autorizacao":"211139","venda_id":66,"valor":1,"idempotency_key":"tef-segunda-tentativa-bd6a8809bc64abb7","comprovante_cliente_len":1057,"comprovante_loja_len":0}
+{"ts":"2026-11-10T22:44:11.060Z","sprint":"SPRINT-51.47","fase":"HOST","evento":"NATIVEHOST_READY","nativeHostPid":9264,"ppid":13820,"hostSessionId":"df3ca68fb6cc5080d823efb9485228c3","securityBootstrapState":"SECURITY_BOOTSTRAP_VALIDATED","gateReal":false,"dllLoadedAntes":false}
+{"ts":"2026-11-10T22:44:11.322Z","sprint":"SPRINT-51.47","fase":"INIT","evento":"INIT_CLIENT_ATUAL","codigo":"A1","leituraNativaAtual":true}
+{"ts":"2026-11-10T22:44:11.323Z","sprint":"SPRINT-51.47","fase":"EXCLUSIVIDADE","evento":"OK","nsu":"2338","autorizacao":"211139","codigoVespague":"10100017275707","codigoInitClient":"A1"}
+{"ts":"2026-11-10T22:44:11.324Z","sprint":"SPRINT-51.47","fase":"PERMIT","evento":"PREPARADO","purpose":"RECUPERACAO_PROTOCOLAR_TX3","operation":"TX_FINALIZE","confirmacao":0,"transactionId":"3","oneShot":true,"dryRun":false,"exceptional":true}
+{"ts":"2026-11-10T22:44:11.394Z","sprint":"SPRINT-51.47","fase":"PERMIT","evento":"ENABLE_REAL_OK","exceptional":true}
+{"ts":"2026-11-10T22:44:12.473Z","sprint":"SPRINT-51.47","fase":"FINALIZE","evento":"RESPOSTA","error":null,"codigoDestaxa":"00","sucesso":true}
+{"ts":"2026-11-10T22:44:12.563Z","sprint":"SPRINT-51.47","fase":"POS","evento":"INIT_CLIENT_POS","codigo":"00"}
+{"ts":"2026-11-10T22:44:12.576Z","sprint":"SPRINT-51.47","fase":"FIM","evento":"SUCESSO_RECUPERACAO","chamadasFinalize":1,"novaCobranca":false}

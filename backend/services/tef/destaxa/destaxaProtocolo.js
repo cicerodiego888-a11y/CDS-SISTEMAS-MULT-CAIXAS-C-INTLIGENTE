@@ -363,6 +363,120 @@ function buildContinuaInput(resposta = {}) {
   return buildTransactionInput(resposta);
 }
 
+/**
+ * TEF-DESTAXA-51.54 — CNPJ da credenciadora/rede a partir do campo oficial CRT
+ * `transacao_rede_cnpj` (docs/06 saída). Nunca deduz de comprovante, provedor,
+ * conf Destaxa (18.760.540/0001-39) ou configuração do estabelecimento.
+ * @returns {string|null} 14 dígitos ou null
+ */
+function normalizarCnpjCredenciadoraDestaxa(valor) {
+  if (valor == null) return null;
+  const digitos = String(valor).replace(/\D/g, '');
+  return digitos.length === 14 ? digitos : null;
+}
+
+/**
+ * Extrai CNPJ fiscal validado dos parâmetros Destaxa (somente `transacao_rede_cnpj`).
+ */
+function extrairCnpjCredenciadoraDeParametros(parametros = {}) {
+  if (!parametros || typeof parametros !== 'object') return null;
+  if (!Object.prototype.hasOwnProperty.call(parametros, 'transacao_rede_cnpj')) {
+    return null;
+  }
+  return normalizarCnpjCredenciadoraDestaxa(parametros.transacao_rede_cnpj);
+}
+
+/**
+ * TEF-DESTAXA-51.25 — extrai evidências oficiais do retorno 00 (docs/06).
+ * TEF-DESTAXA-51.54 — inclui `transacao_rede_cnpj` / cnpj_credenciadora normalizado.
+ * Preserva nomes/formatos Destaxa; não inventa campos.
+ * @param {object|string|null} resultadoOuSaida - resposta do ciclo (com .saida) ou string chave=valor
+ */
+function extrairEvidenciasRetorno00(resultadoOuSaida = null) {
+  const saida = typeof resultadoOuSaida === 'string'
+    ? resultadoOuSaida
+    : (resultadoOuSaida?.saida
+      || resultadoOuSaida?.evidencias?.saidaOriginal
+      || '');
+  const parametros = typeof resultadoOuSaida === 'object' && resultadoOuSaida?.parametros
+    && typeof resultadoOuSaida.parametros === 'object'
+    ? { ...resultadoOuSaida.parametros }
+    : parseParametrosDestaxa(saida);
+
+  const nsu = Object.prototype.hasOwnProperty.call(parametros, 'transacao_nsu')
+    ? parametros.transacao_nsu
+    : null;
+  const autorizacao = Object.prototype.hasOwnProperty.call(parametros, 'transacao_autorizacao')
+    ? parametros.transacao_autorizacao
+    : null;
+  const comprovante1via = Object.prototype.hasOwnProperty.call(parametros, 'transacao_comprovante_1via')
+    ? parametros.transacao_comprovante_1via
+    : null;
+  const comprovante2via = Object.prototype.hasOwnProperty.call(parametros, 'transacao_comprovante_2via')
+    ? parametros.transacao_comprovante_2via
+    : null;
+  const redeCnpjBruto = Object.prototype.hasOwnProperty.call(parametros, 'transacao_rede_cnpj')
+    ? parametros.transacao_rede_cnpj
+    : null;
+  const cnpjCredenciadora = extrairCnpjCredenciadoraDeParametros(parametros);
+  const rede = Object.prototype.hasOwnProperty.call(parametros, 'transacao_rede')
+    ? parametros.transacao_rede
+    : null;
+  const administradora = Object.prototype.hasOwnProperty.call(parametros, 'transacao_administradora')
+    ? parametros.transacao_administradora
+    : null;
+
+  const nsuOk = nsu != null && String(nsu).trim() !== '';
+  const autorizacaoOk = autorizacao != null && String(autorizacao).trim() !== '';
+  const via1Ok = comprovante1via != null && String(comprovante1via).trim() !== '';
+  const via2Ok = comprovante2via != null && String(comprovante2via).trim() !== '';
+
+  return {
+    transacao_nsu: nsuOk ? String(nsu) : (nsu == null ? null : String(nsu)),
+    transacao_autorizacao: autorizacaoOk ? String(autorizacao) : (autorizacao == null ? null : String(autorizacao)),
+    transacao_comprovante_1via: via1Ok ? String(comprovante1via) : (comprovante1via == null ? null : String(comprovante1via)),
+    transacao_comprovante_2via: via2Ok ? String(comprovante2via) : (comprovante2via == null ? null : String(comprovante2via)),
+    transacao_rede_cnpj: redeCnpjBruto == null ? null : String(redeCnpjBruto),
+    transacao_rede: rede == null ? null : String(rede).trim() || null,
+    transacao_administradora: administradora == null ? null : String(administradora).trim() || null,
+    nsu: nsuOk ? String(nsu) : null,
+    autorizacao: autorizacaoOk ? String(autorizacao) : null,
+    comprovanteCliente: via1Ok ? String(comprovante1via) : null,
+    comprovanteLoja: via2Ok ? String(comprovante2via) : null,
+    cnpj_credenciadora: cnpjCredenciadora,
+    adquirente: rede == null ? null : String(rede).trim() || null,
+    bandeira: administradora == null ? null : String(administradora).trim() || null,
+    parametros,
+    saidaOriginal: saida == null ? '' : String(saida),
+    completa: nsuOk === true,
+    parcial: nsuOk !== true
+      || (Object.prototype.hasOwnProperty.call(parametros, 'transacao_autorizacao') && !autorizacaoOk)
+      || (Object.prototype.hasOwnProperty.call(parametros, 'transacao_comprovante_1via') && !via1Ok)
+      || (Object.prototype.hasOwnProperty.call(parametros, 'transacao_comprovante_2via') && !via2Ok)
+  };
+}
+
+/**
+ * TEF-DESTAXA-51.25 — classificação técnica de A1 sem finalização automática.
+ * @param {'iniciaClientDestaxa'|'iniciaTransacaoDestaxa'|string} origemApi
+ */
+function classificarRetornoA1(origemApi, detalhes = {}) {
+  const origem = String(origemApi || '').trim() || 'desconhecida';
+  return {
+    codigo: 'A1',
+    classificacao: CLASSIFICACAO_CODIGO.BLOCKED,
+    financialState: 'BLOCKED',
+    retryAllowed: false,
+    finalizacaoAutomatica: false,
+    origemApi: origem,
+    mensagem: CODIGOS_RESULTADO.A1?.descricao
+      || 'Existem transações não confirmadas. Confirmar ou cancelar antes de novas transações.',
+    exigeIdentificacaoPendencia: true,
+    exigeAutorizacaoExplicita: true,
+    ...detalhes
+  };
+}
+
 module.exports = {
   parseParametrosDestaxa,
   buildTransactionInput,
@@ -376,5 +490,9 @@ module.exports = {
   valorReaisParaCentavos,
   classificarCodigoTransacao,
   parseAcaoSolicitada,
-  estadoPorAcao
+  estadoPorAcao,
+  extrairEvidenciasRetorno00,
+  classificarRetornoA1,
+  normalizarCnpjCredenciadoraDestaxa,
+  extrairCnpjCredenciadoraDeParametros
 };

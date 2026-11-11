@@ -1,0 +1,42 @@
+{
+  "ok": true,
+  "classificacao": "LIBERACAO_ONESHOT_REEMITIDA",
+  "sprint": "SPRINT-51.52",
+  "autorizacao": {
+    "authorizationId": "c3fb636267106ce343ca300d64cf7041",
+    "status": "ISSUED",
+    "valorCentavos": 100,
+    "tipoPermitido": [
+      "cartao_debito",
+      "debito"
+    ],
+    "formaPagamento": "A vista",
+    "operacao": "CRT",
+    "emitidoEm": "2026-11-11T00:54:25.964Z",
+    "expiresAt": "2026-11-11T01:00:00.011Z",
+    "consumidoEm": null,
+    "motivo": "SPRINT-51.52-reemissao-urgente-homologacao-debito-r1",
+    "vinculo": {
+      "provedor": "destaxa",
+      "portaCom": "COM4",
+      "pinpadCodigo": "GERTEC_PPC930",
+      "canal": "pdv_oficial"
+    },
+    "retryAllowed": false
+  },
+  "validadeBrasilia": "2026-11-10 22:00:00 -03:00",
+  "expiresAtUtc": "2026-11-11T01:00:00.011Z",
+  "gateProcess": "0",
+  "gateGlobalLigado": false,
+  "cobrancaExecutada": false,
+  "txStartContinueFinalize": false,
+  "maxTefId": 3,
+  "erpReiniciado": false,
+  "vinculo": {
+    "provedor": "destaxa",
+    "portaCom": "COM4",
+    "pinpadCodigo": "GERTEC_PPC930",
+    "canal": "pdv_oficial"
+  },
+  "instrucao": "Cobrança manual no PDV após confirmação de prontidão. Sem retry/PIX/crédito/cancel/estorno. Se UNKNOWN/timeout: interromper."
+}

@@ -1,0 +1,44 @@
+{
+  "ok": true,
+  "autorizacao": {
+    "authorizationId": "cff481501f704f672b3e956f4bcb62b4",
+    "status": "ISSUED",
+    "valorCentavos": 100,
+    "tipoPermitido": [
+      "cartao_debito",
+      "debito"
+    ],
+    "formaPagamento": "A vista",
+    "operacao": "CRT",
+    "emitidoEm": "2026-11-10T20:23:59.117Z",
+    "expiresAt": "2026-11-10T20:53:59.117Z",
+    "consumidoEm": null,
+    "motivo": "TEF-SEGUNDA-TENTATIVA-homologacao-debito-r1"
+  },
+  "ledgerPath": "C:\\Users\\cicer\\AppData\\Local\\CDS-SISTEMAS\\tef\\destaxa-autorizacao-excepcional.json",
+  "gateProcess": null,
+  "instrucao": "UMA CRT R$1,00 débito COM4 no PDV oficial Electron 5700. Sem retry se UNKNOWN.",
+  "ledgerDepoisPreview": [
+    {
+      "id": "ba08c88e8e67410f3048bac5e10c4046",
+      "status": "CONSUMED",
+      "valorCentavos": 100,
+      "expiresAt": "2026-11-09T19:17:09.473Z",
+      "motivo": "TEF-DESTAXA-51.10-homologacao-tx-continue-r1"
+    },
+    {
+      "id": "71506b7e1d6c73a419a8679bed07819f",
+      "status": "CONSUMED",
+      "valorCentavos": 100,
+      "expiresAt": "2026-11-10T19:48:00.322Z",
+      "motivo": "TEF-DESTAXA-PRIMEIRA-VENDA-homologacao-debito-r1"
+    },
+    {
+      "id": "cff481501f704f672b3e956f4bcb62b4",
+      "status": "ISSUED",
+      "valorCentavos": 100,
+      "expiresAt": "2026-11-10T20:53:59.117Z",
+      "motivo": "TEF-SEGUNDA-TENTATIVA-homologacao-debito-r1"
+    }
+  ]
+}

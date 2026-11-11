@@ -358,7 +358,7 @@ describe('RC3.23 — vínculo por recebimento e validação do XML final', () =>
     assert.equal(pendencia.code, 'XML_PAGAMENTO_TEF_SEM_VINCULO');
   });
 
-  it('o XML NFC-e final mantém o CNPJ real e aceita sua ausência opcional no XSD', () => {
+  it('o XML NFC-e final mantém CNPJ real; cartão integrado sem CNPJ é bloqueado localmente (51.54)', () => {
     const xmlSemCnpj = construirNfce([{
       forma_pagamento: 'cartao_credito',
       valor: 15,
@@ -377,12 +377,16 @@ describe('RC3.23 — vínculo por recebimento e validação do XML final', () =>
     assert.equal(blocoPagamento(xmlSemCnpj).includes('01425787000104'), false);
     assert.match(xmlComCnpj, /<CNPJ>12345678000190<\/CNPJ>/);
     assert.equal(blocoPagamento(xmlComCnpj).includes('01425787000104'), false);
-    assert.doesNotThrow(() => validarXmlFiscal({
-      xml: xmlSemCnpj,
-      fase: 'pre_assinatura',
-      modeloDoc: '65',
-      validarXsd: true
-    }));
+    // TEF-DESTAXA-51.54 — anti cStat 392: cartão tpIntegra=1 sem CNPJ não segue para SEFAZ
+    assert.throws(
+      () => validarXmlFiscal({
+        xml: xmlSemCnpj,
+        fase: 'pre_assinatura',
+        modeloDoc: '65',
+        validarXsd: true
+      }),
+      (err) => err && err.code === 'XML_PAGAMENTO_CNPJ_CREDENCIADORA_AUSENTE'
+    );
     assert.doesNotThrow(() => validarXmlFiscal({
       xml: xmlComCnpj,
       fase: 'pre_assinatura',

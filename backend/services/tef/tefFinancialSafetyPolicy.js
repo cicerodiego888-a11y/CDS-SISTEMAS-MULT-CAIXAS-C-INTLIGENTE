@@ -11,6 +11,13 @@
 const FINANCIAL_STATES = Object.freeze({
   CONFIRMED_SUCCESS: 'CONFIRMED_SUCCESS',
   CONFIRMED_DENIED: 'CONFIRMED_DENIED',
+  /** Cancelamento financeiro efetivo (DLL/adquirente) — distinto de INEXISTENT. */
+  CANCELLED: 'CANCELLED',
+  /**
+   * Operação não realizada/existente na adquirente (evidência administrativa).
+   * Não mapear automaticamente para CANCELLED.
+   */
+  INEXISTENT: 'INEXISTENT',
   PENDING: 'PENDING',
   UNKNOWN: 'UNKNOWN',
   UNCONFIRMED: 'UNCONFIRMED',
@@ -180,6 +187,14 @@ function classificarResultadoFinanceiro(resultado = {}) {
       FINANCIAL_STATES.CONFIRMED_DENIED,
       'DENIED',
       NO_RETRY_REASONS.DENIED,
+      { resultCode: null }
+    );
+  }
+  if (status === 'nao_realizada') {
+    return decisao(
+      FINANCIAL_STATES.INEXISTENT,
+      'INEXISTENT',
+      NO_RETRY_REASONS.UNKNOWN,
       { resultCode: null }
     );
   }

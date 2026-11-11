@@ -1,0 +1,1507 @@
+{
+  "ts": "2026-11-10T21:56:10.009Z",
+  "gateEnv": {
+    "DESTAXA_REAL_TRANSACTION_ENABLED": null,
+    "CDS_TEF_DESTAXA_GATE": null
+  },
+  "nativeHostLog": {
+    "path": "C:\\Users\\cicer\\AppData\\Local\\CDS-SISTEMAS\\logs\\destaxa-nativehost-observability.jsonl",
+    "exists": true,
+    "size": 302702,
+    "mtime": "2026-11-10T21:55:27.967Z",
+    "eventsParsed": 1147,
+    "relevantCount": 116,
+    "recent": [
+      {
+        "ts": null,
+        "evento": "ipc.response.sent",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": 14688,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:45:55.308Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:45:55.317Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.489Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.494Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.498Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": null,
+        "evento": "ipc.message.received",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": 14688,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": null,
+        "evento": "ipc.response.sent",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": 14688,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.522Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.529Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.534Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.538Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.542Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": null,
+        "evento": "ipc.message.received",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": 14688,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": null,
+        "evento": "ipc.response.sent",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": 14688,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.566Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.573Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.577Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.581Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.584Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": null,
+        "evento": "ipc.message.received",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": 14688,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.592Z",
+        "evento": "nativehost.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": 14688,
+        "ppid": 12832,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": null,
+        "evento": "client.init.start",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": null,
+        "evento": "native.call.enter",
+        "functionName": "iniciaClientDestaxa",
+        "codigo": null,
+        "mensagem": null,
+        "pid": 14688,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": null,
+        "evento": "native.call.return",
+        "functionName": "iniciaClientDestaxa",
+        "codigo": null,
+        "mensagem": null,
+        "pid": 14688,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": null,
+        "evento": "client.init.result",
+        "functionName": "iniciaClientDestaxa",
+        "codigo": "F0",
+        "mensagem": null,
+        "pid": 14688,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": null,
+        "evento": "diagnostic.block",
+        "functionName": "iniciaClientDestaxa",
+        "codigo": null,
+        "mensagem": null,
+        "pid": 14688,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.640Z",
+        "evento": "nativehost.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": 14688,
+        "ppid": 12832,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": null,
+        "evento": "ipc.response.sent",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": 14688,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.667Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.675Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.680Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.684Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.689Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": null,
+        "evento": "ipc.message.received",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": 14688,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": null,
+        "evento": "ipc.response.sent",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": 14688,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.714Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:46:37.722Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:55:27.961Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      },
+      {
+        "ts": "2026-11-10T21:55:27.966Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "pid": null,
+        "ppid": null,
+        "hostSessionId": null,
+        "transactionId": null
+      }
+    ],
+    "f0OrInitRelevant": [
+      {
+        "ts": null,
+        "evento": "native.call.return",
+        "functionName": "iniciaClientDestaxa",
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "requestId",
+          "pid",
+          "functionName",
+          "startedAt",
+          "returnedAt",
+          "durationMs",
+          "resultCode",
+          "result"
+        ]
+      },
+      {
+        "ts": null,
+        "evento": "client.init.result",
+        "functionName": "iniciaClientDestaxa",
+        "codigo": "A1",
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "requestId",
+          "pid",
+          "functionName",
+          "processArch",
+          "codigo",
+          "sucesso",
+          "duracaoMs",
+          "estado"
+        ]
+      },
+      {
+        "ts": null,
+        "evento": "diagnostic.block",
+        "functionName": "iniciaClientDestaxa",
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "requestId",
+          "pid",
+          "functionName",
+          "bloco"
+        ]
+      },
+      {
+        "ts": "2026-11-10T21:44:57.678Z",
+        "evento": "nativehost.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": 12832,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "tipo",
+          "em",
+          "pid",
+          "ppid",
+          "requestId",
+          "operation",
+          "duracaoMs",
+          "ok"
+        ]
+      },
+      {
+        "ts": null,
+        "evento": "ipc.response.sent",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "requestId",
+          "operation",
+          "pid",
+          "hasError",
+          "sendInvoked"
+        ]
+      },
+      {
+        "ts": "2026-11-10T21:44:57.719Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": null,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "tipo",
+          "em",
+          "pidPai",
+          "pidHost",
+          "estado",
+          "requestId",
+          "operation",
+          "resultCode",
+          "errorCode"
+        ]
+      },
+      {
+        "ts": "2026-11-10T21:45:55.141Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": null,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "tipo",
+          "em",
+          "pidPai",
+          "pidHost",
+          "estado",
+          "requestId",
+          "motivo"
+        ]
+      },
+      {
+        "ts": "2026-11-10T21:45:55.148Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": null,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "tipo",
+          "em",
+          "pidPai",
+          "pidHost",
+          "estado",
+          "requestId",
+          "operation"
+        ]
+      },
+      {
+        "ts": "2026-11-10T21:45:55.155Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": null,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "tipo",
+          "em",
+          "pidPai",
+          "pidHost",
+          "estado",
+          "requestId",
+          "operation",
+          "sendInvoked"
+        ]
+      },
+      {
+        "ts": null,
+        "evento": "ipc.message.received",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "requestId",
+          "operation",
+          "pid",
+          "messageType"
+        ]
+      },
+      {
+        "ts": "2026-11-10T21:45:55.164Z",
+        "evento": "nativehost.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": 12832,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "tipo",
+          "em",
+          "pid",
+          "ppid",
+          "requestId",
+          "operation"
+        ]
+      },
+      {
+        "ts": null,
+        "evento": "native.call.enter",
+        "functionName": "iniciaClientDestaxa",
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "requestId",
+          "pid",
+          "functionName",
+          "startedAt",
+          "entryConfirmed"
+        ]
+      },
+      {
+        "ts": null,
+        "evento": "native.call.return",
+        "functionName": "iniciaClientDestaxa",
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "requestId",
+          "pid",
+          "functionName",
+          "startedAt",
+          "returnedAt",
+          "durationMs",
+          "resultCode",
+          "result"
+        ]
+      },
+      {
+        "ts": null,
+        "evento": "client.init.result",
+        "functionName": "iniciaClientDestaxa",
+        "codigo": "F0",
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "requestId",
+          "pid",
+          "functionName",
+          "processArch",
+          "codigo",
+          "sucesso",
+          "duracaoMs",
+          "estado"
+        ]
+      },
+      {
+        "ts": null,
+        "evento": "diagnostic.block",
+        "functionName": "iniciaClientDestaxa",
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "requestId",
+          "pid",
+          "functionName",
+          "bloco"
+        ]
+      },
+      {
+        "ts": "2026-11-10T21:45:55.226Z",
+        "evento": "nativehost.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": 12832,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "tipo",
+          "em",
+          "pid",
+          "ppid",
+          "requestId",
+          "operation",
+          "duracaoMs",
+          "ok"
+        ]
+      },
+      {
+        "ts": null,
+        "evento": "ipc.response.sent",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "requestId",
+          "operation",
+          "pid",
+          "hasError",
+          "sendInvoked"
+        ]
+      },
+      {
+        "ts": "2026-11-10T21:45:55.261Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": null,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "tipo",
+          "em",
+          "pidPai",
+          "pidHost",
+          "estado",
+          "requestId",
+          "operation",
+          "resultCode",
+          "errorCode"
+        ]
+      },
+      {
+        "ts": "2026-11-10T21:46:37.577Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": null,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "tipo",
+          "em",
+          "pidPai",
+          "pidHost",
+          "estado",
+          "requestId",
+          "motivo"
+        ]
+      },
+      {
+        "ts": "2026-11-10T21:46:37.581Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": null,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "tipo",
+          "em",
+          "pidPai",
+          "pidHost",
+          "estado",
+          "requestId",
+          "operation"
+        ]
+      },
+      {
+        "ts": "2026-11-10T21:46:37.584Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": null,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "tipo",
+          "em",
+          "pidPai",
+          "pidHost",
+          "estado",
+          "requestId",
+          "operation",
+          "sendInvoked"
+        ]
+      },
+      {
+        "ts": null,
+        "evento": "ipc.message.received",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "requestId",
+          "operation",
+          "pid",
+          "messageType"
+        ]
+      },
+      {
+        "ts": "2026-11-10T21:46:37.592Z",
+        "evento": "nativehost.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": 12832,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "tipo",
+          "em",
+          "pid",
+          "ppid",
+          "requestId",
+          "operation"
+        ]
+      },
+      {
+        "ts": null,
+        "evento": "native.call.enter",
+        "functionName": "iniciaClientDestaxa",
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "requestId",
+          "pid",
+          "functionName",
+          "startedAt",
+          "entryConfirmed"
+        ]
+      },
+      {
+        "ts": null,
+        "evento": "native.call.return",
+        "functionName": "iniciaClientDestaxa",
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "requestId",
+          "pid",
+          "functionName",
+          "startedAt",
+          "returnedAt",
+          "durationMs",
+          "resultCode",
+          "result"
+        ]
+      },
+      {
+        "ts": null,
+        "evento": "client.init.result",
+        "functionName": "iniciaClientDestaxa",
+        "codigo": "F0",
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "requestId",
+          "pid",
+          "functionName",
+          "processArch",
+          "codigo",
+          "sucesso",
+          "duracaoMs",
+          "estado"
+        ]
+      },
+      {
+        "ts": null,
+        "evento": "diagnostic.block",
+        "functionName": "iniciaClientDestaxa",
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "requestId",
+          "pid",
+          "functionName",
+          "bloco"
+        ]
+      },
+      {
+        "ts": "2026-11-10T21:46:37.640Z",
+        "evento": "nativehost.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": 12832,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "tipo",
+          "em",
+          "pid",
+          "ppid",
+          "requestId",
+          "operation",
+          "duracaoMs",
+          "ok"
+        ]
+      },
+      {
+        "ts": null,
+        "evento": "ipc.response.sent",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": 14688,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "requestId",
+          "operation",
+          "pid",
+          "hasError",
+          "sendInvoked"
+        ]
+      },
+      {
+        "ts": "2026-11-10T21:46:37.675Z",
+        "evento": "nativehost.client.lifecycle",
+        "functionName": null,
+        "codigo": null,
+        "mensagem": null,
+        "descricao": null,
+        "pid": null,
+        "ppid": null,
+        "rawKeys": [
+          "provider",
+          "evento",
+          "registradoEm",
+          "tipo",
+          "em",
+          "pidPai",
+          "pidHost",
+          "estado",
+          "requestId",
+          "operation",
+          "resultCode",
+          "errorCode"
+        ]
+      }
+    ]
+  },
+  "vspagueLog": {
+    "path": "C:\\VBI\\V$Pague\\Client\\logs\\vspague-client.log",
+    "exists": true,
+    "size": 96099,
+    "mtime": "2026-11-10T21:46:29.946Z",
+    "relevantTail": [
+      "2026-11-10 13:29:42,769 ERROR vespague.client.interaction.VeSPagueClientTransactionManager [main] vspg-id-9bbc584a: [00151] Terminal n�o cadastrado ou desabilitado",
+      "2026-11-10 13:29:53,023 INFO lib.comm.VeSComm [main] VBIComm(>listen<:60906(0)) - Connection procedure started",
+      "2026-11-10 15:04:00,022 ERROR vespague.client.interaction.VeSPagueClientTransactionManager [main] vspg-id-7c130132: [00151] Terminal n�o cadastrado ou desabilitado",
+      "2026-11-10 15:04:10,133 INFO lib.comm.VeSComm [main] VBIComm(>listen<:60906(0)) - Connection procedure started",
+      "Thread[#54,VBIComm.ReceiveWait(>listen<:60906(0)),5,main]",
+      "Thread[#55,VBIComm.Send.Flush(>listen<:60906(0)),5,main]",
+      "2026-11-10 15:33:39,431 INFO lib.comm.VeSComm [ThreadParametrosAtualizar-vspg-id-7c894d70] VBIComm(>listen<:60906(0)) - Connection procedure started",
+      "Thread[#59,VBIComm.ReceiveWait(>listen<:60906(0)),5,VeSPagueClientToServer]",
+      "Thread[#60,VBIComm.Send.Flush(>listen<:60906(0)),5,VeSPagueClientToServer]",
+      "2026-11-10 15:37:00,885 INFO lib.comm.VeSComm [ThreadParametrosAtualizar-vspg-id-82fea91a] VBIComm(>listen<:60906(0)) - Connection procedure started",
+      "2026-11-10 15:37:02,289 ERROR lib.VBIMain [main] V$PagueClient (60603) - Application already running: Address already in use: bind",
+      "2026-11-10 16:29:04,437 INFO lib.comm.VeSComm [VBICommSocket.Listen] VBIComm(>listen<:60906(0)<>1/2026-11-10 16:29:04.384/Socket:Socket[addr=/127.0.0.1,port=61328,localport=60906]) - Connected successfull",
+      "2026-11-10 16:29:04,867 INFO vespague.client.interaction.VeSPagueClientTransactionManager [Cart�o Vender-vspg-id-82fea91a] Portas seriais encontradas: COM4",
+      "2026-11-10 16:29:05,814 INFO lib.comm.VeSComm [[PIN_PAD]COM4-vspg-id-82fea91a] VBIComm(COM4<>1/2026-11-10 16:29:05.811) - Connected successfull",
+      "2026-11-10 16:29:05,815 INFO lib.comm.VeSComm [[PIN_PAD]COM4-vspg-id-82fea91a] VBIComm(COM4) - Connection procedure started",
+      "2026-11-10 16:29:05,817 INFO lib.device.pinpad.VeSPinpadCompartilhado [[PIN_PAD]COM4-vspg-id-82fea91a] Abrindo a porta de comunica��o ...",
+      "2026-11-10 16:29:05,919 INFO lib.device.pinpad.VeSPinpadCompartilhado [[PIN_PAD]COM4-vspg-id-82fea91a] Porta de comunica��o aberta com sucesso",
+      "2026-11-10 16:29:05,920 INFO vespague.client.interaction.VeSPagueClientTransactionManager [[PIN_PAD]COM4-vspg-id-82fea91a] Pin-Pad conectado e configurado na porta: COM4[[PIN_PAD]COM4",
+      "2026-11-10 16:29:32,915 ERROR vespague.client.interaction.VeSPagueClientTransactionManager [Cart�o Vender-vspg-id-82fea91a] erro no processamento da transacao de estatistica",
+      "2026-11-10 16:30:33,636 ERROR vespague.client.device.VeSPaguePinpad [Cart�o Vender-vspg-id-82fea91a] Erro de leitura do cart�o ou cart�o inv�lido.",
+      "2026-11-10 16:42:30,675 WARN lib.comm.VeSComm [VBIComm.ReceiveWait(>listen<:60906(0))] VBIComm(>listen<:60906(0)) - Connection breaked: Connection reset (127.0.0.1)",
+      "2026-11-10 17:26:08,561 INFO lib.comm.VeSComm [VBICommSocket.Listen] VBIComm(>listen<:60906(0)<>2/2026-11-10 17:26:08.511/Socket:Socket[addr=/127.0.0.1,port=63292,localport=60906]) - Connected successfull",
+      "2026-11-10 17:26:09,672 INFO lib.comm.VeSComm [Cart�o Vender-vspg-id-82fea91a] VBIComm(COM4<>1/2026-11-10 17:26:09.672) - Connected successfull",
+      "2026-11-10 17:26:09,674 INFO lib.comm.VeSComm [Cart�o Vender-vspg-id-82fea91a] VBIComm(COM4) - Connection procedure started",
+      "2026-11-10 17:26:20,269 WARN vespague.client.device.VeSPaguePinpad [Cart�o Vender-vspg-id-82fea91a] Erro ao buscar a tag (82) na fun��o PP_GenericCmd. Ignorando ...",
+      "2026-11-10 17:26:21,636 ERROR vespague.client.util.BaixaTecnicaUtil [Cart�o Vender-vspg-id-82fea91a] erro ao abrir o arquivo de baixatecnica.dat",
+      "\tat java.base/java.io.FileInputStream.<init>(Unknown Source)",
+      "\tat java.base/java.io.FileInputStream.<init>(Unknown Source)",
+      "\tat vespague.client.graphic.transacao.VeSPagueWindowTransacaoProcessar.<init>(VeSPagueWindowTransacaoProcessar.java:372)",
+      "\tat vespague.client.graphic.transacao.cartao.VeSPagueWindowTransacaoCartaoProcessar.<init>(VeSPagueWindowTransacaoCartaoProcessar.java:62)",
+      "\tat vespague.client.graphic.transacao.cartao.VeSPagueWindowTransacaoCartaoProcessar.<init>(VeSPagueWindowTransacaoCartaoProcessar.java:109)",
+      "\tat vespague.client.graphic.transacao.cartao.VeSPagueWindowTransacaoCartaoProcessar.<init>(VeSPagueWindowTransacaoCartaoProcessar.java:83)",
+      "2026-11-10 18:42:32,424 WARN lib.comm.VeSComm [VBIComm.ReceiveWait(>listen<:60906(0))] VBIComm(>listen<:60906(0)) - Connection breaked: Connection breaked (-1) (127.0.0.1)",
+      "2026-11-10 18:46:29,944 ERROR lib.VBIMain [main] V$PagueClient (60603) - Application already running: Address already in use: bind"
+    ]
+  },
+  "confs": [],
+  "confInventory": [
+    {
+      "path": "C:\\VBI\\V$Pague\\Client\\.config\\Destaxa_LojaACB_TACB0120_BAIXA_TECNICA.dat",
+      "size": 201,
+      "mtime": "2026-11-10T20:26:21.639Z"
+    },
+    {
+      "path": "C:\\VBI\\V$Pague\\Client\\V$PagueClient_Destaxa_LojaACB_TACB0120.conf",
+      "size": 89311,
+      "mtime": "2026-11-10T18:37:00.823Z"
+    },
+    {
+      "path": "C:\\VBI\\V$Pague\\Client\\V$PagueClient_Destaxa_LojaACB_TACB0120.log",
+      "size": 810,
+      "mtime": "2026-11-10T20:26:22.252Z"
+    },
+    {
+      "path": "C:\\VBI\\V$Pague\\icons_d\\Destaxa_Oficial.ico",
+      "size": 152126,
+      "mtime": "2026-03-18T14:22:52.000Z"
+    },
+    {
+      "path": "C:\\VBI\\V$Pague\\icons_d\\Destaxa_Topo.png",
+      "size": 17398,
+      "mtime": "2026-03-18T14:22:46.000Z"
+    }
+  ],
+  "ledger": {
+    "path": "C:\\Users\\cicer\\AppData\\Local\\CDS-SISTEMAS\\tef\\destaxa-autorizacao-excepcional.json",
+    "mtime": "2026-11-10T20:26:08.283Z",
+    "count": 4,
+    "recent": [
+      {
+        "authorizationId": "5aed71f2b6e19f7f14303f69242c6796",
+        "status": "CONSUMED",
+        "emittedAt": "2026-11-09T16:54:10.595Z",
+        "consumedAt": "2026-11-09T16:58:43.030Z",
+        "operation": "CRT",
+        "valor": null
+      },
+      {
+        "authorizationId": "ba08c88e8e67410f3048bac5e10c4046",
+        "status": "CONSUMED",
+        "emittedAt": "2026-11-09T18:47:09.473Z",
+        "consumedAt": "2026-11-09T18:54:48.281Z",
+        "operation": "CRT",
+        "valor": null
+      },
+      {
+        "authorizationId": "71506b7e1d6c73a419a8679bed07819f",
+        "status": "CONSUMED",
+        "emittedAt": "2026-11-10T19:18:00.322Z",
+        "consumedAt": "2026-11-10T19:29:04.106Z",
+        "operation": "CRT",
+        "valor": null
+      },
+      {
+        "authorizationId": "cff481501f704f672b3e956f4bcb62b4",
+        "status": "CONSUMED",
+        "emittedAt": "2026-11-10T20:23:59.117Z",
+        "consumedAt": "2026-11-10T20:26:08.282Z",
+        "operation": "CRT",
+        "valor": null
+      }
+    ],
+    "last": {
+      "authorizationId": "cff481501f704f672b3e956f4bcb62b4",
+      "status": "CONSUMED",
+      "emittedAt": "2026-11-10T20:23:59.117Z",
+      "consumedAt": "2026-11-10T20:26:08.282Z",
+      "operation": "CRT",
+      "valor": null
+    }
+  },
+  "db": {
+    "maxTxId": 3,
+    "maxLogId": 42,
+    "txs": [
+      {
+        "id": 3,
+        "status": "aprovado",
+        "valor": 1,
+        "tipo": "cartao_debito",
+        "nsu": "2338",
+        "autorizacao": "211139",
+        "venda_id": 66,
+        "idempotency_key": "tef-segunda-tentativa-bd6a8809bc64abb7",
+        "criado_em": "2026-11-10 20:26:08",
+        "atualizado_em": "2026-11-10 20:39:53",
+        "codigo_resposta": "00",
+        "len_cli": 1057
+      },
+      {
+        "id": 2,
+        "status": "negado",
+        "valor": 1,
+        "tipo": "cartao_debito",
+        "nsu": null,
+        "autorizacao": null,
+        "venda_id": 65,
+        "idempotency_key": "tef-primeira-venda-9dd272f1d91f84df",
+        "criado_em": "2026-11-10 19:29:04",
+        "atualizado_em": "2026-11-10 19:30:33",
+        "codigo_resposta": null,
+        "len_cli": null
+      },
+      {
+        "id": 1,
+        "status": "nao_realizada",
+        "valor": 1,
+        "tipo": "cartao_debito",
+        "nsu": null,
+        "autorizacao": null,
+        "venda_id": null,
+        "idempotency_key": "tef-fp-90b41858f0aff5d47c573e5c3d86bc62",
+        "criado_em": "2026-11-09 16:58:43",
+        "atualizado_em": "2026-11-10 16:46:48",
+        "codigo_resposta": null,
+        "len_cli": null
+      }
+    ],
+    "logs": [
+      {
+        "id": 42,
+        "transacao_id": null,
+        "tipo": "MRT06_LEASE",
+        "mensagem": "Resultado financeiro confirmado (falha/negado/erro)",
+        "criado_em": "2026-11-10 21:46:37",
+        "snippet": "{\"leaseId\":\"lease_9291600633fade06\",\"acao\":\"LIBERAR\",\"motivo\":\"FALHA_CONFIRMADA\",\"aplicado\":{\"ok\":true,\"codigo\":\"ALLOCATED\",\"mensagem\":\"Lease liberado\",\"lease\":{\"leaseId\":\"lease_9291600633fade06\",\"terminalTefId\":\"singleton:instalacao\",\"runtimeKey\":\"runtime:destaxa:global\",\"pdvId\":null,\"provedor\":\"destaxa\",\"adquiridoEm\":\"2026-11-10T21:46:37.478Z\",\"expiraEm\":\"2026-11-10T21:48:37.478Z\",\"ocupacaoTimeo"
+      },
+      {
+        "id": 41,
+        "transacao_id": null,
+        "tipo": "MRT06_LEASE",
+        "mensagem": "Resultado financeiro confirmado (falha/negado/erro)",
+        "criado_em": "2026-11-10 21:45:55",
+        "snippet": "{\"leaseId\":\"lease_445b19b74a4f7a92\",\"acao\":\"LIBERAR\",\"motivo\":\"FALHA_CONFIRMADA\",\"aplicado\":{\"ok\":true,\"codigo\":\"ALLOCATED\",\"mensagem\":\"Lease liberado\",\"lease\":{\"leaseId\":\"lease_445b19b74a4f7a92\",\"terminalTefId\":\"singleton:instalacao\",\"runtimeKey\":\"runtime:destaxa:global\",\"pdvId\":null,\"provedor\":\"destaxa\",\"adquiridoEm\":\"2026-11-10T21:45:55.013Z\",\"expiraEm\":\"2026-11-10T21:47:55.013Z\",\"ocupacaoTimeo"
+      },
+      {
+        "id": 40,
+        "transacao_id": null,
+        "tipo": "MRT06_LEASE",
+        "mensagem": "Resultado financeiro confirmado (falha/negado/erro)",
+        "criado_em": "2026-11-10 21:44:57",
+        "snippet": "{\"leaseId\":\"lease_85cf8b72026cc38f\",\"acao\":\"LIBERAR\",\"motivo\":\"FALHA_CONFIRMADA\",\"aplicado\":{\"ok\":true,\"codigo\":\"ALLOCATED\",\"mensagem\":\"Lease liberado\",\"lease\":{\"leaseId\":\"lease_85cf8b72026cc38f\",\"terminalTefId\":\"singleton:instalacao\",\"runtimeKey\":\"runtime:destaxa:global\",\"pdvId\":null,\"provedor\":\"destaxa\",\"adquiridoEm\":\"2026-11-10T21:44:57.016Z\",\"expiraEm\":\"2026-11-10T21:46:57.016Z\",\"ocupacaoTimeo"
+      },
+      {
+        "id": 39,
+        "transacao_id": 3,
+        "tipo": "RECUPERACAO_ADMINISTRATIVA_APROVADO",
+        "mensagem": "Recuperação administrativa CONFIRMED_SUCCESS (aprovado) — SPRINT-51.42; evidência Destaxa 00; vínculo venda 66",
+        "criado_em": "2026-11-10 20:39:53",
+        "snippet": "{\"sprint\":\"SPRINT-51.42\",\"origem\":\"RECUPERACAO_ADMINISTRATIVA_DESTAXA_00\",\"cenario\":\"CONFIRMED_SUCCESS_ADMINISTRATIVO\",\"financialState\":\"CONFIRMED_SUCCESS\",\"statusAnterior\":\"pendente\",\"statusPosterior\":\"aprovado\",\"motivoAdministrativo\":\"Destaxa retornou 00 (aprovada) com NSU/autorização/comprovantes persistidos; TX_FINALIZE bloqueado por bootstrap/permit (SPRINT 51.41). Recuperação administrativa "
+      },
+      {
+        "id": 38,
+        "transacao_id": 3,
+        "tipo": "MRT06_LEASE",
+        "mensagem": "Operação financeira inconclusiva — lease de terminal permanece (TEF-14)",
+        "criado_em": "2026-11-10 20:26:23",
+        "snippet": "{\"leaseId\":\"lease_372309694cb594ce\",\"acao\":\"MARCAR_INCONCLUSIVO\",\"motivo\":null,\"aplicado\":{\"ok\":true,\"lease\":{\"leaseId\":\"lease_372309694cb594ce\",\"terminalTefId\":\"singleton:instalacao\",\"runtimeKey\":\"runtime:destaxa:global\",\"pdvId\":null,\"provedor\":\"destaxa\",\"adquiridoEm\":\"2026-11-10T20:26:06.173Z\",\"expiraEm\":null,\"ocupacaoTimeoutMs\":120000,\"resultadoFinanceiroInconclusivo\":true,\"liberado\":false,\"lib"
+      },
+      {
+        "id": 37,
+        "transacao_id": 3,
+        "tipo": "DECISAO_RETRY",
+        "mensagem": "TEF_CONFIRMED_SUCCESS_NO_RETRY",
+        "criado_em": "2026-11-10 20:26:23",
+        "snippet": "{\"transactionId\":\"3\",\"provider\":\"destaxa\",\"operation\":\"cartao_debito\",\"resultCode\":\"DESTAXA_CICLO_INCONCLUSIVO\",\"state\":\"UNKNOWN\",\"financialState\":\"UNKNOWN\",\"retryAllowed\":false,\"retryReason\":\"TEF_CONFIRMED_SUCCESS_NO_RETRY\",\"timestamp\":\"2026-11-10T20:26:23.191Z\"}"
+      },
+      {
+        "id": 36,
+        "transacao_id": 3,
+        "tipo": "RETORNO",
+        "mensagem": "TX_FINALIZE sem bootstrap/permit de segurança válido",
+        "criado_em": "2026-11-10 20:26:23",
+        "snippet": "{\"sucesso\":false,\"status\":\"pendente\",\"nsu\":\"2338\",\"autorizacao\":\"**1139\",\"cnpj_credenciadora\":null,\"provedor\":\"Destaxa\",\"adquirente\":null,\"bandeira\":null,\"comprovanteCliente\":\"/\\\\/\\\\/ Destaxa 18.760.540/0001-39\\\\/\\\\/\\\\/\\r\\n\\r\\n               USEREDE               \\r\\n                                      \\r\\nCOMPR:022111391    VALOR:         1.00\\r\\nESTAB:                 017667967881238\\r\\n10/11/"
+      },
+      {
+        "id": 35,
+        "transacao_id": 3,
+        "tipo": "CICLO_CRT",
+        "mensagem": "Orquestração CRT Destaxa",
+        "criado_em": "2026-11-10 20:26:23",
+        "snippet": "{\"passos\":[{\"passo\":\"TX_START\",\"em\":\"2026-11-10T20:26:08.363Z\",\"operacao\":\"CRT\",\"transactionId\":\"3\"},{\"passo\":\"TX_START_RESULT\",\"em\":\"2026-11-10T20:26:11.483Z\",\"codigoDestaxa\":\"99\",\"requerContinuacao\":true,\"sucesso\":false},{\"passo\":\"TX_CONTINUE\",\"em\":\"2026-11-10T20:26:11.583Z\",\"n\":1,\"tipoAcao\":\"DISPLAY\",\"origemResposta\":\"display_ack\"},{\"passo\":\"TX_CONTINUE_RESULT\",\"em\":\"2026-11-10T20:26:20.331Z\",\""
+      },
+      {
+        "id": 34,
+        "transacao_id": 3,
+        "tipo": "MRT39_RESPOSTA_CONTINUIDADE",
+        "mensagem": "Resposta OPCAO persistida",
+        "criado_em": "2026-11-10 20:26:22",
+        "snippet": "{\"fingerprint\":\"displayAck\",\"continueCount\":4,\"txStartCount\":1}"
+      },
+      {
+        "id": 33,
+        "transacao_id": 3,
+        "tipo": "MRT39_SOLICITACAO_99",
+        "mensagem": "Solicitação 99/OPCAO persistida",
+        "criado_em": "2026-11-10 20:26:22",
+        "snippet": "{\"chave\":null,\"opcoes\":[],\"timeout\":null}"
+      },
+      {
+        "id": 32,
+        "transacao_id": 3,
+        "tipo": "MRT39_RESPOSTA_CONTINUIDADE",
+        "mensagem": "Resposta OPCAO persistida",
+        "criado_em": "2026-11-10 20:26:21",
+        "snippet": "{\"fingerprint\":\"displayAck\",\"continueCount\":3,\"txStartCount\":1}"
+      },
+      {
+        "id": 31,
+        "transacao_id": 3,
+        "tipo": "MRT39_SOLICITACAO_99",
+        "mensagem": "Solicitação 99/OPCAO persistida",
+        "criado_em": "2026-11-10 20:26:21",
+        "snippet": "{\"chave\":null,\"opcoes\":[],\"timeout\":null}"
+      },
+      {
+        "id": 30,
+        "transacao_id": 3,
+        "tipo": "MRT39_RESPOSTA_CONTINUIDADE",
+        "mensagem": "Resposta OPCAO persistida",
+        "criado_em": "2026-11-10 20:26:20",
+        "snippet": "{\"fingerprint\":\"displayAck\",\"continueCount\":2,\"txStartCount\":1}"
+      },
+      {
+        "id": 29,
+        "transacao_id": 3,
+        "tipo": "MRT39_SOLICITACAO_99",
+        "mensagem": "Solicitação 99/OPCAO persistida",
+        "criado_em": "2026-11-10 20:26:20",
+        "snippet": "{\"chave\":null,\"opcoes\":[],\"timeout\":null}"
+      },
+      {
+        "id": 28,
+        "transacao_id": 3,
+        "tipo": "MRT39_RESPOSTA_CONTINUIDADE",
+        "mensagem": "Resposta OPCAO persistida",
+        "criado_em": "2026-11-10 20:26:11",
+        "snippet": "{\"fingerprint\":\"displayAck\",\"continueCount\":1,\"txStartCount\":1}"
+      },
+      {
+        "id": 27,
+        "transacao_id": 3,
+        "tipo": "MRT39_SOLICITACAO_99",
+        "mensagem": "Solicitação 99/OPCAO persistida",
+        "criado_em": "2026-11-10 20:26:11",
+        "snippet": "{\"chave\":null,\"opcoes\":[],\"timeout\":null}"
+      },
+      {
+        "id": 26,
+        "transacao_id": 3,
+        "tipo": "INICIO",
+        "mensagem": "Transação TEF iniciada — persistida antes do Adapter/DLL",
+        "criado_em": "2026-11-10 20:26:08",
+        "snippet": "{\"venda_id\":66,\"tipo\":\"cartao_debito\",\"valor\":1,\"parcelas\":1,\"idempotency_key\":\"tef-segunda-tentativa-bd6a8809bc64abb7\",\"contextoFiscal\":{\"valorCentavos\":100,\"tipo\":\"cartao_debito\"},\"pdv_id\":null,\"empresa_id\":null,\"loja_id\":null,\"_routeDecision\":{\"sucesso\":true,\"codigo\":\"SINGLETON_FALLBACK\",\"mensagem\":\"Roteamento compatível singleton (pdvId omitido) — fluxo TEF atual preservado — lease lease_37230"
+      },
+      {
+        "id": 25,
+        "transacao_id": null,
+        "tipo": "MRT06_LEASE",
+        "mensagem": "Resultado financeiro confirmado (falha/negado/erro)",
+        "criado_em": "2026-11-10 19:47:47",
+        "snippet": "{\"leaseId\":\"lease_84b9587e5b60aeb2\",\"acao\":\"LIBERAR\",\"motivo\":\"FALHA_CONFIRMADA\",\"aplicado\":{\"ok\":true,\"codigo\":\"ALLOCATED\",\"mensagem\":\"Lease liberado\",\"lease\":{\"leaseId\":\"lease_84b9587e5b60aeb2\",\"terminalTefId\":\"singleton:instalacao\",\"runtimeKey\":\"runtime:destaxa:global\",\"pdvId\":null,\"provedor\":\"destaxa\",\"adquiridoEm\":\"2026-11-10T19:47:45.931Z\",\"expiraEm\":\"2026-11-10T19:49:45.931Z\",\"ocupacaoTimeo"
+      },
+      {
+        "id": 24,
+        "transacao_id": null,
+        "tipo": "MRT06_LEASE",
+        "mensagem": "Resultado financeiro confirmado (falha/negado/erro)",
+        "criado_em": "2026-11-10 19:46:30",
+        "snippet": "{\"leaseId\":\"lease_40cb66ccfbb6d106\",\"acao\":\"LIBERAR\",\"motivo\":\"FALHA_CONFIRMADA\",\"aplicado\":{\"ok\":true,\"codigo\":\"ALLOCATED\",\"mensagem\":\"Lease liberado\",\"lease\":{\"leaseId\":\"lease_40cb66ccfbb6d106\",\"terminalTefId\":\"singleton:instalacao\",\"runtimeKey\":\"runtime:destaxa:global\",\"pdvId\":null,\"provedor\":\"destaxa\",\"adquiridoEm\":\"2026-11-10T19:46:28.989Z\",\"expiraEm\":\"2026-11-10T19:48:28.989Z\",\"ocupacaoTimeo"
+      },
+      {
+        "id": 23,
+        "transacao_id": 2,
+        "tipo": "RESULTADO_TARDIO",
+        "mensagem": "Transação cancelada pelo Client.",
+        "criado_em": "2026-11-10 19:30:33",
+        "snippet": "{\"transactionId\":\"2\",\"provider\":\"destaxa\",\"operation\":\"cartao_debito\",\"resultCode\":\"09\",\"state\":\"DENIED\",\"financialState\":\"CONFIRMED_DENIED\",\"retryAllowed\":false,\"retryReason\":\"TEF_CONFIRMED_DENIED_NO_RETRY\",\"timestamp\":\"2026-11-10T19:30:33.746Z\",\"resolution\":\"FINAL_DENIED\",\"reconciliationRequired\":false}"
+      }
+    ],
+    "venda66": {
+      "id": 66,
+      "total": 1,
+      "status": "concluida",
+      "status_pagamento": "quitada",
+      "tef_transacao_id": 3,
+      "forma_pagamento": "cartao_debito",
+      "data_venda": "2026-11-10",
+      "updated_at": null
+    },
+    "tx2": {
+      "id": 2,
+      "status": "negado",
+      "nsu": null,
+      "autorizacao": null,
+      "venda_id": 65
+    },
+    "tx3": {
+      "id": 3,
+      "status": "aprovado",
+      "nsu": "2338",
+      "autorizacao": "211139",
+      "venda_id": 66
+    },
+    "vendasRecentes": [
+      {
+        "id": 66,
+        "total": 1,
+        "status": "concluida",
+        "status_pagamento": "quitada",
+        "tef_transacao_id": 3,
+        "forma_pagamento": "cartao_debito",
+        "data_venda": "2026-11-10"
+      },
+      {
+        "id": 65,
+        "total": 1,
+        "status": "concluida",
+        "status_pagamento": "quitada",
+        "tef_transacao_id": null,
+        "forma_pagamento": "cartao_debito",
+        "data_venda": "2026-11-10"
+      },
+      {
+        "id": 64,
+        "total": 4,
+        "status": "cancelada",
+        "status_pagamento": "quitada",
+        "tef_transacao_id": null,
+        "forma_pagamento": "pix",
+        "data_venda": "2026-11-06"
+      },
+      {
+        "id": 63,
+        "total": 12,
+        "status": "concluida",
+        "status_pagamento": "quitada",
+        "tef_transacao_id": null,
+        "forma_pagamento": "misto",
+        "data_venda": "2026-10-09"
+      },
+      {
+        "id": 62,
+        "total": 70,
+        "status": "concluida",
+        "status_pagamento": "quitada",
+        "tef_transacao_id": null,
+        "forma_pagamento": "pix",
+        "data_venda": "2026-10-08"
+      }
+    ]
+  }
+}

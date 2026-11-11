@@ -1,0 +1,87 @@
+{
+  "ts": "2026-11-10T22:14:12.158Z",
+  "path": "RECUPERACAO_PROTOCOLAR_TX3",
+  "dryRun": true,
+  "execucaoReal": false,
+  "dllChamada": false,
+  "nativeHostChamado": false,
+  "permitLedgerEscrito": false,
+  "gateGlobal": "OFF",
+  "elegivel": true,
+  "ok": true,
+  "codigo": null,
+  "mensagem": "Path RECUPERACAO_PROTOCOLAR_TX3 elegível (dry-run / planejamento).",
+  "identidade": {
+    "transactionId": "3",
+    "nsu": "2338",
+    "autorizacao": "211139",
+    "vendaId": 66,
+    "idempotency_key": "tef-segunda-tentativa-bd6a8809bc64abb7",
+    "codigoVespague": "10100017275707"
+  },
+  "exclusividade": {
+    "ok": true,
+    "abortarAntesFinalize": false,
+    "codigo": null,
+    "mensagem": "Exclusividade da pendência Destaxa comprovada para TX 3 (A1 + correlação).",
+    "correlacao": {
+      "nsu": "2338",
+      "autorizacao": "211139",
+      "codigoVespague": "10100017275707",
+      "codigoInitClient": "A1"
+    }
+  },
+  "hostPermit": {
+    "permitId": "dry-run-f2303e276a0ae217",
+    "operation": "TX_FINALIZE",
+    "transactionId": "3",
+    "purpose": "RECUPERACAO_PROTOCOLAR_TX3",
+    "confirmacao": 0
+  },
+  "exceptionalPermitResumo": {
+    "purpose": "RECUPERACAO_PROTOCOLAR_TX3",
+    "operation": "TX_FINALIZE",
+    "confirmacao": 0,
+    "transactionId": "3",
+    "dryRun": true,
+    "oneShot": true
+  },
+  "passosPrevistos": [
+    "SECURITY_BOOTSTRAP (permit TX_FINALIZE + transactionId=3)",
+    "LOAD",
+    "INIT_CLIENT (esperar A1; abortar se 00 ou F0)",
+    "TX_FINALIZE confirmacao=0 / finalizaTransacaoDestaxa(0) sem _contexto CRT",
+    "INIT_CLIENT pós (esperar 00)",
+    "Auditoria tef_logs sem alterar NSU/status/venda"
+  ],
+  "passosProibidos": [
+    "TX_START",
+    "TX_CONTINUE",
+    "CRT",
+    "FINALIZE(9)",
+    "iniciaTransacaoDestaxa",
+    "retryAutomatico",
+    "DESTAXA_REAL_TRANSACTION_ENABLED=1 (não exigido / não ligar)",
+    "alterar TX2/TX3/venda66",
+    "emitir permit real nesta sprint 51.45"
+  ],
+  "snapshotReadonly": {
+    "tx3": {
+      "id": 3,
+      "status": "aprovado",
+      "nsu": "2338",
+      "autorizacao": "211139",
+      "venda_id": 66,
+      "idempotency_key": "tef-segunda-tentativa-bd6a8809bc64abb7"
+    },
+    "venda66": {
+      "id": 66,
+      "total": 1,
+      "status": "concluida",
+      "status_pagamento": "quitada",
+      "tef_transacao_id": 3,
+      "forma_pagamento": "cartao_debito"
+    },
+    "pendentes": []
+  }
+}

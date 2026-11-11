@@ -1,0 +1,67 @@
+{
+  "lease1ddd": [
+    {
+      "id": 16,
+      "tipo": "INICIO",
+      "mensagem": "Transação TEF iniciada — persistida antes do Adapter/DLL",
+      "acao": null,
+      "liberado": null,
+      "inconclusivo": null,
+      "criado_em": "2026-11-10 19:29:04"
+    },
+    {
+      "id": 21,
+      "tipo": "MRT06_LEASE",
+      "mensagem": "Operação financeira inconclusiva — lease de terminal permanece (TEF-14)",
+      "acao": "MARCAR_INCONCLUSIVO",
+      "liberado": "false",
+      "inconclusivo": "true",
+      "criado_em": "2026-11-10 19:29:34"
+    }
+  ],
+  "leasesAindaNaoLiberadosNosLogs": [
+    {
+      "id": 21,
+      "mensagem": "Operação financeira inconclusiva — lease de terminal permanece (TEF-14)",
+      "acao": "MARCAR_INCONCLUSIVO",
+      "leaseId": "lease_1ddd7a48f3655670",
+      "liberado": "false",
+      "criado_em": "2026-11-10 19:29:34"
+    },
+    {
+      "id": 16,
+      "mensagem": "Transação TEF iniciada — persistida antes do Adapter/DLL",
+      "acao": null,
+      "leaseId": null,
+      "liberado": null,
+      "criado_em": "2026-11-10 19:29:04"
+    },
+    {
+      "id": 10,
+      "mensagem": "Operação financeira inconclusiva — lease de terminal permanece (TEF-14)",
+      "acao": "MARCAR_INCONCLUSIVO",
+      "leaseId": "lease_94f8eeedd1bbebbe",
+      "liberado": "false",
+      "criado_em": "2026-11-09 16:59:12"
+    },
+    {
+      "id": 4,
+      "mensagem": "Transação TEF iniciada — persistida antes do Adapter/DLL",
+      "acao": null,
+      "leaseId": null,
+      "liberado": null,
+      "criado_em": "2026-11-09 16:58:43"
+    }
+  ],
+  "permitEmitivel": {
+    "valorCentavosFixo": 100,
+    "tipos": [
+      "cartao_debito",
+      "debito"
+    ],
+    "operacao": "CRT",
+    "ttlMs": 1800000,
+    "issuedAtivasNoLedger": 0,
+    "nota": "emitirAutorizacaoExcepcional sempre grava valorCentavos=100 e debito; não reutiliza CONSUMED"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "event": "segunda-tentativa-tef-pagar-start",
+  "startedAt": "2026-11-10T20:26:06.140Z",
+  "idempotency": "tef-segunda-tentativa-bd6a8809bc64abb7",
+  "path": "/api/tef/pagar",
+  "body": {
+    "tipo": "cartao_debito",
+    "valor": 1,
+    "parcelas": 1,
+    "venda_id": 66,
+    "idempotency_key": "tef-segunda-tentativa-bd6a8809bc64abb7"
+  },
+  "permitId": "cff481501f704f672b3e956f4bcb62b4",
+  "avisoOperador": "APROXIME/INSIRA O CARTÃO DE DÉBITO NO PINPAD GERTEC COM4 AGORA — UMA OPERAÇÃO"
+}

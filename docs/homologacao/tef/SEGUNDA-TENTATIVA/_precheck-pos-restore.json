@@ -1,0 +1,123 @@
+{
+  "ts": "2026-11-10T20:18:13.246Z",
+  "tx2": {
+    "id": 2,
+    "status": "negado",
+    "valor": 1,
+    "tipo": "cartao_debito",
+    "nsu": null,
+    "autorizacao": null,
+    "comprovante_cliente": null,
+    "comprovante_estabelecimento": null,
+    "criado_em": "2026-11-10 19:29:04",
+    "atualizado_em": "2026-11-10 19:30:33"
+  },
+  "ativasOuUnknown": [],
+  "tefConfig": {
+    "id": 1,
+    "habilitado": 1,
+    "provedor": "destaxa",
+    "ambiente": "homologacao",
+    "timeout": 60
+  },
+  "pinpads": [
+    {
+      "id": 1,
+      "tef_configuracao_id": 1,
+      "habilitado": 1,
+      "fabricante": "Gertec",
+      "modelo": "PPC930",
+      "tipo_conexao": "usb",
+      "porta_com": "COM4",
+      "ip": null,
+      "porta": null,
+      "serial": null,
+      "status": "desconhecido",
+      "ultima_conexao": null,
+      "codigo": "GERTEC_PPC930",
+      "nome": "Gertec PPC930",
+      "ativo": 1
+    }
+  ],
+  "leaseUltimos": [
+    {
+      "id": 25,
+      "tipo": "MRT06_LEASE",
+      "mensagem": "Resultado financeiro confirmado (falha/negado/erro)",
+      "acao": "LIBERAR",
+      "leaseId": "lease_84b9587e5b60aeb2",
+      "liberado": null,
+      "criado_em": "2026-11-10 19:47:47"
+    },
+    {
+      "id": 24,
+      "tipo": "MRT06_LEASE",
+      "mensagem": "Resultado financeiro confirmado (falha/negado/erro)",
+      "acao": "LIBERAR",
+      "leaseId": "lease_40cb66ccfbb6d106",
+      "liberado": null,
+      "criado_em": "2026-11-10 19:46:30"
+    },
+    {
+      "id": 21,
+      "tipo": "MRT06_LEASE",
+      "mensagem": "Operação financeira inconclusiva — lease de terminal permanece (TEF-14)",
+      "acao": "MARCAR_INCONCLUSIVO",
+      "leaseId": "lease_1ddd7a48f3655670",
+      "liberado": "false",
+      "criado_em": "2026-11-10 19:29:34"
+    },
+    {
+      "id": 16,
+      "tipo": "INICIO",
+      "mensagem": "Transação TEF iniciada — persistida antes do Adapter/DLL",
+      "acao": null,
+      "leaseId": null,
+      "liberado": null,
+      "criado_em": "2026-11-10 19:29:04"
+    },
+    {
+      "id": 10,
+      "tipo": "MRT06_LEASE",
+      "mensagem": "Operação financeira inconclusiva — lease de terminal permanece (TEF-14)",
+      "acao": "MARCAR_INCONCLUSIVO",
+      "leaseId": "lease_94f8eeedd1bbebbe",
+      "liberado": "false",
+      "criado_em": "2026-11-09 16:59:12"
+    },
+    {
+      "id": 4,
+      "tipo": "INICIO",
+      "mensagem": "Transação TEF iniciada — persistida antes do Adapter/DLL",
+      "acao": null,
+      "leaseId": null,
+      "liberado": null,
+      "criado_em": "2026-11-09 16:58:43"
+    },
+    {
+      "id": 3,
+      "tipo": "MRT06_LEASE",
+      "mensagem": "Resultado financeiro confirmado (falha/negado/erro)",
+      "acao": "LIBERAR",
+      "leaseId": "lease_4c4aa04084a6cfec",
+      "liberado": null,
+      "criado_em": "2026-11-09 15:31:16"
+    },
+    {
+      "id": 2,
+      "tipo": "MRT06_LEASE",
+      "mensagem": "Resultado financeiro confirmado (falha/negado/erro)",
+      "acao": "LIBERAR",
+      "leaseId": "lease_c049e1d87a9c588a",
+      "liberado": null,
+      "criado_em": "2026-11-09 15:30:01"
+    }
+  ],
+  "ledger": {
+    "exists": true,
+    "issued": [],
+    "consumedCount": 3
+  },
+  "gateEnv": null,
+  "nota": "Allocator de lease é em memória do processo Electron atual — limpo no boot."
+}

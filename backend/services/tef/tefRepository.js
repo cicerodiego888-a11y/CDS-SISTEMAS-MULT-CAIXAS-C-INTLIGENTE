@@ -124,7 +124,7 @@ function listarTransacoesFinalizadas(callback) {
     SELECT id, status, provedor, tipo, valor, venda_id, idempotency_key,
            codigo_transacao, payload_retorno, criado_em, atualizado_em
     FROM tef_transacoes
-    WHERE status IN ('aprovado', 'negado', 'cancelado')
+    WHERE status IN ('aprovado', 'negado', 'cancelado', 'nao_realizada')
     ORDER BY id ASC
   `, [], (err, rows) => {
     if (err) return callback(err, []);
