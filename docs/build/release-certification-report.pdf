@@ -12,7 +12,7 @@ endobj
 endobj
 
 4 0 obj
-<< /Length 1872 >>
+<< /Length 1873 >>
 stream
 BT
 /F1 10 Tf
@@ -27,15 +27,15 @@ BT
 0 -14 Td
 (- Vers?o: 1.0.3) Tj
 0 -14 Td
-(- Commit: 8083dc0) Tj
+(- Commit: 525c64e) Tj
 0 -14 Td
-(- Build: 2026-10-29T18:34:59.365Z) Tj
+(- Build: 2026-11-11T11:59:52.192Z) Tj
 0 -14 Td
-(- Hash app.asar: `6744cddb9170dc803ef55b1644ea21e474c30372f0270c877a26847efaf600a1`) Tj
+(- Hash app.asar: `5d3dfc42af38da30a4224353679c89aa3833338b54690f58a0d4cba2c9d44cdc`) Tj
 0 -14 Td
 (- Origem: fonte) Tj
 0 -14 Td
-(- Data: 2026-11-07T03:21:30.480Z) Tj
+(- Data: 2026-11-11T13:06:25.539Z) Tj
 0 -14 Td
 () Tj
 0 -14 Td
@@ -49,11 +49,11 @@ BT
 0 -14 Td
 (? Login) Tj
 0 -14 Td
-(  - user=rc4320_1794021689809 perfil=SUPER_ADMIN) Tj
+(  - user=rc4320_1794402384746 perfil=SUPER_ADMIN) Tj
 0 -14 Td
 (? Cadastro de Produtos) Tj
 0 -14 Td
-(  - CRUD ok | embalagem CX?12 | codigo=RC4320-1794021689020-P) Tj
+(  - CRUD ok | embalagem CX?12 | codigo=RC4320-1794402383746-P) Tj
 0 -14 Td
 (? Compras) Tj
 0 -14 Td
@@ -89,7 +89,7 @@ BT
 0 -14 Td
 (? Performance) Tj
 0 -14 Td
-(  - 1.5s | mem 25.6MB | sql=16) Tj
+(  - 1.8s | mem 25.6MB | sql=16) Tj
 0 -14 Td
 () Tj
 0 -14 Td
@@ -97,11 +97,11 @@ BT
 0 -14 Td
 () Tj
 0 -14 Td
-(- Tempo total: 1.5s) Tj
+(- Tempo total: 1.8s) Tj
 0 -14 Td
 (- Mem?ria m?xima: 25.6 MB) Tj
 0 -14 Td
-(- CPU user: 625 ms) Tj
+(- CPU user: 1031 ms) Tj
 0 -14 Td
 (- Testes/etapas: 12) Tj
 0 -14 Td
@@ -133,9 +133,9 @@ xref
 0000000058 00000 n 
 0000000115 00000 n 
 0000000241 00000 n 
-0000002165 00000 n 
+0000002166 00000 n 
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-2235
+2236
 %%EOF

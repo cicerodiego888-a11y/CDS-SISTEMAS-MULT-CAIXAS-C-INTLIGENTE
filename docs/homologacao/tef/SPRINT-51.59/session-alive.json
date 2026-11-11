@@ -1,0 +1,20 @@
+{
+  "em": "2026-11-11T11:29:25.977Z",
+  "sprint": "SPRINT-51.59",
+  "hostPid": 8688,
+  "hostSessionId": "168158a6e0817b7fa210a5aabd22c689",
+  "requestIdInit": "59976c52a5725517",
+  "probeElectronPid": 10756,
+  "gateEnv": "0",
+  "status": {
+    "error": null,
+    "clientInitialized": true,
+    "clientResultCode": "00",
+    "gateReal": false,
+    "operacaoAtiva": null,
+    "dllLoaded": true,
+    "hostPid": 8688,
+    "hostSessionId": "168158a6e0817b7fa210a5aabd22c689"
+  },
+  "sessaoAtiva": true
+}

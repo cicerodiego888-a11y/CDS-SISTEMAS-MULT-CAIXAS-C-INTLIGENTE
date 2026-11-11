@@ -1,0 +1,62 @@
+{
+  "ok": true,
+  "classificacao": "READY_FOR_MANUAL_PDV_PAYMENT",
+  "sprint": "SPRINT-51.62",
+  "autorizacao": {
+    "authorizationId": "b1984345b0e39f8df0fde68367ebd60b",
+    "status": "ISSUED",
+    "valorCentavos": 100,
+    "tipoPermitido": [
+      "cartao_debito",
+      "debito"
+    ],
+    "formaPagamento": "A vista",
+    "operacao": "CRT",
+    "emitidoEm": "2026-11-11T11:34:33.219Z",
+    "expiresAt": "2026-11-11T12:04:33.219Z",
+    "consumidoEm": null,
+    "motivo": "SPRINT-51.62-oneshot-manual-pdv-debito-r1",
+    "vinculo": {
+      "provedor": "destaxa",
+      "portaCom": "COM4",
+      "pinpadCodigo": "GERTEC_PPC930",
+      "canal": "pdv_oficial"
+    },
+    "retryAllowed": false
+  },
+  "inspecaoSemConsumo": {
+    "ok": true,
+    "status": "ISSUED",
+    "authorizationId": "b1984345b0e39f8df0fde68367ebd60b"
+  },
+  "disponivelAoPdvSemConsumo": true,
+  "validadeBrasilia": "11/11/2026, 09:04:33 (America/Sao_Paulo)",
+  "expiresAtUtc": "2026-11-11T12:04:33.219Z",
+  "ttlMs": 1800000,
+  "sessaoUtilizada": {
+    "hostSessionId": "91ce63acec0f09b2efba16571dad4c74",
+    "erpPid": 16744,
+    "hostPid": 13940
+  },
+  "vinculo": {
+    "provedor": "destaxa",
+    "portaCom": "COM4",
+    "pinpadCodigo": "GERTEC_PPC930",
+    "canal": "pdv_oficial"
+  },
+  "gateProcess": "0",
+  "gateGlobalLigado": false,
+  "cobrancaExecutadaPeloCursor": false,
+  "txStartContinueFinalize": false,
+  "apiTefPagar": false,
+  "maxTefId": 4,
+  "avisoFiscal": "Fluxo PDV oficial após TEF aprovado tipicamente segue para emissão/transmissão NFC-e. Esta sprint NÃO isola SEFAZ; transmissão fiscal exige autorização separada do PO. Operador deve estar ciente antes de concluir a venda.",
+  "instrucao": [
+    "No PDV oficial (ERP 16744), dentro do TTL:",
+    "1) Abrir caixa / venda homologação R$ 1,00 débito Destaxa Gertec COM4.",
+    "2) Uma única tentativa. Sem retry / PIX / crédito / cancel / estorno.",
+    "3) Se UNKNOWN/timeout/ambíguo: interromper e preservar evidências.",
+    "4) Gate global permanece OFF.",
+    "5) Transmissão NFC-e/SEFAZ: somente com autorização fiscal separada do PO."
+  ]
+}

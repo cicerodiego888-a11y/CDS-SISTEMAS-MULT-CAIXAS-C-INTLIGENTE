@@ -10,7 +10,10 @@ if (!['erp', 'pdv'].includes(MODULO_ELECTRON)) {
 
 delete process.env.TEF_ENCRYPTION_KEY;
 
-const { configurarPerfilTef } = require('./backend/services/tef/tefCryptoProfileProvisioner');
+const {
+  configurarPerfilTef,
+  finalizarContextoFirstInstall
+} = require('./backend/services/tef/tefCryptoProfileProvisioner');
 let contextoPerfilTef = null;
 let erroContextoPerfilTef = null;
 try {
@@ -23,7 +26,10 @@ try {
     modulo: contextoPerfilTef.modulo,
     userDataPath: contextoPerfilTef.userDataPath,
     localStateSha256: contextoPerfilTef.localStateSha256,
-    localStateInstalado: contextoPerfilTef.localStateInstalado
+    localStateInstalado: contextoPerfilTef.localStateInstalado,
+    modo: contextoPerfilTef.modo || null,
+    roteamento: contextoPerfilTef.roteamento || null,
+    firstInstallPendente: contextoPerfilTef.firstInstallPendente === true
   });
 } catch (error) {
   delete process.env.TEF_ENCRYPTION_KEY;
@@ -325,18 +331,55 @@ function carregarConfiguracaoServidor(modulo = 'erp') {
   }
 }
 
+async function aguardarLocalStateFirstInstall(userDataPath, tentativas = 40, intervaloMs = 100) {
+  const localStatePath = path.join(userDataPath, 'Local State');
+  for (let i = 0; i < tentativas; i += 1) {
+    try {
+      if (fs.existsSync(localStatePath) && fs.statSync(localStatePath).isFile()) {
+        return localStatePath;
+      }
+    } catch (_) { /* retry */ }
+    await new Promise((resolve) => setTimeout(resolve, intervaloMs));
+  }
+  const error = new Error('Local State do Electron não materializou após whenReady (FIRST_INSTALL).');
+  error.code = 'TEF_CONTEXTO_LOCAL_STATE_AUSENTE';
+  error.etapa = 'contexto-criptografico';
+  throw error;
+}
+
 async function prepararChaveCriptograficaTef() {
   try {
     if (erroContextoPerfilTef) throw erroContextoPerfilTef;
+
+    let permitirGeracaoChave = false;
+    if (contextoPerfilTef && contextoPerfilTef.firstInstallPendente === true) {
+      await aguardarLocalStateFirstInstall(contextoPerfilTef.userDataPath);
+      contextoPerfilTef = finalizarContextoFirstInstall({
+        app,
+        modulo: MODULO_ELECTRON
+      });
+      permitirGeracaoChave = contextoPerfilTef.permitirGeracaoChave === true;
+      console.info('[TEF] FIRST_INSTALL finalizado no userData definitivo:', {
+        modulo: MODULO_ELECTRON,
+        userDataPath: contextoPerfilTef.userDataPath,
+        localStateSha256: contextoPerfilTef.localStateSha256,
+        markerCriado: contextoPerfilTef.markerCriado === true
+      });
+    } else if (contextoPerfilTef && contextoPerfilTef.permitirGeracaoChave === true) {
+      permitirGeracaoChave = true;
+    }
+
     const resultado = await provisionarChaveTef({
       safeStorage,
       dbDir: process.env.DB_DIR,
-      permitirGeracaoChave: false
+      permitirGeracaoChave
     });
-    console.info('[TEF] Chave original recuperada pelo armazenamento protegido:', {
+    console.info('[TEF] Chave TEF provisionada pelo armazenamento protegido:', {
       modulo: MODULO_ELECTRON,
       etapa: 'provisionamento-da-chave',
-      origem: resultado.origem
+      origem: resultado.origem,
+      modo: contextoPerfilTef && contextoPerfilTef.modo ? contextoPerfilTef.modo : null,
+      permitirGeracaoChave
     });
     return true;
   } catch (error) {
@@ -346,6 +389,29 @@ async function prepararChaveCriptograficaTef() {
     const mensagem = error && error.message
       ? error.message
       : 'O armazenamento seguro da chave TEF está indisponível.';
+    const firstInstall = contextoPerfilTef
+      && (contextoPerfilTef.modo === 'FIRST_INSTALL'
+        || contextoPerfilTef.firstInstallPendente === true);
+
+    // Instalação nova: ERP pode abrir sem TEF se a chave/contexto ainda não puder
+    // ser concluído com segurança. Migração/contexto corrompido permanece fail-closed.
+    if (firstInstall
+        && (codigo === 'TEF_CONTEXTO_LOCAL_STATE_AUSENTE'
+          || codigo === 'TEF_CHAVE_ARMAZENAMENTO_INDISPONIVEL'
+          || codigo === 'TEF_CHAVE_AUSENTE_SEM_FALLBACK'
+          || codigo === 'TEF_CHAVE_PROVISIONAMENTO_FALHOU')) {
+      console.error('[TEF] FIRST_INSTALL: TEF indisponível; ERP segue sem chave TEF:', {
+        modulo: MODULO_ELECTRON,
+        etapa,
+        codigo
+      });
+      dialog.showErrorBox(
+        'TEF indisponível nesta instalação',
+        `${mensagem}\n\nO ERP continuará sem operações TEF até o contexto ser resolvido.\nEtapa: ${etapa}\nCódigo: ${codigo}`
+      );
+      return 'tef-indisponivel-first-install';
+    }
+
     console.error('[TEF] Startup bloqueado por falha criptográfica:', {
       modulo: MODULO_ELECTRON,
       etapa,
@@ -357,11 +423,39 @@ async function prepararChaveCriptograficaTef() {
 }
 
 async function exigirChaveCriptograficaTef() {
-  if (await prepararChaveCriptograficaTef()) return;
+  const resultado = await prepararChaveCriptograficaTef();
+  if (resultado === true || resultado === 'tef-indisponivel-first-install') return;
   const error = new Error('O backend não será iniciado sem a chave criptográfica TEF validada.');
   error.code = 'TEF_STARTUP_BLOQUEADO';
   error.etapa = 'provisionamento-da-chave';
   throw error;
+}
+
+function agendarInitClientErpOficialSeAutorizado() {
+  // SPRINT-51.61 — INIT_CLIENT único no processo ERP (env gated; sem cobrança).
+  if (String(process.env.CDS_TEF_ERP_INIT_CLIENT_ONCE || '').trim() !== '1') return;
+  if (String(process.env.CDS_APP_MODULO || '').toLowerCase() !== 'erp') return;
+  setImmediate(() => {
+    try {
+      const initOnce = require('./docs/homologacao/tef/SPRINT-51.61/tef-51-61-erp-init-once');
+      Promise.resolve()
+        .then(() => initOnce.executar())
+        .then((r) => {
+          console.log('[SPRINT-51.61]', JSON.stringify({
+            classificacao: r?.classificacao,
+            ok: r?.ok,
+            erpPid: process.pid,
+            hostPid: r?.nativeHost?.pid || null,
+            hostSessionId: r?.nativeHost?.hostSessionId || null
+          }));
+        })
+        .catch((error) => {
+          console.error('[SPRINT-51.61] INIT ERP falhou', error && error.message ? error.message : error);
+        });
+    } catch (error) {
+      console.error('[SPRINT-51.61] não foi possível carregar init-once', error && error.message ? error.message : error);
+    }
+  });
 }
 
 function iniciarBackendLocal(tituloJanela) {
@@ -377,7 +471,9 @@ function iniciarBackendLocal(tituloJanela) {
     .then((server) => {
       const address = server.address();
       const portaReal = address && typeof address === 'object' ? address.port : obterPortaServidor();
-      return createWindow(portaReal, tituloJanela);
+      const janela = createWindow(portaReal, tituloJanela);
+      agendarInitClientErpOficialSeAutorizado();
+      return janela;
     });
 }
 
@@ -688,6 +784,7 @@ function iniciarAplicacaoElectron(options = {}) {
           const address = server.address();
           const portaReal = address && typeof address === 'object' ? address.port : obterPortaServidor();
           createWindow(portaReal, tituloJanela);
+          agendarInitClientErpOficialSeAutorizado();
         })
         .catch((error) => {
           dialog.showErrorBox('Erro ao iniciar servidor', `${error.message}\n\nDB_DIR: ${process.env.DB_DIR}`);

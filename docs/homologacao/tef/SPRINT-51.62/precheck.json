@@ -1,0 +1,99 @@
+{
+  "sprint": "SPRINT-51.62",
+  "em": "2026-11-11T11:34:33.057Z",
+  "ok": true,
+  "checks": {
+    "erp16744": true,
+    "host13940Alive": true,
+    "hostIsNodeService": true,
+    "vspague22380Unico": true,
+    "sessionAlive": true,
+    "clientInitialized": true,
+    "com4": true,
+    "gateOff": true,
+    "maxTef4": true,
+    "semPendenteUnknown": true,
+    "venda67Ok": true
+  },
+  "erp": {
+    "ProcessId": 16744,
+    "ParentProcessId": 21516
+  },
+  "host": {
+    "ProcessId": 13940,
+    "ParentProcessId": 16744,
+    "isNodeService": true
+  },
+  "vspague": [
+    {
+      "ProcessId": 22380
+    }
+  ],
+  "alive": {
+    "em": "2026-11-11T11:34:27.206Z",
+    "sprint": "SPRINT-51.61",
+    "erpPid": 16744,
+    "hostPid": 13940,
+    "hostSessionId": "91ce63acec0f09b2efba16571dad4c74",
+    "requestIdInit": "6aa8b07ffd9c4317",
+    "gateEnv": "0",
+    "status": {
+      "error": null,
+      "clientInitialized": true,
+      "clientResultCode": "00",
+      "gateReal": false,
+      "operacaoAtiva": null,
+      "dllLoaded": true,
+      "hostPid": 13940,
+      "hostSessionId": "91ce63acec0f09b2efba16571dad4c74"
+    },
+    "sessaoAtiva": true,
+    "vinculoPdvOk": true
+  },
+  "pin": {
+    "porta_com": "COM4",
+    "codigo": "GERTEC_PPC930",
+    "habilitado": 1,
+    "ativo": 1
+  },
+  "pinPnp": [
+    {
+      "Name": "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+      "Status": "OK"
+    }
+  ],
+  "max": {
+    "maxId": 4
+  },
+  "txs": [
+    {
+      "id": 2,
+      "status": "negado",
+      "nsu": null,
+      "autorizacao": null,
+      "venda_id": 65
+    },
+    {
+      "id": 3,
+      "status": "aprovado",
+      "nsu": "2338",
+      "autorizacao": "211139",
+      "venda_id": 66
+    },
+    {
+      "id": 4,
+      "status": "aprovado",
+      "nsu": "2348",
+      "autorizacao": "211139",
+      "venda_id": 67
+    }
+  ],
+  "venda67": {
+    "id": 67,
+    "status": "concluida",
+    "tef_transacao_id": 4
+  },
+  "pend": [],
+  "gate": "0",
+  "avisoFiscal": "Fluxo PDV oficial após TEF aprovado tipicamente segue para emissão/transmissão NFC-e. Esta sprint NÃO isola SEFAZ; transmissão fiscal exige autorização separada do PO. Operador deve estar ciente antes de concluir a venda."
+}

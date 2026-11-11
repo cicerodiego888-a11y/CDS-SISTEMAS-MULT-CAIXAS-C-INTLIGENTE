@@ -1,0 +1,175 @@
+{
+  "sprint": "SPRINT-51.55",
+  "fixture": "docs/homologacao/tef/SEGUNDA-TENTATIVA/venda-http-resultado.json",
+  "saidaOrigem": "resposta.payloadRetorno.evidenciasDestaxa00.saidaOriginal + parametros",
+  "mapped": {
+    "cnpj_credenciadora": "01425787000104",
+    "adquirente": "Userede",
+    "bandeira": "Visa",
+    "nsu": "2338",
+    "autorizacao": "211139"
+  },
+  "xmlDebito": "<pag>\n      <detPag>\n        <tPag>04</tPag>\n    <vPag>1.00</vPag>\n        <card>\n          <tpIntegra>1</tpIntegra>\n      <CNPJ>01425787000104</CNPJ><tBand>01</tBand><cAut>211139</cAut></card></detPag></pag>",
+  "validacaoDemo": {
+    "ok": true,
+    "erro": null
+  },
+  "checks": [
+    {
+      "nome": "A1_transacao_rede_cnpj_presente",
+      "ok": true,
+      "detalhe": "01.425.787/0001-04"
+    },
+    {
+      "nome": "A2_cnpj_14_digitos",
+      "ok": true,
+      "detalhe": "01425787000104"
+    },
+    {
+      "nome": "A3_adquirente_userede",
+      "ok": true,
+      "detalhe": "Userede"
+    },
+    {
+      "nome": "A4_bandeira_visa",
+      "ok": true,
+      "detalhe": "Visa"
+    },
+    {
+      "nome": "A5_nsu_nao_confundido",
+      "ok": true,
+      "detalhe": "2338"
+    },
+    {
+      "nome": "A6_autorizacao_nao_confundida",
+      "ok": true,
+      "detalhe": "211139"
+    },
+    {
+      "nome": "A7_map_cnpj",
+      "ok": true,
+      "detalhe": "01425787000104"
+    },
+    {
+      "nome": "A8_map_adquirente",
+      "ok": true,
+      "detalhe": "Userede"
+    },
+    {
+      "nome": "A9_map_bandeira",
+      "ok": true,
+      "detalhe": "Visa"
+    },
+    {
+      "nome": "A10_payload_cnpj",
+      "ok": true,
+      "detalhe": "01425787000104"
+    },
+    {
+      "nome": "A11_nao_usa_cnpj_destaxa",
+      "ok": true,
+      "detalhe": "01425787000104"
+    },
+    {
+      "nome": "B1_cnpj_sobrevive_serializacao",
+      "ok": true,
+      "detalhe": "01425787000104"
+    },
+    {
+      "nome": "B2_hydrator_top_level",
+      "ok": true,
+      "detalhe": "01425787000104"
+    },
+    {
+      "nome": "B3_hydrator_parametros",
+      "ok": true,
+      "detalhe": "01425787000104"
+    },
+    {
+      "nome": "B4_sem_invencao_comprovante",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "B5_ausencia_null",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "B6_normaliza_invalido_null",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "C1_tPag_04",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "C2_tpIntegra_1",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "C3_cnpj_userede",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "C4_tBand_visa",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "C5_cAut",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "C6_sem_cnpj_destaxa",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "C7_validador_aceita_demo",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "C8_bloqueia_sem_cnpj",
+      "ok": true,
+      "detalhe": {
+        "blocked": true,
+        "code": "XML_PAGAMENTO_CNPJ_CREDENCIADORA_AUSENTE"
+      }
+    },
+    {
+      "nome": "C9_bloqueia_sem_caut",
+      "ok": true,
+      "detalhe": {
+        "blocked": true,
+        "code": "XML_PAGAMENTO_CAUT_AUSENTE"
+      }
+    },
+    {
+      "nome": "C10_bloqueia_cnpj_invalido",
+      "ok": true,
+      "detalhe": {
+        "blocked": true,
+        "code": "XML_PAGAMENTO_CNPJ_CREDENCIADORA_AUSENTE"
+      }
+    },
+    {
+      "nome": "C11_pix_sem_exigir_cnpj_cartao",
+      "ok": true,
+      "detalhe": null
+    },
+    {
+      "nome": "C12_dinheiro_sem_card",
+      "ok": true,
+      "detalhe": null
+    }
+  ],
+  "aprovado": true,
+  "falhas": []
+}

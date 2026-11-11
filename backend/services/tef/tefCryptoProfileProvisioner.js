@@ -7,6 +7,10 @@ const path = require('path');
 const APP_NAME = 'cds-sistemas';
 const EXPECTED_LOCAL_STATE_SHA256 = '26052081177AE4A83BD43FE0AB2C435330D8A252D03EF7595BD3C66C1AC86040';
 const MARKER_FILENAME = '.cds-tef-crypto-context.json';
+const MODOS_CONTEXTO = Object.freeze({
+  MIGRATION: 'MIGRATION',
+  FIRST_INSTALL: 'FIRST_INSTALL'
+});
 const PROFILE_NAMES = Object.freeze({
   erp: 'cds-sistemas-erp',
   pdv: 'cds-sistemas-pdv'
@@ -77,18 +81,112 @@ function lerMarker(markerPath, fsApi = fs) {
   }
 }
 
-function validarMarker(marker, { modulo, userDataPath }) {
+function normalizarModoMarker(marker) {
+  if (!marker) return null;
+  if (marker.modo === MODOS_CONTEXTO.FIRST_INSTALL) return MODOS_CONTEXTO.FIRST_INSTALL;
+  // Marcadores legados MRT-50.38 (sem campo modo) = migração homologada.
+  return MODOS_CONTEXTO.MIGRATION;
+}
+
+function validarMarker(marker, { modulo, userDataPath, localStateSha256 = null }) {
   if (!marker
       || marker.versao !== 1
       || marker.appName !== APP_NAME
       || marker.modulo !== modulo
-      || marker.localStateOrigemSha256 !== EXPECTED_LOCAL_STATE_SHA256
+      || typeof marker.localStateOrigemSha256 !== 'string'
       || !compararCaminhos(marker.userDataPath, userDataPath)) {
     throw criarErro(
       'TEF_CONTEXTO_PERFIL_DIVERGENTE',
       'O perfil já possui um contexto criptográfico diferente ou não reconhecido.'
     );
   }
+
+  const modo = normalizarModoMarker(marker);
+  if (modo === MODOS_CONTEXTO.MIGRATION) {
+    if (marker.localStateOrigemSha256 !== EXPECTED_LOCAL_STATE_SHA256) {
+      throw criarErro(
+        'TEF_CONTEXTO_PERFIL_DIVERGENTE',
+        'O perfil já possui um contexto criptográfico diferente ou não reconhecido.'
+      );
+    }
+    if (localStateSha256 != null && localStateSha256 !== EXPECTED_LOCAL_STATE_SHA256) {
+      throw criarErro(
+        'TEF_CONTEXTO_PERFIL_DIVERGENTE',
+        'O Local State existente não corresponde ao contexto criptográfico validado.'
+      );
+    }
+    return modo;
+  }
+
+  if (modo === MODOS_CONTEXTO.FIRST_INSTALL) {
+    if (localStateSha256 != null && marker.localStateOrigemSha256 !== localStateSha256) {
+      throw criarErro(
+        'TEF_CONTEXTO_PERFIL_DIVERGENTE',
+        'O Local State FIRST_INSTALL não corresponde ao marcador deste perfil.'
+      );
+    }
+    return modo;
+  }
+
+  throw criarErro(
+    'TEF_CONTEXTO_PERFIL_DIVERGENTE',
+    'O perfil já possui um contexto criptográfico diferente ou não reconhecido.'
+  );
+}
+
+/**
+ * Distingue migração (Local State preservado) de instalação realmente nova.
+ * Não provisiona chave; apenas classifica o roteamento do contexto.
+ */
+function classificarRoteamentoContexto({
+  marker,
+  localStatePath,
+  sourceLocalStatePath,
+  userDataPath,
+  fsApi = fs
+} = {}) {
+  if (marker) {
+    const modo = normalizarModoMarker(marker);
+    return {
+      roteamento: modo === MODOS_CONTEXTO.FIRST_INSTALL
+        ? 'FIRST_INSTALL_EXISTENTE'
+        : 'MIGRATION_EXISTENTE',
+      modo
+    };
+  }
+
+  const localStateExiste = Boolean(localStatePath && fsApi.existsSync(localStatePath));
+  let entradas = [];
+  try {
+    entradas = fsApi.readdirSync(userDataPath);
+  } catch (error) {
+    if (!error || error.code !== 'ENOENT') throw error;
+  }
+
+  if (!localStateExiste && entradas.length > 0) {
+    return { roteamento: 'PERFIL_NAO_VAZIO', modo: null };
+  }
+
+  const sourceInformada = typeof sourceLocalStatePath === 'string'
+    && sourceLocalStatePath.trim().length > 0;
+
+  if (!localStateExiste && entradas.length === 0) {
+    if (sourceInformada) {
+      return { roteamento: 'MIGRATION_PROVISION', modo: MODOS_CONTEXTO.MIGRATION };
+    }
+    return { roteamento: 'FIRST_INSTALL', modo: MODOS_CONTEXTO.FIRST_INSTALL };
+  }
+
+  // Local State presente sem marcador: só migração pode concluir via origem preservada.
+  if (localStateExiste && sourceInformada) {
+    return { roteamento: 'MIGRATION_PROVISION', modo: MODOS_CONTEXTO.MIGRATION };
+  }
+  if (localStateExiste && !sourceInformada) {
+    // Instalação nova interrompida após Electron criar Local State — finalizar marcador.
+    return { roteamento: 'FIRST_INSTALL_PENDING_MARKER', modo: MODOS_CONTEXTO.FIRST_INSTALL };
+  }
+
+  return { roteamento: 'INDEFINIDO', modo: null };
 }
 
 function validarLocalState(filePath, fsApi = fs) {
@@ -240,21 +338,18 @@ function validarPerfilTefExistente({ app, modulo, fsApi = fs } = {}) {
     const { userDataPath } = selecionarPerfilTefExistente({ app, modulo });
     const markerPath = path.join(userDataPath, MARKER_FILENAME);
     const marker = lerMarker(markerPath, fsApi);
+    // Marcador ausente/divergente falha antes de tocar o Local State (fail-closed).
     validarMarker(marker, { modulo, userDataPath });
     const localStateSha256 = validarLocalState(path.join(userDataPath, 'Local State'), fsApi);
-    if (localStateSha256 !== EXPECTED_LOCAL_STATE_SHA256) {
-      throw criarErro(
-        'TEF_CONTEXTO_PERFIL_DIVERGENTE',
-        'O Local State existente não corresponde ao contexto criptográfico validado.'
-      );
-    }
+    const modo = validarMarker(marker, { modulo, userDataPath, localStateSha256 });
 
     return {
       appName: APP_NAME,
       modulo,
       userDataPath,
       markerPath,
-      localStateSha256
+      localStateSha256,
+      modo
     };
   } catch (error) {
     if (error && typeof error.code === 'string' && error.code.startsWith('TEF_')) throw error;
@@ -289,12 +384,12 @@ function validarPerfilTefOriginalSomenteLeitura({
 
   const markerPath = path.join(userDataPath, MARKER_FILENAME);
   const marker = lerMarker(markerPath, fsApi);
-  validarMarker(marker, { modulo, userDataPath });
   const localStateSha256 = validarLocalState(path.join(userDataPath, 'Local State'), fsApi);
-  if (localStateSha256 !== EXPECTED_LOCAL_STATE_SHA256) {
+  const modo = validarMarker(marker, { modulo, userDataPath, localStateSha256 });
+  if (modo !== MODOS_CONTEXTO.MIGRATION) {
     throw criarErro(
       'TEF_CONTEXTO_PERFIL_DIVERGENTE',
-      'O Local State original não corresponde ao contexto criptográfico validado.'
+      'Snapshot isolado exige contexto de migração homologado.'
     );
   }
 
@@ -304,7 +399,8 @@ function validarPerfilTefOriginalSomenteLeitura({
     appDataPath: path.resolve(appDataPath),
     userDataPath: path.resolve(userDataPath),
     markerPath,
-    localStateSha256
+    localStateSha256,
+    modo
   });
 }
 
@@ -388,29 +484,85 @@ function configurarPerfilTef({ app, modulo, sourceLocalStatePath, fsApi = fs } =
     const localStatePath = path.join(userDataPath, 'Local State');
     const markerPath = path.join(userDataPath, MARKER_FILENAME);
     const marker = lerMarker(markerPath, fsApi);
+    const classificacao = classificarRoteamentoContexto({
+      marker,
+      localStatePath,
+      sourceLocalStatePath,
+      userDataPath,
+      fsApi
+    });
     let instalacao = { criado: false, sha256: null };
+    let modo = classificacao.modo;
 
-    if (marker) {
-      validarMarker(marker, { modulo, userDataPath });
+    if (classificacao.roteamento === 'PERFIL_NAO_VAZIO') {
+      throw criarErro(
+        'TEF_CONTEXTO_PERFIL_NAO_VAZIO',
+        'O perfil de destino contém dados sem registro de contexto; nenhuma alteração foi feita.'
+      );
+    }
+
+    if (classificacao.roteamento === 'MIGRATION_EXISTENTE'
+        || classificacao.roteamento === 'FIRST_INSTALL_EXISTENTE') {
       instalacao.sha256 = validarLocalState(localStatePath, fsApi);
-    } else {
-      if (!fsApi.existsSync(localStatePath) && fsApi.readdirSync(userDataPath).length > 0) {
-        throw criarErro(
-          'TEF_CONTEXTO_PERFIL_NAO_VAZIO',
-          'O perfil de destino contém dados sem registro de contexto; nenhuma alteração foi feita.'
-        );
-      }
-      instalacao = instalarLocalState(sourceLocalStatePath, localStatePath, fsApi);
-      const novoMarker = {
-        versao: 1,
+      modo = validarMarker(marker, {
+        modulo,
+        userDataPath,
+        localStateSha256: instalacao.sha256
+      });
+      return {
         appName: APP_NAME,
         modulo,
         userDataPath,
-        localStateOrigemSha256: EXPECTED_LOCAL_STATE_SHA256,
-        provisionadoEm: new Date().toISOString()
+        markerPath,
+        localStateSha256: instalacao.sha256,
+        localStateInstalado: false,
+        modo,
+        roteamento: classificacao.roteamento,
+        firstInstallPendente: false,
+        permitirGeracaoChave: false
       };
-      gravarMarker(markerPath, novoMarker, fsApi);
     }
+
+    if (classificacao.roteamento === 'FIRST_INSTALL'
+        || classificacao.roteamento === 'FIRST_INSTALL_PENDING_MARKER') {
+      // Não copia Local State de outra instalação. Electron cria o contexto no userData
+      // definitivo; o marcador e a chave usam o bootstrap oficial pós-whenReady.
+      if (classificacao.roteamento === 'FIRST_INSTALL_PENDING_MARKER') {
+        instalacao.sha256 = validarLocalState(localStatePath, fsApi);
+      }
+      return {
+        appName: APP_NAME,
+        modulo,
+        userDataPath,
+        markerPath,
+        localStateSha256: instalacao.sha256,
+        localStateInstalado: false,
+        modo: MODOS_CONTEXTO.FIRST_INSTALL,
+        roteamento: classificacao.roteamento,
+        firstInstallPendente: true,
+        permitirGeracaoChave: true
+      };
+    }
+
+    if (classificacao.roteamento !== 'MIGRATION_PROVISION') {
+      throw criarErro(
+        'TEF_CONTEXTO_PERFIL_CONFIGURACAO_FALHOU',
+        'Não foi possível classificar o roteamento do contexto criptográfico.'
+      );
+    }
+
+    instalacao = instalarLocalState(sourceLocalStatePath, localStatePath, fsApi);
+    const novoMarker = {
+      versao: 1,
+      appName: APP_NAME,
+      modulo,
+      modo: MODOS_CONTEXTO.MIGRATION,
+      userDataPath,
+      localStateOrigemSha256: EXPECTED_LOCAL_STATE_SHA256,
+      provisionadoEm: new Date().toISOString()
+    };
+    gravarMarker(markerPath, novoMarker, fsApi);
+    modo = MODOS_CONTEXTO.MIGRATION;
 
     return {
       appName: APP_NAME,
@@ -418,7 +570,11 @@ function configurarPerfilTef({ app, modulo, sourceLocalStatePath, fsApi = fs } =
       userDataPath,
       markerPath,
       localStateSha256: instalacao.sha256,
-      localStateInstalado: instalacao.criado
+      localStateInstalado: instalacao.criado,
+      modo,
+      roteamento: classificacao.roteamento,
+      firstInstallPendente: false,
+      permitirGeracaoChave: false
     };
   } catch (error) {
     if (error && typeof error.code === 'string' && error.code.startsWith('TEF_')) throw error;
@@ -431,14 +587,96 @@ function configurarPerfilTef({ app, modulo, sourceLocalStatePath, fsApi = fs } =
   }
 }
 
+/**
+ * Conclui FIRST_INSTALL no userData definitivo após o Electron materializar o Local State.
+ * Não sobrescreve marcador/Local State existentes de outra instalação.
+ */
+function finalizarContextoFirstInstall({ app, modulo, fsApi = fs } = {}) {
+  if (!Object.prototype.hasOwnProperty.call(PROFILE_NAMES, modulo)) {
+    throw criarErro('TEF_MODULO_INVALIDO', 'O módulo Electron deve ser explicitamente erp ou pdv.');
+  }
+  if (!app || typeof app.getPath !== 'function' || typeof app.getName !== 'function') {
+    throw criarErro('TEF_ELECTRON_APP_INVALIDO', 'A instância Electron não permite finalizar o contexto.');
+  }
+  if (app.getName() !== APP_NAME) {
+    throw criarErro(
+      'TEF_CONTEXTO_PERFIL_DIVERGENTE',
+      'O nome da aplicação não corresponde ao contexto TEF esperado.'
+    );
+  }
+
+  const userDataPath = path.join(app.getPath('appData'), PROFILE_NAMES[modulo]);
+  if (!compararCaminhos(app.getPath('userData'), userDataPath)) {
+    throw criarErro(
+      'TEF_CONTEXTO_PERFIL_DIVERGENTE',
+      'O userData efetivo não é o diretório definitivo do módulo.'
+    );
+  }
+
+  const localStatePath = path.join(userDataPath, 'Local State');
+  const markerPath = path.join(userDataPath, MARKER_FILENAME);
+  const markerExistente = lerMarker(markerPath, fsApi);
+  const localStateSha256 = validarLocalState(localStatePath, fsApi);
+
+  if (markerExistente) {
+    const modo = validarMarker(markerExistente, {
+      modulo,
+      userDataPath,
+      localStateSha256
+    });
+    return {
+      appName: APP_NAME,
+      modulo,
+      userDataPath,
+      markerPath,
+      localStateSha256,
+      modo,
+      markerCriado: false,
+      firstInstallPendente: false,
+      permitirGeracaoChave: modo === MODOS_CONTEXTO.FIRST_INSTALL
+    };
+  }
+
+  const novoMarker = {
+    versao: 1,
+    appName: APP_NAME,
+    modulo,
+    modo: MODOS_CONTEXTO.FIRST_INSTALL,
+    userDataPath,
+    localStateOrigemSha256: localStateSha256,
+    provisionadoEm: new Date().toISOString()
+  };
+  gravarMarker(markerPath, novoMarker, fsApi);
+  validarMarker(lerMarker(markerPath, fsApi), {
+    modulo,
+    userDataPath,
+    localStateSha256
+  });
+
+  return {
+    appName: APP_NAME,
+    modulo,
+    userDataPath,
+    markerPath,
+    localStateSha256,
+    modo: MODOS_CONTEXTO.FIRST_INSTALL,
+    markerCriado: true,
+    firstInstallPendente: false,
+    permitirGeracaoChave: true
+  };
+}
+
 module.exports = {
   APP_NAME,
   EXPECTED_LOCAL_STATE_SHA256,
   MARKER_FILENAME,
+  MODOS_CONTEXTO,
   PROFILE_NAMES,
+  classificarRoteamentoContexto,
   selecionarPerfilTefExistente,
   validarPerfilTefExistente,
   validarPerfilTefOriginalSomenteLeitura,
   validarSnapshotPerfilTefIsolado,
-  configurarPerfilTef
+  configurarPerfilTef,
+  finalizarContextoFirstInstall
 };

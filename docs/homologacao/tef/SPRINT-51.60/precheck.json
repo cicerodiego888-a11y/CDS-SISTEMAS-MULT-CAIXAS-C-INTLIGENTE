@@ -1,0 +1,145 @@
+{
+  "sprint": "SPRINT-51.60",
+  "em": "2026-11-11T11:19:34.495Z",
+  "gate": "0",
+  "checks": {
+    "erp20032": true,
+    "vspague22380Unico": true,
+    "host8688Alive": true,
+    "sessionAliveFile": true,
+    "clientInitialized": true,
+    "com4": true,
+    "gateOff": true,
+    "maxTef4": true,
+    "semPendenteUnknown": true,
+    "pdvUsaSessaoPreparada": false
+  },
+  "okBasico": true,
+  "aprovadoIntegral": false,
+  "classificacaoPrecheck": "BLOCKED_SESSION_NOT_BOUND_TO_PDV",
+  "vinculoPdvSessao": {
+    "conclusao": "PDV_NAO_USA_SESSAO_PREPARADA",
+    "motivo": "NativeHost PID 8688 (hostSessionId 168158a6…) é utilityProcess filho do probe 10756 (tef-51-59-init-persistente.js), não do ERP 20032. O ERP não possui utilityProcess node.mojom.NodeService. DestaxaNativeHostClient é singleton in-process (obterClienteCompartilhado); o PDV oficial criaria outra instância NativeHost no caminho CRT.",
+    "erpPid": 20032,
+    "erpNativeHostNodeServiceCount": 0,
+    "erpChildren": [
+      {
+        "pid": 2392,
+        "cmdSnippet": "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" --type=gpu-process --user-data-dir=\"C:\\Users\\cicer\\AppData\\Roaming\\cds-sistemas-erp\" --gpu-prefer..."
+      },
+      {
+        "pid": 6912,
+        "cmdSnippet": "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" --type=utility --utility-sub-type=network.mojom.NetworkService --lang=pt-BR --service-sandbox-typ..."
+      },
+      {
+        "pid": 724,
+        "cmdSnippet": "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" --type=renderer --user-data-dir=\"C:\\Users\\cicer\\AppData\\Roaming\\cds-sistemas-erp\" --app-path=\"C:\\..."
+      }
+    ],
+    "probePid": 10756,
+    "nativeHost": {
+      "pid": 8688,
+      "ppid": 10756,
+      "hostSessionId": "168158a6e0817b7fa210a5aabd22c689"
+    },
+    "arquitetura": "um NativeHost por processo Electron via obterClienteCompartilhado()"
+  },
+  "erp": [
+    {
+      "ProcessId": 20032,
+      "ParentProcessId": 1080,
+      "CommandLine": "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" electron-erp.js --cds-forcar-local"
+    }
+  ],
+  "probe": [
+    {
+      "ProcessId": 10756,
+      "ParentProcessId": 19628,
+      "CommandLine": "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" docs\\homologacao\\tef\\SPRINT-51.59\\tef-51-59-init-persistente.js"
+    }
+  ],
+  "vspague": [
+    {
+      "ProcessId": 22380,
+      "ParentProcessId": 14428
+    }
+  ],
+  "host8688": {
+    "ProcessId": 8688,
+    "ParentProcessId": 10756,
+    "CommandLine": "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" --type=utility --utility-sub-type=node.mojom.NodeService --lang=pt-BR --service-sandbox-type=none --user-data-dir=\"C:\\Users\\cicer\\AppData\\Roaming\\cds-sistema..."
+  },
+  "pin": {
+    "porta_com": "COM4",
+    "codigo": "GERTEC_PPC930",
+    "habilitado": 1,
+    "ativo": 1
+  },
+  "pinPnp": [
+    {
+      "Name": "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+      "Status": "OK"
+    }
+  ],
+  "max": {
+    "maxId": 4
+  },
+  "pend": [],
+  "txs": [
+    {
+      "id": 2,
+      "status": "negado",
+      "nsu": null,
+      "autorizacao": null,
+      "venda_id": 65
+    },
+    {
+      "id": 3,
+      "status": "aprovado",
+      "nsu": "2338",
+      "autorizacao": "211139",
+      "venda_id": 66
+    },
+    {
+      "id": 4,
+      "status": "aprovado",
+      "nsu": "2348",
+      "autorizacao": "211139",
+      "venda_id": 67
+    }
+  ],
+  "alive": {
+    "em": "2026-11-11T11:19:25.653Z",
+    "sprint": "SPRINT-51.59",
+    "hostPid": 8688,
+    "hostSessionId": "168158a6e0817b7fa210a5aabd22c689",
+    "requestIdInit": "59976c52a5725517",
+    "probeElectronPid": 10756,
+    "gateEnv": "0",
+    "status": {
+      "error": null,
+      "clientInitialized": true,
+      "clientResultCode": "00",
+      "gateReal": false,
+      "operacaoAtiva": null,
+      "dllLoaded": true,
+      "hostPid": 8688,
+      "hostSessionId": "168158a6e0817b7fa210a5aabd22c689"
+    },
+    "sessaoAtiva": true
+  },
+  "evidInit": {
+    "hostPid": 8688,
+    "hostSessionId": "168158a6e0817b7fa210a5aabd22c689",
+    "requestId": "59976c52a5725517",
+    "classificacao": "INIT_CLIENT_CONFIRMED_SESSION_ACTIVE"
+  },
+  "ledger": {
+    "path": "C:\\Users\\cicer\\AppData\\Local\\CDS-SISTEMAS\\tef\\destaxa-autorizacao-excepcional.json",
+    "issuedCount": 0,
+    "issuedIds": []
+  },
+  "oneShotEmitida": false,
+  "cobrancaExecutada": false,
+  "novoInitExecutado": false
+}

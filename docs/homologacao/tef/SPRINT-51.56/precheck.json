@@ -1,0 +1,87 @@
+{
+  "ok": false,
+  "classificacao": "BLOQUEADO_INIT_NOVA_SESSAO",
+  "falhas": [
+    "ERP_AUSENTE"
+  ],
+  "gate": "0",
+  "procs": {
+    "vspague": [
+      {
+        "ProcessId": 22380,
+        "Name": "VSPagueClient.exe",
+        "ParentProcessId": 14428,
+        "Cmd": "VSPagueClient  -Xms64m -Xmx512m -Dfile.encoding=ISO8859-1 -Duser.timezone=America/Recife -jar C:\\VBI\\V$Pague\\Client\\V$PagueClient.jar -h app"
+      }
+    ],
+    "erp": []
+  },
+  "pinpadDb": {
+    "id": 1,
+    "porta_com": "COM4",
+    "codigo": "GERTEC_PPC930",
+    "fabricante": "Gertec",
+    "modelo": "PPC930",
+    "habilitado": 1,
+    "ativo": 1
+  },
+  "pinpadPnp": [
+    {
+      "Name": "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+      "Status": "OK"
+    }
+  ],
+  "max": {
+    "maxId": 4,
+    "total": 4
+  },
+  "txs": [
+    {
+      "id": 2,
+      "status": "negado",
+      "nsu": null,
+      "autorizacao": null,
+      "venda_id": 65,
+      "bandeira": null,
+      "adquirente": null
+    },
+    {
+      "id": 3,
+      "status": "aprovado",
+      "nsu": "2338",
+      "autorizacao": "211139",
+      "venda_id": 66,
+      "bandeira": null,
+      "adquirente": null
+    },
+    {
+      "id": 4,
+      "status": "aprovado",
+      "nsu": "2348",
+      "autorizacao": "211139",
+      "venda_id": 67,
+      "bandeira": null,
+      "adquirente": null
+    }
+  ],
+  "v67": {
+    "id": 67,
+    "status": "concluida",
+    "status_pagamento": "quitada",
+    "tef_transacao_id": 4,
+    "total": 1,
+    "forma_pagamento": "cartao_debito"
+  },
+  "pend": [],
+  "issued": [],
+  "init49": {
+    "requestHint": "ver observability iniciaClientDestaxa nesta janela",
+    "hostPid": 14256,
+    "hostSessionId": "ecef111f043a10471c4f1d126f02985f",
+    "fim": "2026-11-10T23:43:07.363Z",
+    "codigo": "00"
+  },
+  "mesmaSessaoInit": false,
+  "precisaInitNovo": true,
+  "motivoInit": "ERP/NativeHost da evidência 51.49 (Host PID 14256) não correspondem à sessão atual pós-reinício 51.51; novo INIT_CLIENT exigiria autorização específica do PO."
+}

@@ -1,0 +1,102 @@
+{
+  "ok": false,
+  "classificacao": "BLOCKED_SESSION_NOT_ACTIVE",
+  "falhas": [],
+  "gate": "0",
+  "erp": [
+    {
+      "ProcessId": 20032,
+      "Name": "electron.exe",
+      "ParentProcessId": 1080,
+      "Cmd": "\"C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe\" electron-erp.js --cds-forcar-local"
+    }
+  ],
+  "vspague": [
+    {
+      "ProcessId": 22380,
+      "Name": "VSPagueClient.exe",
+      "ParentProcessId": 14428,
+      "Cmd": "VSPagueClient  -Xms64m -Xmx512m -Dfile.encoding=ISO8859-1 -Duser.timezone=America/Recife -jar C:\\VBI\\V$Pague\\Client\\V$PagueClient.jar -h app-partner.destaxa.clo"
+    }
+  ],
+  "hostCandidates": [
+    {
+      "ProcessId": 22380,
+      "Name": "VSPagueClient.exe",
+      "ParentProcessId": 14428,
+      "Cmd": "VSPagueClient  -Xms64m -Xmx512m -Dfile.encoding=ISO8859-1 -Duser.timezone=America/Recife -jar C:\\VBI\\V$Pague\\Client\\V$PagueClient.jar -h app-partner.destaxa.clo"
+    }
+  ],
+  "host14896Alive": false,
+  "sessaoReutilizavel": false,
+  "init5157": {
+    "classificacao": "INIT_CLIENT_CONFIRMED",
+    "codigo": "00",
+    "requestId": "64d60ea12682ae38",
+    "hostPid": 14896,
+    "hostSessionId": "8d85143db0322f5c238e120fe9670884",
+    "fim": "2026-11-11T10:50:54.830Z",
+    "hostEncerradoAposEvidencia": true
+  },
+  "expect": {
+    "erpPid": 20032,
+    "vspaguePid": 22380,
+    "hostPid5157": 14896,
+    "hostSessionId": "8d85143db0322f5c238e120fe9670884",
+    "initRequestId": "64d60ea12682ae38"
+  },
+  "pin": {
+    "porta_com": "COM4",
+    "codigo": "GERTEC_PPC930",
+    "habilitado": 1,
+    "ativo": 1
+  },
+  "pinpadPnp": [
+    {
+      "Name": "PPC-920/930 CDC USB-to-Serial Port (COM4)",
+      "Status": "OK"
+    }
+  ],
+  "max": {
+    "maxId": 4,
+    "total": 4
+  },
+  "txs": [
+    {
+      "id": 2,
+      "status": "negado",
+      "nsu": null,
+      "autorizacao": null,
+      "venda_id": 65,
+      "bandeira": null,
+      "adquirente": null
+    },
+    {
+      "id": 3,
+      "status": "aprovado",
+      "nsu": "2338",
+      "autorizacao": "211139",
+      "venda_id": 66,
+      "bandeira": null,
+      "adquirente": null
+    },
+    {
+      "id": 4,
+      "status": "aprovado",
+      "nsu": "2348",
+      "autorizacao": "211139",
+      "venda_id": 67,
+      "bandeira": null,
+      "adquirente": null
+    }
+  ],
+  "v67": {
+    "id": 67,
+    "status": "concluida",
+    "status_pagamento": "quitada",
+    "tef_transacao_id": 4
+  },
+  "pend": [],
+  "issued": [],
+  "motivoSessao": "NativeHost PID 14896 da Sprint 51.57 não está ativo (encerramento controlado pós-INIT). Sessão não reutilizável; novo INIT_CLIENT exige autorização específica do PO. One-shot NÃO emitida."
+}

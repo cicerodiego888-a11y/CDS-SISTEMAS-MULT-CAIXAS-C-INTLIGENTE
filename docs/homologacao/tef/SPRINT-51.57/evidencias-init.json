@@ -1,0 +1,95 @@
+{
+  "sprint": "SPRINT-51.57",
+  "proposito": "INIT_CLIENT_ONLY",
+  "inicio": "2026-11-11T10:50:54.287Z",
+  "proibicoes": {
+    "TX_START": true,
+    "TX_CONTINUE": true,
+    "TX_FINALIZE": true,
+    "CRT": true,
+    "ENABLE_REAL": true,
+    "permit": true,
+    "oneShot": true,
+    "pagar": true
+  },
+  "gateEnv": "0",
+  "erpPidEsperado": "20032",
+  "vspaguePidEsperado": "22380",
+  "nativeHost": {
+    "pid": 14896,
+    "ppid": 18568,
+    "hostSessionId": "8d85143db0322f5c238e120fe9670884",
+    "securityBootstrapState": "SECURITY_BOOTSTRAP_VALIDATED",
+    "gateReal": false
+  },
+  "probeElectronPid": 18568,
+  "initClient": {
+    "codigoDestaxa": "00",
+    "clientSucesso": true,
+    "bloqueadoA1": false,
+    "mensagem": "Client Destaxa inicializado",
+    "clientInitialized": true,
+    "clientResultCode": "00",
+    "operacaoAtiva": null,
+    "gateReal": false,
+    "dllLoaded": true,
+    "rawKeys": [
+      "sucesso",
+      "dll",
+      "statusAposLoad",
+      "client",
+      "statusAposClient"
+    ]
+  },
+  "statusFinal": {
+    "error": null,
+    "clientInitialized": true,
+    "clientResultCode": "00",
+    "gateReal": false,
+    "operacaoAtiva": null,
+    "dllLoaded": true
+  },
+  "observabilityTail": [
+    {
+      "ts": null,
+      "requestId": "64d60ea12682ae38",
+      "resultCode": "00",
+      "pid": 14896,
+      "evento": "client.init.result"
+    },
+    {
+      "ts": null,
+      "requestId": "64d60ea12682ae38",
+      "resultCode": null,
+      "pid": 14896,
+      "evento": "diagnostic.block"
+    },
+    {
+      "ts": "2026-11-11T10:50:54.736Z",
+      "requestId": "64d60ea12682ae38",
+      "resultCode": null,
+      "pid": 14896,
+      "evento": "nativehost.lifecycle"
+    },
+    {
+      "ts": null,
+      "requestId": "64d60ea12682ae38",
+      "resultCode": null,
+      "pid": 14896,
+      "evento": "ipc.response.sent"
+    },
+    {
+      "ts": "2026-11-11T10:50:54.753Z",
+      "requestId": "64d60ea12682ae38",
+      "resultCode": "00",
+      "pid": null,
+      "evento": "nativehost.client.lifecycle"
+    }
+  ],
+  "requestId": "64d60ea12682ae38",
+  "ok": true,
+  "classificacao": "INIT_CLIENT_CONFIRMED",
+  "mensagem": "INIT_CLIENT=00 / CLIENT_INITIALIZED — sem operação financeira.",
+  "fim": "2026-11-11T10:50:54.830Z",
+  "gateEnvFinal": "0"
+}

@@ -1,0 +1,55 @@
+{
+  "sprint": "SPRINT-51.59",
+  "proposito": "INIT_CLIENT_PERSISTENTE",
+  "inicio": "2026-11-11T11:07:24.740Z",
+  "proibicoes": {
+    "TX_START": true,
+    "TX_CONTINUE": true,
+    "TX_FINALIZE": true,
+    "CRT": true,
+    "ENABLE_REAL": true,
+    "permit": true,
+    "oneShot": true,
+    "pagar": true,
+    "encerrarHostAposInit": true
+  },
+  "gateEnv": "0",
+  "erpPid": "20032",
+  "vspaguePid": "22380",
+  "nativeHost": {
+    "pid": 8688,
+    "ppid": 10756,
+    "hostSessionId": "168158a6e0817b7fa210a5aabd22c689",
+    "securityBootstrapState": "SECURITY_BOOTSTRAP_VALIDATED",
+    "gateReal": false
+  },
+  "probeElectronPid": 10756,
+  "initClient": {
+    "codigoDestaxa": "00",
+    "clientSucesso": true,
+    "bloqueadoA1": false,
+    "mensagem": "Client Destaxa inicializado",
+    "clientInitialized": true,
+    "clientResultCode": "00",
+    "operacaoAtiva": null,
+    "gateReal": false,
+    "dllLoaded": true
+  },
+  "statusFinal": {
+    "error": null,
+    "clientInitialized": true,
+    "clientResultCode": "00",
+    "gateReal": false,
+    "operacaoAtiva": null,
+    "dllLoaded": true,
+    "hostPid": 8688,
+    "hostSessionId": "168158a6e0817b7fa210a5aabd22c689"
+  },
+  "requestId": "59976c52a5725517",
+  "ok": true,
+  "classificacao": "INIT_CLIENT_CONFIRMED_SESSION_ACTIVE",
+  "mensagem": "INIT_CLIENT=00 / CLIENT_INITIALIZED — NativeHost mantido ATIVO.",
+  "hostEncerradoAposInit": false,
+  "fimInit": "2026-11-11T11:07:25.199Z",
+  "gateEnvFinal": "0"
+}

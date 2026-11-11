@@ -1,0 +1,82 @@
+{
+  "sprint": "SPRINT-51.61",
+  "proposito": "INIT_CLIENT_NO_ERP_OFICIAL",
+  "inicio": "2026-11-11T11:29:56.538Z",
+  "erpPid": 16744,
+  "argv": [
+    "C:\\CDS-SISTEMAS-MULT-CAIXAS C-INTLIGENTE\\node_modules\\electron\\dist\\electron.exe",
+    "electron-erp.js",
+    "--cds-forcar-local"
+  ],
+  "gateEnv": "0",
+  "proibicoes": {
+    "TX_START": true,
+    "TX_CONTINUE": true,
+    "TX_FINALIZE": true,
+    "CRT": true,
+    "ENABLE_REAL": true,
+    "oneShot": true,
+    "pagar": true,
+    "probeIsolado": true
+  },
+  "adapter": {
+    "nome": "Destaxa",
+    "modo": "real",
+    "execucaoNativa": "native-host",
+    "bridgeTipo": "DestaxaHostBridge"
+  },
+  "singleton": {
+    "adapterClientIsShared": true,
+    "tefManagerClientIsShared": true,
+    "clienteExistenteAntes": true
+  },
+  "load": {
+    "sucesso": true,
+    "codigo": null,
+    "mensagem": null
+  },
+  "nativeHost": {
+    "pid": 13940,
+    "pidPai": 16744,
+    "hostSessionId": "91ce63acec0f09b2efba16571dad4c74",
+    "processType": "utilityProcess",
+    "securityBootstrapState": "SECURITY_BOOTSTRAP_VALIDATED",
+    "estado": "READY"
+  },
+  "initClient": {
+    "codigoDestaxa": "00",
+    "clientSucesso": true,
+    "mensagem": "Client Destaxa inicializado",
+    "estado": "CLIENT_INITIALIZED",
+    "clientInitialized": true,
+    "clientResultCode": "00",
+    "bloqueadoA1": false,
+    "bloqueadoF0": false
+  },
+  "statusFinal": {
+    "error": null,
+    "clientInitialized": true,
+    "clientResultCode": "00",
+    "gateReal": false,
+    "operacaoAtiva": null,
+    "dllLoaded": true,
+    "hostPid": 13940,
+    "hostSessionId": "91ce63acec0f09b2efba16571dad4c74"
+  },
+  "requestId": "6aa8b07ffd9c4317",
+  "vinculoPdv": {
+    "erpPid": 16744,
+    "hostPid": 13940,
+    "hostPpidEsperado": 16744,
+    "hostPpidRegistrado": 16744,
+    "ipc": "Electron utilityProcess.postMessage (DestaxaNativeHostClient)",
+    "mesmoSingletonTefManager": true,
+    "ok": true
+  },
+  "ok": true,
+  "classificacao": "ERP_NATIVEHOST_SESSION_CONFIRMED",
+  "mensagem": "INIT_CLIENT=00 no ERP oficial — NativeHost filho do ERP, sessão ativa.",
+  "hostEncerradoAposInit": false,
+  "fimInit": "2026-11-11T11:29:56.959Z",
+  "gateEnvFinal": "0"
+}

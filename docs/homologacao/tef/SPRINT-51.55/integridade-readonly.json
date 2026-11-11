@@ -1,0 +1,80 @@
+{
+  "gate": "0",
+  "max": {
+    "maxId": 4,
+    "total": 4
+  },
+  "txs": [
+    {
+      "id": 2,
+      "status": "negado",
+      "nsu": null,
+      "autorizacao": null,
+      "venda_id": 65,
+      "bandeira": null,
+      "adquirente": null
+    },
+    {
+      "id": 3,
+      "status": "aprovado",
+      "nsu": "2338",
+      "autorizacao": "211139",
+      "venda_id": 66,
+      "bandeira": null,
+      "adquirente": null
+    },
+    {
+      "id": 4,
+      "status": "aprovado",
+      "nsu": "2348",
+      "autorizacao": "211139",
+      "venda_id": 67,
+      "bandeira": null,
+      "adquirente": null
+    }
+  ],
+  "v66": {
+    "id": 66,
+    "status": "concluida",
+    "status_pagamento": "quitada",
+    "tef_transacao_id": 3
+  },
+  "v67": {
+    "id": 67,
+    "status": "concluida",
+    "status_pagamento": "quitada",
+    "tef_transacao_id": 4
+  },
+  "rec80": {
+    "id": 80,
+    "venda_id": 67,
+    "tef_transacao_id": 4,
+    "nsu": "2348",
+    "autorizacao": "211139",
+    "status": "aprovado"
+  },
+  "pend": [],
+  "ledger": {
+    "issued": [],
+    "last": [
+      {
+        "id": "cff481501f704f672b3e956f4bcb62b4",
+        "status": "CONSUMED",
+        "consumidoEm": "2026-11-10T20:26:08.282Z",
+        "motivo": "TEF-SEGUNDA-TENTATIVA-homologacao-debito-r1"
+      },
+      {
+        "id": "7528947cd63e0ccfcf2831cff56663bb",
+        "status": "EXPIRED",
+        "consumidoEm": null,
+        "motivo": "SPRINT-51.51-pos-recuperacao-tx3-homologacao-debito-r1"
+      },
+      {
+        "id": "c3fb636267106ce343ca300d64cf7041",
+        "status": "CONSUMED",
+        "consumidoEm": "2026-11-11T00:56:33.388Z",
+        "motivo": "SPRINT-51.52-reemissao-urgente-homologacao-debito-r1"
+      }
+    ]
+  }
+}
