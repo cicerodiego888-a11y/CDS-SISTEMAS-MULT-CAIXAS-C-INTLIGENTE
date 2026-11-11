@@ -1,6 +1,8 @@
 /**
- * Rotas — Importação Inicial de Produtos V1.0.4
+ * Rotas — Importação Inicial de Produtos V2
  * POST /api/produtos/importacao-inicial/validar  (modo: CADASTRO_INICIAL | ATUALIZAR_QUANTIDADES)
+ * POST /api/produtos/importacao-inicial/editar-linha   (IMP-PROD-02 — sessão em memória)
+ * POST /api/produtos/importacao-inicial/excluir-linha  (IMP-PROD-02 — sessão em memória)
  * POST /api/produtos/importacao-inicial/importar
  * GET  /api/produtos/importacao-inicial/status
  */
@@ -71,6 +73,45 @@ router.post('/validar', (req, res) => {
       return responderErro(res, err, 'Falha ao validar a planilha.');
     }
   });
+});
+
+router.post('/editar-linha', express.json(), async (req, res) => {
+  try {
+    const sessaoId = req.body?.sessao_id;
+    const linha = req.body?.linha;
+    if (!sessaoId) {
+      return res.status(400).json({ sucesso: false, error: 'sessao_id é obrigatório.' });
+    }
+    if (linha == null || linha === '') {
+      return res.status(400).json({ sucesso: false, error: 'linha é obrigatória.' });
+    }
+    const resultado = await importacao.editarLinhaSessao(db, sessaoId, {
+      linha,
+      campos: req.body?.campos || req.body?.produto || {}
+    });
+    return res.json({ sucesso: true, ...resultado });
+  } catch (err) {
+    console.error('[IMPORTACAO-INICIAL] editar-linha:', err);
+    return responderErro(res, err, 'Falha ao editar a linha da importação.');
+  }
+});
+
+router.post('/excluir-linha', express.json(), async (req, res) => {
+  try {
+    const sessaoId = req.body?.sessao_id;
+    const linha = req.body?.linha;
+    if (!sessaoId) {
+      return res.status(400).json({ sucesso: false, error: 'sessao_id é obrigatório.' });
+    }
+    if (linha == null || linha === '') {
+      return res.status(400).json({ sucesso: false, error: 'linha é obrigatória.' });
+    }
+    const resultado = await importacao.excluirLinhaSessao(db, sessaoId, { linha });
+    return res.json({ sucesso: true, ...resultado });
+  } catch (err) {
+    console.error('[IMPORTACAO-INICIAL] excluir-linha:', err);
+    return responderErro(res, err, 'Falha ao excluir a linha da importação.');
+  }
 });
 
 router.post('/importar', express.json(), async (req, res) => {

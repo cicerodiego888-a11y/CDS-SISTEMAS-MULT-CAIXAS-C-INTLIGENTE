@@ -1,6 +1,8 @@
 /**
- * Configurações → Avançadas → Implantação → Importação Inicial de Produtos (V1.0.18)
- * Modos: CADASTRO_INICIAL | ATUALIZAR_QUANTIDADES + modo_fiscal_importacao
+ * Configurações → Avançadas → Implantação → Importação Inicial de Produtos (V2)
+ * Modos: CADASTRO_INICIAL | ATUALIZAR_QUANTIDADES
+ * IMP-PROD-01: estoque vem das colunas Estoque Fiscal / Estoque Não Fiscal;
+ * sem escolha global Fiscal/Não Fiscal; 1 linha = 1 produto com ambos os saldos.
  */
 'use strict';
 
@@ -10,8 +12,6 @@ const ImportacaoEstadoApi = (typeof window !== 'undefined' && window.ImportacaoI
 
 const MODO_CADASTRO = 'CADASTRO_INICIAL';
 const MODO_QUANTIDADES = 'ATUALIZAR_QUANTIDADES';
-const MODO_FISCAL = 'FISCAL';
-const MODO_NAO_FISCAL = 'NAO_FISCAL';
 
 function criarEstadoVazioImportacao(modo) {
   if (ImportacaoEstadoApi) return ImportacaoEstadoApi.criarEstadoVazioImportacao(modo);
@@ -26,20 +26,6 @@ function criarEstadoVazioImportacao(modo) {
     politica_pendentes: null,
     pode_importar: false
   };
-}
-
-function rotuloModoFiscalImportacaoUi(modoFiscal) {
-  if (ImportacaoEstadoApi?.rotuloModoFiscal) {
-    return ImportacaoEstadoApi.rotuloModoFiscal(modoFiscal);
-  }
-  return modoFiscal === MODO_NAO_FISCAL
-    ? 'NÃO FISCAL — SEM NF'
-    : 'FISCAL — COM NF';
-}
-
-function obterModoFiscalSelecionadoUi() {
-  const marcado = document.querySelector('input[name="modoFiscalImportacao"]:checked');
-  return marcado ? String(marcado.value || '').toUpperCase() : null;
 }
 
 function resetarEstadoImportacaoInicial(estadoAnterior) {
@@ -243,9 +229,6 @@ function aplicarLimpezaUiImportacaoInicial() {
   const input = document.getElementById('arquivoImportacaoProdutos');
   if (input) input.value = '';
 
-  $('input[name="modoFiscalImportacao"]').prop('checked', false);
-  $('#avisoModoFiscalImportacao').addClass('d-none').text('');
-
   $('#btnValidarImportacaoProdutos')
     .prop('disabled', true)
     .html('<i class="fas fa-check-double"></i> Validar Importação');
@@ -253,7 +236,7 @@ function aplicarLimpezaUiImportacaoInicial() {
   renderResumoVazioImportacao();
   renderCabecalhoPreviewImportacao();
   $('#cardPreviewImportacao').removeClass('d-none');
-  const cols = isModoQuantidades() ? 8 : 17;
+  const cols = isModoQuantidades() ? 8 : 20;
   $('#tbodyPreviewImportacao').html(
     `<tr><td colspan="${cols}" class="text-center text-muted py-4">Nenhuma linha</td></tr>`
   );
@@ -263,9 +246,311 @@ function aplicarLimpezaUiImportacaoInicial() {
 
   $('#cardResultadoImportacao').addClass('d-none');
   $('#corpoResultadoImportacao').empty();
+  $('#cardErrosImportacao').addClass('d-none');
+  $('#alertaValidacaoConcluidaImportacao').addClass('d-none');
+  $('#tbodyErrosImportacao').empty();
   $('#blocoPoliticaPendentes').addClass('d-none');
   $('input[name="politicaPendentesImportacao"]').prop('checked', false);
   atualizarTextosModoImportacao();
+}
+
+function statusLinhaEhErroImportacao(status) {
+  return status === 'ERRO'
+    || status === 'CODIGO_DUPLICADO_ARQUIVO'
+    || status === 'CATEGORIA_NAO_ENCONTRADA'
+    || status === 'SUBCATEGORIA_INCOMPATIVEL';
+}
+
+function obterLinhasComErroImportacao(data) {
+  if (Array.isArray(data?.linhas_com_erro) && data.linhas_com_erro.length) {
+    return data.linhas_com_erro;
+  }
+  return (data?.linhas || importacaoInicialState.linhas || [])
+    .filter((l) => statusLinhaEhErroImportacao(l.status));
+}
+
+function textoErroLinhaImportacao(l) {
+  const msgs = Array.isArray(l?.mensagens) ? l.mensagens.filter(Boolean) : [];
+  if (msgs.length) return msgs.join('; ');
+  if (l?.status === 'CODIGO_DUPLICADO_ARQUIVO') return 'DUPLICIDADE ENCONTRADA — Código duplicado no arquivo.';
+  return l?.status || 'Erro de validação';
+}
+
+function aplicarResultadoValidacaoImportacao(data, nomeArquivo) {
+  importacaoInicialState.sessaoId = data.sessao_id || importacaoInicialState.sessaoId;
+  importacaoInicialState.resumo = data.resumo;
+  importacaoInicialState.linhas = data.linhas || [];
+  if (data.modo) importacaoInicialState.modo = data.modo;
+  importacaoInicialState.modo_fiscal_importacao = null;
+  importacaoInicialState.pode_importar = data.pode_importar === true;
+
+  renderResumoValidacaoImportacao(data, nomeArquivo || importacaoInicialState.arquivoNome);
+  atualizarResumoDestinoPendentes();
+  renderCabecalhoPreviewImportacao();
+  renderPoliticaPendentesImportacao();
+  renderPreviewImportacaoInicial();
+  renderListaErrosImportacao(data);
+  $('#cardPreviewImportacao').removeClass('d-none');
+  atualizarBotaoImportarCadastro();
+}
+
+function renderListaErrosImportacao(data) {
+  if (isModoQuantidades()) {
+    $('#cardErrosImportacao').addClass('d-none');
+    $('#alertaValidacaoConcluidaImportacao').addClass('d-none');
+    return;
+  }
+  const erros = obterLinhasComErroImportacao(data || {
+    linhas: importacaoInicialState.linhas,
+    linhas_com_erro: null,
+    resumo: importacaoInicialState.resumo
+  });
+  const r = (data && data.resumo) || importacaoInicialState.resumo || {};
+  const excluidos = Number(r.produtos_excluidos || 0);
+  const planilha = Number(r.produtos_da_planilha != null ? r.produtos_da_planilha : r.produtos_encontrados || 0);
+  const validos = Number(r.produtos_validos || 0);
+  const comErro = erros.length;
+
+  $('#badgeQtdErrosImportacao').text(String(comErro));
+
+  if (comErro > 0) {
+    const html = erros.map((l) => {
+      const p = l.produto || {};
+      const preco = p.preco_venda != null ? moedaImport(p.preco_venda) : '—';
+      const erroTxt = textoErroLinhaImportacao(l);
+      const dupBadge = l.status === 'CODIGO_DUPLICADO_ARQUIVO'
+        ? '<div class="small text-danger fw-semibold">DUPLICIDADE ENCONTRADA</div>'
+        : '';
+      return `<tr>
+        <td>${escapeHtmlImport(String(l.linha ?? '—'))}</td>
+        <td>${escapeHtmlImport(p.codigo_origem || '—')}</td>
+        <td>${escapeHtmlImport(p.codigo_barras || '—')}</td>
+        <td>${escapeHtmlImport(p.nome || '—')}${dupBadge}</td>
+        <td>${preco}</td>
+        <td class="text-danger small">${escapeHtmlImport(erroTxt)}</td>
+        <td class="text-nowrap">
+          <button type="button" class="btn btn-outline-primary btn-sm me-1" data-acao-erro="editar" data-linha="${Number(l.linha)}">EDITAR</button>
+          <button type="button" class="btn btn-outline-danger btn-sm" data-acao-erro="excluir" data-linha="${Number(l.linha)}">EXCLUIR</button>
+        </td>
+      </tr>`;
+    }).join('');
+    $('#tbodyErrosImportacao').html(html);
+    $('#cardErrosImportacao').removeClass('d-none');
+    $('#alertaValidacaoConcluidaImportacao').addClass('d-none');
+  } else {
+    $('#tbodyErrosImportacao').empty();
+    $('#cardErrosImportacao').addClass('d-none');
+    const prontos = Number(r.produtos_classificados != null ? r.produtos_classificados : validos);
+    if ((importacaoInicialState.linhas || []).length > 0 || planilha > 0) {
+      $('#textoValidacaoConcluidaImportacao').text(
+        `Produtos prontos para importar: ${prontos}`
+        + (excluidos > 0 ? ` · Excluídos desta importação: ${excluidos}` : '')
+      );
+      $('#alertaValidacaoConcluidaImportacao').removeClass('d-none');
+    } else {
+      $('#alertaValidacaoConcluidaImportacao').addClass('d-none');
+    }
+  }
+}
+
+function abrirModalEditarLinhaErroImportacao(linhaNum) {
+  const linhas = importacaoInicialState.linhas || [];
+  const l = linhas.find((x) => Number(x.linha) === Number(linhaNum));
+  if (!l) {
+    showNotification('Linha não encontrada na validação atual.', 'warning');
+    return;
+  }
+  const p = l.produto || {};
+  const e = l.estoque || {};
+  const erroTxt = textoErroLinhaImportacao(l);
+
+  $('#modal-container').html(`
+    <div class="modal fade" id="modalEditarLinhaErroImportacao" tabindex="-1">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Editar linha ${escapeHtmlImport(String(l.linha))} da importação</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="alert alert-danger py-2 small mb-3">${escapeHtmlImport(erroTxt)}</div>
+            <p class="small text-muted">A edição altera somente a sessão desta importação. Nenhum cadastro definitivo é modificado até a importação final.</p>
+            <div class="row g-3">
+              <div class="col-md-12">
+                <label class="form-label" for="editImpNome">Produto</label>
+                <input type="text" class="form-control" id="editImpNome" value="${escapeHtmlImport(p.nome || '')}">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="editImpCodigo">Código interno</label>
+                <input type="text" class="form-control" id="editImpCodigo" value="${escapeHtmlImport(p.codigo_origem || '')}">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="editImpBarras">Código de barras</label>
+                <input type="text" class="form-control" id="editImpBarras" value="${escapeHtmlImport(p.codigo_barras || '')}">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="editImpPreco">Preço de venda</label>
+                <input type="text" class="form-control" id="editImpPreco" value="${escapeHtmlImport(p.preco_venda != null ? String(p.preco_venda) : '')}">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="editImpCusto">Custo unitário</label>
+                <input type="text" class="form-control" id="editImpCusto" value="${escapeHtmlImport(p.custo_unitario != null ? String(p.custo_unitario) : '')}">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="editImpEstFiscal">Estoque Fiscal</label>
+                <input type="text" class="form-control" id="editImpEstFiscal" value="${escapeHtmlImport(e.estoque_fiscal != null ? String(e.estoque_fiscal) : '0')}">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="editImpEstNaoFiscal">Estoque Não Fiscal</label>
+                <input type="text" class="form-control" id="editImpEstNaoFiscal" value="${escapeHtmlImport(e.estoque_nao_fiscal != null ? String(e.estoque_nao_fiscal) : '0')}">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="editImpNcm">NCM</label>
+                <input type="text" class="form-control" id="editImpNcm" value="${escapeHtmlImport(p.ncm || '')}">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="editImpCfop">CFOP</label>
+                <input type="text" class="form-control" id="editImpCfop" value="${escapeHtmlImport(p.cfop || '')}">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="editImpCsosn">CSOSN</label>
+                <input type="text" class="form-control" id="editImpCsosn" value="${escapeHtmlImport(p.csosn || '')}">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="editImpCategoria">Categoria</label>
+                <input type="text" class="form-control" id="editImpCategoria" value="${escapeHtmlImport(p.categoria || '')}">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="editImpSubcategoria">Subcategoria</label>
+                <input type="text" class="form-control" id="editImpSubcategoria" value="${escapeHtmlImport(p.subcategoria || '')}">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="btnSalvarRevalidarLinhaErro">SALVAR E REVALIDAR</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `);
+
+  const modalEl = document.getElementById('modalEditarLinhaErroImportacao');
+  const modal = new bootstrap.Modal(modalEl);
+  modal.show();
+
+  $('#btnSalvarRevalidarLinhaErro').off('click').on('click', async () => {
+    const campos = {
+      nome: $('#editImpNome').val(),
+      codigo_origem: $('#editImpCodigo').val(),
+      codigo_barras: $('#editImpBarras').val(),
+      preco_venda: $('#editImpPreco').val(),
+      custo_unitario: $('#editImpCusto').val(),
+      estoque_fiscal: $('#editImpEstFiscal').val(),
+      estoque_nao_fiscal: $('#editImpEstNaoFiscal').val(),
+      ncm: $('#editImpNcm').val(),
+      cfop: $('#editImpCfop').val(),
+      csosn: $('#editImpCsosn').val(),
+      categoria: $('#editImpCategoria').val(),
+      subcategoria: $('#editImpSubcategoria').val()
+    };
+    const $btn = $('#btnSalvarRevalidarLinhaErro');
+    $btn.prop('disabled', true).text('Revalidando...');
+    try {
+      const resp = await fetch(`${API_URL}/produtos/importacao-inicial/editar-linha`, {
+        method: 'POST',
+        headers: { ...headersImportacao(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessao_id: importacaoInicialState.sessaoId,
+          linha: Number(l.linha),
+          campos
+        })
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.sucesso) {
+        throw new Error(data.error || 'Falha ao salvar e revalidar');
+      }
+      importacaoInicialState.politica_pendentes = null;
+      $('input[name="politicaPendentesImportacao"]').prop('checked', false);
+      aplicarResultadoValidacaoImportacao(data);
+      modal.hide();
+      const aindaErro = statusLinhaEhErroImportacao(data.linha_editada?.status);
+      if (aindaErro) {
+        showNotification(textoErroLinhaImportacao(data.linha_editada), 'warning');
+      } else {
+        showNotification('Linha corrigida e revalidada.', 'success');
+      }
+    } catch (err) {
+      showNotification(err.message || 'Erro ao editar linha', 'danger');
+    } finally {
+      $btn.prop('disabled', false).text('SALVAR E REVALIDAR');
+    }
+  });
+}
+
+function confirmarExcluirLinhaErroImportacao(linhaNum) {
+  const linhas = importacaoInicialState.linhas || [];
+  const l = linhas.find((x) => Number(x.linha) === Number(linhaNum));
+  if (!l) {
+    showNotification('Linha não encontrada na validação atual.', 'warning');
+    return;
+  }
+  const nome = (l.produto && l.produto.nome) || 'este produto';
+
+  $('#modal-container').html(`
+    <div class="modal fade" id="modalExcluirLinhaErroImportacao" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Excluir da importação</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-2">Excluir este produto da importação?</p>
+            <p class="mb-0 small text-muted">
+              Linha ${escapeHtmlImport(String(l.linha))} — ${escapeHtmlImport(nome)}.
+              A linha será apenas ignorada nesta importação. Nenhum produto do cadastro definitivo será excluído.
+            </p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">CANCELAR</button>
+            <button type="button" class="btn btn-danger" id="btnConfirmarExcluirLinhaErro">EXCLUIR</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `);
+  const modalEl = document.getElementById('modalExcluirLinhaErroImportacao');
+  const modal = new bootstrap.Modal(modalEl);
+  modal.show();
+
+  $('#btnConfirmarExcluirLinhaErro').off('click').on('click', async () => {
+    const $btn = $('#btnConfirmarExcluirLinhaErro');
+    $btn.prop('disabled', true).text('Excluindo...');
+    try {
+      const resp = await fetch(`${API_URL}/produtos/importacao-inicial/excluir-linha`, {
+        method: 'POST',
+        headers: { ...headersImportacao(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessao_id: importacaoInicialState.sessaoId,
+          linha: Number(l.linha)
+        })
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.sucesso) {
+        throw new Error(data.error || 'Falha ao excluir a linha');
+      }
+      importacaoInicialState.politica_pendentes = null;
+      $('input[name="politicaPendentesImportacao"]').prop('checked', false);
+      aplicarResultadoValidacaoImportacao(data);
+      modal.hide();
+      showNotification('Linha excluída da importação atual.', 'success');
+    } catch (err) {
+      showNotification(err.message || 'Erro ao excluir linha', 'danger');
+    } finally {
+      $btn.prop('disabled', false).text('EXCLUIR');
+    }
+  });
 }
 
 function renderResumoVazioImportacao() {
@@ -325,9 +610,9 @@ function renderCabecalhoPreviewImportacao() {
         <th>Venda</th>
         <th>Apresentação</th>
         <th>Controla</th>
-        <th>Est. Fiscal</th>
-        <th>Est. Não Fiscal</th>
-        <th>Est. Total</th>
+        <th>Estoque Fiscal</th>
+        <th>Estoque Não Fiscal</th>
+        <th>Estoque Total</th>
         <th>NCM</th>
         <th>CFOP</th>
         <th>CSOSN</th>
@@ -335,7 +620,6 @@ function renderCabecalhoPreviewImportacao() {
         <th>Subcategoria</th>
         <th>Classificação</th>
         <th>Ação</th>
-        <th>item_fiscal</th>
         <th></th>
       </tr>
     `);
@@ -501,7 +785,7 @@ function loadImportacaoInicialProdutos() {
           <span class="badge bg-dark" id="badgeModoImportacao">CADASTRO INICIAL</span>
         </div>
         <p class="text-muted small mb-3" id="subtituloImportacaoProdutos">
-          Importe uma base de produtos para implantação inicial do cliente. Formato V1: XLSX. Importa produtos e registra o estoque inicial informado no arquivo.
+          Importe uma base de produtos para implantação inicial. Cada linha da planilha gera um único produto com Estoque Fiscal, Estoque Não Fiscal e Estoque Total (= Fiscal + Não Fiscal).
         </p>
         <div class="btn-group" role="group" aria-label="Modo de importação">
           <button type="button" class="btn btn-primary" id="btnModoCadastroInicial">Cadastro Inicial</button>
@@ -513,28 +797,6 @@ function loadImportacaoInicialProdutos() {
     <div class="alert alert-warning border d-none" id="avisoModoQuantidades" role="alert">
       <strong>Atenção:</strong> Este modo NÃO cadastra produtos e NÃO altera dados cadastrais.
       Ele somente registra as quantidades dos produtos já existentes.
-    </div>
-
-    <div class="card mb-3" id="cardTratamentoFiscalImportacao">
-      <div class="card-header"><i class="fas fa-balance-scale"></i> Estoque fiscal na planilha (V2)</div>
-      <div class="card-body">
-        <p class="text-muted small mb-2">
-          A distribuição do estoque vem das colunas <strong>Estoque Fiscal</strong> e
-          <strong>Estoque Não Fiscal</strong> de cada linha. Não é obrigatório escolher Fiscal/Não Fiscal globalmente.
-        </p>
-        <p class="text-muted small mb-3">
-          Opção legado (somente produtos NOVOS sem colunas F/NF): se informar abaixo, o estoque legado (Qtd. Origem × Conversão) vai para o bucket escolhido.
-        </p>
-        <div class="form-check mb-2">
-          <input class="form-check-input" type="radio" name="modoFiscalImportacao" id="modoFiscalImportacaoFiscal" value="FISCAL">
-          <label class="form-check-label" for="modoFiscalImportacaoFiscal">Legado: FISCAL — COM NF</label>
-        </div>
-        <div class="form-check">
-          <input class="form-check-input" type="radio" name="modoFiscalImportacao" id="modoFiscalImportacaoNaoFiscal" value="NAO_FISCAL">
-          <label class="form-check-label" for="modoFiscalImportacaoNaoFiscal">Legado: NÃO FISCAL — SEM NF</label>
-        </div>
-        <div class="text-muted small mt-2" id="avisoModoFiscalImportacao"></div>
-      </div>
     </div>
 
     <div class="card mb-3">
@@ -559,6 +821,40 @@ function loadImportacaoInicialProdutos() {
         </div>
         <div id="resumoValidacaoImportacao" class="mt-3 d-none"></div>
       </div>
+    </div>
+
+    <div class="card mb-3 d-none border-danger" id="cardErrosImportacao">
+      <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-exclamation-triangle"></i> PRODUTOS COM ERROS</span>
+        <span class="badge bg-light text-danger" id="badgeQtdErrosImportacao">0</span>
+      </div>
+      <div class="card-body p-0">
+        <p class="small text-muted mb-0 px-3 pt-3">
+          Corrija com <strong>EDITAR</strong> ou remova com <strong>EXCLUIR</strong> (somente desta importação — não altera o cadastro definitivo).
+          A importação permanece bloqueada enquanto houver erros.
+        </p>
+        <div class="table-responsive" style="max-height: 320px;">
+          <table class="table table-sm table-hover mb-0 align-middle">
+            <thead class="table-light sticky-top">
+              <tr>
+                <th>Linha</th>
+                <th>Código</th>
+                <th>Cód. barras</th>
+                <th>Produto</th>
+                <th>Preço venda</th>
+                <th>Erro encontrado</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyErrosImportacao"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="alert alert-success d-none" id="alertaValidacaoConcluidaImportacao" role="alert">
+      <strong>VALIDAÇÃO CONCLUÍDA</strong>
+      <span id="textoValidacaoConcluidaImportacao" class="ms-2">Produtos prontos para importar: 0</span>
     </div>
 
     <div class="card mb-3 d-none" id="cardPreviewImportacao">
@@ -601,9 +897,9 @@ function loadImportacaoInicialProdutos() {
                 <th>Venda</th>
                 <th>Apresentação</th>
                 <th>Controla</th>
-                <th>Est. Fiscal</th>
-                <th>Est. Não Fiscal</th>
-                <th>Est. Total</th>
+                <th>Estoque Fiscal</th>
+                <th>Estoque Não Fiscal</th>
+                <th>Estoque Total</th>
                 <th>NCM</th>
                 <th>CFOP</th>
                 <th>CSOSN</th>
@@ -611,7 +907,6 @@ function loadImportacaoInicialProdutos() {
                 <th>Subcategoria</th>
                 <th>Classificação</th>
                 <th>Ação</th>
-                <th>item_fiscal</th>
                 <th></th>
               </tr>
             </thead>
@@ -632,11 +927,6 @@ function loadImportacaoInicialProdutos() {
   $('#btnModoCadastroInicial').on('click', () => solicitarTrocaModoImportacao(MODO_CADASTRO));
   $('#btnModoAtualizarQuantidades').on('click', () => solicitarTrocaModoImportacao(MODO_QUANTIDADES));
 
-  $('input[name="modoFiscalImportacao"]').on('change', function onModoFiscalChange() {
-    importacaoInicialState.modo_fiscal_importacao = obterModoFiscalSelecionadoUi();
-    $('#avisoModoFiscalImportacao').addClass('d-none').text('');
-  });
-
   $('#arquivoImportacaoProdutos').on('change', function onFileChange() {
     const file = this.files && this.files[0];
     importacaoInicialState.arquivoNome = file ? file.name : null;
@@ -648,6 +938,8 @@ function loadImportacaoInicialProdutos() {
     $('#btnImportarProdutosFinal').prop('disabled', true).text(textoBotaoAcaoPrincipal(true));
     $('#resumoValidacaoImportacao').addClass('d-none').empty();
     $('#cardPreviewImportacao').addClass('d-none');
+    $('#cardErrosImportacao').addClass('d-none');
+    $('#alertaValidacaoConcluidaImportacao').addClass('d-none');
     $('#cardResultadoImportacao').addClass('d-none');
     $('#blocoPoliticaPendentes').addClass('d-none');
     $('input[name="politicaPendentesImportacao"]').prop('checked', false);
@@ -656,6 +948,14 @@ function loadImportacaoInicialProdutos() {
   $('#btnValidarImportacaoProdutos').on('click', validarArquivoImportacaoInicial);
   $('#btnImportarProdutosFinal').on('click', confirmarImportacaoInicialProdutos);
   $('#btnLimparImportacaoProdutos').on('click', confirmarLimparImportacaoInicial);
+  $(document).off('click.impErros').on('click.impErros', '[data-acao-erro="editar"]', function onEditarErroClick() {
+    const linha = Number($(this).attr('data-linha'));
+    abrirModalEditarLinhaErroImportacao(linha);
+  });
+  $(document).off('click.impErrosExcluir').on('click.impErrosExcluir', '[data-acao-erro="excluir"]', function onExcluirErroClick() {
+    const linha = Number($(this).attr('data-linha'));
+    confirmarExcluirLinhaErroImportacao(linha);
+  });
   $(document).off('change.politicaPendentes').on('change.politicaPendentes', 'input[name="politicaPendentesImportacao"]', function onPoliticaPendentesChange() {
     importacaoInicialState.politica_pendentes = obterPoliticaPendentesUi();
     renderPreviewImportacaoInicial();
@@ -726,8 +1026,7 @@ function atualizarBotaoImportarCadastro() {
 }
 
 function atualizarVisibilidadeTratamentoFiscal() {
-  const qtd = isModoQuantidades();
-  $('#cardTratamentoFiscalImportacao').toggleClass('d-none', qtd);
+  // IMP-PROD-01: sem card/seleção Fiscal/Não Fiscal no fluxo V2
 }
 
 async function validarArquivoImportacaoInicial() {
@@ -738,21 +1037,12 @@ async function validarArquivoImportacaoInicial() {
     return;
   }
 
-  let modoFiscal = null;
-  if (!isModoQuantidades()) {
-    modoFiscal = obterModoFiscalSelecionadoUi();
-    if (modoFiscal && modoFiscal !== MODO_FISCAL && modoFiscal !== MODO_NAO_FISCAL) {
-      modoFiscal = null;
-    }
-    importacaoInicialState.modo_fiscal_importacao = modoFiscal;
-  }
+  // IMP-PROD-01: não envia modo_fiscal_importacao — estoque vem das colunas da planilha
+  importacaoInicialState.modo_fiscal_importacao = null;
 
   const form = new FormData();
   form.append('arquivo', file);
   form.append('modo', importacaoInicialState.modo || MODO_CADASTRO);
-  if (modoFiscal) {
-    form.append('modo_fiscal_importacao', modoFiscal);
-  }
 
   $('#btnValidarImportacaoProdutos').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Validando...');
   try {
@@ -766,30 +1056,21 @@ async function validarArquivoImportacaoInicial() {
       throw new Error(data.error || 'Falha na validação');
     }
 
-    importacaoInicialState.sessaoId = data.sessao_id;
-    importacaoInicialState.resumo = data.resumo;
-    importacaoInicialState.linhas = data.linhas || [];
-    if (data.modo) importacaoInicialState.modo = data.modo;
-    if (data.modo_fiscal_importacao) {
-      importacaoInicialState.modo_fiscal_importacao = data.modo_fiscal_importacao;
-    }
-
-    renderResumoValidacaoImportacao(data, file.name);
-    atualizarResumoDestinoPendentes();
-    renderCabecalhoPreviewImportacao();
     importacaoInicialState.politica_pendentes = null;
-    importacaoInicialState.pode_importar = data.pode_importar === true;
     $('input[name="politicaPendentesImportacao"]').prop('checked', false);
-    renderPoliticaPendentesImportacao();
-    renderPreviewImportacaoInicial();
-    $('#cardPreviewImportacao').removeClass('d-none');
-    atualizarBotaoImportarCadastro();
+    aplicarResultadoValidacaoImportacao(data, file.name);
 
+    const qtdErros = Number((data.resumo || {}).com_erro || 0);
     const qtdP = Number((data.resumo || {}).pendentes_classificacao || 0);
-    if (qtdP > 0) {
+    if (qtdErros > 0) {
+      showNotification(
+        `Validação com ${qtdErros} produto${qtdErros === 1 ? '' : 's'} em erro. Edite ou exclua na lista de erros.`,
+        'warning'
+      );
+    } else if (qtdP > 0) {
       showNotification(`Existem produtos sem classificação segura. ${qtdP} produto${qtdP === 1 ? '' : 's'}.`, 'warning');
     } else {
-      showNotification('Validação concluída.', 'success');
+      showNotification('VALIDAÇÃO CONCLUÍDA.', 'success');
     }
   } catch (err) {
     showNotification(err.message || 'Erro ao validar', 'danger');
@@ -819,17 +1100,19 @@ function renderResumoValidacaoImportacao(data, nomeArquivo) {
   const unEstoque = escapeHtmlImport(r.estoque_inicial_unidade || 'UN');
   const enriquecimentos = Number(r.enriquecimentos || 0);
   const aprNovas = Number(r.apresentacoes_novas || 0);
-  const modoFiscal = data.modo_fiscal_importacao
-    || r.modo_fiscal_importacao
-    || importacaoInicialState.modo_fiscal_importacao;
-  const tratamento = escapeHtmlImport(
-    data.tratamento_fiscal || r.tratamento_fiscal || rotuloModoFiscalImportacaoUi(modoFiscal)
-  );
+  const planilha = Number(r.produtos_da_planilha != null ? r.produtos_da_planilha : r.produtos_encontrados || 0);
+  const excluidos = Number(r.produtos_excluidos || 0);
+  const validos = Number(r.produtos_validos || 0);
+  const comErro = Number(r.com_erro || 0);
   $('#resumoValidacaoImportacao').removeClass('d-none').html(`
     <div class="alert alert-light border mb-0">
       <div><strong>Arquivo:</strong> ${escapeHtmlImport(data.arquivo || nomeArquivo)}</div>
-      <div class="mt-2"><strong>TRATAMENTO FISCAL:</strong> ${tratamento}</div>
+      <div class="mt-2"><strong>Estoque:</strong> colunas Estoque Fiscal + Estoque Não Fiscal (1 produto por linha; total = soma dos saldos).</div>
       <div class="row g-2 mt-2">
+        <div class="col-md-3"><strong>Produtos da planilha:</strong> ${planilha}</div>
+        <div class="col-md-3"><strong>Válidos:</strong> ${validos}</div>
+        <div class="col-md-3"><strong>Com erro:</strong> ${comErro}</div>
+        <div class="col-md-3"><strong>Excluídos:</strong> ${excluidos}</div>
         <div class="col-md-3"><strong>Produtos encontrados:</strong> ${r.produtos_encontrados || 0}</div>
         <div class="col-md-3"><strong>Produtos novos:</strong> ${r.produtos_novos != null ? r.produtos_novos : (r.prontos || 0)}</div>
         <div class="col-md-3"><strong>Produtos existentes:</strong> ${r.produtos_existentes != null ? r.produtos_existentes : ((r.existentes || 0) + enriquecimentos + Number(r.atualizacoes || 0))}</div>
@@ -888,10 +1171,6 @@ function renderPreviewImportacaoInicial() {
   const html = linhas.map((l, idx) => {
     const p = l.produto || {};
     const e = l.estoque || {};
-    const isFiscal = Number(p.item_fiscal) !== 0;
-    const badgeFiscal = isFiscal
-      ? '<span class="badge bg-primary">item_fiscal=1</span>'
-      : '<span class="badge bg-secondary">item_fiscal=0</span>';
     const controla = Number(p.controla_estoque) !== 0
       ? '<span class="badge bg-success">SIM</span>'
       : '<span class="badge bg-dark">NÃO</span>';
@@ -907,9 +1186,14 @@ function renderPreviewImportacaoInicial() {
     const vendaCel = isExistente && prev
       ? htmlCampoMoedaExistente(prev, 'venda')
       : moedaImport(p.preco_venda);
+    const fiscalLbl = e.estoque_fiscal_label || String(e.estoque_fiscal ?? '0');
+    const naoFiscalLbl = e.estoque_nao_fiscal_label || String(e.estoque_nao_fiscal ?? '0');
+    const totalLbl = e.estoque_total_label || e.estoque_inicial_label || String(e.estoque_total ?? '0');
     return `<tr>
       <td>${badgeStatusImport(l.status)}</td>
-      <td>${escapeHtmlImport(p.nome)}${avisoDiv}</td>
+      <td>${escapeHtmlImport(p.nome)}${avisoDiv}
+        <div class="small text-muted">Fiscal: ${escapeHtmlImport(fiscalLbl)} · Não Fiscal: ${escapeHtmlImport(naoFiscalLbl)} · Total: ${escapeHtmlImport(totalLbl)}</div>
+      </td>
       <td>${escapeHtmlImport(p.marca || '—')}</td>
       <td>${escapeHtmlImport(p.unidade_base || 'UN')}</td>
       <td>${custoCel}</td>
@@ -917,9 +1201,9 @@ function renderPreviewImportacaoInicial() {
       <td>${vendaCel}</td>
       <td>${escapeHtmlImport(l.apresentacao_label || '—')}</td>
       <td>${controla}</td>
-      <td>${escapeHtmlImport(e.estoque_fiscal_label || String(e.estoque_fiscal ?? '—'))}</td>
-      <td>${escapeHtmlImport(e.estoque_nao_fiscal_label || String(e.estoque_nao_fiscal ?? '—'))}</td>
-      <td>${escapeHtmlImport(e.estoque_total_label || e.estoque_inicial_label || '—')}</td>
+      <td>${escapeHtmlImport(fiscalLbl)}</td>
+      <td>${escapeHtmlImport(naoFiscalLbl)}</td>
+      <td>${escapeHtmlImport(totalLbl)}</td>
       <td>${escapeHtmlImport(p.ncm || '—')}</td>
       <td>${escapeHtmlImport(p.cfop || '—')}</td>
       <td>${escapeHtmlImport(p.csosn || '—')}</td>
@@ -927,11 +1211,10 @@ function renderPreviewImportacaoInicial() {
       <td>${escapeHtmlImport(nomeSubcategoriaPreview(l) === '—' ? '—' : nomeSubcategoriaPreview(l))}</td>
       <td>${escapeHtmlImport(rotuloClassificacaoImport(l))}</td>
       <td>${escapeHtmlImport(acaoLinhaImportacao(l, obterPoliticaPendentesUi()))}</td>
-      <td>${badgeFiscal}</td>
       <td><button type="button" class="btn btn-outline-secondary btn-sm" data-idx="${idx}" onclick="verDetalheImportacaoInicial(${idx})">Ver detalhes</button></td>
     </tr>`;
   }).join('');
-  $('#tbodyPreviewImportacao').html(html || '<tr><td colspan="21" class="text-center text-muted py-4">Nenhuma linha</td></tr>');
+  $('#tbodyPreviewImportacao').html(html || '<tr><td colspan="20" class="text-center text-muted py-4">Nenhuma linha</td></tr>');
 }
 
 function verDetalheImportacaoInicial(idx) {
@@ -974,7 +1257,9 @@ function verDetalheImportacaoInicial(idx) {
         <dt class="col-sm-4">Status</dt><dd class="col-sm-8">NOVO</dd>
         <dt class="col-sm-4">Categoria</dt><dd class="col-sm-8">${escapeHtmlImport(p.categoria || '—')}</dd>
         <dt class="col-sm-4">Subcategoria</dt><dd class="col-sm-8">${escapeHtmlImport(p.subcategoria || '—')}</dd>
-        <dt class="col-sm-4">Quantidade</dt><dd class="col-sm-8">${escapeHtmlImport((l.estoque && l.estoque.estoque_inicial_label) || '—')}</dd>
+        <dt class="col-sm-4">Estoque Fiscal</dt><dd class="col-sm-8">${escapeHtmlImport((l.estoque && (l.estoque.estoque_fiscal_label || String(l.estoque.estoque_fiscal ?? '0'))) || '0')}</dd>
+        <dt class="col-sm-4">Estoque Não Fiscal</dt><dd class="col-sm-8">${escapeHtmlImport((l.estoque && (l.estoque.estoque_nao_fiscal_label || String(l.estoque.estoque_nao_fiscal ?? '0'))) || '0')}</dd>
+        <dt class="col-sm-4">Estoque Total</dt><dd class="col-sm-8">${escapeHtmlImport((l.estoque && (l.estoque.estoque_total_label || l.estoque.estoque_inicial_label || String(l.estoque.estoque_total ?? '0'))) || '0')}</dd>
         <dt class="col-sm-4">Custo</dt><dd class="col-sm-8">${moedaImport(p.custo_unitario)}</dd>
         <dt class="col-sm-4">Preço venda</dt><dd class="col-sm-8">${moedaImport(p.preco_venda)}</dd>
       </dl>
@@ -1105,7 +1390,7 @@ function verDetalheImportacaoInicial(idx) {
 function confirmarImportacaoInicialProdutos() {
   if (!importacaoInicialState.sessaoId) return;
   if (Number(importacaoInicialState.resumo?.com_erro || 0) > 0) {
-    showNotification('Existem erros de validação. Corrija o arquivo e valide novamente.', 'warning');
+    showNotification('Existem produtos com erro. Edite ou exclua as linhas na lista de erros antes de importar.', 'warning');
     return;
   }
   const qtdPendClass = Number(importacaoInicialState.resumo?.pendentes_classificacao || 0);
@@ -1161,15 +1446,9 @@ function confirmarImportacaoInicialProdutos() {
     const atualizacoes = Number(r.atualizacoes || 0);
     const qtdPend = Number(r.pendentes_classificacao || 0);
     const politica = obterPoliticaPendentesUi();
-    const modoFiscal = importacaoInicialState.modo_fiscal_importacao
-      || r.modo_fiscal_importacao
-      || null;
-    const tratamento = modoFiscal
-      ? rotuloModoFiscalImportacaoUi(modoFiscal)
-      : 'POR LINHA (Estoque Fiscal / Não Fiscal)';
     const avisoFiscal = `<div class="alert alert-light border py-2">
-           <p class="mb-1"><strong>Distribuição de estoque:</strong> colunas Estoque Fiscal / Estoque Não Fiscal da planilha.</p>
-           <p class="mb-0"><strong>Modo legado (opcional):</strong> ${escapeHtmlImport(tratamento)}</p>
+           <p class="mb-1"><strong>1 linha = 1 produto</strong> (não cria produto fiscal e produto não fiscal separados).</p>
+           <p class="mb-0"><strong>Estoque:</strong> Estoque Fiscal + Estoque Não Fiscal da planilha; Estoque Total = soma dos saldos.</p>
          </div>`;
     const avisoEnriquecimento = enriquecimentos > 0
       ? `<p class="mb-2 text-primary">Existem produtos já cadastrados que receberão apresentações comerciais novas.</p>

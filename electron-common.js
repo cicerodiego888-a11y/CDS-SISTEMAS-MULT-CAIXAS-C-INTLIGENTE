@@ -16,6 +16,8 @@ const {
 } = require('./backend/services/tef/tefCryptoProfileProvisioner');
 let contextoPerfilTef = null;
 let erroContextoPerfilTef = null;
+/** Evita provisionar/exibir diálogo TEF duas vezes no mesmo boot (whenReady + backend). */
+let resultadoProvisionamentoChaveTef = null;
 try {
   contextoPerfilTef = configurarPerfilTef({
     app,
@@ -348,6 +350,9 @@ async function aguardarLocalStateFirstInstall(userDataPath, tentativas = 40, int
 }
 
 async function prepararChaveCriptograficaTef() {
+  if (resultadoProvisionamentoChaveTef !== null) {
+    return resultadoProvisionamentoChaveTef;
+  }
   try {
     if (erroContextoPerfilTef) throw erroContextoPerfilTef;
 
@@ -367,6 +372,11 @@ async function prepararChaveCriptograficaTef() {
       });
     } else if (contextoPerfilTef && contextoPerfilTef.permitirGeracaoChave === true) {
       permitirGeracaoChave = true;
+    } else if (contextoPerfilTef && contextoPerfilTef.modo === 'FIRST_INSTALL') {
+      // Reabertura FIRST_INSTALL: permite bootstrap oficial da chave se estiver ausente.
+      // provisionarChaveTef continua fail-closed se houver evidências TEF no banco.
+      // Migração (MIGRATION) NÃO entra aqui — permanece sem geração automática.
+      permitirGeracaoChave = true;
     }
 
     const resultado = await provisionarChaveTef({
@@ -381,6 +391,7 @@ async function prepararChaveCriptograficaTef() {
       modo: contextoPerfilTef && contextoPerfilTef.modo ? contextoPerfilTef.modo : null,
       permitirGeracaoChave
     });
+    resultadoProvisionamentoChaveTef = true;
     return true;
   } catch (error) {
     delete process.env.TEF_ENCRYPTION_KEY;
@@ -395,6 +406,7 @@ async function prepararChaveCriptograficaTef() {
 
     // Instalação nova: ERP pode abrir sem TEF se a chave/contexto ainda não puder
     // ser concluído com segurança. Migração/contexto corrompido permanece fail-closed.
+    // Sem showErrorBox aqui: evita alarme falso ao cliente a cada abertura; TEF fica off.
     if (firstInstall
         && (codigo === 'TEF_CONTEXTO_LOCAL_STATE_AUSENTE'
           || codigo === 'TEF_CHAVE_ARMAZENAMENTO_INDISPONIVEL'
@@ -403,13 +415,11 @@ async function prepararChaveCriptograficaTef() {
       console.error('[TEF] FIRST_INSTALL: TEF indisponível; ERP segue sem chave TEF:', {
         modulo: MODULO_ELECTRON,
         etapa,
-        codigo
+        codigo,
+        mensagem
       });
-      dialog.showErrorBox(
-        'TEF indisponível nesta instalação',
-        `${mensagem}\n\nO ERP continuará sem operações TEF até o contexto ser resolvido.\nEtapa: ${etapa}\nCódigo: ${codigo}`
-      );
-      return 'tef-indisponivel-first-install';
+      resultadoProvisionamentoChaveTef = 'tef-indisponivel-first-install';
+      return resultadoProvisionamentoChaveTef;
     }
 
     console.error('[TEF] Startup bloqueado por falha criptográfica:', {
@@ -418,6 +428,7 @@ async function prepararChaveCriptograficaTef() {
       codigo
     });
     dialog.showErrorBox('TEF indisponível', `${mensagem}\n\nEtapa: ${etapa}\nCódigo: ${codigo}`);
+    resultadoProvisionamentoChaveTef = false;
     return false;
   }
 }

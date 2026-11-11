@@ -219,6 +219,22 @@ function carregarFiscalConfig(targetSelector = '#fiscal-config-form-area') {
                     ${getFiscalField('Bairro', 'fiscal_emitente_bairro', cfg.bairro || '')}
             `;
 
+            const acoesCertificado = `
+                    <div class="col-12" data-cfg-search="certificado csc enviar testar salvar">
+                        <div class="cds-cfg-actions">
+                            <button type="button" class="btn btn-primary btn-sm" onclick="uploadCertificadoFiscal()">
+                                <i class="fas fa-upload"></i> Enviar certificado
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="testarCertificadoFiscal()">
+                                <i class="fas fa-certificate"></i> Testar certificado
+                            </button>
+                            <button type="button" class="btn btn-success btn-sm" onclick="salvarConfigFiscal()">
+                                <i class="fas fa-save"></i> Salvar
+                            </button>
+                        </div>
+                    </div>
+            `;
+
             const blocoCert = `
                     ${getFiscalField('ID CSC (produção)', 'fiscal_id_csc', (cfg.idCSCProducao != null ? cfg.idCSCProducao : cfg.idCSC) || '')}
                     ${getFiscalField('Token CSC (produção)', 'fiscal_token_csc', (cfg.tokenCSCProducao != null ? cfg.tokenCSCProducao : cfg.tokenCSC) || '')}
@@ -235,6 +251,7 @@ function carregarFiscalConfig(targetSelector = '#fiscal-config-form-area') {
                     ${getFiscalField('Senha do certificado', 'fiscal_certificado_senha', cfg.certificadoSenha || '', '', 'password')}
                     <input type="hidden" class="fiscal-field" id="fiscal_certificado_path" value="${cfg.certificadoPath || ''}">
                     ${getFiscalField('Tipo impressão', 'fiscal_tp_imp', cfg.tpImp || 4, '4 = DANFE NFC-e')}
+                    ${acoesCertificado}
             `;
 
             const blocoUrlsHom = `
@@ -253,16 +270,11 @@ function carregarFiscalConfig(targetSelector = '#fiscal-config-form-area') {
                     ${getFiscalField('WS status produção', 'fiscal_ws_status_producao', (cfg.urlsProducao && cfg.urlsProducao.status) || '')}
             `;
 
+            // Barra global no final (outras seções). Certificado já tem ações no próprio card.
             const acoes = `
-                <div class="cds-cfg-actions">
-                    <button class="btn btn-success btn-sm" onclick="salvarConfigFiscal()">
+                <div class="cds-cfg-actions" data-cfg-search="salvar fiscal configuração">
+                    <button type="button" class="btn btn-success btn-sm" onclick="salvarConfigFiscal()">
                         <i class="fas fa-save"></i> Salvar tudo
-                    </button>
-                    <button class="btn btn-primary btn-sm" onclick="uploadCertificadoFiscal()">
-                        <i class="fas fa-upload"></i> Enviar certificado
-                    </button>
-                    <button class="btn btn-secondary btn-sm" onclick="testarCertificadoFiscal()">
-                        <i class="fas fa-certificate"></i> Testar certificado
                     </button>
                 </div>
             `;
@@ -272,7 +284,7 @@ function carregarFiscalConfig(targetSelector = '#fiscal-config-form-area') {
                 ${_fiscalCard('<i class="fas fa-globe"></i> Ambiente e numeração NFC-e', blocoAmbiente, 'ambiente uf série nfc-e produção homologação')}
                 ${_fiscalCard('<i class="fas fa-hashtag"></i> Numeração dos documentos fiscais', blocoNumeracaoNfe, 'nf-e nfe 55 série próximo número')}
                 ${_fiscalCard('<i class="fas fa-building"></i> Emitente', blocoEmpresa, 'empresa cnpj ie município endereço')}
-                ${_fiscalCard('<i class="fas fa-certificate"></i> Certificado e CSC', blocoCert, 'certificado csc senha')}
+                ${_fiscalCard('<i class="fas fa-certificate"></i> Certificado e CSC', blocoCert, 'certificado csc senha enviar testar salvar')}
                 ${_fiscalCard('<i class="fas fa-link"></i> URLs Homologação', blocoUrlsHom, 'urls homologação qrcode')}
                 ${_fiscalCard('<i class="fas fa-link"></i> URLs Produção', blocoUrlsProd, 'urls produção autorização')}
                 ${acoes}
@@ -289,17 +301,7 @@ function carregarFiscalConfig(targetSelector = '#fiscal-config-form-area') {
                     <div class="col-12"><hr><h6 class="text-danger">URLs de Produção</h6></div>
                     ${blocoUrlsProd}
                 </div>
-                <div class="d-flex gap-2 flex-wrap align-items-center">
-                    <button class="btn btn-success btn-sm" onclick="salvarConfigFiscal()">
-                        <i class="fas fa-save"></i> Salvar tudo
-                    </button>
-                    <button class="btn btn-primary btn-sm" onclick="uploadCertificadoFiscal()">
-                        <i class="fas fa-upload"></i> Enviar certificado
-                    </button>
-                    <button class="btn btn-secondary btn-sm" onclick="testarCertificadoFiscal()">
-                        <i class="fas fa-certificate"></i> Testar certificado
-                    </button>
-                </div>
+                ${acoes}
                 `;
 
             $target.html(html);

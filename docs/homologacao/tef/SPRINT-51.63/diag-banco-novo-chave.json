@@ -1,25 +1,15 @@
 {
   "dbPath": "C:/ProgramData/MercantilFiscal/dados/mercadao.db",
-  "keyExists": true,
-  "keyBytes": 191,
-  "keyMtime": "2026-11-11T13:11:28.000Z",
+  "keyExists": false,
+  "keyBytes": null,
+  "keyMtime": null,
   "markerExists": true,
-  "keyMeta": {
-    "versao": 1,
-    "algoritmo": "electron-safeStorage",
-    "hasCiphertext": true,
-    "fields": [
-      "versao",
-      "algoritmo",
-      "ciphertext"
-    ]
-  },
   "markerMeta": {
     "versao": 1,
-    "modo": null,
+    "modo": "FIRST_INSTALL",
     "modulo": "erp",
     "localStateOrigemSha256": "26052081177AE4A83BD43FE0AB2C435330D8A252D03EF7595BD3C66C1AC86040",
-    "provisionadoEm": "2026-11-06T21:58:20.337Z"
+    "provisionadoEm": "2026-11-11T14:04:19.220Z"
   },
   "tefTables": [
     "tef_alertas_fraude",

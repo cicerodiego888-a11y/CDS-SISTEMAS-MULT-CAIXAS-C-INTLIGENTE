@@ -19,8 +19,6 @@ const {
   flagOpcional,
   classificarApresentacoesArquivo,
   normalizarUnidadeBaseCadastro,
-  validarModoFiscalImportacao,
-  itemFiscalDeModoImportacao,
   rotuloModoFiscalImportacao,
   MODOS_FISCAIS_IMPORTACAO,
   campoNumericoInformado,
@@ -603,8 +601,10 @@ function contarEstruturasNovas(linhas) {
 }
 
 async function validarImportacao(db, dadosExtraidos, { nomeArquivo, modo_fiscal_importacao } = {}) {
-  // V2: modo fiscal global é opcional (legado); estoque vem das colunas F/NF
-  const modoFiscal = validarModoFiscalImportacao(modo_fiscal_importacao);
+  // IMP-PROD-01: V2 desacoplado de modo_fiscal_importacao — não classifica produto
+  // como Fiscal/Não Fiscal; saldos vêm das colunas da planilha no mesmo cadastro.
+  void modo_fiscal_importacao;
+  const modoFiscal = null;
   let padraoFiscal = { cfop_padrao: '', csosn_padrao: '' };
   try {
     padraoFiscal = configuracaoService.getPadraoFiscal() || padraoFiscal;
@@ -990,8 +990,10 @@ async function validarImportacao(db, dadosExtraidos, { nomeArquivo, modo_fiscal_
       ? `${pricing.apresentacao_principal.tipo} ${pricing.apresentacao_principal.quantidade} ${pricing.apresentacao_principal.unidade}`
       : '—';
 
+    const linhaPlanilha = Number(produtoRaw._linha_planilha);
     linhas.push({
-      linha: idx + 1,
+      linha: Number.isFinite(linhaPlanilha) && linhaPlanilha > 0 ? linhaPlanilha : (idx + 1),
+      indice_dados: idx,
       status,
       mensagens,
       produto: {
@@ -1029,6 +1031,7 @@ async function validarImportacao(db, dadosExtraidos, { nomeArquivo, modo_fiscal_
   const atencaoImportaveis = linhas.filter(linhaAtencaoPermiteImportar).length;
   const importaveis = prontos + enriquecimentos + atualizacoes + atencaoImportaveis;
   const estruturasNovas = contarEstruturasNovas(linhas);
+  const linhasComErro = linhas.filter((l) => statusBloqueiaImportacao(l.status));
 
   return {
     arquivo: nomeArquivo || null,
@@ -1070,6 +1073,7 @@ async function validarImportacao(db, dadosExtraidos, { nomeArquivo, modo_fiscal_
       subcategorias_novas: estruturasNovas.subcategorias_novas
     },
     linhas,
+    linhas_com_erro: linhasComErro,
     pode_importar: erros === 0 && (importaveis > 0 || pendentesClassificacao > 0),
     exige_politica_pendentes: pendentesClassificacao > 0
   };

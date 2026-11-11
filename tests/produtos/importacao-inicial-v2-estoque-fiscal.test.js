@@ -455,4 +455,69 @@ describe('Importação Inicial V2 — 18 cenários', () => {
     assert.equal(p.cfop, '5102');
     assert.equal(p.csosn, '102');
   });
+
+  it('IMP-PROD-01 — modo_fiscal_importacao legado NÃO interfere no V2', async () => {
+    const buffer = svc.gerarXlsxFixture({
+      produtos: [
+        linhaProduto('IMP-01', 'LEITE UHT 1L', {
+          'Estoque Fiscal': 10,
+          'Estoque Não Fiscal': 20
+        })
+      ],
+      apresentacoes: []
+    });
+    const validacao = await svc.validarArquivoBuffer(db, buffer, {
+      nomeArquivo: 'imp-prod-01.xlsx',
+      modo_fiscal_importacao: 'NAO_FISCAL'
+    });
+    assert.equal(validacao.modo_fiscal_importacao, null);
+    assert.equal(validacao.linhas.length, 1);
+    assert.equal(validacao.linhas[0].status, STATUS.PRONTO);
+    const e = validacao.linhas[0].estoque || {};
+    assert.equal(Number(e.estoque_fiscal), 10);
+    assert.equal(Number(e.estoque_nao_fiscal), 20);
+    assert.equal(Number(e.estoque_total), 30);
+    assert.ok(e.estoque_fiscal_label != null);
+    assert.ok(e.estoque_nao_fiscal_label != null);
+    assert.ok(e.estoque_total_label != null || e.estoque_inicial_label != null);
+    await executarImportacao(db, validacao, {
+      importId: 'imp-prod-01',
+      pastaBackup,
+      dbPath
+    });
+    const rows = await all(db, `SELECT * FROM produtos WHERE codigo = ?`, ['IMP-01']);
+    assert.equal(rows.length, 1);
+    assert.equal(Number(rows[0].saldo_fiscal), 10);
+    assert.equal(Number(rows[0].saldo_nao_fiscal), 20);
+    assert.equal(Number(rows[0].estoque_atual), 30);
+  });
+
+  it('IMP-PROD-01 — quatro cenários obrigatórios + um cadastro', async () => {
+    const cenarios = [
+      { codigo: 'C1', f: 10, nf: 0, total: 10 },
+      { codigo: 'C2', f: 0, nf: 10, total: 10 },
+      { codigo: 'C3', f: 10, nf: 20, total: 30 },
+      { codigo: 'C4', f: 0, nf: 0, total: 0 }
+    ];
+    const v = await validarEImportar(
+      cenarios.map((c) => linhaProduto(c.codigo, `Prod ${c.codigo}`, {
+        'Estoque Fiscal': c.f,
+        'Estoque Não Fiscal': c.nf
+      })),
+      'imp-cenarios.xlsx',
+      'imp-cenarios'
+    );
+    assert.equal(v.linhas.length, 4);
+    for (const c of cenarios) {
+      const p = await get(db, `SELECT * FROM produtos WHERE codigo = ?`, [c.codigo]);
+      assert.ok(p, `produto ${c.codigo}`);
+      assert.equal(Number(p.saldo_fiscal), c.f);
+      assert.equal(Number(p.saldo_nao_fiscal), c.nf);
+      assert.equal(Number(p.estoque_atual), c.total);
+      const dups = await all(db, `SELECT id FROM produtos WHERE codigo = ?`, [c.codigo]);
+      assert.equal(dups.length, 1);
+    }
+    const total = await get(db, `SELECT COUNT(*) AS n FROM produtos`);
+    assert.equal(Number(total.n), 4);
+  });
 });
