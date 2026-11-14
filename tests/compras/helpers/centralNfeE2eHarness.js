@@ -410,6 +410,11 @@ function criarPaginaCompras(app) {
       if (!handler) throw new Error(`Handler de clique não registrado para ${seletor}`);
       handler.call(alvo);
     },
+    disparar(seletor, evento, alvo = {}) {
+      const handler = handlers.get(`${seletor}|${evento}`);
+      if (!handler) throw new Error(`Handler não registrado para ${seletor} (${evento})`);
+      handler.call(alvo);
+    },
     prop(seletor, nome) { return propriedades.get(`${seletor}|${nome}`); },
     avaliar: (codigo) => vm.runInContext(codigo, context)
   };

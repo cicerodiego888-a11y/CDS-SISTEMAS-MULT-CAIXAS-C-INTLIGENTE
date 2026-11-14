@@ -113,6 +113,19 @@ test('XML com IPI participa do total componentes', () => {
   assert.strictEqual(calcularTotalComponentes(fin), 1110);
 });
 
+test('XML importa ICMS-ST e inclui no total dos componentes', () => {
+  const fin = montarImportacaoFinanceiraNfe({
+    icmsTot: {
+      vProd: '2438.30',
+      vFrete: '271.26',
+      vST: '479.60',
+      vNF: '3189.16'
+    }
+  });
+  assert.strictEqual(fin.valor_icms_st, 479.6);
+  assert.strictEqual(calcularTotalComponentes(fin), 3189.16);
+});
+
 test('XML com múltiplas formas de pagamento (maior vPag vence)', () => {
   const fin = montarImportacaoFinanceiraNfe({
     pag: {
@@ -159,6 +172,16 @@ test('mapearInfNFe inclui financeiro no DTO', () => {
   assert.strictEqual(json.forma_pagamento, 'boleto');
   assert.strictEqual(json.condicao_pagamento, 'prazo');
   assert.strictEqual(json.parcelas_detalhe.length, 2);
+});
+
+test('mapearInfNFe mantém ICMS-ST do ICMSTot no DTO', () => {
+  const dto = mapearInfNFe({
+    ide: {},
+    emit: {},
+    det: [],
+    total: { ICMSTot: { vProd: '100', vST: '20', vNF: '120' } }
+  });
+  assert.strictEqual(dto.toJSON().valor_icms_st, 20);
 });
 
 console.log(`\nResultado: ${ok} ok, ${falhas} falhas\n`);

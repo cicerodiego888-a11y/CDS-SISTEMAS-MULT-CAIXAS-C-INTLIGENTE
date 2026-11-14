@@ -19,6 +19,7 @@ const { gerarRelatorioFiscal } = require('../services/relatorios/RelatorioVendas
 const VendaFinanceiroService = require('../services/vendas/VendaFinanceiroService');
 const VendaApplicationService = require('../services/vendas/VendaApplicationService');
 const VendaPagamentoService = require('../services/vendas/VendaPagamentoService');
+const { gravarPrecoCadastroImediato } = require('../services/vendas/PdvPrecoCadastroService');
 const VendaDevolucaoService = require('../services/vendas/VendaDevolucaoService');
 const VendaCancelamentoService = require('../services/vendas/VendaCancelamentoService');
 const {
@@ -360,6 +361,29 @@ router.get('/:id/detalhes', (req, res) => {
 });
 
 router.post('/pre-calcular-distribuicao', validarCaixaAberto, preCalcularDistribuicao);
+
+router.post('/preco-cadastro', (req, res) => {
+  const item = req.body || {};
+  const pedido = Object.assign({}, req, {
+    body: {
+      itens: [{
+        produto_id: item.produto_id,
+        preco_unitario: item.preco_unitario,
+        quantidade: item.quantidade,
+        tipo_preco: item.tipo_preco,
+        tipo_venda: item.tipo_venda,
+        faixa_atacado_id: item.faixa_atacado_id,
+        atualizar_preco_cadastro: true
+      }]
+    }
+  });
+  gravarPrecoCadastroImediato(db, pedido, (erro, atualizacao) => {
+    if (erro) {
+      return res.status(erro.status || 500).json({ sucesso: false, error: erro.message });
+    }
+    return res.json({ sucesso: true, atualizacao });
+  });
+});
 
 // Sprint 2.2: PDV exige caixa; demais origens reconhecidas sem validarCaixaAberto
 router.post('/', validarCaixaSeOrigemPdv, criarVenda);

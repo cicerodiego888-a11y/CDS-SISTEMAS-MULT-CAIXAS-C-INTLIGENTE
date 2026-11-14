@@ -286,11 +286,35 @@ describe('Motor térmico — largura configurada (fiscal_danfe_largura_mm)', () 
     return (await ctx.__empresa()).papel_mm;
   }
 
+  async function empresaDaConfiguracao(configs, ok = true) {
+    const ctx = carregarFrontend('frontend/shared/js/fiscalImpressao.js', 'window.__empresa = obterDadosEmpresaCupom;');
+    ctx.API_URL = 'http://api';
+    ctx.localStorage = { getItem: () => 'token' };
+    ctx.BrandService = { NOME: 'CDS Sistemas' };
+    ctx.fetch = async () => ({ ok, json: async () => configs });
+    return ctx.__empresa();
+  }
+
   it('cupom não fiscal e etiqueta: obterDadosEmpresaCupom devolve 58 só quando configurado', async () => {
     assert.equal(await papelDaConfiguracao([{ chave: 'fiscal_danfe_largura_mm', valor: '58' }]), 58);
     assert.equal(await papelDaConfiguracao([{ chave: 'fiscal_danfe_largura_mm', valor: '80' }]), 80);
     assert.equal(await papelDaConfiguracao([]), 80);
     assert.equal(await papelDaConfiguracao([], false), undefined);
+  });
+
+  it('cupom não fiscal: prioriza nome fantasia e não usa razão social como fallback', async () => {
+    const configurado = await empresaDaConfiguracao([
+      { chave: 'nome_fantasia', valor: 'LOJA FANTASIA' },
+      { chave: 'nome_empresa', valor: 'RAZAO SOCIAL LTDA' }
+    ]);
+    assert.equal(configurado.nome_fantasia, 'LOJA FANTASIA');
+    assert.equal(configurado.nome_empresa, 'LOJA FANTASIA');
+
+    const semFantasia = await empresaDaConfiguracao([
+      { chave: 'nome_empresa', valor: 'RAZAO SOCIAL LTDA' }
+    ]);
+    assert.equal(semFantasia.nome_empresa, 'CDS Sistemas');
+    assert.notEqual(semFantasia.nome_empresa, 'RAZAO SOCIAL LTDA');
   });
 
   it('etiqueta: produtos.js repassa a largura configurada ao template', () => {

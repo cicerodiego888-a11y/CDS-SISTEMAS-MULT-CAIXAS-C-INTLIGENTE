@@ -72,6 +72,56 @@ const decisao = (pendencia, confirmacao = true, extras = {}) => ({
 });
 
 describe('Sprint 2.8 — selo da confirmação de conversão', () => {
+  test('proposta manual exige selo da apresentação e do fator exatos', () => {
+    const item = itemCabo({
+      unidade_comercial: 'FRD6', uCom: 'FRD6', quantidade_comercial: 1, qCom: 1,
+      unidade_tributavel: 'FRD6', uTrib: 'FRD6', quantidade_tributavel: 1, qTrib: 1
+    });
+    const apresentacao = {
+      id: 21, produtoId: 93, tipo: 'PCT', quantidade: 6, unidade: 'M',
+      tipoConversao: 'MULTIPLICADOR', propostaManual: true
+    };
+    const extras = { apresentacoes: new Map([[0, apresentacao]]) };
+    const [pendencia] = emitir([item], extras);
+    assert.equal(pendencia.quantidade_resultante_proposta, 6);
+    assert.equal(pendencia.produto_apresentacao_id, 21);
+    const confirmado = decisao(pendencia);
+    assert.deepEqual(validar([item], [confirmado], extras), []);
+    const [aplicado] = aplicar([item], [confirmado], extras);
+    assert.equal(aplicado.quantidade_estoque_confirmada, 6);
+    assert.equal(aplicado.fator_conversao_confirmado, 6);
+    for (const alteracao of [{ quantidade: 12 }, { id: 22 }, { tipo: 'CX' }]) {
+      const diferente = { apresentacoes: new Map([[0, { ...apresentacao, ...alteracao }]]) };
+      assert.equal(validar([item], [confirmado], diferente).length, 1);
+      assert.equal(aplicar([item], [confirmado], diferente)[0].quantidade_estoque_confirmada, undefined);
+    }
+  });
+
+  test('proposta manual divergente do qTrib não confirma outra quantidade silenciosamente', () => {
+    const item = itemCabo({ unidade_comercial: 'PCT', uCom: 'PCT', quantidade_comercial: 1, qCom: 1,
+      unidade_tributavel: 'M', uTrib: 'M', quantidade_tributavel: 5, qTrib: 5 });
+    const extras = { apresentacoes: new Map([[0, {
+      id: 21, produtoId: 93, tipo: 'PCT', quantidade: 6, unidade: 'M',
+      tipoConversao: 'MULTIPLICADOR', propostaManual: true
+    }]]) };
+    const [pendencia] = emitir([item], extras);
+    assert.equal(pendencia.codigo, 'DIVERGENCIA_QTRIB_FATOR');
+    assert.equal(validar([item], [decisao(pendencia)], extras).length, 1);
+    assert.equal(aplicar([item], [decisao(pendencia)], extras)[0].quantidade_estoque_confirmada, undefined);
+  });
+
+  test('apresentação selecionada não é ignorada quando qCom já está na unidade de estoque', () => {
+    const item = itemCabo({ unidade_comercial: 'M', uCom: 'M', quantidade_comercial: 1, qCom: 1,
+      unidade_tributavel: 'M', uTrib: 'M', quantidade_tributavel: 1, qTrib: 1 });
+    const extras = { apresentacoes: new Map([[0, {
+      id: 21, produtoId: 93, tipo: 'PCT', quantidade: 6, unidade: 'M', tipoConversao: 'MULTIPLICADOR'
+    }]]) };
+    const [pendencia] = emitir([item], extras);
+    assert.equal(pendencia.codigo, 'APRESENTACAO_INCOMPATIVEL_COM_XML');
+    assert.equal(validar([item], [decisao(pendencia)], extras).length, 1);
+    assert.equal(aplicar([item], [decisao(pendencia)], extras)[0].quantidade_estoque_confirmada, undefined);
+  });
+
   test('confirmação válida para a linha e a conversão corretas', () => {
     const [pendencia] = emitir();
     assert.match(pendencia.selo_conversao, /^v2\.[0-9a-f]{64}$/);

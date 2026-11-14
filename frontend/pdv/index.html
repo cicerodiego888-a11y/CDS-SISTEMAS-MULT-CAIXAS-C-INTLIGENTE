@@ -109,6 +109,47 @@
 
     <div id="modal-container"></div>
 
+    <div class="modal fade" id="modalPrecoUnitarioPdv" tabindex="-1" role="dialog" aria-labelledby="modalPrecoUnitarioPdvTitulo" aria-hidden="true">
+        <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalPrecoUnitarioPdvTitulo">Alterar preço unitário</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Fechar">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-2">
+                        <strong id="modalPrecoUnitarioPdvNome"></strong>
+                    </div>
+                    <div class="form-group">
+                        <label for="modalPrecoUnitarioPdvAtual">Preço unitário atual</label>
+                        <div class="input-group">
+                            <div class="input-group-prepend"><span class="input-group-text">R$</span></div>
+                            <input type="text" class="form-control" id="modalPrecoUnitarioPdvAtual" readonly>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="modalPrecoUnitarioPdvNovo">Novo preço unitário</label>
+                        <div class="input-group">
+                            <div class="input-group-prepend"><span class="input-group-text">R$</span></div>
+                            <input type="text" class="form-control" id="modalPrecoUnitarioPdvNovo" inputmode="decimal" autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="custom-control custom-checkbox">
+                        <input type="checkbox" class="custom-control-input" id="modalPrecoUnitarioPdvCheckbox">
+                        <label class="custom-control-label" for="modalPrecoUnitarioPdvCheckbox">Atualizar também o preço no cadastro deste produto</label>
+                    </div>
+                    <small class="form-text text-muted mt-2" id="modalPrecoUnitarioPdvAjuda"></small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="modalPrecoUnitarioPdvCancelar" data-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="modalPrecoUnitarioPdvConfirmar">Confirmar preço</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="/vendor/jquery/jquery.min.js"></script>
     <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
     <script>

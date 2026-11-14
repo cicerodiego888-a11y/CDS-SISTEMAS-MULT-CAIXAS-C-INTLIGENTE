@@ -7,10 +7,12 @@
 'use strict';
 
 const {
+  classificarTipoApresentacao,
   normalizarTipoApresentacao,
-  tipoParaUnidadeComercial,
-  TIPOS_APRESENTACAO
+  tipoParaUnidadeComercial
 } = require('./tiposApresentacao');
+
+const LIMITE_APRESENTACOES_POR_PRODUTO = 50;
 const { inferirTipoConversao, normalizarTipoConversao } = require('../../motores/muc/constants/tiposConversao');
 const { criarProdutoApresentacaoDTO } = require('../../motores/muc');
 
@@ -22,12 +24,14 @@ function num(v, casas = 4) {
 }
 
 function normalizarEmbalagemInput(raw = {}, unidadeProduto = 'un') {
-  const tipo = normalizarTipoApresentacao(raw.tipo);
+  const classe = classificarTipoApresentacao(raw.tipo);
+  const tipo = classe.aceito ? classe.tipo : normalizarTipoApresentacao(raw.tipo);
   const quantidade = num(raw.quantidade ?? raw.quantidade_por_embalagem, 3);
   return {
     id: raw.id ? Number(raw.id) : null,
     tipo,
     descricao: raw.descricao ? String(raw.descricao).trim() : null,
+    tipo_aceito: classe.aceito,
     quantidade: tipo === 'UN' ? 1 : quantidade,
     unidade: String(raw.unidade || unidadeProduto || 'un').trim().toLowerCase(),
     gtin: raw.gtin ? String(raw.gtin).trim() : (raw.codigo_barras ? String(raw.codigo_barras).trim() : null),
@@ -58,15 +62,34 @@ function normalizarEmbalagemInput(raw = {}, unidadeProduto = 'un') {
 function validarListaEmbalagens(embalagens) {
   const lista = Array.isArray(embalagens) ? embalagens : [];
   const erros = [];
+  const identificadores = new Set();
+
+  if (lista.length > LIMITE_APRESENTACOES_POR_PRODUTO) {
+    erros.push(`Limite de ${LIMITE_APRESENTACOES_POR_PRODUTO} apresentações por produto.`);
+  }
 
   lista.forEach((emb, idx) => {
-    const tipo = normalizarTipoApresentacao(emb.tipo);
-    if (!TIPOS_APRESENTACAO.includes(tipo)) {
+    const classe = emb.tipo_aceito === false
+      ? { aceito: false, tipo: String(emb.tipo || '') }
+      : classificarTipoApresentacao(emb.tipo);
+    if (!classe.aceito) {
       erros.push(`Apresentação ${idx + 1}: tipo inválido.`);
+      return;
     }
-    if (tipo !== 'UN' && num(emb.quantidade, 3) <= 0) {
+    const quantidadeInformada = emb.quantidade;
+    const quantidade = num(quantidadeInformada, 3);
+    const quantidadeExplicita = quantidadeInformada !== undefined
+      && quantidadeInformada !== null
+      && quantidadeInformada !== '';
+    if (quantidadeExplicita && !(quantidade > 0)) {
+      erros.push(`Apresentação ${idx + 1}: a quantidade de conversão deve ser positiva.`);
+    } else if (classe.tipo !== 'UN' && !(quantidade > 0)) {
       erros.push(`Apresentação ${idx + 1}: informe a quantidade de conversão.`);
     }
+    if (identificadores.has(classe.tipo)) {
+      erros.push(`Apresentação ${idx + 1}: o tipo ${classe.tipo} já existe neste produto.`);
+    }
+    identificadores.add(classe.tipo);
   });
 
   const principais = lista.filter((e) => Number(e.principal) === 1);
@@ -156,78 +179,109 @@ class ProdutoEmbalagemService {
 
       const executarSync = () => {
         svc.registrarAuditoriaPermissoesEmbalagens(antigas || [], lista, usuario);
+        const inseridas = [];
+        let indice = 0;
 
-        svc.db.run(
-          `DELETE FROM produto_embalagens WHERE produto_id = ?`,
-          [produtoId],
-          (delErr) => {
-            if (delErr) return abortar(delErr);
+        const localizar = (emb) => {
+          const porId = emb.id
+            ? (antigas || []).find((antiga) => Number(antiga.id) === Number(emb.id))
+            : null;
+          if (porId) return porId;
+          return (antigas || []).find((antiga) => normalizarTipoApresentacao(antiga.tipo) === emb.tipo) || null;
+        };
 
-            if (lista.length === 0) {
-              return svc.finalizarSync(produtoId, [], usuario, callback, { usarTransacao });
-            }
+        const campos = (emb) => [
+          emb.tipo,
+          emb.descricao,
+          emb.quantidade,
+          emb.unidade,
+          emb.gtin,
+          emb.codigo_fornecedor,
+          emb.codigo_interno_fornecedor,
+          emb.fornecedor_cnpj,
+          emb.fornecedor_nome,
+          emb.fornecedor_descricao,
+          emb.valor_compra,
+          emb.preco_venda,
+          emb.tipo_conversao,
+          emb.principal,
+          emb.compra,
+          emb.venda,
+          emb.estoque,
+          emb.ativa,
+          emb.vigencia_inicio || null,
+          emb.vigencia_fim || null,
+          emb.origem || 'CADASTRO',
+          emb.observacao || null,
+          emb.motivo_alteracao || null
+        ];
 
-            let indice = 0;
-            const inseridas = [];
-
-            const inserirProxima = () => {
-              if (indice >= lista.length) {
-                return svc.finalizarSync(produtoId, inseridas, usuario, callback, { usarTransacao });
-              }
-
-              const emb = lista[indice];
-              indice += 1;
-
-              svc.db.run(
-                `INSERT INTO produto_embalagens (
-                  produto_id, tipo, descricao, quantidade, unidade, gtin,
-                  codigo_fornecedor, codigo_interno_fornecedor,
-                  fornecedor_cnpj, fornecedor_nome, fornecedor_descricao,
-                  valor_compra, preco_venda, tipo_conversao,
-                  principal, compra, venda, estoque, ativa,
-                  vigencia_inicio, vigencia_fim, origem,
-                  usuario_criacao, observacao, motivo_alteracao,
-                  created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                  datetime('now', 'localtime'), datetime('now', 'localtime'))`,
-                [
-                  produtoId,
-                  emb.tipo,
-                  emb.descricao,
-                  emb.quantidade,
-                  emb.unidade,
-                  emb.gtin,
-                  emb.codigo_fornecedor,
-                  emb.codigo_interno_fornecedor,
-                  emb.fornecedor_cnpj,
-                  emb.fornecedor_nome,
-                  emb.fornecedor_descricao,
-                  emb.valor_compra,
-                  emb.preco_venda,
-                  emb.tipo_conversao,
-                  emb.principal,
-                  emb.compra,
-                  emb.venda,
-                  emb.estoque,
-                  emb.ativa,
-                  emb.vigencia_inicio || null,
-                  emb.vigencia_fim || null,
-                  emb.origem || 'CADASTRO',
-                  usuario?.id || null,
-                  emb.observacao || null,
-                  emb.motivo_alteracao || null
-                ],
-                function onInsert(err) {
-                  if (err) return abortar(err);
-                  inseridas.push({ ...emb, id: this.lastID });
-                  inserirProxima();
-                }
-              );
-            };
-
-            inserirProxima();
+        const desativarOmitidas = () => {
+          const ids = inseridas.map((item) => Number(item.id)).filter((id) => id > 0);
+          const params = [produtoId];
+          let sql = `UPDATE produto_embalagens
+                      SET ativa = 0, updated_at = datetime('now', 'localtime')
+                      WHERE produto_id = ? AND COALESCE(ativa, 1) = 1`;
+          if (ids.length) {
+            sql += ` AND id NOT IN (${ids.map(() => '?').join(',')})`;
+            params.push(...ids);
           }
-        );
+          svc.db.run(sql, params, (err) => {
+            if (err) return abortar(err);
+            svc.finalizarSync(produtoId, inseridas, usuario, callback, { usarTransacao });
+          });
+        };
+
+        const persistirProxima = () => {
+          if (indice >= lista.length) return desativarOmitidas();
+          const emb = lista[indice];
+          indice += 1;
+          const antiga = localizar(emb);
+
+          if (antiga?.id) {
+            svc.db.run(
+              `UPDATE produto_embalagens SET
+                 tipo = ?, descricao = ?, quantidade = ?, unidade = ?, gtin = ?,
+                 codigo_fornecedor = ?, codigo_interno_fornecedor = ?,
+                 fornecedor_cnpj = ?, fornecedor_nome = ?, fornecedor_descricao = ?,
+                 valor_compra = ?, preco_venda = ?, tipo_conversao = ?,
+                 principal = ?, compra = ?, venda = ?, estoque = ?, ativa = ?,
+                 vigencia_inicio = ?, vigencia_fim = ?, origem = ?,
+                 observacao = ?, motivo_alteracao = ?,
+                 updated_at = datetime('now', 'localtime')
+               WHERE id = ? AND produto_id = ?`,
+              [...campos(emb), antiga.id, produtoId],
+              (err) => {
+                if (err) return abortar(err);
+                inseridas.push({ ...emb, id: antiga.id });
+                persistirProxima();
+              }
+            );
+            return;
+          }
+
+          svc.db.run(
+            `INSERT INTO produto_embalagens (
+              produto_id, tipo, descricao, quantidade, unidade, gtin,
+              codigo_fornecedor, codigo_interno_fornecedor,
+              fornecedor_cnpj, fornecedor_nome, fornecedor_descricao,
+              valor_compra, preco_venda, tipo_conversao,
+              principal, compra, venda, estoque, ativa,
+              vigencia_inicio, vigencia_fim, origem,
+              usuario_criacao, observacao, motivo_alteracao,
+              created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+              datetime('now', 'localtime'), datetime('now', 'localtime'))`,
+            [produtoId, ...campos(emb).slice(0, 21), usuario?.id || null, ...campos(emb).slice(21)],
+            function onInsert(err) {
+              if (err) return abortar(err);
+              inseridas.push({ ...emb, id: this.lastID });
+              persistirProxima();
+            }
+          );
+        };
+
+        persistirProxima();
       };
 
       svc.db.serialize(() => {
@@ -286,6 +340,9 @@ class ProdutoEmbalagemService {
       estoque: dadosRaw?.estoque ?? 1
     }, unidadeProduto);
 
+    if (emb.tipo_aceito === false) {
+      return callback(new Error('Tipo de apresentação inválido.'));
+    }
     if (!String(emb.descricao || '').trim()) {
       return callback(new Error('Informe a descrição da unidade comercial.'));
     }

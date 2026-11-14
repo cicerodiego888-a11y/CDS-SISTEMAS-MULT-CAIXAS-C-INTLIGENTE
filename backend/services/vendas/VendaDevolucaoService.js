@@ -21,52 +21,82 @@ function devolverSaldosDistribuidos(produtoId, quantidadeFiscal, quantidadeNaoFi
     SET
       saldo_fiscal = saldo_fiscal + ?,
       saldo_nao_fiscal = saldo_nao_fiscal + ?,
-      estoque_atual = (saldo_fiscal + ?) + (saldo_nao_fiscal + ?),
+      estoque_atual = COALESCE(saldo_fiscal + ?, 0) + COALESCE(saldo_nao_fiscal + ?, 0),
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `, [qtdFiscal, qtdNaoFiscal, qtdFiscal, qtdNaoFiscal, produtoId], callback);
+      AND (? = 0 OR saldo_fiscal IS NOT NULL)
+      AND (? = 0 OR saldo_nao_fiscal IS NOT NULL)
+  `, [qtdFiscal, qtdNaoFiscal, qtdFiscal, qtdNaoFiscal, produtoId, qtdFiscal, qtdNaoFiscal], function (err) {
+    if (err) return callback(err);
+    if (Number(this.changes) !== 1) {
+      return callback(new Error(`Não foi possível restaurar o estoque do produto ${produtoId}.`));
+    }
+    callback(null);
+  });
+}
+
+function resolverControleEstoqueItem(item, callback) {
+  if (item.controla_estoque !== undefined && item.controla_estoque !== null && item.controla_estoque !== '') {
+    return callback(null, Number(item.controla_estoque) !== 0);
+  }
+  db.get(
+    'SELECT COALESCE(controla_estoque, 1) AS controla_estoque FROM produtos WHERE id = ?',
+    [item.produto_id],
+    (err, produto) => {
+      if (err) return callback(err);
+      if (!produto) return callback(new Error(`Produto ${item.produto_id} não encontrado para estorno de estoque.`));
+      callback(null, Number(produto.controla_estoque) !== 0);
+    }
+  );
 }
 
 function devolverEstoqueItemVenda(item, callback) {
-  const qtds = resolverQuantidadesVendaItem(item);
+  resolverControleEstoqueItem(item, (flagErr, controlaEstoque) => {
+    if (flagErr) return callback(flagErr);
+    if (!controlaEstoque) return callback(null);
 
-  db.get(`
-    SELECT
-      COALESCE(SUM(quantidade_fiscal), 0) AS devolvido_fiscal,
-      COALESCE(SUM(quantidade_nao_fiscal), 0) AS devolvido_nao_fiscal
-    FROM vendas_devolucoes
-    WHERE venda_item_id = ?
-  `, [item.id], (devErr, devRow) => {
-    const qtdFiscal = devErr
-      ? Number(qtds.quantidade_fiscal || 0)
-      : Math.max(0, Number(qtds.quantidade_fiscal || 0) - Number(devRow?.devolvido_fiscal || 0));
-    const qtdNaoFiscal = devErr
-      ? Number(qtds.quantidade_nao_fiscal || 0)
-      : Math.max(0, Number(qtds.quantidade_nao_fiscal || 0) - Number(devRow?.devolvido_nao_fiscal || 0));
+    const qtds = resolverQuantidadesVendaItem(item);
+    db.get(`
+      SELECT
+        COALESCE(SUM(quantidade_fiscal), 0) AS devolvido_fiscal,
+        COALESCE(SUM(quantidade_nao_fiscal), 0) AS devolvido_nao_fiscal
+      FROM vendas_devolucoes
+      WHERE venda_item_id = ?
+    `, [item.id], (devErr, devRow) => {
+      if (devErr) return callback(devErr);
+      const qtdFiscal = Math.max(
+        0,
+        Number(qtds.quantidade_fiscal || 0) - Number(devRow?.devolvido_fiscal || 0)
+      );
+      const qtdNaoFiscal = Math.max(
+        0,
+        Number(qtds.quantidade_nao_fiscal || 0) - Number(devRow?.devolvido_nao_fiscal || 0)
+      );
 
-    if (qtdFiscal <= 0 && qtdNaoFiscal <= 0) {
-      return callback(null);
-    }
-
-    lotesService.produtoControlaValidade(item.produto_id, (controlErr, controlaValidade) => {
-      if (controlErr) return callback(controlErr);
-
-      const aplicarSaldos = (saldoErr) => {
-        if (saldoErr) return callback(saldoErr);
-        devolverSaldosDistribuidos(
-          item.produto_id,
-          qtdFiscal,
-          qtdNaoFiscal,
-          callback
-        );
-      };
-
-      if (controlaValidade) {
-        lotesService.restaurarLotesVenda(item.id, aplicarSaldos);
-        return;
+      if (qtdFiscal <= 0 && qtdNaoFiscal <= 0) {
+        return callback(null);
       }
 
-      aplicarSaldos(null);
+      lotesService.produtoControlaValidade(item.produto_id, (controlErr, controlaValidade) => {
+        if (controlErr) return callback(controlErr);
+
+        const aplicarSaldos = (saldoErr) => {
+          if (saldoErr) return callback(saldoErr);
+          devolverSaldosDistribuidos(
+            item.produto_id,
+            qtdFiscal,
+            qtdNaoFiscal,
+            callback
+          );
+        };
+
+        if (controlaValidade) {
+          lotesService.restaurarLotesVenda(item.id, aplicarSaldos);
+          return;
+        }
+
+        aplicarSaldos(null);
+      });
     });
   });
 }
@@ -133,25 +163,30 @@ function devolverLotesParcialItem(vendaItemId, quantidade, callback) {
 }
 
 function devolverEstoqueParcialItem(item, splitDevolucao, callback) {
-  lotesService.produtoControlaValidade(item.produto_id, (controlErr, controlaValidade) => {
-    if (controlErr) return callback(controlErr);
+  resolverControleEstoqueItem(item, (flagErr, controlaEstoque) => {
+    if (flagErr) return callback(flagErr);
+    if (!controlaEstoque) return callback(null);
 
-    const aplicarSaldos = (saldoErr) => {
-      if (saldoErr) return callback(saldoErr);
-      devolverSaldosDistribuidos(
-        item.produto_id,
-        splitDevolucao.qtdFiscal,
-        splitDevolucao.qtdNaoFiscal,
-        callback
-      );
-    };
+    lotesService.produtoControlaValidade(item.produto_id, (controlErr, controlaValidade) => {
+      if (controlErr) return callback(controlErr);
 
-    if (controlaValidade && Number(splitDevolucao.qtdTotal || 0) > 0) {
-      devolverLotesParcialItem(item.id, splitDevolucao.qtdTotal, aplicarSaldos);
-      return;
-    }
+      const aplicarSaldos = (saldoErr) => {
+        if (saldoErr) return callback(saldoErr);
+        devolverSaldosDistribuidos(
+          item.produto_id,
+          splitDevolucao.qtdFiscal,
+          splitDevolucao.qtdNaoFiscal,
+          callback
+        );
+      };
 
-    aplicarSaldos(null);
+      if (controlaValidade && Number(splitDevolucao.qtdTotal || 0) > 0) {
+        devolverLotesParcialItem(item.id, splitDevolucao.qtdTotal, aplicarSaldos);
+        return;
+      }
+
+      aplicarSaldos(null);
+    });
   });
 }
 

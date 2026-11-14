@@ -9,7 +9,7 @@ const CHAVE = 'pdv_permitir_editar_preco_unitario';
 const ATIVADO = 'ATIVADO';
 const DESATIVADO = 'DESATIVADO';
 const DESCRICAO =
-  'Permitir editar preço unitário no PDV e atualizar cadastro do produto';
+  'Permitir editar o preço unitário na venda do PDV';
 
 let cacheValor = DESATIVADO;
 let cacheHidratado = false;

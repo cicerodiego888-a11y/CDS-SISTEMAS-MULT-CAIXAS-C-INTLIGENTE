@@ -150,7 +150,7 @@ describe('Cancelamento de venda × NFC-e', () => {
     cancelarTefOriginal = tefManager.cancelar;
     tefManager.cancelar = async (...args) => {
       estornosTef.push(args);
-      return { success: true };
+      return { sucesso: true, status: 'cancelado', cancelConfirmed: true };
     };
 
     await criarVenda(16);

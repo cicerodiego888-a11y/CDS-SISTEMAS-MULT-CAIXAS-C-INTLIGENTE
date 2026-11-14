@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const db = require('../../database');
 const moment = require('moment');
 const configService = require('../configuracaoService');
@@ -137,24 +138,160 @@ function erroPersistenciaVenda(err, etapa, ctx = {}) {
   return { error: msg, etapa };
 }
 
-function atualizarSaldoProdutoAposBaixa(produtoId, quantidade, itemFiscal, callback) {
-  if (Number(itemFiscal) === 1) {
-    db.run(`
-      UPDATE produtos
-      SET
-        saldo_fiscal = saldo_fiscal - ?,
-        estoque_atual = (saldo_fiscal - ?) + saldo_nao_fiscal
-      WHERE id = ?
-    `, [quantidade, quantidade, produtoId], callback);
-  } else {
-    db.run(`
-      UPDATE produtos
-      SET
-        saldo_nao_fiscal = saldo_nao_fiscal - ?,
-        estoque_atual = saldo_fiscal + (saldo_nao_fiscal - ?)
-      WHERE id = ?
-    `, [quantidade, quantidade, produtoId], callback);
+function ordenarJsonEstavel(valor) {
+  if (Array.isArray(valor)) return valor.map(ordenarJsonEstavel);
+  if (!valor || typeof valor !== 'object') return valor;
+  return Object.keys(valor).sort().reduce((obj, chave) => {
+    obj[chave] = ordenarJsonEstavel(valor[chave]);
+    return obj;
+  }, {});
+}
+
+function resolverIdempotenciaVenda(body = {}) {
+  const valor = body.idempotency_key;
+  if (valor == null || String(valor).trim() === '') return null;
+  const chave = String(valor).trim();
+  if (chave.length > 128 || /[^\x21-\x7E]/.test(chave)) {
+    const erro = new Error('Chave de idempotência da venda inválida.');
+    erro.status = 400;
+    return { erro };
   }
+
+  const payload = { ...body };
+  delete payload.idempotency_key;
+  const fingerprint = crypto
+    .createHash('sha256')
+    .update(JSON.stringify(ordenarJsonEstavel(payload)))
+    .digest('hex');
+  return { chave, fingerprint };
+}
+
+function responderVendaIdempotenteExistente(req, res, continuar) {
+  const idempotencia = req.__vendaIdempotencia;
+  db.get(
+    `SELECT idempotency_fingerprint, idempotency_response_json
+     FROM vendas WHERE idempotency_key = ?`,
+    [idempotencia.chave],
+    (err, venda) => {
+      if (err) {
+        return res.status(500).json({
+          error: 'Não foi possível verificar a idempotência da venda.',
+          detalhe: err.message
+        });
+      }
+      if (!venda) return continuar();
+      if (venda.idempotency_fingerprint !== idempotencia.fingerprint) {
+        return res.status(409).json({
+          sucesso: false,
+          codigo: 'CHAVE_IDEMPOTENCIA_VENDA_REUTILIZADA',
+          error: 'A chave já foi usada por outra solicitação de venda.'
+        });
+      }
+      if (!venda.idempotency_response_json) {
+        return res.status(409).json({
+          sucesso: false,
+          codigo: 'VENDA_IDEMPOTENCIA_EM_PROCESSAMENTO',
+          error: 'A solicitação com esta chave ainda está sendo finalizada; tente novamente.'
+        });
+      }
+
+      let resposta;
+      try {
+        resposta = JSON.parse(venda.idempotency_response_json);
+      } catch (parseErr) {
+        return res.status(500).json({
+          error: 'A resposta persistida da venda não pôde ser recuperada.',
+          detalhe: parseErr.message
+        });
+      }
+      return res.status(200).json(resposta);
+    }
+  );
+}
+
+function tratarColisaoIdempotenciaVenda(req, res, err, etapa) {
+  const idempotencia = req.__vendaIdempotencia;
+  if (!idempotencia || !/UNIQUE constraint failed: vendas\.idempotency_key/i.test(String(err?.message || ''))) {
+    return false;
+  }
+  db.run('ROLLBACK', (rollbackErr) => {
+    if (rollbackErr) {
+      return res.status(500).json({
+        error: 'Falha ao reverter a tentativa duplicada de venda.',
+        detalhe: rollbackErr.message
+      });
+    }
+    responderVendaIdempotenteExistente(req, res, () => {
+      res.status(500).json(erroPersistenciaVenda(err, etapa));
+    });
+  });
+  return true;
+}
+
+function responderVendaComIdempotencia(res, payload, idempotencia) {
+  if (!idempotencia) return responderVendaComFiscal(res, payload);
+  const respostaComCache = Object.create(res);
+  respostaComCache.json = (body) => {
+    let responseJson;
+    try {
+      responseJson = JSON.stringify(body);
+    } catch (err) {
+      return res.status(500).json({
+        error: 'Não foi possível persistir a resposta idempotente da venda.',
+        detalhe: err.message
+      });
+    }
+    db.run(
+      `UPDATE vendas
+       SET idempotency_response_json = ?
+       WHERE id = ? AND idempotency_key = ? AND idempotency_fingerprint = ?`,
+      [responseJson, payload.vendaId, idempotencia.chave, idempotencia.fingerprint],
+      function (err) {
+        if (err) {
+          return res.status(500).json({
+            error: 'Não foi possível persistir a resposta idempotente da venda.',
+            detalhe: err.message
+          });
+        }
+        if (Number(this.changes) !== 1) {
+          return res.status(500).json({
+            error: 'A venda não foi vinculada à chave de idempotência informada.'
+          });
+        }
+        return res.json(body);
+      }
+    );
+    return respostaComCache;
+  };
+  return responderVendaComFiscal(respostaComCache, payload);
+}
+
+function atualizarSaldoProdutoAposBaixa(produtoId, quantidade, itemFiscal, callback) {
+  const fiscal = Number(itemFiscal) === 1;
+  const saldoBaixado = fiscal ? 'saldo_fiscal' : 'saldo_nao_fiscal';
+  const sql = fiscal
+    ? `UPDATE produtos
+       SET
+         saldo_fiscal = saldo_fiscal - ?,
+         estoque_atual = (saldo_fiscal - ?) + COALESCE(saldo_nao_fiscal, 0)
+       WHERE id = ? AND saldo_fiscal IS NOT NULL`
+    : `UPDATE produtos
+       SET
+         saldo_nao_fiscal = saldo_nao_fiscal - ?,
+         estoque_atual = COALESCE(saldo_fiscal, 0) + (saldo_nao_fiscal - ?)
+       WHERE id = ? AND saldo_nao_fiscal IS NOT NULL`;
+
+  db.run(sql, [quantidade, quantidade, produtoId], function (err) {
+    if (err) return callback(err);
+    if (Number(this.changes) !== 1) {
+      const erro = new Error(
+        `Baixa de estoque ${saldoBaixado} não atualizou o produto ${produtoId}.`
+      );
+      erro.code = 'ESTOQUE_BAIXA_SEM_ATUALIZACAO';
+      return callback(erro);
+    }
+    callback(null, { changes: Number(this.changes) });
+  });
 }
 
 function reduzirEstoqueComFEFO(vendaItemId, produtoId, quantidade, itemFiscal, callback) {
@@ -783,8 +920,15 @@ function vendaExigeAutorizacaoDescontoManual(body = {}) {
 }
 
 function criarVenda(req, res) {
+const pdvPrecoCadastroService = require('./PdvPrecoCadastroService');
 const tipoVendaCanal = String(req.body?.tipo_venda || 'BALCAO').toUpperCase();
 if (tipoVendaCanal === 'ENTREGA') {
+  if ((Array.isArray(req.body?.itens) ? req.body.itens : [])
+    .some((item) => item?.atualizar_preco_cadastro === true)) {
+    return res.status(400).json({
+      error: 'A venda para entrega ainda não foi concluída; desmarque a atualização cadastral ou finalize a venda pelo fluxo padrão.'
+    });
+  }
   const { criarVendaEntrega } = require('../entrega/CriarVendaEntregaService');
   return criarVendaEntrega(req, res);
 }
@@ -804,6 +948,27 @@ if (!req.__descontoAuthOk && vendaExigeAutorizacaoDescontoManual(req.body)) {
       }));
   }
   req.__descontoAuthOk = true;
+}
+
+if (!req.__vendaIdempotenciaVerificada) {
+  const idempotencia = resolverIdempotenciaVenda(req.body);
+  if (idempotencia?.erro) {
+    return res.status(idempotencia.erro.status || 400).json({ error: idempotencia.erro.message });
+  }
+  const origem = String(req.vendaContext?.origem || req.body?.origem || '').toUpperCase().trim();
+  if (origem === 'PDV' && !idempotencia) {
+    return res.status(400).json({
+      sucesso: false,
+      codigo: 'CHAVE_IDEMPOTENCIA_VENDA_OBRIGATORIA',
+      error: 'A finalização do PDV exige uma chave de idempotência da venda.'
+    });
+  }
+
+  req.__vendaIdempotenciaVerificada = true;
+  req.__vendaIdempotencia = idempotencia;
+  if (idempotencia) {
+    return responderVendaIdempotenteExistente(req, res, () => criarVenda(req, res));
+  }
 }
 
 const {
@@ -929,6 +1094,22 @@ if (itens.some(item => item.produto_id === undefined || item.produto_id === null
   res.status(400).json({ error: 'Um ou mais itens da venda não possuem produto vinculado.' });
   return;
 }
+
+if (itens.some(item => item?.atualizar_preco_cadastro === true)
+    && req.__precosCadastroPdvValidados !== true) {
+  pdvPrecoCadastroService.prepararAtualizacoesPrecoCatalogo(db, req, (precoErr, atualizacoes) => {
+    if (precoErr) {
+      return res.status(precoErr.status || 500).json({ error: precoErr.message });
+    }
+    req.__precosCadastroPdvValidados = true;
+    req.__atualizacoesPrecoCadastroPdv = atualizacoes;
+    criarVenda(req, res);
+  });
+  return;
+}
+const atualizacoesPrecoCadastroPdv = Array.isArray(req.__atualizacoesPrecoCadastroPdv)
+  ? req.__atualizacoesPrecoCadastroPdv
+  : [];
 
 db.all(`
   SELECT
@@ -1246,10 +1427,11 @@ db.all(`
         });
       }
       db.run(`
-        INSERT INTO vendas (codigo, data_venda, cliente_id, total, desconto, forma_pagamento, status, caixa_sessao_id, caixa_id, terminal_id, operador_id, valor_fiscal, valor_nao_fiscal, status_pagamento, tef_transacao_id, mpfc_politica_snapshot)
-          VALUES (?, ?, ?, ?, ?, ?, 'concluida', ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [codigo, data_venda, cliente_id || null, totalNum, desconto || 0, formaPagamentoFinal, req.caixaSessaoId || null, req.caixaId || null, req.terminalId || null, req.operadorId || null, totalFiscal, totalNaoFiscal, statusPagamento, resultadoFiscal?.transacoes?.[0] || null, snapshotJson], function(err) {
+        INSERT INTO vendas (codigo, data_venda, cliente_id, total, desconto, forma_pagamento, status, caixa_sessao_id, caixa_id, terminal_id, operador_id, valor_fiscal, valor_nao_fiscal, status_pagamento, tef_transacao_id, mpfc_politica_snapshot, idempotency_key, idempotency_fingerprint)
+          VALUES (?, ?, ?, ?, ?, ?, 'concluida', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [codigo, data_venda, cliente_id || null, totalNum, desconto || 0, formaPagamentoFinal, req.caixaSessaoId || null, req.caixaId || null, req.terminalId || null, req.operadorId || null, totalFiscal, totalNaoFiscal, statusPagamento, resultadoFiscal?.transacoes?.[0] || null, snapshotJson, req.__vendaIdempotencia?.chave || null, req.__vendaIdempotencia?.fingerprint || null], function(err) {
         if (err) {
+          if (tratarColisaoIdempotenciaVenda(req, res, err, 'insert_vendas_prazo')) return;
           db.run('ROLLBACK');
           res.status(500).json(erroPersistenciaVenda(err, 'insert_vendas_prazo', {
             caixa_sessao_id: req.caixaSessaoId,
@@ -1318,9 +1500,9 @@ db.all(`
           const tipoVenda = normalizarTipoVendaItem(item);
 
           db.run(`
-            INSERT INTO vendas_itens (venda_id, produto_id, quantidade, preco_unitario, preco_unitario_interno, desconto_percentual, desconto_valor, desconto_manual, promocao_id, desconto_atacado, tipo_preco, subtotal, item_fiscal, quantidade_fiscal, quantidade_nao_fiscal, valor_fiscal, valor_nao_fiscal, tipo_venda)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `, [vendaId, item.produto_id, item.quantidade, item.preco_unitario, item.preco_unitario_interno ?? item.preco_unitario, item.desconto_percentual || 0, item.desconto_valor || 0, Number(item.desconto_manual || 0) === 1 ? 1 : 0, item.promocao_id || null, item.desconto_atacado || 0, item.tipo_preco || 'varejo', item.subtotal, itemFiscal, quantidadeFiscal, quantidadeNaoFiscal, valorFiscal, valorNaoFiscal, tipoVenda], (itemErr) => {
+            INSERT INTO vendas_itens (venda_id, produto_id, quantidade, preco_unitario, preco_unitario_interno, desconto_percentual, desconto_valor, desconto_manual, promocao_id, desconto_atacado, tipo_preco, subtotal, item_fiscal, quantidade_fiscal, quantidade_nao_fiscal, valor_fiscal, valor_nao_fiscal, tipo_venda, controla_estoque, produto_apresentacao_id, unidade_comercial, quantidade_apresentacao, fator_conversao, unidade_base, quantidade_base)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [vendaId, item.produto_id, item.quantidade, item.preco_unitario, item.preco_unitario_interno ?? item.preco_unitario, item.desconto_percentual || 0, item.desconto_valor || 0, Number(item.desconto_manual || 0) === 1 ? 1 : 0, item.promocao_id || null, item.desconto_atacado || 0, item.tipo_preco || 'varejo', item.subtotal, itemFiscal, quantidadeFiscal, quantidadeNaoFiscal, valorFiscal, valorNaoFiscal, tipoVenda, Number(produtoMap[item.produto_id]?.controla_estoque ?? 1) !== 0 ? 1 : 0, item.produto_apresentacao_id || null, item.unidade_comercial || null, item.quantidade_apresentacao || null, item.fator_conversao || null, item.unidade_base || null, item.fator_conversao ? quantidadeFiscal + quantidadeNaoFiscal : null], function (itemErr) {
             if (itemErr) {
               db.run('ROLLBACK');
               res.status(500).json(erroPersistenciaVenda(itemErr, 'insert_vendas_itens_prazo', {
@@ -1381,22 +1563,33 @@ db.all(`
                   if (!vencFinBase.isValid()) vencFinBase = moment().add(30, 'days');
                   const inserirFinanceiroPrazo = (indice = 1, venc = vencFinBase.clone()) => {
                     if (indice > qtdParcelas) {
-                      db.run('COMMIT');
-
-                      responderVendaComFiscal(res, {
+                      pdvPrecoCadastroService.finalizarTransacaoVendaPdv(
+                        db,
+                        atualizacoesPrecoCadastroPdv,
                         vendaId,
-                        codigo,
-                        message: 'Venda a prazo registrada com sucesso',
-                        emitirFiscal: !!emitir_fiscal,
-                        valorFiscal: totalFiscal,
-                        valorNaoFiscal: totalNaoFiscal,
-                        statusPagamento: statusPagamento,
-                        pagamentosTef: pagamentosVenda
-                      });
+                        req.user?.id || req.user?.usuario_id || req.operadorId,
+                        req.user?.nome || req.user?.username,
+                        (finalizacaoErr) => {
+                          if (finalizacaoErr) {
+                            res.status(500).json({ error: finalizacaoErr.message });
+                            return;
+                          }
+                          responderVendaComIdempotencia(res, {
+                            vendaId,
+                            codigo,
+                            message: 'Venda a prazo registrada com sucesso',
+                            emitirFiscal: !!emitir_fiscal,
+                            valorFiscal: totalFiscal,
+                            valorNaoFiscal: totalNaoFiscal,
+                            statusPagamento: statusPagamento,
+                            pagamentosTef: pagamentosVenda
+                          }, req.__vendaIdempotencia);
+                        }
+                      );
                       return;
                     }
 
-                    db.run(`
+                      db.run(`
                       INSERT INTO financeiro (
                         tipo, descricao, valor, data_movimento, categoria, forma_pagamento,
                         referencia_id, referencia_tipo, status, origem, documento, vencimento,
@@ -1576,9 +1769,11 @@ const executarVenda = async () => {
       valor_nao_fiscal,
       status_pagamento,
       tef_transacao_id,
-      mpfc_politica_snapshot
+      mpfc_politica_snapshot,
+      idempotency_key,
+      idempotency_fingerprint
       )
-      VALUES (?, ?, ?, ?, ?, ?, 'concluida', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, 'concluida', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       codigo,
       data_venda,
@@ -1598,9 +1793,12 @@ const executarVenda = async () => {
       totalNaoFiscal,
       statusPagamento,
       resultadoFiscal?.transacoes?.[0] || null,
-      snapshotJson
+      snapshotJson,
+      req.__vendaIdempotencia?.chave || null,
+      req.__vendaIdempotencia?.fingerprint || null
     ], function(err) {
       if (err) {
+        if (tratarColisaoIdempotenciaVenda(req, res, err, 'insert_vendas')) return;
         db.run('ROLLBACK');
         res.status(500).json(erroPersistenciaVenda(err, 'insert_vendas', {
           caixa_sessao_id: req.caixaSessaoId,
@@ -1669,9 +1867,9 @@ const executarVenda = async () => {
         const tipoVenda = normalizarTipoVendaItem(item);
 
         db.run(`
-          INSERT INTO vendas_itens (venda_id, produto_id, quantidade, preco_unitario, preco_unitario_interno, desconto_percentual, desconto_valor, desconto_manual, promocao_id, desconto_atacado, tipo_preco, subtotal, item_fiscal, quantidade_fiscal, quantidade_nao_fiscal, valor_fiscal, valor_nao_fiscal, tipo_venda)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [vendaId, item.produto_id, item.quantidade, item.preco_unitario, item.preco_unitario_interno ?? item.preco_unitario, item.desconto_percentual || 0, item.desconto_valor || 0, Number(item.desconto_manual || 0) === 1 ? 1 : 0, item.promocao_id || null, item.desconto_atacado || 0, item.tipo_preco || 'varejo', item.subtotal, itemFiscal, quantidadeFiscal, quantidadeNaoFiscal, valorFiscal, valorNaoFiscal, tipoVenda], (itemErr) => {
+          INSERT INTO vendas_itens (venda_id, produto_id, quantidade, preco_unitario, preco_unitario_interno, desconto_percentual, desconto_valor, desconto_manual, promocao_id, desconto_atacado, tipo_preco, subtotal, item_fiscal, quantidade_fiscal, quantidade_nao_fiscal, valor_fiscal, valor_nao_fiscal, tipo_venda, controla_estoque, produto_apresentacao_id, unidade_comercial, quantidade_apresentacao, fator_conversao, unidade_base, quantidade_base)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [vendaId, item.produto_id, item.quantidade, item.preco_unitario, item.preco_unitario_interno ?? item.preco_unitario, item.desconto_percentual || 0, item.desconto_valor || 0, Number(item.desconto_manual || 0) === 1 ? 1 : 0, item.promocao_id || null, item.desconto_atacado || 0, item.tipo_preco || 'varejo', item.subtotal, itemFiscal, quantidadeFiscal, quantidadeNaoFiscal, valorFiscal, valorNaoFiscal, tipoVenda, Number(produtoMap[item.produto_id]?.controla_estoque ?? 1) !== 0 ? 1 : 0, item.produto_apresentacao_id || null, item.unidade_comercial || null, item.quantidade_apresentacao || null, item.fator_conversao || null, item.unidade_base || null, item.fator_conversao ? quantidadeFiscal + quantidadeNaoFiscal : null], function (itemErr) {
           if (itemErr) {
             db.run('ROLLBACK');
             res.status(500).json(erroPersistenciaVenda(itemErr, 'insert_vendas_itens', {
@@ -1710,18 +1908,29 @@ const executarVenda = async () => {
               const statusFinanceiro = vendaFicaPendente ? 'pendente' : 'recebido';
               const baixadoEm = statusFinanceiro === 'recebido' ? data_venda : null;
               const finalizarResposta = () => {
-                db.run('COMMIT');
-
-                responderVendaComFiscal(res, {
+                pdvPrecoCadastroService.finalizarTransacaoVendaPdv(
+                  db,
+                  atualizacoesPrecoCadastroPdv,
                   vendaId,
-                  codigo,
-                  message: 'Venda registrada com sucesso',
-                  emitirFiscal: !!emitir_fiscal,
-                  valorFiscal: totalFiscal,
-                  valorNaoFiscal: totalNaoFiscal,
-                  statusPagamento: statusPagamento,
-                  pagamentosTef: pagamentosVenda
-                });
+                  req.user?.id || req.user?.usuario_id || req.operadorId,
+                  req.user?.nome || req.user?.username,
+                  (finalizacaoErr) => {
+                    if (finalizacaoErr) {
+                      res.status(500).json({ error: finalizacaoErr.message });
+                      return;
+                    }
+                    responderVendaComIdempotencia(res, {
+                      vendaId,
+                      codigo,
+                      message: 'Venda registrada com sucesso',
+                      emitirFiscal: !!emitir_fiscal,
+                      valorFiscal: totalFiscal,
+                      valorNaoFiscal: totalNaoFiscal,
+                      statusPagamento: statusPagamento,
+                      pagamentosTef: pagamentosVenda
+                    }, req.__vendaIdempotencia);
+                  }
+                );
               };
 
               const inserirContasReceberSeNecessario = (callback) => {

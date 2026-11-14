@@ -83,7 +83,7 @@ function montarConsultaCompras(filtros) {
             c.fornecedor, c.numero_nf, c.serie_nf, c.status,
             c.condicao_pagamento, c.forma_pagamento,
             c.valor_produtos, c.valor_desconto, c.valor_frete,
-            c.valor_seguro, c.valor_outras_despesas, c.valor_ipi,
+            c.valor_seguro, c.valor_outras_despesas, c.valor_ipi, c.valor_icms_st,
             c.total AS total_oficial
           FROM compras c
           ${where.length ? `WHERE ${where.join(' AND ')}` : ''}

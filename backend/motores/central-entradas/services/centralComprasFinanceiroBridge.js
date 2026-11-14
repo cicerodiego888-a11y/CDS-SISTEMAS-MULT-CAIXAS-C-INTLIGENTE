@@ -8,6 +8,7 @@
  * @returns {boolean}
  */
 function financeiroPayloadCompleto(payload = {}) {
+  if (payload.valor_icms_st == null) return false;
   if (!payload.forma_pagamento) return false;
   if (!payload.condicao_pagamento) return false;
 

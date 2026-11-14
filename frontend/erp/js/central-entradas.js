@@ -4061,7 +4061,7 @@ function renderAbaCompraCentral(doc) {
             O usuário pode ajustar produtos, valores, pagamento e fornecedor antes de salvar.
         </div>
         ${podeAbrir
-            ? `<button type="button" class="btn btn-success btn-sm w-100" id="centralBtnAbrirCompra" data-doc-id="${doc.id}" title="${escapeHtmlCentralEntradas(tituloBtn)}">
+            ? `<button type="button" class="btn btn-success btn-sm w-100" id="centralBtnAbrirCompra" data-doc-id="${doc.id}" data-acao="${emImportacao ? 'retomar' : 'finalizar'}" title="${escapeHtmlCentralEntradas(tituloBtn)}">
                 <i class="fas fa-shopping-cart me-1"></i> ${escapeHtmlCentralEntradas(labelBtn)}
             </button>`
             : `<div class="alert alert-light small py-2 mb-0"><i class="fas fa-lock me-1"></i>Disponível quando o documento estiver pronto para compra.</div>`}
@@ -4114,7 +4114,7 @@ function renderCtaImportarCompraCentral(doc) {
         : 'Finalizar entrada e abrir Compras automaticamente';
     const icon = emImportacao ? 'fa-redo' : 'fa-check-double';
 
-    return `<button type="button" class="btn btn-success central-ux1-btn-importar" id="centralBtnAbrirCompra" data-doc-id="${doc.id}" title="${escapeHtmlCentralEntradas(titulo)}">
+    return `<button type="button" class="btn btn-success central-ux1-btn-importar" id="centralBtnAbrirCompra" data-doc-id="${doc.id}" data-acao="${emImportacao ? 'retomar' : 'finalizar'}" title="${escapeHtmlCentralEntradas(titulo)}">
         <i class="fas ${icon} me-1"></i> ${escapeHtmlCentralEntradas(label)}
     </button>`;
 }
@@ -5002,7 +5002,10 @@ async function finalizarEntradaDesdeCentral(documentoId, opcoes = {}) {
             throw new Error('Resposta sem dados da compra para abrir Compras.');
         }
 
-        showNotification('Abrindo compra...', 'info');
+        showNotification(
+            opcoes.retomada ? 'Importação recuperada. Continuando em Compras...' : 'Abrindo compra...',
+            'info'
+        );
 
         sessionStorage.setItem('central_abrir_compra', JSON.stringify({
             documentoId: resultado.documentoId || id,
@@ -5022,7 +5025,10 @@ async function finalizarEntradaDesdeCentral(documentoId, opcoes = {}) {
         if (error?.codigo === 'DOCUMENTO_JA_IMPORTADO' || /já (possui compra|foi importado)/i.test(msg)) {
             showNotification(msg, 'warning');
         } else {
-            showNotification('Erro ao finalizar entrada: ' + msg, 'danger');
+            const prefixo = opcoes.retomada
+                ? 'Não foi possível retomar a importação: '
+                : 'Erro ao finalizar entrada: ';
+            showNotification(prefixo + msg, 'danger');
         }
         throw error;
     } finally {
@@ -5035,11 +5041,12 @@ async function finalizarEntradaDesdeCentral(documentoId, opcoes = {}) {
     }
 }
 
-async function abrirCompraDesdeCentral(documentoId) {
-    // Compatibilidade: CTA de retomada / legado usa o mesmo caso de uso único.
+async function abrirCompraDesdeCentral(documentoId, opcoes = {}) {
+    const retomada = opcoes.retomada === true;
     return finalizarEntradaDesdeCentral(documentoId, {
-        origem: 'cta_central',
-        mensagemProcessando: 'Abrindo compra...'
+        origem: retomada ? 'retomada_importacao' : 'cta_central',
+        retomada,
+        mensagemProcessando: retomada ? 'Retomando importação...' : 'Abrindo compra...'
     });
 }
 
@@ -5494,7 +5501,8 @@ function bindEventosCentralEntradas() {
 
     $(document).on('click.centralEntradas', '#centralBtnAbrirCompra', function () {
         const id = Number($(this).data('doc-id'));
-        if (id) abrirCompraDesdeCentral(id);
+        const retomada = String($(this).data('acao') || '') === 'retomar';
+        if (id) abrirCompraDesdeCentral(id, { retomada });
     });
 
     $(document).on('click.centralEntradas', '#centralBtnCarregarXml', function () {

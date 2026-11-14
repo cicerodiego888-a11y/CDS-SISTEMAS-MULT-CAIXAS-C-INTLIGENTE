@@ -26,7 +26,11 @@ const {
   calcularSubtotalFinanceiroItemCompra,
   resolverQuantidadesCompraItem
 } = require('../lib/motorConversaoUnidades');
-const { obterMuc, resultadoParaJson } = require('../motores/muc');
+const {
+  obterMuc,
+  resultadoParaJson,
+  parseApresentacaoLegadoProduto
+} = require('../motores/muc');
 const ConfirmacaoConversaoEntradaNfe = require('../services/unidades/ConfirmacaoConversaoEntradaNfe');
 const MotorUnidadesMedida = require('../services/unidades/MotorUnidadesMedida');
 const {
@@ -834,7 +838,7 @@ function responderFalhaCommitCompra(res, erro) {
  * mesmos critérios de processarItemCompra. Fixa produto_apresentacao_id no item para a gravação usar a mesma.
  * @returns Map<central_item_indice, apresentação|null>
  */
-function resolverApresentacoesAutorizadas(itens, fornecedorCnpj, callback) {
+function resolverApresentacoesAutorizadas(itens, fornecedorCnpj, produtoMap, callback) {
   const repositorio = obterMuc(db).apresentacoes;
   const mapa = new Map();
   const lista = Array.isArray(itens) ? itens : [];
@@ -849,17 +853,73 @@ function resolverApresentacoesAutorizadas(itens, fornecedorCnpj, callback) {
       mapa.set(indice, null);
       return proximo();
     }
+    let selecionada = item.apresentacao_solicitada_id;
+    if (typeof selecionada === 'string' && /^(?:unidade|uc|legado|unidade-base|temp)-/.test(selecionada)) {
+      selecionada = null;
+    }
+    const autorizar = (err, apresentacao) => {
+      if (err) return callback(err);
+      const produto = produtoMap.get(produtoId);
+      const propria = apresentacao && Number(apresentacao.produtoId) === produtoId
+        && apresentacao.ativa && (apresentacao.compra || (apresentacao.origem === 'LEGADO' && apresentacao.id == null))
+        && MotorUnidadesMedida.normalizarUnidadeEntradaNfe(apresentacao.unidade)
+          === MotorUnidadesMedida.normalizarUnidadeEntradaNfe(produto?.unidade);
+      if (selecionada != null && !propria) {
+        const erro = new Error('A apresentação selecionada não é uma apresentação de compra ativa deste produto na unidade de estoque.');
+        erro.status = 422;
+        erro.code = 'APRESENTACAO_COMPRA_INVALIDA';
+        erro.linhas = [{ indice, nItem: item.nItem ?? null, produto_id: produtoId }];
+        return callback(erro);
+      }
+      let autorizada = propria ? apresentacao : null;
+      const fatorSolicitado = item.fator_solicitado_tela;
+      if (fatorSolicitado != null && fatorSolicitado !== '') {
+        const fator = Number(fatorSolicitado);
+        if (!Number.isFinite(fator) || fator <= 0 || Math.round(fator * 10000) / 10000 !== fator) {
+          const erro = new Error('O fator de conversão informado deve ser positivo e ter no máximo quatro casas decimais.');
+          erro.status = 422;
+          erro.code = 'FATOR_CONVERSAO_INVALIDO';
+          erro.linhas = [{ indice, nItem: item.nItem ?? null, produto_id: produtoId }];
+          return callback(erro);
+        }
+        if (!autorizada || Math.abs(Number(autorizada.quantidade) - fator) > 0.00005) {
+          autorizada = {
+            ...(autorizada || {}),
+            id: autorizada?.id ?? null,
+            produtoId,
+            tipo: autorizada?.tipo || item.apresentacao_solicitada_tipo || item.unidade_comercial,
+            quantidade: fator,
+            unidade: produto.unidade,
+            tipoConversao: autorizada?.tipoConversao || 'MULTIPLICADOR',
+            propostaManual: true
+          };
+        }
+      }
+      item.produto_apresentacao_id = autorizada?.id ?? null;
+      mapa.set(indice, autorizada);
+      return proximo();
+    };
+    if (selecionada != null) {
+      const id = Number(selecionada);
+      if (!Number.isSafeInteger(id) || id <= 0) return autorizar(null, null);
+      return repositorio.buscarPorId(id, autorizar);
+    }
+    const produto = produtoMap.get(produtoId);
+    const tipoSolicitado = MotorUnidadesMedida.normalizarUnidadeEntradaNfe(item.apresentacao_solicitada_tipo);
+    const tipoLegado = MotorUnidadesMedida.normalizarUnidadeEntradaNfe(produto?.unidade_comercial);
+    if (tipoSolicitado && tipoSolicitado === tipoLegado
+        && Number(produto?.quantidade_por_embalagem) > 0) {
+      return autorizar(null, parseApresentacaoLegadoProduto(produto));
+    }
     repositorio.resolverPorIdentificador(produtoId, {
       gtin: item.codigo_barras,
       codigo_fornecedor: item.codigo_fornecedor,
       fornecedor_cnpj: fornecedorCnpj || item.fornecedor_cnpj,
       unidade_comercial: item.unidade_comercial
     }, (err, apresentacao) => {
-      if (err) return callback(err);
-      const propria = apresentacao && Number(apresentacao.produtoId) === produtoId ? apresentacao : null;
-      item.produto_apresentacao_id = propria?.id ?? null;
-      mapa.set(indice, propria);
-      return proximo();
+      const unidadeXml = MotorUnidadesMedida.normalizarUnidadeEntradaNfe(item.unidade_comercial);
+      const unidadeApresentacao = MotorUnidadesMedida.normalizarUnidadeEntradaNfe(apresentacao?.tipo);
+      return autorizar(err, unidadeXml === unidadeApresentacao ? apresentacao : null);
     });
   };
   proximo();
@@ -895,12 +955,13 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
       }
       quantidadesAutorizadas = itens.map((item, posicao) => {
         const indice = Number.isInteger(item.central_item_indice) ? item.central_item_indice : posicao;
-        return ConfirmacaoConversaoEntradaNfe.quantidadeAutorizadaEntradaNfe(
+        const autorizada = ConfirmacaoConversaoEntradaNfe.quantidadeAutorizadaEntradaNfe(
           item,
           produtoMap.get(Number(item.produto_id || item.produtoId || 0)) || {},
           indice,
           { documentoId, chaveAcesso, apresentacao: apresentacoes.get(indice) || null }
         );
+        return { ...autorizada, identificador: require('crypto').randomUUID() };
       });
       next();
     });
@@ -986,7 +1047,8 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
             {
               fornecedorCnpj: fornecedorCnpj,
               origem: origemCentralNfe ? 'CENTRAL_NFE' : (item.origem_conversao || opcoes.origem || 'MANUAL'),
-              registrarAprendizado: origemCentralNfe ? false : true
+              registrarAprendizado: origemCentralNfe ? false : true,
+              ...(origemCentralNfe ? { autorizacaoConversao: quantidadesAutorizadas[posicaoItem] } : {})
             },
             (mucErr, resultadoMuc) => {
             if (mucErr) {
@@ -1026,19 +1088,38 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
                 }, produtoId);
               }
               const efetiva = Number(resultadoMuc?.quantidadeEstoque);
+              const xmlOriginal = ConfirmacaoConversaoEntradaNfe.snapshotXmlLinha(itemComProduto, posicaoItem);
+              const rastreio = {
+                autorizacao_id: autorizada?.identificador || null,
+                indice: itemComProduto.central_item_indice ?? posicaoItem,
+                nItem: itemComProduto.nItem ?? null,
+                produto_id: produtoId,
+                unidade_nf: xmlOriginal.uCom,
+                quantidade_comercial: xmlOriginal.qCom,
+                apresentacao: autorizada?.apresentacao?.tipo || null,
+                apresentacao_id: autorizada?.apresentacaoId ?? null,
+                fator_autorizado: autorizada?.fator ?? null,
+                quantidade_autorizada: autorizada?.quantidade ?? null,
+                quantidade_calculada: Number.isFinite(efetiva) ? efetiva : null,
+                fator_calculado: resultadoMuc?.fatorConversao ?? null,
+                unidade_estoque: resultadoMuc?.unidadeEstoque || produtoRow?.unidade || null,
+                custo_comercial: Number(itemComProduto.preco_unitario_comercial || 0)
+                  || (xmlOriginal.qCom > 0 ? Number(itemComProduto.subtotal || 0) / xmlOriginal.qCom : null),
+                custo_convertido: resultadoMuc?.custoUnitario ?? null,
+                origem_conversao: autorizada?.origem || null
+              };
               if (autorizada?.quantidade == null || !Number.isFinite(efetiva)
-                  || Math.abs(efetiva - autorizada.quantidade) > 0.001) {
+                  || Math.abs(efetiva - autorizada.quantidade) > 0.00005
+                  || !Number.isFinite(Number(resultadoMuc?.fatorConversao))
+                  || Math.abs(Number(resultadoMuc?.fatorConversao) - autorizada.fator) > 0.00005
+                  || (resultadoMuc?.apresentacaoId ?? null) !== (autorizada.apresentacaoId ?? null)
+                  || MotorUnidadesMedida.normalizarUnidadeEntradaNfe(resultadoMuc?.unidadeEstoque)
+                    !== MotorUnidadesMedida.normalizarUnidadeEntradaNfe(autorizada.unidadeEstoque)) {
                 const err = new Error('A conversão calculada para gravação difere da conversão validada para esta linha da NF-e. Nada foi gravado.');
                 err.status = 422;
                 err.code = 'CONVERSAO_EFETIVA_DIVERGENTE';
-                const xmlOriginal = ConfirmacaoConversaoEntradaNfe.snapshotXmlLinha(itemComProduto, posicaoItem);
                 err.linhas = [{
-                  indice: itemComProduto.central_item_indice ?? posicaoItem,
-                  nItem: itemComProduto.nItem ?? null,
-                  produto_id: produtoId,
-                  quantidade_autorizada: autorizada?.quantidade ?? null,
-                  quantidade_calculada: Number.isFinite(efetiva) ? efetiva : null,
-                  unidade_nf: xmlOriginal.uCom,
+                  ...rastreio,
                   quantidade_nf: xmlOriginal.qCom,
                   unidade_tributavel: xmlOriginal.uTrib,
                   quantidade_tributavel: xmlOriginal.qTrib,
@@ -1049,11 +1130,15 @@ function processarItensCompra(compraId, itens, fornecedor, opcoes, done) {
                 }];
                 console.warn('[COMPRAS][CENTRAL_NFE] conversão efetiva diferente da validada', {
                   codigo: err.code,
-                  documento_id: opcoes?.central_documento_id || opcoes?.documento_id || null,
+                  etapa: 'comparacao_gravacao',
                   ...err.linhas[0]
                 });
                 return done(err);
               }
+              console.info('[COMPRAS][CENTRAL_NFE] conversão validada para gravação', {
+                etapa: 'comparacao_gravacao',
+                ...rastreio
+              });
             }
 
             const qtdsEstoque = {
@@ -2105,6 +2190,7 @@ router.post('/', (req, res) => {
     valor_frete,
     valor_outras_despesas,
     valor_ipi,
+    valor_icms_st,
     valor_seguro,
     valor_total_nota,
     total,
@@ -2237,14 +2323,15 @@ router.post('/', (req, res) => {
       itensFiscais.reduce((sum, item) => sum + moeda(item.subtotal), 0)
     );
 
-    // RC 5.4.1 — componentes incluem IPI e seguro; total oficial = XML (valor_total_nota)
+    // RC 5.4.1 — componentes fiscais incluem IPI, seguro e ICMS-ST; total oficial = XML.
     totalCalculadoComAjustes = calcularTotalComponentes({
       valor_produtos: totalItensCalculado,
       valor_desconto,
       valor_frete,
       valor_seguro,
       valor_outras_despesas,
-      valor_ipi
+      valor_ipi,
+      valor_icms_st
     });
 
     const totalXml = moeda(valor_total_nota || totalNum);
@@ -2298,7 +2385,7 @@ router.post('/', (req, res) => {
         INSERT INTO compras (
           data_compra, data_emissao, data_entrada, fornecedor, fornecedor_cnpj,
           numero_nf, serie_nf, modelo_nf, chave_acesso,
-          valor_produtos, valor_desconto, valor_frete, valor_seguro, valor_outras_despesas, valor_ipi,
+          valor_produtos, valor_desconto, valor_frete, valor_seguro, valor_outras_despesas, valor_ipi, valor_icms_st,
           valor_total_nota, total, total_xml, total_itens_calculado, diferenca_total,
           status, condicao_pagamento, forma_pagamento, data_vencimento,
           parcelas, valor_entrada, dias_entre_parcelas, observacao, nota_fiscal_avulsa, tipo_entrada,
@@ -2307,7 +2394,7 @@ router.post('/', (req, res) => {
           csosn_cst, csosn_cst_xml, cst_pis, cst_pis_xml,
           cst_cofins, cst_cofins_xml, cst_ipi, cst_ipi_xml,
           escrituracao_alterada, escrituracao_motivo
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'concluida', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'concluida', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         data_compra,
         data_emissao || null,
@@ -2324,6 +2411,7 @@ router.post('/', (req, res) => {
         Number(valor_seguro) || 0,
         Number(valor_outras_despesas) || 0,
         Number(valor_ipi) || 0,
+        Number(valor_icms_st) || 0,
         totalOficial,
         totalOficial,
         totalOficial,
@@ -2458,7 +2546,7 @@ router.post('/', (req, res) => {
           });
         } else {
           // Compra Normal: process items and create financial records
-          console.log('Processando itens da compra:', compraId, itensComRateio);
+          console.log('Processando itens da compra:', compraId, 'quantidade de linhas:', itensComRateio.length);
           const produtosCriadosCompra = [];
           processarItensCompra(compraId, itensComRateio, fornecedor, {
             fornecedor_cnpj,
@@ -2678,7 +2766,7 @@ router.post('/', (req, res) => {
 
         const conversaoDescartada = itensComRateio.filter((item) => item.campos_conversao_descartados.length > 0);
         if (conversaoDescartada.length > 0) {
-          console.warn('[COMPRAS][CENTRAL_NFE] fator/quantidade convertida da tela ignorados; vale o cadastro do produto', {
+          console.info('[COMPRAS][CENTRAL_NFE] campos de conversão reconciliados e sujeitos à validação do backend', {
             documentoId: documentoCentral.id,
             linhas: conversaoDescartada.map((item) => ({ nItem: item.nItem, campos: item.campos_conversao_descartados }))
           });
@@ -2686,8 +2774,8 @@ router.post('/', (req, res) => {
 
         return carregarMapaProdutosItens(itensComRateio, (errMapa, produtoMap) => {
           if (errMapa) return res.status(500).json({ error: errMapa.message });
-          return resolverApresentacoesAutorizadas(itensComRateio, fornecedor_cnpj, (errAp, apresentacoes) => {
-            if (errAp) return res.status(500).json({ error: errAp.message });
+          return resolverApresentacoesAutorizadas(itensComRateio, fornecedor_cnpj, produtoMap, (errAp, apresentacoes) => {
+            if (errAp) return res.status(errAp.status || 500).json({ error: errAp.message, code: errAp.code, linhas: errAp.linhas });
             apresentacoesAutorizadas = apresentacoes;
             const pendenciasConversao = validarPendenciasConversaoEntrada(itensComRateio, {
               produtoMap,

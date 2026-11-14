@@ -1,7 +1,7 @@
 /**
  * RC COMPRAS 5.4.1 — Importação financeira da NF-e (somente leitura do XML).
  *
- * Extrai pag/detPag, cobr/fat/dup e totais (vIPI, vSeg) sem alterar MIIP/Estoque/Fiscal.
+ * Extrai pag/detPag, cobr/fat/dup e totais (vIPI, vSeg, vST) sem alterar MIIP/Estoque/Fiscal.
  *
  * @module services/compras/ImportacaoFinanceiraNfe
  */
@@ -142,6 +142,7 @@ function montarImportacaoFinanceiraNfe({ pag, cobr, icmsTot } = {}) {
   const { fatura, duplicatas } = extrairCobranca(cobr);
 
   const valorIpi = moeda(icmsTot?.vIPI);
+  const valorIcmsSt = moeda(icmsTot?.vST);
   const valorSeguro = moeda(icmsTot?.vSeg);
   const valorProdutos = moeda(icmsTot?.vProd);
   const valorDesconto = moeda(icmsTot?.vDesc);
@@ -168,6 +169,7 @@ function montarImportacaoFinanceiraNfe({ pag, cobr, icmsTot } = {}) {
 
   return {
     valor_ipi: valorIpi,
+    valor_icms_st: valorIcmsSt,
     valor_seguro: valorSeguro,
     valor_produtos: valorProdutos,
     valor_desconto: valorDesconto,
@@ -187,7 +189,7 @@ function montarImportacaoFinanceiraNfe({ pag, cobr, icmsTot } = {}) {
 
 /**
  * Total esperado conforme componentes da NF-e.
- * total = produtos - desconto + frete + seguro + outras + ipi
+ * total = produtos - desconto + frete + seguro + outras + ipi + ICMS-ST
  *
  * @param {Object} totais
  * @returns {number}
@@ -200,6 +202,7 @@ function calcularTotalComponentes(totais = {}) {
     + moeda(totais.valor_seguro)
     + moeda(totais.valor_outras_despesas)
     + moeda(totais.valor_ipi)
+    + moeda(totais.valor_icms_st)
   );
 }
 

@@ -319,6 +319,7 @@ function aplicarAlteracoesPosCriacao() {
     // RC COMPRAS 5.4.1 — IPI e seguro do XML
     `ALTER TABLE compras ADD COLUMN valor_ipi DECIMAL(10,2) DEFAULT 0`,
     `ALTER TABLE compras ADD COLUMN valor_seguro DECIMAL(10,2) DEFAULT 0`,
+    `ALTER TABLE compras ADD COLUMN valor_icms_st DECIMAL(10,2) DEFAULT 0`,
     `ALTER TABLE compras ADD COLUMN valor_total_nota DECIMAL(10,2) DEFAULT 0`,
     `ALTER TABLE compras ADD COLUMN cancelada_em DATETIME`,
     `ALTER TABLE compras ADD COLUMN motivo_cancelamento TEXT`,
@@ -1604,7 +1605,7 @@ function criarTabelas() {
         lote TEXT,
         dias_alerta_validade INTEGER DEFAULT 30,
         controlar_validade INTEGER DEFAULT 0,
-        controla_estoque INTEGER DEFAULT 1,
+        controla_estoque INTEGER,
         permite_venda_unidade INTEGER DEFAULT 0,
         peso_medio_unidade REAL DEFAULT 0,
         preco_unidade REAL DEFAULT 0,
@@ -1811,6 +1812,7 @@ function criarTabelas() {
         valor_desconto DECIMAL(10,2) DEFAULT 0,
         valor_frete DECIMAL(10,2) DEFAULT 0,
         valor_outras_despesas DECIMAL(10,2) DEFAULT 0,
+        valor_icms_st DECIMAL(10,2) DEFAULT 0,
         valor_total_nota DECIMAL(10,2) DEFAULT 0,
         total DECIMAL(10,2) NOT NULL,
         status VARCHAR(20) DEFAULT 'pendente',
@@ -1904,13 +1906,27 @@ function criarTabelas() {
         desconto_autorizado_por_id INTEGER,
         desconto_autorizado_por TEXT,
         desconto_autorizado_em DATETIME,
+        idempotency_key TEXT,
+        idempotency_fingerprint TEXT,
+        idempotency_response_json TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (cliente_id) REFERENCES clientes(id),
         FOREIGN KEY (caixa_id) REFERENCES caixa(id)
       )
     `, (err) => {
       if (err) console.error('Erro ao criar tabela vendas:', err);
-      else console.log('Tabela vendas criada/verificada');
+      else {
+        console.log('Tabela vendas criada/verificada');
+        aplicarAlteracaoSegura('vendas', 'ALTER TABLE vendas ADD COLUMN idempotency_key TEXT');
+        aplicarAlteracaoSegura('vendas', 'ALTER TABLE vendas ADD COLUMN idempotency_fingerprint TEXT');
+        aplicarAlteracaoSegura('vendas', 'ALTER TABLE vendas ADD COLUMN idempotency_response_json TEXT');
+        aplicarAlteracaoSegura(
+          'vendas',
+          `CREATE UNIQUE INDEX IF NOT EXISTS idx_vendas_idempotency_key
+           ON vendas(idempotency_key)
+           WHERE idempotency_key IS NOT NULL`
+        );
+      }
     });
 
     // Tabela de alertas persistentes gerados pela auditoria/deteccao de anomalias
@@ -1950,6 +1966,7 @@ function criarTabelas() {
         quantidade_nao_fiscal REAL DEFAULT 0,
         valor_fiscal REAL DEFAULT 0,
         valor_nao_fiscal REAL DEFAULT 0,
+        controla_estoque INTEGER DEFAULT 1,
         modo_venda TEXT DEFAULT 'peso',
         tipo_venda TEXT DEFAULT 'PESO',
         FOREIGN KEY (venda_id) REFERENCES vendas(id) ON DELETE CASCADE,
@@ -1961,8 +1978,20 @@ function criarTabelas() {
         console.log('Tabela vendas_itens criada/verificada');
         aplicarAlteracaoSegura(
           'vendas_itens',
+          'ALTER TABLE vendas_itens ADD COLUMN controla_estoque INTEGER'
+        );
+        aplicarAlteracaoSegura(
+          'vendas_itens',
           `CREATE INDEX IF NOT EXISTS idx_vendas_itens_venda ON vendas_itens(venda_id)`
         );
+        [
+          'ALTER TABLE vendas_itens ADD COLUMN produto_apresentacao_id INTEGER',
+          'ALTER TABLE vendas_itens ADD COLUMN unidade_comercial TEXT',
+          'ALTER TABLE vendas_itens ADD COLUMN quantidade_apresentacao REAL',
+          'ALTER TABLE vendas_itens ADD COLUMN fator_conversao REAL',
+          'ALTER TABLE vendas_itens ADD COLUMN unidade_base TEXT',
+          'ALTER TABLE vendas_itens ADD COLUMN quantidade_base REAL'
+        ].forEach((sql) => aplicarAlteracaoSegura('vendas_itens', sql));
       }
     });
 
@@ -3178,7 +3207,7 @@ function inserirConfiguracoesPadrao() {
     ,['tef_ativo', 'true', 'boolean', 'TEF habilitado']
     ,['modo_dashboard_fiscal', '1', 'boolean', 'Modo fiscal ativo por padrão (F12) — ERP e PDV']
     ,['pdv_permitir_transferencia_nao_fiscal_fiscal', 'DESATIVADO', 'string', 'Permitir transferência de estoque não fiscal para fiscal no PDV']
-    ,['pdv_permitir_editar_preco_unitario', 'DESATIVADO', 'string', 'Permitir editar preço unitário no PDV e atualizar cadastro do produto']
+    ,['pdv_permitir_editar_preco_unitario', 'DESATIVADO', 'string', 'Permitir editar o preço unitário na venda do PDV']
     ,['pdv_exigir_ncm_cadastro', 'DESATIVADO', 'string', 'No PDV, se o produto não tiver NCM, pedir o código e atualizar o cadastro']
     ,['pdv_imprimir_cupom', 'ATIVADO', 'string', 'Imprimir cupom automaticamente ao finalizar a venda no PDV']
     ,['cupom_impressao_politica', '{"modo":"PERGUNTAR","max_vias":4,"fiscal":{"modo":"PERGUNTAR","vias":2,"destinos":["CLIENTE","ESTABELECIMENTO"]},"nao_fiscal":{"modo":"PERGUNTAR","vias":2,"destinos":["CLIENTE","ESTABELECIMENTO"]}}', 'json', 'Política de impressão de cupons fiscal e não fiscal']

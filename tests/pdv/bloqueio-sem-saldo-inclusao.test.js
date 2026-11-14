@@ -90,6 +90,7 @@ function carregarFluxoInicializacaoPdv() {
     function pdvPermitirVendaSemEstoque() { return pdvFlagVendaSemEstoque === true; }
     function pdvModoFiscalAtivo() { return false; }
     function urlProdutosPdv() { return '/produtos'; }
+    function inicializarContextoTerminalPdv() {}
     function autoRegistrarTerminal() {}
     function inicializarSincronizacaoCatalogoPdv() {}
     function carregarFlagTransferenciaNaoFiscalFiscalPdv() {}

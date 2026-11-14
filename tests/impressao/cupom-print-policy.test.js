@@ -98,7 +98,7 @@ describe('CupomPrintPolicy — frontend e integração', () => {
     const src = fs.readFileSync(path.join(ROOT, 'frontend/shared/js/fiscalImpressao.js'), 'utf8');
     assert.match(src, /apresentarCupomNaTela/);
     assert.match(src, /enviarImpressora: false/);
-    assert.match(src, /autoFecharMs: 5000/);
+    assert.match(src, /autoFecharMs: 2500/);
     assert.match(src, /CupomPrintPolicy/);
     assert.match(src, /tipo: 'FISCAL'/);
     assert.match(src, /tipo: 'NAO_FISCAL'/);

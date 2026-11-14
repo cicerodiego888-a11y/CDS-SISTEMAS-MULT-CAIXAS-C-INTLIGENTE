@@ -55,6 +55,9 @@ function criarApp({ valorFiscal }) {
     ['../services/tef/tefEvents', {}],
     ['../services/tef/tefContrato', { estaAprovado: (resultado) => resultado.aprovado === true }],
     ['../middleware/auth', { verificarToken: (req, res, next) => next() }],
+    ['../middleware/exigirPermissaoOuSenhaAdmin', {
+      exigirPermissaoOuSenhaAdmin: () => (req, res, next) => next()
+    }],
     ['../services/tef/tefConfigService', {}],
     ['../services/tef/tefFluxoPagamento', require('../../backend/services/tef/tefFluxoPagamento')],
     ['../services/configuracaoService', {}],

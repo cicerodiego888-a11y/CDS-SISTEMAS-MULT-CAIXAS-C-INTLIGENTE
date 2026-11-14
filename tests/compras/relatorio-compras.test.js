@@ -183,6 +183,7 @@ before(async () => {
     valor_seguro REAL,
     valor_outras_despesas REAL,
     valor_ipi REAL,
+    valor_icms_st REAL,
     total REAL NOT NULL
   )`);
   await run(`CREATE TABLE compras_itens (
@@ -200,11 +201,11 @@ before(async () => {
   await run(
     `INSERT INTO compras VALUES
       (1, '2026-10-01', '2026-09-30', '2026-10-01', 'Fornecedor A', 'NF-10', '1',
-       'concluida', 'avista', 'pix', 50, 5, 10, 0, 2, 0, 57),
+       'concluida', 'avista', 'pix', 50, 5, 10, 0, 2, 0, 0, 57),
       (2, '2026-10-15', NULL, NULL, 'Fornecedor B', NULL, NULL,
-       'pendente', NULL, NULL, 30, 0, 0, 0, 0, 0, 30),
+       'pendente', NULL, NULL, 30, 0, 0, 0, 0, 0, 0, 30),
       (3, '2026-09-30', NULL, NULL, 'Fornecedor A', 'NF-10', '1',
-       'concluida', 'prazo', 'boleto', 15, 0, 0, 0, 0, 0, 15)`
+       'concluida', 'prazo', 'boleto', 15, 0, 0, 0, 0, 0, 0, 15)`
   );
 
   await run(
@@ -281,6 +282,7 @@ describe('Relatório detalhado de compras', () => {
     assert.equal(result.compras[1].itens.reduce((sum, item) => sum + item.subtotal, 0), 50);
     assert.equal(result.compras[1].valor_frete, 10);
     assert.equal(result.compras[1].valor_desconto, 5);
+    assert.equal(result.compras[1].valor_icms_st, 0);
     assert.equal(result.compras[0].numero_nf, null);
   });
 
@@ -350,13 +352,13 @@ describe('Relatório detalhado de compras', () => {
       {
         id: 71, data_compra: '2026-10-15', fornecedor: 'Fornecedor A', numero_nf: 'NF-A',
         status: 'concluida', total_oficial: 125, valor_produtos: 120, valor_desconto: 5,
-        valor_frete: 10, valor_seguro: 0, valor_outras_despesas: 0, valor_ipi: 0,
+        valor_frete: 10, valor_seguro: 0, valor_outras_despesas: 0, valor_ipi: 0, valor_icms_st: 0,
         itens: [{ descricao_produto: 'Item A', unidade: 'CX', quantidade: 2, preco_unitario: 50, subtotal: 100 }]
       },
       {
         id: 72, data_compra: '2026-10-14', fornecedor: 'Fornecedor B', numero_nf: 'NF-B',
         status: 'concluida', total_oficial: 40, valor_produtos: 40, valor_desconto: 0,
-        valor_frete: 0, valor_seguro: 0, valor_outras_despesas: 0, valor_ipi: 0,
+        valor_frete: 0, valor_seguro: 0, valor_outras_despesas: 0, valor_ipi: 0, valor_icms_st: 0,
         itens: [{ descricao_produto: 'Item B', unidade: 'UN', quantidade: 4, preco_unitario: 10, subtotal: 40 }]
       }
     ];

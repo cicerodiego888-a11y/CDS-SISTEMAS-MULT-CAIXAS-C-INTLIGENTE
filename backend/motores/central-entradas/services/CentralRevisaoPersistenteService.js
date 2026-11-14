@@ -18,11 +18,13 @@ const CentralRevisaoSessoesRepository = require('../repositories/CentralRevisaoS
 const CentralRevisaoItensRepository = require('../repositories/CentralRevisaoItensRepository');
 const CentralHistoricoRepository = require('../repositories/CentralHistoricoRepository');
 const ConfirmacaoConversaoEntradaNfe = require('../../../services/unidades/ConfirmacaoConversaoEntradaNfe');
+const MotorUnidadesMedida = require('../../../services/unidades/MotorUnidadesMedida');
 const { executarEmTransacao } = require('../../../services/fiscalNaoFiscal/estoqueSaldosPublico');
 const { SQL_DECISOES_SESSAO, montarDecisoesProduto } = require('./CentralDecisaoProdutoLinha');
 const { revalidarParseMiipPersistido } = require('../../miip/utils/MiipRevalidacaoResultadoPersistido');
 const dbPadrao = require('../../../database');
 const sqlite3 = require('sqlite3');
+const { obterMuc } = require('../../muc');
 
 const MOTIVO_CORRECAO_MINIMO = 10;
 let filaCorrecoes = Promise.resolve();
@@ -597,6 +599,7 @@ class CentralRevisaoPersistenteService {
     }
     const itens = this._obterItensParse(documento);
     const produtoMap = await this._carregarProdutosItens(itens);
+    const apresentacoes = await this._carregarApresentacoesItens(itens, produtoMap);
     const confirmacoes = itens.map((item, index) => ({
       item_key: ConfirmacaoConversaoEntradaNfe.extrairChaveConversaoItem(item, index),
       indice: index,
@@ -610,7 +613,8 @@ class CentralRevisaoPersistenteService {
       confirmacoes,
       documentoId: Number(documentoId),
       chaveAcesso: documento.chave || null,
-      origemCompra: 'CENTRAL_NFE'
+      origemCompra: 'CENTRAL_NFE',
+      apresentacoes
     });
     const indicesPendentes = new Set(pendencias.map((p) => Number(p.indice)));
     const linhas = itens.map((item, index) => {
@@ -618,7 +622,11 @@ class CentralRevisaoPersistenteService {
         item,
         produtoMap.get(Number(item?.produto_id || item?.produtoId || 0)) || {},
         index,
-        { documentoId: Number(documentoId), chaveAcesso: documento.chave || null }
+        {
+          documentoId: Number(documentoId),
+          chaveAcesso: documento.chave || null,
+          apresentacao: apresentacoes.get(index) || null
+        }
       );
       const linha = avaliacao.pendencia
         ? { ...avaliacao.pendencia }
@@ -684,9 +692,12 @@ class CentralRevisaoPersistenteService {
     const xmlOriginal = ConfirmacaoConversaoEntradaNfe.snapshotXmlLinha(item, indice);
     const produtoMap = await this._carregarProdutosItens([item]);
     const produto = produtoMap.get(Number(item.produto_id || item.produtoId || 0)) || null;
+    const apresentacoes = await this._carregarApresentacoesItens([item], produtoMap);
+    const apresentacao = apresentacoes.get(0) || null;
     const avaliacao = ConfirmacaoConversaoEntradaNfe.avaliarLinha(item, produto || {}, indice, {
       documentoId: Number(documentoId),
-      chaveAcesso: documento.chave
+      chaveAcesso: documento.chave,
+      apresentacao
     });
 
     const estado = ConfirmacaoConversaoEntradaNfe.estadoDecisao(dados.decisao ?? dados.confirmacao);
@@ -700,6 +711,7 @@ class CentralRevisaoPersistenteService {
     if (avaliacao.requer && estado === 'SIM') {
       const aplicado = ConfirmacaoConversaoEntradaNfe.aplicarSim(item, produto, avaliacao.resultado, indice, {
         documentoId: Number(documentoId),
+        apresentacao,
         aceitarFatorSugerido: true
       });
       resultadoValidado = {
@@ -717,6 +729,7 @@ class CentralRevisaoPersistenteService {
     } else if (avaliacao.requer && estado === 'NAO') {
       const recusa = ConfirmacaoConversaoEntradaNfe.aplicarNao(item, produto, avaliacao.resultado, indice, {
         documentoId: Number(documentoId),
+        apresentacao,
         continuar_sem_conversao: dados.continuar_sem_conversao === true
       });
       resultadoValidado = {
@@ -1092,6 +1105,38 @@ class CentralRevisaoPersistenteService {
         resolve(mapa);
       });
     });
+  }
+
+  async _carregarApresentacoesItens(itens, produtoMap) {
+    const repositorio = obterMuc(this._db || dbPadrao).apresentacoes;
+    const mapa = new Map();
+    await Promise.all((itens || []).map(async (item, indice) => {
+      const produtoId = Number(item?.produto_id || item?.produtoId || 0);
+      if (!(produtoId > 0)) return;
+      const produto = produtoMap.get(produtoId);
+      const apresentacaoId = Number(item?.produto_apresentacao_id || item?.embalagem_id || 0);
+      const apresentacao = apresentacaoId > 0
+        ? await new Promise((resolve, reject) => repositorio.buscarPorId(
+          apresentacaoId,
+          (err, row) => err ? reject(err) : resolve(row)
+        ))
+        : await new Promise((resolve, reject) => repositorio.resolverPorIdentificador(
+          produtoId,
+          {
+            gtin: item?.codigo_barras,
+            codigo_fornecedor: item?.codigo_fornecedor,
+            fornecedor_cnpj: item?.fornecedor_cnpj,
+            unidade_comercial: item?.unidade_comercial || item?.uCom
+          },
+          (err, row) => err ? reject(err) : resolve(row)
+        ));
+      if (!apresentacao || Number(apresentacao.produtoId) !== produtoId
+          || !apresentacao.ativa || !apresentacao.compra
+          || MotorUnidadesMedida.normalizarUnidadeEntradaNfe(apresentacao.unidade)
+            !== MotorUnidadesMedida.normalizarUnidadeEntradaNfe(produto?.unidade)) return;
+      mapa.set(indice, apresentacao);
+    }));
+    return mapa;
   }
 }
 

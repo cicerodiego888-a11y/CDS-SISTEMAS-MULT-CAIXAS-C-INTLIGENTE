@@ -5,7 +5,13 @@
     'use strict';
 
     const TIPOS_APRESENTACAO = Object.freeze([
-        { value: 'UN', label: 'Unidade (UN)' },
+        { value: 'UN', label: 'Unidade (UND)' },
+        { value: 'KG', label: 'Quilograma (KG)' },
+        { value: 'G', label: 'Grama (G)' },
+        { value: 'L', label: 'Litro (L)' },
+        { value: 'ML', label: 'Mililitro (ML)' },
+        { value: 'M', label: 'Metro (M)' },
+        { value: 'CM', label: 'Centímetro (CM)' },
         { value: 'CX', label: 'Caixa (CX)' },
         { value: 'FD', label: 'Fardo (FD)' },
         { value: 'PCT', label: 'Pacote (PCT)' },
@@ -70,20 +76,31 @@
         return legadoParaApresentacoes(produto);
     }
 
+    function tipoConhecido(tipo) {
+        const atual = normalizarTipo(tipo);
+        return !atual || TIPOS_APRESENTACAO.some((t) => t.value === atual);
+    }
+
     function montarOptionsTipo(selecionado) {
         const atual = normalizarTipo(selecionado);
-        return TIPOS_APRESENTACAO.map((t) =>
-            `<option value="${t.value}" ${atual === t.value ? 'selected' : ''}>${t.label}</option>`
+        const personalizado = atual && !tipoConhecido(atual);
+        const opcoes = TIPOS_APRESENTACAO.map((t) =>
+            `<option value="${t.value}" ${!personalizado && atual === t.value ? 'selected' : ''}>${t.label}</option>`
         ).join('');
+        return `${opcoes}<option value="__PERSONALIZADO__" ${personalizado ? 'selected' : ''}>Personalizado</option>`;
     }
 
     function montarLinhaApresentacao(emb, index) {
         const tipo = normalizarTipo(emb.tipo);
+        const personalizado = tipo && !tipoConhecido(tipo);
         const qtdReadonly = tipo === 'UN' ? 'readonly' : '';
         return `
-            <tr data-apresentacao-index="${index}">
+            <tr data-apresentacao-index="${index}" data-apresentacao-id="${emb.id || ''}">
                 <td>
                     <select class="form-control form-control-sm ap-tipo">${montarOptionsTipo(tipo)}</select>
+                    <input type="text" class="form-control form-control-sm ap-tipo-livre mt-1 ${personalizado ? '' : 'd-none'}"
+                        value="${personalizado ? String(tipo).replace(/"/g, '&quot;') : ''}"
+                        maxlength="16" placeholder="Ex.: BANDEJA">
                 </td>
                 <td>
                     <input type="text" class="form-control form-control-sm ap-descricao"
@@ -159,9 +176,12 @@
         const lista = [];
         $('#tabelaApresentacoes tbody tr').each(function coletarLinha() {
             const $tr = $(this);
-            const tipo = normalizarTipo($tr.find('.ap-tipo').val());
+            const selecionado = normalizarTipo($tr.find('.ap-tipo').val());
+            const tipo = selecionado === '__PERSONALIZADO__'
+                ? normalizarTipo($tr.find('.ap-tipo-livre').val())
+                : selecionado;
             lista.push({
-                id: $tr.data('apresentacao-id') || null,
+                id: $tr.attr('data-apresentacao-id') || null,
                 tipo,
                 descricao: ($tr.find('.ap-descricao').val() || '').trim() || null,
                 quantidade: tipo === 'UN' ? 1 : num($tr.find('.ap-quantidade').val(), 3),
@@ -319,6 +339,7 @@
             const $tr = $(this).closest('tr');
             const tipo = normalizarTipo($(this).val());
             const $qtd = $tr.find('.ap-quantidade');
+            $tr.find('.ap-tipo-livre').toggleClass('d-none', tipo !== '__PERSONALIZADO__');
             if (tipo === 'UN') {
                 $qtd.val(1).prop('readonly', true);
             } else {
@@ -338,7 +359,13 @@
         });
 
         $painel.on('click.apresentacoes', '.ap-remover', function onRemover() {
-            $(this).closest('tr').remove();
+            const $tr = $(this).closest('tr');
+            if ($tr.attr('data-apresentacao-id')) {
+                $tr.find('.ap-ativa').prop('checked', false);
+                $tr.addClass('table-secondary');
+            } else {
+                $tr.remove();
+            }
             sincronizarFormacaoPrecoApresentacaoPrincipal('init');
         });
 
@@ -392,7 +419,7 @@
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <div>
                             <h6 class="mb-0">Apresentações Comerciais</h6>
-                            <small class="text-muted">Cadastre múltiplas embalagens (UN, CX, FD, PCT…). Estoque permanece na unidade base.</small>
+                            <small class="text-muted">Cadastre as apresentações de compra e venda. A quantidade de conversão 1 é a unidade-base do estoque. O fator é o que você informar.</small>
                         </div>
                         <button type="button" class="btn btn-sm btn-outline-primary" id="btnAdicionarApresentacao">
                             + Apresentação

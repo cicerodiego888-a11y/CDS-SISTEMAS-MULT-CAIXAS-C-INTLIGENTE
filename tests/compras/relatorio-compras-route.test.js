@@ -32,9 +32,9 @@ before(async () => {
   await run(
     `INSERT INTO compras (
        id, data_compra, fornecedor, numero_nf, serie_nf, status,
-       valor_produtos, valor_frete, valor_desconto, valor_total_nota, total
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [99101, '2026-10-14', 'Fornecedor Fixture', 'FIX-99101', '1', 'concluida', 24, 2, 1, 25, 25]
+       valor_produtos, valor_frete, valor_desconto, valor_icms_st, valor_total_nota, total
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [99101, '2026-10-14', 'Fornecedor Fixture', 'FIX-99101', '1', 'concluida', 24, 2, 1, 0, 25, 25]
   );
   await run(
     `INSERT INTO compras_itens (

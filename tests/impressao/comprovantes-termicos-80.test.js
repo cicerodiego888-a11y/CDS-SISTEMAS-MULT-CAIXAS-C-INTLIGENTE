@@ -80,6 +80,17 @@ describe('comprovante não fiscal 80mm', () => {
     assert.match(html, /overflow-wrap:\s*anywhere/);
     assert.equal((html.match(/class="item"/g) || []).length, 50);
   });
+
+  it('usa o nome fantasia em vez da razão social no comprovante não fiscal', () => {
+    const html = cupomNaoFiscal({
+      ...base,
+      nome_empresa: 'RAZAO SOCIAL LTDA',
+      nome_fantasia: 'LOJA FANTASIA'
+    }, 10, 0);
+
+    assert.match(html, /LOJA FANTASIA/);
+    assert.doesNotMatch(html, /RAZAO SOCIAL LTDA/);
+  });
 });
 
 describe('comprovante de entrega 80mm', () => {

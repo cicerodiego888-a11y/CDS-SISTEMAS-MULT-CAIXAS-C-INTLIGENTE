@@ -113,7 +113,8 @@ async function obterDadosEmpresaCupom() {
             headers: { Authorization: `Bearer ${token}` }
         });
         if (!resp.ok) {
-            return { nome_empresa: (typeof BrandService !== 'undefined' ? BrandService.NOME : 'CDS Sistemas'), endereco: '' };
+            const nomeFantasia = typeof BrandService !== 'undefined' ? BrandService.NOME : 'CDS Sistemas';
+            return { nome_empresa: nomeFantasia, nome_fantasia: nomeFantasia, endereco: '' };
         }
 
         const configs = await resp.json();
@@ -131,13 +132,17 @@ async function obterDadosEmpresaCupom() {
             map.fiscal_municipio_nome
         ].filter(Boolean);
 
+        const nomeFantasia = String(map.nome_fantasia || '').trim()
+            || (typeof BrandService !== 'undefined' ? BrandService.NOME : 'CDS Sistemas');
         return {
-            nome_empresa: map.nome_empresa || (typeof BrandService !== 'undefined' ? BrandService.NOME : 'CDS Sistemas'),
+            nome_empresa: nomeFantasia,
+            nome_fantasia: nomeFantasia,
             endereco: partes.join(', '),
             papel_mm: Number(map.fiscal_danfe_largura_mm) === 58 ? 58 : 80
         };
     } catch (e) {
-        return { nome_empresa: (typeof BrandService !== 'undefined' ? BrandService.NOME : 'CDS Sistemas'), endereco: '' };
+        const nomeFantasia = typeof BrandService !== 'undefined' ? BrandService.NOME : 'CDS Sistemas';
+        return { nome_empresa: nomeFantasia, nome_fantasia: nomeFantasia, endereco: '' };
     }
 }
 
@@ -254,7 +259,7 @@ function montarHtmlCupomNaoFiscal(vendaId, venda, total, desconto) {
 </head>
 <body class="cupom-nao-fiscal-${papelMm}">
 <main class="cds-cupom-termico">
-<div class="empresa">${escapeHtmlCupom(venda.nome_empresa || (typeof BrandService !== 'undefined' ? BrandService.NOME : 'CDS Sistemas'))}</div>
+<div class="empresa">${escapeHtmlCupom(venda.nome_fantasia || venda.nome_empresa || (typeof BrandService !== 'undefined' ? BrandService.NOME : 'CDS Sistemas'))}</div>
 <div class="meta">${escapeHtmlCupom(venda.endereco || '')}</div>
 <div class="titulo">COMPROVANTE NÃO FISCAL</div>
 <div class="txt">Venda #${escapeHtmlCupom(vendaId)}</div>
@@ -282,7 +287,7 @@ async function apresentarCupomNaTela(htmlTela, htmlImpressao, opcoes) {
     if (window.electronAPI?.abrirComprovante) {
         window.electronAPI.abrirComprovante(htmlTela, {
             silent: false,
-            autoFecharMs: 5000,
+            autoFecharMs: 2500,
             aguardarDecisao: true,
             deviceName: null,
             htmlImpressao: htmlImpressao || htmlTela,
@@ -357,7 +362,7 @@ async function imprimirCupomNaoFiscal(vendaId, venda, total, desconto, opcoes) {
 
     try {
         let vendaCupom = venda;
-        if (!venda.nome_empresa) {
+        if (!venda.nome_fantasia) {
             const empresa = await obterDadosEmpresaCupom();
             vendaCupom = { ...venda, ...empresa };
         }

@@ -66,11 +66,13 @@ test('ETAPA 3 — financeiroPayloadCompleto exige forma e condição', () => {
   assert.strictEqual(financeiroPayloadCompleto({
     forma_pagamento: 'boleto',
     condicao_pagamento: 'avista',
-    pagamentos: [{ tPag: '15' }]
+    pagamentos: [{ tPag: '15' }],
+    valor_icms_st: 0
   }), true);
   assert.strictEqual(financeiroPayloadCompleto({
     condicao_pagamento: 'prazo',
-    parcelas_detalhe: [{ vencimento: '2026-01-10', valor: 100 }]
+    parcelas_detalhe: [{ vencimento: '2026-01-10', valor: 100 }],
+    valor_icms_st: 0
   }), false);
   assert.strictEqual(financeiroPayloadCompleto({
     forma_pagamento: 'boleto',
@@ -79,8 +81,14 @@ test('ETAPA 3 — financeiroPayloadCompleto exige forma e condição', () => {
     parcelas_detalhe: [
       { vencimento: '2026-01-10', valor: 100 },
       { vencimento: '2026-02-10', valor: 100 }
-    ]
+    ],
+    valor_icms_st: 0
   }), true);
+  assert.strictEqual(financeiroPayloadCompleto({
+    forma_pagamento: 'boleto',
+    condicao_pagamento: 'avista',
+    pagamentos: [{ tPag: '15' }]
+  }), false);
 });
 
 test('ETAPA 4 — preencherFormularioCompra carrega financeiro antes dos itens', () => {

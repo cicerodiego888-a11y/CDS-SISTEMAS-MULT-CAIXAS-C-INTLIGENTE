@@ -23,6 +23,7 @@ const PERMISSOES_DISPONIVEIS = [
   'sangria_caixa',
   'suprimento_caixa',
   'fechar_caixa',
+  'cancelar_tef',
   'fechar_caixa_com_divergencia',
   'fiscal',
   'configuracoes',

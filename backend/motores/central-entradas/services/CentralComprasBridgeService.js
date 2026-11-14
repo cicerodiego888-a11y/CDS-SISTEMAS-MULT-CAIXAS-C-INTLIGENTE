@@ -85,7 +85,7 @@ class CentralComprasBridgeService {
 
   /**
    * RC COMPRAS 5.4.1 — completa financeiro a partir do XML se parse antigo não tiver.
-   * Não reprocessa MIIP/itens; só enriquece pag/cobr/IPI.
+   * Não reprocessa MIIP/itens; só enriquece pagamentos e totais financeiros.
    * @private
    */
   async _enriquecerFinanceiroDoXml(payload, xml) {
@@ -105,6 +105,7 @@ class CentralComprasBridgeService {
       return {
         ...payload,
         valor_ipi: payload.valor_ipi ?? json.valor_ipi ?? 0,
+        valor_icms_st: payload.valor_icms_st ?? json.valor_icms_st ?? 0,
         valor_seguro: payload.valor_seguro ?? json.valor_seguro ?? 0,
         forma_pagamento: payload.forma_pagamento || json.forma_pagamento || null,
         condicao_pagamento: payload.condicao_pagamento || json.condicao_pagamento || null,
@@ -471,30 +472,35 @@ class CentralComprasBridgeService {
       }
 
       etapa = 'conversoes';
-      // CE-MUC-03: conclusão da revisão de produtos ≠ resolução das conversões MUC.
-      try {
-        const revisaoSvc = this._obterRevisaoService();
-        if (revisaoSvc && typeof revisaoSvc.avaliarConversoes === 'function') {
-          const conv = await revisaoSvc.avaliarConversoes(documentoId);
-          if (conv?.bloqueia_efetivacao) {
-            const erro = new Error(
-              'Existem conversões de unidade pendentes. Confirme SIM/NÃO no painel MUC antes de finalizar a entrada.'
-            );
-            erro.statusCode = 422;
-            erro.codigo = 'PENDENCIAS_CONVERSAO';
-            erro.pendencias = conv.pendencias || [];
-            throw erro;
+      // Retomar uma importação já aberta devolve o estado persistido.
+      // A barreira de conversão permanece só na primeira finalização (e na gravação da compra).
+      const retomadaImportacao = statusCanonico === DocumentoFiscalStatus.EM_IMPORTACAO;
+      if (!retomadaImportacao) {
+        // CE-MUC-03: conclusão da revisão de produtos ≠ resolução das conversões MUC.
+        try {
+          const revisaoSvc = this._obterRevisaoService();
+          if (revisaoSvc && typeof revisaoSvc.avaliarConversoes === 'function') {
+            const conv = await revisaoSvc.avaliarConversoes(documentoId);
+            if (conv?.bloqueia_efetivacao) {
+              const erro = new Error(
+                'Existem conversões de unidade pendentes. Confirme SIM/NÃO no painel MUC antes de finalizar a entrada.'
+              );
+              erro.statusCode = 422;
+              erro.codigo = 'PENDENCIAS_CONVERSAO';
+              erro.pendencias = conv.pendencias || [];
+              throw erro;
+            }
           }
+        } catch (convErr) {
+          if (convErr.codigo === 'PENDENCIAS_CONVERSAO' || convErr.statusCode === 422) throw convErr;
+          console.warn('[CentralEntradas][finalizarEntrada] avaliação de conversões indisponível:', convErr.message);
         }
-      } catch (convErr) {
-        if (convErr.codigo === 'PENDENCIAS_CONVERSAO' || convErr.statusCode === 422) throw convErr;
-        console.warn('[CentralEntradas][finalizarEntrada] avaliação de conversões indisponível:', convErr.message);
       }
 
       etapa = 'abrir_compra';
       const docAposRevisao = await this._documentosRepository.buscarPorId(documentoId);
       const statusApos = normalizarStatus(docAposRevisao?.status);
-      const retomada = statusApos === DocumentoFiscalStatus.EM_IMPORTACAO;
+      const retomada = retomadaImportacao || statusApos === DocumentoFiscalStatus.EM_IMPORTACAO;
 
       const abertura = await this.registrarAberturaCompra(documentoId, { usuarioId });
       const statusFinal = abertura?.documento?.status

@@ -90,6 +90,7 @@
             CONFIRMACAO_CONVERSAO_DESATUALIZADA: 'A linha, o produto ou a conversão mudou. Revise os dados e confirme novamente.',
             CONVERSAO_RECUSADA_SEM_QUANTIDADE_SEGURA: 'A conversão foi recusada e não há quantidade segura para lançar no estoque. Corrija a unidade ou associação antes de tentar novamente.',
             DIVERGENCIA_QTRIB_FATOR: 'A quantidade tributável da NF-e diverge do fator cadastrado para o produto. Confira a unidade e a associação antes de confirmar.',
+            APRESENTACAO_INCOMPATIVEL_COM_XML: 'A apresentação selecionada não corresponde à unidade comercial da NF-e. Revise a seleção antes de gravar.',
             FATOR_CONVERSAO_AUSENTE: 'Não há fator de conversão validado para esta unidade. Corrija ou confirme a associação do produto na Central.',
             CONVERSAO_EFETIVA_DIVERGENTE: 'A conversão calculada durante a gravação divergiu da conversão validada. Nada foi gravado; revise a unidade ou associação na Central.'
         };

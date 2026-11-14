@@ -22,8 +22,12 @@ function executar(ctx) {
   const tipoApresentacao = normalizarTipoApresentacao(
     dto.apresentacao?.tipo || dto.unidadeCompra
   );
-  if (tipoApresentacao === 'VARA' && qtdEmb > 0 && qtdPor <= 0) {
-    return { ok: false, erro: 'Apresentação VARA exige fator de conversão positivo cadastrado.', warnings };
+  if (dto.apresentacao && tipoApresentacao !== 'UN' && qtdEmb > 0 && qtdPor <= 0) {
+    return {
+      ok: false,
+      erro: `Apresentação ${tipoApresentacao} exige fator de conversão positivo cadastrado.`,
+      warnings
+    };
   }
 
   if (!fracionado && qtdEmb > 0 && qtdPor <= 0) {

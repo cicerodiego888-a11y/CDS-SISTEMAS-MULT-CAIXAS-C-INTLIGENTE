@@ -19,6 +19,39 @@ let terminalId = null;
 let terminalHostname = null;
 /** Escolha explícita do operador: emitir NFC-e nesta venda (null = ainda não definido). */
 let pdvEmitirFiscalNaVenda = null;
+let pdvChaveIdempotenciaVenda = null;
+let pdvAssinaturaIdempotenciaVenda = null;
+
+function novaChaveIdempotenciaVenda() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+        return `pdv-venda-${window.crypto.randomUUID()}`;
+    }
+    if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+        const bytes = new Uint8Array(16);
+        window.crypto.getRandomValues(bytes);
+        return `pdv-venda-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
+    }
+    return `pdv-venda-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function anexarChaveIdempotenciaVenda(payload) {
+    const { idempotency_key: chaveInformada, ...payloadBase } = payload;
+    const assinatura = JSON.stringify(payloadBase);
+    if (chaveInformada && !pdvChaveIdempotenciaVenda) {
+        pdvChaveIdempotenciaVenda = chaveInformada;
+        pdvAssinaturaIdempotenciaVenda = assinatura;
+    }
+    if (!pdvChaveIdempotenciaVenda || pdvAssinaturaIdempotenciaVenda !== assinatura) {
+        pdvChaveIdempotenciaVenda = novaChaveIdempotenciaVenda();
+        pdvAssinaturaIdempotenciaVenda = assinatura;
+    }
+    return { ...payloadBase, idempotency_key: pdvChaveIdempotenciaVenda };
+}
+
+function limparChaveIdempotenciaVenda() {
+    pdvChaveIdempotenciaVenda = null;
+    pdvAssinaturaIdempotenciaVenda = null;
+}
 
 /** Expõe o carrinho para módulos PDV (entrega, widgets) — `let` não cria window.carrinho. */
 function sincronizarCarrinhoGlobalPdv() {
@@ -437,6 +470,19 @@ function itemVendaPorUnidade(item) {
     return normalizarTipoVendaItem(item) === TIPO_VENDA_UNIDADE;
 }
 
+function apresentacaoVendaSelecionada(opcoes) {
+    const ap = opcoes?.apresentacaoVenda;
+    if (!ap || Number(ap.ativa ?? 1) !== 1 || Number(ap.venda ?? 1) !== 1) return null;
+    const fator = Number(ap.quantidade || ap.quantidade_por_embalagem || 0);
+    if (!(fator > 0)) return null;
+    return {
+        apresentacao_id: ap.id || null,
+        fator_conversao: fator,
+        unidade_comercial: ap.tipo || ap.unidade_comercial || '',
+        unidade_base: ap.unidade || ''
+    };
+}
+
 function obterQuantidadeEstoqueParaVenda(produto, quantidadeVenda, tipoVenda = TIPO_VENDA_PESO) {
     if (tipoVendaEhUnidade(tipoVenda)) {
         const pesoMedio = Number(produto?.peso_medio_unidade ?? 0);
@@ -634,6 +680,26 @@ function upsertProdutoNoCatalogoPdv(produto, opcoes = {}) {
     return lista[idx >= 0 ? idx : 0];
 }
 
+function refletirPrecosAtualizadosNoCatalogoPdv(itens) {
+    for (const item of Array.isArray(itens) ? itens : []) {
+        if (item?.atualizar_preco_cadastro !== true || String(item.tipo_preco || '').toLowerCase() === 'atacado') {
+            continue;
+        }
+        const produto = produtosDisponiveis.find((p) => Number(p.id) === Number(item.produto_id));
+        if (!produto) continue;
+
+        const campo = String(item.tipo_venda || '').toUpperCase() === TIPO_VENDA_UNIDADE
+            ? 'preco_unidade'
+            : 'preco_venda';
+        const atualizado = { ...produto, [campo]: Number(item.preco_unitario) };
+        upsertProdutoNoCatalogoPdv(atualizado);
+        if (window.CdsCatalogoProdutoSync
+            && typeof window.CdsCatalogoProdutoSync.publicarProdutoSalvo === 'function') {
+            window.CdsCatalogoProdutoSync.publicarProdutoSalvo(atualizado);
+        }
+    }
+}
+
 let recarregarCatalogoPdvInflight = null;
 let recarregarCatalogoPdvTimer = null;
 
@@ -763,11 +829,17 @@ function inicializarSincronizacaoCatalogoPdv() {
     window.addEventListener('focus', function () {
         hidratarUltimoProdutoCatalogoPdv();
         agendarRecarregarCatalogoPdv();
+        if (typeof currentPage === 'undefined' || currentPage === 'pdv') {
+            focarCampoCodigo({ limpar: false });
+        }
     });
     document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'visible') {
             hidratarUltimoProdutoCatalogoPdv();
             agendarRecarregarCatalogoPdv();
+            if (typeof currentPage === 'undefined' || currentPage === 'pdv') {
+                focarCampoCodigo({ limpar: false });
+            }
         }
     });
 
@@ -2656,7 +2728,6 @@ function inicializarPDV() {
         atualizarCarrinho();
     }
     hidratarUltimoProdutoCatalogoPdv();
-    focarCampoCodigo();
 
     if (window.PdvAppearancePanel && typeof PdvAppearancePanel.mountOnPdv === 'function') {
         PdvAppearancePanel.mountOnPdv();
@@ -2675,6 +2746,8 @@ function inicializarPDV() {
     if (window.PdvVendaEntrega && typeof PdvVendaEntrega.initUi === 'function') {
         PdvVendaEntrega.initUi();
     }
+
+    focarCampoCodigo();
 
     // Verificar status do caixa a cada 30 segundos
     setInterval(verificarStatusCaixa, 30000);
@@ -2768,6 +2841,21 @@ function pdvPermitirTransferenciaNaoFiscalFiscal() {
 
 function pdvPermitirEditarPrecoUnitario() {
     return pdvFlagEditarPrecoUnitario === true;
+}
+
+function pdvUsuarioPodeAtualizarCadastroProduto() {
+    try {
+        const usuario = JSON.parse(localStorage.getItem('user') || '{}');
+        const perfil = String(usuario.perfil || usuario.nivel || '').trim().toUpperCase();
+        const permissoes = Array.isArray(usuario.permissoes) ? usuario.permissoes : [];
+        return usuario.role === 'admin'
+            || usuario.role === 'supervisor'
+            || ['ADMIN', 'SUPER_ADMIN'].includes(perfil)
+            || permissoes.includes('produtos');
+    } catch (erro) {
+        console.error('Não foi possível verificar a permissão de atualização cadastral no PDV.', erro);
+        return false;
+    }
 }
 
 function pdvPermitirVendaSemEstoque() {
@@ -3854,10 +3942,28 @@ function bindEventosPDV() {
             document.getElementById('btnFinalizarVendaPdv')?.click();
         }
         if (e.key === 'Escape') {
+            if (document.body.classList.contains('menu-open')) {
+                e.preventDefault();
+                e.stopPropagation();
+                fecharMenuPdv();
+                return;
+            }
             if (window.PdvBuscaProduto && PdvBuscaProduto.estaAberto()) {
                 e.preventDefault();
                 e.stopPropagation();
                 PdvBuscaProduto.fechar();
+                return;
+            }
+            const modalAberto = $('.modal.show').last();
+            if (modalAberto.length) {
+                e.preventDefault();
+                e.stopPropagation();
+                modalAberto.modal('hide');
+                return;
+            }
+            if (e.target && typeof e.target.closest === 'function' && e.target.closest('.modal')) {
+                e.preventDefault();
+                e.stopPropagation();
                 return;
             }
             e.preventDefault();
@@ -4367,7 +4473,8 @@ function renderCarrinhoItens() {
                                min="0.01"
                                step="0.01"
                                inputmode="decimal"
-                               title="Editar unitário e atualizar cadastro do produto"
+                               readonly
+                               title="Clique para alterar o preço unitário desta venda"
                                data-index="${index}">`
                         : `<span class="pdv-unitario-valor">${String(precoUnitarioExibicaoItemPdv(item)).replace('.', ',')}</span>`}
                 </td>
@@ -4709,7 +4816,7 @@ function obterPrecoAtacado(produto, produtoId, quantidadeTotal, precoBase) {
         $.ajax({ url: `${API_URL}/produtos/${produtoId}/atacado`, method: 'GET', async: false, headers: { Authorization: 'Bearer ' + (localStorage.getItem('token') || '') }, success: function(res) { faixas = res || []; } });
 
         if (!Array.isArray(faixas) || faixas.length === 0) {
-            return { preco: precoBase, descontoAtacado: 0, isAtacado: false };
+            return { preco: precoBase, descontoAtacado: 0, isAtacado: false, faixaId: null };
         }
 
         let escolhida = null;
@@ -4720,13 +4827,13 @@ function obterPrecoAtacado(produto, produtoId, quantidadeTotal, precoBase) {
             }
         });
 
-        if (!escolhida) return { preco: precoBase, descontoAtacado: 0, isAtacado: false };
+        if (!escolhida) return { preco: precoBase, descontoAtacado: 0, isAtacado: false, faixaId: null };
 
         const precoAtacado = Number(escolhida.preco_atacado || 0);
-        if (precoAtacado <= 0) return { preco: precoBase, descontoAtacado: 0, isAtacado: false };
+        if (precoAtacado <= 0) return { preco: precoBase, descontoAtacado: 0, isAtacado: false, faixaId: null };
 
         if (!motorPrecoAtacadoDisponivel()) {
-            return { preco: precoBase, descontoAtacado: 0, isAtacado: false };
+            return { preco: precoBase, descontoAtacado: 0, isAtacado: false, faixaId: null };
         }
 
         const calc = MotorPrecoAtacado.calcularLinhaAtacadoFaixa({
@@ -4745,10 +4852,12 @@ function obterPrecoAtacado(produto, produtoId, quantidadeTotal, precoBase) {
             preco: precoAplicado,
             descontoAtacado: calc.descontoAtacado,
             isAtacado: precoAplicado < Number(precoBase),
-            subtotal: linha.total
+            subtotal: linha.total,
+            faixaId: Number(escolhida.id)
         };
     } catch (err) {
-        return { preco: precoBase, descontoAtacado: 0, isAtacado: false };
+        console.error('Não foi possível resolver a faixa de atacado para o preço do PDV.', err);
+        return { preco: precoBase, descontoAtacado: 0, isAtacado: false, faixaId: null };
     }
 }
 
@@ -4943,6 +5052,7 @@ function adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExt
     // calcula preco final considerando promoção primeiro, depois atacado (se mais vantajoso)
     let precoFinal = precoPromocional;
     let descontoAtacadoItem = 0;
+    let faixaAtacadoItem = null;
 
     const itemExistente = decisaoComposicao.acao === 'UNIFICAR' ? decisaoComposicao.linhaExistente : null;
 
@@ -4991,7 +5101,9 @@ function adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExt
                 const atac = obterPrecoAtacado(produto, produto.id, novaQuantidade, precoFinal);
                 precoFinal = atac.preco;
                 descontoAtacadoItem = atac.descontoAtacado;
+                faixaAtacadoItem = atac.faixaId;
                 itemExistente.tipo_preco = atac.isAtacado ? 'atacado' : 'varejo';
+                itemExistente.faixa_atacado_id = atac.isAtacado ? atac.faixaId : null;
             }
 
         const precoBase = tipoVendaEhUnidade(tipoVenda)
@@ -5026,6 +5138,7 @@ function adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExt
                 const atac = obterPrecoAtacado(produto, produto.id, quantidade, precoFinal);
                 precoFinal = atac.preco;
                 descontoAtacadoItem = atac.descontoAtacado;
+                faixaAtacadoItem = atac.faixaId;
             }
 
             const precoBase = tipoVendaEhUnidade(tipoVenda)
@@ -5053,10 +5166,12 @@ function adicionarItemNoCarrinho(produto, quantidade, precoUnitario, mensagemExt
                 promocao_id: promocao?.id || null,
                 desconto_atacado: descontoAtacadoItem,
                 tipo_preco: (Number(produto.venda_atacado || 0) === 1 && descontoAtacadoItem > 0) ? 'atacado' : 'varejo',
+                faixa_atacado_id: descontoAtacadoItem > 0 ? faixaAtacadoItem : null,
                 subtotal: 0,
                 item_fiscal: Number(produto.item_fiscal || 0),
                 tipo_venda: tipoVenda,
-                transferencia_nao_fiscal_para_fiscal: quantidadeTransferirLinha
+                transferencia_nao_fiscal_para_fiscal: quantidadeTransferirLinha,
+                ...(apresentacaoVendaSelecionada(opcoes) || {})
             };
             if (etiquetaBalanca) {
                 novoItem.etiqueta_balanca = etiquetaBalanca;
@@ -5699,6 +5814,7 @@ function atualizarQuantidade(index, quantidade, opcoes = {}) {
         precoAplicado = atac.preco;
         descontoAtacadoItem = atac.descontoAtacado;
         item.tipo_preco = atac.isAtacado ? 'atacado' : 'varejo';
+        item.faixa_atacado_id = atac.isAtacado ? atac.faixaId : null;
     }
 
     item.quantidade = novaQuantidade;
@@ -5815,7 +5931,92 @@ function aplicarDescontoPercentualComAuth(index, percentual, $input, valorAnteri
     );
 }
 
-function atualizarPrecoUnitario(index, valor) {
+function abrirModalPrecoUnitarioPdv(index) {
+    const item = carrinho[index];
+    if (!item || !pdvPermitirEditarPrecoUnitario()) return;
+
+    const contexto = String(item.tipo_preco || 'varejo').toLowerCase();
+    const podeAtualizarCadastro = pdvUsuarioPodeAtualizarCadastroProduto()
+        && ['varejo', 'atacado'].includes(contexto);
+
+    $('#modalPrecoUnitarioPdvNome').text(item.nome || 'Produto');
+    $('#modalPrecoUnitarioPdvAtual').val(precoUnitarioExibicaoItemPdv(item));
+    $('#modalPrecoUnitarioPdvNovo').val(precoUnitarioExibicaoItemPdv(item));
+    $('#modalPrecoUnitarioPdvCheckbox')
+        .prop('checked', false)
+        .prop('disabled', !podeAtualizarCadastro);
+    $('#modalPrecoUnitarioPdvAjuda').text(
+        podeAtualizarCadastro
+            ? 'Com a opção marcada, o preço é gravado agora no cadastro do produto.'
+            : 'Você pode alterar o preço desta venda, mas não possui permissão para atualizar o cadastro.'
+    );
+    $('#modalPrecoUnitarioPdv')
+        .off('shown.bs.modal.pdvPreco')
+        .on('shown.bs.modal.pdvPreco', function focarNovoPreco() {
+            const inputNovo = document.getElementById('modalPrecoUnitarioPdvNovo');
+            if (!inputNovo) return;
+            inputNovo.focus();
+            try { inputNovo.select(); } catch (_) { /* ignore */ }
+        })
+        .data('item-index', index)
+        .modal('show');
+}
+
+function confirmarModalPrecoUnitarioPdv() {
+    const modal = $('#modalPrecoUnitarioPdv');
+    if (!modal.hasClass('show')) return;
+    const index = Number(modal.data('item-index'));
+    const valor = parseValorMonetarioPdv($('#modalPrecoUnitarioPdvNovo').val());
+    if (!Number.isFinite(valor) || valor <= 0) {
+        showNotification('Informe um preço unitário maior que zero.', 'warning');
+        $('#modalPrecoUnitarioPdvNovo').trigger('focus');
+        return;
+    }
+    const atualizarCadastro = $('#modalPrecoUnitarioPdvCheckbox').prop('checked') === true
+        && !$('#modalPrecoUnitarioPdvCheckbox').prop('disabled');
+    if (!atualizarCadastro) {
+        atualizarPrecoUnitario(index, valor, false);
+        modal.modal('hide');
+        return;
+    }
+    if (modal.data('gravando-cadastro') === true) return;
+
+    const item = carrinho[index];
+    if (!item) return;
+    modal.data('gravando-cadastro', true);
+    $.ajax({
+        url: `${API_URL}/vendas/preco-cadastro`,
+        method: 'POST',
+        contentType: 'application/json',
+        headers: { Authorization: 'Bearer ' + (localStorage.getItem('token') || '') },
+        data: JSON.stringify({
+            produto_id: Number(item.id),
+            preco_unitario: valor,
+            quantidade: Number(item.quantidade || 0),
+            tipo_preco: item.tipo_preco || 'varejo',
+            tipo_venda: item.tipo_venda || '',
+            faixa_atacado_id: item.faixa_atacado_id || null
+        })
+    }).done(function () {
+        atualizarPrecoUnitario(index, valor, false);
+        refletirPrecosAtualizadosNoCatalogoPdv([{
+            atualizar_preco_cadastro: true,
+            produto_id: Number(item.id),
+            preco_unitario: valor,
+            tipo_preco: item.tipo_preco || 'varejo',
+            tipo_venda: item.tipo_venda || ''
+        }]);
+        showNotification('Preço atualizado no cadastro do produto.', 'success');
+        modal.modal('hide');
+    }).fail(function (xhr) {
+        const mensagem = xhr?.responseJSON?.error || 'Não foi possível atualizar o cadastro do produto.';
+        showNotification(mensagem, 'danger');
+    }).always(function () {
+        modal.data('gravando-cadastro', false);
+    });
+}
+
+function atualizarPrecoUnitario(index, valor, atualizarCadastro = false) {
     const item = carrinho[index];
     if (!item) return;
 
@@ -5825,20 +6026,24 @@ function atualizarPrecoUnitario(index, valor) {
         : Number(valor || 0);
     if (precoUnitario <= 0) return;
 
-    // Flag SUPER_ADMIN: unitário vira novo preço de tabela (não desconto).
+    // O preço informado é o preço praticado nesta linha; o cadastro é opcional.
     if (pdvPermitirEditarPrecoUnitario()) {
+        const precoReferencia = obterPrecoBaseItemPdv(item, produto);
+        item.atualizar_preco_cadastro = atualizarCadastro === true;
         item.preco_unitario = Number(precoUnitario.toFixed(2));
         item.preco_base = item.preco_unitario;
         item.desconto_percentual = 0;
         item.desconto_valor = 0;
         item.desconto_manual = 0;
+        item.desconto_atacado = item.tipo_preco === 'atacado'
+            ? Number(Math.max(0, (precoReferencia - item.preco_unitario) * Number(item.quantidade || 0)).toFixed(2))
+            : 0;
         item.subtotal = Number((item.preco_unitario * Number(item.quantidade || 0)).toFixed(2));
         if (item.subtotal_exibicao != null) {
             item.subtotal_exibicao = item.subtotal;
         }
         animarTotalLinhaCarrinho(index);
         atualizarCarrinho();
-        sincronizarPrecoCadastroProdutoPdv(item, produto, item.preco_unitario);
         focarCampoCodigo({ limpar: true });
         return;
     }
@@ -5863,49 +6068,6 @@ function atualizarPrecoUnitario(index, valor) {
     animarTotalLinhaCarrinho(index);
     atualizarCarrinho();
     focarCampoCodigo({ limpar: true });
-}
-
-/**
- * Quando a edição de unitário está liberada, grava o novo preço no cadastro do produto.
- */
-function sincronizarPrecoCadastroProdutoPdv(item, produto, precoNovo) {
-    const produtoId = Number(item?.id || produto?.id || 0);
-    const preco = Number(precoNovo || 0);
-    if (!produtoId || !(preco > 0) || typeof API_URL === 'undefined') return;
-
-    const vendaUnidade = itemVendaPorUnidade(item);
-    const payload = vendaUnidade
-        ? { preco_unidade: Number(preco.toFixed(2)) }
-        : { preco_venda: Number(preco.toFixed(2)) };
-
-    const custo = Number(produto?.preco_compra || 0);
-    if (!vendaUnidade && custo > 0) {
-        payload.lucro_percentual = Number((((preco - custo) / custo) * 100).toFixed(2));
-    }
-
-    const token = localStorage.getItem('token') || '';
-    $.ajax({
-        url: `${API_URL}/produtos/${produtoId}`,
-        method: 'PUT',
-        contentType: 'application/json',
-        headers: { Authorization: 'Bearer ' + token },
-        data: JSON.stringify(payload)
-    }).done(function (atualizado) {
-        if (atualizado && atualizado.id != null) {
-            upsertProdutoNoCatalogoPdv(atualizado);
-        } else if (produto) {
-            upsertProdutoNoCatalogoPdv({
-                ...produto,
-                ...payload
-            });
-        }
-        showNotification('Preço unitário atualizado no cadastro do produto.', 'success');
-    }).fail(function (xhr) {
-        showNotification(
-            xhr.responseJSON?.error || 'Não foi possível atualizar o preço no cadastro.',
-            'danger'
-        );
-    });
 }
 
 function removerItemCarrinho(index) {
@@ -6040,14 +6202,31 @@ function atualizarCarrinho() {
             );
         });
 
-        tbody.on('change', '.valor-item', function() {
+        tbody.off('click.pdvPreco', '.valor-item').on('click.pdvPreco', '.valor-item', function() {
             const index = $(this).data('index');
-            const valor = parseFloat($(this).val());
-            if (isNaN(valor) || valor <= 0) {
-                atualizarCarrinho();
-                return;
-            }
-            atualizarPrecoUnitario(index, valor);
+            abrirModalPrecoUnitarioPdv(index);
+        });
+
+        tbody.off('keydown.pdvPreco', '.valor-item').on('keydown.pdvPreco', '.valor-item', function(evento) {
+            if (evento.key !== 'Enter' && evento.key !== ' ') return;
+            evento.preventDefault();
+            abrirModalPrecoUnitarioPdv($(this).data('index'));
+        });
+
+        $('#modalPrecoUnitarioPdvConfirmar').off('click.pdvPreco').on('click.pdvPreco', function() {
+            confirmarModalPrecoUnitarioPdv();
+        });
+
+        $('#modalPrecoUnitarioPdv').off('keydown.pdvPreco').on('keydown.pdvPreco', function(evento) {
+            if (evento.key !== 'Enter' && evento.which !== 13) return;
+            if (evento.target && evento.target.id === 'modalPrecoUnitarioPdvCancelar') return;
+            evento.preventDefault();
+            evento.stopPropagation();
+            confirmarModalPrecoUnitarioPdv();
+        });
+
+        $('#modalPrecoUnitarioPdvCancelar').off('click.pdvPreco').on('click.pdvPreco', function() {
+            $('#modalPrecoUnitarioPdv').modal('hide');
         });
     }
 
@@ -7055,12 +7234,21 @@ async function executarFinalizacaoVenda(emitirFiscal = false, cpfCnpjNota = null
             promocao_id: item.promocao_id || null,
             desconto_atacado: Number(item.desconto_atacado || 0),
             tipo_preco: item.tipo_preco || 'varejo',
+            faixa_atacado_id: Number(item.faixa_atacado_id) || null,
+            atualizar_preco_cadastro: item.atualizar_preco_cadastro === true,
             subtotal: subtotalFiscal,
             item_fiscal: Number(item.item_fiscal || 0),
             tipo_venda: tipoVenda,
             transferencia_nao_fiscal_para_fiscal: Number(item.transferencia_nao_fiscal_para_fiscal || 0)
         };
-            if (tipoVendaEhUnidade(tipoVenda) && produto) {
+            if (Number(item.fator_conversao) > 0) {
+                itemPayload.quantidade_apresentacao = quantidade;
+                itemPayload.fator_conversao = Number(item.fator_conversao);
+                itemPayload.produto_apresentacao_id = item.apresentacao_id || null;
+                itemPayload.unidade_comercial = item.unidade_comercial || null;
+                itemPayload.unidade_base = item.unidade_base || null;
+                itemPayload.quantidade_estoque = quantidade * Number(item.fator_conversao);
+            } else if (tipoVendaEhUnidade(tipoVenda) && produto) {
                 itemPayload.quantidade_estoque = obterQuantidadeEstoqueParaVenda(produto, quantidade, TIPO_VENDA_UNIDADE);
             }
             return itemPayload;
@@ -7265,6 +7453,7 @@ async function executarFinalizacaoVenda(emitirFiscal = false, cpfCnpjNota = null
 
     function enviarVenda(payload) {
         payload = getTerminalRequestData(payload);
+        payload = anexarChaveIdempotenciaVenda(payload);
         let handoffNaoFiscal = false;
         let posVendaEncerrada = false;
 
@@ -7298,6 +7487,8 @@ async function executarFinalizacaoVenda(emitirFiscal = false, cpfCnpjNota = null
                         showNotification('Venda finalizada, mas não foi possível localizar o ID da venda.', 'danger');
                         return;
                     }
+
+                    refletirPrecosAtualizadosNoCatalogoPdv(payload.itens);
 
                     if (statusPagamento === 'aguardando_nao_fiscal' && !vendaQuitada) {
                         // 2ª etapa legítima: fiscal confirmado, não fiscal ainda pendente
@@ -7390,6 +7581,7 @@ async function executarFinalizacaoVenda(emitirFiscal = false, cpfCnpjNota = null
 }
 
 function finalizarPosVenda() {
+    limparChaveIdempotenciaVenda();
     carrinho = [];
     formaPagamentoSelecionada = null;
     clienteSelecionado = null;
@@ -7445,32 +7637,75 @@ async function cancelarVendaAtual() {
     // Cancelar pagamento fiscal se existir (TEF-17: só limpa se provedor confirmou)
     if (pagamentoFiscalAtual && pagamentoFiscalAtual.transacao_id) {
         try {
-            const cancelResp = await fetch(`${API_URL}/tef/cancelar`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${localStorage.getItem('token') || ''}`
-                },
-                body: JSON.stringify({
+            const enviarCancelamento = async (senhaAdmin) => {
+                const payload = {
                     transacao_id: pagamentoFiscalAtual.transacao_id,
                     motivo: 'Cancelamento operador'
-                })
-            });
-            const cancelJson = await cancelResp.json().catch(() => ({}));
+                };
+                if (senhaAdmin) payload.senha_admin = senhaAdmin;
+
+                const response = await fetch(`${API_URL}/tef/cancelar`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json().catch(() => ({}));
+                return { response, data };
+            };
+
+            let { response: cancelResp, data: cancelJson } = await enviarCancelamento();
+            if (cancelResp.status === 403 && cancelJson?.requer_senha_admin === true) {
+                if (typeof window.solicitarSenhaAdministrador !== 'function') {
+                    showNotification('Não foi possível solicitar autorização administrativa. A venda foi mantida.', 'danger');
+                    return;
+                }
+
+                let senhaAdmin;
+                try {
+                    senhaAdmin = await window.solicitarSenhaAdministrador({
+                        titulo: 'Autorização para cancelar pagamento TEF',
+                        mensagem: 'Informe a senha de um administrador para continuar.'
+                    });
+                } catch (authError) {
+                    if (authError?.message === 'Operação cancelada.') {
+                        showNotification('Autorização cancelada. A venda foi mantida.', 'info');
+                        return;
+                    }
+                    throw authError;
+                }
+
+                ({ response: cancelResp, data: cancelJson } = await enviarCancelamento(senhaAdmin));
+            }
+
+            if (!cancelResp.ok) {
+                const acessoNegado = cancelResp.status === 401 || cancelResp.status === 403;
+                showNotification(
+                    acessoNegado
+                        ? 'Acesso negado. O pagamento TEF não foi cancelado e a venda foi mantida.'
+                        : cancelJson?.error || 'Falha ao solicitar cancelamento TEF. A venda foi mantida.',
+                    acessoNegado ? 'warning' : 'danger'
+                );
+                return;
+            }
+
             if (cancelJson && cancelJson.sucesso === true && cancelJson.cancelConfirmed !== false) {
                 console.log('Pagamento fiscal cancelado pelo operador');
                 pagamentoFiscalAtual = null;
             } else {
                 showNotification(
                     cancelJson?.mensagem
-                      || 'TEF não confirmou o cancelamento. A transação permanece rastreável — não trate como estornada.',
+                      || 'TEF não confirmou o cancelamento. A transação permanece rastreável e a venda foi mantida.',
                     'warning'
                 );
-                // Mantém referência da tx aprovada; não afirma estorno falso.
+                return;
             }
         } catch (cancelError) {
             console.error('Erro ao cancelar Recebimento A:', cancelError);
-            showNotification('Falha ao solicitar cancelamento TEF. Transação não foi marcada como estornada.', 'warning');
+            showNotification('Falha ao solicitar cancelamento TEF. A venda foi mantida e a transação não foi marcada como estornada.', 'warning');
+            return;
         }
     }
 
@@ -8911,8 +9146,8 @@ function carregarNomesConsultaPDV() {
 }
 
 function adicionarProdutoConsultaPDV(produtoId) {
-    // Sempre hidrata do servidor: busca F1/autocomplete pode ter saldos zerados.
-    Promise.resolve(garantirProdutoNoCatalogoPdv(produtoId, { forcarAtualizacao: true })).then(function (produto) {
+    // O catálogo oficial já tem saldo; só consulta o servidor quando o cache não é confiável.
+    Promise.resolve(garantirProdutoNoCatalogoPdv(produtoId)).then(function (produto) {
     if (!produto) {
         showNotification('Produto não encontrado na lista do PDV. Atualize o PDV e tente novamente.', 'danger');
         return;
@@ -9191,15 +9426,6 @@ document.addEventListener("keydown", (e) => {
 
   // F10: tratado no keydown do PDV (btnFinalizarVendaPdv) para evitar disparo duplo
 
-  if (e.key === "Escape") {
-    e.preventDefault();
-    // Se menu estiver aberto, fecha o menu
-    if (document.body.classList.contains('menu-open')) {
-      fecharMenuPdv();
-    } else {
-      document.getElementById("btnCancelarVendaPdv")?.click();
-    }
-  }
 });
 
 // PDV Fullscreen Mode

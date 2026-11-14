@@ -1,5 +1,5 @@
 /**
- * PDV — pedir NCM e gravar no cadastro (configurável, igual ao preço unitário).
+ * PDV — pedir NCM e gravar no cadastro sem escrita imediata de preço.
  * node --test tests/pdv/pdv-ncm-cadastro.test.js
  */
 'use strict';
@@ -32,7 +32,7 @@ describe('PDV exigir NCM no cadastro', () => {
     assert.match(centro, /btnSalvarPdvExigirNcmCadastro/);
   });
 
-  it('PDV pede NCM só com flag e grava PUT como o preço', () => {
+  it('PDV pede NCM só com flag e mantém o PUT exclusivo da gravação do NCM', () => {
     const pdv = fs.readFileSync(path.join(ROOT, 'frontend/pdv/js/pdv.js'), 'utf8');
     assert.match(pdv, /pdvExigirNcmCadastroAtivo/);
     assert.match(pdv, /carregarFlagExigirNcmCadastroPdv/);
@@ -42,9 +42,9 @@ describe('PDV exigir NCM no cadastro', () => {
     assert.match(pdv, /modalNcmProdutoPdv/);
     assert.match(pdv, /JSON\.stringify\(\{ ncm: ncmDigitos \}\)/);
     assert.match(pdv, /upsertProdutoNoCatalogoPdv/);
-    const preco = pdv.indexOf('function sincronizarPrecoCadastroProdutoPdv');
     const ncm = pdv.indexOf('function sincronizarNcmCadastroProdutoPdv');
-    assert.ok(preco > 0 && ncm > 0);
+    assert.ok(ncm > 0);
+    assert.doesNotMatch(pdv, /function sincronizarPrecoCadastroProdutoPdv/);
     assert.match(pdv, /method: 'PUT'/);
     assert.match(pdv, /produtos\/\$\{produtoId\}/);
     assert.match(pdv, /hintNcmProdutoPdv/);

@@ -312,6 +312,7 @@ function aplicarAlteracoesPosCriacao() {
     // RC COMPRAS 5.4.1 — IPI e seguro do XML
     `ALTER TABLE compras ADD COLUMN valor_ipi DECIMAL(10,2) DEFAULT 0`,
     `ALTER TABLE compras ADD COLUMN valor_seguro DECIMAL(10,2) DEFAULT 0`,
+    `ALTER TABLE compras ADD COLUMN valor_icms_st DECIMAL(10,2) DEFAULT 0`,
     `ALTER TABLE compras ADD COLUMN valor_total_nota DECIMAL(10,2) DEFAULT 0`,
     `ALTER TABLE compras ADD COLUMN cancelada_em DATETIME`,
     `ALTER TABLE compras ADD COLUMN motivo_cancelamento TEXT`,
@@ -1804,6 +1805,7 @@ function criarTabelas() {
         valor_desconto DECIMAL(10,2) DEFAULT 0,
         valor_frete DECIMAL(10,2) DEFAULT 0,
         valor_outras_despesas DECIMAL(10,2) DEFAULT 0,
+        valor_icms_st DECIMAL(10,2) DEFAULT 0,
         valor_total_nota DECIMAL(10,2) DEFAULT 0,
         total DECIMAL(10,2) NOT NULL,
         status VARCHAR(20) DEFAULT 'pendente',
@@ -2846,6 +2848,7 @@ function garantirColunasCompras() {
       !colunas.includes('valor_desconto') && `ALTER TABLE compras ADD COLUMN valor_desconto DECIMAL(10,2) DEFAULT 0`,
       !colunas.includes('valor_frete') && `ALTER TABLE compras ADD COLUMN valor_frete DECIMAL(10,2) DEFAULT 0`,
       !colunas.includes('valor_outras_despesas') && `ALTER TABLE compras ADD COLUMN valor_outras_despesas DECIMAL(10,2) DEFAULT 0`,
+      !colunas.includes('valor_icms_st') && `ALTER TABLE compras ADD COLUMN valor_icms_st DECIMAL(10,2) DEFAULT 0`,
       !colunas.includes('valor_total_nota') && `ALTER TABLE compras ADD COLUMN valor_total_nota DECIMAL(10,2) DEFAULT 0`
     ].filter(Boolean);
 

@@ -17,6 +17,15 @@ const ALTER_PRODUTO_EMBALAGENS = [
   `ALTER TABLE produto_embalagens ADD COLUMN motivo_alteracao TEXT`
 ];
 
+const ALTER_VENDAS_ITENS = [
+  `ALTER TABLE vendas_itens ADD COLUMN produto_apresentacao_id INTEGER`,
+  `ALTER TABLE vendas_itens ADD COLUMN unidade_comercial TEXT`,
+  `ALTER TABLE vendas_itens ADD COLUMN quantidade_apresentacao REAL`,
+  `ALTER TABLE vendas_itens ADD COLUMN fator_conversao REAL`,
+  `ALTER TABLE vendas_itens ADD COLUMN unidade_base TEXT`,
+  `ALTER TABLE vendas_itens ADD COLUMN quantidade_base REAL`
+];
+
 const ALTER_COMPRAS_ITENS = [
   `ALTER TABLE compras_itens ADD COLUMN embalagem_id INTEGER`,
   `ALTER TABLE compras_itens ADD COLUMN produto_apresentacao_id INTEGER`,
@@ -120,7 +129,7 @@ function garantirSchemaMuc(db, callback) {
         return done(apErr);
       }
 
-      const alters = [...ALTER_PRODUTO_EMBALAGENS, ...ALTER_COMPRAS_ITENS, ...ALTER_AUDITORIA_RC2];
+      const alters = [...ALTER_PRODUTO_EMBALAGENS, ...ALTER_COMPRAS_ITENS, ...ALTER_VENDAS_ITENS, ...ALTER_AUDITORIA_RC2];
       let pendentes = alters.length + INDICES.length;
       let falha = null;
 
@@ -134,8 +143,12 @@ function garantirSchemaMuc(db, callback) {
       };
 
       alters.forEach((sql) => {
-        aplicarAlterSeguro(db, sql, (err) => {
-          if (err && !falha) falha = err;
+        const tolerarTabelaAusente = sql.includes('vendas_itens');
+        db.run(sql, (err) => {
+          const msg = String(err?.message || '');
+          const ignorar = msg.includes('duplicate column name')
+            || (tolerarTabelaAusente && msg.includes('no such table'));
+          if (err && !ignorar && !falha) falha = err;
           tick();
         });
       });

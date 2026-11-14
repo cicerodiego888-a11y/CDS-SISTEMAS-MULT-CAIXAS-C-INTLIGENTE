@@ -18,12 +18,17 @@ function parseApresentacaoRow(row) {
   if (!row) return null;
   const tipo = normalizarTipoApresentacao(row.tipo);
   const unidadeBase = String(row.unidade || 'un').toLowerCase();
+  const quantidadeAusente = row.quantidade === undefined || row.quantidade === null || row.quantidade === '';
+  const quantidadeInformada = num(row.quantidade, 4);
+  const quantidade = quantidadeAusente
+    ? 1
+    : (quantidadeInformada > 0 ? quantidadeInformada : (tipo === 'UN' ? 1 : 0));
   return Object.freeze({
     id: row.id,
     produtoId: row.produto_id,
     tipo,
     descricao: row.descricao || null,
-    quantidade: num(row.quantidade, 4) || 1,
+    quantidade,
     unidade: unidadeBase,
     unidadeComercial: tipoParaUnidadeComercial(tipo),
     gtin: row.gtin || null,

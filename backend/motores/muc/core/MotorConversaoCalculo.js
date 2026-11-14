@@ -71,6 +71,7 @@ function montarItemLegado(dto, inferido) {
       && itemOrigem.decisao_conversao === true
       && itemOrigem.origem_conversao_confirmada === 'QTRIB_UNIDADE_ESTOQUE') {
     quantidadeNfe.quantidadeEstoque = confirmada;
+    quantidadeNfe.fatorConversao = Number(itemOrigem.fator_conversao_confirmado || quantidadeNfe.fatorConversao);
     quantidadeNfe.origem = 'QTRIB_UNIDADE_ESTOQUE';
   }
 
@@ -137,7 +138,9 @@ function executar(ctx) {
       origem: dto.origem,
       quantidadeCompra: dto.quantidadeCompra,
       unidadeCompra: inferido.tipoApresentacao,
-      fatorConversao: inferido.fator,
+      fatorConversao: dto.origem === 'CENTRAL_NFE'
+        ? itemLegado._quantidade_entrada_nfe.fatorConversao
+        : inferido.fator,
       quantidadeEstoque: num(qtdsEstoque.quantidade_convertida || qtdsEstoque.quantidade, 4),
       quantidadeFiscal: num(qtdsEstoque.quantidade_fiscal, 4),
       quantidadeNaoFiscal: num(qtdsEstoque.quantidade_nao_fiscal, 4),

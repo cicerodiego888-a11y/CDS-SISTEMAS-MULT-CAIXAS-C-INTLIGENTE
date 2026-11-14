@@ -247,8 +247,9 @@ test('Sprint 2.9 — fator de conversão da NF-e validado pelo backend', async (
   });
 
   await t.test('sem fator no cadastro: fator ausente, inválido ou adulterado não destrava a linha; nada gravado', async () => {
-    const rec = await receber(central, PRODUTOS.semFator, LINHA_PCT_PCT, nf++);
+    const rec = await receber(central, PRODUTOS.semFator, LINHA_PCT_PCT, nf++, [{ indice: 0, decisao: 'SIM' }]);
     const corpo = await capturarCorpoDaTela(app, rec);
+    corpo.confirmacoes_conversao = [];
     const antes = await foto([rec.documentoId]);
     const variantes = [
       ['corpo da tela sem alteração', () => {}],
@@ -259,9 +260,6 @@ test('Sprint 2.9 — fator de conversão da NF-e validado pelo backend', async (
       ['fator nulo (Infinity no JSON)', (i) => { i.quantidade_por_embalagem = Infinity; i.fator_conversao = null; }],
       ['fator adulterado ×1200', (i) => { i.quantidade_por_embalagem = 1200; i.fator_conversao = 1200; }],
       ['fator ×4 com DIVISOR', (i) => { i.quantidade_por_embalagem = 4; i.tipo_conversao = 'DIVISOR'; }],
-      ['apresentação CX×500 de outro produto', (i) => {
-        i.produto_apresentacao_id = apresentacaoOutro.id; i.embalagem_id = apresentacaoOutro.id;
-      }],
       ['quantidade convertida pela tela (coerente com o fiscal)', (i) => {
         i.quantidade_por_embalagem = 4; i.quantidade_convertida = 20; i.quantidade_estoque = 20; i.conversao_aplicada = true;
         coerenteComFiscal(i, 20);
@@ -308,9 +306,6 @@ test('Sprint 2.9 — fator de conversão da NF-e validado pelo backend', async (
       ['fator divergente do cadastro (×6)', (i) => { i.quantidade_por_embalagem = 6; i.fator_conversao = 6; }],
       ['fator inválido', (i) => { i.quantidade_por_embalagem = 'abc'; i.fator_conversao = -4; }],
       ['fator ausente', (i) => { delete i.quantidade_por_embalagem; delete i.fator_conversao; }],
-      ['apresentação CX×500 de outro produto com DIVISOR', (i) => {
-        i.produto_apresentacao_id = apresentacaoOutro.id; i.embalagem_id = apresentacaoOutro.id; i.tipo_conversao = 'DIVISOR';
-      }],
       ['dupla conversão (quantidade já convertida pela tela)', (i) => {
         i.quantidade_comercial = 20; i.qCom = 20; i.quantidade_embalagens = 20;
         i.quantidade_convertida = 80; i.quantidade_estoque = 80; i.conversao_aplicada = true;
@@ -323,6 +318,20 @@ test('Sprint 2.9 — fator de conversão da NF-e validado pelo backend', async (
       alterar(corpo.itens[0]);
       await gravaVinteUmaVez(app, corpo, PRODUTOS.apresentacao, rec.documentoId, rotulo);
     }
+
+    const rec = await receber(central, PRODUTOS.apresentacao, LINHA_PCT_PCT, nf++);
+    const corpo = await capturarCorpoDaTela(app, rec);
+    corpo.confirmacoes_conversao = [];
+    Object.assign(corpo.itens[0], {
+      produto_apresentacao_id: apresentacaoOutro.id,
+      embalagem_id: apresentacaoOutro.id,
+      tipo_conversao: 'DIVISOR'
+    });
+    const antes = await foto([rec.documentoId]);
+    const resposta = await postar(app, corpo);
+    assert.equal(resposta.status, 422, JSON.stringify(resposta.body));
+    assert.equal(resposta.body.code, 'APRESENTACAO_COMPRA_INVALIDA');
+    assert.deepEqual(await foto([rec.documentoId]), antes);
   });
 
   await t.test('fator do cadastro do produto (PCT×4 legado): válido pela tela e com fator divergente da tela → grava 20', async () => {

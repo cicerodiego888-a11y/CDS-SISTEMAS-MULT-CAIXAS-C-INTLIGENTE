@@ -33,18 +33,34 @@ const MAPA_UNIDADE_COMERCIAL_PARA_TIPO = Object.freeze({
   BALDE: 'BALDE', GALAO: 'GALAO', GALÃO: 'GALAO', VARA: 'VARA', SERVICO: 'SERVICO', SERVIÇO: 'SERVICO'
 });
 
-function normalizarTipoApresentacao(valor) {
-  const raw = String(valor || 'UN').trim().toUpperCase()
+/**
+ * Tipo oficial, alias legado ou identificador personalizado (letra inicial, até 16 caracteres).
+ * Identificador inválido não é aceito e não vira outro tipo.
+ */
+function classificarTipoApresentacao(valor) {
+  const raw = String(valor ?? '').trim().toUpperCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, '');
-  if (TIPOS_APRESENTACAO.includes(raw)) return raw;
-  if (MAPA_UNIDADE_COMERCIAL_PARA_TIPO[raw]) return MAPA_UNIDADE_COMERCIAL_PARA_TIPO[raw];
-  return 'UN';
+  if (!raw) return { tipo: 'UN', aceito: true, personalizado: false };
+  if (TIPOS_APRESENTACAO.includes(raw)) return { tipo: raw, aceito: true, personalizado: false };
+  if (MAPA_UNIDADE_COMERCIAL_PARA_TIPO[raw]) {
+    return { tipo: MAPA_UNIDADE_COMERCIAL_PARA_TIPO[raw], aceito: true, personalizado: false };
+  }
+  if (/^[A-Z][A-Z0-9]{0,15}$/.test(raw)) {
+    return { tipo: raw, aceito: true, personalizado: true };
+  }
+  return { tipo: raw, aceito: false, personalizado: false };
+}
+
+function normalizarTipoApresentacao(valor) {
+  const classe = classificarTipoApresentacao(valor);
+  return classe.aceito ? classe.tipo : 'UN';
 }
 
 function tipoParaUnidadeComercial(tipo) {
-  return MAPA_TIPO_PARA_UNIDADE_COMERCIAL[normalizarTipoApresentacao(tipo)] || 'UN';
+  const normalizado = normalizarTipoApresentacao(tipo);
+  return MAPA_TIPO_PARA_UNIDADE_COMERCIAL[normalizado] || normalizado || 'UN';
 }
 
 /** Inverso de tipoParaUnidadeComercial — ex.: CAIXA → CX, PACOTE → PCT */
@@ -61,6 +77,7 @@ module.exports = {
   LABELS_APRESENTACAO,
   MAPA_TIPO_PARA_UNIDADE_COMERCIAL,
   MAPA_UNIDADE_COMERCIAL_PARA_TIPO,
+  classificarTipoApresentacao,
   normalizarTipoApresentacao,
   tipoParaUnidadeComercial,
   unidadeComercialParaTipo,

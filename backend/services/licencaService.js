@@ -169,13 +169,7 @@ function validarCodigoLicenca(codigoInstalacao, codigoLicenca) {
     const assinaturaEsperadaAlternativa = assinaturasTentadas[1].valor;
 
     if (!assinaturaValida) {
-      console.warn('Licença compatível recebida, mas assinatura não conferiu com os candidatos locais.', {
-        codigoRecebido,
-        dataExpiracao,
-        diasValidade,
-        assinaturaRecebida,
-        assinaturasTentadas
-      });
+      console.warn('Licença recebida, mas a assinatura não foi validada.');
       return {
         valido: true,
         dataExpiracao,
@@ -191,7 +185,7 @@ function validarCodigoLicenca(codigoInstalacao, codigoLicenca) {
       assinaturaValida: true
     };
   } catch (err) {
-    console.error(err);
+    console.error('Falha ao validar código de licença.');
     return false;
   }
 }
@@ -376,15 +370,14 @@ async function salvarLicenca(licenca) {
 async function atualizarLicenca(codigoLicenca) {
   const licenca = await obterLicenca();
 
-  console.log('CODIGO INSTALACAO ERP:', licenca.codigo_instalacao);
-  console.log('LICENCA RECEBIDA:', codigoLicenca);
-
   const resultado = validarCodigoLicenca(licenca.codigo_instalacao, codigoLicenca);
-
-  console.log('RESULTADO VALIDACAO:', resultado);
+  console.log('[LICENCA] Validação de ativação concluída:', {
+    valido: Boolean(resultado && resultado.valido),
+    assinaturaValida: resultado?.assinaturaValida
+  });
 
   if (!resultado || !resultado.valido) {
-    registrarHistorico('Tentativa inválida', `Código de licença informado: ${codigoLicenca}`);
+    registrarHistorico('Tentativa inválida', 'Código de licença rejeitado.');
     throw new Error('Licença inválida');
   }
 

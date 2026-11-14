@@ -1470,15 +1470,15 @@ function restaurarResumoConversaoMucEdicaoCentral(item = {}, produto = null) {
     }, obterModoPainelEmbalagemCompra(produto));
 }
 
-function resolverSnapshotEmbalagemEdicaoCentral(item = {}, quantidadeComercialForm = 0, precoComercialForm = 0) {
+function resolverSnapshotEmbalagemEdicaoCentral(item = {}, quantidadeComercialForm = 0, precoComercialForm = 0, conversaoEditada = false) {
     const quantidadeRaw = item.quantidade_estoque
         ?? item.quantidade_convertida
         ?? item.quantidade_tributavel
         ?? item.qTrib
         ?? item.peso_total_compra
         ?? item.quantidade;
-    const quantidade = Number(quantidadeRaw);
-    const custoUnitario = resolverCustoUnitarioCentralNfe(item);
+    let quantidade = Number(quantidadeRaw);
+    let custoUnitario = resolverCustoUnitarioCentralNfe(item);
     const quantidadeComercial = Number(
         quantidadeComercialForm
         || item.quantidade_comercial
@@ -1492,6 +1492,20 @@ function resolverSnapshotEmbalagemEdicaoCentral(item = {}, quantidadeComercialFo
         : (quantidadeComercial > 0 && precoComercial > 0
             ? Number((quantidadeComercial * precoComercial).toFixed(2))
             : 0);
+    const fatorAnterior = Number(item.fator_conversao || item.quantidade_por_embalagem || 0);
+    const fatorFormulario = conversaoEditada ? Number($('#quantidade_por_embalagem_item').val() || 0) : fatorAnterior;
+    const apresentacao = conversaoEditada ? embalagensProdutoCompraAtual.find(
+        (opcao) => String(opcao.id) === String($('#embalagem_compra_item').val())
+    ) : null;
+    const alterouFator = conversaoEditada && fatorFormulario > 0
+        && Math.abs(fatorFormulario - fatorAnterior) > 0.00005;
+    if (alterouFator && quantidadeComercial > 0 && valorTotal > 0) {
+        const divisor = String(apresentacao?.tipo_conversao || '').toUpperCase() === 'DIVISOR';
+        quantidade = Number((divisor
+            ? quantidadeComercial / fatorFormulario
+            : quantidadeComercial * fatorFormulario).toFixed(4));
+        custoUnitario = quantidade > 0 ? Number((valorTotal / quantidade).toFixed(4)) : null;
+    }
     if (!Number.isFinite(quantidade) || quantidade <= 0
         || custoUnitario === null || !Number.isFinite(custoUnitario) || custoUnitario < 0
         || !Number.isFinite(valorTotal) || valorTotal <= 0) {
@@ -1504,8 +1518,8 @@ function resolverSnapshotEmbalagemEdicaoCentral(item = {}, quantidadeComercialFo
         custoUnitario,
         valorTotal,
         muc: {
-            fatorConversao: Number(item.fator_conversao || item.quantidade_por_embalagem || 0),
-            tipoConversao: item.tipo_conversao || 'MULTIPLICADOR'
+            fatorConversao: alterouFator ? fatorFormulario : fatorAnterior,
+            tipoConversao: apresentacao?.tipo_conversao || item.tipo_conversao || 'MULTIPLICADOR'
         }
     };
 }
@@ -1565,6 +1579,7 @@ function onEmbalagemCompraSelecionada() {
         return;
     }
     embalagemCompraSelecionadaAnterior = String(id || '');
+    if (itemDraftCompra && isOrigemCompraCentralNfe()) itemDraftCompra.conversao_compra_editada_manual = true;
     aplicarEmbalagemCompraSelecionada(id);
 }
 
@@ -3861,7 +3876,8 @@ function normalizeItemCompra(itemBruto = {}) {
             custo_unitario: Number(custoMargemCentral.toFixed(casasCusto)),
             // Nome próprio: quantidade_tributavel não pode voltar ao item, a renormalização a usaria como estoque.
             quantidade_tributavel_nfe: Number(item.quantidade_tributavel_nfe ?? item.quantidade_tributavel ?? 0) || null,
-            unidade_tributavel_nfe: item.unidade_tributavel_nfe || item.unidade_tributavel || null
+            unidade_tributavel_nfe: item.unidade_tributavel_nfe || item.unidade_tributavel || null,
+            fator_conversao_editado_manual: item.fator_conversao_editado_manual === true
         } : {}),
         ncm: item.ncm || '',
         quantidade,
@@ -3977,7 +3993,8 @@ function recalcularTotaisCompraNota() {
     const seguro = Number($('#valor_seguro').val()) || 0;
     const outras = Number($('#valor_outras_despesas').val()) || 0;
     const ipi = Number($('#valor_ipi').val()) || 0;
-    const totalComponentes = Number((valorProdutos - desconto + frete + seguro + outras + ipi).toFixed(2));
+    const icmsSt = Number($('#valor_icms_st').val()) || 0;
+    const totalComponentes = Number((valorProdutos - desconto + frete + seguro + outras + ipi + icmsSt).toFixed(2));
 
     // RC 5.4.1 — se veio do XML, o total oficial é o vNF (nunca recalcular diferente)
     const totalXmlImportado = Number(compraImportadaXml?.valor_total_nota);
@@ -5400,7 +5417,8 @@ async function adicionarItemCompraAsync() {
             ? resolverSnapshotEmbalagemEdicaoCentral(
                 itemDraftCompra || {},
                 quantidadeComercialForm,
-                precoUnitarioComercialForm
+                precoUnitarioComercialForm,
+                itemDraftCompra?.conversao_compra_editada_manual === true
             )
             : await simularConversaoMucCompra(true);
         if (!conv || conv.qtdTotal <= 0) {
@@ -5513,6 +5531,10 @@ async function adicionarItemCompraAsync() {
             quantidade_comercial: Number($('#quantidade_embalagens_item').val() || 0),
             quantidade_embalagens: Number($('#quantidade_embalagens_item').val() || 0),
             quantidade_por_embalagem: Number($('#quantidade_por_embalagem_item').val() || 0),
+            fator_conversao_editado_manual: edicaoCentral
+                && itemDraftCompra?.conversao_compra_editada_manual === true
+                && Math.abs(Number($('#quantidade_por_embalagem_item').val() || 0)
+                    - Number(embSelFinal?.quantidade ?? itemDraftCompra?.quantidade_por_embalagem ?? 0)) > 0.00005,
             quantidade_convertida: conv.qtdTotal,
             valor_total_embalagem: valorTotalEmbalagem,
             preco_unitario_comercial: precoUnitarioComercialForm > 0
@@ -6572,6 +6594,11 @@ function showCompraModal(opcoes = {}) {
         <input type="number" step="0.01" class="form-control" id="valor_ipi" value="0.00" oninput="recalcularTotaisCompraNota(); recalcularTotalNotaAvulsa(); calcularParcelasCompra();">
     </div>
 
+    <div class="col-md-2" id="col_valor_icms_st">
+        <label class="form-label">ICMS-ST</label>
+        <input type="number" step="0.01" class="form-control" id="valor_icms_st" value="0.00" oninput="recalcularTotaisCompraNota(); recalcularTotalNotaAvulsa(); calcularParcelasCompra();">
+    </div>
+
     <div class="col-md-2" id="col_valor_total_itens">
         <label class="form-label">Valor total itens</label>
         <input type="number" step="0.01" class="form-control" id="valor_total_itens" value="0.00" readonly oninput="recalcularTotalNotaAvulsa()">
@@ -6637,6 +6664,11 @@ function showCompraModal(opcoes = {}) {
     $('#quantidade_embalagens_item, #quantidade_por_embalagem_item')
         .off('input.fracionado')
         .on('input.fracionado', () => agendarSimulacaoMucCompra());
+    $('#quantidade_por_embalagem_item')
+        .off('input.conversaoCentral')
+        .on('input.conversaoCentral', () => {
+            if (itemDraftCompra && isOrigemCompraCentralNfe()) itemDraftCompra.conversao_compra_editada_manual = true;
+        });
     $('#compra_em_item, #embalagem_compra_item')
         .off('change.fracionado')
         .on('change.fracionado', () => agendarSimulacaoMucCompra());
@@ -6805,6 +6837,7 @@ function saveCompra() {
         valor_seguro: Number($('#valor_seguro').val()) || 0,
         valor_outras_despesas: Number($('#valor_outras_despesas').val()) || 0,
         valor_ipi: Number($('#valor_ipi').val()) || 0,
+        valor_icms_st: Number($('#valor_icms_st').val()) || 0,
         valor_total_nota: Number($('#valor_total_nota').val()) || 0,
         total,
         itens: entradaSimplificada ? [] : itensCompraAtual.map((item, index) => {
@@ -6873,6 +6906,9 @@ function saveCompra() {
             origem_conversao: sincronizado.origem_conversao
                 || (itemUsaModoPrecoEmbalagemCompra(sincronizado) ? 'MANUAL' : null),
             fator_conversao: Number(sincronizado.fator_conversao || sincronizado.quantidade_por_embalagem || 0) || null,
+            ...(isOrigemCompraCentralNfe() ? {
+                fator_conversao_editado_manual: sincronizado.fator_conversao_editado_manual === true
+            } : {}),
             tipo_conversao: sincronizado.tipo_conversao || null,
             confianca_conversao: sincronizado.confianca_conversao != null ? Number(sincronizado.confianca_conversao) : null,
             tipo_origem_compra: sincronizado.tipo_origem_compra || null
@@ -7462,7 +7498,8 @@ function recalcularTotalNotaAvulsa() {
     const seguro = Number($('#valor_seguro').val()) || 0;
     const outras = Number($('#valor_outras_despesas').val()) || 0;
     const ipi = Number($('#valor_ipi').val()) || 0;
-    const totalNota = Number((valorTotalItens + frete + seguro + outras + ipi).toFixed(2));
+    const icmsSt = Number($('#valor_icms_st').val()) || 0;
+    const totalNota = Number((valorTotalItens + frete + seguro + outras + ipi + icmsSt).toFixed(2));
 
     $('#valor_produtos').val(formatNumberInput(valorTotalItens));
     $('#valor_total_nota').val(formatNumberInput(totalNota));
@@ -7508,6 +7545,7 @@ function viewCompra(id) {
                         data-view-preco-venda-item="${index}"
                         data-item-id="${Number(item.id)}"
                         data-custo="${Number(item.preco_unitario || 0)}"
+                        data-preco-salvo="${Number(item.preco_venda_sugerido || 0).toFixed(2)}"
                         value="${Number(item.preco_venda_sugerido || 0).toFixed(2)}"
                         title="Admin: altere o preço de venda. Tab = próximo produto"
                         onchange="salvarPrecoVendaViewCompra(${compra.id}, ${Number(item.id)}, this, ${index})"
@@ -7534,7 +7572,12 @@ function viewCompra(id) {
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title">Compra ${compra.id}</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            <div class="d-flex align-items-center gap-1">
+                                <button type="button" class="btn btn-sm btn-light" title="Minimizar" aria-label="Minimizar" onclick="minimizarModal('viewCompraModal')">
+                                    <i class="fas fa-window-minimize"></i>
+                                </button>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                            </div>
                         </div>
                         <div class="modal-body">
                             <p><strong>Fornecedor:</strong> ${escapeHtml(compra.fornecedor || '-')}</p>
@@ -7558,6 +7601,7 @@ function viewCompra(id) {
                                 | <strong>Seguro:</strong> ${formatCurrency(compra.valor_seguro || 0)}
                                 | <strong>Outras despesas:</strong> ${formatCurrency(compra.valor_outras_despesas || 0)}
                                 | <strong>IPI:</strong> ${formatCurrency(compra.valor_ipi || 0)}
+                                | <strong>ICMS-ST:</strong> ${formatCurrency(compra.valor_icms_st || 0)}
                             </p>
                             <p>
                                 <strong>Total nota:</strong> ${formatCurrency(compra.valor_total_nota || compra.total || 0)}
@@ -7577,10 +7621,16 @@ function viewCompra(id) {
                             <h6>Lançamentos financeiros gerados</h6>
                             <table class="table table-bordered"><thead><tr><th>Parcela</th><th>Vencimento</th><th>Status</th><th>Valor</th></tr></thead><tbody>${financeiroHtml}</tbody></table>
                         </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-primary" id="btnSalvarPrecosViewCompra" onclick="salvarPrecosVendaViewCompra(${compra.id})">
+                                <i class="fas fa-save"></i> Salvar
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         `;
+        $('#btn-restaurar-viewCompraModal').remove();
         $('#modal-container').html(modalHtml);
         $('#viewCompraModal').on('click', '.regularizar-estoque-compra-btn', function() {
             regularizarEstoqueCompra(
@@ -7638,10 +7688,51 @@ function onKeydownPrecoVendaViewCompra(event, compraId, index) {
     });
 }
 
+function salvarPrecosVendaViewCompra(compraId) {
+    const inputs = Array.from(document.querySelectorAll('#viewCompraModal input[data-view-preco-venda-item]'));
+    const $btn = $('#btnSalvarPrecosViewCompra');
+    if (!inputs.length) {
+        showNotification('Não há preços de venda editáveis nesta compra.', 'info');
+        return;
+    }
+    if ($btn.prop('disabled')) return;
+
+    const alterados = inputs.filter((input) => {
+        const atual = Number(String(input.value ?? '').replace(',', '.')).toFixed(2);
+        return atual !== String(input.getAttribute('data-preco-salvo') || '');
+    });
+    if (!alterados.length) {
+        showNotification('Preços de venda salvos no cadastro dos produtos.', 'success');
+        return;
+    }
+
+    $btn.prop('disabled', true);
+    let pendentes = alterados.length;
+    let falhas = 0;
+    alterados.forEach((input) => {
+        const index = Number(input.getAttribute('data-view-preco-venda-item'));
+        salvarPrecoVendaViewCompra(compraId, Number(input.getAttribute('data-item-id')), input, index, {
+            aoConcluir: (ok) => {
+                if (!ok) falhas += 1;
+                pendentes -= 1;
+                if (pendentes > 0) return;
+                $btn.prop('disabled', false);
+                if (falhas === 0) {
+                    showNotification('Preços de venda salvos no cadastro dos produtos.', 'success');
+                }
+            }
+        });
+    });
+}
+
 function salvarPrecoVendaViewCompra(compraId, itemId, inputEl, index, opcoes = {}) {
+    const concluir = (ok) => {
+        if (typeof opcoes.aoConcluir === 'function') opcoes.aoConcluir(ok === true);
+    };
     const valor = Number(String(inputEl?.value ?? '').replace(',', '.'));
     if (!Number.isFinite(valor) || valor < 0) {
         showNotification('Informe um preço de venda válido.', 'warning');
+        concluir(false);
         return;
     }
     const custo = Number(inputEl?.getAttribute('data-custo') || 0);
@@ -7664,7 +7755,9 @@ function salvarPrecoVendaViewCompra(compraId, itemId, inputEl, index, opcoes = {
         }
         if (inputEl) {
             inputEl.value = Number(resp?.preco_venda_sugerido ?? valor).toFixed(2);
+            inputEl.setAttribute('data-preco-salvo', inputEl.value);
         }
+        concluir(true);
         const focar = opcoes.focarIndice;
         if (Number.isInteger(focar) && focar >= 0) {
             const total = document.querySelectorAll('#viewCompraModal input[data-view-preco-venda-item]').length;
@@ -7672,6 +7765,7 @@ function salvarPrecoVendaViewCompra(compraId, itemId, inputEl, index, opcoes = {
         }
     }).fail(function (xhr) {
         showNotification(xhr.responseJSON?.error || 'Erro ao atualizar preço de venda.', 'danger');
+        concluir(false);
     });
 }
 
@@ -7961,6 +8055,7 @@ async function preencherFormularioCompra(dataBruto) {
     $('#valor_seguro').val(formatNumberInput(data.valor_seguro || 0));
     $('#valor_outras_despesas').val(formatNumberInput(data.valor_outras_despesas || 0));
     $('#valor_ipi').val(formatNumberInput(data.valor_ipi || 0));
+    $('#valor_icms_st').val(formatNumberInput(data.valor_icms_st || 0));
     $('#valor_total_nota').val(formatNumberInput(data.valor_total_nota || 0));
 
     // RC4.31.14 — financeiro antes dos itens (evita sobrescrita no render)

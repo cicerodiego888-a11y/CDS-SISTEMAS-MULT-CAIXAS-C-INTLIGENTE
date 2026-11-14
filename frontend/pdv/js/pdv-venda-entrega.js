@@ -615,6 +615,14 @@
   }
 
   async function confirmarVendaEntrega(modal) {
+    if (obterCarrinhoAtual().some((item) => item?.atualizar_preco_cadastro === true)) {
+      showNotification(
+        'A venda para entrega ainda não foi concluída. Desmarque a atualização cadastral ou finalize a venda pelo fluxo padrão.',
+        'warning'
+      );
+      return;
+    }
+
     const endereco = String($('#entregaEndereco').val() || '').trim();
     if (!endereco) {
       showNotification('Informe o endereço de entrega.', 'warning');

@@ -168,6 +168,7 @@ async function executarFluxoMargemCentral({
       comprasSource.indexOf('/**\n * CORREÇÃO-NF-MARGEM-01', comprasSource.indexOf('function normalizarPrecoVendaCentral'))
     ),
     core,
+    extrairFuncao('extrairOrigemLinhaNfeCompra'),
     extrairFuncao('calcularDistribuicaoFiscalMotorItem'),
     extrairFuncao('aplicarDistribuicaoFiscalItemCentral'),
     extrairFuncao('aplicarDistribuicaoFiscalItensCentral'),

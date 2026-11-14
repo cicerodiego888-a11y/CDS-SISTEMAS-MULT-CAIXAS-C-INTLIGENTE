@@ -453,15 +453,182 @@ async function main() {
     const central = fs.readFileSync(path.join(root, 'frontend/erp/js/central-entradas.js'), 'utf8');
     const miip = fs.readFileSync(path.join(root, 'frontend/erp/js/miip-central-revisao.js'), 'utf8');
     const rota = fs.readFileSync(path.join(root, 'backend/rotas/central-entradas.js'), 'utf8');
+    const compras = fs.readFileSync(path.join(root, 'backend/rotas/compras.js'), 'utf8');
 
     assert.ok(central.includes('finalizarEntradaDesdeCentral'));
     assert.ok(central.includes('/finalizar-entrada'));
     assert.ok(central.includes('Finalizar Entrada'));
     assert.ok(central.includes('Retomar Importação'));
+    assert.ok(central.includes("data-acao=\"${emImportacao ? 'retomar' : 'finalizar'}\""));
+    assert.ok(central.includes('Não foi possível retomar a importação: '));
+    assert.ok(central.includes("data('acao') || '') === 'retomar'"));
     assert.match(central, /origem:\s*'CENTRAL_NFE'/);
     assert.ok(miip.includes('miipCentralBtnFinalizarEntrada'));
     assert.ok(miip.includes('Finalizar Entrada'));
     assert.ok(rota.includes("router.post('/:id/finalizar-entrada'"));
+    assert.ok(compras.includes('validarPendenciasConversaoEntrada'));
+  });
+
+  await test('Retomada com conversões pendentes devolve decisões sem finalizar', async () => {
+    let avaliacoes = 0;
+    const revisaoBloqueante = {
+      async avaliarConversoes() {
+        avaliacoes += 1;
+        return {
+          bloqueia_efetivacao: true,
+          pendencias: [{ indice: 2, estado_decisao: 'PENDENTE' }]
+        };
+      }
+    };
+    const bridgeRetomada = new CentralComprasBridgeService({
+      documentosRepository,
+      historicoRepository,
+      transitionService,
+      revisaoPersistenteService: revisaoBloqueante
+    });
+
+    const chave = '35260112345678000199550010000070111000000011';
+    const parse = montarParse(chave);
+    parse.itens[0] = {
+      ...parse.itens[0],
+      item_key: 'linha-0',
+      fator_conversao: 6,
+      conversao: {
+        item_key: 'linha-0',
+        confirmacao: true,
+        selo_conversao: 'SELO-SIM-LINHA-0',
+        fator_conversao: 6
+      }
+    };
+    parse.itens[1] = {
+      ...parse.itens[1],
+      item_key: 'linha-1',
+      fator_conversao: 12,
+      conversao: {
+        item_key: 'linha-1',
+        confirmacao: false,
+        selo_conversao: 'SELO-NAO-LINHA-1',
+        fator_conversao: 12
+      }
+    };
+    parse.itens.push({
+      produto_nome: 'Produto C',
+      quantidade: 3,
+      unidade: 'FD',
+      preco_unitario: 10,
+      fator_conversao: 24,
+      item_key: 'linha-2',
+      conversao: {
+        item_key: 'linha-2',
+        confirmacao: null,
+        selo_conversao: null,
+        fator_conversao: 24
+      }
+    });
+
+    const doc = await documentosRepository.inserir({
+      chave,
+      numero: '7011',
+      serie: '1',
+      fornecedor: 'Fornecedor Retomada',
+      valorTotal: 180,
+      xml: '<nfe/>',
+      origem: 'teste',
+      status: DocumentoFiscalStatus.EM_IMPORTACAO,
+      parseJson: parse
+    });
+
+    const antes = await documentosRepository.buscarPorId(doc.id);
+    const [primeira, segunda] = await Promise.all([
+      bridgeRetomada.finalizarEntrada(doc.id, { usuarioId: 1 }),
+      bridgeRetomada.finalizarEntrada(doc.id, { usuarioId: 1 })
+    ]);
+
+    assert.strictEqual(avaliacoes, 0);
+    assert.strictEqual(primeira.sucesso, true);
+    assert.strictEqual(segunda.sucesso, true);
+    assert.strictEqual(primeira.retomada, true);
+    assert.strictEqual(segunda.retomada, true);
+    assert.strictEqual(primeira.documentoId, segunda.documentoId);
+
+    const confirmacoes = primeira.dadosCompra.confirmacoes_conversao;
+    assert.deepStrictEqual(
+      confirmacoes.map((c) => ({ indice: c.indice, item_key: c.item_key, confirmacao: c.confirmacao, selo: c.selo_conversao })),
+      [
+        { indice: 0, item_key: 'linha-0', confirmacao: true, selo: 'SELO-SIM-LINHA-0' },
+        { indice: 1, item_key: 'linha-1', confirmacao: false, selo: 'SELO-NAO-LINHA-1' },
+        { indice: 2, item_key: 'linha-2', confirmacao: null, selo: null }
+      ]
+    );
+    assert.strictEqual(Number(primeira.dadosCompra.itens[0].fator_conversao), 6);
+    assert.strictEqual(Number(primeira.dadosCompra.itens[1].fator_conversao), 12);
+    assert.strictEqual(Number(primeira.dadosCompra.itens[2].fator_conversao), 24);
+    assert.deepStrictEqual(segunda.dadosCompra.confirmacoes_conversao, confirmacoes);
+
+    const terceira = await bridgeRetomada.finalizarEntrada(doc.id, { usuarioId: 1 });
+    assert.strictEqual(avaliacoes, 0);
+    assert.strictEqual(terceira.retomada, true);
+    assert.deepStrictEqual(terceira.dadosCompra.confirmacoes_conversao, confirmacoes);
+
+    const atual = await documentosRepository.buscarPorId(doc.id);
+    assert.strictEqual(atual.status, DocumentoFiscalStatus.EM_IMPORTACAO);
+    assert.strictEqual(atual.compraId || atual.compra_id || null, null);
+    assert.strictEqual(atual.parseJson.itens.length, antes.parseJson.itens.length);
+    assert.strictEqual(atual.parseJson.itens[0].conversao.confirmacao, true);
+    assert.strictEqual(atual.parseJson.itens[1].conversao.confirmacao, false);
+    assert.strictEqual(atual.parseJson.itens[2].conversao.confirmacao, null);
+    assert.strictEqual(Number(atual.parseJson.itens[0].fator_conversao), 6);
+
+    const hist = await historicoRepository.listarPorDocumento(doc.id);
+    assert.strictEqual(hist.length, 0);
+  });
+
+  await test('Primeira finalização com conversão pendente continua bloqueada', async () => {
+    let avaliacoes = 0;
+    const revisaoBloqueante = {
+      async avaliarConversoes() {
+        avaliacoes += 1;
+        return {
+          bloqueia_efetivacao: true,
+          pendencias: [{ indice: 0, estado_decisao: 'PENDENTE' }]
+        };
+      }
+    };
+    const bridgeFinalizacao = new CentralComprasBridgeService({
+      documentosRepository,
+      historicoRepository,
+      transitionService,
+      revisaoPersistenteService: revisaoBloqueante
+    });
+
+    const chave = '35260112345678000199550010000070121000000012';
+    const doc = await documentosRepository.inserir({
+      chave,
+      numero: '7012',
+      serie: '1',
+      fornecedor: 'Fornecedor Finalizacao',
+      valorTotal: 150,
+      xml: '<nfe/>',
+      origem: 'teste',
+      status: DocumentoFiscalStatus.PRONTA_IMPORTACAO,
+      parseJson: montarParse(chave)
+    });
+
+    let bloqueou = false;
+    try {
+      await bridgeFinalizacao.finalizarEntrada(doc.id, { usuarioId: 1 });
+    } catch (err) {
+      bloqueou = true;
+      assert.strictEqual(err.statusCode, 422);
+      assert.strictEqual(err.codigo, 'PENDENCIAS_CONVERSAO');
+      assert.match(err.message, /antes de finalizar a entrada/);
+    }
+    assert.strictEqual(bloqueou, true);
+    assert.strictEqual(avaliacoes, 1);
+
+    const atual = await documentosRepository.buscarPorId(doc.id);
+    assert.strictEqual(atual.status, DocumentoFiscalStatus.PRONTA_IMPORTACAO);
+    assert.strictEqual(atual.compraId || atual.compra_id || null, null);
   });
 
   await fecharDb(db);

@@ -222,7 +222,12 @@ test('Sprint 4 — EDITAR linha da Central preserva qTrib/uTrib até o SQLite', 
       nome: 'ARROZ SPRINT4 FARDO DIVERGENTE'
     };
     await cadastrarProduto(caso);
-    const recebimento = await receberPelaCentral(central, caso, { decisao: 'ASSOCIAR', produtoId: caso.id });
+    const recebimento = await receberPelaCentral(central, caso, {
+      decisao: 'ASSOCIAR',
+      produtoId: caso.id,
+      conversoes: [{ indice: 0, decisao: 'SIM' }]
+    });
+    recebimento.dadosCompra.confirmacoes_conversao = [];
     const antes = await capturarEstado(caso.id, recebimento.documentoId);
     assert.deepEqual(
       { qCom: antes.documento_xml_linha.qCom, uCom: antes.documento_xml_linha.uCom, qTrib: antes.documento_xml_linha.qTrib, uTrib: antes.documento_xml_linha.uTrib },
@@ -377,6 +382,7 @@ test('Sprint 4 — EDITAR linha da Central preserva qTrib/uTrib até o SQLite', 
       documento_id: recebimento.documentoId,
       chave_acesso: recebimento.dadosCompra.chave_acesso,
       confirmacao: true,
+      continuar_sem_conversao: false,
       selo_conversao: pendenciaRetomada.selo_conversao
     });
     assert.equal(respostaSim.status, 200, JSON.stringify(respostaSim.body));
@@ -439,7 +445,12 @@ test('Sprint 2.2 — EDITAR não substitui o SIM: FD sem embalagem, qCom 100 FD,
     nome: 'BISCOITO SPRINT4 FARDO 10UN'
   };
   await cadastrarProduto(caso);
-  const recebimento = await receberPelaCentral(central, caso, { decisao: 'ASSOCIAR', produtoId: caso.id });
+  const recebimento = await receberPelaCentral(central, caso, {
+    decisao: 'ASSOCIAR',
+    produtoId: caso.id,
+    conversoes: [{ indice: 0, decisao: 'SIM' }]
+  });
+  recebimento.dadosCompra.confirmacoes_conversao = [];
   const documentoId = recebimento.documentoId;
   const antes = await capturarEstado(caso.id, documentoId);
   assert.deepEqual(

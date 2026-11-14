@@ -10,6 +10,7 @@ const tefDiagnosticoService = require('../services/tef/tefDiagnosticoService');
 const tefEvents = require('../services/tef/tefEvents');
 const tefContrato = require('../services/tef/tefContrato');
 const { verificarToken } = require('../middleware/auth');
+const { exigirPermissaoOuSenhaAdmin } = require('../middleware/exigirPermissaoOuSenhaAdmin');
 const tefConfigService = require('../services/tef/tefConfigService');
 const tefFluxoPagamento = require('../services/tef/tefFluxoPagamento');
 const configService = require('../services/configuracaoService');
@@ -20,6 +21,29 @@ const {
 
 router.use(tefConfiguracaoRoutes);
 router.use(tefConciliacaoRoutes);
+
+const autorizarCancelamentoTef = exigirPermissaoOuSenhaAdmin('cancelar_tef', {
+  onDecision: ({ req, permitido, motivo }) => {
+    const transacaoId = Number(req.body?.transacao_id);
+    return gravarAuditoria({
+      usuario_id: req.user?.id || req.user?.usuario_id || null,
+      usuario_nome: req.user?.username || req.user?.nome || null,
+      modulo: 'tef',
+      acao: 'autorizar_cancelamento',
+      referencia_tipo: 'tef_transacao',
+      referencia_id: Number.isSafeInteger(transacaoId) && transacaoId > 0 ? transacaoId : null,
+      detalhes: {
+        permissao: 'cancelar_tef',
+        resultado: permitido
+          ? 'PERMITIDO'
+          : motivo?.startsWith('ERRO_') ? 'FALHA_VALIDACAO' : 'NEGADO',
+        motivo,
+        ip: req.ip || null
+      },
+      ip_requisicao: req.ip || null
+    });
+  }
+});
 
 /** Estado TEF para o PDV (operador autenticado, sem dados sensíveis). */
 router.get('/fluxo-pdv', verificarToken, async (req, res) => {
@@ -344,7 +368,7 @@ router.get('/venda/:vendaId/resumo', (req, res) => {
   });
 });
 
-router.post('/cancelar', async (req, res) => {
+router.post('/cancelar', autorizarCancelamentoTef, async (req, res) => {
   try {
     const { transacao_id, motivo } = req.body;
 
@@ -364,7 +388,13 @@ router.post('/cancelar', async (req, res) => {
       acao: 'cancelar_pagamento',
       referencia_tipo: 'tef_transacao',
       referencia_id: Number(transacao_id),
-      detalhes: { motivo: motivo || 'Cancelamento da venda', ip: req.ip || null },
+      detalhes: {
+        resultado: resultado?.sucesso === true && resultado?.cancelConfirmed !== false
+          ? 'CONFIRMADO'
+          : 'NAO_CONFIRMADO',
+        codigo: resultado?.codigo || null,
+        ip: req.ip || null
+      },
       ip_requisicao: req.ip || null
     }).catch((auditErr) => console.error('Erro ao gravar auditoria TEF cancelar:', auditErr));
 
@@ -372,6 +402,22 @@ router.post('/cancelar', async (req, res) => {
 
   } catch (error) {
     console.error('Erro ao cancelar TEF:', error);
+    const transacaoId = Number(req.body?.transacao_id);
+    gravarAuditoria({
+      usuario_id: req.user?.id || req.user?.usuario_id || null,
+      usuario_nome: req.user?.username || req.user?.nome || null,
+      modulo: 'tef',
+      acao: 'cancelar_pagamento',
+      referencia_tipo: 'tef_transacao',
+      referencia_id: Number.isSafeInteger(transacaoId) && transacaoId > 0 ? transacaoId : null,
+      detalhes: {
+        resultado: 'ERRO',
+        motivo: 'FALHA_EXECUCAO_CANCELAMENTO',
+        codigo: error.code || null,
+        ip: req.ip || null
+      },
+      ip_requisicao: req.ip || null
+    }).catch((auditErr) => console.error('Erro ao gravar auditoria TEF cancelar:', auditErr));
     res.status(500).json({
       error: error.message || 'Erro ao cancelar TEF.'
     });

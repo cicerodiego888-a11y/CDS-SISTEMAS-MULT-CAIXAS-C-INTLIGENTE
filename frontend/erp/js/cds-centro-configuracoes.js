@@ -804,9 +804,9 @@
           <p class="cds-cfg-hint mb-3">
             Somente <strong>Super Usuário</strong> controla esta opção.
             Quando <strong>DESATIVADO</strong> (padrão), o campo <strong>Unitário</strong> no carrinho do PDV permanece somente leitura.
-            Quando <strong>ATIVADO</strong>, o operador pode editar o unitário na venda e o sistema atualiza automaticamente o preço no cadastro do produto (estoque).
+            Quando <strong>ATIVADO</strong>, o operador pode editar o preço somente na venda. A atualização do cadastro é opcional no modal e só ocorre após a conclusão bem-sucedida da venda, para operadores com permissão de edição de produtos.
           </p>
-          <label class="form-label" for="cfgPdvEditarPrecoUnitario">Permitir editar unitário no PDV e atualizar cadastro</label>
+          <label class="form-label" for="cfgPdvEditarPrecoUnitario">Permitir editar unitário na venda pelo PDV</label>
           <select class="form-select" id="cfgPdvEditarPrecoUnitario" data-cfg-search="editar preço unitário pdv cadastro produto estoque">
             <option value="DESATIVADO">DESATIVADO</option>
             <option value="ATIVADO">ATIVADO</option>

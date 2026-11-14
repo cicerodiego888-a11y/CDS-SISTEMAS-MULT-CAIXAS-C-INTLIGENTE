@@ -120,6 +120,24 @@ class MotorUniversalConversao {
       return resultado;
     };
 
+    if (opcoes.origem === 'CENTRAL_NFE' && opcoes.autorizacaoConversao) {
+      const autorizacao = opcoes.autorizacaoConversao;
+      const aprovada = autorizacao.apresentacao;
+      const apresentacao = aprovada ? {
+        ...aprovada,
+        produto_id: aprovada.produtoId,
+        tipo_conversao: aprovada.tipoConversao
+      } : {
+        id: null,
+        produto_id: produtoId,
+        tipo: item.unidade_comercial,
+        quantidade: autorizacao.fator,
+        unidade: autorizacao.unidadeEstoque || produto?.unidade,
+        tipo_conversao: autorizacao.tipoConversao
+      };
+      return executar(apresentacao);
+    }
+
     if (apresentacaoId) {
       return this.apresentacoes.buscarPorId(apresentacaoId, (err, ap) => {
         if (err && callback) return callback(err);

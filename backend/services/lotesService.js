@@ -149,8 +149,11 @@ function consumirLotesFEFO(produtoId, quantidade, callback) {
         SET quantidade_atual = quantidade_atual - ?,
             atualizado_em = CURRENT_TIMESTAMP
         WHERE id = ?
-      `, [quantidadeConsumir, lote.id], (err) => {
+      `, [quantidadeConsumir, lote.id], function (err) {
         if (err) return callback(err);
+        if (Number(this.changes) !== 1) {
+          return callback(new Error(`Não foi possível consumir o lote ${lote.id}.`));
+        }
 
         consumo.push({
           produto_lote_id: lote.id,
@@ -232,8 +235,11 @@ function restaurarLotesVenda(vendaItemId, callback) {
         SET quantidade_atual = quantidade_atual + ?,
             atualizado_em = CURRENT_TIMESTAMP
         WHERE id = ?
-      `, [consumo.quantidade, consumo.produto_lote_id], (err) => {
+      `, [consumo.quantidade, consumo.produto_lote_id], function (err) {
         if (err) return callback(err);
+        if (Number(this.changes) !== 1) {
+          return callback(new Error(`Não foi possível restaurar o lote ${consumo.produto_lote_id}.`));
+        }
         restaurarProximo();
       });
     }

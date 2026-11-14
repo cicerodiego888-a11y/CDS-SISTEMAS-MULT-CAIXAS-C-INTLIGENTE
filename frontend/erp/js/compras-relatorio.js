@@ -107,7 +107,8 @@
             purchase.valor_frete,
             purchase.valor_seguro,
             purchase.valor_outras_despesas,
-            purchase.valor_ipi
+            purchase.valor_ipi,
+            purchase.valor_icms_st
         ];
 
         const hasComposition = compositionFields.every((value) => value != null && Number.isFinite(Number(value)));
@@ -118,6 +119,7 @@
                 + cents(purchase.valor_seguro)
                 + cents(purchase.valor_outras_despesas)
                 + cents(purchase.valor_ipi)
+                + cents(purchase.valor_icms_st)
             : null;
         const componentDifference = compositionCents == null
             ? ''
@@ -132,6 +134,7 @@
             <div><span>Seguro</span><strong>${escapeHtml(formatOptionalMoney(purchase.valor_seguro))}</strong></div>
             <div><span>Outras despesas</span><strong>${escapeHtml(formatOptionalMoney(purchase.valor_outras_despesas))}</strong></div>
             <div><span>IPI</span><strong>${escapeHtml(formatOptionalMoney(purchase.valor_ipi))}</strong></div>
+            <div><span>ICMS-ST</span><strong>${escapeHtml(formatOptionalMoney(purchase.valor_icms_st))}</strong></div>
             <div class="official-total"><span>Total oficial da compra</span><strong>${escapeHtml(formatMoney(purchase.total_oficial))}</strong></div>
             <div class="compras-report-reconciliation">
                 Itens registrados − total oficial (informativo; pode haver componentes adicionais):

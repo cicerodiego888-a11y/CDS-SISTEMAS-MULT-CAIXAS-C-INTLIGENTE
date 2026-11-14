@@ -84,3 +84,13 @@ describe('Assinatura sempre liberada', () => {
     assert.match(pdv, /Assinatura/);
   });
 });
+
+describe('Licenciamento — proteção de códigos em logs', () => {
+  it('não escreve o código recebido ou assinaturas candidatas nos logs', () => {
+    const source = fs.readFileSync(path.join(ROOT, 'backend/services/licencaService.js'), 'utf8');
+
+    assert.doesNotMatch(source, /console\.(?:log|warn|error)\([^;]*(?:codigoLicenca|codigoRecebido|assinaturaRecebida|assinaturasTentadas)/s);
+    assert.doesNotMatch(source, /registrarHistorico\(['"]Tentativa inválida['"],\s*`[^`]*codigoLicenca/s);
+    assert.match(source, /Código de licença rejeitado\./);
+  });
+});
